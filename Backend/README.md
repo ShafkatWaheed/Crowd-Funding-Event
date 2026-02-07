@@ -65,7 +65,26 @@ backend/
    - `DATABASE_URL` — PostgreSQL connection (use `postgresql+asyncpg://...`)
    - `FIREBASE_PROJECT_ID`, `GOOGLE_APPLICATION_CREDENTIALS` for Firebase token verification
 
-4. **Database:** create the PostgreSQL database, then either:
+4. **Database:** you need a PostgreSQL database. One option is to run it with Docker:
+
+   **Running PostgreSQL with Docker**
+
+   ```bash
+   docker run -d --name my-postgres -e POSTGRES_PASSWORD=yourpassword -e POSTGRES_USER=user -e POSTGRES_DB=event_db -p 5432:5432 postgres:16
+   ```
+
+   | Flag | Purpose |
+   |------|--------|
+   | `--name my-postgres` | Gives the container a friendly name. |
+   | `-e POSTGRES_PASSWORD=...` | Sets the default postgres user password. |
+   | `-e POSTGRES_USER=...` | Optional: custom user (default is `postgres`). |
+   | `-e POSTGRES_DB=...` | Creates this database on first run. |
+   | `-p 5432:5432` | Maps the container port to your localhost so you can connect from the app. |
+   | `-d` | Runs the container in the background (detached mode). |
+
+   Then set in `.env`: `DATABASE_URL=postgresql+asyncpg://user:yourpassword@localhost:5432/event_db`
+
+   After the database is running, either:
    - **Alembic (recommended):** `alembic upgrade head`
    - **One-off:** `python -c "import asyncio; from app.db.base import init_db; asyncio.run(init_db())"`
 
@@ -74,6 +93,32 @@ backend/
    uvicorn app.main:app --reload
    ```
    API: `http://localhost:8000`. Docs: `http://localhost:8000/api/v1/docs`.
+
+## Running in WSL
+
+1. **Open your project in WSL** (e.g. from Windows path `C:\Users\16136\Desktop\Crowd_Funding_Event`):
+   ```bash
+   cd /mnt/c/Users/16136/Desktop/Crowd_Funding_Event/Backend
+   ```
+
+2. **Use Linux-style paths in `.env`.** `.env.example` already uses a WSL path for the Firebase key:
+   ```bash
+   GOOGLE_APPLICATION_CREDENTIALS=/mnt/c/Users/16136/Desktop/Crowd_Funding_Event/cred/crowd-funding-event-firebase-adminsdk-fbsvc-21d60f7baf.json
+   ```
+   Copy `.env.example` to `.env` in WSL and keep or adjust that path.
+
+3. **PostgreSQL in WSL:** either install Postgres inside WSL (`sudo apt install postgresql postgresql-contrib`) or run it in Docker from WSL. Then set `DATABASE_URL` in `.env` to `postgresql+asyncpg://user:password@localhost:5432/event_db`.
+
+4. **Create a venv and run:**
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate
+   pip install -r requirements.txt
+   cp .env.example .env   # if you don't have .env yet
+   alembic upgrade head
+   uvicorn app.main:app --reload
+   ```
+   API: `http://localhost:8000`. From Windows browser use the same URL (WSL2 forwards localhost).
 
 ## API prefix
 

@@ -5,9 +5,9 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Query
 
-from app.dependencies import CurrentUser, DbSession, require_role
+from app.dependencies import DbSession, require_role
 from app.models.event import Event, RegistrationType
-from app.models.user import UserRole
+from app.models.user import User, UserRole
 from app.schemas import (
     EventCreate,
     EventResponse,
@@ -81,7 +81,7 @@ async def list_events(
 async def create_event(
     body: EventCreate,
     db: DbSession,
-    current_user: CurrentUser = Depends(require_role(UserRole.organizer, UserRole.admin)),
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
     """Create event (organizer or admin). Organizer is set to current user."""
     start_time = _parse_iso_datetime(body.start_time)
@@ -119,7 +119,7 @@ async def update_event(
     event_id: int,
     body: EventUpdate,
     db: DbSession,
-    current_user: CurrentUser = Depends(require_role(UserRole.organizer, UserRole.admin)),
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
     """Update event (owner or admin)."""
     event = await event_service.get_or_404(db, event_id)
@@ -148,7 +148,7 @@ async def update_event(
 async def delete_event(
     event_id: int,
     db: DbSession,
-    current_user: CurrentUser = Depends(require_role(UserRole.organizer, UserRole.admin)),
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
     """Delete (draft/pending) or cancel event (owner or admin)."""
     event = await event_service.get_or_404(db, event_id)
@@ -160,7 +160,7 @@ async def delete_event(
 async def submit_event_for_approval(
     event_id: int,
     db: DbSession,
-    current_user: CurrentUser = Depends(require_role(UserRole.organizer, UserRole.admin)),
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
     """Submit draft event for admin approval (draft → pending_approval). Organizer or admin only."""
     event = await event_service.submit_for_approval(db, event_id=event_id, user=current_user)
@@ -172,7 +172,7 @@ async def pledge_event(
     event_id: int,
     body: PledgeBody,
     db: DbSession,
-    current_user: CurrentUser = Depends(require_role(UserRole.customer)),
+    current_user: User = Depends(require_role(UserRole.customer)),
 ):
     """Pledge to event (customer)."""
     pledge = await funding_service.create_pledge(
@@ -202,7 +202,7 @@ async def get_event_funding(event_id: int, db: DbSession):
 async def register_event(
     event_id: int,
     db: DbSession,
-    current_user: CurrentUser = Depends(require_role(UserRole.customer)),
+    current_user: User = Depends(require_role(UserRole.customer)),
 ):
     """Register for event (open: first-come; closed: request). Check capacity."""
     reg = await registration_service.register(db, event_id=event_id, user=current_user)
@@ -219,7 +219,7 @@ async def register_event(
 async def list_registrations(
     event_id: int,
     db: DbSession,
-    current_user: CurrentUser = Depends(require_role(UserRole.organizer, UserRole.admin)),
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
     """List registrations for event (organizer/admin)."""
     event = await event_service.get_or_404(db, event_id)
@@ -244,7 +244,7 @@ async def decide_registration(
     registration_id: int,
     body: RegistrationDecisionBody,
     db: DbSession,
-    current_user: CurrentUser = Depends(require_role(UserRole.organizer, UserRole.admin)),
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
     """
     Organizer/admin approves or rejects a waitlist request.

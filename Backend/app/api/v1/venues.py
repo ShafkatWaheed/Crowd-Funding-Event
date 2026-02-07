@@ -3,8 +3,8 @@ Venues: CRUD for halls/venues (capacity, location).
 """
 from fastapi import APIRouter, Depends, Query
 
-from app.dependencies import CurrentUser, DbSession, require_role
-from app.models.user import UserRole
+from app.dependencies import DbSession, require_role
+from app.models.user import User, UserRole
 from app.schemas import VenueCreate, VenueResponse, VenueUpdate
 from app.services import venue as venue_service
 
@@ -25,7 +25,7 @@ async def list_venues(
 async def create_venue(
     body: VenueCreate,
     db: DbSession,
-    current_user: CurrentUser = Depends(require_role(UserRole.organizer, UserRole.admin)),
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
     """Create venue (organizer or admin)."""
     venue = await venue_service.create(
@@ -53,7 +53,7 @@ async def update_venue(
     venue_id: int,
     body: VenueUpdate,
     db: DbSession,
-    current_user: CurrentUser = Depends(require_role(UserRole.organizer, UserRole.admin)),
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
     """Update venue."""
     venue = await venue_service.get_or_404(db, venue_id)

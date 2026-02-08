@@ -60,6 +60,18 @@ class UnregisterResponse(BaseModel):
     pledges_refunded: int
 
 
+class EventOrganizerItem(BaseModel):
+    """One organizer (main or co-) on an event."""
+    user_id: int
+    display_name: str | None
+    email: str
+    is_main: bool
+
+
+class AddEventOrganizerBody(BaseModel):
+    user_id: int
+
+
 class EventResponse(BaseModel):
     id: int
     organizer_id: int
@@ -74,6 +86,8 @@ class EventResponse(BaseModel):
     max_capacity: int
     funding_goal_cents: int | None
     funding_end_at: datetime | None
+    total_pledged_cents: int | None = None  # for cards: "$X of $Y"
+    funding_days_left: int | None = None   # days until funding_end_at; <=0 = ended; None = no deadline
     min_pledge_cents: int
     common_discount_percent: int
     pledge_discount_percent: int

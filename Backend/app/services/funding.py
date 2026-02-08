@@ -50,6 +50,27 @@ async def create_pledge(
     return pledge
 
 
+async def get_pledged_totals_for_events(
+    db: AsyncSession,
+    *,
+    event_ids: list[int],
+) -> dict[int, int]:
+    """Return { event_id: total_pledged_cents } for each event. Used for list/cards."""
+    if not event_ids:
+        return {}
+    from sqlalchemy import func
+    q = (
+        select(Funding.event_id, func.coalesce(func.sum(Funding.amount_cents), 0).label("total"))
+        .where(
+            Funding.event_id.in_(event_ids),
+            Funding.status == FundingStatus.pledged,
+        )
+        .group_by(Funding.event_id)
+    )
+    result = await db.execute(q)
+    return {int(row.event_id): int(row.total) for row in result.all()}
+
+
 async def get_summary(db: AsyncSession, *, event_id: int) -> dict:
     """
     Returns:

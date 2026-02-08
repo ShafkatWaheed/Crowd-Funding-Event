@@ -22,8 +22,9 @@ from app.models.user import User, UserRole
 from app.services import event as event_service
 
 
-def _can_manage_event_tickets(user: User, event: Event) -> bool:
-    return user.role == UserRole.admin or event.organizer_id == user.id
+async def _can_manage_event_tickets(db: AsyncSession, user: User, event: Event) -> bool:
+    """True if admin, main organizer, or co-organizer (via event_service)."""
+    return await event_service.user_can_edit_event(db, event, user)
 
 
 async def list_tiers(db: AsyncSession, *, event_id: int) -> Sequence[TicketTier]:
@@ -198,7 +199,7 @@ async def scan_ticket(
     If not yet scanned, sets scanned_at and scanned_by_id.
     """
     event = await event_service.get_or_404(db, event_id)
-    if not _can_manage_event_tickets(scanned_by_user, event):
+    if not await _can_manage_event_tickets(db, scanned_by_user, event):
         raise ForbiddenError("Only the event organizer or admin can scan tickets")
     q = (
         select(TicketSale)
@@ -244,7 +245,7 @@ async def create_tier(
     display_order: int = 0,
 ) -> TicketTier:
     event = await event_service.get_or_404(db, event_id)
-    if not _can_manage_event_tickets(user, event):
+    if not await _can_manage_event_tickets(db, user, event):
         raise ForbiddenError("Only the event organizer or admin can manage ticket tiers")
     if price_cents < 0:
         raise ConflictError("price_cents must be >= 0")
@@ -270,7 +271,7 @@ async def update_tier(
     display_order: int | None = None,
 ) -> TicketTier:
     event = await event_service.get_or_404(db, tier.event_id)
-    if not _can_manage_event_tickets(user, event):
+    if not await _can_manage_event_tickets(db, user, event):
         raise ForbiddenError("Only the event organizer or admin can manage ticket tiers")
     if name is not None:
         tier.name = name
@@ -287,7 +288,7 @@ async def update_tier(
 
 async def delete_tier(db: AsyncSession, tier: TicketTier, user: User) -> None:
     event = await event_service.get_or_404(db, tier.event_id)
-    if not _can_manage_event_tickets(user, event):
+    if not await _can_manage_event_tickets(db, user, event):
         raise ForbiddenError("Only the event organizer or admin can manage ticket tiers")
     await db.delete(tier)
     await db.flush()
@@ -303,7 +304,7 @@ async def set_user_discount(
     value: int,
 ) -> UserEventDiscount:
     event = await event_service.get_or_404(db, event_id)
-    if not _can_manage_event_tickets(current_user, event):
+    if not await _can_manage_event_tickets(db, current_user, event):
         raise ForbiddenError("Only the event organizer or admin can set user discounts")
     if discount_type not in ("percent", "fixed_cents"):
         raise ConflictError("discount_type must be 'percent' or 'fixed_cents'")
@@ -343,7 +344,7 @@ async def remove_user_discount(
     current_user: User,
 ) -> None:
     event = await event_service.get_or_404(db, event_id)
-    if not _can_manage_event_tickets(current_user, event):
+    if not await _can_manage_event_tickets(db, current_user, event):
         raise ForbiddenError("Only the event organizer or admin can remove user discounts")
     q = select(UserEventDiscount).where(
         UserEventDiscount.event_id == event_id,

@@ -135,10 +135,15 @@ All v1 routes are under **`/api/v1`**:
 - `GET /api/v1/me/tickets` — current user’s purchased tickets (customer only)
 
 **Events**
-- `GET/POST /api/v1/events`, `GET/PATCH/DELETE /api/v1/events/{id}`
+- `GET /api/v1/events` — list with search and filters: `search` (title/description), `city`, `status`, `live`, `registration_type`, `organizer_id`, `date_from` / `date_to` (ISO date or datetime), `has_funding`, `has_tickets`, `min_capacity`, `max_capacity`
+- `POST /api/v1/events`, `GET/PATCH/DELETE /api/v1/events/{id}`
+- `GET /api/v1/events/{id}/calendar.ics` — add to calendar: returns iCalendar (.ics) file (public)
 - `POST /api/v1/events/{id}/submit` — submit draft for approval
 - `POST /api/v1/events/{id}/cancel` — cancel event (organizer/admin, anytime)
 - `POST /api/v1/events/{id}/extend-funding` — after deadline: extend funding period and/or set event date (body: `funding_end_at`, `start_time`, `end_time`; at least one)
+- `GET /api/v1/events/{id}/organizers` — list main + co-organizers
+- `POST /api/v1/events/{id}/organizers` — add co-organizer (main organizer only); body `{ "user_id": int }`
+- `DELETE /api/v1/events/{id}/organizers/{user_id}` — remove co-organizer (main organizer only)
 - `POST /api/v1/events/{id}/pledge`, `GET /api/v1/events/{id}/funding`
 - `POST /api/v1/events/{id}/register`, `POST /api/v1/events/{id}/unregister` — unregister refunds pledges only if &gt;7 days before funding deadline
 - `GET /api/v1/events/{id}/registrations`, `POST /api/v1/events/{id}/registrations/{id}/decision` — list/approve/reject (organizer/admin)
@@ -157,6 +162,8 @@ All v1 routes are under **`/api/v1`**:
 - `GET/POST/PATCH /api/v1/venues` — venues (organizer: own only; admin: any)
 - `GET /api/v1/admin/users` — list all users (admin)
 - `GET /api/v1/admin/events`, `POST /api/v1/admin/events/{id}/approve`, `GET /api/v1/admin/stats`
+
+**Multiple organizers:** The **main organizer** (event owner) can add **co-organizers** via `POST /events/{id}/organizers`; only users with organizer role can be added. Co-organizers have the same event management rights as the main organizer (update, cancel, extend, registrations, tickets, scan). Only the main organizer can add or remove co-organizers.
 
 **Roles (who can do what):** Organizers can create/update/delete/cancel events, extend funding, manage registrations and ticket tiers/discounts, but **cannot** pledge or register. Only **customers** can pledge, register, unregister, and purchase tickets. See **Role-based access** in `BACKEND_FLOW.md` for the full matrix.
 

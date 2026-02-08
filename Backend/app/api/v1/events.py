@@ -1,15 +1,18 @@
 """
 Events: CRUD, list (filters), pledge, register, registrations.
 """
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import Response
 
 from app.dependencies import DbSession, require_role
 from app.models.event import Event, RegistrationType
 from app.models.user import User, UserRole
 from app.schemas import (
+    AddEventOrganizerBody,
     EventCreate,
+    EventOrganizerItem,
     EventResponse,
     EventUpdate,
     EventVenueInfo,
@@ -48,7 +51,12 @@ def _parse_iso_datetime(v: str | None) -> datetime | None:
     return dt
 
 
-def _event_to_response(e: Event) -> EventResponse:
+def _event_to_response(
+    e: Event,
+    *,
+    total_pledged_cents: int | None = None,
+    funding_days_left: int | None = None,
+) -> EventResponse:
     """Build response; e.venue must be loaded so everyone can see venue info when viewing an event."""
     venue_info = EventVenueInfo.model_validate(e.venue) if e.venue else None
     if venue_info is None:
@@ -67,6 +75,8 @@ def _event_to_response(e: Event) -> EventResponse:
         max_capacity=e.max_capacity,
         funding_goal_cents=e.funding_goal_cents,
         funding_end_at=e.funding_end_at,
+        total_pledged_cents=total_pledged_cents,
+        funding_days_left=funding_days_left,
         min_pledge_cents=e.min_pledge_cents,
         common_discount_percent=e.common_discount_percent,
         pledge_discount_percent=e.pledge_discount_percent,
@@ -77,25 +87,82 @@ def _event_to_response(e: Event) -> EventResponse:
     )
 
 
+def _parse_date_or_datetime(v: str | None, end_of_day: bool = False) -> datetime | None:
+    """Parse ISO date (YYYY-MM-DD) or datetime; return as UTC. If date only: start of day or end of day."""
+    if v is None:
+        return None
+    v = v.strip()
+    if not v:
+        return None
+    try:
+        if "T" in v or " " in v or (len(v) >= 19 and v[10:11] in ("T", " ")):
+            dt = datetime.fromisoformat(v.replace("Z", "+00:00"))
+        else:
+            d = date.fromisoformat(v)
+            if end_of_day:
+                dt = datetime.combine(d, datetime.max.time()).replace(tzinfo=timezone.utc)
+            else:
+                dt = datetime.combine(d, datetime.min.time()).replace(tzinfo=timezone.utc)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
+    except (ValueError, TypeError):
+        return None
+
+
 @router.get("", response_model=list[EventResponse])
 async def list_events(
     db: DbSession,
+    search: str | None = Query(None, description="Search in event title and description"),
     city: str | None = Query(None, description="e.g. Ottawa"),
     status: str | None = Query(None),
     live: bool | None = Query(None),
     registration_type: str | None = Query(None),
     organizer_id: int | None = Query(None),
+    date_from: str | None = Query(None, description="Events starting on or after (ISO date or datetime)"),
+    date_to: str | None = Query(None, description="Events starting on or before (ISO date or datetime)"),
+    has_funding: bool | None = Query(None, description="True = has goal or deadline; False = no funding"),
+    has_tickets: bool | None = Query(None, description="True = has ticket tiers; False = no tiers"),
+    min_capacity: int | None = Query(None, description="Event max_capacity >= this"),
+    max_capacity: int | None = Query(None, description="Event max_capacity <= this"),
 ):
-    """List events with optional filters."""
+    """List events with optional search and filters."""
+    date_from_dt = _parse_date_or_datetime(date_from, end_of_day=False)
+    date_to_dt = _parse_date_or_datetime(date_to, end_of_day=True)
     events = await event_service.list_events(
         db,
+        search=search,
         city=city,
         status=status,
         live=live,
         registration_type=registration_type,
         organizer_id=organizer_id,
+        date_from=date_from_dt,
+        date_to=date_to_dt,
+        has_funding=has_funding,
+        has_tickets=has_tickets,
+        min_capacity=min_capacity,
+        max_capacity=max_capacity,
     )
-    return [_event_to_response(e) for e in events]
+    event_ids = [e.id for e in events]
+    pledged = await funding_service.get_pledged_totals_for_events(db, event_ids=event_ids)
+    now = datetime.now(timezone.utc)
+    out = []
+    for e in events:
+        total_cents = pledged.get(e.id, 0)
+        days_left = None
+        if e.funding_end_at is not None:
+            end = e.funding_end_at if e.funding_end_at.tzinfo else e.funding_end_at.replace(tzinfo=timezone.utc)
+            delta = (end - now).days
+            days_left = max(0, delta) if delta > 0 else 0  # 0 = ended
+        out.append(
+            _event_to_response(
+                e,
+                total_pledged_cents=total_cents,
+                funding_days_left=days_left,
+            )
+        )
+    return out
 
 
 @router.post("", response_model=EventResponse)
@@ -139,7 +206,69 @@ async def get_event(event_id: int, db: DbSession):
     event = await event_service.get_by_id(db, event_id, load_venue=True)
     if not event:
         raise NotFoundError("Event", event_id)
-    return _event_to_response(event)
+    summary = await funding_service.get_summary(db, event_id=event_id)
+    now = datetime.now(timezone.utc)
+    days_left = None
+    if event.funding_end_at is not None:
+        end = event.funding_end_at if event.funding_end_at.tzinfo else event.funding_end_at.replace(tzinfo=timezone.utc)
+        delta = (end - now).days
+        days_left = max(0, delta) if delta > 0 else 0
+    return _event_to_response(
+        event,
+        total_pledged_cents=summary["total_pledged_cents"],
+        funding_days_left=days_left,
+    )
+
+
+def _event_to_ics(event: Event) -> str:
+    """Build iCalendar (.ics) string for the event. Event.venue must be loaded for location."""
+    def ical_dt(dt: datetime) -> str:
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.strftime("%Y%m%dT%H%M%SZ")
+
+    now = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    uid = f"event-{event.id}@crowdfund"
+    summary = (event.title or "Event").replace("\r", "").replace("\n", " ")
+    description = (event.description or "").replace("\r", " ").replace("\n", " ")
+    location = ""
+    if event.venue:
+        parts = [event.venue.name, event.venue.address, event.venue.city]
+        if event.venue.province:
+            parts.append(event.venue.province)
+        location = ", ".join(p for p in parts if p).replace("\r", " ").replace("\n", " ")
+    lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//CrowdFund Event//EN",
+        "CALSCALE:GREGORIAN",
+        "BEGIN:VEVENT",
+        f"UID:{uid}",
+        f"DTSTAMP:{now}",
+        f"DTSTART:{ical_dt(event.start_time)}",
+        f"DTEND:{ical_dt(event.end_time)}",
+        f"SUMMARY:{summary}",
+        f"DESCRIPTION:{description}",
+        f"LOCATION:{location}",
+        "END:VEVENT",
+        "END:VCALENDAR",
+    ]
+    return "\r\n".join(lines)
+
+
+@router.get("/{event_id}/calendar.ics")
+async def get_event_calendar(event_id: int, db: DbSession):
+    """Add to calendar: returns iCalendar (.ics) file for the event. Public."""
+    event = await event_service.get_by_id(db, event_id, load_venue=True)
+    if not event:
+        raise NotFoundError("Event", event_id)
+    ics = _event_to_ics(event)
+    filename = "".join(c if c.isalnum() or c in " -_" else "_" for c in (event.title or "event")[:80]) + ".ics"
+    return Response(
+        content=ics,
+        media_type="text/calendar",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.patch("/{event_id}", response_model=EventResponse)
@@ -149,9 +278,9 @@ async def update_event(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
-    """Update event (owner or admin)."""
+    """Update event (main organizer, co-organizer, or admin)."""
     event = await event_service.get_or_404(db, event_id)
-    if not event_service._event_can_edit(current_user, event):
+    if not await event_service.user_can_edit_event(db, event, current_user):
         raise ForbiddenError("You cannot update this event")
     start_time = _parse_iso_datetime(body.start_time) if body.start_time else None
     end_time = _parse_iso_datetime(body.end_time) if body.end_time else None
@@ -182,9 +311,9 @@ async def cancel_event(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
-    """Organizer cancels the event anytime (except already cancelled or ended)."""
+    """Organizer (main or co-) cancels the event anytime (except already cancelled or ended)."""
     event = await event_service.get_or_404(db, event_id)
-    if current_user.role != UserRole.admin and event.organizer_id != current_user.id:
+    if not await event_service.user_can_edit_event(db, event, current_user):
         raise ForbiddenError("You cannot cancel this event")
     event = await event_service.cancel_event(db, event, current_user)
     event = await event_service.get_by_id(db, event.id, load_venue=True)
@@ -200,7 +329,7 @@ async def extend_funding(
 ):
     """After funding deadline: extend funding period and/or set event date. At least one of funding_end_at, start_time, end_time required."""
     event = await event_service.get_or_404(db, event_id)
-    if current_user.role != UserRole.admin and event.organizer_id != current_user.id:
+    if not await event_service.user_can_edit_event(db, event, current_user):
         raise ForbiddenError("You cannot update this event")
     if not any([body.funding_end_at, body.start_time, body.end_time]):
         from fastapi import HTTPException
@@ -224,9 +353,72 @@ async def delete_event(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
-    """Delete (draft/pending) or cancel event (owner or admin)."""
+    """Delete (draft/pending) or cancel event (main organizer, co-organizer, or admin)."""
     event = await event_service.get_or_404(db, event_id)
     await event_service.delete_or_cancel(db, event, current_user)
+    return {"ok": True}
+
+
+# ----- Event co-organizers (main organizer only can add/remove) -----
+@router.get("/{event_id}/organizers", response_model=list[EventOrganizerItem])
+async def list_event_organizers(
+    event_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+):
+    """List main + co-organizers for the event. Requires main organizer, co-organizer, or admin."""
+    event = await event_service.get_or_404(db, event_id)
+    if not await event_service.user_can_edit_event(db, event, current_user):
+        raise ForbiddenError("You cannot view organizers for this event")
+    main, co_organizers = await event_service.list_event_organizers(db, event_id=event_id)
+    out = [
+        EventOrganizerItem(
+            user_id=main.id,
+            display_name=main.display_name,
+            email=main.email,
+            is_main=True,
+        ),
+    ]
+    for eo in co_organizers:
+        u = eo.user
+        out.append(
+            EventOrganizerItem(
+                user_id=u.id,
+                display_name=u.display_name,
+                email=u.email,
+                is_main=False,
+            ),
+        )
+    return out
+
+
+@router.post("/{event_id}/organizers")
+async def add_event_organizer(
+    event_id: int,
+    body: AddEventOrganizerBody,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+):
+    """Add a co-organizer (main organizer only). User must have organizer role."""
+    event = await event_service.get_or_404(db, event_id)
+    if not event_service.is_main_organizer(current_user, event):
+        raise ForbiddenError("Only the main organizer can add co-organizers")
+    eo = await event_service.add_event_organizer(db, event_id=event_id, user_id=body.user_id, added_by=current_user)
+    return {"id": eo.id, "event_id": eo.event_id, "user_id": eo.user_id}
+
+
+@router.delete("/{event_id}/organizers/{user_id}")
+async def remove_event_organizer(
+    event_id: int,
+    user_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+):
+    """Remove a co-organizer (main organizer only)."""
+    event = await event_service.get_or_404(db, event_id)
+    if not event_service.is_main_organizer(current_user, event):
+        raise ForbiddenError("Only the main organizer can remove co-organizers")
+    await event_service.remove_event_organizer(db, event_id=event_id, user_id=user_id, removed_by=current_user)
     return {"ok": True}
 
 
@@ -312,7 +504,7 @@ async def list_registrations(
 ):
     """List registrations for event (organizer/admin)."""
     event = await event_service.get_or_404(db, event_id)
-    if current_user.role != UserRole.admin and event.organizer_id != current_user.id:
+    if not await event_service.user_can_edit_event(db, event, current_user):
         raise ForbiddenError("You cannot view registrations for this event")
     regs = await registration_service.list_registrations(db, event_id=event_id)
     return [
@@ -341,7 +533,7 @@ async def decide_registration(
     - reject: waitlist -> cancelled
     """
     event = await event_service.get_or_404(db, event_id)
-    if current_user.role != UserRole.admin and event.organizer_id != current_user.id:
+    if not await event_service.user_can_edit_event(db, event, current_user):
         raise ForbiddenError("You cannot manage registrations for this event")
 
     if body.action == "approve":
@@ -497,7 +689,7 @@ async def list_event_ticket_sales(
 ):
     """List ticket sales for event (organizer/admin). Includes scanned_at and scanned_by for scan list view."""
     event = await event_service.get_or_404(db, event_id)
-    if current_user.role != UserRole.admin and event.organizer_id != current_user.id:
+    if not await event_service.user_can_edit_event(db, event, current_user):
         raise ForbiddenError("You cannot view ticket sales for this event")
     sales = await ticket_service.list_event_ticket_sales(db, event_id=event_id)
     return [_ticket_sale_to_response(s) for s in sales]

@@ -3,7 +3,7 @@ Event model: status, registration type, funding fields.
 """
 import enum
 from datetime import datetime
-from sqlalchemy import String, Text, Integer, Float, DateTime, ForeignKey, Enum
+from sqlalchemy import String, Text, Integer, Float, DateTime, ForeignKey, Enum, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -21,6 +21,21 @@ class EventStatus(str, enum.Enum):
 class RegistrationType(str, enum.Enum):
     open = "open"
     closed = "closed"
+
+
+class EventOrganizer(Base):
+    """Co-organizers added by the main organizer. Main organizer is events.organizer_id."""
+    __tablename__ = "event_organizers"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    event_id: Mapped[int] = mapped_column(ForeignKey("events.id"), nullable=False, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+
+    event = relationship("Event", back_populates="event_organizers")
+    user = relationship("User", back_populates="event_organizers")
+
+    __table_args__ = (UniqueConstraint("event_id", "user_id", name="uq_event_organizers_event_user"),)
 
 
 class Event(Base):
@@ -53,3 +68,4 @@ class Event(Base):
     ticket_tiers = relationship("TicketTier", back_populates="event", order_by=["TicketTier.display_order", "TicketTier.id"])
     user_event_discounts = relationship("UserEventDiscount", back_populates="event")
     ticket_sales = relationship("TicketSale", back_populates="event")
+    event_organizers = relationship("EventOrganizer", back_populates="event", cascade="all, delete-orphan")

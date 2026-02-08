@@ -94,17 +94,45 @@ The API enforces roles so the frontend can show or hide features by role.
 
 | Role | Can do | Cannot do |
 |------|--------|-----------|
-| **Customer** | View events (list, detail, funding). **Pledge** to events. **Register** for events (open or waitlist). Update own profile (GET/PATCH /me). | Create, update, delete, or submit events. Manage event registrations. Admin endpoints. |
-| **Organizer** | Everything customers can **except** pledge and register. **Create** events. **Update/delete** own events. **Submit** events for approval. **List and manage** registrations for their events (approve/reject waitlist). Create venues. | **Pledge** to any event. **Register** for any event. Admin-only endpoints. |
-| **Admin** | Everything organizers can, plus: approve/reject events, list all users/events, stats, create users. | Pledge and register are **customer-only** (admin is not treated as customer for those). |
+| **Customer** | View events (list, detail, funding). **Pledge** to events. **Register** for events (open or waitlist). **Unregister** (pledges refunded only if &gt;7 days before funding deadline). **Purchase tickets** (must be registered). View **my pledges** (GET /me/pledges) and **my tickets** (GET /me/tickets). Update own profile (GET/PATCH /me). | Create, update, delete, submit, cancel, or extend events. Manage event registrations or ticket tiers/discounts. Admin endpoints. |
+| **Organizer** | Everything customers can **except** pledge, register, unregister, and purchase tickets. **Create** events. **Update/delete** own events. **Cancel** event anytime (POST /events/{id}/cancel). **Extend funding** after deadline (POST /events/{id}/extend-funding: new funding_end_at and/or event start/end). **Submit** events for approval. **List and manage** registrations (approve/reject waitlist). **Ticket tiers**: create/update/delete (e.g. Platinum, Diamond). **Ticket discounts**: set event-level common/pledge percent; set/remove per-user selective discount. **List** ticket sales for their events. Create venues. | **Pledge** to any event. **Register** or **unregister** for any event. **Purchase** tickets. Admin-only endpoints. |
+| **Admin** | Everything organizers can, plus: approve/reject events, list all users/events, stats, create users. Can manage any event’s tiers/discounts (not only own events). | Pledge, register, unregister, and purchase tickets are **customer-only** (admin is not treated as customer for those). |
 
 Summary for the app:
 
-- **Organizers** see and use: event listing, event detail, create/update/delete events, submit for approval, manage registrations, venues. They do **not** see or call: pledge, register.
-- **Customers** see and use: event listing, event detail, pledge, register, their profile. They do **not** see or call: create/update/delete events, submit for approval, manage registrations (unless you add a “my registrations” view for customers).
-- **Public** (no auth): list events, get event by id, get event funding summary.
+- **Organizers** see and use: event listing, detail, create/update/delete/cancel, extend funding, submit for approval, manage registrations, ticket tiers and discounts, ticket sales, venues. They do **not** see or call: pledge, register, unregister, purchase ticket, my pledges, my tickets.
+- **Customers** see and use: event listing, detail, pledge, register, unregister, ticket price preview, purchase ticket, my pledges, my tickets, profile. They do **not** see or call: create/update/delete/cancel/extend events, submit for approval, manage registrations or ticket tiers/discounts/sales.
+- **Public** (no auth): list events, get event by id, get event funding summary, list ticket tiers for an event.
 
 The backend returns **403** if a user calls an endpoint their role is not allowed to use (e.g. organizer calling `POST /events/{id}/pledge` or `POST /events/{id}/register`).
+
+---
+
+## 2c. Event and registration flows
+
+**Organizer — funding and cancellation**
+
+- Pledges are collected until the **funding period deadline** (`funding_end_at`).
+- Organizer can **cancel** the event **anytime** (except already cancelled or ended) via `POST /events/{id}/cancel`. When an event is cancelled, **all pledged amounts for that event are refunded** (every pledge’s status is set to refunded).
+- The same refund-on-cancel behavior applies when the organizer uses **delete** on a live/approved event (soft cancel).
+- **After the funding deadline**, organizer can call `POST /events/{id}/extend-funding` with one or more of: `funding_end_at`, `start_time`, `end_time`. This gives customers a new window to unregister (and get refunds if &gt;7 days before the new deadline) or commit; setting event date is done via `start_time`/`end_time`.
+
+**Customer — registration and unregister**
+
+- **Open events:** first-come registration up to capacity; over capacity goes to waitlist.
+- **Closed events:** registration creates a waitlist entry; organizer approves or rejects via `POST /events/{id}/registrations/{id}/decision`.
+- If the organizer **changes the event from closed to open**, waitlist entries are **auto-approved** in order until capacity is reached.
+- **Unregister:** `POST /events/{id}/unregister`. Registration is set to cancelled. **Pledges are refunded only if** the current time is more than **7 days before** the event’s `funding_end_at`; otherwise the customer can still unregister but does not get pledge refunds.
+
+**Tickets**
+
+- Events can sell **tickets** to **registered** attendees only (status = registered).
+- Organizer defines **ticket tiers** (e.g. Platinum, Diamond) with name and price. Discounts apply at purchase:
+  - **Common discount:** event-level percentage off for everyone.
+  - **Pledge-based discount:** percentage of the user’s total pledges to that event, applied as ticket discount.
+  - **Selective discount:** organizer sets a per-user discount (percent or fixed cents) via `POST /events/{id}/discounts`.
+- If total discount is greater than or equal to the tier price, the organizer can set **extra perks** on the ticket (or leave blank). Price paid is never negative (capped at 0).
+- Customer: `GET /events/{id}/ticket-price?tier_id=` to preview price; `POST /events/{id}/purchase-ticket` to buy. Customer can list their tickets at `GET /me/tickets`.
 
 ---
 
@@ -186,13 +214,15 @@ So: **Bearer → Firebase → User from DB → role check → service enforces r
 | **core/firebase.py** | Firebase init and `verify_id_token(token)`. |
 | **services/*.py** | Business logic and DB access; raise app exceptions. |
 | **db/base.py** | Engine, session factory, `get_db_session()`, `init_db()`. |
-| **models/*.py** | SQLAlchemy tables (User, Event, Venue, etc.). |
-| **schemas/*.py** | Pydantic request/response (e.g. EventResponse, AdminUserItem). |
+| **models/*.py** | SQLAlchemy tables (User, Event, Venue, Funding, Registration, TicketTier, TicketSale, UserEventDiscount). |
+| **schemas/*.py** | Pydantic request/response (e.g. EventResponse, TicketTierResponse, TicketSaleResponse, UserDiscountBody). |
 
 ---
 
 ## 6. Short Summary
 
-- **Unauthenticated:** Only `POST /auth/verify` (token in body); backend verifies with Firebase and creates/updates the user, returns profile (including role).
+- **Unauthenticated:** Only `POST /auth/verify` (token in body); backend verifies with Firebase and creates/updates the user, returns profile (including role). Public can list events, get event detail, funding summary, and ticket tiers.
 - **Authenticated:** Other routes send **Bearer** token; security verifies token and loads **User** from DB; **require_role** can restrict to admin/organizer/customer; then **route → service → DB → schema → response**.
+- **Event lifecycle:** Organizer can cancel anytime; after funding deadline can extend funding and/or set event date. Customers can unregister; pledges are refunded only if more than 7 days before funding deadline. When event is switched from closed to open, waitlist is auto-approved up to capacity.
+- **Tickets:** Only registered attendees can purchase. Each ticket has a unique **ticket_code** (for QR). Customer shows the code as a QR on their phone; organizer **scans** via `POST /events/{id}/scan-ticket` with the code. First scan sets `scanned_at` and `scanned_by`; later scans return `already_scanned: true` and the ticket. **List view** `GET /events/{id}/ticket-sales` includes `scanned_at` and `scanned_by_display_name` so the organizer can see who was scanned. Price is tier price minus common, selective, and pledge-based discounts.
 - **DB:** One session per request; commit on success, rollback on error.

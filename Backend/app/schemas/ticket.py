@@ -46,13 +46,28 @@ class TicketSaleResponse(BaseModel):
     event_id: int
     user_id: int
     ticket_tier_id: int
+    ticket_code: str  # unique code for QR; customer displays as QR for organizer to scan
     tier_name: str | None = None
     event_title: str | None = None
+    attendee_display_name: str | None = None  # name on ticket (holder's display_name or email)
     amount_paid_cents: int
     discount_applied_cents: int
     extra_perks: str | None
     status: str
+    scanned_at: datetime | None = None  # past scan time when already scanned
+    scanned_by_id: int | None = None
+    scanned_by_display_name: str | None = None  # who scanned it
     created_at: datetime
+
+
+class ScanTicketBody(BaseModel):
+    ticket_code: str
+
+
+class ScanTicketResponse(BaseModel):
+    """Scan result: already_scanned, past scan time and name on ticket are on ticket."""
+    already_scanned: bool
+    ticket: TicketSaleResponse  # includes scanned_at (past scan time), attendee_display_name (name on ticket)
 
 
 class UserDiscountBody(BaseModel):

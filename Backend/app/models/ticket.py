@@ -51,12 +51,16 @@ class TicketSale(Base):
     event_id: Mapped[int] = mapped_column(ForeignKey("events.id"), nullable=False, index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     ticket_tier_id: Mapped[int] = mapped_column(ForeignKey("ticket_tiers.id"), nullable=False, index=True)
+    ticket_code: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)  # unique code for QR
     amount_paid_cents: Mapped[int] = mapped_column(Integer, nullable=False)
     discount_applied_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     extra_perks: Mapped[str | None] = mapped_column(Text, nullable=True)  # when discount > price
     status: Mapped[TicketSaleStatus] = mapped_column(Enum(TicketSaleStatus), nullable=False, default=TicketSaleStatus.purchased)
+    scanned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    scanned_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 
     event = relationship("Event", back_populates="ticket_sales")
-    user = relationship("User", back_populates="ticket_sales")
+    user = relationship("User", back_populates="ticket_sales", foreign_keys=[user_id])
     ticket_tier = relationship("TicketTier", back_populates="ticket_sales")
+    scanned_by = relationship("User", foreign_keys=[scanned_by_id])

@@ -251,7 +251,7 @@ async def update(
 
 async def cancel_event(db: AsyncSession, event: Event, user: User) -> Event:
     """
-    Organizer cancels the event (anytime). Sets status to cancelled.
+    Organizer cancels the event (anytime). Sets status to cancelled and refunds all pledges.
     Not allowed if event is already cancelled or ended.
     """
     if not _event_can_edit(user, event):
@@ -261,6 +261,8 @@ async def cancel_event(db: AsyncSession, event: Event, user: User) -> Event:
     if event.status == EventStatus.ended:
         raise ConflictError("Cannot cancel an ended event")
     event.status = EventStatus.cancelled
+    from app.services import funding as funding_service
+    await funding_service.refund_all_pledges_for_event(db, event_id=event.id)
     await db.flush()
     await db.refresh(event)
     return event
@@ -309,4 +311,6 @@ async def delete_or_cancel(db: AsyncSession, event: Event, user: User) -> None:
         await db.delete(event)
     else:
         event.status = EventStatus.cancelled
+        from app.services import funding as funding_service
+        await funding_service.refund_all_pledges_for_event(db, event_id=event.id)
         await db.flush()

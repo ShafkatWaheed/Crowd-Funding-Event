@@ -4,8 +4,9 @@ Ticket tiers, sales, and discount computation.
 - Only registered users (status=registered) can purchase tickets.
 - Price = tier.price_cents - common_discount - selective_discount - pledge_based_discount (capped at 0).
 - If discount >= price, organizer can set extra_perks on the ticket.
+- Each ticket has a unique ticket_code for QR; organizer scans to mark scanned_at.
 """
-
+import secrets
 from typing import Sequence
 
 from sqlalchemy import func, select
@@ -128,10 +129,12 @@ async def purchase_ticket(
     total_discount = price_info["total_discount_cents"]
     tier_price = price_info["tier_price_cents"]
 
+    ticket_code = secrets.token_urlsafe(24)
     sale = TicketSale(
         event_id=event_id,
         user_id=user.id,
         ticket_tier_id=tier_id,
+        ticket_code=ticket_code,
         amount_paid_cents=final_cents,
         discount_applied_cents=total_discount,
         extra_perks=extra_perks if extra_perks else (None if total_discount < tier_price else ""),
@@ -140,23 +143,25 @@ async def purchase_ticket(
     db.add(sale)
     await db.flush()
     await db.refresh(sale)
-    # Load relationships for response
+    # Load relationships for response (including user for attendee_display_name)
     q = select(TicketSale).where(TicketSale.id == sale.id).options(
         selectinload(TicketSale.event),
         selectinload(TicketSale.ticket_tier),
+        selectinload(TicketSale.user),
     )
     loaded = (await db.execute(q)).scalar_one()
     return loaded
 
 
 async def list_my_tickets(db: AsyncSession, *, user_id: int) -> Sequence[TicketSale]:
-    """List ticket sales for a user (with event and tier loaded)."""
+    """List ticket sales for a user (with event, tier, user loaded)."""
     q = (
         select(TicketSale)
         .where(TicketSale.user_id == user_id, TicketSale.status == TicketSaleStatus.purchased)
         .options(
             selectinload(TicketSale.event),
             selectinload(TicketSale.ticket_tier),
+            selectinload(TicketSale.user),
         )
         .order_by(TicketSale.created_at.desc())
     )
@@ -165,7 +170,7 @@ async def list_my_tickets(db: AsyncSession, *, user_id: int) -> Sequence[TicketS
 
 
 async def list_event_ticket_sales(db: AsyncSession, *, event_id: int) -> Sequence[TicketSale]:
-    """List all ticket sales for an event (organizer/admin)."""
+    """List all ticket sales for an event (organizer/admin). Includes scanned_at/scanned_by for scan list view."""
     await event_service.get_or_404(db, event_id)
     q = (
         select(TicketSale)
@@ -173,11 +178,60 @@ async def list_event_ticket_sales(db: AsyncSession, *, event_id: int) -> Sequenc
         .options(
             selectinload(TicketSale.user),
             selectinload(TicketSale.ticket_tier),
+            selectinload(TicketSale.scanned_by),
         )
-        .order_by(TicketSale.created_at.desc())
+        .order_by(TicketSale.scanned_at.desc().nulls_last(), TicketSale.created_at.desc())
     )
     res = await db.execute(q)
     return list(res.scalars().unique().all())
+
+
+async def scan_ticket(
+    db: AsyncSession,
+    *,
+    event_id: int,
+    ticket_code: str,
+    scanned_by_user: User,
+) -> tuple[TicketSale, bool]:
+    """
+    Organizer scans a ticket by code. Returns (ticket_sale, already_scanned).
+    If not yet scanned, sets scanned_at and scanned_by_id.
+    """
+    event = await event_service.get_or_404(db, event_id)
+    if not _can_manage_event_tickets(scanned_by_user, event):
+        raise ForbiddenError("Only the event organizer or admin can scan tickets")
+    q = (
+        select(TicketSale)
+        .where(
+            TicketSale.event_id == event_id,
+            TicketSale.ticket_code == ticket_code.strip(),
+            TicketSale.status == TicketSaleStatus.purchased,
+        )
+        .options(
+            selectinload(TicketSale.user),
+            selectinload(TicketSale.ticket_tier),
+            selectinload(TicketSale.event),
+        )
+    )
+    res = await db.execute(q)
+    sale = res.scalar_one_or_none()
+    if not sale:
+        raise NotFoundError("Ticket", "code not found or invalid for this event")
+    already_scanned = sale.scanned_at is not None
+    if not already_scanned:
+        from datetime import datetime, timezone
+        sale.scanned_at = datetime.now(timezone.utc)
+        sale.scanned_by_id = scanned_by_user.id
+        await db.flush()
+    # Reload with all relationships so response has attendee_display_name, scanned_at, scanned_by_display_name
+    q2 = select(TicketSale).where(TicketSale.id == sale.id).options(
+        selectinload(TicketSale.user),
+        selectinload(TicketSale.ticket_tier),
+        selectinload(TicketSale.event),
+        selectinload(TicketSale.scanned_by),
+    )
+    sale = (await db.execute(q2)).scalar_one()
+    return sale, already_scanned
 
 
 async def create_tier(

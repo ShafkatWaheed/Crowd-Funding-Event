@@ -4,6 +4,8 @@ from app.schemas.event import EventCreate, EventResponse, EventUpdate, EventVenu
 from app.schemas.funding import FundingSummaryResponse, MyPledgeItem, PledgeBody, PledgeResponse
 from app.schemas.registration import RegistrationDecisionBody, RegistrationResponse
 from app.schemas.ticket import (
+    ScanTicketBody,
+    ScanTicketResponse,
     TicketPricePreviewResponse,
     TicketPurchaseBody,
     TicketSaleResponse,
@@ -34,6 +36,8 @@ __all__ = [
     "PledgeResponse",
     "RegistrationDecisionBody",
     "RegistrationResponse",
+    "ScanTicketBody",
+    "ScanTicketResponse",
     "TicketPricePreviewResponse",
     "TicketPurchaseBody",
     "TicketSaleResponse",

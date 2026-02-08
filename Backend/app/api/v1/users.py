@@ -67,7 +67,7 @@ async def get_my_tickets(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.customer)),
 ):
-    """List tickets the current user has purchased (customer only)."""
+    """List tickets the current user has purchased (customer only). Includes ticket_code for QR and scanned_at (already scanned)."""
     sales = await ticket_service.list_my_tickets(db, user_id=current_user.id)
     return [
         TicketSaleResponse(
@@ -75,12 +75,17 @@ async def get_my_tickets(
             event_id=s.event_id,
             user_id=s.user_id,
             ticket_tier_id=s.ticket_tier_id,
+            ticket_code=s.ticket_code,
             tier_name=s.ticket_tier.name if s.ticket_tier else None,
             event_title=s.event.title if s.event else None,
+            attendee_display_name=(s.user.display_name or s.user.email) if s.user else None,
             amount_paid_cents=s.amount_paid_cents,
             discount_applied_cents=s.discount_applied_cents,
             extra_perks=s.extra_perks,
             status=s.status.value,
+            scanned_at=s.scanned_at,
+            scanned_by_id=s.scanned_by_id,
+            scanned_by_display_name=None,
             created_at=s.created_at,
         )
         for s in sales

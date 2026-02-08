@@ -80,6 +80,23 @@ async def get_summary(db: AsyncSession, *, event_id: int) -> dict:
     }
 
 
+async def refund_all_pledges_for_event(db: AsyncSession, *, event_id: int) -> int:
+    """
+    When an event is cancelled, mark all pledged fundings for that event as refunded.
+    Returns count of pledges refunded.
+    """
+    from sqlalchemy import update
+    result = await db.execute(
+        update(Funding)
+        .where(
+            Funding.event_id == event_id,
+            Funding.status == FundingStatus.pledged,
+        )
+        .values(status=FundingStatus.refunded)
+    )
+    return result.rowcount or 0
+
+
 async def refund_pledges_for_user_event(
     db: AsyncSession,
     *,

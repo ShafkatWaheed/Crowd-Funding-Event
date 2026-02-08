@@ -19,6 +19,8 @@ from app.schemas import (
     PledgeResponse,
     RegistrationDecisionBody,
     RegistrationResponse,
+    ScanTicketBody,
+    ScanTicketResponse,
     TicketPricePreviewResponse,
     TicketPurchaseBody,
     TicketSaleResponse,
@@ -435,22 +437,53 @@ async def purchase_ticket(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.customer)),
 ):
-    """Purchase a ticket (customer, must be registered)."""
+    """Purchase a ticket (customer, must be registered). Returns ticket with ticket_code for QR."""
     sale = await ticket_service.purchase_ticket(
         db, event_id=event_id, user=current_user,
         tier_id=body.tier_id, extra_perks=body.extra_perks,
     )
+    return _ticket_sale_to_response(sale)
+
+
+# ----- Scan ticket (organizer) -----
+@router.post("/{event_id}/scan-ticket", response_model=ScanTicketResponse)
+async def scan_ticket(
+    event_id: int,
+    body: ScanTicketBody,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+):
+    """Scan a ticket by QR code (organizer/admin). Returns ticket and already_scanned if already scanned."""
+    sale, already_scanned = await ticket_service.scan_ticket(
+        db, event_id=event_id, ticket_code=body.ticket_code, scanned_by_user=current_user,
+    )
+    return ScanTicketResponse(already_scanned=already_scanned, ticket=_ticket_sale_to_response(sale))
+
+
+def _ticket_sale_to_response(sale) -> TicketSaleResponse:
+    """Build TicketSaleResponse from a TicketSale (with event, ticket_tier, user, scanned_by loaded as needed)."""
+    scanned_by_name = None
+    if getattr(sale, "scanned_by", None) and sale.scanned_by:
+        scanned_by_name = sale.scanned_by.display_name or sale.scanned_by.email
+    attendee_name = None
+    if getattr(sale, "user", None) and sale.user:
+        attendee_name = sale.user.display_name or sale.user.email
     return TicketSaleResponse(
         id=sale.id,
         event_id=sale.event_id,
         user_id=sale.user_id,
         ticket_tier_id=sale.ticket_tier_id,
+        ticket_code=sale.ticket_code,
         tier_name=sale.ticket_tier.name if sale.ticket_tier else None,
         event_title=sale.event.title if sale.event else None,
+        attendee_display_name=attendee_name,
         amount_paid_cents=sale.amount_paid_cents,
         discount_applied_cents=sale.discount_applied_cents,
         extra_perks=sale.extra_perks,
         status=sale.status.value,
+        scanned_at=sale.scanned_at,
+        scanned_by_id=sale.scanned_by_id,
+        scanned_by_display_name=scanned_by_name,
         created_at=sale.created_at,
     )
 
@@ -462,27 +495,12 @@ async def list_event_ticket_sales(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
-    """List ticket sales for event (organizer/admin)."""
+    """List ticket sales for event (organizer/admin). Includes scanned_at and scanned_by for scan list view."""
     event = await event_service.get_or_404(db, event_id)
     if current_user.role != UserRole.admin and event.organizer_id != current_user.id:
         raise ForbiddenError("You cannot view ticket sales for this event")
     sales = await ticket_service.list_event_ticket_sales(db, event_id=event_id)
-    return [
-        TicketSaleResponse(
-            id=s.id,
-            event_id=s.event_id,
-            user_id=s.user_id,
-            ticket_tier_id=s.ticket_tier_id,
-            tier_name=s.ticket_tier.name if s.ticket_tier else None,
-            event_title=s.event.title if s.event else None,
-            amount_paid_cents=s.amount_paid_cents,
-            discount_applied_cents=s.discount_applied_cents,
-            extra_perks=s.extra_perks,
-            status=s.status.value,
-            created_at=s.created_at,
-        )
-        for s in sales
-    ]
+    return [_ticket_sale_to_response(s) for s in sales]
 
 
 @router.post("/{event_id}/discounts")

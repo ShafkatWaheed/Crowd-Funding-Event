@@ -25,3 +25,15 @@ class FundingSummaryResponse(BaseModel):
     backers_count: int
     goal_cents: int | None
     goal_met: bool
+
+
+class MyPledgeItem(BaseModel):
+    """One pledge in the current user's list (which events they've pledged to)."""
+    id: int
+    event_id: int
+    event_title: str
+    amount_cents: int
+    status: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}

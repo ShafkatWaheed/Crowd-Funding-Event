@@ -12,16 +12,27 @@ from app.schemas import (
     EventCreate,
     EventResponse,
     EventUpdate,
+    EventVenueInfo,
+    ExtendFundingBody,
     FundingSummaryResponse,
     PledgeBody,
     PledgeResponse,
     RegistrationDecisionBody,
     RegistrationResponse,
+    TicketPricePreviewResponse,
+    TicketPurchaseBody,
+    TicketSaleResponse,
+    TicketTierCreate,
+    TicketTierResponse,
+    TicketTierUpdate,
+    UnregisterResponse,
+    UserDiscountBody,
 )
-from app.core.exceptions import ForbiddenError
+from app.core.exceptions import ForbiddenError, NotFoundError
 from app.services import event as event_service
 from app.services import funding as funding_service
 from app.services import registration as registration_service
+from app.services import ticket as ticket_service
 
 router = APIRouter()
 
@@ -36,10 +47,15 @@ def _parse_iso_datetime(v: str | None) -> datetime | None:
 
 
 def _event_to_response(e: Event) -> EventResponse:
+    """Build response; e.venue must be loaded so everyone can see venue info when viewing an event."""
+    venue_info = EventVenueInfo.model_validate(e.venue) if e.venue else None
+    if venue_info is None:
+        raise ValueError("Event.venue must be loaded when building EventResponse")
     return EventResponse(
         id=e.id,
         organizer_id=e.organizer_id,
         venue_id=e.venue_id,
+        venue=venue_info,
         title=e.title,
         description=e.description,
         start_time=e.start_time,
@@ -49,6 +65,9 @@ def _event_to_response(e: Event) -> EventResponse:
         max_capacity=e.max_capacity,
         funding_goal_cents=e.funding_goal_cents,
         funding_end_at=e.funding_end_at,
+        min_pledge_cents=e.min_pledge_cents,
+        common_discount_percent=e.common_discount_percent,
+        pledge_discount_percent=e.pledge_discount_percent,
         lat=e.lat,
         lng=e.lng,
         created_at=e.created_at,
@@ -101,16 +120,23 @@ async def create_event(
         end_time=end_time,
         funding_goal_cents=body.funding_goal_cents,
         funding_end_at=funding_end_at,
+        min_pledge_cents=body.min_pledge_cents,
         registration_type=reg_type,
         max_capacity=body.max_capacity,
+        common_discount_percent=body.common_discount_percent,
+        pledge_discount_percent=body.pledge_discount_percent,
+        allow_any_venue=(current_user.role == UserRole.admin),
     )
+    event = await event_service.get_by_id(db, event.id, load_venue=True)
     return _event_to_response(event)
 
 
 @router.get("/{event_id}", response_model=EventResponse)
 async def get_event(event_id: int, db: DbSession):
-    """Event detail (public)."""
-    event = await event_service.get_or_404(db, event_id)
+    """Event detail (public). Includes venue so everyone can see where the event is."""
+    event = await event_service.get_by_id(db, event_id, load_venue=True)
+    if not event:
+        raise NotFoundError("Event", event_id)
     return _event_to_response(event)
 
 
@@ -138,10 +164,56 @@ async def update_event(
         end_time=end_time,
         funding_goal_cents=body.funding_goal_cents,
         funding_end_at=funding_end_at,
+        min_pledge_cents=body.min_pledge_cents,
         registration_type=reg_type,
         max_capacity=body.max_capacity,
+        common_discount_percent=body.common_discount_percent,
+        pledge_discount_percent=body.pledge_discount_percent,
     )
+    updated = await event_service.get_by_id(db, updated.id, load_venue=True)
     return _event_to_response(updated)
+
+
+@router.post("/{event_id}/cancel", response_model=EventResponse)
+async def cancel_event(
+    event_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+):
+    """Organizer cancels the event anytime (except already cancelled or ended)."""
+    event = await event_service.get_or_404(db, event_id)
+    if current_user.role != UserRole.admin and event.organizer_id != current_user.id:
+        raise ForbiddenError("You cannot cancel this event")
+    event = await event_service.cancel_event(db, event, current_user)
+    event = await event_service.get_by_id(db, event.id, load_venue=True)
+    return _event_to_response(event)
+
+
+@router.post("/{event_id}/extend-funding", response_model=EventResponse)
+async def extend_funding(
+    event_id: int,
+    body: ExtendFundingBody,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+):
+    """After funding deadline: extend funding period and/or set event date. At least one of funding_end_at, start_time, end_time required."""
+    event = await event_service.get_or_404(db, event_id)
+    if current_user.role != UserRole.admin and event.organizer_id != current_user.id:
+        raise ForbiddenError("You cannot update this event")
+    if not any([body.funding_end_at, body.start_time, body.end_time]):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="At least one of funding_end_at, start_time, end_time required")
+    new_funding_end_at = _parse_iso_datetime(body.funding_end_at)
+    new_start = _parse_iso_datetime(body.start_time)
+    new_end = _parse_iso_datetime(body.end_time)
+    event = await event_service.extend_funding_and_set_event_date(
+        db, event, current_user,
+        new_funding_end_at=new_funding_end_at,
+        new_start_time=new_start,
+        new_end_time=new_end,
+    )
+    event = await event_service.get_by_id(db, event.id, load_venue=True)
+    return _event_to_response(event)
 
 
 @router.delete("/{event_id}")
@@ -164,6 +236,7 @@ async def submit_event_for_approval(
 ):
     """Submit draft event for admin approval (draft → pending_approval). Organizer or admin only."""
     event = await event_service.submit_for_approval(db, event_id=event_id, user=current_user)
+    event = await event_service.get_by_id(db, event.id, load_venue=True)
     return _event_to_response(event)
 
 
@@ -212,6 +285,20 @@ async def register_event(
         user_id=reg.user_id,
         status=reg.status.value,
         created_at=reg.created_at,
+    )
+
+
+@router.post("/{event_id}/unregister", response_model=UnregisterResponse)
+async def unregister_event(
+    event_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.customer)),
+):
+    """Customer unregisters from event. Pledges refunded only if more than 7 days before funding deadline."""
+    result = await registration_service.unregister(db, event_id=event_id, user=current_user)
+    return UnregisterResponse(
+        refunded_cents=result["refunded_cents"],
+        pledges_refunded=result["pledges_refunded"],
     )
 
 
@@ -271,3 +358,157 @@ async def decide_registration(
         status=reg.status.value,
         created_at=reg.created_at,
     )
+
+
+# ----- Ticket tiers (organizer) -----
+@router.get("/{event_id}/tiers", response_model=list[TicketTierResponse])
+async def list_tiers(event_id: int, db: DbSession):
+    """List ticket tiers for an event (public)."""
+    tiers = await ticket_service.list_tiers(db, event_id=event_id)
+    return [TicketTierResponse.model_validate(t) for t in tiers]
+
+
+@router.post("/{event_id}/tiers", response_model=TicketTierResponse)
+async def create_tier(
+    event_id: int,
+    body: TicketTierCreate,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+):
+    """Create a ticket tier (organizer/admin)."""
+    tier = await ticket_service.create_tier(
+        db, event_id=event_id, user=current_user,
+        name=body.name, price_cents=body.price_cents, display_order=body.display_order,
+    )
+    return TicketTierResponse.model_validate(tier)
+
+
+@router.patch("/{event_id}/tiers/{tier_id}", response_model=TicketTierResponse)
+async def update_tier(
+    event_id: int,
+    tier_id: int,
+    body: TicketTierUpdate,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+):
+    """Update a ticket tier (organizer/admin)."""
+    tier = await ticket_service.get_tier_or_404(db, event_id=event_id, tier_id=tier_id)
+    tier = await ticket_service.update_tier(
+        db, tier, current_user,
+        name=body.name, price_cents=body.price_cents, display_order=body.display_order,
+    )
+    return TicketTierResponse.model_validate(tier)
+
+
+@router.delete("/{event_id}/tiers/{tier_id}")
+async def delete_tier(
+    event_id: int,
+    tier_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+):
+    """Delete a ticket tier (organizer/admin)."""
+    tier = await ticket_service.get_tier_or_404(db, event_id=event_id, tier_id=tier_id)
+    await ticket_service.delete_tier(db, tier, current_user)
+    return {"ok": True}
+
+
+# ----- Ticket price & purchase (customer) -----
+@router.get("/{event_id}/ticket-price", response_model=TicketPricePreviewResponse)
+async def get_ticket_price(
+    event_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.customer)),
+    tier_id: int = Query(..., description="Ticket tier id"),
+):
+    """Preview ticket price for current user (with discounts). Customer only."""
+    info = await ticket_service.compute_ticket_price(
+        db, event_id=event_id, user_id=current_user.id, tier_id=tier_id
+    )
+    return TicketPricePreviewResponse(**info)
+
+
+@router.post("/{event_id}/purchase-ticket", response_model=TicketSaleResponse)
+async def purchase_ticket(
+    event_id: int,
+    body: TicketPurchaseBody,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.customer)),
+):
+    """Purchase a ticket (customer, must be registered)."""
+    sale = await ticket_service.purchase_ticket(
+        db, event_id=event_id, user=current_user,
+        tier_id=body.tier_id, extra_perks=body.extra_perks,
+    )
+    return TicketSaleResponse(
+        id=sale.id,
+        event_id=sale.event_id,
+        user_id=sale.user_id,
+        ticket_tier_id=sale.ticket_tier_id,
+        tier_name=sale.ticket_tier.name if sale.ticket_tier else None,
+        event_title=sale.event.title if sale.event else None,
+        amount_paid_cents=sale.amount_paid_cents,
+        discount_applied_cents=sale.discount_applied_cents,
+        extra_perks=sale.extra_perks,
+        status=sale.status.value,
+        created_at=sale.created_at,
+    )
+
+
+# ----- Ticket sales list & user discounts (organizer) -----
+@router.get("/{event_id}/ticket-sales", response_model=list[TicketSaleResponse])
+async def list_event_ticket_sales(
+    event_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+):
+    """List ticket sales for event (organizer/admin)."""
+    event = await event_service.get_or_404(db, event_id)
+    if current_user.role != UserRole.admin and event.organizer_id != current_user.id:
+        raise ForbiddenError("You cannot view ticket sales for this event")
+    sales = await ticket_service.list_event_ticket_sales(db, event_id=event_id)
+    return [
+        TicketSaleResponse(
+            id=s.id,
+            event_id=s.event_id,
+            user_id=s.user_id,
+            ticket_tier_id=s.ticket_tier_id,
+            tier_name=s.ticket_tier.name if s.ticket_tier else None,
+            event_title=s.event.title if s.event else None,
+            amount_paid_cents=s.amount_paid_cents,
+            discount_applied_cents=s.discount_applied_cents,
+            extra_perks=s.extra_perks,
+            status=s.status.value,
+            created_at=s.created_at,
+        )
+        for s in sales
+    ]
+
+
+@router.post("/{event_id}/discounts")
+async def set_user_discount(
+    event_id: int,
+    body: UserDiscountBody,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+):
+    """Set selective discount for a user on this event (organizer/admin)."""
+    ued = await ticket_service.set_user_discount(
+        db, event_id=event_id, target_user_id=body.user_id, current_user=current_user,
+        discount_type=body.discount_type, value=body.value,
+    )
+    return {"id": ued.id, "event_id": ued.event_id, "user_id": ued.user_id, "discount_type": ued.discount_type, "value": ued.value}
+
+
+@router.delete("/{event_id}/discounts/{user_id}")
+async def remove_user_discount(
+    event_id: int,
+    user_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+):
+    """Remove selective discount for a user (organizer/admin)."""
+    await ticket_service.remove_user_discount(
+        db, event_id=event_id, target_user_id=user_id, current_user=current_user,
+    )
+    return {"ok": True}

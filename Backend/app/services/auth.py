@@ -8,10 +8,16 @@ from app.core.firebase import verify_id_token
 from app.models.user import User, UserRole
 
 
-async def verify_and_upsert_user(db: AsyncSession, id_token: str) -> User:
+async def verify_and_upsert_user(
+    db: AsyncSession,
+    id_token: str,
+    *,
+    sign_up_role: str | None = None,
+) -> User:
     """
     Verify Firebase ID token and create or update user in DB.
-    New users get role customer. Existing users get email/display_name updated.
+    - Existing user: update email/display_name only (role unchanged).
+    - New user: create with role from sign_up_role if "customer" or "organizer", else customer.
     Raises ValueError if token is invalid (caller should map to 401).
     """
     decoded = verify_id_token(id_token)
@@ -31,11 +37,16 @@ async def verify_and_upsert_user(db: AsyncSession, id_token: str) -> User:
         await db.refresh(user)
         return user
 
+    # New user: use requested role only if allowed (never admin)
+    role = UserRole.customer
+    if sign_up_role in ("customer", "organizer"):
+        role = UserRole(sign_up_role)
+
     user = User(
         firebase_uid=uid,
         email=email,
         display_name=display_name,
-        role=UserRole.customer,
+        role=role,
     )
     db.add(user)
     await db.flush()

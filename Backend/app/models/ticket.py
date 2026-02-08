@@ -1,0 +1,62 @@
+"""
+Ticket tiers, sales, and per-user/event discounts.
+"""
+import enum
+from datetime import datetime
+
+from sqlalchemy import Integer, String, Text, DateTime, ForeignKey, Enum
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.db.base import Base
+
+
+class TicketSaleStatus(str, enum.Enum):
+    purchased = "purchased"
+    cancelled = "cancelled"
+
+
+class TicketTier(Base):
+    """Organizer-defined tier (e.g. Platinum, Diamond) with a price."""
+    __tablename__ = "ticket_tiers"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    event_id: Mapped[int] = mapped_column(ForeignKey("events.id"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(64), nullable=False)
+    price_cents: Mapped[int] = mapped_column(Integer, nullable=False)
+    display_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    event = relationship("Event", back_populates="ticket_tiers")
+    ticket_sales = relationship("TicketSale", back_populates="ticket_tier")
+
+
+class UserEventDiscount(Base):
+    """Selective discount for a specific user on an event (organizer-set)."""
+    __tablename__ = "user_event_discounts"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    event_id: Mapped[int] = mapped_column(ForeignKey("events.id"), nullable=False, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    discount_type: Mapped[str] = mapped_column(String(16), nullable=False)  # 'percent' | 'fixed_cents'
+    value: Mapped[int] = mapped_column(Integer, nullable=False)  # percent 0-100 or cents
+
+    event = relationship("Event", back_populates="user_event_discounts")
+    user = relationship("User", back_populates="user_event_discounts")
+
+
+class TicketSale(Base):
+    """A ticket sold to a registered user. Discount and extra_perks applied at purchase."""
+    __tablename__ = "ticket_sales"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    event_id: Mapped[int] = mapped_column(ForeignKey("events.id"), nullable=False, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    ticket_tier_id: Mapped[int] = mapped_column(ForeignKey("ticket_tiers.id"), nullable=False, index=True)
+    amount_paid_cents: Mapped[int] = mapped_column(Integer, nullable=False)
+    discount_applied_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    extra_perks: Mapped[str | None] = mapped_column(Text, nullable=True)  # when discount > price
+    status: Mapped[TicketSaleStatus] = mapped_column(Enum(TicketSaleStatus), nullable=False, default=TicketSaleStatus.purchased)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+
+    event = relationship("Event", back_populates="ticket_sales")
+    user = relationship("User", back_populates="ticket_sales")
+    ticket_tier = relationship("TicketTier", back_populates="ticket_sales")

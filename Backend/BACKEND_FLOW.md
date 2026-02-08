@@ -33,8 +33,10 @@ So: **Request → main.py → CORS → router → route handler.**
 
 Used when the client has just signed in with Firebase and wants to “register” with your backend and get profile info.
 
+**Sign-up and password:** When a user signs up, they must give **email and password** on the **frontend**. The frontend uses **Firebase Authentication** (e.g. Email/Password sign-in): the user enters email + password there, and Firebase creates the account and stores the password securely. The backend **never sees or stores the password**; it only receives the **Firebase ID token** after sign-in and uses it to create or update the user in your DB (with the chosen role). So the flow is: **user enters email + password in your app → Firebase signs them in and returns an ID token → frontend calls POST /auth/verify with that token (and optional role) → backend creates/updates user and returns profile.**
+
 ```
-Client sends:  POST /api/v1/auth/verify   body: { "id_token": "<firebase_id_token>" }
+Client sends:  POST /api/v1/auth/verify   body: { "id_token": "<firebase_id_token>", "role": "customer" }
     ↓
 auth.py  →  verify(body, db)
     ↓
@@ -83,6 +85,26 @@ Route handler runs  with  db, current_user  (and body/path params)
 ```
 
 So for protected routes: **Bearer token → verify with Firebase → get `firebase_uid` → load `User` from DB → optional role check → then your handler runs.**
+
+---
+
+## 2b. Role-based access (who can do what)
+
+The API enforces roles so the frontend can show or hide features by role.
+
+| Role | Can do | Cannot do |
+|------|--------|-----------|
+| **Customer** | View events (list, detail, funding). **Pledge** to events. **Register** for events (open or waitlist). Update own profile (GET/PATCH /me). | Create, update, delete, or submit events. Manage event registrations. Admin endpoints. |
+| **Organizer** | Everything customers can **except** pledge and register. **Create** events. **Update/delete** own events. **Submit** events for approval. **List and manage** registrations for their events (approve/reject waitlist). Create venues. | **Pledge** to any event. **Register** for any event. Admin-only endpoints. |
+| **Admin** | Everything organizers can, plus: approve/reject events, list all users/events, stats, create users. | Pledge and register are **customer-only** (admin is not treated as customer for those). |
+
+Summary for the app:
+
+- **Organizers** see and use: event listing, event detail, create/update/delete events, submit for approval, manage registrations, venues. They do **not** see or call: pledge, register.
+- **Customers** see and use: event listing, event detail, pledge, register, their profile. They do **not** see or call: create/update/delete events, submit for approval, manage registrations (unless you add a “my registrations” view for customers).
+- **Public** (no auth): list events, get event by id, get event funding summary.
+
+The backend returns **403** if a user calls an endpoint their role is not allowed to use (e.g. organizer calling `POST /events/{id}/pledge` or `POST /events/{id}/register`).
 
 ---
 

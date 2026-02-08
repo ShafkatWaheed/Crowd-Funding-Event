@@ -13,9 +13,11 @@ router = APIRouter()
 
 @router.post("/verify", response_model=VerifyResponse)
 async def verify(body: VerifyBody, db: DbSession):
-    """Verify Firebase ID token and create/update user. Returns user profile."""
+    """Verify Firebase ID token and create/update user. New users can sign up as customer or organizer via body.role."""
     try:
-        user = await auth_service.verify_and_upsert_user(db, body.id_token)
+        user = await auth_service.verify_and_upsert_user(
+            db, body.id_token, sign_up_role=body.role
+        )
     except ValueError as e:
         raise HTTPException(status_code=401, detail=str(e))
     return VerifyResponse(

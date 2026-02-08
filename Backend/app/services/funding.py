@@ -6,8 +6,11 @@ MVP notes:
 - A user can pledge multiple times to the same event (common crowdfunding behavior).
 """
 
+from typing import Sequence
+
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.exceptions import ConflictError
 from app.models.event import EventStatus
@@ -26,6 +29,10 @@ async def create_pledge(
     if amount_cents <= 0:
         raise ConflictError("amount_cents must be greater than 0")
     event = await event_service.get_or_404(db, event_id)
+    if amount_cents < event.min_pledge_cents:
+        raise ConflictError(
+            f"Pledge amount must be at least {event.min_pledge_cents} cents (event minimum)"
+        )
     if event.status == EventStatus.cancelled:
         raise ConflictError("Cannot pledge to a cancelled event")
     if event.status == EventStatus.ended:
@@ -71,3 +78,42 @@ async def get_summary(db: AsyncSession, *, event_id: int) -> dict:
         "goal_cents": goal,
         "goal_met": goal_met,
     }
+
+
+async def refund_pledges_for_user_event(
+    db: AsyncSession,
+    *,
+    event_id: int,
+    user_id: int,
+) -> int:
+    """
+    Mark all pledged fundings for this user+event as refunded.
+    Returns count of pledges refunded. Only affects status=pledged.
+    """
+    from sqlalchemy import update
+    result = await db.execute(
+        update(Funding)
+        .where(
+            Funding.event_id == event_id,
+            Funding.user_id == user_id,
+            Funding.status == FundingStatus.pledged,
+        )
+        .values(status=FundingStatus.refunded)
+    )
+    return result.rowcount or 0
+
+
+async def list_pledges_by_user(
+    db: AsyncSession,
+    *,
+    user_id: int,
+) -> Sequence[Funding]:
+    """List all pledges for a user (so they can see which events they've pledged to)."""
+    q = (
+        select(Funding)
+        .where(Funding.user_id == user_id)
+        .options(selectinload(Funding.event))
+        .order_by(Funding.created_at.desc())
+    )
+    result = await db.execute(q)
+    return result.scalars().unique().all()

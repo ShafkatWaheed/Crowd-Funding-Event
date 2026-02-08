@@ -37,9 +37,12 @@ class Event(Base):
     lng: Mapped[float | None] = mapped_column(Float, nullable=True)
     funding_goal_cents: Mapped[int | None] = mapped_column(Integer, nullable=True)
     funding_end_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    min_pledge_cents: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[EventStatus] = mapped_column(Enum(EventStatus), nullable=False, default=EventStatus.draft, index=True)
     registration_type: Mapped[RegistrationType] = mapped_column(Enum(RegistrationType), nullable=False, default=RegistrationType.open)
     max_capacity: Mapped[int] = mapped_column(Integer, nullable=False)
+    common_discount_percent: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # ticket discount for all
+    pledge_discount_percent: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # % of user's pledges as discount
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -47,3 +50,6 @@ class Event(Base):
     venue = relationship("Venue", back_populates="events")
     fundings = relationship("Funding", back_populates="event")
     registrations = relationship("Registration", back_populates="event")
+    ticket_tiers = relationship("TicketTier", back_populates="event", order_by=["TicketTier.display_order", "TicketTier.id"])
+    user_event_discounts = relationship("UserEventDiscount", back_populates="event")
+    ticket_sales = relationship("TicketSale", back_populates="event")

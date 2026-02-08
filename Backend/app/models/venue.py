@@ -1,5 +1,5 @@
 """
-Venue / hall model.
+Venue / hall model. Each venue is owned by one organizer; customers can see all.
 """
 from datetime import datetime
 from sqlalchemy import String, Integer, Float, DateTime, ForeignKey
@@ -12,6 +12,7 @@ class Venue(Base):
     __tablename__ = "venues"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    organizer_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     address: Mapped[str] = mapped_column(String(512), nullable=False)
     city: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
@@ -22,4 +23,5 @@ class Venue(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    organizer = relationship("User", back_populates="venues")
     events = relationship("Event", back_populates="venue")

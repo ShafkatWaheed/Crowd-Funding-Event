@@ -1,12 +1,13 @@
 """
-Venues: CRUD for halls/venues (capacity, location).
+Venues: each organizer owns their venues; customers see all. Organizers cannot see others' venues.
 """
 from fastapi import APIRouter, Depends, Query
 
-from app.dependencies import DbSession, require_role
+from app.dependencies import DbSession, require_role, CurrentUserOptional
 from app.models.user import User, UserRole
 from app.schemas import VenueCreate, VenueResponse, VenueUpdate
 from app.services import venue as venue_service
+from app.core.exceptions import ForbiddenError
 
 router = APIRouter()
 
@@ -14,10 +15,12 @@ router = APIRouter()
 @router.get("", response_model=list[VenueResponse])
 async def list_venues(
     db: DbSession,
+    current_user: CurrentUserOptional,
     city: str | None = Query(None, description="e.g. Ottawa"),
 ):
-    """List venues, optionally by city."""
-    venues = await venue_service.list_venues(db, city=city)
+    """List venues: customers (or no auth) see all; organizers see only their own."""
+    organizer_id = current_user.id if (current_user and current_user.role == UserRole.organizer) else None
+    venues = await venue_service.list_venues(db, city=city, organizer_id=organizer_id)
     return venues
 
 
@@ -27,9 +30,10 @@ async def create_venue(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
-    """Create venue (organizer or admin)."""
+    """Create venue (organizer or admin). Venue is owned by the current user."""
     venue = await venue_service.create(
         db,
+        organizer_id=current_user.id,
         name=body.name,
         address=body.address,
         city=body.city,
@@ -42,9 +46,15 @@ async def create_venue(
 
 
 @router.get("/{venue_id}", response_model=VenueResponse)
-async def get_venue(venue_id: int, db: DbSession):
-    """Venue detail."""
+async def get_venue(
+    venue_id: int,
+    db: DbSession,
+    current_user: CurrentUserOptional,
+):
+    """Venue detail. Customers can see any; organizers can see only their own."""
     venue = await venue_service.get_or_404(db, venue_id)
+    if current_user and current_user.role == UserRole.organizer and venue.organizer_id != current_user.id:
+        raise ForbiddenError("You cannot view another organizer's venue")
     return venue
 
 
@@ -55,8 +65,10 @@ async def update_venue(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
-    """Update venue."""
+    """Update venue. Only the owner or admin."""
     venue = await venue_service.get_or_404(db, venue_id)
+    if not venue_service.can_edit_venue(current_user.id, venue, current_user.role == UserRole.admin):
+        raise ForbiddenError("You cannot update another organizer's venue")
     updated = await venue_service.update(
         db,
         venue,
@@ -69,3 +81,18 @@ async def update_venue(
         max_capacity=body.max_capacity,
     )
     return updated
+
+
+@router.delete("/{venue_id}")
+async def delete_venue(
+    venue_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+):
+    """Delete venue. Only the owner or admin."""
+    venue = await venue_service.get_or_404(db, venue_id)
+    if not venue_service.can_edit_venue(current_user.id, venue, current_user.role == UserRole.admin):
+        raise ForbiddenError("You cannot delete another organizer's venue")
+    await db.delete(venue)
+    await db.flush()
+    return {"ok": True}

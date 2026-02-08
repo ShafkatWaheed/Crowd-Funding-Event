@@ -135,6 +135,8 @@ All v1 routes are under **`/api/v1`**:
 - `GET /api/v1/admin/events`, `POST /api/v1/admin/events/{id}/approve`, `GET /api/v1/admin/stats`
 - `POST /api/v1/events/{id}/submit` — submit draft event for approval (draft → pending_approval)
 
+**Roles (who can do what):** Organizers can create/update/delete events and manage registrations but **cannot** pledge or register. Only **customers** can pledge and register. See **Role-based access** in `BACKEND_FLOW.md` for the full matrix.
+
 - **Backend flow:** See `BACKEND_FLOW.md` in this folder for how requests, auth, and DB flow work.
 - **Full design:** See `docs/ARCHITECTURE.md` for full design.
 

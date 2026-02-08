@@ -1,5 +1,5 @@
 """
-Venue CRUD and simple listing.
+Venue CRUD. Organizers own venues; customers see all.
 """
 from typing import Sequence
 
@@ -10,9 +10,16 @@ from app.models.venue import Venue
 from app.core.exceptions import NotFoundError, ConflictError
 
 
-async def list_venues(db: AsyncSession, *, city: str | None = None) -> Sequence[Venue]:
-    """List venues, optionally filtered by city."""
+async def list_venues(
+    db: AsyncSession,
+    *,
+    city: str | None = None,
+    organizer_id: int | None = None,
+) -> Sequence[Venue]:
+    """List venues. If organizer_id given, only that organizer's venues; else all (for customers)."""
     q = select(Venue)
+    if organizer_id is not None:
+        q = q.where(Venue.organizer_id == organizer_id)
     if city:
         q = q.where(Venue.city == city)
     q = q.order_by(Venue.name.asc())
@@ -33,9 +40,15 @@ async def get_or_404(db: AsyncSession, venue_id: int) -> Venue:
     return venue
 
 
+def can_edit_venue(organizer_id: int, venue: Venue, is_admin: bool) -> bool:
+    """True if user can edit/delete this venue (owner or admin)."""
+    return is_admin or venue.organizer_id == organizer_id
+
+
 async def create(
     db: AsyncSession,
     *,
+    organizer_id: int,
     name: str,
     address: str,
     city: str,
@@ -47,6 +60,7 @@ async def create(
     if max_capacity <= 0:
         raise ConflictError("max_capacity must be greater than 0")
     venue = Venue(
+        organizer_id=organizer_id,
         name=name,
         address=address,
         city=city,

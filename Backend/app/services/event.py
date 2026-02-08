@@ -96,7 +96,7 @@ async def list_events(
         conditions.append(Event.organizer_id == organizer_id)
     if conditions:
         q = q.where(and_(*conditions))
-    q = q.order_by(Event.start_time.asc())
+    q = q.options(selectinload(Event.venue)).order_by(Event.start_time.asc())
     result = await db.execute(q)
     return result.scalars().unique().all()
 
@@ -153,17 +153,22 @@ async def create(
     end_time: datetime,
     funding_goal_cents: int | None,
     funding_end_at: datetime | None,
+    min_pledge_cents: int,
     registration_type: RegistrationType,
     max_capacity: int,
+    common_discount_percent: int = 0,
+    pledge_discount_percent: int = 0,
     lat: float | None = None,
     lng: float | None = None,
+    allow_any_venue: bool = False,
 ) -> Event:
-    """Create event. Validates venue exists and copies lat/lng from venue if not set."""
-    # Ensure venue exists
+    """Create event. Venue must exist; organizer can only use their own venue (admin can use any)."""
     venue_result = await db.execute(select(Venue).where(Venue.id == venue_id))
     venue = venue_result.scalar_one_or_none()
     if not venue:
         raise NotFoundError("Venue", venue_id)
+    if not allow_any_venue and venue.organizer_id != organizer_id:
+        raise ForbiddenError("You can only create events at your own venues")
     if end_time <= start_time:
         raise ConflictError("end_time must be after start_time")
     use_lat = lat if lat is not None else venue.lat
@@ -179,8 +184,11 @@ async def create(
         lng=use_lng,
         funding_goal_cents=funding_goal_cents,
         funding_end_at=funding_end_at,
+        min_pledge_cents=min_pledge_cents,
         registration_type=registration_type,
         max_capacity=max_capacity,
+        common_discount_percent=common_discount_percent,
+        pledge_discount_percent=pledge_discount_percent,
         status=EventStatus.draft,
     )
     db.add(event)
@@ -199,10 +207,14 @@ async def update(
     end_time: datetime | None = None,
     funding_goal_cents: int | None = None,
     funding_end_at: datetime | None = None,
+    min_pledge_cents: int | None = None,
     registration_type: RegistrationType | None = None,
     max_capacity: int | None = None,
+    common_discount_percent: int | None = None,
+    pledge_discount_percent: int | None = None,
 ) -> Event:
-    """Update event fields (only provided ones)."""
+    """Update event fields (only provided ones). When switching closed→open, auto-approve waitlist up to capacity."""
+    old_registration_type = event.registration_type
     if title is not None:
         event.title = title
     if description is not None:
@@ -215,10 +227,70 @@ async def update(
         event.funding_goal_cents = funding_goal_cents
     if funding_end_at is not None:
         event.funding_end_at = funding_end_at
+    if min_pledge_cents is not None:
+        event.min_pledge_cents = min_pledge_cents
     if registration_type is not None:
         event.registration_type = registration_type
     if max_capacity is not None:
         event.max_capacity = max_capacity
+    if common_discount_percent is not None:
+        event.common_discount_percent = common_discount_percent
+    if pledge_discount_percent is not None:
+        event.pledge_discount_percent = pledge_discount_percent
+    if event.end_time <= event.start_time:
+        raise ConflictError("end_time must be after start_time")
+    await db.flush()
+    if registration_type is not None and old_registration_type == RegistrationType.closed and registration_type == RegistrationType.open:
+        from app.services import registration as registration_service
+        await registration_service.auto_approve_waitlist_when_switching_to_open(
+            db, event_id=event.id, event_max_capacity=event.max_capacity
+        )
+    await db.refresh(event)
+    return event
+
+
+async def cancel_event(db: AsyncSession, event: Event, user: User) -> Event:
+    """
+    Organizer cancels the event (anytime). Sets status to cancelled.
+    Not allowed if event is already cancelled or ended.
+    """
+    if not _event_can_edit(user, event):
+        raise ForbiddenError("You cannot cancel this event")
+    if event.status == EventStatus.cancelled:
+        raise ConflictError("Event is already cancelled")
+    if event.status == EventStatus.ended:
+        raise ConflictError("Cannot cancel an ended event")
+    event.status = EventStatus.cancelled
+    await db.flush()
+    await db.refresh(event)
+    return event
+
+
+async def extend_funding_and_set_event_date(
+    db: AsyncSession,
+    event: Event,
+    user: User,
+    *,
+    new_funding_end_at: datetime | None = None,
+    new_start_time: datetime | None = None,
+    new_end_time: datetime | None = None,
+) -> Event:
+    """
+    After funding deadline, organizer can extend the funding period and/or set event date.
+    Gives customers new time to unregister or commit. Any of the three can be provided.
+    """
+    if not _event_can_edit(user, event):
+        raise ForbiddenError("You cannot update this event")
+    if event.status == EventStatus.cancelled:
+        raise ConflictError("Cannot extend a cancelled event")
+    if event.status == EventStatus.ended:
+        raise ConflictError("Cannot extend an ended event")
+    if new_funding_end_at is not None:
+        event.funding_end_at = new_funding_end_at
+    if new_start_time is not None:
+        event.start_time = new_start_time
+    if new_end_time is not None:
+        event.end_time = new_end_time
     if event.end_time <= event.start_time:
         raise ConflictError("end_time must be after start_time")
     await db.flush()

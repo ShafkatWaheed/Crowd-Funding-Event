@@ -9,21 +9,25 @@ This document explains how requests move through the Crowd-Funded Event API: rou
 ```
 HTTP Request
     ↓
-main.py  (FastAPI app)
+main.py  (FastAPI app, lifespan context manager)
+    ↓  LogRequestsMiddleware  (pure ASGI — logs method, path, status, duration)
     ↓  CORS middleware
     ↓  Router mounted at /api/v1
 api_router  (router.py)
-    ↓  Prefixes: /auth, /me, /events, /venues, /admin
+    ↓  Prefixes: /auth, /me, /events (map_ first, then events), /venues, /admin
 Route handler  (e.g. auth.py, events.py, admin.py)
 ```
 
 - Every request hits **`main.py`**.
-- **CORS** runs first.
+- **`LogRequestsMiddleware`** runs first — a pure ASGI middleware that wraps `send` to capture the status code and logs `METHOD /path STATUS duration_ms`. It does **not** use `BaseHTTPMiddleware` (which causes event-loop conflicts with asyncpg).
+- **CORS** runs next.
 - **`api_router`** is mounted at **`/api/v1`**, so all API URLs look like:  
   `/api/v1/auth/...`, `/api/v1/me`, `/api/v1/events/...`, `/api/v1/admin/...`.
+- **Router order matters:** `map_.router` is registered before `events.router` (both under `/events`) so `/events/map` matches the literal route before `/{event_id}` tries to parse "map" as an integer.
 - The right **route handler** is chosen by method and path (e.g. `POST /api/v1/auth/verify`, `POST /api/v1/events/5/submit`).
+- **Lifespan:** Startup/shutdown logic uses FastAPI's `lifespan` async context manager (not the deprecated `@app.on_event` decorator).
 
-So: **Request → main.py → CORS → router → route handler.**
+So: **Request → main.py → LogRequestsMiddleware → CORS → router → route handler.**
 
 ---
 
@@ -132,7 +136,7 @@ The backend returns **403** if a user calls an endpoint their role is not allowe
   - **Pledge-based discount:** percentage of the user’s total pledges to that event, applied as ticket discount.
   - **Selective discount:** organizer sets a per-user discount (percent or fixed cents) via `POST /events/{id}/discounts`.
 - If total discount is greater than or equal to the tier price, the organizer can set **extra perks** on the ticket (or leave blank). Price paid is never negative (capped at 0).
-- Customer: `GET /events/{id}/ticket-price?tier_id=` to preview price; `POST /events/{id}/purchase-ticket` to buy. Customer can list their tickets at `GET /me/tickets`.
+- Customer: `GET /events/{id}/ticket-price?ticket_tier_id=` to preview price; `POST /events/{id}/purchase-ticket` to buy. Customer can list their tickets at `GET /me/tickets`. Organizers can list all sales at `GET /events/{id}/ticket-sales` or only scanned tickets at `GET /events/{id}/scanned-tickets`.
 
 ---
 
@@ -206,16 +210,17 @@ So: **Bearer → Firebase → User from DB → role check → service enforces r
 
 | Layer        | Role |
 |-------------|------|
-| **main.py** | App, CORS, mount router, `/health`. |
-| **api/v1/router.py** | Splits by prefix: auth, me, events, venues, admin. |
+| **main.py** | App, lifespan, `LogRequestsMiddleware` (pure ASGI), CORS, mount router, `/health`. |
+| **config.py** | `Settings` via Pydantic V2 `SettingsConfigDict` (loads `.env`). |
+| **api/v1/router.py** | Splits by prefix: auth, me, events (map_ first), venues, admin. |
 | **api/v1/*.py** | Route handlers: parse path/body, call services, return schemas. |
 | **dependencies.py** | `DbSession`, `CurrentUser`, `require_role`. |
 | **core/security.py** | Bearer + Firebase verify → `firebase_uid`; load user → `CurrentUser`. |
 | **core/firebase.py** | Firebase init and `verify_id_token(token)`. |
-| **services/*.py** | Business logic and DB access; raise app exceptions. |
+| **services/*.py** | Business logic and DB access; raise app exceptions. Includes `funding.get_pledged_totals_for_events` (batch query for funding progress). |
 | **db/base.py** | Engine, session factory, `get_db_session()`, `init_db()`. |
-| **models/*.py** | SQLAlchemy tables (User, Event, Venue, Funding, Registration, TicketTier, TicketSale, UserEventDiscount). |
-| **schemas/*.py** | Pydantic request/response (e.g. EventResponse, TicketTierResponse, TicketSaleResponse, UserDiscountBody). |
+| **models/*.py** | SQLAlchemy 2.0 tables (User, Event, Venue, Funding, Registration, TicketTier, TicketSale, UserEventDiscount). |
+| **schemas/*.py** | Pydantic V2 request/response (e.g. EventResponse with `total_pledged_cents`/`funding_days_left`, TicketTierResponse, TicketSaleResponse). |
 
 ---
 

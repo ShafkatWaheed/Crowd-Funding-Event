@@ -11,6 +11,13 @@ async def test_health(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
+async def test_health_v1(client: AsyncClient) -> None:
+    r = await client.get("/api/v1/health")
+    assert r.status_code == 200
+    assert r.json() == {"status": "ok"}
+
+
+@pytest.mark.asyncio
 async def test_openapi_json(client: AsyncClient) -> None:
     r = await client.get("/api/v1/openapi.json")
     assert r.status_code == 200

@@ -187,6 +187,23 @@ async def list_event_ticket_sales(db: AsyncSession, *, event_id: int) -> Sequenc
     return list(res.scalars().unique().all())
 
 
+async def list_event_scanned_ticket_sales(db: AsyncSession, *, event_id: int) -> Sequence[TicketSale]:
+    """List only scanned ticket sales for an event (organizer/admin). Same shape as list_event_ticket_sales."""
+    await event_service.get_or_404(db, event_id)
+    q = (
+        select(TicketSale)
+        .where(TicketSale.event_id == event_id, TicketSale.scanned_at.isnot(None))
+        .options(
+            selectinload(TicketSale.user),
+            selectinload(TicketSale.ticket_tier),
+            selectinload(TicketSale.scanned_by),
+        )
+        .order_by(TicketSale.scanned_at.desc(), TicketSale.created_at.desc())
+    )
+    res = await db.execute(q)
+    return list(res.scalars().unique().all())
+
+
 async def scan_ticket(
     db: AsyncSession,
     *,

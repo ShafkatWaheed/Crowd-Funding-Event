@@ -65,7 +65,7 @@ class Event(Base):
     venue = relationship("Venue", back_populates="events")
     fundings = relationship("Funding", back_populates="event")
     registrations = relationship("Registration", back_populates="event")
-    ticket_tiers = relationship("TicketTier", back_populates="event", order_by=["TicketTier.display_order", "TicketTier.id"])
+    ticket_tiers = relationship("TicketTier", back_populates="event")
     user_event_discounts = relationship("UserEventDiscount", back_populates="event")
     ticket_sales = relationship("TicketSale", back_populates="event")
     event_organizers = relationship("EventOrganizer", back_populates="event", cascade="all, delete-orphan")

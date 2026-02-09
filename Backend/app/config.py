@@ -4,10 +4,12 @@ Application configuration from environment variables.
 from typing import List
 
 from pydantic import computed_field, Field
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
+
     PROJECT_NAME: str = "Crowd-Funded Event API"
     API_V1_STR: str = "/api/v1"
 
@@ -28,10 +30,6 @@ class Settings(BaseSettings):
         raw = self.cors_origins_raw or "*"
         parts = [x.strip() for x in raw.split(",") if x.strip()]
         return parts if parts else ["*"]
-
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
 
 
 settings = Settings()

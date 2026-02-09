@@ -555,15 +555,15 @@ async def decide_registration(
 
 
 # ----- Ticket tiers (organizer) -----
-@router.get("/{event_id}/tiers", response_model=list[TicketTierResponse])
-async def list_tiers(event_id: int, db: DbSession):
+@router.get("/{event_id}/ticket-tiers", response_model=list[TicketTierResponse])
+async def list_ticket_tiers(event_id: int, db: DbSession):
     """List ticket tiers for an event (public)."""
     tiers = await ticket_service.list_tiers(db, event_id=event_id)
     return [TicketTierResponse.model_validate(t) for t in tiers]
 
 
-@router.post("/{event_id}/tiers", response_model=TicketTierResponse)
-async def create_tier(
+@router.post("/{event_id}/ticket-tiers", response_model=TicketTierResponse)
+async def create_ticket_tier(
     event_id: int,
     body: TicketTierCreate,
     db: DbSession,
@@ -577,8 +577,8 @@ async def create_tier(
     return TicketTierResponse.model_validate(tier)
 
 
-@router.patch("/{event_id}/tiers/{tier_id}", response_model=TicketTierResponse)
-async def update_tier(
+@router.patch("/{event_id}/ticket-tiers/{tier_id}", response_model=TicketTierResponse)
+async def update_ticket_tier(
     event_id: int,
     tier_id: int,
     body: TicketTierUpdate,
@@ -594,8 +594,8 @@ async def update_tier(
     return TicketTierResponse.model_validate(tier)
 
 
-@router.delete("/{event_id}/tiers/{tier_id}")
-async def delete_tier(
+@router.delete("/{event_id}/ticket-tiers/{tier_id}")
+async def delete_ticket_tier(
     event_id: int,
     tier_id: int,
     db: DbSession,
@@ -613,11 +613,11 @@ async def get_ticket_price(
     event_id: int,
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.customer)),
-    tier_id: int = Query(..., description="Ticket tier id"),
+    ticket_tier_id: int = Query(..., description="Ticket tier id", alias="ticket_tier_id"),
 ):
     """Preview ticket price for current user (with discounts). Customer only."""
     info = await ticket_service.compute_ticket_price(
-        db, event_id=event_id, user_id=current_user.id, tier_id=tier_id
+        db, event_id=event_id, user_id=current_user.id, tier_id=ticket_tier_id
     )
     return TicketPricePreviewResponse(**info)
 
@@ -692,6 +692,20 @@ async def list_event_ticket_sales(
     if not await event_service.user_can_edit_event(db, event, current_user):
         raise ForbiddenError("You cannot view ticket sales for this event")
     sales = await ticket_service.list_event_ticket_sales(db, event_id=event_id)
+    return [_ticket_sale_to_response(s) for s in sales]
+
+
+@router.get("/{event_id}/scanned-tickets", response_model=list[TicketSaleResponse])
+async def list_event_scanned_tickets(
+    event_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+):
+    """List only scanned tickets for event (organizer/admin). Same response shape as ticket-sales."""
+    event = await event_service.get_or_404(db, event_id)
+    if not await event_service.user_can_edit_event(db, event, current_user):
+        raise ForbiddenError("You cannot view scanned tickets for this event")
+    sales = await ticket_service.list_event_scanned_ticket_sales(db, event_id=event_id)
     return [_ticket_sale_to_response(s) for s in sales]
 
 

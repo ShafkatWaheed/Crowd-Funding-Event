@@ -32,5 +32,5 @@ class User(Base):
     fundings = relationship("Funding", back_populates="user")
     registrations = relationship("Registration", back_populates="user")
     user_event_discounts = relationship("UserEventDiscount", back_populates="user")
-    ticket_sales = relationship("TicketSale", back_populates="user")
+    ticket_sales = relationship("TicketSale", back_populates="user", foreign_keys="TicketSale.user_id")
     event_organizers = relationship("EventOrganizer", back_populates="user")

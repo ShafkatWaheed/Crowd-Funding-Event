@@ -1,14 +1,18 @@
 """
 Application configuration from environment variables.
 """
+from pathlib import Path
 from typing import List
 
 from pydantic import computed_field, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Resolve .env relative to this file (Backend/.env), not the working directory
+_ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
+
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
+    model_config = SettingsConfigDict(env_file=str(_ENV_FILE), case_sensitive=True)
 
     PROJECT_NAME: str = "Crowd-Funded Event API"
     API_V1_STR: str = "/api/v1"

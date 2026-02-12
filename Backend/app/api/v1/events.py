@@ -6,13 +6,18 @@ from datetime import date, datetime, timezone
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
 
-from app.dependencies import DbSession, require_role
-from app.models.event import Event, RegistrationType
+from app.dependencies import CurrentUserOptional, DbSession, require_role
+from app.models.event import Event, EventStatus, RegistrationType
 from app.models.user import User, UserRole
 from app.schemas import (
     AddEventOrganizerBody,
+    CancelBody,
+    EVENT_GENRES,
     EventCreate,
+    EventImageResponse,
     EventOrganizerItem,
+    EventPostCreate,
+    EventPostResponse,
     EventResponse,
     EventUpdate,
     EventVenueInfo,
@@ -30,12 +35,14 @@ from app.schemas import (
     TicketTierCreate,
     TicketTierResponse,
     TicketTierUpdate,
+    UnpledgeResponse,
     UnregisterResponse,
     UserDiscountBody,
 )
 from app.core.exceptions import ForbiddenError, NotFoundError
 from app.services import event as event_service
 from app.services import funding as funding_service
+from app.services import post as post_service
 from app.services import registration as registration_service
 from app.services import ticket as ticket_service
 
@@ -56,6 +63,7 @@ def _event_to_response(
     *,
     total_pledged_cents: int | None = None,
     funding_days_left: int | None = None,
+    include_dislike: bool = False,
 ) -> EventResponse:
     """Build response; e.venue must be loaded so everyone can see venue info when viewing an event."""
     venue_info = EventVenueInfo.model_validate(e.venue) if e.venue else None
@@ -80,6 +88,12 @@ def _event_to_response(
         min_pledge_cents=e.min_pledge_cents,
         common_discount_percent=e.common_discount_percent,
         pledge_discount_percent=e.pledge_discount_percent,
+        cancellation_reason=e.cancellation_reason,
+        registration_count=e.registration_count,
+        genre=e.genre,
+        posts_enabled=e.posts_enabled,
+        like_count=e.like_count,
+        dislike_count=e.dislike_count if include_dislike else 0,
         lat=e.lat,
         lng=e.lng,
         created_at=e.created_at,
@@ -125,6 +139,8 @@ async def list_events(
     has_tickets: bool | None = Query(None, description="True = has ticket tiers; False = no tiers"),
     min_capacity: int | None = Query(None, description="Event max_capacity >= this"),
     max_capacity: int | None = Query(None, description="Event max_capacity <= this"),
+    genre: str | None = Query(None, description="Filter by genre"),
+    include_all_statuses: bool = Query(False, description="True = show draft/pending/cancelled (for organizer/admin)"),
 ):
     """List events with optional search and filters."""
     date_from_dt = _parse_date_or_datetime(date_from, end_of_day=False)
@@ -143,6 +159,8 @@ async def list_events(
         has_tickets=has_tickets,
         min_capacity=min_capacity,
         max_capacity=max_capacity,
+        genre=genre,
+        include_all_statuses=include_all_statuses,
     )
     event_ids = [e.id for e in events]
     pledged = await funding_service.get_pledged_totals_for_events(db, event_ids=event_ids)
@@ -163,6 +181,43 @@ async def list_events(
             )
         )
     return out
+
+
+@router.get("/genres", response_model=list[str])
+async def list_genres():
+    """Return the list of available event genres."""
+    return EVENT_GENRES
+
+
+@router.get("/featured")
+async def get_featured_events(db: DbSession):
+    """Returns trending, popular, and coming-soon event lists for the discover page."""
+    trending = await event_service.get_trending_events(db, limit=10)
+    popular = await event_service.get_popular_events(db, limit=10)
+    coming_soon = await event_service.get_coming_soon_events(db, limit=10)
+
+    trending_ids = [e.id for e in trending]
+    popular_ids = [e.id for e in popular]
+    coming_soon_ids = [e.id for e in coming_soon]
+    all_ids = list(set(trending_ids + popular_ids + coming_soon_ids))
+    pledged = await funding_service.get_pledged_totals_for_events(db, event_ids=all_ids)
+
+    now = datetime.now(timezone.utc)
+
+    def _to_resp(e: Event) -> EventResponse:
+        total_cents = pledged.get(e.id, 0)
+        days_left = None
+        if e.funding_end_at is not None:
+            end = e.funding_end_at if e.funding_end_at.tzinfo else e.funding_end_at.replace(tzinfo=timezone.utc)
+            delta = (end - now).days
+            days_left = max(0, delta) if delta > 0 else 0
+        return _event_to_response(e, total_pledged_cents=total_cents, funding_days_left=days_left)
+
+    return {
+        "trending": [_to_resp(e) for e in trending],
+        "popular": [_to_resp(e) for e in popular],
+        "coming_soon": [_to_resp(e) for e in coming_soon],
+    }
 
 
 @router.post("", response_model=EventResponse)
@@ -195,13 +250,16 @@ async def create_event(
         common_discount_percent=body.common_discount_percent,
         pledge_discount_percent=body.pledge_discount_percent,
         allow_any_venue=(current_user.role == UserRole.admin),
+        publish=body.publish,
+        genre=body.genre,
+        posts_enabled=body.posts_enabled,
     )
     event = await event_service.get_by_id(db, event.id, load_venue=True)
     return _event_to_response(event)
 
 
 @router.get("/{event_id}", response_model=EventResponse)
-async def get_event(event_id: int, db: DbSession):
+async def get_event(event_id: int, db: DbSession, current_user: CurrentUserOptional = None):
     """Event detail (public). Includes venue so everyone can see where the event is."""
     event = await event_service.get_by_id(db, event_id, load_venue=True)
     if not event:
@@ -213,10 +271,12 @@ async def get_event(event_id: int, db: DbSession):
         end = event.funding_end_at if event.funding_end_at.tzinfo else event.funding_end_at.replace(tzinfo=timezone.utc)
         delta = (end - now).days
         days_left = max(0, delta) if delta > 0 else 0
+    is_admin = current_user is not None and current_user.role == UserRole.admin
     return _event_to_response(
         event,
         total_pledged_cents=summary["total_pledged_cents"],
         funding_days_left=days_left,
+        include_dislike=is_admin,
     )
 
 
@@ -278,10 +338,21 @@ async def update_event(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
-    """Update event (main organizer, co-organizer, or admin)."""
+    """
+    Update event (main organizer, co-organizer, or admin).
+    - Draft events: edit freely, stays draft.
+    - Approved/live events: edit moves status to pending_approval (needs admin re-approval).
+    - Admin edits always apply without status change.
+    """
     event = await event_service.get_or_404(db, event_id)
     if not await event_service.user_can_edit_event(db, event, current_user):
         raise ForbiddenError("You cannot update this event")
+
+    needs_approval = (
+        event.status in (EventStatus.approved, EventStatus.live)
+        and current_user.role != UserRole.admin
+    )
+
     start_time = _parse_iso_datetime(body.start_time) if body.start_time else None
     end_time = _parse_iso_datetime(body.end_time) if body.end_time else None
     funding_end_at = _parse_iso_datetime(body.funding_end_at) if body.funding_end_at is not None else None
@@ -300,7 +371,14 @@ async def update_event(
         max_capacity=body.max_capacity,
         common_discount_percent=body.common_discount_percent,
         pledge_discount_percent=body.pledge_discount_percent,
+        genre=body.genre,
+        posts_enabled=body.posts_enabled,
     )
+
+    if needs_approval:
+        updated.status = EventStatus.pending_approval
+        await db.flush()
+
     updated = await event_service.get_by_id(db, updated.id, load_venue=True)
     return _event_to_response(updated)
 
@@ -308,14 +386,15 @@ async def update_event(
 @router.post("/{event_id}/cancel", response_model=EventResponse)
 async def cancel_event(
     event_id: int,
+    body: CancelBody,
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
-    """Organizer (main or co-) cancels the event anytime (except already cancelled or ended)."""
+    """Organizer (main or co-) cancels the event. A reason is required."""
     event = await event_service.get_or_404(db, event_id)
     if not await event_service.user_can_edit_event(db, event, current_user):
         raise ForbiddenError("You cannot cancel this event")
-    event = await event_service.cancel_event(db, event, current_user)
+    event = await event_service.cancel_event(db, event, current_user, reason=body.reason)
     event = await event_service.get_by_id(db, event.id, load_venue=True)
     return _event_to_response(event)
 
@@ -422,14 +501,29 @@ async def remove_event_organizer(
     return {"ok": True}
 
 
-@router.post("/{event_id}/submit", response_model=EventResponse)
-async def submit_event_for_approval(
+@router.post("/{event_id}/reactivate", response_model=EventResponse)
+async def reactivate_event(
     event_id: int,
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
-    """Submit draft event for admin approval (draft → pending_approval). Organizer or admin only."""
-    event = await event_service.submit_for_approval(db, event_id=event_id, user=current_user)
+    """Move a cancelled event back to draft so it can be edited and republished."""
+    event = await event_service.get_or_404(db, event_id)
+    if not await event_service.user_can_edit_event(db, event, current_user):
+        raise ForbiddenError("You cannot reactivate this event")
+    event = await event_service.reactivate_event(db, event, current_user)
+    event = await event_service.get_by_id(db, event.id, load_venue=True)
+    return _event_to_response(event)
+
+
+@router.post("/{event_id}/publish", response_model=EventResponse)
+async def publish_event(
+    event_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+):
+    """Publish a draft event (draft → approved). No admin approval needed."""
+    event = await event_service.publish_event(db, event_id=event_id, user=current_user)
     event = await event_service.get_by_id(db, event.id, load_venue=True)
     return _event_to_response(event)
 
@@ -454,8 +548,24 @@ async def pledge_event(
         user_id=pledge.user_id,
         amount_cents=pledge.amount_cents,
         status=pledge.status.value,
+        is_guest=pledge.is_guest,
         created_at=pledge.created_at,
     )
+
+
+@router.post("/{event_id}/unpledge", response_model=UnpledgeResponse)
+async def unpledge_event(
+    event_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.customer)),
+):
+    """Unpledge from event (customer). Guest pledges are non-refundable."""
+    result = await funding_service.unpledge(
+        db,
+        event_id=event_id,
+        user=current_user,
+    )
+    return UnpledgeResponse(**result)
 
 
 @router.get("/{event_id}/funding")
@@ -480,6 +590,26 @@ async def register_event(
         status=reg.status.value,
         created_at=reg.created_at,
     )
+
+
+@router.get("/{event_id}/my-registration")
+async def get_my_registration(
+    event_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.customer, UserRole.organizer, UserRole.admin)),
+):
+    """Check if the current user is registered for this event. Returns status or null."""
+    from sqlalchemy import select
+    from app.models.registration import Registration
+    q = select(Registration).where(
+        Registration.event_id == event_id,
+        Registration.user_id == current_user.id,
+    )
+    result = await db.execute(q)
+    reg = result.scalar_one_or_none()
+    if reg:
+        return {"registered": True, "status": reg.status.value}
+    return {"registered": False, "status": None}
 
 
 @router.post("/{event_id}/unregister", response_model=UnregisterResponse)
@@ -736,3 +866,223 @@ async def remove_user_discount(
         db, event_id=event_id, target_user_id=user_id, current_user=current_user,
     )
     return {"ok": True}
+
+
+# ═══════════════════════════════════════════════════════
+# Event Posts (Feed / Wall)
+# ═══════════════════════════════════════════════════════
+
+@router.get("/{event_id}/posts", response_model=list[EventPostResponse])
+async def list_event_posts(event_id: int, db: DbSession):
+    """List posts on an event (public)."""
+    posts = await post_service.list_posts(db, event_id=event_id)
+    return [
+        EventPostResponse(
+            id=p.id,
+            event_id=p.event_id,
+            user_id=p.user_id,
+            author_name=p.user.display_name if p.user else None,
+            content=p.content,
+            created_at=p.created_at,
+        )
+        for p in posts
+    ]
+
+
+@router.post("/{event_id}/posts", response_model=EventPostResponse)
+async def create_event_post(
+    event_id: int,
+    body: EventPostCreate,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.customer, UserRole.organizer, UserRole.admin)),
+):
+    """Create a post on an event. Customers must be registered; organizers/admins can always post."""
+    post = await post_service.create_post(
+        db, event_id=event_id, user=current_user, content=body.content,
+    )
+    return EventPostResponse(
+        id=post.id,
+        event_id=post.event_id,
+        user_id=post.user_id,
+        author_name=post.user.display_name if post.user else None,
+        content=post.content,
+        created_at=post.created_at,
+    )
+
+
+@router.delete("/{event_id}/posts/{post_id}")
+async def delete_event_post(
+    event_id: int,
+    post_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.customer, UserRole.organizer, UserRole.admin)),
+):
+    """Delete a post. Author, organizer, or admin can delete."""
+    await post_service.delete_post(
+        db, event_id=event_id, post_id=post_id, user=current_user,
+    )
+    return {"ok": True}
+
+
+@router.post("/{event_id}/toggle-posts")
+async def toggle_event_posts(
+    event_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+):
+    """Organizer toggles posts on/off for the event."""
+    event = await event_service.get_or_404(db, event_id)
+    new_val = not event.posts_enabled
+    await post_service.toggle_posts(db, event_id=event_id, user=current_user, enabled=new_val)
+    return {"posts_enabled": new_val}
+
+
+# ═══════════════════════════════════════════════════════
+# Event Images
+# ═══════════════════════════════════════════════════════
+
+@router.get("/{event_id}/images", response_model=list[EventImageResponse])
+async def list_event_images(event_id: int, db: DbSession):
+    """List images for an event (public)."""
+    from app.models.image import EventImage
+    from sqlalchemy import select
+    q = (
+        select(EventImage)
+        .where(EventImage.event_id == event_id)
+        .order_by(EventImage.display_order.asc(), EventImage.created_at.asc())
+    )
+    result = await db.execute(q)
+    return [EventImageResponse.model_validate(img) for img in result.scalars().all()]
+
+
+@router.post("/{event_id}/images", response_model=EventImageResponse)
+async def add_event_image(
+    event_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+    image_url: str = Query(..., description="URL of the image"),
+    caption: str | None = Query(None),
+    display_order: int = Query(0),
+):
+    """Add an image to event by URL (organizer/admin)."""
+    event = await event_service.get_or_404(db, event_id)
+    if not await event_service.user_can_edit_event(db, event, current_user):
+        raise ForbiddenError("You cannot manage this event")
+    from app.models.image import EventImage
+    img = EventImage(
+        event_id=event_id,
+        image_url=image_url,
+        caption=caption,
+        display_order=display_order,
+    )
+    db.add(img)
+    await db.flush()
+    await db.refresh(img)
+    return EventImageResponse.model_validate(img)
+
+
+@router.delete("/{event_id}/images/{image_id}")
+async def delete_event_image(
+    event_id: int,
+    image_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+):
+    """Delete an image from event (organizer/admin)."""
+    event = await event_service.get_or_404(db, event_id)
+    if not await event_service.user_can_edit_event(db, event, current_user):
+        raise ForbiddenError("You cannot manage this event")
+    from app.models.image import EventImage
+    from sqlalchemy import select
+    q = select(EventImage).where(EventImage.id == image_id, EventImage.event_id == event_id)
+    result = await db.execute(q)
+    img = result.scalar_one_or_none()
+    if not img:
+        raise NotFoundError("Image", image_id)
+    await db.delete(img)
+    await db.flush()
+    return {"ok": True}
+
+
+# ═══════════════════════════════════════════════════════
+# Like / Dislike
+# ═══════════════════════════════════════════════════════
+
+@router.post("/{event_id}/react")
+async def react_to_event(
+    event_id: int,
+    db: DbSession,
+    reaction: str = Query(..., description="'like' or 'dislike'"),
+    current_user: User = Depends(require_role(UserRole.customer, UserRole.organizer, UserRole.admin)),
+):
+    """Like or dislike an event. Toggles: same reaction again removes it; different reaction switches it."""
+    if reaction not in ("like", "dislike"):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="reaction must be 'like' or 'dislike'")
+
+    from sqlalchemy import select
+    from app.models.event import EventReaction
+
+    event = await event_service.get_or_404(db, event_id)
+
+    q = select(EventReaction).where(
+        EventReaction.event_id == event_id,
+        EventReaction.user_id == current_user.id,
+    )
+    existing = (await db.execute(q)).scalar_one_or_none()
+
+    if existing:
+        if existing.reaction == reaction:
+            # Toggle off
+            if reaction == "like":
+                event.like_count = max(0, event.like_count - 1)
+            else:
+                event.dislike_count = max(0, event.dislike_count - 1)
+            await db.delete(existing)
+            await db.flush()
+            return {"action": "removed", "reaction": reaction, "like_count": event.like_count}
+        else:
+            # Switch reaction
+            if existing.reaction == "like":
+                event.like_count = max(0, event.like_count - 1)
+            else:
+                event.dislike_count = max(0, event.dislike_count - 1)
+            existing.reaction = reaction
+            if reaction == "like":
+                event.like_count += 1
+            else:
+                event.dislike_count += 1
+            await db.flush()
+            return {"action": "switched", "reaction": reaction, "like_count": event.like_count}
+    else:
+        new_reaction = EventReaction(
+            event_id=event_id,
+            user_id=current_user.id,
+            reaction=reaction,
+        )
+        db.add(new_reaction)
+        if reaction == "like":
+            event.like_count += 1
+        else:
+            event.dislike_count += 1
+        await db.flush()
+        return {"action": "added", "reaction": reaction, "like_count": event.like_count}
+
+
+@router.get("/{event_id}/my-reaction")
+async def get_my_reaction(
+    event_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.customer, UserRole.organizer, UserRole.admin)),
+):
+    """Check the current user's reaction on an event."""
+    from sqlalchemy import select
+    from app.models.event import EventReaction
+    q = select(EventReaction).where(
+        EventReaction.event_id == event_id,
+        EventReaction.user_id == current_user.id,
+    )
+    existing = (await db.execute(q)).scalar_one_or_none()
+    return {"reaction": existing.reaction if existing else None}
+
+

@@ -16,6 +16,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   bool _obscurePassword = true;
@@ -26,6 +27,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
+    _phoneController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -38,8 +40,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
           email: _emailController.text.trim(),
           password: _passwordController.text,
           role: _selectedRole,
-          displayName: _nameController.text.trim().isNotEmpty
-              ? _nameController.text.trim()
+          displayName: _nameController.text.trim(),
+          phone: _phoneController.text.trim().isNotEmpty
+              ? _phoneController.text.trim()
               : null,
         );
   }
@@ -122,9 +125,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       TextFormField(
                         controller: _nameController,
                         decoration: const InputDecoration(
-                          labelText: 'Display Name (optional)',
+                          labelText: 'Display Name',
                           prefixIcon: Icon(Icons.person_outline),
                         ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Please enter your name';
+                          }
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
@@ -143,6 +152,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           }
                           return null;
                         },
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _phoneController,
+                        keyboardType: TextInputType.phone,
+                        decoration: const InputDecoration(
+                          labelText: 'Phone (optional)',
+                          prefixIcon: Icon(Icons.phone_outlined),
+                          hintText: '+1 234 567 8900',
+                        ),
                       ),
                       const SizedBox(height: 16),
                       TextFormField(

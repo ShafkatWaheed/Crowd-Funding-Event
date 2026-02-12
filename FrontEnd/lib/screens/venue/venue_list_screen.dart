@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -25,13 +26,30 @@ class _VenueListScreenState extends State<VenueListScreen> {
 
   Future<void> _loadVenues() async {
     setState(() => _isLoading = true);
+    print('[VenueList] _loadVenues called');
     try {
       final api = context.read<ApiService>();
+      print('[VenueList] calling api.getVenues()...');
       final data = await api.getVenues();
+      print('[VenueList] raw response (${data.length} items): $data');
+      final parsed = <Venue>[];
+      for (final v in data) {
+        print('[VenueList] parsing: $v');
+        parsed.add(Venue.fromJson(v));
+      }
+      print('[VenueList] parsed ${parsed.length} venues OK');
       setState(() {
-        _venues = data.map((v) => Venue.fromJson(v)).toList();
+        _venues = parsed;
       });
-    } catch (_) {}
+    } catch (e, st) {
+      print('[VenueList] ERROR: $e');
+      print('[VenueList] STACK: $st');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load venues: $e')),
+        );
+      }
+    }
     setState(() => _isLoading = false);
   }
 

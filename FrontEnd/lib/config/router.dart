@@ -6,6 +6,7 @@ import '../screens/auth/login_screen.dart';
 import '../screens/auth/register_screen.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/event/create_event_screen.dart';
+import '../screens/event/edit_event_screen.dart';
 import '../screens/event/event_detail_screen.dart';
 import '../screens/venue/venue_list_screen.dart';
 import '../screens/venue/create_venue_screen.dart';
@@ -76,6 +77,13 @@ GoRouter createRouter(AuthProvider authProvider) {
         builder: (context, state) {
           final id = int.parse(state.pathParameters['id']!);
           return EventDetailScreen(eventId: id);
+        },
+      ),
+      GoRoute(
+        path: '/events/:id/edit',
+        builder: (context, state) {
+          final id = int.parse(state.pathParameters['id']!);
+          return EditEventScreen(eventId: id);
         },
       ),
 

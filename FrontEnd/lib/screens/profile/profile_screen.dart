@@ -28,27 +28,38 @@ class ProfileScreen extends StatelessWidget {
                         radius: 48,
                         backgroundColor: AppTheme.primaryColor,
                         child: Text(
-                          (user.displayName ?? user.email)
-                              .substring(0, 1)
-                              .toUpperCase(),
+                          user.initial,
                           style: const TextStyle(
                               fontSize: 36, color: Colors.white),
                         ),
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        user.displayName ?? 'No Name',
+                        user.displayLabel,
                         style: Theme.of(context)
                             .textTheme
                             .headlineSmall
                             ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        user.email,
-                        style: TextStyle(
-                            fontSize: 16, color: Colors.grey[600]),
-                      ),
+                      if (user.phone != null &&
+                          user.phone!.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.phone_outlined,
+                                size: 16, color: Colors.grey[500]),
+                            const SizedBox(width: 6),
+                            Text(
+                              user.phone!,
+                              style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[500]),
+                            ),
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: 8),
                       Chip(
                         label: Text(user.role.name.toUpperCase()),

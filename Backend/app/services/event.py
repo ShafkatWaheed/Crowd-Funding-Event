@@ -4,11 +4,12 @@ Event CRUD, ownership checks, list filters (city, status, live, organizer, searc
 from datetime import datetime, timezone
 from typing import Sequence
 
-from sqlalchemy import select, and_, or_, exists
+from sqlalchemy import func, select, and_, or_, exists
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.event import Event, EventOrganizer, EventStatus, RegistrationType
+from app.models.registration import Registration, RegistrationStatus
 from app.models.venue import Venue
 from app.models.user import User
 from app.models.ticket import TicketTier
@@ -62,17 +63,17 @@ async def get_or_404(db: AsyncSession, event_id: int) -> Event:
     return event
 
 
-async def submit_for_approval(db: AsyncSession, event_id: int, user: User) -> Event:
+async def publish_event(db: AsyncSession, event_id: int, user: User) -> Event:
     """
-    Submit event for admin approval (draft → pending_approval).
-    Only the organizer (or admin) can submit; event must be in draft status.
+    Publish a draft event (draft → approved). No admin approval needed.
+    Only the organizer (or admin) can publish; event must be in draft status.
     """
     event = await get_or_404(db, event_id)
     if not await user_can_edit_event(db, event, user):
-        raise ForbiddenError("You cannot submit this event")
+        raise ForbiddenError("You cannot publish this event")
     if event.status != EventStatus.draft:
-        raise ConflictError("Only draft events can be submitted for approval")
-    event.status = EventStatus.pending_approval
+        raise ConflictError("Only draft events can be published")
+    event.status = EventStatus.approved
     await db.flush()
     await db.refresh(event)
     return event
@@ -93,8 +94,10 @@ async def list_events(
     has_tickets: bool | None = None,
     min_capacity: int | None = None,
     max_capacity: int | None = None,
+    genre: str | None = None,
+    include_all_statuses: bool = False,
 ) -> Sequence[Event]:
-    """List events with optional filters: full-text search, city, date range, has_funding, has_tickets, capacity."""
+    """List events with optional filters. include_all_statuses=True skips the default hidden-status filter (for organizer/admin)."""
     conditions = []
     q = select(Event)
     need_venue_join = city is not None
@@ -116,6 +119,11 @@ async def list_events(
         except ValueError:
             return []
         conditions.append(Event.status == status_enum)
+    elif not include_all_statuses and organizer_id is None:
+        # Default: hide draft/pending/cancelled from public listing (customers)
+        conditions.append(
+            Event.status.notin_([EventStatus.draft, EventStatus.pending_approval, EventStatus.cancelled])
+        )
     if live is True:
         now = datetime.now(timezone.utc)
         conditions.append(Event.start_time <= now)
@@ -148,6 +156,8 @@ async def list_events(
         conditions.append(Event.max_capacity >= min_capacity)
     if max_capacity is not None:
         conditions.append(Event.max_capacity <= max_capacity)
+    if genre is not None:
+        conditions.append(Event.genre == genre)
     if conditions:
         q = q.where(and_(*conditions))
     q = q.options(selectinload(Event.venue)).order_by(Event.start_time.asc())
@@ -215,6 +225,9 @@ async def create(
     lat: float | None = None,
     lng: float | None = None,
     allow_any_venue: bool = False,
+    publish: bool = False,
+    genre: str | None = None,
+    posts_enabled: bool = True,
 ) -> Event:
     """Create event. Venue must exist; organizer can only use their own venue (admin can use any)."""
     venue_result = await db.execute(select(Venue).where(Venue.id == venue_id))
@@ -243,7 +256,9 @@ async def create(
         max_capacity=max_capacity,
         common_discount_percent=common_discount_percent,
         pledge_discount_percent=pledge_discount_percent,
-        status=EventStatus.draft,
+        genre=genre,
+        posts_enabled=posts_enabled,
+        status=EventStatus.approved if publish else EventStatus.draft,
     )
     db.add(event)
     await db.flush()
@@ -266,6 +281,8 @@ async def update(
     max_capacity: int | None = None,
     common_discount_percent: int | None = None,
     pledge_discount_percent: int | None = None,
+    genre: str | None = None,
+    posts_enabled: bool | None = None,
 ) -> Event:
     """Update event fields (only provided ones). When switching closed→open, auto-approve waitlist up to capacity."""
     old_registration_type = event.registration_type
@@ -291,6 +308,10 @@ async def update(
         event.common_discount_percent = common_discount_percent
     if pledge_discount_percent is not None:
         event.pledge_discount_percent = pledge_discount_percent
+    if genre is not None:
+        event.genre = genre
+    if posts_enabled is not None:
+        event.posts_enabled = posts_enabled
     if event.end_time <= event.start_time:
         raise ConflictError("end_time must be after start_time")
     await db.flush()
@@ -303,7 +324,7 @@ async def update(
     return event
 
 
-async def cancel_event(db: AsyncSession, event: Event, user: User) -> Event:
+async def cancel_event(db: AsyncSession, event: Event, user: User, *, reason: str | None = None) -> Event:
     """
     Organizer cancels the event (anytime). Sets status to cancelled and refunds all pledges.
     Not allowed if event is already cancelled or ended.
@@ -315,8 +336,24 @@ async def cancel_event(db: AsyncSession, event: Event, user: User) -> Event:
     if event.status == EventStatus.ended:
         raise ConflictError("Cannot cancel an ended event")
     event.status = EventStatus.cancelled
+    event.cancellation_reason = reason
     from app.services import funding as funding_service
     await funding_service.refund_all_pledges_for_event(db, event_id=event.id)
+    await db.flush()
+    await db.refresh(event)
+    return event
+
+
+async def reactivate_event(db: AsyncSession, event: Event, user: User) -> Event:
+    """
+    Move a cancelled event back to draft so the organizer can edit and republish it.
+    Only allowed when status is cancelled.
+    """
+    if not await user_can_edit_event(db, event, user):
+        raise ForbiddenError("You cannot reactivate this event")
+    if event.status != EventStatus.cancelled:
+        raise ConflictError("Only cancelled events can be moved back to draft")
+    event.status = EventStatus.draft
     await db.flush()
     await db.refresh(event)
     return event
@@ -356,18 +393,81 @@ async def extend_funding_and_set_event_date(
 
 async def delete_or_cancel(db: AsyncSession, event: Event, user: User) -> None:
     """
-    Delete event (hard) if draft or pending_approval; otherwise set status to cancelled (soft).
+    Delete event (hard) if draft, pending_approval, or cancelled; otherwise set status to cancelled (soft).
     Raises ForbiddenError if user cannot edit.
     """
     if not await user_can_edit_event(db, event, user):
         raise ForbiddenError("You cannot delete this event")
-    if event.status in (EventStatus.draft, EventStatus.pending_approval):
+    if event.status in (EventStatus.draft, EventStatus.pending_approval, EventStatus.cancelled):
         await db.delete(event)
+        await db.flush()
     else:
         event.status = EventStatus.cancelled
         from app.services import funding as funding_service
         await funding_service.refund_all_pledges_for_event(db, event_id=event.id)
         await db.flush()
+
+
+async def get_my_registered_events(db: AsyncSession, *, user_id: int) -> Sequence[Event]:
+    """Events the user is registered to (any status, including cancelled). Useful for 'My Events'."""
+    q = (
+        select(Event)
+        .join(Registration, Registration.event_id == Event.id)
+        .where(
+            Registration.user_id == user_id,
+            Registration.status == RegistrationStatus.registered,
+        )
+        .options(selectinload(Event.venue))
+        .order_by(Event.start_time.desc())
+    )
+    result = await db.execute(q)
+    return result.scalars().unique().all()
+
+
+async def get_trending_events(db: AsyncSession, *, limit: int = 10) -> Sequence[Event]:
+    """Events ordered by registration_count DESC. Only approved/live events."""
+    q = (
+        select(Event)
+        .where(Event.status.in_([EventStatus.approved, EventStatus.live]))
+        .options(selectinload(Event.venue))
+        .order_by(Event.registration_count.desc(), Event.created_at.desc())
+        .limit(limit)
+    )
+    result = await db.execute(q)
+    return result.scalars().unique().all()
+
+
+async def get_coming_soon_events(db: AsyncSession, *, limit: int = 10) -> Sequence[Event]:
+    """Approved events starting in the future, ordered by start_time ASC."""
+    now = datetime.now(timezone.utc)
+    q = (
+        select(Event)
+        .where(
+            Event.status == EventStatus.approved,
+            Event.start_time > now,
+        )
+        .options(selectinload(Event.venue))
+        .order_by(Event.start_time.asc())
+        .limit(limit)
+    )
+    result = await db.execute(q)
+    return result.scalars().unique().all()
+
+
+async def get_popular_events(db: AsyncSession, *, limit: int = 10) -> Sequence[Event]:
+    """Events with most pledged amount. Approved or live only."""
+    from app.models.funding import Funding, FundingStatus
+    q = (
+        select(Event, func.coalesce(func.sum(Funding.amount_cents), 0).label("total_pledged"))
+        .outerjoin(Funding, and_(Funding.event_id == Event.id, Funding.status == FundingStatus.pledged))
+        .where(Event.status.in_([EventStatus.approved, EventStatus.live]))
+        .group_by(Event.id)
+        .options(selectinload(Event.venue))
+        .order_by(func.coalesce(func.sum(Funding.amount_cents), 0).desc())
+        .limit(limit)
+    )
+    result = await db.execute(q)
+    return [row[0] for row in result.unique().all()]
 
 
 # ----- Event co-organizers (main organizer only can add/remove) -----

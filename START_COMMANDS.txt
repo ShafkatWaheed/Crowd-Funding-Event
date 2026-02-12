@@ -1,0 +1,83 @@
+# Crowd Funding Event — Start Commands
+
+Run these in separate terminals. Ensure PostgreSQL is running (e.g. Docker) and .env is configured before starting the backend.
+
+---
+
+## Backend (FastAPI)
+
+  cd Backend
+  source venv/bin/activate
+  uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+  (On Windows, use: venv\Scripts\activate)
+
+  API: http://localhost:8000
+  Docs: http://localhost:8000/docs
+
+---
+
+## Database Migrations (Alembic)
+
+  cd Backend
+  source venv/bin/activate
+
+  # Apply all pending migrations
+  alembic upgrade head
+
+  # Check current migration version
+  alembic current
+
+  # View migration history
+  alembic history --verbose
+
+  # Create a new migration (auto-generate from model changes)
+  alembic revision --autogenerate -m "description_of_change"
+
+  # Rollback one migration
+  alembic downgrade -1
+
+  # Rollback all migrations
+  alembic downgrade base
+
+  One-liner (from project root):
+  cd Backend && source venv/bin/activate && alembic upgrade head
+
+---
+
+## Frontend (Flutter Web)
+
+  export PATH="$PATH:/home/shafkat/development/flutter/bin"
+  export CHROME_EXECUTABLE="/mnt/c/Program Files/Google/Chrome/Application/chrome.exe"
+  cd FrontEnd
+  flutter run -d web-server --web-port=8080
+
+  App: http://localhost:8080
+
+  (Optional: press "r" to hot-restart, "q" to quit.)
+
+---
+
+## Admin User Management
+
+  cd Backend
+  source venv/bin/activate
+
+  # List all users
+  python -m scripts.create_admin --list
+
+  # Promote a user to admin by email
+  python -m scripts.create_admin --email admin@example.com
+
+  # Promote a user to admin by database ID
+  python -m scripts.create_admin --user-id 1
+
+  Note: The user must register via the app first, then you promote them.
+
+---
+
+## One-liners (from project root)
+
+  Backend:   cd Backend && source venv/bin/activate && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+  Frontend:  export PATH="$PATH:/home/shafkat/development/flutter/bin" && cd FrontEnd && flutter run -d web-server --web-port=8080

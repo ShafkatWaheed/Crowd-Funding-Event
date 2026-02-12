@@ -25,6 +25,12 @@ class Event {
   final int pledgeDiscountPercent;
   final int? totalPledgedCents;
   final int? fundingDaysLeft;
+  final String? cancellationReason;
+  final int registrationCount;
+  final String? genre;
+  final bool postsEnabled;
+  final int likeCount;
+  final int dislikeCount;
   final Venue? venue;
   final DateTime createdAt;
 
@@ -48,6 +54,12 @@ class Event {
     required this.pledgeDiscountPercent,
     this.totalPledgedCents,
     this.fundingDaysLeft,
+    this.cancellationReason,
+    this.registrationCount = 0,
+    this.genre,
+    this.postsEnabled = true,
+    this.likeCount = 0,
+    this.dislikeCount = 0,
     this.venue,
     required this.createdAt,
   });
@@ -81,6 +93,12 @@ class Event {
       pledgeDiscountPercent: json['pledge_discount_percent'] ?? 0,
       totalPledgedCents: json['total_pledged_cents'],
       fundingDaysLeft: json['funding_days_left'],
+      cancellationReason: json['cancellation_reason'],
+      registrationCount: json['registration_count'] ?? 0,
+      genre: json['genre'],
+      postsEnabled: json['posts_enabled'] ?? true,
+      likeCount: json['like_count'] ?? 0,
+      dislikeCount: json['dislike_count'] ?? 0,
       venue: json['venue'] != null ? Venue.fromJson(json['venue']) : null,
       createdAt: DateTime.parse(json['created_at']),
     );

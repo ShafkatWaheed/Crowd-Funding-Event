@@ -11,6 +11,7 @@ class MeResponse(BaseModel):
     id: int
     email: str
     display_name: str | None
+    phone: str | None
     role: str
 
     model_config = {"from_attributes": True}
@@ -18,6 +19,7 @@ class MeResponse(BaseModel):
 
 class MeUpdate(BaseModel):
     display_name: str | None = None
+    phone: str | None = None
 
 
 class VerifyBody(BaseModel):

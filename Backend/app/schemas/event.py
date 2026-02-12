@@ -4,6 +4,20 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+# Predefined genres
+EVENT_GENRES = [
+    "community",
+    "music",
+    "tech",
+    "sports",
+    "arts",
+    "food",
+    "charity",
+    "education",
+    "business",
+    "other",
+]
+
 
 class EventVenueInfo(BaseModel):
     """Venue info included with an event so everyone can see where it is (once venue is used in an event)."""
@@ -32,6 +46,9 @@ class EventCreate(BaseModel):
     max_capacity: int
     common_discount_percent: int = 0
     pledge_discount_percent: int = 0
+    genre: str | None = None
+    posts_enabled: bool = True
+    publish: bool = False  # True = approved immediately, False = draft
 
 
 class EventUpdate(BaseModel):
@@ -46,6 +63,8 @@ class EventUpdate(BaseModel):
     max_capacity: int | None = None
     common_discount_percent: int | None = None
     pledge_discount_percent: int | None = None
+    genre: str | None = None
+    posts_enabled: bool | None = None
 
 
 class ExtendFundingBody(BaseModel):
@@ -72,6 +91,10 @@ class AddEventOrganizerBody(BaseModel):
     user_id: int
 
 
+class CancelBody(BaseModel):
+    reason: str
+
+
 class EventResponse(BaseModel):
     id: int
     organizer_id: int
@@ -91,10 +114,40 @@ class EventResponse(BaseModel):
     min_pledge_cents: int
     common_discount_percent: int
     pledge_discount_percent: int
+    cancellation_reason: str | None = None
+    registration_count: int = 0
+    genre: str | None = None
+    posts_enabled: bool = True
+    like_count: int = 0
+    dislike_count: int = 0  # only populated for admin
     lat: float | None
     lng: float | None
     created_at: datetime
     updated_at: datetime
+
+
+class EventPostCreate(BaseModel):
+    content: str
+
+
+class EventPostResponse(BaseModel):
+    id: int
+    event_id: int
+    user_id: int
+    author_name: str | None = None
+    content: str
+    created_at: datetime
+
+
+class EventImageResponse(BaseModel):
+    id: int
+    event_id: int
+    image_url: str
+    caption: str | None
+    display_order: int
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
 
 
 class MapEventMarker(BaseModel):

@@ -84,6 +84,44 @@ class EventCard extends StatelessWidget {
                 ],
               ),
 
+              // Like count (visible to everyone)
+              if (event.likeCount > 0) ...[
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Icon(Icons.thumb_up, size: 14, color: AppTheme.primaryColor),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${event.likeCount} like${event.likeCount == 1 ? '' : 's'}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.primaryColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+
+              // Genre badge
+              if (event.genre != null && event.genre!.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(Icons.category, size: 14, color: AppTheme.secondaryColor),
+                    const SizedBox(width: 4),
+                    Text(
+                      event.genre![0].toUpperCase() + event.genre!.substring(1),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.secondaryColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+
               // Funding progress
               if (event.fundingGoalCents != null &&
                   event.fundingGoalCents! > 0) ...[
@@ -146,7 +184,7 @@ class _StatusBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final (color, label) = switch (status) {
       EventStatus.draft => (Colors.grey, 'Draft'),
-      EventStatus.pending_approval => (Colors.orange, 'Pending'),
+      EventStatus.pending_approval => (Colors.orange, 'Unpublished'),
       EventStatus.approved => (Colors.blue, 'Approved'),
       EventStatus.live => (AppTheme.successColor, 'Live'),
       EventStatus.ended => (Colors.grey[700]!, 'Ended'),

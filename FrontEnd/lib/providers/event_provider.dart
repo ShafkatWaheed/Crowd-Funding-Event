@@ -61,25 +61,50 @@ class EventProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> submitEvent(int id) async {
+  Future<bool> publishEvent(int id) async {
     try {
-      await _api.submitEvent(id);
+      await _api.publishEvent(id);
       await loadEvent(id);
       return true;
     } catch (e) {
-      _error = 'Failed to submit event.';
+      _error = 'Failed to publish event.';
       notifyListeners();
       return false;
     }
   }
 
-  Future<bool> cancelEvent(int id) async {
+  Future<bool> cancelEvent(int id, {required String reason}) async {
     try {
-      await _api.cancelEvent(id);
+      await _api.cancelEvent(id, reason: reason);
       await loadEvent(id);
       return true;
     } catch (e) {
       _error = 'Failed to cancel event.';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> reactivateEvent(int id) async {
+    try {
+      await _api.reactivateEvent(id);
+      await loadEvent(id);
+      return true;
+    } catch (e) {
+      _error = 'Failed to reactivate event.';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> deleteEvent(int id) async {
+    try {
+      await _api.deleteEvent(id);
+      _selectedEvent = null;
+      await loadEvents();
+      return true;
+    } catch (e) {
+      _error = 'Failed to delete event.';
       notifyListeners();
       return false;
     }

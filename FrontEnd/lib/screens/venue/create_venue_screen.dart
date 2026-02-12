@@ -40,7 +40,15 @@ class _CreateVenueScreenState extends State<CreateVenueScreen> {
         if (_lngCtrl.text.isNotEmpty) 'lng': double.parse(_lngCtrl.text),
       });
 
-      if (mounted) context.go('/venues');
+      if (mounted) {
+        // If pushed (e.g. from create event), pop with result.
+        // If navigated directly, go to venues list.
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop(true);
+        } else {
+          context.go('/venues');
+        }
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

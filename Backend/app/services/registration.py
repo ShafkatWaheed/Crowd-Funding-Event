@@ -72,6 +72,8 @@ async def register(
     if existing:
         if existing.status == RegistrationStatus.cancelled:
             existing.status = target_status
+            if target_status == RegistrationStatus.registered:
+                event.registration_count = (event.registration_count or 0) + 1
             await db.flush()
             await db.refresh(existing)
             return existing
@@ -80,6 +82,8 @@ async def register(
 
     reg = Registration(event_id=event_id, user_id=user.id, status=target_status)
     db.add(reg)
+    if target_status == RegistrationStatus.registered:
+        event.registration_count = (event.registration_count or 0) + 1
     await db.flush()
     await db.refresh(reg)
     return reg

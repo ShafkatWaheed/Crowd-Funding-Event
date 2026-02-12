@@ -28,7 +28,24 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   DateTime? _endTime;
   DateTime? _fundingEndAt;
   String _registrationType = 'open';
+  String? _genre;
+  bool _postsEnabled = true;
+  bool _publish = true; // true = Publish Now, false = Save as Draft
   bool _isLoading = false;
+
+  final List<String> _genres = [
+    'community', 'music', 'tech', 'sports', 'arts',
+    'food', 'charity', 'education', 'business', 'other',
+  ];
+
+  // Inline venue creation
+  bool _showVenueForm = false;
+  bool _creatingVenue = false;
+  final _venueNameCtrl = TextEditingController();
+  final _venueAddressCtrl = TextEditingController();
+  final _venueCityCtrl = TextEditingController();
+  final _venueProvinceCtrl = TextEditingController();
+  final _venueCapacityCtrl = TextEditingController();
 
   @override
   void initState() {
@@ -94,6 +111,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       'max_capacity': int.parse(_capacityCtrl.text),
       'registration_type': _registrationType,
       'min_pledge_cents': (minPledge * 100).toInt(),
+      'genre': _genre,
+      'posts_enabled': _postsEnabled,
+      'publish': _publish,
     };
 
     if (fundingGoal != null && fundingGoal > 0) {
@@ -119,6 +139,58 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     }
   }
 
+  Future<void> _createVenueInline() async {
+    if (_venueNameCtrl.text.trim().isEmpty ||
+        _venueAddressCtrl.text.trim().isEmpty ||
+        _venueCityCtrl.text.trim().isEmpty ||
+        _venueCapacityCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill in all venue fields')),
+      );
+      return;
+    }
+
+    setState(() => _creatingVenue = true);
+
+    try {
+      final api = context.read<ApiService>();
+      final resp = await api.createVenue({
+        'name': _venueNameCtrl.text.trim(),
+        'address': _venueAddressCtrl.text.trim(),
+        'city': _venueCityCtrl.text.trim(),
+        'province': _venueProvinceCtrl.text.trim(),
+        'max_capacity': int.parse(_venueCapacityCtrl.text.trim()),
+      });
+
+      // Reload venues and auto-select the new one
+      await _loadVenues();
+      final newId = resp['id'] as int?;
+      setState(() {
+        _selectedVenueId = newId;
+        _showVenueForm = false;
+        _venueNameCtrl.clear();
+        _venueAddressCtrl.clear();
+        _venueCityCtrl.clear();
+        _venueProvinceCtrl.clear();
+        _venueCapacityCtrl.clear();
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Venue created and selected!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to create venue: $e')),
+        );
+      }
+    }
+
+    setState(() => _creatingVenue = false);
+  }
+
   @override
   void dispose() {
     _titleCtrl.dispose();
@@ -126,6 +198,11 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     _capacityCtrl.dispose();
     _fundingGoalCtrl.dispose();
     _minPledgeCtrl.dispose();
+    _venueNameCtrl.dispose();
+    _venueAddressCtrl.dispose();
+    _venueCityCtrl.dispose();
+    _venueProvinceCtrl.dispose();
+    _venueCapacityCtrl.dispose();
     super.dispose();
   }
 
@@ -166,8 +243,134 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                             value: v.id, child: Text(v.name)))
                         .toList(),
                     onChanged: (v) => setState(() => _selectedVenueId = v),
-                    validator: (v) => v == null ? 'Please select a venue' : null,
+                    validator: (v) =>
+                        v == null ? 'Please select a venue' : null,
                   ),
+                  const SizedBox(height: 8),
+
+                  // "Add new venue" toggle
+                  GestureDetector(
+                    onTap: () =>
+                        setState(() => _showVenueForm = !_showVenueForm),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _showVenueForm
+                              ? Icons.expand_less
+                              : Icons.add_location_alt,
+                          size: 20,
+                          color: AppTheme.primaryColor,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          _showVenueForm
+                              ? 'Hide venue form'
+                              : 'Create a new venue',
+                          style: TextStyle(
+                            color: AppTheme.primaryColor,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Inline venue creation card
+                  AnimatedCrossFade(
+                    firstChild: const SizedBox.shrink(),
+                    secondChild: Card(
+                      margin: const EdgeInsets.only(top: 12),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text('New Venue',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleSmall
+                                    ?.copyWith(
+                                        fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 12),
+                            TextFormField(
+                              controller: _venueNameCtrl,
+                              decoration: const InputDecoration(
+                                  labelText: 'Venue Name'),
+                            ),
+                            const SizedBox(height: 10),
+                            TextFormField(
+                              controller: _venueAddressCtrl,
+                              decoration: const InputDecoration(
+                                  labelText: 'Address'),
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: _venueCityCtrl,
+                                    decoration:
+                                        const InputDecoration(
+                                            labelText: 'City'),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: _venueProvinceCtrl,
+                                    decoration:
+                                        const InputDecoration(
+                                            labelText: 'Province'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            TextFormField(
+                              controller: _venueCapacityCtrl,
+                              decoration: const InputDecoration(
+                                  labelText: 'Max Capacity'),
+                              keyboardType: TextInputType.number,
+                            ),
+                            const SizedBox(height: 14),
+                            SizedBox(
+                              height: 42,
+                              child: ElevatedButton.icon(
+                                onPressed: _creatingVenue
+                                    ? null
+                                    : _createVenueInline,
+                                icon: _creatingVenue
+                                    ? const SizedBox(
+                                        height: 16,
+                                        width: 16,
+                                        child:
+                                            CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: Colors.white),
+                                      )
+                                    : const Icon(Icons.check,
+                                        size: 18),
+                                label: Text(_creatingVenue
+                                    ? 'Creating...'
+                                    : 'Create & Select Venue'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor:
+                                      AppTheme.secondaryColor,
+                                  foregroundColor: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    crossFadeState: _showVenueForm
+                        ? CrossFadeState.showSecond
+                        : CrossFadeState.showFirst,
+                    duration: const Duration(milliseconds: 250),
+                  ),
+
                   const SizedBox(height: 16),
 
                   // Date/time pickers
@@ -244,14 +447,62 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                     ),
                     keyboardType: TextInputType.number,
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
+
+                  // Genre
+                  DropdownButtonFormField<String>(
+                    value: _genre,
+                    decoration: const InputDecoration(labelText: 'Genre / Category *'),
+                    items: _genres.map((g) => DropdownMenuItem(
+                      value: g,
+                      child: Text(g[0].toUpperCase() + g.substring(1)),
+                    )).toList(),
+                    onChanged: (v) => setState(() => _genre = v),
+                    validator: (v) => v == null ? 'Please select a genre' : null,
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Posts enabled
+                  SwitchListTile(
+                    title: const Text('Enable event feed / posts',
+                        style: TextStyle(fontWeight: FontWeight.w600)),
+                    subtitle: const Text(
+                        'Registered users can post on the event wall'),
+                    value: _postsEnabled,
+                    activeColor: AppTheme.primaryColor,
+                    onChanged: (v) => setState(() => _postsEnabled = v),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Publish or Draft
+                  SwitchListTile(
+                    title: Text(
+                      _publish ? 'Publish immediately' : 'Save as draft',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: Text(
+                      _publish
+                          ? 'Event will be visible to everyone right away'
+                          : 'You can publish it later from the event detail page',
+                    ),
+                    value: _publish,
+                    activeColor: AppTheme.primaryColor,
+                    onChanged: (v) => setState(() => _publish = v),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+
+                  const SizedBox(height: 24),
 
                   SizedBox(
                     height: 50,
                     child: ElevatedButton(
                       onPressed: _isLoading ? null : _submit,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryColor,
+                        backgroundColor: _publish
+                            ? AppTheme.primaryColor
+                            : Colors.grey[700],
                         foregroundColor: Colors.white,
                       ),
                       child: _isLoading
@@ -261,7 +512,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                               child: CircularProgressIndicator(
                                   strokeWidth: 2, color: Colors.white),
                             )
-                          : const Text('Create Event'),
+                          : Text(_publish
+                              ? 'Create & Publish'
+                              : 'Save as Draft'),
                     ),
                   ),
                 ],

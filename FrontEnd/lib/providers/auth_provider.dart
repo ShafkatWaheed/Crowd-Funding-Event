@@ -94,6 +94,7 @@ class AuthProvider extends ChangeNotifier {
     required String password,
     required String role,
     String? displayName,
+    String? phone,
   }) async {
     _errorMessage = null;
     _isLoading = true;
@@ -118,6 +119,12 @@ class AuthProvider extends ChangeNotifier {
 
       final verifyResp = await _api.verifyToken(idToken!, role);
       _log('signUp: backend verify response: $verifyResp');
+
+      // Update phone if provided
+      if (phone != null) {
+        _log('signUp: updating phone on backend...');
+        await _api.updateMe({'phone': phone});
+      }
 
       // Now fetch full profile
       final meData = await _api.getMe();

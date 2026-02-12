@@ -1,11 +1,13 @@
 """
-Users: profile (GET/PATCH /me), my pledges (GET /me/pledges), my tickets (GET /me/tickets).
+Users: profile (GET/PATCH /me), my pledges (GET /me/pledges), my tickets (GET /me/tickets), my events (GET /me/events).
 """
 from fastapi import APIRouter, Depends
 
 from app.dependencies import CurrentUser, DbSession, require_role
 from app.models.user import User, UserRole
-from app.schemas import MeResponse, MeUpdate, MyPledgeItem, TicketSaleResponse
+from app.schemas import EventResponse, MeResponse, MeUpdate, MyPledgeItem, TicketSaleResponse
+from app.api.v1.events import _event_to_response
+from app.services import event as event_service
 from app.services import funding as funding_service
 from app.services import ticket as ticket_service
 
@@ -19,6 +21,7 @@ async def get_me(current_user: CurrentUser):
         id=current_user.id,
         email=current_user.email,
         display_name=current_user.display_name,
+        phone=current_user.phone,
         role=current_user.role.value,
     )
 
@@ -32,12 +35,15 @@ async def update_me(
     """Update current user profile."""
     if body.display_name is not None:
         current_user.display_name = body.display_name
+    if body.phone is not None:
+        current_user.phone = body.phone
     await db.flush()
     await db.refresh(current_user)
     return MeResponse(
         id=current_user.id,
         email=current_user.email,
         display_name=current_user.display_name,
+        phone=current_user.phone,
         role=current_user.role.value,
     )
 
@@ -90,3 +96,13 @@ async def get_my_tickets(
         )
         for s in sales
     ]
+
+
+@router.get("/events", response_model=list[EventResponse])
+async def get_my_events(
+    db: DbSession,
+    current_user: CurrentUser,
+):
+    """Events the current user is registered to (includes cancelled events so the user can see cancellation reasons)."""
+    events = await event_service.get_my_registered_events(db, user_id=current_user.id)
+    return [_event_to_response(e) for e in events]

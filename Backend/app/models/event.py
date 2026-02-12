@@ -3,7 +3,7 @@ Event model: status, registration type, funding fields.
 """
 import enum
 from datetime import datetime
-from sqlalchemy import String, Text, Integer, Float, DateTime, ForeignKey, Enum, UniqueConstraint
+from sqlalchemy import Boolean, String, Text, Integer, Float, DateTime, ForeignKey, Enum, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -58,6 +58,12 @@ class Event(Base):
     max_capacity: Mapped[int] = mapped_column(Integer, nullable=False)
     common_discount_percent: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # ticket discount for all
     pledge_discount_percent: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # % of user's pledges as discount
+    cancellation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    registration_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # denormalized for trending
+    genre: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True)
+    posts_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    like_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    dislike_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -69,3 +75,22 @@ class Event(Base):
     user_event_discounts = relationship("UserEventDiscount", back_populates="event")
     ticket_sales = relationship("TicketSale", back_populates="event")
     event_organizers = relationship("EventOrganizer", back_populates="event", cascade="all, delete-orphan")
+    posts = relationship("EventPost", back_populates="event", cascade="all, delete-orphan")
+    images = relationship("EventImage", back_populates="event", cascade="all, delete-orphan")
+    reactions = relationship("EventReaction", back_populates="event", cascade="all, delete-orphan")
+
+
+class EventReaction(Base):
+    """User like/dislike on an event. One reaction per user per event."""
+    __tablename__ = "event_reactions"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    event_id: Mapped[int] = mapped_column(ForeignKey("events.id"), nullable=False, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    reaction: Mapped[str] = mapped_column(String(10), nullable=False)  # 'like' or 'dislike'
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+
+    event = relationship("Event", back_populates="reactions")
+    user = relationship("User")
+
+    __table_args__ = (UniqueConstraint("event_id", "user_id", name="uq_event_reactions_event_user"),)

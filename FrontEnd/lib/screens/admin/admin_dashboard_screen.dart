@@ -17,12 +17,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   Map<String, dynamic>? _stats;
   List<dynamic> _users = [];
   List<dynamic> _pendingEvents = [];
+  List<dynamic> _pendingApproval = [];
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 3, vsync: this);
+    _tabCtrl = TabController(length: 4, vsync: this);
     _loadData();
   }
 
@@ -33,12 +34,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
       final results = await Future.wait([
         api.adminGetStats(),
         api.adminGetUsers(),
+        api.adminGetEvents(params: {'status': 'draft'}),
         api.adminGetEvents(params: {'status': 'pending_approval'}),
       ]);
       setState(() {
         _stats = results[0] as Map<String, dynamic>;
         _users = results[1] as List<dynamic>;
         _pendingEvents = results[2] as List<dynamic>;
+        _pendingApproval = results[3] as List<dynamic>;
       });
     } catch (_) {}
     setState(() => _isLoading = false);
@@ -74,10 +77,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
         title: const Text('Admin Dashboard'),
         bottom: TabBar(
           controller: _tabCtrl,
-          tabs: const [
-            Tab(text: 'Overview'),
-            Tab(text: 'Approvals'),
-            Tab(text: 'Users'),
+          tabs: [
+            const Tab(text: 'Overview'),
+            Tab(text: 'Pending Approval (${_pendingApproval.length})'),
+            const Tab(text: 'Drafts'),
+            const Tab(text: 'Users'),
           ],
         ),
       ),
@@ -87,7 +91,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
               controller: _tabCtrl,
               children: [
                 _buildOverview(),
-                _buildApprovals(),
+                _buildPendingApproval(),
+                _buildDrafts(),
                 _buildUsers(),
               ],
             ),
@@ -122,7 +127,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
               ),
               _StatCard(
                 icon: Icons.pending_actions,
-                label: 'Pending Approval',
+                label: 'Draft Events',
                 value: '${_pendingEvents.length}',
                 color: AppTheme.warningColor,
               ),
@@ -140,7 +145,56 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     );
   }
 
-  Widget _buildApprovals() {
+  Widget _buildPendingApproval() {
+    if (_pendingApproval.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.check_circle, size: 64, color: Colors.grey[300]),
+            const SizedBox(height: 16),
+            Text('No events awaiting approval',
+                style: TextStyle(fontSize: 18, color: Colors.grey[500])),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: _pendingApproval.length,
+      itemBuilder: (context, index) {
+        final event = _pendingApproval[index];
+        return Card(
+          child: ListTile(
+            title: Text(event['title'] ?? 'Untitled',
+                style: const TextStyle(fontWeight: FontWeight.w600)),
+            subtitle: Text(
+                'Edited by organizer #${event['organizer_id']} — needs re-approval'),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.check_circle,
+                      color: AppTheme.successColor),
+                  tooltip: 'Approve',
+                  onPressed: () => _approveEvent(event['id'], true),
+                ),
+                IconButton(
+                  icon:
+                      const Icon(Icons.cancel, color: AppTheme.errorColor),
+                  tooltip: 'Reject (back to draft)',
+                  onPressed: () => _approveEvent(event['id'], false),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDrafts() {
     if (_pendingEvents.isEmpty) {
       return Center(
         child: Column(
@@ -148,7 +202,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
           children: [
             Icon(Icons.check_circle, size: 64, color: Colors.grey[300]),
             const SizedBox(height: 16),
-            Text('No pending approvals',
+            Text('No draft events',
                 style: TextStyle(fontSize: 18, color: Colors.grey[500])),
           ],
         ),
@@ -170,15 +224,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
               mainAxisSize: MainAxisSize.min,
               children: [
                 IconButton(
-                  icon: const Icon(Icons.check_circle,
+                  icon: const Icon(Icons.publish,
                       color: AppTheme.successColor),
-                  tooltip: 'Approve',
+                  tooltip: 'Publish',
                   onPressed: () => _approveEvent(event['id'], true),
                 ),
                 IconButton(
                   icon:
-                      const Icon(Icons.cancel, color: AppTheme.errorColor),
-                  tooltip: 'Reject',
+                      const Icon(Icons.delete, color: AppTheme.errorColor),
+                  tooltip: 'Delete',
                   onPressed: () => _approveEvent(event['id'], false),
                 ),
               ],
@@ -189,25 +243,38 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     );
   }
 
+  /// Mask an email string: show first 2 chars + *** + @domain
+  String _maskEmail(String email) {
+    if (email.isEmpty) return '';
+    final parts = email.split('@');
+    if (parts.length != 2) return email;
+    final local = parts[0];
+    final domain = parts[1];
+    final visible = local.length >= 2 ? local.substring(0, 2) : local;
+    return '$visible***@$domain';
+  }
+
   Widget _buildUsers() {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: _users.length,
       itemBuilder: (context, index) {
         final user = _users[index];
+        final name = user['display_name'] ?? 'No name';
+        final email = user['email'] ?? '';
         return Card(
           child: ListTile(
             leading: CircleAvatar(
               backgroundColor: AppTheme.surfaceColor,
               child: Text(
-                (user['display_name'] ?? user['email'] ?? '?')
+                (name != 'No name' ? name : email)
                     .substring(0, 1)
                     .toUpperCase(),
               ),
             ),
-            title: Text(user['display_name'] ?? 'No name',
+            title: Text(name,
                 style: const TextStyle(fontWeight: FontWeight.w600)),
-            subtitle: Text(user['email'] ?? ''),
+            subtitle: Text(email),
             trailing: Chip(
               label: Text(
                 (user['role'] ?? 'unknown').toString().toUpperCase(),

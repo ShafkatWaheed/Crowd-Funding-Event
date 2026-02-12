@@ -12,9 +12,10 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.exceptions import ConflictError
+from app.core.exceptions import ConflictError, NotFoundError
 from app.models.event import EventStatus
 from app.models.funding import Funding, FundingStatus
+from app.models.registration import Registration, RegistrationStatus
 from app.models.user import User
 from app.services import event as event_service
 
@@ -38,16 +39,76 @@ async def create_pledge(
     if event.status == EventStatus.ended:
         raise ConflictError("Cannot pledge to an ended event")
 
+    # Check if user is registered for this event
+    reg_q = select(Registration).where(
+        Registration.event_id == event_id,
+        Registration.user_id == user.id,
+        Registration.status == RegistrationStatus.registered,
+    )
+    reg_result = await db.execute(reg_q)
+    is_registered = reg_result.scalar_one_or_none() is not None
+    is_guest = not is_registered
+
     pledge = Funding(
         event_id=event_id,
         user_id=user.id,
         amount_cents=amount_cents,
         status=FundingStatus.pledged,
+        is_guest=is_guest,
     )
     db.add(pledge)
     await db.flush()
     await db.refresh(pledge)
     return pledge
+
+
+async def unpledge(
+    db: AsyncSession,
+    *,
+    event_id: int,
+    user: User,
+) -> dict:
+    """
+    Unpledge: refund all pledged fundings for this user+event.
+    Guest pledges are non-refundable.
+    Returns dict with refunded_cents and guest_non_refundable_cents.
+    """
+    # Refund non-guest pledges
+    from sqlalchemy import update
+    q_refund = (
+        select(Funding)
+        .where(
+            Funding.event_id == event_id,
+            Funding.user_id == user.id,
+            Funding.status == FundingStatus.pledged,
+            Funding.is_guest == False,  # noqa: E712
+        )
+    )
+    result = await db.execute(q_refund)
+    refundable = list(result.scalars().all())
+    refunded_cents = 0
+    for f in refundable:
+        refunded_cents += f.amount_cents
+        f.status = FundingStatus.refunded
+
+    # Count non-refundable guest pledges
+    q_guest = (
+        select(func.coalesce(func.sum(Funding.amount_cents), 0))
+        .where(
+            Funding.event_id == event_id,
+            Funding.user_id == user.id,
+            Funding.status == FundingStatus.pledged,
+            Funding.is_guest == True,  # noqa: E712
+        )
+    )
+    guest_total = (await db.execute(q_guest)).scalar_one()
+
+    await db.flush()
+    return {
+        "refunded_cents": refunded_cents,
+        "pledges_refunded": len(refundable),
+        "guest_non_refundable_cents": int(guest_total),
+    }
 
 
 async def get_pledged_totals_for_events(

@@ -63,6 +63,11 @@ class ApiService {
     return resp.data;
   }
 
+  Future<List<dynamic>> getMyEvents() async {
+    final resp = await dio.get('/me/events');
+    return resp.data;
+  }
+
   // ─── Events ───
 
   Future<List<dynamic>> getEvents({Map<String, dynamic>? params}) async {
@@ -91,13 +96,83 @@ class ApiService {
     await dio.delete('/events/$id');
   }
 
-  Future<Map<String, dynamic>> submitEvent(int id) async {
-    final resp = await dio.post('/events/$id/submit');
+  Future<Map<String, dynamic>> publishEvent(int id) async {
+    final resp = await dio.post('/events/$id/publish');
     return resp.data;
   }
 
-  Future<Map<String, dynamic>> cancelEvent(int id) async {
-    final resp = await dio.post('/events/$id/cancel');
+  Future<Map<String, dynamic>> cancelEvent(int id, {required String reason}) async {
+    final resp = await dio.post('/events/$id/cancel', data: {'reason': reason});
+    return resp.data;
+  }
+
+  Future<Map<String, dynamic>> reactivateEvent(int id) async {
+    final resp = await dio.post('/events/$id/reactivate');
+    return resp.data;
+  }
+
+  // ─── Featured / Discover ───
+
+  Future<Map<String, dynamic>> getFeaturedEvents() async {
+    final resp = await dio.get('/events/featured');
+    return resp.data;
+  }
+
+  Future<List<dynamic>> getGenres() async {
+    final resp = await dio.get('/events/genres');
+    return resp.data;
+  }
+
+  // ─── Event Posts (Feed) ───
+
+  Future<List<dynamic>> getEventPosts(int eventId) async {
+    final resp = await dio.get('/events/$eventId/posts');
+    return resp.data;
+  }
+
+  Future<Map<String, dynamic>> createEventPost(int eventId, String content) async {
+    final resp = await dio.post('/events/$eventId/posts', data: {'content': content});
+    return resp.data;
+  }
+
+  Future<void> deleteEventPost(int eventId, int postId) async {
+    await dio.delete('/events/$eventId/posts/$postId');
+  }
+
+  Future<Map<String, dynamic>> toggleEventPosts(int eventId) async {
+    final resp = await dio.post('/events/$eventId/toggle-posts');
+    return resp.data;
+  }
+
+  // ─── Event Images ───
+
+  Future<List<dynamic>> getEventImages(int eventId) async {
+    final resp = await dio.get('/events/$eventId/images');
+    return resp.data;
+  }
+
+  Future<Map<String, dynamic>> addEventImage(int eventId, {required String imageUrl, String? caption, int displayOrder = 0}) async {
+    final resp = await dio.post('/events/$eventId/images', queryParameters: {
+      'image_url': imageUrl,
+      if (caption != null) 'caption': caption,
+      'display_order': displayOrder,
+    });
+    return resp.data;
+  }
+
+  Future<void> deleteEventImage(int eventId, int imageId) async {
+    await dio.delete('/events/$eventId/images/$imageId');
+  }
+
+  // ─── Like / Dislike ───
+
+  Future<Map<String, dynamic>> reactToEvent(int eventId, String reaction) async {
+    final resp = await dio.post('/events/$eventId/react', queryParameters: {'reaction': reaction});
+    return resp.data;
+  }
+
+  Future<Map<String, dynamic>> getMyReaction(int eventId) async {
+    final resp = await dio.get('/events/$eventId/my-reaction');
     return resp.data;
   }
 
@@ -116,6 +191,11 @@ class ApiService {
     return resp.data;
   }
 
+  Future<Map<String, dynamic>> unpledge(int eventId) async {
+    final resp = await dio.post('/events/$eventId/unpledge');
+    return resp.data;
+  }
+
   // ─── Registration ───
 
   Future<Map<String, dynamic>> register(int eventId) async {
@@ -125,6 +205,11 @@ class ApiService {
 
   Future<Map<String, dynamic>> unregister(int eventId) async {
     final resp = await dio.post('/events/$eventId/unregister');
+    return resp.data;
+  }
+
+  Future<Map<String, dynamic>> getMyRegistration(int eventId) async {
+    final resp = await dio.get('/events/$eventId/my-registration');
     return resp.data;
   }
 

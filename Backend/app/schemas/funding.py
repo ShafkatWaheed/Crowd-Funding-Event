@@ -14,9 +14,16 @@ class PledgeResponse(BaseModel):
     user_id: int
     amount_cents: int
     status: str
+    is_guest: bool = False
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class UnpledgeResponse(BaseModel):
+    refunded_cents: int
+    pledges_refunded: int
+    guest_non_refundable_cents: int
 
 
 class FundingSummaryResponse(BaseModel):

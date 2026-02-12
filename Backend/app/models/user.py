@@ -22,6 +22,7 @@ class User(Base):
     firebase_uid: Mapped[str] = mapped_column(String(128), unique=True, index=True, nullable=False)
     email: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     display_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
     role: Mapped[UserRole] = mapped_column(Enum(UserRole), nullable=False, default=UserRole.customer)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -34,3 +35,4 @@ class User(Base):
     user_event_discounts = relationship("UserEventDiscount", back_populates="user")
     ticket_sales = relationship("TicketSale", back_populates="user", foreign_keys="TicketSale.user_id")
     event_organizers = relationship("EventOrganizer", back_populates="user")
+    posts = relationship("EventPost", back_populates="user")

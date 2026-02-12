@@ -4,12 +4,14 @@ class AppUser {
   final int id;
   final String email;
   final String? displayName;
+  final String? phone;
   final UserRole role;
 
   AppUser({
     required this.id,
     required this.email,
     this.displayName,
+    this.phone,
     required this.role,
   });
 
@@ -18,11 +20,29 @@ class AppUser {
       id: json['id'],
       email: json['email'] ?? '',
       displayName: json['display_name'],
+      phone: json['phone'],
       role: UserRole.values.firstWhere(
         (r) => r.name == json['role'],
         orElse: () => UserRole.customer,
       ),
     );
+  }
+
+  /// Preferred display: name if available, otherwise generic fallback.
+  String get displayLabel => displayName ?? 'User';
+
+  /// First initial for avatar.
+  String get initial => displayLabel.substring(0, 1).toUpperCase();
+
+  /// Mask email: show first 2 chars + *** + @domain
+  String get maskedEmail {
+    if (email.isEmpty) return '?';
+    final parts = email.split('@');
+    if (parts.length != 2) return email;
+    final local = parts[0];
+    final domain = parts[1];
+    final visible = local.length >= 2 ? local.substring(0, 2) : local;
+    return '$visible***@$domain';
   }
 
   bool get isAdmin => role == UserRole.admin;

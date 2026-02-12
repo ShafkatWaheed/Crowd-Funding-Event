@@ -19,6 +19,13 @@ from app.schemas.ticket import (
     TicketTierUpdate,
     UserDiscountBody,
 )
+from app.schemas.ticket_strategy import (
+    TicketStrategyCreate,
+    TicketStrategyResponse,
+    TicketStrategyTierInput,
+    TicketStrategyTierResponse,
+    TicketStrategyUpdate,
+)
 from app.schemas.user import MeResponse, MeUpdate, VerifyBody, VerifyResponse
 from app.schemas.venue import VenueCreate, VenueResponse, VenueUpdate
 
@@ -58,6 +65,11 @@ __all__ = [
     "TicketTierResponse",
     "TicketTierUpdate",
     "UserDiscountBody",
+    "TicketStrategyCreate",
+    "TicketStrategyResponse",
+    "TicketStrategyTierInput",
+    "TicketStrategyTierResponse",
+    "TicketStrategyUpdate",
     "VenueCreate",
     "VenueResponse",
     "VenueUpdate",

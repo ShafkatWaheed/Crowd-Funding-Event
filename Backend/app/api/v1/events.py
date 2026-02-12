@@ -92,6 +92,9 @@ def _event_to_response(
         registration_count=e.registration_count,
         genre=e.genre,
         posts_enabled=e.posts_enabled,
+        refund_deadline_days=e.refund_deadline_days,
+        event_date_deadline=e.event_date_deadline,
+        ticket_strategy_id=e.ticket_strategy_id,
         like_count=e.like_count,
         dislike_count=e.dislike_count if include_dislike else 0,
         lat=e.lat,
@@ -226,13 +229,10 @@ async def create_event(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
-    """Create event (organizer or admin). Organizer is set to current user."""
-    start_time = _parse_iso_datetime(body.start_time)
-    end_time = _parse_iso_datetime(body.end_time)
-    funding_end_at = _parse_iso_datetime(body.funding_end_at)
-    if not start_time or not end_time:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=400, detail="start_time and end_time required as ISO datetime")
+    """Create event (organizer or admin). At least one of event date or funding deadline must be set."""
+    start_time = _parse_iso_datetime(body.start_time) if body.start_time else None
+    end_time = _parse_iso_datetime(body.end_time) if body.end_time else None
+    funding_end_at = _parse_iso_datetime(body.funding_end_at) if body.funding_end_at else None
     reg_type = RegistrationType(body.registration_type)
     event = await event_service.create(
         db,
@@ -253,6 +253,8 @@ async def create_event(
         publish=body.publish,
         genre=body.genre,
         posts_enabled=body.posts_enabled,
+        refund_deadline_days=body.refund_deadline_days,
+        ticket_strategy_id=body.ticket_strategy_id,
     )
     event = await event_service.get_by_id(db, event.id, load_venue=True)
     return _event_to_response(event)
@@ -373,6 +375,8 @@ async def update_event(
         pledge_discount_percent=body.pledge_discount_percent,
         genre=body.genre,
         posts_enabled=body.posts_enabled,
+        refund_deadline_days=body.refund_deadline_days,
+        ticket_strategy_id=body.ticket_strategy_id,
     )
 
     if needs_approval:
@@ -528,6 +532,19 @@ async def publish_event(
     return _event_to_response(event)
 
 
+@router.post("/{event_id}/clone", response_model=EventResponse)
+async def clone_event(
+    event_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+):
+    """Clone a completed event into a new draft with pre-filled values (no dates)."""
+    event = await event_service.get_or_404(db, event_id)
+    new_event = await event_service.clone_event(db, event, current_user)
+    new_event = await event_service.get_by_id(db, new_event.id, load_venue=True)
+    return _event_to_response(new_event)
+
+
 @router.post("/{event_id}/pledge")
 async def pledge_event(
     event_id: int,
@@ -535,7 +552,11 @@ async def pledge_event(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.customer)),
 ):
-    """Pledge to event (customer)."""
+    """Pledge to event (customer). Only allowed during approved (funding active) status."""
+    event = await event_service.get_or_404(db, event_id)
+    if event.status not in (EventStatus.approved,):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=409, detail="Pledging is only allowed during the funding period")
     pledge = await funding_service.create_pledge(
         db,
         event_id=event_id,
@@ -618,11 +639,23 @@ async def unregister_event(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.customer)),
 ):
-    """Customer unregisters from event. Pledges refunded only if more than 7 days before funding deadline."""
+    """Customer unregisters from event. Not allowed after funding ends (selling_tickets/waiting/live/completed)."""
+    event = await event_service.get_or_404(db, event_id)
+    blocked_statuses = (
+        EventStatus.selling_tickets, EventStatus.waiting_event_date,
+        EventStatus.live, EventStatus.completed,
+    )
+    if event.status in blocked_statuses:
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=409,
+            detail=f"Cannot unregister — event is in '{event.status.value}' state",
+        )
     result = await registration_service.unregister(db, event_id=event_id, user=current_user)
     return UnregisterResponse(
         refunded_cents=result["refunded_cents"],
         pledges_refunded=result["pledges_refunded"],
+        refund_eligible=result["refund_eligible"],
     )
 
 

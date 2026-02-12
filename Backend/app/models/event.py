@@ -12,9 +12,11 @@ from app.db.base import Base
 class EventStatus(str, enum.Enum):
     draft = "draft"
     pending_approval = "pending_approval"
-    approved = "approved"
-    live = "live"
-    ended = "ended"
+    approved = "approved"              # published: funding active or no-funding pre-event
+    selling_tickets = "selling_tickets" # funding ended, event date known → ticket sales only
+    waiting_event_date = "waiting_event_date"  # funding ended, no event date → organizer must set date
+    live = "live"                      # event is happening (start_time reached)
+    completed = "completed"            # event ended (end_time reached)
     cancelled = "cancelled"
 
 
@@ -46,8 +48,8 @@ class Event(Base):
     venue_id: Mapped[int] = mapped_column(ForeignKey("venues.id"), nullable=False, index=True)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    start_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    end_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    start_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)  # event date (can be set later)
+    end_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     lat: Mapped[float | None] = mapped_column(Float, nullable=True)
     lng: Mapped[float | None] = mapped_column(Float, nullable=True)
     funding_goal_cents: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -62,6 +64,9 @@ class Event(Base):
     registration_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # denormalized for trending
     genre: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True)
     posts_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    refund_deadline_days: Mapped[int | None] = mapped_column(Integer, nullable=True)  # only set when funding is used; default 20% of funding duration
+    event_date_deadline: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)  # deadline to set event date (funding_end + 20% duration)
+    ticket_strategy_id: Mapped[int | None] = mapped_column(ForeignKey("ticket_strategies.id"), nullable=True, index=True)
     like_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     dislike_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
@@ -77,6 +82,7 @@ class Event(Base):
     event_organizers = relationship("EventOrganizer", back_populates="event", cascade="all, delete-orphan")
     posts = relationship("EventPost", back_populates="event", cascade="all, delete-orphan")
     images = relationship("EventImage", back_populates="event", cascade="all, delete-orphan")
+    ticket_strategy = relationship("TicketStrategy", back_populates="events")
     reactions = relationship("EventReaction", back_populates="event", cascade="all, delete-orphan")
 
 

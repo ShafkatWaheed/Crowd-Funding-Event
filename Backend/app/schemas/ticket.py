@@ -7,12 +7,14 @@ from pydantic import BaseModel
 
 class TicketTierCreate(BaseModel):
     name: str
+    description: str | None = None
     price_cents: int
     display_order: int = 0
 
 
 class TicketTierUpdate(BaseModel):
     name: str | None = None
+    description: str | None = None
     price_cents: int | None = None
     display_order: int | None = None
 
@@ -21,6 +23,7 @@ class TicketTierResponse(BaseModel):
     id: int
     event_id: int
     name: str
+    description: str | None = None
     price_cents: int
     display_order: int
 

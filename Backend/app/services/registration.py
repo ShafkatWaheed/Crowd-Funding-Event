@@ -6,15 +6,15 @@ Rules (MVP):
 - Open event: if registered_count < max_capacity -> registered else waitlist.
 - Closed event: always waitlist (acts like a request) until organizer approves.
 
-Unregister: Customer can unregister anytime. Pledges are refunded only if more than 7 days
-before the funding period deadline (event.funding_end_at). Within 7 days, unregister is allowed
-but pledges are not refunded.
+Unregister: Customer can unregister anytime. Pledges are refunded only if the event's
+refund_deadline_days has not been exceeded (counted backwards from event start_time).
+If the deadline has passed, unregister is allowed but pledges are NOT refunded.
 
 Concurrency:
 - Uses SELECT ... FOR UPDATE on the event row when registering to reduce oversubscription.
 """
 
-from datetime import datetime, timedelta, timezone
+
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -41,7 +41,7 @@ async def register(
 
     if event.status == EventStatus.cancelled:
         raise ConflictError("Cannot register for a cancelled event")
-    if event.status == EventStatus.ended:
+    if event.status == EventStatus.completed:
         raise ConflictError("Cannot register for an ended event")
 
     # Existing registration?
@@ -136,7 +136,7 @@ async def approve_waitlist(
     if reg.status != RegistrationStatus.waitlist:
         raise ConflictError("Only waitlist registrations can be approved")
 
-    if event.status in (EventStatus.cancelled, EventStatus.ended):
+    if event.status in (EventStatus.cancelled, EventStatus.completed):
         raise ConflictError("Cannot approve registrations for this event status")
 
     # Capacity check
@@ -177,33 +177,40 @@ async def unregister(
 ) -> dict:
     """
     Customer unregisters from event. Registration is set to cancelled.
-    Pledges are refunded only if we are more than 7 days before funding_end_at.
-    Returns {"refunded_cents": int, "pledges_refunded": int}.
+    Pledges are refunded only if the organizer's refund_deadline_days has not passed
+    (counted backwards from event start_time).
+    Returns {"refunded_cents": int, "pledges_refunded": int, "refund_eligible": bool}.
     """
+    from datetime import datetime, timedelta, timezone
+
     event = await _get_event_for_unregister(db, event_id=event_id)
     reg = await _get_user_registration(db, event_id=event_id, user_id=user.id)
     if reg.status == RegistrationStatus.cancelled:
         raise ConflictError("You are not registered for this event")
 
+    # Check if we are still within the refund window
+    now = datetime.now(timezone.utc)
+    event_start = event.start_time
+    if event_start.tzinfo is None:
+        event_start = event_start.replace(tzinfo=timezone.utc)
+    deadline_days = event.refund_deadline_days if event.refund_deadline_days is not None else 7
+    refund_cutoff = event_start - timedelta(days=deadline_days)
+    refund_eligible = now <= refund_cutoff
+
     refunded_cents = 0
     pledges_refunded = 0
-    if event.funding_end_at:
-        now = datetime.now(timezone.utc)
-        deadline = event.funding_end_at
-        if deadline.tzinfo is None:
-            deadline = deadline.replace(tzinfo=timezone.utc)
-        if now + timedelta(days=7) <= deadline:
-            # More than 7 days before deadline: refund all pledged amounts for this user
-            pledges = await _get_pledges_for_refund(db, event_id=event_id, user_id=user.id)
-            for p in pledges:
-                refunded_cents += p.amount_cents
-            pledges_refunded = await funding_service.refund_pledges_for_user_event(
-                db, event_id=event_id, user_id=user.id
-            )
+
+    if refund_eligible:
+        pledges = await _get_pledges_for_refund(db, event_id=event_id, user_id=user.id)
+        for p in pledges:
+            refunded_cents += p.amount_cents
+        pledges_refunded = await funding_service.refund_pledges_for_user_event(
+            db, event_id=event_id, user_id=user.id
+        )
 
     reg.status = RegistrationStatus.cancelled
     await db.flush()
-    return {"refunded_cents": refunded_cents, "pledges_refunded": pledges_refunded}
+    return {"refunded_cents": refunded_cents, "pledges_refunded": pledges_refunded, "refund_eligible": refund_eligible}
 
 
 async def _get_event_for_unregister(db: AsyncSession, *, event_id: int) -> Event:
@@ -214,7 +221,7 @@ async def _get_event_for_unregister(db: AsyncSession, *, event_id: int) -> Event
         raise NotFoundError("Event", event_id)
     if event.status == EventStatus.cancelled:
         raise ConflictError("Cannot unregister from a cancelled event")
-    if event.status == EventStatus.ended:
+    if event.status == EventStatus.completed:
         raise ConflictError("Cannot unregister from an ended event")
     return event
 

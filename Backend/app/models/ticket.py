@@ -22,6 +22,7 @@ class TicketTier(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     event_id: Mapped[int] = mapped_column(ForeignKey("events.id"), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(64), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)  # what this tier provides
     price_cents: Mapped[int] = mapped_column(Integer, nullable=False)
     display_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 

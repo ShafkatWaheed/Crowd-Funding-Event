@@ -36,7 +36,7 @@ async def create_pledge(
         )
     if event.status == EventStatus.cancelled:
         raise ConflictError("Cannot pledge to a cancelled event")
-    if event.status == EventStatus.ended:
+    if event.status == EventStatus.completed:
         raise ConflictError("Cannot pledge to an ended event")
 
     # Check if user is registered for this event
@@ -162,18 +162,22 @@ async def get_summary(db: AsyncSession, *, event_id: int) -> dict:
     }
 
 
-async def refund_all_pledges_for_event(db: AsyncSession, *, event_id: int) -> int:
+async def refund_all_pledges_for_event(db: AsyncSession, *, event_id: int, guest_refund: bool = True) -> int:
     """
     When an event is cancelled, mark all pledged fundings for that event as refunded.
+    If guest_refund=False, only refund non-guest pledges (guest pledges left for admin decision).
     Returns count of pledges refunded.
     """
     from sqlalchemy import update
+    conditions = [
+        Funding.event_id == event_id,
+        Funding.status == FundingStatus.pledged,
+    ]
+    if not guest_refund:
+        conditions.append(Funding.is_guest == False)
     result = await db.execute(
         update(Funding)
-        .where(
-            Funding.event_id == event_id,
-            Funding.status == FundingStatus.pledged,
-        )
+        .where(*conditions)
         .values(status=FundingStatus.refunded)
     )
     return result.rowcount or 0

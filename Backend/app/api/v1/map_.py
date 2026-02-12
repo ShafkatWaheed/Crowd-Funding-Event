@@ -14,10 +14,18 @@ router = APIRouter()
 
 
 def _event_to_marker(e: Event) -> MapEventMarker:
-    start = e.start_time.isoformat() if e.start_time.tzinfo else e.start_time.replace(tzinfo=timezone.utc).isoformat()
-    end = e.end_time.isoformat() if e.end_time.tzinfo else e.end_time.replace(tzinfo=timezone.utc).isoformat()
+    start = None
+    end = None
+    if e.start_time is not None:
+        start = e.start_time.isoformat() if e.start_time.tzinfo else e.start_time.replace(tzinfo=timezone.utc).isoformat()
+    if e.end_time is not None:
+        end = e.end_time.isoformat() if e.end_time.tzinfo else e.end_time.replace(tzinfo=timezone.utc).isoformat()
     now = datetime.now(timezone.utc)
-    is_live = e.start_time <= now <= e.end_time and e.status.value in ("approved", "live")
+    is_live = (
+        e.start_time is not None and e.end_time is not None
+        and e.start_time <= now <= e.end_time
+        and e.status.value in ("approved", "live", "selling_tickets")
+    )
     return MapEventMarker(
         id=e.id,
         title=e.title,

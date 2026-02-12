@@ -37,17 +37,19 @@ class EventCreate(BaseModel):
     venue_id: int
     title: str
     description: str | None = None
-    start_time: str  # ISO datetime
-    end_time: str
+    start_time: str | None = None  # ISO datetime — event date (optional if funding_end_at set)
+    end_time: str | None = None
     funding_goal_cents: int | None = None
-    funding_end_at: str | None = None
-    min_pledge_cents: int  # required minimum pledge amount in cents
+    funding_end_at: str | None = None  # funding deadline (optional if start_time set)
+    min_pledge_cents: int = 500  # required minimum pledge amount in cents
     registration_type: Literal["open", "closed"] = "open"
     max_capacity: int
     common_discount_percent: int = 0
     pledge_discount_percent: int = 0
     genre: str | None = None
     posts_enabled: bool = True
+    refund_deadline_days: int | None = None  # auto-calculated as 20% of funding duration; only when funding set
+    ticket_strategy_id: int | None = None  # link to a reusable ticket strategy
     publish: bool = False  # True = approved immediately, False = draft
 
 
@@ -65,6 +67,8 @@ class EventUpdate(BaseModel):
     pledge_discount_percent: int | None = None
     genre: str | None = None
     posts_enabled: bool | None = None
+    refund_deadline_days: int | None = None
+    ticket_strategy_id: int | None = None
 
 
 class ExtendFundingBody(BaseModel):
@@ -77,6 +81,7 @@ class ExtendFundingBody(BaseModel):
 class UnregisterResponse(BaseModel):
     refunded_cents: int
     pledges_refunded: int
+    refund_eligible: bool = True  # False if deadline passed (no refund)
 
 
 class EventOrganizerItem(BaseModel):
@@ -102,8 +107,8 @@ class EventResponse(BaseModel):
     venue: EventVenueInfo
     title: str
     description: str | None
-    start_time: datetime
-    end_time: datetime
+    start_time: datetime | None
+    end_time: datetime | None
     status: str
     registration_type: str
     max_capacity: int
@@ -118,6 +123,9 @@ class EventResponse(BaseModel):
     registration_count: int = 0
     genre: str | None = None
     posts_enabled: bool = True
+    refund_deadline_days: int | None = None
+    event_date_deadline: datetime | None = None
+    ticket_strategy_id: int | None = None
     like_count: int = 0
     dislike_count: int = 0  # only populated for admin
     lat: float | None
@@ -156,7 +164,7 @@ class MapEventMarker(BaseModel):
     title: str
     lat: float
     lng: float
-    start_time: str
-    end_time: str
+    start_time: str | None
+    end_time: str | None
     status: str
     is_live: bool

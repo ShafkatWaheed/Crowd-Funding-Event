@@ -1,7 +1,16 @@
 import 'venue.dart';
 
 // ignore_for_file: constant_identifier_names
-enum EventStatus { draft, pending_approval, approved, live, ended, cancelled }
+enum EventStatus {
+  draft,
+  pending_approval,
+  approved,
+  selling_tickets,
+  waiting_event_date,
+  live,
+  completed,
+  cancelled,
+}
 
 enum RegistrationType { open, closed }
 
@@ -11,8 +20,8 @@ class Event {
   final int venueId;
   final String title;
   final String? description;
-  final DateTime startTime;
-  final DateTime endTime;
+  final DateTime? startTime;
+  final DateTime? endTime;
   final double? lat;
   final double? lng;
   final int? fundingGoalCents;
@@ -29,6 +38,9 @@ class Event {
   final int registrationCount;
   final String? genre;
   final bool postsEnabled;
+  final int? refundDeadlineDays;
+  final DateTime? eventDateDeadline;
+  final int? ticketStrategyId;
   final int likeCount;
   final int dislikeCount;
   final Venue? venue;
@@ -40,8 +52,8 @@ class Event {
     required this.venueId,
     required this.title,
     this.description,
-    required this.startTime,
-    required this.endTime,
+    this.startTime,
+    this.endTime,
     this.lat,
     this.lng,
     this.fundingGoalCents,
@@ -58,6 +70,9 @@ class Event {
     this.registrationCount = 0,
     this.genre,
     this.postsEnabled = true,
+    this.refundDeadlineDays,
+    this.eventDateDeadline,
+    this.ticketStrategyId,
     this.likeCount = 0,
     this.dislikeCount = 0,
     this.venue,
@@ -71,8 +86,8 @@ class Event {
       venueId: json['venue_id'],
       title: json['title'],
       description: json['description'],
-      startTime: DateTime.parse(json['start_time']),
-      endTime: DateTime.parse(json['end_time']),
+      startTime: json['start_time'] != null ? DateTime.parse(json['start_time']) : null,
+      endTime: json['end_time'] != null ? DateTime.parse(json['end_time']) : null,
       lat: json['lat']?.toDouble(),
       lng: json['lng']?.toDouble(),
       fundingGoalCents: json['funding_goal_cents'],
@@ -97,6 +112,11 @@ class Event {
       registrationCount: json['registration_count'] ?? 0,
       genre: json['genre'],
       postsEnabled: json['posts_enabled'] ?? true,
+      refundDeadlineDays: json['refund_deadline_days'],
+      eventDateDeadline: json['event_date_deadline'] != null
+          ? DateTime.parse(json['event_date_deadline'])
+          : null,
+      ticketStrategyId: json['ticket_strategy_id'],
       likeCount: json['like_count'] ?? 0,
       dislikeCount: json['dislike_count'] ?? 0,
       venue: json['venue'] != null ? Venue.fromJson(json['venue']) : null,
@@ -122,4 +142,17 @@ class Event {
       fundingGoalCents != null &&
       fundingEndAt != null &&
       DateTime.now().isBefore(fundingEndAt!);
+
+  /// Whether the refund window is still open (now is before event start minus deadline days).
+  bool get isRefundEligible {
+    if (startTime == null || refundDeadlineDays == null) return true;
+    final cutoff = startTime!.subtract(Duration(days: refundDeadlineDays!));
+    return DateTime.now().toUtc().isBefore(cutoff);
+  }
+
+  /// Whether pledging is allowed (only during approved/funding phase).
+  bool get canPledge => status == EventStatus.approved && fundingEndAt != null;
+
+  /// Whether unregistering is allowed (not in post-funding states).
+  bool get canUnregister => status == EventStatus.approved || status == EventStatus.draft;
 }

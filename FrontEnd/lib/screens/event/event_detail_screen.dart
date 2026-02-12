@@ -10,6 +10,7 @@ import '../../models/post.dart';
 import '../../models/event_image.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/event_provider.dart';
+import '../../widgets/event_lifecycle_bar.dart';
 import '../../services/api_service.dart';
 
 class EventDetailScreen extends StatefulWidget {
@@ -246,6 +247,11 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                 ],
                               ),
 
+                              // Lifecycle progress bar
+                              const SizedBox(height: 16),
+                              EventLifecycleBar(event: event),
+                              const SizedBox(height: 12),
+
                               // Genre badge
                               if (event.genre != null &&
                                   event.genre!.isNotEmpty) ...[
@@ -392,11 +398,15 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                   padding: const EdgeInsets.all(16),
                                   child: Column(
                                     children: [
-                                      _infoRow(Icons.calendar_today, 'Start',
-                                          dateFormat.format(event.startTime)),
+                                      _infoRow(Icons.calendar_today, 'Event Start',
+                                          event.startTime != null
+                                              ? dateFormat.format(event.startTime!)
+                                              : 'Not set yet'),
                                       const Divider(),
-                                      _infoRow(Icons.calendar_today, 'End',
-                                          dateFormat.format(event.endTime)),
+                                      _infoRow(Icons.calendar_today, 'Event End',
+                                          event.endTime != null
+                                              ? dateFormat.format(event.endTime!)
+                                              : 'Not set yet'),
                                       const Divider(),
                                       _infoRow(Icons.people, 'Capacity',
                                           '${event.maxCapacity}'),
@@ -427,6 +437,29 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                                   ? '${event.fundingDaysLeft} days left'
                                                   : 'Ended'),
                                         ],
+                                      ],
+                                      if (event.fundingEndAt != null) ...[
+                                        const Divider(),
+                                        _infoRow(
+                                            Icons.timer,
+                                            'Funding Deadline',
+                                            dateFormat.format(event.fundingEndAt!)),
+                                      ],
+                                      if (event.eventDateDeadline != null) ...[
+                                        const Divider(),
+                                        _infoRow(
+                                            Icons.hourglass_bottom,
+                                            'Set Date By',
+                                            dateFormat.format(event.eventDateDeadline!)),
+                                      ],
+                                      if (event.refundDeadlineDays != null) ...[
+                                        const Divider(),
+                                        _infoRow(
+                                            Icons.receipt_long,
+                                            'Refund Policy',
+                                            event.refundDeadlineDays! > 0
+                                                ? 'Refund if cancelled ${event.refundDeadlineDays} day${event.refundDeadlineDays == 1 ? '' : 's'} before funding ends'
+                                                : 'No refunds'),
                                       ],
                                     ],
                                   ),
@@ -580,42 +613,64 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                 const SizedBox(height: 16),
                               ],
 
+                              // ─── Ticket Tiers Section ───
+                              if (event.ticketStrategyId != null) ...[
+                                const SizedBox(height: 16),
+                                _sectionTitle(context, 'Ticket Tiers'),
+                                const SizedBox(height: 8),
+                                _buildTicketTiersSection(event),
+                                const SizedBox(height: 16),
+                              ],
+
                               // Actions for customers
                               if (user != null && user.isCustomer) ...[
                                 _sectionTitle(context, 'Actions'),
                                 const SizedBox(height: 8),
+
+                                // State info banners
+                                if (event.status == EventStatus.selling_tickets)
+                                  _infoBanner('Funding has ended. Tickets are now on sale!', Icons.confirmation_number, Colors.teal),
+                                if (event.status == EventStatus.waiting_event_date)
+                                  _infoBanner('Funding has ended. Waiting for organizer to set event date.', Icons.hourglass_top, Colors.orange),
+                                if (event.status == EventStatus.completed)
+                                  _infoBanner('This event has been completed.', Icons.check_circle, Colors.grey),
+
                                 Wrap(
                                   spacing: 10,
                                   runSpacing: 10,
                                   children: [
-                                    if (_isRegistered && _regStatus == 'registered')
-                                      OutlinedButton.icon(
-                                        onPressed: _regLoading
-                                            ? null
-                                            : () => _unregister(context),
-                                        icon: const Icon(Icons.person_remove,
-                                            color: AppTheme.warningColor),
-                                        label: const Text('Unregister',
-                                            style: TextStyle(
-                                                color: AppTheme.warningColor)),
-                                      )
-                                    else
-                                      ElevatedButton.icon(
-                                        onPressed: _regLoading
-                                            ? null
-                                            : () => _register(context),
-                                        icon: const Icon(Icons.how_to_reg),
-                                        label: Text(_regStatus == 'waitlisted'
-                                            ? 'Waitlisted'
-                                            : 'Register'),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor:
-                                              AppTheme.primaryColor,
-                                          foregroundColor: Colors.white,
+                                    // Register / Unregister — only during approved state
+                                    if (event.canUnregister) ...[
+                                      if (_isRegistered && _regStatus == 'registered')
+                                        OutlinedButton.icon(
+                                          onPressed: _regLoading
+                                              ? null
+                                              : () => _unregister(context),
+                                          icon: const Icon(Icons.person_remove,
+                                              color: AppTheme.warningColor),
+                                          label: const Text('Unregister',
+                                              style: TextStyle(
+                                                  color: AppTheme.warningColor)),
+                                        )
+                                      else
+                                        ElevatedButton.icon(
+                                          onPressed: _regLoading
+                                              ? null
+                                              : () => _register(context),
+                                          icon: const Icon(Icons.how_to_reg),
+                                          label: Text(_regStatus == 'waitlisted'
+                                              ? 'Waitlisted'
+                                              : 'Register'),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor:
+                                                AppTheme.primaryColor,
+                                            foregroundColor: Colors.white,
+                                          ),
                                         ),
-                                      ),
-                                    if (event.fundingGoalCents != null &&
-                                        event.fundingGoalCents! > 0) ...[
+                                    ],
+
+                                    // Pledge / Unpledge — only during funding period (approved + funding set)
+                                    if (event.canPledge) ...[
                                       OutlinedButton.icon(
                                         onPressed: () =>
                                             _showPledgeDialog(context, event),
@@ -635,6 +690,19 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                                     AppTheme.warningColor)),
                                       ),
                                     ],
+
+                                    // Buy tickets — selling_tickets or live
+                                    if (event.status == EventStatus.selling_tickets ||
+                                        event.status == EventStatus.live)
+                                      ElevatedButton.icon(
+                                        onPressed: () => _showBuyTicketDialog(event),
+                                        icon: const Icon(Icons.confirmation_number),
+                                        label: const Text('Buy Tickets'),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.teal,
+                                          foregroundColor: Colors.white,
+                                        ),
+                                      ),
                                   ],
                                 ),
                               ],
@@ -705,9 +773,36 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                         ),
                                       ),
 
-                                    // Cancel (only for published or live events)
+                                    // Set Event Date (waiting_event_date → set dates)
+                                    if (event.status == EventStatus.waiting_event_date)
+                                      ElevatedButton.icon(
+                                        onPressed: () =>
+                                            context.go('/events/${event.id}/edit'),
+                                        icon: const Icon(Icons.calendar_month, size: 18),
+                                        label: const Text('Set Event Date'),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.orange,
+                                          foregroundColor: Colors.white,
+                                        ),
+                                      ),
+
+                                    // Clone (completed events only)
+                                    if (event.status == EventStatus.completed)
+                                      ElevatedButton.icon(
+                                        onPressed: () => _cloneEvent(context, event.id),
+                                        icon: const Icon(Icons.copy_all, size: 18),
+                                        label: const Text('Clone Event'),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: AppTheme.primaryColor,
+                                          foregroundColor: Colors.white,
+                                        ),
+                                      ),
+
+                                    // Cancel (only for published, selling_tickets, or live events)
                                     if (event.status ==
                                             EventStatus.approved ||
+                                        event.status == EventStatus.selling_tickets ||
+                                        event.status == EventStatus.waiting_event_date ||
                                         event.status ==
                                             EventStatus.live)
                                       OutlinedButton.icon(
@@ -1008,6 +1103,201 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     );
   }
 
+  Widget _buildTicketTiersSection(Event event) {
+    return FutureBuilder(
+      future: context.read<ApiService>().dio.get('/events/${event.id}/tickets/tiers'),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError || !snapshot.hasData) {
+          return const Text('Could not load ticket tiers');
+        }
+        final tiers = snapshot.data!.data as List;
+        if (tiers.isEmpty) {
+          return Text('No tiers configured yet',
+              style: TextStyle(color: Colors.grey[500]));
+        }
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              children: tiers.map((t) {
+                final name = t['name'] ?? 'Tier';
+                final desc = t['description'] as String?;
+                final priceCents = t['price_cents'] ?? 0;
+                final price = (priceCents / 100).toStringAsFixed(2);
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.confirmation_number,
+                              size: 18, color: Colors.teal),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(name,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w600)),
+                          ),
+                          Text('\$$price',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.teal)),
+                        ],
+                      ),
+                      if (desc != null && desc.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 28, top: 3),
+                          child: Text(desc,
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                  fontStyle: FontStyle.italic)),
+                        ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showBuyTicketDialog(Event event) async {
+    // Load ticket tiers for this event
+    try {
+      final api = context.read<ApiService>();
+      final tiersData = await api.dio.get('/events/${event.id}/tickets/tiers');
+      final tiers = (tiersData.data as List);
+      if (tiers.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No ticket tiers available for this event')),
+          );
+        }
+        return;
+      }
+      if (!mounted) return;
+
+      await showDialog(
+        context: context,
+        builder: (ctx) {
+          return AlertDialog(
+            title: const Text('Select a Ticket Tier'),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: tiers.length,
+                itemBuilder: (context, i) {
+                  final t = tiers[i];
+                  final name = t['name'] ?? 'Tier';
+                  final desc = t['description'] as String?;
+                  final priceCents = t['price_cents'] ?? 0;
+                  final price = (priceCents / 100).toStringAsFixed(2);
+                  final tierId = t['id'];
+                  return Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.confirmation_number, color: Colors.teal),
+                      title: Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('\$$price'),
+                          if (desc != null && desc.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(desc,
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[600],
+                                      fontStyle: FontStyle.italic)),
+                            ),
+                        ],
+                      ),
+                      trailing: ElevatedButton(
+                        onPressed: () async {
+                          Navigator.of(ctx).pop();
+                          await _purchaseTicket(event.id, tierId);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.teal,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: const Text('Buy'),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Cancel'),
+              ),
+            ],
+          );
+        },
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load tiers: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _purchaseTicket(int eventId, int tierId) async {
+    try {
+      final api = context.read<ApiService>();
+      final resp = await api.dio.post('/events/$eventId/tickets/purchase', data: {'tier_id': tierId});
+      final ticketCode = resp.data['ticket_code'] ?? '';
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ticket purchased! Code: $ticketCode')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Purchase failed: $e')),
+        );
+      }
+    }
+  }
+
+  Widget _infoBanner(String text, IconData icon, Color color) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(text,
+                style: TextStyle(
+                    color: color,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13)),
+          ),
+        ],
+      ),
+    );
+  }
+
   String _statusLabel(EventStatus status) {
     switch (status) {
       case EventStatus.draft:
@@ -1016,10 +1306,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
         return 'UNPUBLISHED';
       case EventStatus.approved:
         return 'PUBLISHED';
+      case EventStatus.selling_tickets:
+        return 'SELLING TICKETS';
+      case EventStatus.waiting_event_date:
+        return 'AWAITING EVENT DATE';
       case EventStatus.live:
         return 'LIVE';
-      case EventStatus.ended:
-        return 'ENDED';
+      case EventStatus.completed:
+        return 'COMPLETED';
       case EventStatus.cancelled:
         return 'CANCELLED';
     }
@@ -1033,12 +1327,34 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
         return AppTheme.warningColor.withValues(alpha: 0.2);
       case EventStatus.approved:
         return AppTheme.successColor.withValues(alpha: 0.2);
+      case EventStatus.selling_tickets:
+        return Colors.teal.withValues(alpha: 0.2);
+      case EventStatus.waiting_event_date:
+        return Colors.orange.withValues(alpha: 0.2);
       case EventStatus.live:
         return AppTheme.secondaryColor.withValues(alpha: 0.2);
-      case EventStatus.ended:
+      case EventStatus.completed:
         return AppTheme.primaryColor.withValues(alpha: 0.2);
       case EventStatus.cancelled:
         return AppTheme.errorColor.withValues(alpha: 0.2);
+    }
+  }
+
+  Future<void> _cloneEvent(BuildContext context, int eventId) async {
+    try {
+      final api = context.read<ApiService>();
+      final data = await api.cloneEvent(eventId);
+      if (!mounted) return;
+      final newId = data['id'];
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Event cloned as draft! Redirecting to edit...')),
+      );
+      context.go('/events/$newId/edit');
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Clone failed: $e')),
+      );
     }
   }
 
@@ -1098,12 +1414,26 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   }
 
   Future<void> _unregister(BuildContext context) async {
+    final event = context.read<EventProvider>().selectedEvent;
+    final bool refundEligible = event?.isRefundEligible ?? true;
+    final deadlineDays = event?.refundDeadlineDays ?? 7;
+
+    String message;
+    if (refundEligible) {
+      message =
+          'Are you sure you want to unregister? Your pledged amount will be fully refunded.';
+    } else {
+      message =
+          'The refund deadline has passed (${deadlineDays} day${deadlineDays == 1 ? '' : 's'} before event start).\n\n'
+          'If you unregister now, your pledged amount will NOT be refunded.\n\n'
+          'Are you sure you want to proceed?';
+    }
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Unregister'),
-        content: const Text(
-            'Are you sure you want to unregister? Any eligible pledges will be refunded.'),
+        content: Text(message),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -1112,10 +1442,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.warningColor,
+              backgroundColor: refundEligible
+                  ? AppTheme.warningColor
+                  : AppTheme.errorColor,
               foregroundColor: Colors.white,
             ),
-            child: const Text('Unregister'),
+            child: Text(refundEligible
+                ? 'Unregister'
+                : 'Unregister (No Refund)'),
           ),
         ],
       ),
@@ -1131,10 +1465,16 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
         context.read<EventProvider>().loadEvent(widget.eventId);
         final refunded = result['refunded_cents'] ?? 0;
         final pledges = result['pledges_refunded'] ?? 0;
-        var msg = 'Unregistered successfully.';
-        if (pledges > 0) {
-          msg +=
-              ' Refunded \$${(refunded / 100).toStringAsFixed(2)} from $pledges pledge(s).';
+        final wasRefunded = result['refund_eligible'] ?? true;
+        String msg;
+        if (wasRefunded && pledges > 0) {
+          msg =
+              'Unregistered successfully. Refunded \$${(refunded / 100).toStringAsFixed(2)} from $pledges pledge(s).';
+        } else if (!wasRefunded) {
+          msg =
+              'Unregistered successfully. No refund — the refund deadline had passed.';
+        } else {
+          msg = 'Unregistered successfully.';
         }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(msg)),

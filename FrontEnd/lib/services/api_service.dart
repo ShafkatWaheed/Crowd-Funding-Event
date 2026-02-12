@@ -176,6 +176,34 @@ class ApiService {
     return resp.data;
   }
 
+  // ─── Clone ───
+
+  Future<Map<String, dynamic>> cloneEvent(int eventId) async {
+    final resp = await dio.post('/events/$eventId/clone');
+    return resp.data;
+  }
+
+  // ─── Ticket Strategies ───
+
+  Future<List<dynamic>> getTicketStrategies() async {
+    final resp = await dio.get('/ticket-strategies');
+    return resp.data;
+  }
+
+  Future<Map<String, dynamic>> createTicketStrategy(Map<String, dynamic> data) async {
+    final resp = await dio.post('/ticket-strategies', data: data);
+    return resp.data;
+  }
+
+  Future<Map<String, dynamic>> getTicketStrategy(int id) async {
+    final resp = await dio.get('/ticket-strategies/$id');
+    return resp.data;
+  }
+
+  Future<void> deleteTicketStrategy(int id) async {
+    await dio.delete('/ticket-strategies/$id');
+  }
+
   // ─── Funding ───
 
   Future<Map<String, dynamic>> getFundingSummary(int eventId) async {

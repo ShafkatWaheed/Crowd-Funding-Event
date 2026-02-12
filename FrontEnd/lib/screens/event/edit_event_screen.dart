@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
 import '../../models/event.dart';
+import '../../models/ticket_strategy.dart';
 import '../../providers/event_provider.dart';
 import '../../services/api_service.dart';
 
@@ -23,12 +25,20 @@ class _EditEventScreenState extends State<EditEventScreen> {
   final _fundingGoalCtrl = TextEditingController();
   final _minPledgeCtrl = TextEditingController();
 
+  final _refundDeadlineCtrl = TextEditingController();
+
   String _registrationType = 'open';
   String? _genre;
   bool _postsEnabled = true;
+  int _refundDeadlineDays = 0;
   bool _isLoading = false;
   bool _loadingEvent = true;
   Event? _event;
+  DateTime? _startTime;
+  DateTime? _endTime;
+  DateTime? _fundingEndAt;
+  List<TicketStrategy> _strategies = [];
+  int? _selectedStrategyId;
 
   final List<String> _genres = [
     'community', 'music', 'tech', 'sports', 'arts',
@@ -38,7 +48,20 @@ class _EditEventScreenState extends State<EditEventScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadEvent());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadEvent();
+      _loadStrategies();
+    });
+  }
+
+  Future<void> _loadStrategies() async {
+    try {
+      final api = context.read<ApiService>();
+      final data = await api.getTicketStrategies();
+      setState(() {
+        _strategies = data.map((d) => TicketStrategy.fromJson(d)).toList();
+      });
+    } catch (_) {}
   }
 
   Future<void> _loadEvent() async {
@@ -58,6 +81,12 @@ class _EditEventScreenState extends State<EditEventScreen> {
         _registrationType = event.registrationType.name;
         _genre = event.genre;
         _postsEnabled = event.postsEnabled;
+        _refundDeadlineDays = event.refundDeadlineDays ?? 0;
+        _refundDeadlineCtrl.text = (event.refundDeadlineDays ?? 0).toString();
+        _startTime = event.startTime;
+        _endTime = event.endTime;
+        _fundingEndAt = event.fundingEndAt;
+        _selectedStrategyId = event.ticketStrategyId;
         _loadingEvent = false;
       });
     } catch (e) {
@@ -87,8 +116,22 @@ class _EditEventScreenState extends State<EditEventScreen> {
       'posts_enabled': _postsEnabled,
     };
 
+    if (_startTime != null) {
+      data['start_time'] = _startTime!.toUtc().toIso8601String();
+    }
+    if (_endTime != null) {
+      data['end_time'] = _endTime!.toUtc().toIso8601String();
+    }
+    if (_fundingEndAt != null) {
+      data['funding_end_at'] = _fundingEndAt!.toUtc().toIso8601String();
+      data['refund_deadline_days'] = _refundDeadlineDays;
+    }
+
     if (fundingGoal != null && fundingGoal > 0) {
       data['funding_goal_cents'] = (fundingGoal * 100).toInt();
+    }
+    if (_selectedStrategyId != null) {
+      data['ticket_strategy_id'] = _selectedStrategyId;
     }
 
     try {
@@ -128,6 +171,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
     _capacityCtrl.dispose();
     _fundingGoalCtrl.dispose();
     _minPledgeCtrl.dispose();
+    _refundDeadlineCtrl.dispose();
     super.dispose();
   }
 
@@ -195,6 +239,50 @@ class _EditEventScreenState extends State<EditEventScreen> {
                               decoration:
                                   const InputDecoration(labelText: 'Description'),
                               maxLines: 3,
+                            ),
+                            const SizedBox(height: 16),
+
+                            // ─── Date pickers ───
+                            Text('Event Dates',
+                                style: Theme.of(context).textTheme.titleSmall),
+                            const SizedBox(height: 8),
+                            _datePickerTile(
+                              label: 'Event Start Date',
+                              value: _startTime,
+                              onPick: () => _pickDateTime(
+                                  initial: _startTime,
+                                  onPicked: (dt) =>
+                                      setState(() => _startTime = dt)),
+                              onClear: () =>
+                                  setState(() => _startTime = null),
+                            ),
+                            const SizedBox(height: 8),
+                            _datePickerTile(
+                              label: 'Event End Date',
+                              value: _endTime,
+                              onPick: () => _pickDateTime(
+                                  initial: _endTime ?? _startTime,
+                                  onPicked: (dt) =>
+                                      setState(() => _endTime = dt)),
+                              onClear: () =>
+                                  setState(() => _endTime = null),
+                            ),
+                            const SizedBox(height: 8),
+                            _datePickerTile(
+                              label: 'Funding Deadline',
+                              value: _fundingEndAt,
+                              onPick: () => _pickDateTime(
+                                  initial: _fundingEndAt,
+                                  onPicked: (dt) =>
+                                      setState(() => _fundingEndAt = dt)),
+                              onClear: () =>
+                                  setState(() => _fundingEndAt = null),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'At least one of Event Start Date or Funding Deadline must be set.',
+                              style: TextStyle(
+                                  fontSize: 12, color: Colors.grey[600]),
                             ),
                             const SizedBox(height: 16),
 
@@ -271,6 +359,107 @@ class _EditEventScreenState extends State<EditEventScreen> {
                             ),
                             const SizedBox(height: 16),
 
+                            // ─── Ticket Strategy ───
+                            Text('Ticket Strategy',
+                                style: Theme.of(context).textTheme.titleSmall),
+                            const SizedBox(height: 8),
+                            DropdownButtonFormField<int>(
+                              value: _selectedStrategyId,
+                              decoration: const InputDecoration(
+                                labelText: 'Ticket Strategy',
+                                hintText: 'Select a strategy',
+                              ),
+                              items: _strategies.map((s) => DropdownMenuItem(
+                                value: s.id,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(s.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                    Text(s.tiersSummary,
+                                        style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+                                  ],
+                                ),
+                              )).toList(),
+                              onChanged: (v) => setState(() => _selectedStrategyId = v),
+                            ),
+                            if (_selectedStrategyId != null) ...[
+                              const SizedBox(height: 6),
+                              Builder(builder: (context) {
+                                final s = _strategies.where((s) => s.id == _selectedStrategyId).firstOrNull;
+                                if (s == null) return const SizedBox.shrink();
+                                final totalQty = s.tiers.fold<int>(0, (sum, t) => sum + t.quantity);
+                                final hasUnlimited = s.tiers.any((t) => t.quantity == 0);
+                                final maxCap = int.tryParse(_capacityCtrl.text) ?? 0;
+                                final shortfall = maxCap > 0 && !hasUnlimited && totalQty < maxCap
+                                    ? maxCap - totalQty : 0;
+                                return Card(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(10),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        ...s.tiers.map((t) => Padding(
+                                          padding: const EdgeInsets.only(bottom: 4),
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Container(width: 7, height: 7,
+                                                    decoration: BoxDecoration(color: AppTheme.primaryColor, shape: BoxShape.circle)),
+                                                  const SizedBox(width: 8),
+                                                  Expanded(child: Text(t.name, style: const TextStyle(fontWeight: FontWeight.w500))),
+                                                  Text(t.priceFormatted,
+                                                      style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.successColor)),
+                                                  if (t.quantity > 0)
+                                                    Text('  (${t.quantity})', style: TextStyle(fontSize: 11, color: Colors.grey[500]))
+                                                  else
+                                                    Text('  (unlimited)', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                                                ],
+                                              ),
+                                              if (t.description != null && t.description!.isNotEmpty)
+                                                Padding(
+                                                  padding: const EdgeInsets.only(left: 15, top: 2),
+                                                  child: Text(t.description!,
+                                                      style: TextStyle(fontSize: 11, color: Colors.grey[600], fontStyle: FontStyle.italic)),
+                                                ),
+                                            ],
+                                          ),
+                                        )),
+                                        const Divider(height: 10),
+                                        Row(
+                                          children: [
+                                            Icon(
+                                              shortfall > 0 ? Icons.warning_amber_rounded : Icons.check_circle_outline,
+                                              size: 14,
+                                              color: shortfall > 0 ? AppTheme.warningColor : AppTheme.successColor,
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Expanded(
+                                              child: Text(
+                                                hasUnlimited
+                                                    ? 'Total tickets: unlimited'
+                                                    : shortfall > 0
+                                                        ? 'Total: $totalQty — need $shortfall more for capacity ($maxCap)'
+                                                        : 'Total: $totalQty (covers capacity $maxCap)',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: shortfall > 0 ? AppTheme.warningColor : AppTheme.successColor,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              }),
+                            ],
+                            const SizedBox(height: 16),
+
                             // Posts toggle
                             SwitchListTile(
                               title: const Text('Enable event feed / posts',
@@ -284,6 +473,35 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                   setState(() => _postsEnabled = v),
                               contentPadding: EdgeInsets.zero,
                             ),
+                            // Refund deadline — only when funding deadline is set
+                            if (_fundingEndAt != null) ...[
+                              const SizedBox(height: 16),
+                              TextFormField(
+                                controller: _refundDeadlineCtrl,
+                                decoration: const InputDecoration(
+                                  labelText:
+                                      'Refund Deadline (days before funding ends)',
+                                  helperText:
+                                      'Customers can refund before this cutoff. Max is 20% of funding duration.',
+                                  helperMaxLines: 3,
+                                ),
+                                keyboardType: TextInputType.number,
+                                validator: (v) {
+                                  if (v == null || v.isEmpty) return 'Required';
+                                  final n = int.tryParse(v);
+                                  if (n == null || n < 0) {
+                                    return 'Enter 0 or more';
+                                  }
+                                  return null;
+                                },
+                                onChanged: (v) {
+                                  final n = int.tryParse(v);
+                                  if (n != null && n >= 0) {
+                                    _refundDeadlineDays = n;
+                                  }
+                                },
+                              ),
+                            ],
 
                             const SizedBox(height: 24),
 
@@ -313,5 +531,63 @@ class _EditEventScreenState extends State<EditEventScreen> {
                   ),
                 ),
     );
+  }
+
+  Widget _datePickerTile({
+    required String label,
+    required DateTime? value,
+    required VoidCallback onPick,
+    required VoidCallback onClear,
+  }) {
+    return Row(
+      children: [
+        Expanded(
+          child: InkWell(
+            onTap: onPick,
+            child: InputDecorator(
+              decoration: InputDecoration(
+                labelText: label,
+                border: const OutlineInputBorder(),
+              ),
+              child: Text(
+                value != null
+                    ? DateFormat('MMM d, y  h:mm a').format(value)
+                    : 'Not set',
+                style: TextStyle(
+                  color: value != null ? Colors.black87 : Colors.grey,
+                ),
+              ),
+            ),
+          ),
+        ),
+        if (value != null)
+          IconButton(
+            onPressed: onClear,
+            icon: const Icon(Icons.clear, size: 20),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _pickDateTime({
+    DateTime? initial,
+    required void Function(DateTime) onPicked,
+  }) async {
+    final now = DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: initial ?? now,
+      firstDate: now.subtract(const Duration(days: 365)),
+      lastDate: now.add(const Duration(days: 365 * 5)),
+    );
+    if (date == null || !mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: initial != null
+          ? TimeOfDay.fromDateTime(initial)
+          : TimeOfDay.now(),
+    );
+    if (time == null || !mounted) return;
+    onPicked(DateTime(date.year, date.month, date.day, time.hour, time.minute));
   }
 }

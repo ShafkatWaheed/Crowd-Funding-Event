@@ -10,6 +10,7 @@ import '../screens/event/edit_event_screen.dart';
 import '../screens/event/event_detail_screen.dart';
 import '../screens/venue/venue_list_screen.dart';
 import '../screens/venue/create_venue_screen.dart';
+import '../screens/ticket_strategy/ticket_strategies_screen.dart';
 import '../screens/admin/admin_dashboard_screen.dart';
 import '../screens/profile/profile_screen.dart';
 
@@ -95,6 +96,12 @@ GoRouter createRouter(AuthProvider authProvider) {
       GoRoute(
         path: '/venues/create',
         builder: (context, state) => const CreateVenueScreen(),
+      ),
+
+      // ─── Ticket Strategies ───
+      GoRoute(
+        path: '/ticket-strategies',
+        builder: (context, state) => const TicketStrategiesScreen(),
       ),
 
       // ─── Admin ───

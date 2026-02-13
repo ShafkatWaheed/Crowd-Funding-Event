@@ -22,6 +22,8 @@ class Funding(Base):
     event_id: Mapped[int] = mapped_column(ForeignKey("events.id"), nullable=False, index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     amount_cents: Mapped[int] = mapped_column(Integer, nullable=False)
+    platform_cut_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # platform commission on pledge
+    net_to_organizer_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # amount - platform_cut
     status: Mapped[FundingStatus] = mapped_column(Enum(FundingStatus), nullable=False, default=FundingStatus.pledged)
     is_guest: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)  # guest pledges are non-refundable
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)

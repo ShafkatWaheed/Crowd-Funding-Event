@@ -37,3 +37,4 @@ class User(Base):
     ticket_strategies = relationship("TicketStrategy", back_populates="organizer", foreign_keys="TicketStrategy.organizer_id")
     event_organizers = relationship("EventOrganizer", back_populates="user")
     posts = relationship("EventPost", back_populates="user")
+    discount_strategies = relationship("DiscountStrategy", back_populates="organizer", foreign_keys="DiscountStrategy.organizer_id")

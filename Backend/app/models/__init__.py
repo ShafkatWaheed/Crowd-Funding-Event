@@ -10,6 +10,9 @@ from app.models.ticket import TicketTier, TicketSale, TicketSaleStatus, UserEven
 from app.models.ticket_strategy import TicketStrategy, TicketStrategyTier
 from app.models.post import EventPost
 from app.models.image import EventImage
+from app.models.discount_strategy import DiscountStrategy, EventDiscountStrategyLink, CustomerDiscountClaim
+from app.models.platform_settings import PlatformSetting
+from app.models.escrow import FundEscrow, EscrowRelease, EscrowStatus
 
 __all__ = [
     "User",
@@ -34,4 +37,11 @@ __all__ = [
     "TicketStrategyTier",
     "EventPost",
     "EventImage",
+    "DiscountStrategy",
+    "EventDiscountStrategyLink",
+    "CustomerDiscountClaim",
+    "PlatformSetting",
+    "FundEscrow",
+    "EscrowRelease",
+    "EscrowStatus",
 ]

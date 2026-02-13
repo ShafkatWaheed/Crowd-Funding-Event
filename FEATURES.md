@@ -20,18 +20,20 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 
 ### Events — CRUD & Lifecycle
 - Create event (organizer/admin) with genre (required), posts toggle, funding fields
+- **Community rules toggle** on create/edit (draft only) — applies platform community rules to any event regardless of genre; locked once event leaves draft
 - **Two-date system:** Event Date (start/end) and Funding Deadline are independent — at least one must be set
+- **Mandatory funding goal:** When a funding deadline is set, a funding goal is required (enforced on both create and update)
 - **Edit event:** Draft and unpublished (pending_approval) events edit freely; approved/live events move to `pending_approval` after edit (needs admin re-approval). Admin edits bypass approval.
-- Delete event (draft, unpublished/pending_approval, or cancelled only)
+- **Delete event:** Only `draft` or `cancelled` events can be permanently deleted
 - Cancel event (with mandatory reason) — available for unpublished, approved, selling_tickets, waiting_event_date, and live events
 - Reactivate cancelled event (cancelled -> draft)
 - Publish draft event (draft -> approved)
-- **Clone completed events** into a new draft with all parameters pre-filled (no dates)
+- **Clone completed events** into a new draft with all parameters pre-filled (no dates, preserves community rules)
 
 ### Event Lifecycle State Machine
 - **Statuses:** `draft` → `approved` → `selling_tickets` / `waiting_event_date` → `live` → `completed`
 - **Both Fund + Event date set:** After funding deadline passes → `selling_tickets` (pledge/unregister blocked, buy tickets only) → at event start → `live` → at event end → `completed`
-- **Only Fund date set:** After funding deadline → `waiting_event_date` (organizer has 20% of funding duration to set event date). If deadline passes without date → auto-cancel + refund registered users (guest pledges held for admin). Once date set → `selling_tickets` → `live` → `completed`
+- **Only Fund date set:** After funding deadline → `waiting_event_date` (organizer has configurable grace period to set event date, default 7 days via `event_date_grace_days` admin setting). If deadline passes without date → auto-cancel + refund registered users (guest pledges held for admin). Once date set → `selling_tickets` → `live` → `completed`
 - **Only Event date set:** Goes to `selling_tickets` (no funding phase) → `live` → `completed`
 - **Auto-transition:** Status transitions are checked automatically on every event fetch
 - **State restrictions:** Pledge and unregister blocked in `selling_tickets`, `waiting_event_date`, `live`, `completed`
@@ -48,8 +50,8 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 - **Home tab search:** Real search bar on the home tab searches events by name, venue, or genre — results displayed as a grid directly on the home tab
 - **Genre chip filter:** Tapping a genre chip on the home tab filters events by that genre in-place (toggle on/off); combinable with text search
 - Genre filter on Explore tab (community, music, tech, sports, arts, food, charity, education, business, other)
-- Featured sections: Trending (by registration count), Popular (by pledge amount), Coming Soon (future approved)
-- "My Events" section for logged-in users (events they're registered to, including cancelled)
+- Featured sections: Trending (by registration count), Popular (by pledge amount), Coming Soon (future approved), **Community Events** (events with community rules enabled)
+- "My Events" tab for logged-in customers (events they're registered to, including cancelled); **auto-reloads** when switching to the tab or pull-to-refresh; genre chips + text search
 - Status filter hides draft/pending/cancelled for customers; shows all for organizers/admins
 - When searching/filtering on home tab, featured sections are replaced by search results grid with filter banner and "Clear" button
 
@@ -70,11 +72,15 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 
 ### Funding & Pledges
 - Pledge money to event (customer) — only during `approved` (funding active) status
+- **Unregistered customers** trying to pledge see a "Please register first" disclaimer
 - Unpledge with refund (non-guest pledges)
 - Guest pledge with non-refundable disclaimer
-- Funding goal, min pledge, funding deadline
-- Total pledged & days left displayed on event detail and event cards
+- Funding goal (mandatory when funding deadline is set), min pledge, funding deadline
+- **Detailed time remaining:** Funding cards show days + hours + minutes left (e.g. "2d 5h 30m left"), with color-coded urgency (green → orange → red); deadline displays include date AND time
+- Total pledged & time left displayed on event detail and event cards
 - Pledging blocked after funding ends (selling_tickets / waiting / live / completed)
+- **Pledge/unpledge buttons hidden for organizers and admins** — only customers see pledge actions in the Funding Card
+- **Self-contained Funding Card** — pledge/unpledge actions only refresh the funding section (not the entire page); card loads its own data via `getFundingSummary()` and shows backers count, progress bar, deadline, and min pledge
 
 ### Ticket Strategies (Reusable Templates)
 - **Separate reusable object** (like venues) — organizers create ticket strategies with named tiers
@@ -97,6 +103,17 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 - CRUD: `GET /events/{id}/discounts/rules`, `POST /events/{id}/discounts/rules`, `DELETE /events/{id}/discounts/rules/{discount_id}`
 - Customer endpoint: `GET /events/{id}/my-discounts` returns applicable discounts with computed amounts
 
+### Reusable Discount Strategies
+- **Global discount strategies** — organizers create reusable discount templates from the Manage tab's Discounts page
+- Two types: `ticket_percent` (% off ticket) and `pledge_percent` (% of pledge amount)
+- Targeting: `all`, `pledgers`, `non_pledgers` (pledge_percent auto-excludes non_pledgers)
+- **Attach to events:** searchable dropdown on event detail and create event pages (max 3 results)
+- **Two attach modes:** "Add + Apply" (auto-applied to all eligible customers) or "Add" (customers must manually claim)
+- **Customer-facing Discount Page** — customers browse and claim non-auto-apply discounts per event
+- Discounts applied during ticket price computation; auto-apply and claimed discounts both considered
+- Discount cap: total discount cannot exceed ticket price
+- Discounts can be edited/attached without admin approval
+
 ### Customer Loyalty Tracking
 - **OrganizerCustomerHistory** — auto-populated when a ticket is scanned (records organizer, customer, event, scan time)
 - **Dedicated Customers screen** (`/manage/customers`) accessible from the Manage tab
@@ -108,8 +125,10 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 - Ticket tiers copied from strategy to event on creation
 - Ticket tier list on event detail screen with name, description, and price
 - **Ticket tier edit & delete** — organizer can update name, description, price or delete tiers via edit/delete icons on the Manage Ticket Tiers section
+- **Detailed discount breakdown** — each ticket tier shows a line-by-line price calculation: base price, common discount, selective discount, pledge discount, event-strategy discount, total discount, and final price; displayed for both customers (in ticket tiers section) and organizers (in manage ticket tiers section)
+- **Free tickets from overwhelming discounts** — if combined discounts exceed the ticket price, final price is clamped to $0.00 and displayed as "FREE" (no negative prices)
 - Price preview with discounts (common + pledge-based + selective + event discounts, capped at ticket price)
-- Purchase ticket dialog with tier selection (customer, must be registered)
+- Purchase ticket dialog with tier selection showing actual discounted prices per tier; "FREE" label for $0 tiers; "Get Ticket" instead of "Buy" for free tiers
 - Scan ticket by QR code (organizer/admin) — **auto-records customer attendance** for loyalty tracking
 - **Per-event Ticket Sales page** — full-page view with search, stats (total sold, revenue), per-sale detail (attendee, tier, code, amount, scan status)
 - **Per-event Scanned Tickets page** — full-page filtered view showing only scanned tickets with search and "scanned by" info
@@ -122,12 +141,16 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 - Like count visible to everyone (event detail + event cards)
 - Dislike count hidden from users; admin sees both like & dislike counts (read-only, no buttons)
 - One reaction per user per event; toggle off or switch
+- **Self-contained `_ReactionBar` widget** — tapping like/dislike only refreshes the reaction counts, not the entire page
+- Backend returns both `like_count` and `dislike_count` in react response for local state update
 
 ### Event Posts / Feed
-- Registered users can post on event wall
+- Registered users can post on event wall; **unregistered users see a "Please register first" disclaimer**
 - Organizer can toggle posts on/off per event
 - Posts listed with author name, time-ago display
 - Delete option for post author, organizer, or admin
+- **Self-contained `_EventFeed` widget** — posting/deleting only refreshes the feed section, not the entire page
+- **Refresh button** in feed header — tap to manually reload posts
 
 ### Event Images / Gallery
 - Add images by URL with optional caption
@@ -136,36 +159,59 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 
 ### Sharing & Calendar
 - Share event link (copy to clipboard)
-- **Add to Calendar** — calendar icon in event detail AppBar copies the `.ics` download URL for import into any calendar app
+- **Add to Calendar** — copies the `.ics` download URL for import into any calendar app
+- Both actions now live in the **Quick Action Bar** on event detail (not in AppBar)
 
 ### Extend Funding (with Admin Approval)
-- Organizer can request to extend funding period from `waiting_event_date` events
-- **Admin approval required** — organizer's request is stored as `pending_extension` on the event
+- Organizer can request to extend funding deadline and/or funding goal from `waiting_event_date` events
+- **Admin approval required** — organizer's request is stored as `pending_extension` on the event (includes new funding deadline and/or new funding goal)
 - Admin approves/rejects via the **Extensions tab** in the Admin Dashboard or inline on event detail
-- When approved, dates are applied and status transitions as needed
+- When approved, funding parameters are applied and status reverts from `waiting_event_date` to `approved` (re-opens funding)
 - Admins can apply extensions directly (no pending state)
-- Dialog with fields for new funding end, start time, and end time
+- Dialog with fields for new funding deadline and new funding goal
+
+### Set Event Date (Direct Action)
+- Organizer can set event start/end times directly from `waiting_event_date` status — **no admin approval needed**
+- Setting the event date transitions the event from `waiting_event_date` → `selling_tickets`
+- Separate dialog from Extend Funding with start time and end time pickers
+- "Set Event Date By" deadline label shown on event detail
 
 ### Admin Dashboard
 - Overview tab: platform stats (total users, events, revenue)
 - Pending Approval tab: events edited by organizers needing re-approval (approve/reject)
-- **Extensions tab:** events with pending funding extension requests — admin approve/reject with details
+- **Extensions tab:** events with pending funding extension requests (new deadline + goal) — admin approve/reject with details
 - Drafts tab: draft events list with publish/delete actions
 - Users tab: full user list with email visible (masked for non-admin)
+- **Settings tab:** all platform settings displayed with distinct icons/colors and intelligent formatting (cents → dollars, percents, days); includes commission rates, community rules thresholds, escrow percentages, grace period days — all admin-editable
+- **Escrow tab:** events with held funds, stage timeline, freeze/unfreeze
+- **Requests tab:** pending cancellation requests from organizers (for events ≥80% funded)
 
 ### Frontend Screens & UX
 - **Uber-inspired UI** — black/white/green accent, Inter font, rounded containers, subtle shadows
 - **Bottom navigation bar** with 4 tabs: Home, Explore, Manage (organizer/admin) / My Events (customer), Profile
-- **Manage tab** — three rows of quick-action cards: Row 1 (Create Event, Venues, Tickets, Admin); Row 2 (All Sales, Scanned, Waitlist); Row 3 (Customers) — each opens a global management page
+- **Manage tab** — quick-action cards: Row 1 (Create Event, Venues, Tickets, Admin); Row 2 (All Sales, Scanned, Waitlist); Row 3 (Discounts) — each opens a global management page
 - **Profile tab** embedded directly in the bottom nav — shows user avatar, name, phone, role badge, grouped menu sections (Account, Management), sign-out button. Bottom bar persists.
 - **Close (X) icon** on all inner screens — uses safe pop navigation: returns to the tab/page the user came from (falls back to home if no history)
 - Login screen: Uber-styled with custom "CF" logo, bold headings, grey-filled inputs, full-width black sign-in button
 - Home tab: hero header with user greeting, real search bar, genre chips, featured event carousels
 - Explore tab: dedicated search + advanced filters, events in grid
 - **Uber-style lifecycle bar** on every event card and detail screen showing progress through stages
-- Event Detail: full info, genre badge, funding stats, posts feed, image gallery, like/dislike, ticket tiers with descriptions, state-dependent actions (register/pledge only during funding; buy tickets during selling_tickets/live), clone button for completed events, "Set Event Date" & "Extend Funding" buttons for waiting_event_date, Co-Organizers & Discounts management links, pending extension banner (admin approve/reject inline), "Your Discounts" section for customers
-- **Create Event form layout:** Title/Description/Genre → Dates & Funding Deadline (with refund slider) → Max Capacity & Registration Type → Venue (dropdown + inline create) → Ticket Strategy (dropdown + inline create) → Funding Settings (if applicable) → Posts/Publish toggles
-- Edit Event: pre-filled form with date pickers, warning banner for live/approved events
+- **Event Detail — Modern Layout:**
+  - **Hero header:** large bold title (28px), inline status pill with color dot, genre pill, "X joined" pill
+  - **Quick Action Bar:** pill-shaped container with Register/Registered, Share, and Calendar buttons side-by-side; registered state shows green "Registered" with checkmark; unregister by tapping it
+  - **Self-contained reaction bar** (like/dislike) — updates only itself
+  - **About card** — description in a white bordered card with "About" section header
+  - **Funding Card** — self-contained widget with progress bar, raised/goal, backers, deadline, min pledge, inline Pledge/Unpledge buttons; refreshes only itself
+  - **Details card** — icon-badge rows with small label + bold value for dates, capacity, registration type, refund policy; color-coded values
+  - **Event Feed** — self-contained widget with refresh button; post/delete only updates the feed
+  - Ticket tiers, discounts, state banners, buy tickets, organizer actions, management section
+  - **Transparent AppBar** with circular close button
+  - State-dependent actions (register/pledge only during funding; buy tickets during selling_tickets/live)
+  - Clone button for completed events, "Set Event Date" & "Extend Funding" for waiting_event_date
+  - Co-Organizers & Discounts management links, pending extension banner (admin approve/reject inline)
+  - "Your Discounts" section for customers
+- **Create Event form layout:** Title/Description/Genre → Community Rules toggle → Dates & Funding Deadline (with refund slider) → Max Capacity & Registration Type → Venue (dropdown + inline create) → Ticket Strategy (dropdown + inline create) → Funding Settings (if applicable) → Posts/Publish toggles
+- Edit Event: pre-filled form with date pickers, warning banner for live/approved events; **Community Rules toggle visible only in draft state** (locked after leaving draft)
 - Profile, Venues, Admin Dashboard
 
 ### API Documentation
@@ -186,7 +232,9 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 | Phase 6 — UI Polish | Uber-inspired UI overhaul (theme, login, home, event cards, bottom nav), profile tab in bottom bar, close (X) icon on all inner screens, home-tab search & genre filter, form layout reorder (dates before venue/tickets), refund slider with 20% cap enforcement, edit/cancel/delete for unpublished events, ticket tier URL fixes |
 | Phase 7 — Event Mgmt Tools | Add-to-Calendar button, Waitlist Approve/Reject UI, Ticket Tier Edit & Delete, Ticket Sales Dashboard with stats, Scanned Tickets sub-tab, backend `description` passthrough for tier create/update |
 | Phase 7b — Global Mgmt & Search | Per-event sales/scanned/waitlist as full pages with search; Global aggregated pages (/manage/ticket-sales, /manage/scanned-tickets, /manage/waitlist) accessible from Manage tab; Live 2×2 stat chips on event detail (sold, scanned, waitlisted, revenue); Search bars on Venues and Ticket Strategies pages; Close (X) uses safe pop navigation to return to source tab |
-| Phase 8 — Organizer Tools | **Co-Organizer Management** with read/full permissions; **Event Discounts** (pledge %, ticket %, fixed, targeting pledgers/non-pledgers/all, capped at ticket price); **Customer Loyalty Tracking** (auto-records attendance on ticket scan, Customers page with repeat badges); **Extend Funding with Admin Approval** (pending extension → admin approve/reject in Dashboard + inline); Admin Dashboard Extensions tab; Manage tab Customers quick-action |
+| Phase 8 — Organizer Tools | **Co-Organizer Management** with read/full permissions; **Event Discounts** (pledge %, ticket %, fixed, targeting pledgers/non-pledgers/all, capped at ticket price); **Reusable Discount Strategies** (global templates, attach with auto-apply or customer-claim modes, customer discount page); **Customer Loyalty Tracking** (auto-records attendance on ticket scan, Customers page with repeat badges); **Extend Funding with Admin Approval** (pending extension → admin approve/reject in Dashboard + inline); Admin Dashboard Extensions tab; Manage tab Discounts quick-action |
+| Phase 8b — Reactive UI & UX | **Self-contained widgets:** Funding Card (pledge/unpledge refresh only card), Reaction Bar (like/dislike refresh only itself), Event Feed (post/delete refresh only feed + refresh button); **Registration gate:** unregistered users see "Please register first" for pledge and feed post; **Modern event detail redesign:** hero header with status/genre/joined pills, Quick Action Bar (register + share + calendar), About card, Details grid with icon badges, transparent AppBar; **My Events tab auto-reload** on tab switch + pull-to-refresh |
+| Phase 9c — Post-Business Polish | **Mandatory funding goal** when funding deadline is set; **Detailed funding time display** (days+hours+minutes with color-coded urgency); **Configurable grace period** for setting event date after funding ends (`event_date_grace_days` admin setting, default 7 days); **Delete restricted** to draft/cancelled only; **Pledge/unpledge hidden** from organizers/admins on Funding Card; **Refactored Extend Funding** into separate "Extend Funding" (deadline + goal, needs admin approval) and "Set Event Date" (direct, no approval); **Detailed discount breakdown** per ticket tier (base, common, selective, pledge, event-strategy, total, final price) for customers and organizers; **Free tickets** from overwhelming discounts (clamped to $0, displayed as FREE); **Community event rules** decoupled from genre — toggle switch on create/edit (draft only), backend enforced, `community_rules` boolean on Event model, admin-configurable thresholds, "Community Events" section on home page; **Navigation fix** — proper pop/refresh after event creation |
 
 ---
 
@@ -204,21 +252,26 @@ These features have **working backend endpoints** but no frontend screen/button 
 
 | # | Feature | Description | Priority |
 |---|---------|-------------|----------|
-| 1 | **Admin Approval at 80% Pledge** | When an event reaches 80% of its funding goal, deletion/cancellation requires admin approval | High |
-| 2 | **Commission per Ticket Sale** | Platform takes a configurable commission (e.g. 2%) on each ticket sale; admin sets the rate | High |
-| 3 | **Cancellation Email** | When an event is cancelled, send email to all registered users with the cancellation reason | High |
-| 4 | **Free Tickets / Flexible Pricing** | Support free tickets and flexible pricing options per tier | Medium |
-| 5 | **Genre-Based Pricing Rules** | Community events: $10 listing fee, platform cut from pledges, max 2-week duration; other events: no limit | Medium |
-| 6 | **Unpledge Confirmation Email** | Send email when a user successfully unpledges | Medium |
-| 7 | **Organizer Verification** | Verification flow for organizers (identity/contact check before they can publish events) | Medium |
-| 8 | **File Upload for Images** | Replace URL-based image adding with actual file upload to cloud storage (S3/GCS) | Medium |
-| 9 | **Ticket Encryption** | Encrypt QR codes / ticket data so they cannot be forged | Medium |
-| 10 | **Feature Flags / Admin Controls** | Admin can enable/disable platform features globally (posts, guest pledges, commission, etc.) | Medium |
-| 11 | **Location-Based Discovery** | Show events near the user based on browser geolocation or saved location | Medium |
-| 12 | **Parking / Transport Info** | Structured fields in event description for parking, transit, Uber-style directions | Low |
-| 13 | **Verify Organizer via External Apps** | Use third-party verification service or app for organizer identity | Low |
-| 14 | **Chatbot for Support** | In-app chatbot for user support and FAQ | Low |
-| 15 | **Newcomer / Trending Badges** | Newcomer badge for new organizers, trending indicator on tickets/events | Low |
+| 1 | **Cancellation Email** | When an event is cancelled, send email to all registered users with the cancellation reason | High |
+| 2 | **Unpledge Confirmation Email** | Send email when a user successfully unpledges | Medium |
+| 3 | **Organizer Verification** | Verification flow for organizers (identity/contact check before they can publish events) | Medium |
+| 4 | **File Upload for Images** | Replace URL-based image adding with actual file upload to cloud storage (S3/GCS) | Medium |
+| 5 | **Ticket Encryption** | Encrypt QR codes / ticket data so they cannot be forged | Medium |
+| 6 | **Location-Based Discovery** | Show events near the user based on browser geolocation or saved location | Medium |
+| 7 | **Parking / Transport Info** | Structured fields in event description for parking, transit, Uber-style directions | Low |
+| 8 | **Verify Organizer via External Apps** | Use third-party verification service or app for organizer identity | Low |
+| 9 | **Chatbot for Support** | In-app chatbot for user support and FAQ | Low |
+| 10 | **Newcomer / Trending Badges** | Newcomer badge for new organizers, trending indicator on tickets/events | Low |
+
+### Phase 9 — Business Logic (COMPLETED)
+
+| # | Feature | Status |
+|---|---------|--------|
+| 9.1 | **Platform Commission (Tickets + Funding)** | Done — `PlatformSettings` model, `ticket_commission_percent` (5%), `funding_commission_percent` (3%), commission on every ticket sale & pledge, admin Settings tab, commission displayed on receipts, ticket sales pages, funding card |
+| 9.2 | **Admin Approval at 80% Pledge** | Done — `pending_cancellation` JSON on Event, cancel/delete blocked when ≥80% funded, routes to admin approval queue, admin dashboard Requests tab shows cancellations, organizer sees "Cancellation Pending" banner |
+| 9.3 | **Free Tickets / Flexible Pricing** | Done — Schema validates `price_cents >= 0`, "FREE" badge on tiers, "Get Ticket" button, discount/commission skipped on $0 tickets |
+| 9.4 | **Community Event Rules** | Done — Decoupled from genre: `community_rules` boolean toggle on create/edit (draft only). Rules: max 14-day duration, max $50/tier, $10 listing fee. All thresholds admin-configurable in `PlatformSettings`. "Community Events" featured section on home page |
+| 9.5 | **Fund Escrow & Release Gates** | Done — `FundEscrow` + `EscrowRelease` models, 3-stage release (30/40/30), auto Stage 1 on goal+date+venue, admin Escrow tab with stage timeline + freeze/unfreeze, escrow trust indicator on Funding Card |
 
 ---
 
@@ -228,12 +281,181 @@ These features have **working backend endpoints** but no frontend screen/button 
 
 Core money and platform rules. Estimated: **2–3 sessions**.
 
-| # | Feature | Effort | What to Build |
-|---|---------|--------|--------------|
-| 1 | **Commission per Ticket Sale** | Medium | Backend: commission model + admin config endpoint + deduction on purchase. Frontend: admin settings panel, commission display on receipts |
-| 2 | **Admin Approval at 80% Pledge** | Medium | Backend: check pledge % before allowing cancel/delete, route to admin queue if ≥80%. Frontend: admin approval UI |
-| 3 | **Free Tickets / Flexible Pricing** | Small | Backend: allow `price_cents=0` on tiers. Frontend: "Free" badge on tier display |
-| 4 | **Genre-Based Pricing Rules** | Medium | Backend: enforce community event rules (max 2 weeks, $10 fee, pledge cut). Frontend: display rules when "community" genre selected |
+#### 9.1 — Platform Commission (Tickets + Funding)
+
+**Goal:** The platform takes a configurable percentage on **both** ticket sales and funding (pledge) amounts as revenue. Two separate rates so admin can tune them independently.
+
+**Commission on Tickets**
+
+| Layer | What to Build |
+|-------|---------------|
+| **Model** | New `PlatformSettings` table (key-value) — `ticket_commission_percent` (default 5%), stored as integer (e.g. 5 = 5%) |
+| **Migration** | Create `platform_settings` table, seed with `ticket_commission_percent = 5` |
+| **Admin API** | `GET /admin/settings` — returns all settings; `PATCH /admin/settings` — update a setting (admin only) |
+| **Ticket Purchase** | In `ticket_service.purchase_ticket()`, after computing `final_price_cents`: calculate `commission_cents = final_price_cents * ticket_commission_percent // 100`. Store on `TicketSale`. Net to organizer = `final_price_cents - commission_cents` |
+| **TicketSale model** | Add columns: `commission_cents` (int, default 0), `net_to_organizer_cents` (int) |
+| **Customer View** | Receipt in purchase snackbar: "Paid $X.XX (includes $Y.YY platform fee)" |
+
+**Commission on Funding (Pledges)**
+
+| Layer | What to Build |
+|-------|---------------|
+| **PlatformSettings** | `funding_commission_percent` (default 3%), stored as integer |
+| **Migration** | Seed `funding_commission_percent = 3` alongside ticket commission |
+| **Pledge Service** | In `create_pledge()`: calculate `platform_cut_cents = pledge_amount * funding_commission_percent // 100`. Store on the Funding record. Net to organizer = `pledge_amount - platform_cut_cents` |
+| **Funding model** | Add columns: `platform_cut_cents` (int, default 0), `net_to_organizer_cents` (int) |
+| **Unpledge** | On unpledge: refund the full pledge amount to customer (platform absorbs the cut loss, or recalculate — admin-configurable policy) |
+| **Funding Card** | Show "Raised $X (platform fee: Y%)" subtle text under the progress bar |
+| **Organizer View** | Funding summary shows: Total Pledged, Platform Fee, Net to You |
+
+**Shared Admin & Reporting**
+
+| Layer | What to Build |
+|-------|---------------|
+| **Admin Dashboard** | New "Settings" tab — cards for ticket commission % (1–20%) and funding commission % (1–10%) with save buttons. Overview tab: add "Total Ticket Commission" and "Total Funding Commission" stat cards |
+| **Organizer View** | In manage pages, show combined platform fees: ticket commission total + funding commission total. Per-sale breakdown in ticket lists |
+| **Event Detail** | Revenue stat chip shows gross; sub-text shows "after X% ticket + Y% funding commission" |
+
+#### 9.2 — Admin Approval at 80% Pledge
+
+**Goal:** When an event reaches ≥80% of its funding goal, the organizer can no longer cancel or delete it without admin approval — protects backers from losing a nearly-funded event.
+
+| Layer | What to Build |
+|-------|---------------|
+| **Backend Check** | In `cancel_event()` and `delete_event()` services: if `total_pledged / funding_goal >= 0.80`, block the action and create a pending cancellation request instead |
+| **Event Model** | Add `pending_cancellation` JSON column (like `pending_extension`) — stores `{ reason, requested_at, requested_by }` |
+| **Migration** | Add `pending_cancellation` column to events |
+| **Admin API** | `POST /admin/events/{id}/cancellation/approve` and `POST /admin/events/{id}/cancellation/reject` |
+| **Admin Dashboard** | New "Cancellations" sub-section in Pending Approval tab (or its own tab) showing events with pending cancellation — approve/reject buttons |
+| **Organizer UX** | When cancel is blocked: show dialog "This event is 82% funded. Your cancellation request has been sent to admin for approval." Event detail shows "Cancellation Pending" banner |
+| **Threshold** | Use `PlatformSettings` key `cancel_approval_threshold_percent` (default 80) so admin can adjust |
+
+#### 9.3 — Free Tickets / Flexible Pricing
+
+**Goal:** Support $0 ticket tiers for free events, RSVP-only events, or free-tier + paid-tier combos.
+
+| Layer | What to Build |
+|-------|---------------|
+| **Backend** | Remove any `price_cents > 0` validation on `TicketTier` creation/update (currently not enforced, just allow `0`) |
+| **Frontend** | In ticket tier display: if `price_cents == 0`, show "FREE" badge instead of "$0.00". In purchase dialog: "Get Ticket" instead of "Buy" for free tiers. Skip commission on $0 tickets |
+| **Discount Logic** | If base price is 0, skip all discount computation (no negative prices) |
+| **Validation** | `price_cents >= 0` enforced in schema (no negative values) |
+
+#### 9.4 — Community Event Rules (Decoupled from Genre)
+
+**Goal:** Community events have special restrictions to keep them accessible. Rules are applied via a `community_rules` toggle (not tied to any genre), configurable by admin.
+
+| Rule | Community Rules ON | Community Rules OFF |
+|------|-------------------|---------------------|
+| **Max duration** | 14 days (funding + event combined) | No limit |
+| **Listing fee** | $10 flat fee charged to organizer on publish | No fee |
+| **Funding commission override** | Uses global `funding_commission_percent` from 9.1 (or higher community override if configured) | Uses global `funding_commission_percent` from 9.1 |
+| **Max ticket price** | $50 per tier | No limit |
+
+| Layer | What Was Built |
+|-------|---------------|
+| **Event Model** | `community_rules` boolean field (default false), independent of `genre` |
+| **Backend Validation** | In `create_event()` / `update_event()`: if `community_rules == true`, enforce max duration, max tier price. On publish, deduct listing fee. `community_rules` can only be changed while event is in `draft` status |
+| **PlatformSettings** | Keys: `community_max_duration_days=14`, `community_listing_fee_cents=1000`, `community_max_ticket_price_cents=5000`, `community_funding_commission_override=null` (null = use global rate) — all admin-configurable |
+| **Frontend Create** | Toggle switch "Community Event Rules" with description — available on create and edit (draft only); shows info banner with active rules when enabled |
+| **Frontend Edit** | Toggle visible only when event status is `draft`; hidden and locked for all other statuses |
+| **Home Page** | "Community Events" featured section showing events with `community_rules=true` |
+| **Backend Filter** | `GET /events?community_rules=true` query parameter to list community events |
+| **Admin** | Settings tab shows community-specific rules alongside other platform settings |
+
+#### 9.5 — Fund Escrow & Release Gates
+
+**Goal:** Never release pledged money to organizers in one lump sum upfront. Hold it in escrow and release in stages tied to real proof that the event is progressing and will actually happen. This is the platform's core leverage.
+
+**How it works — 3-stage release:**
+
+| Stage | Trigger | % Released | What It Proves |
+|-------|---------|------------|----------------|
+| **Stage 1 — Planning** | Funding goal met + event date confirmed + venue confirmed | **30%** | Organizer committed to a real date and place — not vapourware |
+| **Stage 2 — Ready** | 48 hours before event start (auto) OR admin manual release | **40%** | Event is imminent; organizer needs funds for final logistics (vendors, setup, etc.) |
+| **Stage 3 — Completed** | Event marked `completed` + minimum scan threshold met (e.g. ≥25% of tickets scanned) | **30%** | Event actually happened — we have ticket-scan proof of attendance |
+
+**If the organizer fails at any stage:**
+
+| Scenario | What Happens |
+|----------|-------------|
+| Goal met but no event date set within X days | Admin notified → warning to organizer → if no response, auto-refund all backers, organizer flagged |
+| Event cancelled before Stage 2 | Unreleased funds returned to backers (minus any already-released Stage 1) |
+| Event cancelled after Stage 2 | Admin reviews case — partial refund from Stage 1+2 if organizer cooperates, or platform insurance pool covers it |
+| Event happens but scan threshold not met | Stage 3 held for 14 days → admin reviews → can manually release or refund |
+| Organizer never marks event completed | Auto-check: if `end_time` has passed + 7 days with no completion, admin notified to investigate |
+
+**Additional leverage mechanisms:**
+
+| Mechanism | Description |
+|-----------|-------------|
+| **Organizer Deposit** | First-time organizers must place a refundable deposit (e.g. $50) before publishing a funded event. Returned after first successful event (Stage 3 complete). Stored in `PlatformSettings` as `new_organizer_deposit_cents` |
+| **Trust Score** | Derived from `OrganizerCustomerHistory` (we already track this). Score = successful events completed / total events published. Displayed as badge. Organizers with score > 0.8 can get Stage 1 bumped to 40% |
+| **Payout Freeze** | Admin can freeze any organizer's pending payouts with one click if fraud is suspected. New admin action: `POST /admin/organizers/{id}/freeze-payouts` |
+| **Terms Agreement** | On publish, organizer must accept terms: "I agree that funds are held in escrow and released upon meeting milestones. Failure to deliver the event may result in fund clawback and account suspension." Stored as `terms_accepted_at` on Event |
+
+**Data model:**
+
+| Model | Fields |
+|-------|--------|
+| **FundEscrow** (new) | `event_id`, `total_held_cents`, `stage1_released_cents`, `stage1_released_at`, `stage2_released_cents`, `stage2_released_at`, `stage3_released_cents`, `stage3_released_at`, `status` (holding / partially_released / fully_released / refunded / frozen) |
+| **EscrowRelease** (new, audit log) | `escrow_id`, `stage` (1/2/3), `amount_cents`, `released_at`, `released_by` (system/admin), `reason` |
+| **Event** (updated) | `terms_accepted_at`, `payout_frozen` (bool) |
+| **PlatformSettings** | `escrow_stage1_percent=30`, `escrow_stage2_percent=40`, `escrow_stage3_percent=30`, `scan_threshold_percent=25`, `new_organizer_deposit_cents=5000`, `stage3_grace_days=14`, `event_date_deadline_days=30` |
+
+**Admin Dashboard additions:**
+
+- "Escrow" tab showing all events with held funds, current stage, amounts, and release/freeze buttons
+- Per-event escrow timeline: visual progress (Stage 1 ✓ → Stage 2 pending → Stage 3 locked)
+- "Frozen Payouts" section with organizer details and investigation notes
+
+**Organizer Dashboard additions:**
+
+- "My Earnings" section showing: Total Pledged → Platform Fee → Escrow Breakdown (released / pending / locked)
+- Clear milestone checklist: "Set event date ✓ → Confirm venue ✓ → 48h before event → Complete event"
+- Banner: "30% of funds released — next release: 48 hours before your event"
+
+**Customer Funding Card:**
+
+- "Your pledge is held in platform escrow until the event is confirmed and completed"
+- Trust indicator based on organizer's score
+
+#### Phase 9 Summary & Dependencies
+
+```
+PlatformSettings (new model)
+    ├── ticket_commission_percent → 9.1 (tickets)
+    ├── funding_commission_percent → 9.1 (pledges)
+    ├── cancel_approval_threshold_percent → 9.2
+    ├── community_* settings → 9.4 (community rules, decoupled from genre)
+    ├── event_date_grace_days → 9c (configurable grace period)
+    ├── escrow_stage*_percent → 9.5
+    ├── scan_threshold_percent → 9.5
+    ├── new_organizer_deposit_cents → 9.5
+    └── stage3_grace_days, event_date_deadline_days → 9.5
+
+TicketSale (updated)
+    ├── commission_cents → 9.1
+    └── net_to_organizer_cents → 9.1
+
+Funding (updated)
+    ├── platform_cut_cents → 9.1 (applied to ALL events with funding)
+    └── net_to_organizer_cents → 9.1
+
+FundEscrow (new) → 9.5
+    └── tracks held / released / frozen funds per event
+
+EscrowRelease (new, audit log) → 9.5
+    └── immutable record of every release
+
+Event (updated)
+    ├── pending_cancellation (JSON) → 9.2
+    ├── community_rules (bool) → 9.4 (decoupled from genre)
+    ├── terms_accepted_at → 9.5
+    └── payout_frozen → 9.5
+
+Recommended build order: 9.3 (smallest) → 9.1 (revenue) → 9.2 (cancel protection) → 9.5 (escrow — the big one) → 9.4 (genre rules)
+```
 
 ### Phase 10 — Notifications & Email
 

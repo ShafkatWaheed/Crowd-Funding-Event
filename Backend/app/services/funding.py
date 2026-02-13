@@ -49,16 +49,32 @@ async def create_pledge(
     is_registered = reg_result.scalar_one_or_none() is not None
     is_guest = not is_registered
 
+    # Compute platform commission on pledge
+    from app.services import platform_settings as settings_svc
+    funding_pct = await settings_svc.get_int(db, "funding_commission_percent")
+    platform_cut = amount_cents * funding_pct // 100
+    net_to_organizer = amount_cents - platform_cut
+
     pledge = Funding(
         event_id=event_id,
         user_id=user.id,
         amount_cents=amount_cents,
+        platform_cut_cents=platform_cut,
+        net_to_organizer_cents=net_to_organizer,
         status=FundingStatus.pledged,
         is_guest=is_guest,
     )
     db.add(pledge)
     await db.flush()
     await db.refresh(pledge)
+
+    # Auto-check escrow stage 1 release (goal met + date + venue)
+    try:
+        from app.services import escrow as escrow_svc
+        await escrow_svc.check_and_release_stage1(db, event_id=event_id)
+    except Exception:
+        pass  # non-critical
+
     return pledge
 
 
@@ -134,14 +150,18 @@ async def get_pledged_totals_for_events(
 
 async def get_summary(db: AsyncSession, *, event_id: int) -> dict:
     """
-    Returns:
-      - total_pledged_cents
-      - backers_count (unique users)
-      - goal_cents
-      - goal_met (bool)
+    Returns funding summary including commission info.
     """
     event = await event_service.get_or_404(db, event_id)
     total_q = select(func.coalesce(func.sum(Funding.amount_cents), 0)).where(
+        Funding.event_id == event_id,
+        Funding.status == FundingStatus.pledged,
+    )
+    platform_cut_q = select(func.coalesce(func.sum(Funding.platform_cut_cents), 0)).where(
+        Funding.event_id == event_id,
+        Funding.status == FundingStatus.pledged,
+    )
+    net_q = select(func.coalesce(func.sum(Funding.net_to_organizer_cents), 0)).where(
         Funding.event_id == event_id,
         Funding.status == FundingStatus.pledged,
     )
@@ -150,15 +170,24 @@ async def get_summary(db: AsyncSession, *, event_id: int) -> dict:
         Funding.status == FundingStatus.pledged,
     )
     total = (await db.execute(total_q)).scalar_one()
+    platform_cut = (await db.execute(platform_cut_q)).scalar_one()
+    net = (await db.execute(net_q)).scalar_one()
     backers = (await db.execute(backers_q)).scalar_one()
     goal = event.funding_goal_cents
     goal_met = bool(goal is not None and total >= goal)
+
+    from app.services import platform_settings as settings_svc
+    funding_pct = await settings_svc.get_int(db, "funding_commission_percent")
+
     return {
         "event_id": event_id,
         "total_pledged_cents": int(total),
+        "total_platform_cut_cents": int(platform_cut),
+        "total_net_to_organizer_cents": int(net),
         "backers_count": int(backers),
         "goal_cents": goal,
         "goal_met": goal_met,
+        "funding_commission_percent": funding_pct,
     }
 
 

@@ -13,6 +13,8 @@ class PledgeResponse(BaseModel):
     event_id: int
     user_id: int
     amount_cents: int
+    platform_cut_cents: int = 0
+    net_to_organizer_cents: int = 0
     status: str
     is_guest: bool = False
     created_at: datetime
@@ -29,9 +31,12 @@ class UnpledgeResponse(BaseModel):
 class FundingSummaryResponse(BaseModel):
     event_id: int
     total_pledged_cents: int
+    total_platform_cut_cents: int = 0
+    total_net_to_organizer_cents: int = 0
     backers_count: int
     goal_cents: int | None
     goal_met: bool
+    funding_commission_percent: int = 0
 
 
 class MyPledgeItem(BaseModel):

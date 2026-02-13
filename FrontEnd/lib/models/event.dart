@@ -37,6 +37,7 @@ class Event {
   final String? cancellationReason;
   final int registrationCount;
   final String? genre;
+  final bool communityRules;
   final bool postsEnabled;
   final int? refundDeadlineDays;
   final DateTime? eventDateDeadline;
@@ -44,6 +45,7 @@ class Event {
   final int likeCount;
   final int dislikeCount;
   final Map<String, dynamic>? pendingExtension;
+  final Map<String, dynamic>? pendingCancellation;
   final Venue? venue;
   final DateTime createdAt;
 
@@ -70,6 +72,7 @@ class Event {
     this.cancellationReason,
     this.registrationCount = 0,
     this.genre,
+    this.communityRules = false,
     this.postsEnabled = true,
     this.refundDeadlineDays,
     this.eventDateDeadline,
@@ -77,6 +80,7 @@ class Event {
     this.likeCount = 0,
     this.dislikeCount = 0,
     this.pendingExtension,
+    this.pendingCancellation,
     this.venue,
     required this.createdAt,
   });
@@ -113,6 +117,7 @@ class Event {
       cancellationReason: json['cancellation_reason'],
       registrationCount: json['registration_count'] ?? 0,
       genre: json['genre'],
+      communityRules: json['community_rules'] ?? false,
       postsEnabled: json['posts_enabled'] ?? true,
       refundDeadlineDays: json['refund_deadline_days'],
       eventDateDeadline: json['event_date_deadline'] != null
@@ -123,6 +128,9 @@ class Event {
       dislikeCount: json['dislike_count'] ?? 0,
       pendingExtension: json['pending_extension'] != null
           ? Map<String, dynamic>.from(json['pending_extension'])
+          : null,
+      pendingCancellation: json['pending_cancellation'] != null
+          ? Map<String, dynamic>.from(json['pending_cancellation'])
           : null,
       venue: json['venue'] != null ? Venue.fromJson(json['venue']) : null,
       createdAt: DateTime.parse(json['created_at']),
@@ -153,6 +161,28 @@ class Event {
     if (startTime == null || refundDeadlineDays == null) return true;
     final cutoff = startTime!.subtract(Duration(days: refundDeadlineDays!));
     return DateTime.now().toUtc().isBefore(cutoff);
+  }
+
+  /// Human-readable time remaining until funding deadline.
+  /// Returns e.g. "2d 5h left", "3h 42m left", "18m left", or "Ended".
+  String get fundingTimeLeftFormatted {
+    if (fundingEndAt == null) return '';
+    final now = DateTime.now().toUtc();
+    final end = fundingEndAt!.toUtc();
+    final diff = end.difference(now);
+    if (diff.isNegative || diff.inSeconds == 0) return 'Ended';
+    final days = diff.inDays;
+    final hours = diff.inHours % 24;
+    final minutes = diff.inMinutes % 60;
+    if (days > 0) return '${days}d ${hours}h left';
+    if (hours > 0) return '${hours}h ${minutes}m left';
+    return '${minutes}m left';
+  }
+
+  /// Whether funding time is still remaining.
+  bool get fundingHasTimeLeft {
+    if (fundingEndAt == null) return false;
+    return DateTime.now().toUtc().isBefore(fundingEndAt!.toUtc());
   }
 
   /// Whether pledging is allowed (only during approved/funding phase).

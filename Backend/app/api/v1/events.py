@@ -5,6 +5,7 @@ from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
+from pydantic import BaseModel
 
 from app.dependencies import CurrentUserOptional, DbSession, require_role
 from app.models.event import Event, EventStatus, RegistrationType
@@ -25,6 +26,7 @@ from app.schemas import (
     EventVenueInfo,
     ExtendFundingBody,
     ExtensionApprovalAction,
+    SetEventDateBody,
     FundingSummaryResponse,
     PledgeBody,
     PledgeResponse,
@@ -48,6 +50,8 @@ from app.services import funding as funding_service
 from app.services import post as post_service
 from app.services import registration as registration_service
 from app.services import ticket as ticket_service
+from app.services import discount_strategy as ds_service
+# DiscountStrategyResponse no longer needed — endpoint returns raw dicts
 
 router = APIRouter()
 
@@ -94,6 +98,7 @@ def _event_to_response(
         cancellation_reason=e.cancellation_reason,
         registration_count=e.registration_count,
         genre=e.genre,
+        community_rules=e.community_rules,
         posts_enabled=e.posts_enabled,
         refund_deadline_days=e.refund_deadline_days,
         event_date_deadline=e.event_date_deadline,
@@ -101,6 +106,7 @@ def _event_to_response(
         like_count=e.like_count,
         dislike_count=e.dislike_count if include_dislike else 0,
         pending_extension=e.pending_extension,
+        pending_cancellation=e.pending_cancellation,
         lat=e.lat,
         lng=e.lng,
         created_at=e.created_at,
@@ -147,6 +153,7 @@ async def list_events(
     min_capacity: int | None = Query(None, description="Event max_capacity >= this"),
     max_capacity: int | None = Query(None, description="Event max_capacity <= this"),
     genre: str | None = Query(None, description="Filter by genre"),
+    community_rules: bool | None = Query(None, description="True = community rules events only"),
     include_all_statuses: bool = Query(False, description="True = show draft/pending/cancelled (for organizer/admin)"),
 ):
     """List events with optional search and filters."""
@@ -167,6 +174,7 @@ async def list_events(
         min_capacity=min_capacity,
         max_capacity=max_capacity,
         genre=genre,
+        community_rules=community_rules,
         include_all_statuses=include_all_statuses,
     )
     event_ids = [e.id for e in events]
@@ -256,6 +264,7 @@ async def create_event(
         allow_any_venue=(current_user.role == UserRole.admin),
         publish=body.publish,
         genre=body.genre,
+        community_rules=body.community_rules,
         posts_enabled=body.posts_enabled,
         refund_deadline_days=body.refund_deadline_days,
         ticket_strategy_id=body.ticket_strategy_id,
@@ -378,6 +387,7 @@ async def update_event(
         common_discount_percent=body.common_discount_percent,
         pledge_discount_percent=body.pledge_discount_percent,
         genre=body.genre,
+        community_rules=body.community_rules,
         posts_enabled=body.posts_enabled,
         refund_deadline_days=body.refund_deadline_days,
         ticket_strategy_id=body.ticket_strategy_id,
@@ -408,27 +418,47 @@ async def cancel_event(
 
 
 @router.post("/{event_id}/extend-funding", response_model=EventResponse)
-async def extend_funding(
+async def extend_funding_endpoint(
     event_id: int,
     body: ExtendFundingBody,
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
-    """After funding deadline: extend funding period and/or set event date. At least one of funding_end_at, start_time, end_time required."""
+    """Extend funding: new deadline and/or new goal. Requires admin approval for organizers."""
     event = await event_service.get_or_404(db, event_id)
-    if not await event_service.user_can_edit_event(db, event, current_user):
-        raise ForbiddenError("You cannot update this event")
-    if not any([body.funding_end_at, body.start_time, body.end_time]):
+    if not any([body.funding_end_at, body.funding_goal_cents]):
         from fastapi import HTTPException
-        raise HTTPException(status_code=400, detail="At least one of funding_end_at, start_time, end_time required")
+        raise HTTPException(status_code=400, detail="At least one of funding_end_at or funding_goal_cents required")
     new_funding_end_at = _parse_iso_datetime(body.funding_end_at)
-    new_start = _parse_iso_datetime(body.start_time)
-    new_end = _parse_iso_datetime(body.end_time)
-    event = await event_service.extend_funding_and_set_event_date(
+    event = await event_service.extend_funding(
         db, event, current_user,
         new_funding_end_at=new_funding_end_at,
+        new_funding_goal_cents=body.funding_goal_cents,
+    )
+    event = await event_service.get_by_id(db, event.id, load_venue=True)
+    return _event_to_response(event)
+
+
+@router.post("/{event_id}/set-event-date", response_model=EventResponse)
+async def set_event_date_endpoint(
+    event_id: int,
+    body: SetEventDateBody,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+):
+    """Set or update event start/end time. Applies directly, no admin approval needed."""
+    event = await event_service.get_or_404(db, event_id)
+    new_start = _parse_iso_datetime(body.start_time)
+    new_end = _parse_iso_datetime(body.end_time)
+    if new_start is None or new_end is None:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Both start_time and end_time are required as valid ISO datetimes")
+    event = await event_service.set_event_date(
+        db, event, current_user,
         new_start_time=new_start,
         new_end_time=new_end,
+        venue_id=body.venue_id,
+        ticket_strategy_id=body.ticket_strategy_id,
     )
     event = await event_service.get_by_id(db, event.id, load_venue=True)
     return _event_to_response(event)
@@ -603,6 +633,13 @@ async def get_event_funding(event_id: int, db: DbSession):
     """Funding summary for event (public or organizer/admin)."""
     summary = await funding_service.get_summary(db, event_id=event_id)
     return FundingSummaryResponse(**summary)
+
+
+@router.get("/{event_id}/escrow")
+async def get_event_escrow(event_id: int, db: DbSession):
+    """Escrow summary for event (public)."""
+    from app.services import escrow as escrow_service
+    return await escrow_service.get_escrow_summary(db, event_id=event_id)
 
 
 @router.post("/{event_id}/register")
@@ -789,10 +826,18 @@ async def get_ticket_price(
     current_user: User = Depends(require_role(UserRole.customer)),
     ticket_tier_id: int = Query(..., description="Ticket tier id", alias="ticket_tier_id"),
 ):
-    """Preview ticket price for current user (with discounts). Customer only."""
+    """Preview ticket price for current user (with discounts + commission). Customer only."""
     info = await ticket_service.compute_ticket_price(
         db, event_id=event_id, user_id=current_user.id, tier_id=ticket_tier_id
     )
+    # Add commission preview
+    from app.services import platform_settings as settings_svc
+    final = info["final_price_cents"]
+    commission_pct = await settings_svc.get_int(db, "ticket_commission_percent")
+    commission = final * commission_pct // 100 if final > 0 else 0
+    info["commission_cents"] = commission
+    info["net_to_organizer_cents"] = final - commission
+    info["ticket_commission_percent"] = commission_pct
     return TicketPricePreviewResponse(**info)
 
 
@@ -845,6 +890,8 @@ def _ticket_sale_to_response(sale) -> TicketSaleResponse:
         attendee_display_name=attendee_name,
         amount_paid_cents=sale.amount_paid_cents,
         discount_applied_cents=sale.discount_applied_cents,
+        commission_cents=getattr(sale, "commission_cents", 0) or 0,
+        net_to_organizer_cents=getattr(sale, "net_to_organizer_cents", 0) or 0,
         extra_perks=sale.extra_perks,
         status=sale.status.value,
         scanned_at=sale.scanned_at,
@@ -1084,7 +1131,7 @@ async def react_to_event(
                 event.dislike_count = max(0, event.dislike_count - 1)
             await db.delete(existing)
             await db.flush()
-            return {"action": "removed", "reaction": reaction, "like_count": event.like_count}
+            return {"action": "removed", "reaction": reaction, "like_count": event.like_count, "dislike_count": event.dislike_count}
         else:
             # Switch reaction
             if existing.reaction == "like":
@@ -1097,7 +1144,7 @@ async def react_to_event(
             else:
                 event.dislike_count += 1
             await db.flush()
-            return {"action": "switched", "reaction": reaction, "like_count": event.like_count}
+            return {"action": "switched", "reaction": reaction, "like_count": event.like_count, "dislike_count": event.dislike_count}
     else:
         new_reaction = EventReaction(
             event_id=event_id,
@@ -1110,7 +1157,7 @@ async def react_to_event(
         else:
             event.dislike_count += 1
         await db.flush()
-        return {"action": "added", "reaction": reaction, "like_count": event.like_count}
+        return {"action": "added", "reaction": reaction, "like_count": event.like_count, "dislike_count": event.dislike_count}
 
 
 @router.get("/{event_id}/my-reaction")
@@ -1148,6 +1195,38 @@ async def decide_extension(
         event = await event_service.approve_extension(db, event, current_user)
     elif body.action == "reject":
         event = await event_service.reject_extension(db, event, current_user)
+    else:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="action must be 'approve' or 'reject'")
+    event = await event_service.get_by_id(db, event.id, load_venue=True)
+    return _event_to_response(event)
+
+
+# ----- Admin: Cancellation Approval -----
+@router.post("/{event_id}/cancellation/approve")
+async def approve_cancellation(
+    event_id: int,
+    body: ExtensionApprovalAction,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.admin)),
+):
+    """Admin approve/reject a pending cancellation request."""
+    event = await event_service.get_or_404(db, event_id)
+    if not event.pending_cancellation:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="No pending cancellation for this event")
+    if body.action == "approve":
+        # Actually cancel the event
+        reason = event.pending_cancellation.get("reason", "Admin-approved cancellation")
+        event.pending_cancellation = None
+        event.status = EventStatus.cancelled
+        event.cancellation_reason = reason
+        from app.services import funding as funding_service
+        await funding_service.refund_all_pledges_for_event(db, event_id=event.id)
+        await db.flush()
+    elif body.action == "reject":
+        event.pending_cancellation = None
+        await db.flush()
     else:
         from fastapi import HTTPException
         raise HTTPException(status_code=400, detail="action must be 'approve' or 'reject'")
@@ -1217,4 +1296,95 @@ async def get_my_discounts(
 # ═══════════════════════════════════════════
 
 
+# ═══════════════════════════════════════════
+# Discount Strategy ↔ Event links
+# ═══════════════════════════════════════════
 
+
+@router.get("/{event_id}/discount-strategies")
+async def list_event_discount_strategies(
+    event_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+):
+    """List discount strategies attached to an event (with auto_apply flag)."""
+    return await ds_service.list_event_strategies(db, event_id=event_id)
+
+
+class AttachDiscountBody(BaseModel):
+    auto_apply: bool = True
+
+
+@router.post("/{event_id}/discount-strategies/{strategy_id}")
+async def attach_discount_strategy(
+    event_id: int,
+    strategy_id: int,
+    db: DbSession,
+    body: AttachDiscountBody | None = None,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+):
+    """Attach a discount strategy to an event. auto_apply=true → applied to all; false → customer must claim."""
+    event = await event_service.get_or_404(db, event_id)
+    if not await event_service.user_can_edit_event(db, event, current_user):
+        raise ForbiddenError("You cannot modify this event")
+    auto = body.auto_apply if body else True
+    await ds_service.attach_to_event(
+        db, event_id=event_id, strategy_id=strategy_id, user=current_user, auto_apply=auto,
+    )
+    return {"ok": True}
+
+
+@router.delete("/{event_id}/discount-strategies/{strategy_id}")
+async def detach_discount_strategy(
+    event_id: int,
+    strategy_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+):
+    """Detach a discount strategy from an event."""
+    event = await event_service.get_or_404(db, event_id)
+    if not await event_service.user_can_edit_event(db, event, current_user):
+        raise ForbiddenError("You cannot modify this event")
+    await ds_service.detach_from_event(db, event_id=event_id, strategy_id=strategy_id, user=current_user)
+    return {"ok": True}
+
+
+# ═══════════════════════════════════════════
+# Customer Discount Claims
+# ═══════════════════════════════════════════
+
+
+@router.get("/{event_id}/claimable-discounts")
+async def list_claimable_discounts(
+    event_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.customer, UserRole.organizer, UserRole.admin)),
+):
+    """Return non-auto-apply discounts the customer can claim for this event."""
+    return await ds_service.list_claimable_discounts(
+        db, event_id=event_id, user_id=current_user.id,
+    )
+
+
+@router.post("/{event_id}/claim-discount/{link_id}")
+async def claim_discount(
+    event_id: int,
+    link_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.customer, UserRole.organizer, UserRole.admin)),
+):
+    """Customer claims a non-auto-apply discount."""
+    claim = await ds_service.claim_discount(db, link_id=link_id, user_id=current_user.id)
+    return {"ok": True, "claim_id": claim.id}
+
+
+@router.delete("/{event_id}/claim-discount/{link_id}")
+async def unclaim_discount(
+    event_id: int,
+    link_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.customer, UserRole.organizer, UserRole.admin)),
+):
+    """Customer removes a claimed discount."""
+    await ds_service.unclaim_discount(db, link_id=link_id, user_id=current_user.id)
+    return {"ok": True}

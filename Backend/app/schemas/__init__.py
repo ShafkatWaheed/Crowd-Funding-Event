@@ -1,12 +1,12 @@
 # Pydantic schemas (request/response). Per-domain schemas live in separate modules.
-from app.schemas.admin import AdminEventItem, AdminStats, AdminUserItem, ApproveBody
+from app.schemas.admin import AdminEventItem, AdminStats, AdminUserItem, ApproveBody, PlatformSettingItem, PlatformSettingUpdate
 from app.schemas.event import (
     AddEventOrganizerBody, CancelBody, CustomerHistoryItem, EVENT_GENRES,
     EventCreate, EventDiscountCreate, EventDiscountResponse,
     EventImageResponse, EventOrganizerItem,
     EventPostCreate, EventPostResponse, EventResponse, EventUpdate,
     EventVenueInfo, ExtendFundingBody, ExtensionApprovalAction,
-    MapEventMarker, UnregisterResponse,
+    MapEventMarker, SetEventDateBody, UnregisterResponse,
 )
 from app.schemas.funding import FundingSummaryResponse, MyPledgeItem, PledgeBody, PledgeResponse, UnpledgeResponse
 from app.schemas.registration import RegistrationDecisionBody, RegistrationResponse
@@ -28,6 +28,7 @@ from app.schemas.ticket_strategy import (
     TicketStrategyTierResponse,
     TicketStrategyUpdate,
 )
+from app.schemas.discount_strategy import DiscountStrategyCreate, DiscountStrategyResponse, DiscountStrategyUpdate
 from app.schemas.user import MeResponse, MeUpdate, VerifyBody, VerifyResponse
 from app.schemas.venue import VenueCreate, VenueResponse, VenueUpdate
 
@@ -38,6 +39,8 @@ __all__ = [
     "AdminStats",
     "AdminUserItem",
     "ApproveBody",
+    "PlatformSettingItem",
+    "PlatformSettingUpdate",
     "CustomerHistoryItem",
     "EVENT_GENRES",
     "EventCreate",
@@ -52,6 +55,7 @@ __all__ = [
     "EventVenueInfo",
     "ExtendFundingBody",
     "ExtensionApprovalAction",
+    "SetEventDateBody",
     "FundingSummaryResponse",
     "MyPledgeItem",
     "MapEventMarker",
@@ -76,6 +80,9 @@ __all__ = [
     "TicketStrategyTierInput",
     "TicketStrategyTierResponse",
     "TicketStrategyUpdate",
+    "DiscountStrategyCreate",
+    "DiscountStrategyResponse",
+    "DiscountStrategyUpdate",
     "VenueCreate",
     "VenueResponse",
     "VenueUpdate",

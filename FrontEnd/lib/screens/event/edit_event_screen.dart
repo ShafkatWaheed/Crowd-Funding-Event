@@ -29,6 +29,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
 
   String _registrationType = 'open';
   String? _genre;
+  bool _communityRules = false;
   bool _postsEnabled = true;
   int _refundDeadlineDays = 0;
   bool _isLoading = false;
@@ -80,6 +81,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
         _minPledgeCtrl.text = (event.minPledgeCents / 100).toStringAsFixed(2);
         _registrationType = event.registrationType.name;
         _genre = event.genre;
+        _communityRules = event.communityRules;
         _postsEnabled = event.postsEnabled;
         _refundDeadlineDays = event.refundDeadlineDays ?? 0;
         _startTime = event.startTime;
@@ -113,6 +115,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
       'min_pledge_cents': (minPledge * 100).toInt(),
       'genre': _genre,
       'posts_enabled': _postsEnabled,
+      if (_event?.status.name == 'draft') 'community_rules': _communityRules,
     };
 
     if (_startTime != null) {
@@ -344,6 +347,21 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                   v == null ? 'Please select a genre' : null,
                             ),
                             const SizedBox(height: 16),
+
+                            // Community Rules toggle — only in draft
+                            if (_event?.status.name == 'draft')
+                              SwitchListTile(
+                                contentPadding: EdgeInsets.zero,
+                                title: const Text('Community Event Rules'),
+                                subtitle: const Text(
+                                  'Apply platform community rules (e.g. max ticket price, capacity limits)',
+                                ),
+                                value: _communityRules,
+                                onChanged: (v) =>
+                                    setState(() => _communityRules = v),
+                              ),
+                            if (_event?.status.name == 'draft')
+                              const SizedBox(height: 16),
 
                             // Funding
                             Text('Funding',

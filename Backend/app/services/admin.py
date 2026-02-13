@@ -7,6 +7,8 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.event import Event, EventStatus
+from app.models.funding import Funding
+from app.models.ticket import TicketSale
 from app.models.user import User
 from app.services import event as event_service
 
@@ -49,8 +51,8 @@ async def approve_or_reject_event(
 
 async def get_stats(db: AsyncSession) -> dict:
     """
-    Return platform stats: events_total, events_pending, events_live, users_total.
-    events_live = approved/live status and start_time <= now <= end_time.
+    Return platform stats: events_total, events_pending, events_live, users_total,
+    total_ticket_commission_cents, total_funding_commission_cents.
     """
     now = datetime.now(timezone.utc)
     total = (await db.execute(select(func.count()).select_from(Event))).scalar_one()
@@ -69,9 +71,24 @@ async def get_stats(db: AsyncSession) -> dict:
         )
     ).scalar_one()
     users_total = (await db.execute(select(func.count()).select_from(User))).scalar_one()
+
+    # Commission totals
+    ticket_commission = (
+        await db.execute(
+            select(func.coalesce(func.sum(TicketSale.commission_cents), 0))
+        )
+    ).scalar_one()
+    funding_commission = (
+        await db.execute(
+            select(func.coalesce(func.sum(Funding.platform_cut_cents), 0))
+        )
+    ).scalar_one()
+
     return {
         "events_total": int(total),
         "events_pending": int(pending),
         "events_live": int(live),
         "users_total": int(users_total),
+        "total_ticket_commission_cents": int(ticket_commission),
+        "total_funding_commission_cents": int(funding_commission),
     }

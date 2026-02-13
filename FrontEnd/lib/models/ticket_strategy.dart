@@ -26,8 +26,9 @@ class TicketStrategyTier {
     );
   }
 
+  bool get isFree => priceCents == 0;
   String get priceFormatted =>
-      '\$${(priceCents / 100).toStringAsFixed(2)}';
+      isFree ? 'FREE' : '\$${(priceCents / 100).toStringAsFixed(2)}';
 }
 
 

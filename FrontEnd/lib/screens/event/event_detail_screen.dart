@@ -23,51 +23,32 @@ class EventDetailScreen extends StatefulWidget {
 }
 
 class _EventDetailScreenState extends State<EventDetailScreen> {
-  List<EventPost> _posts = [];
   List<EventImage> _images = [];
-  bool _loadingPosts = false;
   bool _loadingImages = false;
-  final _postCtrl = TextEditingController();
-  bool _postingComment = false;
 
   // Registration state
   bool _isRegistered = false;
   String? _regStatus; // 'registered', 'waitlisted', 'cancelled'
   bool _regLoading = false;
 
-  // Reaction state
-  String? _myReaction; // 'like', 'dislike', or null
-  bool _reacting = false;
+  // Reaction state lives in _ReactionBar widget (self-contained)
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<EventProvider>().loadEvent(widget.eventId);
-      _loadPosts();
       _loadImages();
       _checkRegistration();
-      _loadMyReaction();
     });
   }
 
   @override
   void dispose() {
-    _postCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> _loadPosts() async {
-    setState(() => _loadingPosts = true);
-    try {
-      final api = context.read<ApiService>();
-      final data = await api.getEventPosts(widget.eventId);
-      setState(() {
-        _posts = data.map((p) => EventPost.fromJson(p)).toList();
-      });
-    } catch (_) {}
-    setState(() => _loadingPosts = false);
-  }
+  // _loadPosts moved into _EventFeed widget
 
   Future<void> _loadImages() async {
     setState(() => _loadingImages = true);
@@ -94,67 +75,11 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     } catch (_) {}
   }
 
-  Future<void> _loadMyReaction() async {
-    final auth = context.read<AuthProvider>();
-    if (auth.user == null) return;
-    try {
-      final api = context.read<ApiService>();
-      final data = await api.getMyReaction(widget.eventId);
-      setState(() => _myReaction = data['reaction']);
-    } catch (_) {}
-  }
+  // _loadMyReaction and _react moved into _ReactionBar widget
 
-  Future<void> _react(String reaction) async {
-    if (_reacting) return;
-    setState(() => _reacting = true);
-    try {
-      final api = context.read<ApiService>();
-      await api.reactToEvent(widget.eventId, reaction);
-      await _loadMyReaction();
-      if (mounted) {
-        context.read<EventProvider>().loadEvent(widget.eventId);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed: $e')),
-        );
-      }
-    }
-    setState(() => _reacting = false);
-  }
+  // _submitPost moved into _EventFeed widget
 
-  Future<void> _submitPost() async {
-    if (_postCtrl.text.trim().isEmpty) return;
-    setState(() => _postingComment = true);
-    try {
-      final api = context.read<ApiService>();
-      await api.createEventPost(widget.eventId, _postCtrl.text.trim());
-      _postCtrl.clear();
-      await _loadPosts();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to post: $e')),
-        );
-      }
-    }
-    setState(() => _postingComment = false);
-  }
-
-  Future<void> _deletePost(int postId) async {
-    try {
-      final api = context.read<ApiService>();
-      await api.deleteEventPost(widget.eventId, postId);
-      await _loadPosts();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to delete post: $e')),
-        );
-      }
-    }
-  }
+  // _deletePost moved into _EventFeed widget
 
   Future<void> _togglePosts() async {
     try {
@@ -183,7 +108,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.close),
+          icon: Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.close, size: 18),
+          ),
           onPressed: () {
             if (Navigator.of(context).canPop()) {
               context.pop();
@@ -192,21 +124,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
             }
           },
         ),
-        title: Text(event?.title ?? 'Event Details'),
-        actions: [
-          if (event != null) ...[
-            IconButton(
-              icon: const Icon(Icons.calendar_month),
-              tooltip: 'Add to calendar',
-              onPressed: () => _downloadCalendar(context, event),
-            ),
-            IconButton(
-              icon: const Icon(Icons.share),
-              tooltip: 'Share event link',
-              onPressed: () => _shareEvent(context, event),
-            ),
-          ],
-        ],
+        title: const SizedBox.shrink(),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
       ),
       body: eventProvider.isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -238,54 +159,58 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Title & Status
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      event.title,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .headlineMedium
-                                          ?.copyWith(
-                                              fontWeight: FontWeight.bold),
-                                    ),
-                                  ),
-                                  Chip(
-                                    label: Text(
-                                      _statusLabel(event.status),
-                                      style: const TextStyle(fontSize: 11),
-                                    ),
-                                    backgroundColor:
-                                        _statusColor(event.status),
-                                    side: BorderSide.none,
-                                  ),
-                                ],
+                              // ── Hero Header ──
+                              Text(
+                                event.title,
+                                style: const TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: -0.8,
+                                  height: 1.15,
+                                  color: AppTheme.textPrimary,
+                                ),
                               ),
-
-                              // Lifecycle progress bar
-                              const SizedBox(height: 16),
-                              EventLifecycleBar(event: event),
                               const SizedBox(height: 12),
 
-                              // Genre badge
-                              if (event.genre != null &&
-                                  event.genre!.isNotEmpty) ...[
-                                const SizedBox(height: 8),
-                                Chip(
-                                  avatar: const Icon(Icons.category, size: 16),
-                                  label: Text(
-                                    event.genre![0].toUpperCase() +
-                                        event.genre!.substring(1),
-                                    style: const TextStyle(fontSize: 12),
-                                  ),
-                                  backgroundColor: AppTheme.secondaryColor
-                                      .withValues(alpha: 0.15),
-                                  side: BorderSide.none,
-                                ),
-                              ],
-
+                              // Status pill + Genre + Registration count
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  _statusPill(event.status),
+                                  if (event.genre != null && event.genre!.isNotEmpty)
+                                    _tagPill(
+                                      icon: Icons.category_rounded,
+                                      label: event.genre![0].toUpperCase() + event.genre!.substring(1),
+                                      color: AppTheme.secondaryColor,
+                                    ),
+                                  if (event.registrationCount > 0)
+                                    _tagPill(
+                                      icon: Icons.group_rounded,
+                                      label: '${event.registrationCount} joined',
+                                      color: AppTheme.accentColor,
+                                    ),
+                                ],
+                              ),
                               const SizedBox(height: 16),
+
+                              // Lifecycle progress bar
+                              EventLifecycleBar(event: event),
+                              const SizedBox(height: 16),
+
+                              // ── Quick Action Bar (Register, Share, Calendar) ──
+                              _buildQuickActionBar(context, event, user),
+                              const SizedBox(height: 20),
+
+                              // Like / Dislike — self-contained widget
+                              _ReactionBar(
+                                eventId: widget.eventId,
+                                initialLikeCount: event.likeCount,
+                                initialDislikeCount: event.dislikeCount,
+                                isAdmin: user?.isAdmin ?? false,
+                              ),
+                              const SizedBox(height: 20),
 
                               // Image gallery
                               if (_images.isNotEmpty) ...[
@@ -397,91 +322,157 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                 const SizedBox(height: 24),
                               ],
 
-                              // Description
+                              // ── Description ──
                               if (event.description != null &&
                                   event.description!.isNotEmpty) ...[
-                                Text(
-                                  event.description!,
-                                  style: TextStyle(
-                                      fontSize: 16, color: Colors.grey[700]),
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(color: AppTheme.dividerColor),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Icon(Icons.article_rounded, size: 18, color: Colors.grey[500]),
+                                          const SizedBox(width: 8),
+                                          Text('About',
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w700,
+                                              color: Colors.grey[500],
+                                              letterSpacing: 0.5,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 10),
+                                      Text(
+                                        event.description!,
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          height: 1.5,
+                                          color: AppTheme.textPrimary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
+                              ],
+
+                              // ── Funding Card (self-contained) ──
+                              if (event.fundingGoalCents != null &&
+                                  event.fundingGoalCents! > 0) ...[
+                                _FundingCard(
+                                  eventId: widget.eventId,
+                                  event: event,
+                                  isRegistered: _isRegistered,
                                 ),
                                 const SizedBox(height: 24),
                               ],
 
-                              // Info cards
-                              Card(
-                                child: Padding(
-                                  padding: const EdgeInsets.all(16),
-                                  child: Column(
+                              // ── Event Details Grid ──
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(color: AppTheme.dividerColor),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Icon(Icons.info_outline_rounded, size: 18, color: Colors.grey[500]),
+                                        const SizedBox(width: 8),
+                                        Text('Details',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700,
+                                            color: Colors.grey[500],
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 14),
+                                    if (event.startTime != null)
+                                      _modernInfoRow(Icons.event_rounded, 'Starts', dateFormat.format(event.startTime!)),
+                                    if (event.endTime != null)
+                                      _modernInfoRow(Icons.event_available_rounded, 'Ends', dateFormat.format(event.endTime!)),
+                                    if (event.startTime == null && event.endTime == null)
+                                      _modernInfoRow(Icons.schedule_rounded, 'Date', 'Announced after funding milestone', valueColor: Colors.orange[700]),
+                                    _modernInfoRow(Icons.people_alt_rounded, 'Capacity', '${event.maxCapacity}'),
+                                    _modernInfoRow(Icons.badge_rounded, 'Registration', event.registrationType.name.replaceAll('_', ' ')),
+                                    if (event.eventDateDeadline != null)
+                                      _modernInfoRow(Icons.hourglass_bottom_rounded, 'Set Event Date By', dateFormat.format(event.eventDateDeadline!)),
+                                    if (event.refundDeadlineDays != null)
+                                      _modernInfoRow(
+                                        Icons.shield_rounded,
+                                        'Refund',
+                                        event.refundDeadlineDays! > 0
+                                            ? '${event.refundDeadlineDays}d before funding ends'
+                                            : 'No refunds',
+                                        valueColor: event.refundDeadlineDays! > 0 ? AppTheme.secondaryColor : AppTheme.errorColor,
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+
+                              // Pending cancellation banner
+                              if (event.pendingCancellation != null) ...[
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(14),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange.shade50,
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(color: Colors.orange.shade200),
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      _infoRow(Icons.calendar_today, 'Event Start',
-                                          event.startTime != null
-                                              ? dateFormat.format(event.startTime!)
-                                              : 'Not set yet'),
-                                      const Divider(),
-                                      _infoRow(Icons.calendar_today, 'Event End',
-                                          event.endTime != null
-                                              ? dateFormat.format(event.endTime!)
-                                              : 'Not set yet'),
-                                      const Divider(),
-                                      _infoRow(Icons.people, 'Capacity',
-                                          '${event.maxCapacity}'),
-                                      const Divider(),
-                                      _infoRow(
-                                          Icons.how_to_reg,
-                                          'Registration',
-                                          event.registrationType.name
-                                              .replaceAll('_', ' ')),
-                                      if (event.fundingGoalCents != null &&
-                                          event.fundingGoalCents! > 0) ...[
-                                        const Divider(),
-                                        _infoRow(
-                                            Icons.attach_money,
-                                            'Funding Goal',
-                                            '\$${(event.fundingGoalCents! / 100).toStringAsFixed(2)}'),
-                                        const Divider(),
-                                        _infoRow(
-                                            Icons.trending_up,
-                                            'Raised',
-                                            event.totalPledgedFormatted),
-                                        if (event.fundingDaysLeft != null) ...[
-                                          const Divider(),
-                                          _infoRow(
-                                              Icons.timer_outlined,
-                                              'Funding',
-                                              event.fundingDaysLeft! > 0
-                                                  ? '${event.fundingDaysLeft} days left'
-                                                  : 'Ended'),
-                                        ],
-                                      ],
-                                      if (event.fundingEndAt != null) ...[
-                                        const Divider(),
-                                        _infoRow(
-                                            Icons.timer,
-                                            'Funding Deadline',
-                                            dateFormat.format(event.fundingEndAt!)),
-                                      ],
-                                      if (event.eventDateDeadline != null) ...[
-                                        const Divider(),
-                                        _infoRow(
-                                            Icons.hourglass_bottom,
-                                            'Set Date By',
-                                            dateFormat.format(event.eventDateDeadline!)),
-                                      ],
-                                      if (event.refundDeadlineDays != null) ...[
-                                        const Divider(),
-                                        _infoRow(
-                                            Icons.receipt_long,
-                                            'Refund Policy',
-                                            event.refundDeadlineDays! > 0
-                                                ? 'Refund if cancelled ${event.refundDeadlineDays} day${event.refundDeadlineDays == 1 ? '' : 's'} before funding ends'
-                                                : 'No refunds'),
-                                      ],
+                                      Container(
+                                        padding: const EdgeInsets.all(6),
+                                        decoration: BoxDecoration(
+                                          color: Colors.orange.shade100,
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Icon(Icons.hourglass_top_rounded, color: Colors.orange.shade800, size: 18),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text('Cancellation Pending Admin Approval',
+                                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.orange.shade800)),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              '${event.pendingCancellation!['pledge_percent'] ?? '?'}% funded — admin must approve cancellation',
+                                              style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+                                            ),
+                                            if (event.pendingCancellation!['reason'] != null) ...[
+                                              const SizedBox(height: 4),
+                                              Text('Reason: ${event.pendingCancellation!['reason']}',
+                                                style: TextStyle(fontSize: 12, color: Colors.grey[600], fontStyle: FontStyle.italic)),
+                                            ],
+                                          ],
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 ),
-                              ),
-                              const SizedBox(height: 24),
+                                const SizedBox(height: 20),
+                              ],
 
                               // Cancellation reason banner
                               if (event.status == EventStatus.cancelled &&
@@ -491,146 +482,43 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                   width: double.infinity,
                                   padding: const EdgeInsets.all(14),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.errorColor
-                                        .withValues(alpha: 0.08),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                        color: AppTheme.errorColor
-                                            .withValues(alpha: 0.3)),
+                                    color: AppTheme.errorColor.withValues(alpha: 0.06),
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(color: AppTheme.errorColor.withValues(alpha: 0.2)),
                                   ),
                                   child: Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      const Icon(Icons.info_outline,
-                                          color: AppTheme.errorColor,
-                                          size: 20),
-                                      const SizedBox(width: 10),
+                                      Container(
+                                        padding: const EdgeInsets.all(6),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.errorColor.withValues(alpha: 0.12),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: const Icon(Icons.cancel_rounded, color: AppTheme.errorColor, size: 18),
+                                      ),
+                                      const SizedBox(width: 12),
                                       Expanded(
                                         child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
+                                          crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
-                                            const Text(
-                                              'Cancellation Reason',
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.w600,
-                                                color: AppTheme.errorColor,
-                                              ),
-                                            ),
+                                            const Text('Cancellation Reason',
+                                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppTheme.errorColor)),
                                             const SizedBox(height: 4),
-                                            Text(
-                                              event.cancellationReason!,
-                                              style: TextStyle(
-                                                  color: Colors.grey[800]),
-                                            ),
+                                            Text(event.cancellationReason!,
+                                              style: TextStyle(fontSize: 14, color: Colors.grey[800], height: 1.4)),
                                           ],
                                         ),
                                       ),
                                     ],
                                   ),
                                 ),
-                                const SizedBox(height: 16),
+                                const SizedBox(height: 20),
                               ],
 
-                              // Registration count
-                              if (event.registrationCount > 0) ...[
-                                Row(
-                                  children: [
-                                    Icon(Icons.group,
-                                        size: 18,
-                                        color: AppTheme.primaryColor),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      '${event.registrationCount} registered',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.grey[700],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 16),
-                              ],
-
-                              // Like / Dislike buttons (everyone except admin)
-                              // Like count is always visible; dislike count hidden (admin sees it in dashboard)
-                              if (user != null && !user.isAdmin) ...[
-                                Row(
-                                  children: [
-                                    // Like button
-                                    IconButton(
-                                      onPressed: _reacting
-                                          ? null
-                                          : () => _react('like'),
-                                      icon: Icon(
-                                        _myReaction == 'like'
-                                            ? Icons.thumb_up
-                                            : Icons.thumb_up_outlined,
-                                        color: _myReaction == 'like'
-                                            ? AppTheme.primaryColor
-                                            : Colors.grey[600],
-                                      ),
-                                      tooltip: 'Like',
-                                    ),
-                                    Text(
-                                      '${event.likeCount}',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.grey[700],
-                                      ),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    // Dislike button
-                                    IconButton(
-                                      onPressed: _reacting
-                                          ? null
-                                          : () => _react('dislike'),
-                                      icon: Icon(
-                                        _myReaction == 'dislike'
-                                            ? Icons.thumb_down
-                                            : Icons.thumb_down_outlined,
-                                        color: _myReaction == 'dislike'
-                                            ? AppTheme.errorColor
-                                            : Colors.grey[600],
-                                      ),
-                                      tooltip: 'Dislike',
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 16),
-                              ] else ...[
-                                // Admin: just show the like count (no buttons)
-                                Row(
-                                  children: [
-                                    Icon(Icons.thumb_up,
-                                        size: 18, color: AppTheme.primaryColor),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      '${event.likeCount} like${event.likeCount == 1 ? '' : 's'}',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.grey[700],
-                                      ),
-                                    ),
-                                    const SizedBox(width: 20),
-                                    Icon(Icons.thumb_down,
-                                        size: 18, color: Colors.grey[500]),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      '${event.dislikeCount} dislike${event.dislikeCount == 1 ? '' : 's'}',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.grey[500],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 16),
-                              ],
-
-                              // ─── Ticket Tiers Section ───
-                              if (event.ticketStrategyId != null) ...[
+                              // ─── Ticket Tiers Section (customer view only) ───
+                              if (event.ticketStrategyId != null &&
+                                  (user == null || (!user.isOrganizer && !user.isAdmin))) ...[
                                 const SizedBox(height: 16),
                                 _sectionTitle(context, 'Ticket Tiers'),
                                 const SizedBox(height: 8),
@@ -638,94 +526,43 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                 const SizedBox(height: 16),
                               ],
 
-                              // Your Discounts (customer view)
-                              if (user != null) ...[
+                              // Your Discounts (customer view only)
+                              if (user != null && !user.isOrganizer && !user.isAdmin) ...[
                                 _CustomerDiscountsSection(eventId: event.id),
                               ],
 
-                              // Actions for customers
-                              if (user != null && user.isCustomer) ...[
-                                _sectionTitle(context, 'Actions'),
-                                const SizedBox(height: 8),
+                              // State info banners
+                              if (event.status == EventStatus.selling_tickets)
+                                _infoBanner('Funding has ended. Tickets are now on sale!', Icons.confirmation_number, Colors.teal),
+                              if (event.status == EventStatus.waiting_event_date)
+                                _infoBanner('Funding has ended. Waiting for organizer to set event date.', Icons.hourglass_top, Colors.orange),
+                              if (event.status == EventStatus.completed)
+                                _infoBanner('This event has been completed.', Icons.check_circle, Colors.grey),
 
-                                // State info banners
-                                if (event.status == EventStatus.selling_tickets)
-                                  _infoBanner('Funding has ended. Tickets are now on sale!', Icons.confirmation_number, Colors.teal),
-                                if (event.status == EventStatus.waiting_event_date)
-                                  _infoBanner('Funding has ended. Waiting for organizer to set event date.', Icons.hourglass_top, Colors.orange),
-                                if (event.status == EventStatus.completed)
-                                  _infoBanner('This event has been completed.', Icons.check_circle, Colors.grey),
-
-                                Wrap(
-                                  spacing: 10,
-                                  runSpacing: 10,
-                                  children: [
-                                    // Register / Unregister — only during approved state
-                                    if (event.canUnregister) ...[
-                                      if (_isRegistered && _regStatus == 'registered')
-                                        OutlinedButton.icon(
-                                          onPressed: _regLoading
-                                              ? null
-                                              : () => _unregister(context),
-                                          icon: const Icon(Icons.person_remove,
-                                              color: AppTheme.warningColor),
-                                          label: const Text('Unregister',
-                                              style: TextStyle(
-                                                  color: AppTheme.warningColor)),
-                                        )
-                                      else
-                                        ElevatedButton.icon(
-                                          onPressed: _regLoading
-                                              ? null
-                                              : () => _register(context),
-                                          icon: const Icon(Icons.how_to_reg),
-                                          label: Text(_regStatus == 'waitlisted'
-                                              ? 'Waitlisted'
-                                              : 'Register'),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor:
-                                                AppTheme.primaryColor,
-                                            foregroundColor: Colors.white,
-                                          ),
-                                        ),
-                                    ],
-
-                                    // Pledge / Unpledge — only during funding period (approved + funding set)
-                                    if (event.canPledge) ...[
-                                      OutlinedButton.icon(
-                                        onPressed: () =>
-                                            _showPledgeDialog(context, event),
-                                        icon: const Icon(
-                                            Icons.volunteer_activism),
-                                        label: const Text('Pledge'),
-                                      ),
-                                      OutlinedButton.icon(
-                                        onPressed: () =>
-                                            _unpledge(context),
-                                        icon: const Icon(
-                                            Icons.money_off,
-                                            color: AppTheme.warningColor),
-                                        label: const Text('Unpledge',
-                                            style: TextStyle(
-                                                color:
-                                                    AppTheme.warningColor)),
-                                      ),
-                                    ],
-
-                                    // Buy tickets — selling_tickets or live
-                                    if (event.status == EventStatus.selling_tickets ||
-                                        event.status == EventStatus.live)
-                                      ElevatedButton.icon(
-                                        onPressed: () => _showBuyTicketDialog(event),
-                                        icon: const Icon(Icons.confirmation_number),
-                                        label: const Text('Buy Tickets'),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.teal,
-                                          foregroundColor: Colors.white,
-                                        ),
-                                      ),
-                                  ],
+                              // Buy tickets (shown for everyone when selling)
+                              if (user != null &&
+                                  user.isCustomer &&
+                                  (event.status == EventStatus.selling_tickets ||
+                                      event.status == EventStatus.live)) ...[
+                                const SizedBox(height: 12),
+                                SizedBox(
+                                  width: double.infinity,
+                                  height: 48,
+                                  child: ElevatedButton.icon(
+                                    onPressed: () => _showBuyTicketDialog(event),
+                                    icon: const Icon(Icons.confirmation_number),
+                                    label: const Text('Buy Tickets',
+                                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.teal,
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(12)),
+                                      elevation: 0,
+                                    ),
+                                  ),
                                 ),
+                                const SizedBox(height: 16),
                               ],
 
                               // Actions for organizers
@@ -745,7 +582,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                         event.status == EventStatus.live)
                                       ElevatedButton.icon(
                                         onPressed: () =>
-                                            context.go('/events/${event.id}/edit'),
+                                            context.push('/events/${event.id}/edit'),
                                         icon: const Icon(Icons.edit, size: 18),
                                         label: Text(
                                           event.status == EventStatus.draft ||
@@ -801,7 +638,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                     if (event.status == EventStatus.waiting_event_date)
                                       ElevatedButton.icon(
                                         onPressed: () =>
-                                            context.go('/events/${event.id}/edit'),
+                                            _showSetEventDateDialog(context, event),
                                         icon: const Icon(Icons.calendar_month, size: 18),
                                         label: const Text('Set Event Date'),
                                         style: ElevatedButton.styleFrom(
@@ -858,11 +695,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                                     AppTheme.errorColor)),
                                       ),
 
-                                    // Delete permanently (draft, unpublished, or cancelled)
+                                    // Delete permanently (draft or cancelled only)
                                     if (event.status ==
                                             EventStatus.draft ||
-                                        event.status ==
-                                            EventStatus.pending_approval ||
                                         event.status ==
                                             EventStatus.cancelled)
                                       OutlinedButton.icon(
@@ -913,9 +748,13 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                   event.ticketStrategyId != null)
                                 _buildTicketTierManagement(event),
 
-                              // ──────── Event Feed / Posts ────────
+                              // ──────── Event Feed / Posts (self-contained) ────────
                               const SizedBox(height: 32),
-                              _buildPostsSection(event, user),
+                              _EventFeed(
+                                eventId: widget.eventId,
+                                postsEnabled: event.postsEnabled,
+                                isRegistered: _isRegistered,
+                              ),
                             ],
                           ),
                         ),
@@ -924,138 +763,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     );
   }
 
-  // ─── Posts section ───
-
-  Widget _buildPostsSection(Event event, dynamic user) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            _sectionTitle(context, 'Event Feed'),
-            const SizedBox(width: 8),
-            if (!event.postsEnabled)
-              Chip(
-                label: const Text('Disabled', style: TextStyle(fontSize: 11)),
-                backgroundColor: Colors.grey.shade200,
-                side: BorderSide.none,
-              ),
-          ],
-        ),
-        const SizedBox(height: 12),
-
-        // Post input
-        if (event.postsEnabled && user != null) ...[
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _postCtrl,
-                  decoration: InputDecoration(
-                    hintText: 'Write something...',
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  ),
-                  maxLines: 2,
-                  minLines: 1,
-                ),
-              ),
-              const SizedBox(width: 8),
-              IconButton.filled(
-                onPressed: _postingComment ? null : _submitPost,
-                icon: _postingComment
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white))
-                    : const Icon(Icons.send),
-                style: IconButton.styleFrom(
-                  backgroundColor: AppTheme.primaryColor,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-        ],
-
-        if (!event.postsEnabled)
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text('Posts are disabled for this event.',
-                  style: TextStyle(color: Colors.grey[500])),
-            ),
-          )
-        else if (_loadingPosts)
-          const Center(child: CircularProgressIndicator())
-        else if (_posts.isEmpty)
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text('No posts yet. Be the first to share!',
-                  style: TextStyle(color: Colors.grey[500])),
-            ),
-          )
-        else
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _posts.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
-            itemBuilder: (ctx, i) {
-              final post = _posts[i];
-              final isAuthor = user != null && user.id == post.userId;
-              final isAdmin = user != null && user.isAdmin;
-              final isOrg = user != null && user.isOrganizer;
-              return ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.15),
-                  child: Text(
-                    (post.authorName ?? 'U')[0].toUpperCase(),
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.primaryColor),
-                  ),
-                ),
-                title: Text(
-                  post.authorName ?? 'User',
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                ),
-                subtitle: Text(post.content),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _timeAgo(post.createdAt),
-                      style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-                    ),
-                    if (isAuthor || isAdmin || isOrg) ...[
-                      const SizedBox(width: 4),
-                      IconButton(
-                        icon: const Icon(Icons.delete_outline, size: 18),
-                        onPressed: () => _deletePost(post.id),
-                        tooltip: 'Delete post',
-                      ),
-                    ],
-                  ],
-                ),
-              );
-            },
-          ),
-      ],
-    );
-  }
-
-  String _timeAgo(DateTime dt) {
-    final diff = DateTime.now().difference(dt);
-    if (diff.inDays > 0) return '${diff.inDays}d ago';
-    if (diff.inHours > 0) return '${diff.inHours}h ago';
-    if (diff.inMinutes > 0) return '${diff.inMinutes}m ago';
-    return 'now';
-  }
+  // Posts section moved into _EventFeed widget
 
   // ─── Add image button ───
 
@@ -1147,6 +855,108 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     );
   }
 
+  Widget _modernInfoRow(IconData icon, String label, String value, {Color? valueColor}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(7),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, size: 16, color: Colors.grey[600]),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
+                        color: Colors.grey[400], letterSpacing: 0.3)),
+                const SizedBox(height: 2),
+                Text(value,
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600,
+                        color: valueColor ?? AppTheme.textPrimary)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statusPill(EventStatus status) {
+    final label = _statusLabel(status);
+    final bgColor = _statusColor(status);
+    final fgColor = _statusForeground(status);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(
+              color: fgColor,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(label,
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: fgColor, letterSpacing: 0.3)),
+        ],
+      ),
+    );
+  }
+
+  Widget _tagPill({required IconData icon, required String label, required Color color}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 5),
+          Text(label,
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color, letterSpacing: 0.2)),
+        ],
+      ),
+    );
+  }
+
+  Color _statusForeground(EventStatus status) {
+    switch (status) {
+      case EventStatus.draft:
+        return Colors.grey[600]!;
+      case EventStatus.pending_approval:
+        return Colors.orange[800]!;
+      case EventStatus.approved:
+        return AppTheme.secondaryColor;
+      case EventStatus.selling_tickets:
+        return Colors.teal[700]!;
+      case EventStatus.waiting_event_date:
+        return Colors.orange[700]!;
+      case EventStatus.live:
+        return AppTheme.accentColor;
+      case EventStatus.completed:
+        return AppTheme.primaryColor;
+      case EventStatus.cancelled:
+        return AppTheme.errorColor;
+    }
+  }
+
   Widget _sectionTitle(BuildContext context, String title) {
     return Text(
       title,
@@ -1157,9 +967,128 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     );
   }
 
+  // ── Modern Quick Action Bar ──
+  Widget _buildQuickActionBar(BuildContext context, Event event, dynamic user) {
+    final isCustomer = user != null && user.isCustomer;
+
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          // ── Register / Unregister (customers only) ──
+          if (isCustomer && event.canUnregister)
+            Expanded(
+              flex: 3,
+              child: _isRegistered && _regStatus == 'registered'
+                  ? _quickActionBtn(
+                      icon: Icons.check_circle,
+                      label: 'Registered',
+                      color: AppTheme.successColor,
+                      filled: true,
+                      onTap: _regLoading ? null : () => _unregister(context),
+                      trailing: Icon(Icons.close, size: 14, color: Colors.white.withValues(alpha: 0.7)),
+                    )
+                  : _quickActionBtn(
+                      icon: _regStatus == 'waitlisted' ? Icons.hourglass_top : Icons.how_to_reg,
+                      label: _regStatus == 'waitlisted' ? 'Waitlisted' : 'Register',
+                      color: _regStatus == 'waitlisted' ? AppTheme.warningColor : AppTheme.primaryColor,
+                      filled: _regStatus != 'waitlisted',
+                      onTap: _regLoading ? null : () => _register(context),
+                    ),
+            ),
+
+          // Spacer between register and utility actions
+          if (isCustomer && event.canUnregister) const SizedBox(width: 6),
+
+          // ── Share ──
+          Expanded(
+            flex: 2,
+            child: _quickActionBtn(
+              icon: Icons.share_rounded,
+              label: 'Share',
+              color: Colors.grey[700]!,
+              filled: false,
+              onTap: () => _shareEvent(context, event),
+            ),
+          ),
+          const SizedBox(width: 6),
+
+          // ── Calendar ──
+          Expanded(
+            flex: 2,
+            child: _quickActionBtn(
+              icon: Icons.calendar_month_rounded,
+              label: 'Calendar',
+              color: Colors.grey[700]!,
+              filled: false,
+              onTap: () => _downloadCalendar(context, event),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _quickActionBtn({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required bool filled,
+    VoidCallback? onTap,
+    Widget? trailing,
+  }) {
+    return Material(
+      color: filled ? color : Colors.transparent,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon,
+                  size: 18,
+                  color: filled ? Colors.white : color),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: filled ? Colors.white : color,
+                    letterSpacing: -0.2,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+              ),
+              if (trailing != null) ...[
+                const SizedBox(width: 4),
+                trailing,
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildTicketTiersSection(Event event) {
+    final api = context.read<ApiService>();
+    final user = context.read<AuthProvider>().user;
+    final isCustomer = user != null && !user.isOrganizer && !user.isAdmin;
+
     return FutureBuilder(
-      future: context.read<ApiService>().dio.get('/events/${event.id}/ticket-tiers'),
+      future: api.dio.get('/events/${event.id}/ticket-tiers'),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -1172,51 +1101,71 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           return Text('No tiers configured yet',
               style: TextStyle(color: Colors.grey[500]));
         }
-        return Card(
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              children: tiers.map((t) {
-                final name = t['name'] ?? 'Tier';
-                final desc = t['description'] as String?;
-                final priceCents = t['price_cents'] ?? 0;
-                final price = (priceCents / 100).toStringAsFixed(2);
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.confirmation_number,
-                              size: 18, color: Colors.teal),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(name,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w600)),
-                          ),
-                          Text('\$$price',
+        return Column(
+          children: tiers.map((t) {
+            final tierId = t['id'];
+            final name = t['name'] ?? 'Tier';
+            final desc = t['description'] as String?;
+            final priceCents = t['price_cents'] ?? 0;
+            final isFree = priceCents == 0;
+            final basePrice = isFree ? null : (priceCents / 100).toStringAsFixed(2);
+
+            return Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Tier name + base price
+                    Row(
+                      children: [
+                        const Icon(Icons.confirmation_number,
+                            size: 18, color: Colors.teal),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(name,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w600)),
+                        ),
+                        if (isFree)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: Colors.green.shade50,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.green.shade300),
+                            ),
+                            child: Text('FREE',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 12,
+                                    color: Colors.green.shade700)),
+                          )
+                        else
+                          Text('\$$basePrice',
                               style: const TextStyle(
                                   fontWeight: FontWeight.w700,
                                   color: Colors.teal)),
-                        ],
+                      ],
+                    ),
+                    if (desc != null && desc.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 28, top: 3),
+                        child: Text(desc,
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                                fontStyle: FontStyle.italic)),
                       ),
-                      if (desc != null && desc.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(left: 28, top: 3),
-                          child: Text(desc,
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey[600],
-                                  fontStyle: FontStyle.italic)),
-                        ),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
+                    // Discount breakdown for logged-in customers
+                    if (isCustomer && !isFree)
+                      _TicketPriceBreakdown(eventId: event.id, tierId: tierId, basePriceCents: priceCents),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
         );
       },
     );
@@ -1238,6 +1187,23 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       }
       if (!mounted) return;
 
+      // Fetch price previews for each tier in parallel
+      final previews = <int, Map<String, dynamic>>{};
+      await Future.wait(tiers.map((t) async {
+        final tierId = t['id'];
+        final baseCents = t['price_cents'] ?? 0;
+        if (baseCents > 0) {
+          try {
+            final resp = await api.dio.get(
+              '/events/${event.id}/ticket-price',
+              queryParameters: {'ticket_tier_id': tierId},
+            );
+            previews[tierId] = resp.data;
+          } catch (_) {}
+        }
+      }));
+      if (!mounted) return;
+
       await showDialog(
         context: context,
         builder: (ctx) {
@@ -1252,9 +1218,15 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                   final t = tiers[i];
                   final name = t['name'] ?? 'Tier';
                   final desc = t['description'] as String?;
-                  final priceCents = t['price_cents'] ?? 0;
-                  final price = (priceCents / 100).toStringAsFixed(2);
+                  final baseCents = t['price_cents'] ?? 0;
                   final tierId = t['id'];
+                  final preview = previews[tierId];
+                  final finalCents = preview?['final_price_cents'] ?? baseCents;
+                  final totalDiscount = preview?['total_discount_cents'] ?? 0;
+                  final isFree = finalCents == 0;
+                  final basePrice = (baseCents / 100).toStringAsFixed(2);
+                  final finalPrice = (finalCents / 100).toStringAsFixed(2);
+
                   return Card(
                     child: ListTile(
                       leading: const Icon(Icons.confirmation_number, color: Colors.teal),
@@ -1262,7 +1234,52 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('\$$price'),
+                          if (isFree)
+                            Row(
+                              children: [
+                                if (baseCents > 0) ...[
+                                  Text('\$$basePrice',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[500],
+                                          decoration: TextDecoration.lineThrough)),
+                                  const SizedBox(width: 6),
+                                ],
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.green.shade50,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: Colors.green.shade300),
+                                  ),
+                                  child: Text('FREE',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 11,
+                                          color: Colors.green.shade700)),
+                                ),
+                              ],
+                            )
+                          else if (totalDiscount > 0)
+                            Row(
+                              children: [
+                                Text('\$$basePrice',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey[500],
+                                        decoration: TextDecoration.lineThrough)),
+                                const SizedBox(width: 6),
+                                Text('\$$finalPrice',
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.teal)),
+                                const SizedBox(width: 4),
+                                Text('(-\$${(totalDiscount / 100).toStringAsFixed(2)})',
+                                    style: TextStyle(fontSize: 11, color: Colors.green.shade700)),
+                              ],
+                            )
+                          else
+                            Text('\$$basePrice'),
                           if (desc != null && desc.isNotEmpty)
                             Padding(
                               padding: const EdgeInsets.only(top: 4),
@@ -1280,10 +1297,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                           await _purchaseTicket(event.id, tierId);
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.teal,
+                          backgroundColor: isFree ? Colors.green : Colors.teal,
                           foregroundColor: Colors.white,
                         ),
-                        child: const Text('Buy'),
+                        child: Text(isFree ? 'Get Ticket' : 'Buy \$$finalPrice'),
                       ),
                     ),
                   );
@@ -1313,9 +1330,16 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       final api = context.read<ApiService>();
       final resp = await api.dio.post('/events/$eventId/purchase-ticket', data: {'tier_id': tierId});
       final ticketCode = resp.data['ticket_code'] ?? '';
+      final amountPaid = resp.data['amount_paid_cents'] ?? 0;
+      final commission = resp.data['commission_cents'] ?? 0;
+      final isFree = amountPaid == 0;
       if (mounted) {
+        final priceStr = isFree
+            ? 'Free ticket'
+            : 'Paid \$${(amountPaid / 100).toStringAsFixed(2)}'
+              '${commission > 0 ? ' (incl. \$${(commission / 100).toStringAsFixed(2)} platform fee)' : ''}';
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ticket purchased! Code: $ticketCode')),
+          SnackBar(content: Text('$priceStr — Code: $ticketCode')),
         );
       }
     } catch (e) {
@@ -1403,7 +1427,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Event cloned as draft! Redirecting to edit...')),
       );
-      context.go('/events/$newId/edit');
+      context.push('/events/$newId/edit');
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1593,51 +1617,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     }
   }
 
-  Future<void> _unpledge(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Unpledge'),
-        content: const Text(
-            'Your refundable pledges will be returned. Guest pledges (made before registering) are non-refundable.\n\nContinue?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Back'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Unpledge'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true && context.mounted) {
-      try {
-        final api = context.read<ApiService>();
-        final result = await api.unpledge(widget.eventId);
-        if (context.mounted) {
-          final refunded = result['refunded_cents'] ?? 0;
-          final guest = result['guest_non_refundable_cents'] ?? 0;
-          var msg = 'Refunded \$${(refunded / 100).toStringAsFixed(2)}';
-          if (guest > 0) {
-            msg +=
-                ' (\$${(guest / 100).toStringAsFixed(2)} guest pledges non-refundable)';
-          }
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(msg)),
-          );
-        }
-      } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Unpledge failed: $e')),
-          );
-        }
-      }
-    }
-  }
+  // _unpledge moved into _FundingCard widget
 
   Future<void> _shareEvent(BuildContext context, Event event) async {
     final uri = Uri.base.resolve('/events/${event.id}');
@@ -1654,89 +1634,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     }
   }
 
-  Future<void> _showPledgeDialog(BuildContext context, Event event) async {
-    final amountController = TextEditingController();
-
-    await showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Make a Pledge'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppTheme.warningColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.info_outline,
-                      size: 18, color: AppTheme.warningColor),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'If you are not registered for this event, your pledge is treated as a guest pledge and is non-refundable.',
-                      style: TextStyle(
-                          fontSize: 12, color: Colors.grey[700]),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: amountController,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                labelText: 'Amount (\$)',
-                prefixText: '\$ ',
-                helperText:
-                    'Min pledge: \$${(event.minPledgeCents / 100).toStringAsFixed(2)}',
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final amount = double.tryParse(amountController.text);
-              if (amount == null || amount <= 0) return;
-
-              try {
-                final api = context.read<ApiService>();
-                final result = await api.pledge(
-                    widget.eventId, (amount * 100).toInt());
-                if (ctx.mounted) Navigator.pop(ctx);
-                if (context.mounted) {
-                  final isGuest = result['is_guest'] == true;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(isGuest
-                          ? 'Guest pledge of \$${amount.toStringAsFixed(2)} (non-refundable)'
-                          : 'Pledged \$${amount.toStringAsFixed(2)}!'),
-                    ),
-                  );
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Pledge failed: $e')),
-                  );
-                }
-              }
-            },
-            child: const Text('Pledge'),
-          ),
-        ],
-      ),
-    );
-  }
+  // _showPledgeDialog moved into _FundingCard widget
 
   // ═══════════════════════════════════════════
   // Add to Calendar
@@ -1774,28 +1672,16 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       children: [
         _LiveMgmtStats(eventId: event.id),
         const SizedBox(height: 12),
-        // Row: Co-organizers, Discounts
-        Row(
-          children: [
-            Expanded(
-              child: _mgmtActionCard(
-                icon: Icons.group_rounded,
-                label: 'Co-Organizers',
-                color: AppTheme.accentColor,
-                onTap: () => context.push('/events/${event.id}/co-organizers'),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _mgmtActionCard(
-                icon: Icons.discount_rounded,
-                label: 'Discounts',
-                color: Colors.deepPurple,
-                onTap: () => context.push('/events/${event.id}/discounts'),
-              ),
-            ),
-          ],
+        // Co-organizers button
+        _mgmtActionCard(
+          icon: Icons.group_rounded,
+          label: 'Co-Organizers',
+          color: AppTheme.accentColor,
+          onTap: () => context.push('/events/${event.id}/co-organizers'),
         ),
+        const SizedBox(height: 12),
+        // Inline discount attach/detach
+        _EventDiscountDropdown(eventId: event.id),
         // Pending extension banner
         if (event.pendingExtension != null) ...[
           const SizedBox(height: 12),
@@ -1864,13 +1750,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           ),
           const SizedBox(height: 8),
           if (ext['funding_end_at'] != null)
-            Text('New funding end: ${ext['funding_end_at']}',
+            Text('New funding deadline: ${ext['funding_end_at']}',
                 style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
-          if (ext['start_time'] != null)
-            Text('New start time: ${ext['start_time']}',
-                style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
-          if (ext['end_time'] != null)
-            Text('New end time: ${ext['end_time']}',
+          if (ext['funding_goal_cents'] != null)
+            Text('New funding goal: \$${(ext['funding_goal_cents'] / 100).toStringAsFixed(2)}',
                 style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
           if (user != null && user.isAdmin) ...[
             const SizedBox(height: 10),
@@ -1920,79 +1803,426 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   }
 
   // ═══════════════════════════════════════════
-  // Extend Funding Dialog
+  // Extend Funding Dialog (deadline + goal, admin approval)
   // ═══════════════════════════════════════════
 
   Future<void> _showExtendFundingDialog(BuildContext context, Event event) async {
-    final fundingCtrl = TextEditingController();
-    final startCtrl = TextEditingController();
-    final endCtrl = TextEditingController();
-    final result = await showDialog<Map<String, String>>(
+    final fundingEndCtrl = TextEditingController();
+    final goalCtrl = TextEditingController(
+      text: event.fundingGoalCents != null
+          ? (event.fundingGoalCents! / 100).toStringAsFixed(2)
+          : '',
+    );
+    DateTime? pickedDeadline;
+
+    final result = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Extend Funding Period'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'This will send a request to admin for approval.',
-                style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: fundingCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'New Funding End (ISO)',
-                  hintText: '2026-03-01T00:00:00',
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Extend Funding'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, size: 16, color: Colors.blue.shade700),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'This will send a request to admin for approval.',
+                          style: TextStyle(color: Colors.blue.shade700, fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: startCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'New Start Time (ISO, optional)',
-                  hintText: '2026-04-01T18:00:00',
+                const SizedBox(height: 16),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.calendar_today),
+                  title: Text(
+                    pickedDeadline != null
+                        ? DateFormat('MMM d, y – h:mm a').format(pickedDeadline!)
+                        : 'Pick new funding deadline',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: pickedDeadline != null ? Colors.black : Colors.grey,
+                    ),
+                  ),
+                  trailing: const Icon(Icons.edit_calendar),
+                  onTap: () async {
+                    final date = await showDatePicker(
+                      context: ctx,
+                      initialDate: DateTime.now().add(const Duration(days: 7)),
+                      firstDate: DateTime.now(),
+                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                    );
+                    if (date != null && ctx.mounted) {
+                      final time = await showTimePicker(
+                        context: ctx,
+                        initialTime: const TimeOfDay(hour: 23, minute: 59),
+                      );
+                      setDialogState(() {
+                        pickedDeadline = DateTime(
+                          date.year, date.month, date.day,
+                          time?.hour ?? 23, time?.minute ?? 59,
+                        );
+                        fundingEndCtrl.text = pickedDeadline!.toIso8601String();
+                      });
+                    }
+                  },
                 ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: endCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'New End Time (ISO, optional)',
-                  hintText: '2026-04-01T22:00:00',
+                const SizedBox(height: 12),
+                TextField(
+                  controller: goalCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: 'New Funding Goal (\$)',
+                    prefixText: '\$ ',
+                    helperText: 'Leave empty to keep current goal',
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            FilledButton(
+              onPressed: () {
+                final data = <String, dynamic>{};
+                if (fundingEndCtrl.text.trim().isNotEmpty) {
+                  data['funding_end_at'] = fundingEndCtrl.text.trim();
+                }
+                final goalText = goalCtrl.text.trim();
+                if (goalText.isNotEmpty) {
+                  final parsed = double.tryParse(goalText);
+                  if (parsed != null && parsed > 0) {
+                    data['funding_goal_cents'] = (parsed * 100).toInt();
+                  }
+                }
+                Navigator.pop(ctx, data);
+              },
+              child: const Text('Submit Request'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () {
-              final data = <String, String>{};
-              if (fundingCtrl.text.trim().isNotEmpty) {
-                data['funding_end_at'] = fundingCtrl.text.trim();
-              }
-              if (startCtrl.text.trim().isNotEmpty) {
-                data['start_time'] = startCtrl.text.trim();
-              }
-              if (endCtrl.text.trim().isNotEmpty) {
-                data['end_time'] = endCtrl.text.trim();
-              }
-              Navigator.pop(ctx, data);
-            },
-            child: const Text('Submit Request'),
-          ),
-        ],
       ),
     );
     if (result == null || result.isEmpty) return;
     try {
-      await ApiService().extendFunding(event.id, result);
+      await context.read<ApiService>().extendFunding(event.id, result);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Extension request submitted for admin approval')),
+        );
+        context.read<EventProvider>().loadEvent(event.id);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  // Set Event Date Dialog (direct, no admin approval)
+  // ═══════════════════════════════════════════
+
+  Future<void> _showSetEventDateDialog(BuildContext context, Event event) async {
+    final api = context.read<ApiService>();
+
+    // Load venues, ticket strategies, and check for existing ticket sales
+    List<Map<String, dynamic>> venues = [];
+    List<Map<String, dynamic>> strategies = [];
+    bool hasTicketSales = false;
+    try {
+      final results = await Future.wait([
+        api.getVenues(),
+        api.getTicketStrategies(),
+        api.getTicketSales(event.id),
+      ]);
+      venues = (results[0] as List).cast<Map<String, dynamic>>();
+      strategies = (results[1] as List).cast<Map<String, dynamic>>();
+      hasTicketSales = (results[2] as List).isNotEmpty;
+    } catch (_) {}
+
+    final bool hasExistingStrategy = event.ticketStrategyId != null;
+    // If tickets sold → strategy is locked (don't show dropdown)
+    // If no strategy set → dropdown is mandatory
+    // If strategy set but no sales → dropdown is optional (can change)
+    final bool showStrategyDropdown = !hasTicketSales && strategies.isNotEmpty;
+    final bool strategyRequired = !hasExistingStrategy && !hasTicketSales;
+
+    DateTime? pickedStart;
+    DateTime? pickedEnd;
+    int? selectedVenueId = event.venue?.id;
+    int? selectedStrategyId = event.ticketStrategyId;
+
+    if (!mounted) return;
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          // Determine if the form is valid
+          final bool datesReady = pickedStart != null && pickedEnd != null;
+          final bool strategyReady = !strategyRequired || selectedStrategyId != null;
+          final bool canSubmit = datesReady && strategyReady;
+
+          return AlertDialog(
+            title: const Text('Set Event Date'),
+            content: SizedBox(
+              width: 400,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.check_circle_outline, size: 16, color: Colors.green.shade700),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'This applies immediately — no admin approval needed.',
+                              style: TextStyle(color: Colors.green.shade700, fontSize: 12),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // ── Start time ──
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.play_arrow_rounded, color: Colors.teal),
+                      title: Text(
+                        pickedStart != null
+                            ? DateFormat('MMM d, y – h:mm a').format(pickedStart!)
+                            : 'Pick start time',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: pickedStart != null ? Colors.black : Colors.grey,
+                        ),
+                      ),
+                      subtitle: const Text('Event start', style: TextStyle(fontSize: 11)),
+                      trailing: const Icon(Icons.edit_calendar),
+                      onTap: () async {
+                        final date = await showDatePicker(
+                          context: ctx,
+                          initialDate: DateTime.now().add(const Duration(days: 14)),
+                          firstDate: DateTime.now().add(const Duration(days: 1)),
+                          lastDate: DateTime.now().add(const Duration(days: 730)),
+                        );
+                        if (date != null && ctx.mounted) {
+                          final time = await showTimePicker(
+                            context: ctx,
+                            initialTime: const TimeOfDay(hour: 18, minute: 0),
+                          );
+                          setDialogState(() {
+                            pickedStart = DateTime(
+                              date.year, date.month, date.day,
+                              time?.hour ?? 18, time?.minute ?? 0,
+                            );
+                          });
+                        }
+                      },
+                    ),
+                    const Divider(),
+                    // ── End time ──
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.stop_rounded, color: Colors.redAccent),
+                      title: Text(
+                        pickedEnd != null
+                            ? DateFormat('MMM d, y – h:mm a').format(pickedEnd!)
+                            : 'Pick end time',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: pickedEnd != null ? Colors.black : Colors.grey,
+                        ),
+                      ),
+                      subtitle: const Text('Event end', style: TextStyle(fontSize: 11)),
+                      trailing: const Icon(Icons.edit_calendar),
+                      onTap: () async {
+                        final initialDate = pickedStart?.add(const Duration(hours: 4)) ??
+                            DateTime.now().add(const Duration(days: 14));
+                        final date = await showDatePicker(
+                          context: ctx,
+                          initialDate: initialDate,
+                          firstDate: pickedStart ?? DateTime.now().add(const Duration(days: 1)),
+                          lastDate: DateTime.now().add(const Duration(days: 730)),
+                        );
+                        if (date != null && ctx.mounted) {
+                          final time = await showTimePicker(
+                            context: ctx,
+                            initialTime: const TimeOfDay(hour: 22, minute: 0),
+                          );
+                          setDialogState(() {
+                            pickedEnd = DateTime(
+                              date.year, date.month, date.day,
+                              time?.hour ?? 22, time?.minute ?? 0,
+                            );
+                          });
+                        }
+                      },
+                    ),
+                    const Divider(),
+                    const SizedBox(height: 8),
+                    // ── Venue dropdown ──
+                    if (venues.isNotEmpty)
+                      DropdownButtonFormField<int>(
+                        value: selectedVenueId,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Venue',
+                          prefixIcon: Icon(Icons.location_city_rounded),
+                          border: OutlineInputBorder(),
+                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        ),
+                        items: venues.map((v) {
+                          return DropdownMenuItem<int>(
+                            value: v['id'] as int,
+                            child: Text(
+                              '${v['name']} — ${v['city']}',
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (v) => setDialogState(() => selectedVenueId = v),
+                      ),
+                    if (venues.isNotEmpty) const SizedBox(height: 14),
+                    // ── Ticket Strategy ──
+                    if (hasTicketSales)
+                      // Tickets already sold — locked, show info
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.lock_rounded, size: 16, color: Colors.grey.shade600),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Ticket strategy locked — tickets have been sold.',
+                                style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else if (showStrategyDropdown) ...[
+                      DropdownButtonFormField<int>(
+                        value: strategies.any((s) => s['id'] == selectedStrategyId)
+                            ? selectedStrategyId
+                            : null,
+                        isExpanded: true,
+                        decoration: InputDecoration(
+                          labelText: strategyRequired
+                              ? 'Ticket Strategy *'
+                              : 'Ticket Strategy',
+                          prefixIcon: const Icon(Icons.confirmation_number_rounded),
+                          border: const OutlineInputBorder(),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        ),
+                        items: [
+                          if (!strategyRequired)
+                            const DropdownMenuItem<int>(
+                              value: null,
+                              child: Text('Keep current', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                            ),
+                          ...strategies.map((s) {
+                            final tierCount = (s['tiers'] as List?)?.length ?? 0;
+                            return DropdownMenuItem<int>(
+                              value: s['id'] as int,
+                              child: Text(
+                                '${s['name']} ($tierCount tiers)',
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                            );
+                          }),
+                        ],
+                        onChanged: (v) => setDialogState(() => selectedStrategyId = v),
+                        validator: strategyRequired
+                            ? (v) => v == null ? 'Ticket strategy is required' : null
+                            : null,
+                      ),
+                      if (strategyRequired) ...[
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.warning_amber_rounded, size: 16, color: Colors.orange.shade700),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'A ticket strategy is required to start selling tickets.',
+                                  style: TextStyle(color: Colors.orange.shade700, fontSize: 12),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+              FilledButton(
+                onPressed: canSubmit
+                    ? () {
+                        final data = <String, dynamic>{
+                          'start_time': pickedStart!.toIso8601String(),
+                          'end_time': pickedEnd!.toIso8601String(),
+                        };
+                        if (selectedVenueId != null && selectedVenueId != event.venue?.id) {
+                          data['venue_id'] = selectedVenueId;
+                        }
+                        if (selectedStrategyId != null && selectedStrategyId != event.ticketStrategyId) {
+                          data['ticket_strategy_id'] = selectedStrategyId;
+                        }
+                        Navigator.pop(ctx, data);
+                      }
+                    : null,
+                child: const Text('Set Date'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    if (result == null || result.isEmpty) return;
+    try {
+      await api.setEventDate(event.id, result);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Event date set! Moving to ticket sales.')),
         );
         context.read<EventProvider>().loadEvent(event.id);
       }
@@ -2370,8 +2600,394 @@ class _LiveMgmtStatsState extends State<_LiveMgmtStats> {
 
 
 // ═══════════════════════════════════════════
+// Event Discount Dropdown (inline attach / detach)
+// ═══════════════════════════════════════════
+
+class _EventDiscountDropdown extends StatefulWidget {
+  final int eventId;
+  const _EventDiscountDropdown({required this.eventId});
+
+  @override
+  State<_EventDiscountDropdown> createState() => _EventDiscountDropdownState();
+}
+
+class _EventDiscountDropdownState extends State<_EventDiscountDropdown> {
+  final _api = ApiService();
+  List<Map<String, dynamic>> _allStrategies = [];
+  List<Map<String, dynamic>> _attached = [];
+  bool _loading = true;
+  String _search = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    try {
+      final all = await _api.getDiscountStrategies();
+      final attached = await _api.getEventDiscountStrategies(widget.eventId);
+      setState(() {
+        _allStrategies = all.cast<Map<String, dynamic>>();
+        _attached = attached.cast<Map<String, dynamic>>();
+        _loading = false;
+      });
+    } catch (_) {
+      setState(() => _loading = false);
+    }
+  }
+
+  Set<int> get _attachedIds => _attached.map((d) => d['id'] as int).toSet();
+
+  Future<void> _attach(int id, {required bool autoApply}) async {
+    try {
+      await _api.attachDiscountStrategy(widget.eventId, id, autoApply: autoApply);
+      await _load();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to attach: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _detach(int id) async {
+    try {
+      await _api.detachDiscountStrategy(widget.eventId, id);
+      await _load();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to detach: $e')),
+        );
+      }
+    }
+  }
+
+  String _label(Map<String, dynamic> d) {
+    final name = d['name'] ?? '';
+    final type = d['discount_type'] ?? '';
+    final val = d['value'] ?? 0;
+    final target = d['target'] ?? 'all';
+    final typeLabel = type == 'ticket_percent' ? '% ticket' : '% pledge';
+    return '$name · $val$typeLabel · $target';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E1E),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white10),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.discount_rounded, color: Colors.deepPurple, size: 20),
+              const SizedBox(width: 8),
+              const Text('Discounts', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15)),
+              const Spacer(),
+              if (_loading)
+                const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white54)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          // Attached discounts
+          if (_attached.isNotEmpty) ...[
+            ..._attached.map((d) {
+              final autoApply = d['auto_apply'] == true;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.deepPurple.withOpacity(0.18),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.deepPurple.withOpacity(0.4), width: 0.5),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                _label(d),
+                                style: const TextStyle(color: Colors.white, fontSize: 12),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: autoApply
+                                    ? Colors.green.withOpacity(0.25)
+                                    : Colors.orange.withOpacity(0.25),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                autoApply ? 'Auto' : 'Claimable',
+                                style: TextStyle(
+                                  color: autoApply ? Colors.greenAccent : Colors.orangeAccent,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    InkWell(
+                      onTap: () => _detach(d['id'] as int),
+                      borderRadius: BorderRadius.circular(12),
+                      child: const Padding(
+                        padding: EdgeInsets.all(4),
+                        child: Icon(Icons.close, size: 16, color: Colors.white54),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+            const SizedBox(height: 6),
+          ],
+          // Search
+          TextField(
+            style: const TextStyle(color: Colors.white, fontSize: 14),
+            decoration: InputDecoration(
+              hintText: 'Search discounts…',
+              hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
+              prefixIcon: const Icon(Icons.search, color: Colors.white38, size: 20),
+              filled: true,
+              fillColor: Colors.white.withOpacity(0.06),
+              contentPadding: const EdgeInsets.symmetric(vertical: 10),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+            ),
+            onChanged: (v) => setState(() => _search = v.toLowerCase()),
+          ),
+          const SizedBox(height: 6),
+          ..._buildAvailableList(),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildAvailableList() {
+    final available = _allStrategies.where((d) {
+      final id = d['id'] as int;
+      if (_attachedIds.contains(id)) return false;
+      if (_search.isEmpty) return true;
+      return _label(d).toLowerCase().contains(_search);
+    }).toList();
+
+    if (available.isEmpty && _search.isNotEmpty) {
+      return [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Text('No matching discounts', style: TextStyle(color: Colors.white38, fontSize: 13)),
+        ),
+      ];
+    }
+    if (available.isEmpty) return [];
+    return available.take(3).map((d) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 4),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.04),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(_label(d), style: const TextStyle(color: Colors.white70, fontSize: 12)),
+              ),
+              const SizedBox(width: 6),
+              _AddButton(
+                label: 'Add + Apply',
+                color: Colors.green,
+                onTap: () => _attach(d['id'] as int, autoApply: true),
+              ),
+              const SizedBox(width: 6),
+              _AddButton(
+                label: 'Add',
+                color: Colors.deepPurple,
+                onTap: () => _attach(d['id'] as int, autoApply: false),
+              ),
+            ],
+          ),
+        ),
+      );
+    }).toList();
+  }
+}
+
+class _AddButton extends StatelessWidget {
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+  const _AddButton({required this.label, required this.color, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: color.withOpacity(0.2),
+      borderRadius: BorderRadius.circular(6),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+          child: Text(
+            label,
+            style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w700),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════
 // Customer Discounts Section
 // ═══════════════════════════════════════════
+
+// ═══════════════════════════════════════════
+// Ticket Price Breakdown (fetches discount info per tier)
+// ═══════════════════════════════════════════
+
+class _TicketPriceBreakdown extends StatefulWidget {
+  final int eventId;
+  final int tierId;
+  final int basePriceCents;
+
+  const _TicketPriceBreakdown({
+    required this.eventId,
+    required this.tierId,
+    required this.basePriceCents,
+  });
+
+  @override
+  State<_TicketPriceBreakdown> createState() => _TicketPriceBreakdownState();
+}
+
+class _TicketPriceBreakdownState extends State<_TicketPriceBreakdown> {
+  Map<String, dynamic>? _preview;
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPreview();
+  }
+
+  Future<void> _loadPreview() async {
+    try {
+      final api = context.read<ApiService>();
+      final resp = await api.dio.get(
+        '/events/${widget.eventId}/ticket-price',
+        queryParameters: {'ticket_tier_id': widget.tierId},
+      );
+      if (mounted) {
+        setState(() {
+          _preview = resp.data;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = e.toString();
+        });
+      }
+    }
+  }
+
+  String _cents(int c) => '\$${(c / 100).toStringAsFixed(2)}';
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Padding(
+        padding: EdgeInsets.only(left: 28, top: 6),
+        child: SizedBox(height: 14, width: 14, child: CircularProgressIndicator(strokeWidth: 2)),
+      );
+    }
+    if (_error != null || _preview == null) return const SizedBox.shrink();
+
+    final totalDiscount = _preview!['total_discount_cents'] ?? 0;
+    if (totalDiscount == 0) return const SizedBox.shrink();
+
+    final tierPrice = _preview!['tier_price_cents'] ?? 0;
+    final commonDisc = _preview!['common_discount_cents'] ?? 0;
+    final selectiveDisc = _preview!['selective_discount_cents'] ?? 0;
+    final pledgeDisc = _preview!['pledge_discount_cents'] ?? 0;
+    final eventDisc = _preview!['event_discount_cents'] ?? 0;
+    final finalPrice = _preview!['final_price_cents'] ?? 0;
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 28, top: 8),
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.teal.shade50,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.teal.shade200),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Your Price Breakdown',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.teal.shade800)),
+            const SizedBox(height: 6),
+            _breakdownRow('Base price', _cents(tierPrice), isBold: false),
+            if (commonDisc > 0)
+              _breakdownRow('Common discount', '- ${_cents(commonDisc)}', color: Colors.green.shade700),
+            if (selectiveDisc > 0)
+              _breakdownRow('Selective discount', '- ${_cents(selectiveDisc)}', color: Colors.green.shade700),
+            if (pledgeDisc > 0)
+              _breakdownRow('Pledge discount', '- ${_cents(pledgeDisc)}', color: Colors.green.shade700),
+            if (eventDisc > 0)
+              _breakdownRow('Event discount', '- ${_cents(eventDisc)}', color: Colors.green.shade700),
+            const Divider(height: 10),
+            _breakdownRow(
+              'You pay',
+              finalPrice == 0 ? 'FREE' : _cents(finalPrice),
+              isBold: true,
+              color: finalPrice == 0 ? Colors.green.shade700 : Colors.teal.shade900,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _breakdownRow(String label, String value, {bool isBold = false, Color? color}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 1),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: TextStyle(fontSize: 12, fontWeight: isBold ? FontWeight.w700 : FontWeight.w400, color: color ?? Colors.grey.shade700)),
+          Text(value, style: TextStyle(fontSize: 12, fontWeight: isBold ? FontWeight.w700 : FontWeight.w500, color: color ?? Colors.grey.shade700)),
+        ],
+      ),
+    );
+  }
+}
+
 
 class _CustomerDiscountsSection extends StatefulWidget {
   final int eventId;
@@ -2424,7 +3040,7 @@ class _CustomerDiscountsSectionState extends State<_CustomerDiscountsSection> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_loaded || _discounts.isEmpty) return const SizedBox.shrink();
+    if (!_loaded) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2433,37 +3049,1010 @@ class _CustomerDiscountsSectionState extends State<_CustomerDiscountsSection> {
           children: [
             Icon(Icons.local_offer_rounded, size: 20, color: Colors.deepPurple),
             const SizedBox(width: 8),
-            Text('Your Discounts',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+            Expanded(
+              child: Text('Your Discounts',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+            ),
+            TextButton.icon(
+              onPressed: () => context.push('/events/${widget.eventId}/discounts'),
+              icon: const Icon(Icons.search, size: 16),
+              label: const Text('Browse', style: TextStyle(fontSize: 12)),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.deepPurple,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                minimumSize: Size.zero,
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 8),
-        ..._discounts.map((d) => Container(
-              margin: const EdgeInsets.only(bottom: 6),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.deepPurple.withOpacity(0.06),
-                borderRadius: BorderRadius.circular(10),
-              ),
+        if (_discounts.isEmpty)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.04),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, size: 16, color: Colors.white38),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'No discounts applied yet. Tap Browse to see available discounts you can claim.',
+                    style: TextStyle(fontSize: 12, color: Colors.white54),
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          ..._discounts.map((d) => Container(
+                margin: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.deepPurple.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.discount_rounded, size: 16, color: Colors.deepPurple),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(d['name'] ?? 'Discount',
+                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                          Text(_describe(d),
+                              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              )),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+}
+
+// ═══════════════════════════════════════════
+// Self-contained Reaction Bar (like / dislike)
+// Only refreshes itself, not the whole page
+// ═══════════════════════════════════════════
+
+class _ReactionBar extends StatefulWidget {
+  final int eventId;
+  final int initialLikeCount;
+  final int initialDislikeCount;
+  final bool isAdmin;
+
+  const _ReactionBar({
+    required this.eventId,
+    required this.initialLikeCount,
+    required this.initialDislikeCount,
+    required this.isAdmin,
+  });
+
+  @override
+  State<_ReactionBar> createState() => _ReactionBarState();
+}
+
+class _ReactionBarState extends State<_ReactionBar> {
+  String? _myReaction;
+  bool _reacting = false;
+  late int _likeCount;
+  late int _dislikeCount;
+
+  @override
+  void initState() {
+    super.initState();
+    _likeCount = widget.initialLikeCount;
+    _dislikeCount = widget.initialDislikeCount;
+    _loadMyReaction();
+  }
+
+  Future<void> _loadMyReaction() async {
+    final auth = context.read<AuthProvider>();
+    if (auth.user == null) return;
+    try {
+      final api = context.read<ApiService>();
+      final data = await api.getMyReaction(widget.eventId);
+      if (mounted) setState(() => _myReaction = data['reaction']);
+    } catch (_) {}
+  }
+
+  Future<void> _react(String reaction) async {
+    if (_reacting) return;
+    setState(() => _reacting = true);
+    try {
+      final api = context.read<ApiService>();
+      final resp = await api.reactToEvent(widget.eventId, reaction);
+      if (mounted) {
+        setState(() {
+          // Update reaction state based on action
+          final action = resp['action'];
+          if (action == 'removed') {
+            _myReaction = null;
+          } else {
+            _myReaction = reaction;
+          }
+          // Update counts from server response
+          _likeCount = resp['like_count'] ?? _likeCount;
+          _dislikeCount = resp['dislike_count'] ?? _dislikeCount;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed: $e')),
+        );
+      }
+    }
+    if (mounted) setState(() => _reacting = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.isAdmin) {
+      // Admin: read-only counters (both like + dislike visible)
+      return Row(
+        children: [
+          Icon(Icons.thumb_up, size: 18, color: AppTheme.primaryColor),
+          const SizedBox(width: 6),
+          Text(
+            '$_likeCount like${_likeCount == 1 ? '' : 's'}',
+            style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey[700]),
+          ),
+          const SizedBox(width: 20),
+          Icon(Icons.thumb_down, size: 18, color: Colors.grey[500]),
+          const SizedBox(width: 6),
+          Text(
+            '$_dislikeCount dislike${_dislikeCount == 1 ? '' : 's'}',
+            style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey[500]),
+          ),
+        ],
+      );
+    }
+
+    // Everyone else: interactive like/dislike buttons
+    return Row(
+      children: [
+        // Like button
+        Material(
+          color: _myReaction == 'like'
+              ? AppTheme.primaryColor.withValues(alpha: 0.1)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: _reacting ? null : () => _react('like'),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.discount_rounded, size: 16, color: Colors.deepPurple),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(d['name'] ?? 'Discount',
-                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                        Text(_describe(d),
-                            style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-                      ],
+                  Icon(
+                    _myReaction == 'like' ? Icons.thumb_up : Icons.thumb_up_outlined,
+                    size: 20,
+                    color: _myReaction == 'like' ? AppTheme.primaryColor : Colors.grey[600],
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    '$_likeCount',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                      color: _myReaction == 'like' ? AppTheme.primaryColor : Colors.grey[700],
                     ),
                   ),
                 ],
               ),
-            )),
-        const SizedBox(height: 8),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        // Dislike button
+        Material(
+          color: _myReaction == 'dislike'
+              ? AppTheme.errorColor.withValues(alpha: 0.1)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: _reacting ? null : () => _react('dislike'),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _myReaction == 'dislike' ? Icons.thumb_down : Icons.thumb_down_outlined,
+                    size: 20,
+                    color: _myReaction == 'dislike' ? AppTheme.errorColor : Colors.grey[600],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ═══════════════════════════════════════════
+// Self-contained Funding Card
+// Loads its own data, pledge/unpledge only refresh this card
+// ═══════════════════════════════════════════
+
+class _FundingCard extends StatefulWidget {
+  final int eventId;
+  final Event event;
+  final bool isRegistered;
+
+  const _FundingCard({required this.eventId, required this.event, required this.isRegistered});
+
+  @override
+  State<_FundingCard> createState() => _FundingCardState();
+}
+
+class _FundingCardState extends State<_FundingCard> {
+  int _totalPledgedCents = 0;
+  int _backersCount = 0;
+  int? _goalCents;
+  bool _goalMet = false;
+  bool _loading = true;
+  bool _pledging = false;
+  int _fundingCommissionPercent = 0;
+
+  Event get event => widget.event;
+
+  @override
+  void initState() {
+    super.initState();
+    // Seed from event data while we load fresh numbers
+    _totalPledgedCents = event.totalPledgedCents ?? 0;
+    _goalCents = event.fundingGoalCents;
+    _loadFunding();
+  }
+
+  Future<void> _loadFunding() async {
+    try {
+      final api = context.read<ApiService>();
+      final data = await api.getFundingSummary(widget.eventId);
+      if (mounted) {
+        setState(() {
+          _totalPledgedCents = data['total_pledged_cents'] ?? 0;
+          _backersCount = data['backers_count'] ?? 0;
+          _goalCents = data['goal_cents'];
+          _goalMet = data['goal_met'] ?? false;
+          _fundingCommissionPercent = data['funding_commission_percent'] ?? 0;
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  double get _progress {
+    if (_goalCents == null || _goalCents == 0) return 0;
+    return _totalPledgedCents / _goalCents!;
+  }
+
+  String get _totalFormatted =>
+      '\$${(_totalPledgedCents / 100).toStringAsFixed(2)}';
+
+  String get _goalFormatted {
+    if (_goalCents == null) return 'N/A';
+    return '\$${(_goalCents! / 100).toStringAsFixed(2)}';
+  }
+
+  // ── Pledge dialog ──
+  Future<void> _showPledgeDialog() async {
+    final amountController = TextEditingController();
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Make a Pledge'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppTheme.warningColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline,
+                      size: 18, color: AppTheme.warningColor),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'If you are not registered for this event, your pledge is treated as a guest pledge and is non-refundable.',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: amountController,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                labelText: 'Amount (\$)',
+                prefixText: '\$ ',
+                helperText:
+                    'Min pledge: \$${(event.minPledgeCents / 100).toStringAsFixed(2)}',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final amount = double.tryParse(amountController.text);
+              if (amount == null || amount <= 0) return;
+              try {
+                final api = context.read<ApiService>();
+                final result =
+                    await api.pledge(widget.eventId, (amount * 100).toInt());
+                if (ctx.mounted) Navigator.pop(ctx);
+                if (context.mounted) {
+                  final isGuest = result['is_guest'] == true;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(isGuest
+                          ? 'Guest pledge of \$${amount.toStringAsFixed(2)} (non-refundable)'
+                          : 'Pledged \$${amount.toStringAsFixed(2)}!'),
+                    ),
+                  );
+                  // Refresh only this card
+                  _loadFunding();
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Pledge failed: $e')),
+                  );
+                }
+              }
+            },
+            child: const Text('Pledge'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Unpledge ──
+  Future<void> _unpledge() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Unpledge'),
+        content: const Text(
+            'Your refundable pledges will be returned. Guest pledges (made before registering) are non-refundable.\n\nContinue?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Back'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Unpledge'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      try {
+        final api = context.read<ApiService>();
+        final result = await api.unpledge(widget.eventId);
+        if (context.mounted) {
+          final refunded = result['refunded_cents'] ?? 0;
+          final guest = result['guest_non_refundable_cents'] ?? 0;
+          var msg = 'Refunded \$${(refunded / 100).toStringAsFixed(2)}';
+          if (guest > 0) {
+            msg +=
+                ' (\$${(guest / 100).toStringAsFixed(2)} guest pledges non-refundable)';
+          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(msg)),
+          );
+          // Refresh only this card
+          _loadFunding();
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Unpledge failed: $e')),
+          );
+        }
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final fundingTimeLeft = event.fundingTimeLeftFormatted;
+    final hasTimeLeft = event.fundingHasTimeLeft;
+    final user = context.watch<AuthProvider>().user;
+    final isOrganizerOrAdmin = user != null && (user.isOrganizer || user.isAdmin);
+    final canPledge = event.canPledge && !isOrganizerOrAdmin;
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Title row
+          Row(
+            children: [
+              const Icon(Icons.attach_money, size: 20, color: AppTheme.accentColor),
+              const SizedBox(width: 8),
+              const Text('Funding',
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.3)),
+              const Spacer(),
+              if (event.fundingEndAt != null)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: hasTimeLeft
+                        ? AppTheme.accentColor.withValues(alpha: 0.12)
+                        : AppTheme.textSecondary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    fundingTimeLeft,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: hasTimeLeft
+                          ? AppTheme.accentColor
+                          : AppTheme.textSecondary,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // Raised / Goal
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                _totalFormatted,
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.5,
+                  color: _progress >= 1.0
+                      ? AppTheme.successColor
+                      : AppTheme.textPrimary,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  'of $_goalFormatted',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: AppTheme.textSecondary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  '${(_progress * 100).clamp(0, 999).toStringAsFixed(1)}%',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: _progress >= 1.0
+                        ? AppTheme.successColor
+                        : AppTheme.accentColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // Progress bar
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: _progress.clamp(0.0, 1.0),
+              minHeight: 10,
+              backgroundColor: AppTheme.dividerColor,
+              valueColor: AlwaysStoppedAnimation(
+                _progress >= 1.0
+                    ? AppTheme.successColor
+                    : AppTheme.accentColor,
+              ),
+            ),
+          ),
+          if (_fundingCommissionPercent > 0)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                'Platform fee: $_fundingCommissionPercent% of pledges',
+                style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+              ),
+            ),
+          const SizedBox(height: 12),
+
+          // Deadline + Min pledge row
+          Row(
+            children: [
+              if (event.fundingEndAt != null) ...[
+                const Icon(Icons.timer_outlined,
+                    size: 14, color: AppTheme.textSecondary),
+                const SizedBox(width: 4),
+                Text(
+                  'Deadline: ${DateFormat('MMM d, y – h:mm a').format(event.fundingEndAt!.toLocal())}',
+                  style: const TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textSecondary,
+                      fontWeight: FontWeight.w500),
+                ),
+              ],
+              const Spacer(),
+              if (event.minPledgeCents > 0) ...[
+                const Icon(Icons.arrow_downward,
+                    size: 14, color: AppTheme.textSecondary),
+                const SizedBox(width: 4),
+                Text(
+                  'Min: \$${(event.minPledgeCents / 100).toStringAsFixed(2)}',
+                  style: const TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textSecondary,
+                      fontWeight: FontWeight.w500),
+                ),
+              ],
+            ],
+          ),
+
+          // Backers count
+          if (_backersCount > 0) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(Icons.people_outline, size: 14, color: Colors.grey[500]),
+                const SizedBox(width: 4),
+                Text(
+                  '$_backersCount backer${_backersCount == 1 ? '' : 's'}',
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[500],
+                      fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+          ],
+
+          // Escrow trust indicator
+          if (_totalPledgedCents > 0)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue.shade100),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.shield_outlined, size: 14, color: Colors.blue.shade700),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Pledges held in platform escrow until event milestones are met',
+                        style: TextStyle(fontSize: 11, color: Colors.blue.shade700),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+          // Pledge / Unpledge buttons
+          if (canPledge) ...[
+            const SizedBox(height: 14),
+            const Divider(height: 1),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 40,
+                    child: ElevatedButton.icon(
+                      onPressed: _pledging ? null : _showPledgeDialog,
+                      icon: const Icon(Icons.volunteer_activism, size: 18),
+                      label: const Text('Pledge',
+                          style: TextStyle(fontWeight: FontWeight.w700)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.accentColor,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                        elevation: 0,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: SizedBox(
+                    height: 40,
+                    child: OutlinedButton.icon(
+                      onPressed: _pledging ? null : _unpledge,
+                      icon: const Icon(Icons.money_off,
+                          size: 18, color: AppTheme.warningColor),
+                      label: const Text('Unpledge',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.warningColor)),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: AppTheme.warningColor),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════
+// Self-contained Event Feed
+// Loads its own posts, submit/delete only refresh this widget
+// ═══════════════════════════════════════════
+
+class _EventFeed extends StatefulWidget {
+  final int eventId;
+  final bool postsEnabled;
+  final bool isRegistered;
+
+  const _EventFeed({required this.eventId, required this.postsEnabled, required this.isRegistered});
+
+  @override
+  State<_EventFeed> createState() => _EventFeedState();
+}
+
+class _EventFeedState extends State<_EventFeed> {
+  List<EventPost> _posts = [];
+  bool _loading = true;
+  bool _posting = false;
+  final _ctrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPosts();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadPosts() async {
+    if (!mounted) return;
+    setState(() => _loading = true);
+    try {
+      final api = context.read<ApiService>();
+      final data = await api.getEventPosts(widget.eventId);
+      if (mounted) {
+        setState(() {
+          _posts = data.map((p) => EventPost.fromJson(p)).toList();
+        });
+      }
+    } catch (_) {}
+    if (mounted) setState(() => _loading = false);
+  }
+
+  Future<void> _submitPost() async {
+    if (_ctrl.text.trim().isEmpty) return;
+    if (!widget.isRegistered) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Registration Required'),
+          content: Row(
+            children: [
+              const Icon(Icons.info_outline, color: AppTheme.warningColor),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Please register for this event before posting in the feed.',
+                  style: TextStyle(fontSize: 14),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+    setState(() => _posting = true);
+    try {
+      final api = context.read<ApiService>();
+      await api.createEventPost(widget.eventId, _ctrl.text.trim());
+      _ctrl.clear();
+      await _loadPosts();
+    } catch (e) {
+      if (mounted) {
+        final msg = e.toString();
+        if (msg.contains('403') || msg.toLowerCase().contains('forbidden') || msg.toLowerCase().contains('registered')) {
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Registration Required'),
+              content: Row(
+                children: [
+                  const Icon(Icons.info_outline, color: AppTheme.warningColor),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Please register for this event before posting in the feed.',
+                      style: TextStyle(fontSize: 14),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to post: $e')),
+          );
+        }
+      }
+    }
+    if (mounted) setState(() => _posting = false);
+  }
+
+  Future<void> _deletePost(int postId) async {
+    try {
+      final api = context.read<ApiService>();
+      await api.deleteEventPost(widget.eventId, postId);
+      await _loadPosts();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to delete post: $e')),
+        );
+      }
+    }
+  }
+
+  String _timeAgo(DateTime dt) {
+    final diff = DateTime.now().difference(dt);
+    if (diff.inDays > 0) return '${diff.inDays}d ago';
+    if (diff.inHours > 0) return '${diff.inHours}h ago';
+    if (diff.inMinutes > 0) return '${diff.inMinutes}m ago';
+    return 'now';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final user = context.watch<AuthProvider>().user;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header row with title + refresh button
+        Row(
+          children: [
+            const Icon(Icons.forum_rounded,
+                size: 18, color: AppTheme.textPrimary),
+            const SizedBox(width: 8),
+            const Text(
+              'Event Feed',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.3,
+              ),
+            ),
+            const SizedBox(width: 8),
+            if (!widget.postsEnabled)
+              Chip(
+                label:
+                    const Text('Disabled', style: TextStyle(fontSize: 11)),
+                backgroundColor: Colors.grey.shade200,
+                side: BorderSide.none,
+              ),
+            const Spacer(),
+            // Refresh button
+            Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(20),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: _loading ? null : _loadPosts,
+                child: Padding(
+                  padding: const EdgeInsets.all(6),
+                  child: _loading
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child:
+                              CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Icon(Icons.refresh_rounded,
+                          size: 20, color: Colors.grey[600]),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // Post input
+        if (widget.postsEnabled && user != null) ...[
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _ctrl,
+                  decoration: InputDecoration(
+                    hintText: 'Write something...',
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
+                  ),
+                  maxLines: 2,
+                  minLines: 1,
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton.filled(
+                onPressed: _posting ? null : _submitPost,
+                icon: _posting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.send),
+                style: IconButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+        ],
+
+        // Content
+        if (!widget.postsEnabled)
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text('Posts are disabled for this event.',
+                  style: TextStyle(color: Colors.grey[500])),
+            ),
+          )
+        else if (_loading && _posts.isEmpty)
+          const Center(
+              child: Padding(
+            padding: EdgeInsets.all(24),
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ))
+        else if (_posts.isEmpty)
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text('No posts yet. Be the first to share!',
+                  style: TextStyle(color: Colors.grey[500])),
+            ),
+          )
+        else
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _posts.length,
+            separatorBuilder: (_, __) => const Divider(height: 1),
+            itemBuilder: (ctx, i) {
+              final post = _posts[i];
+              final isAuthor = user != null && user.id == post.userId;
+              final isAdmin = user != null && user.isAdmin;
+              final isOrg = user != null && user.isOrganizer;
+              return ListTile(
+                leading: CircleAvatar(
+                  backgroundColor:
+                      AppTheme.primaryColor.withValues(alpha: 0.15),
+                  child: Text(
+                    (post.authorName ?? 'U')[0].toUpperCase(),
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primaryColor),
+                  ),
+                ),
+                title: Text(
+                  post.authorName ?? 'User',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w600, fontSize: 14),
+                ),
+                subtitle: Text(post.content),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _timeAgo(post.createdAt),
+                      style: TextStyle(
+                          fontSize: 11, color: Colors.grey[500]),
+                    ),
+                    if (isAuthor || isAdmin || isOrg) ...[
+                      const SizedBox(width: 4),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline,
+                            size: 18),
+                        onPressed: () => _deletePost(post.id),
+                        tooltip: 'Delete post',
+                      ),
+                    ],
+                  ],
+                ),
+              );
+            },
+          ),
       ],
     );
   }

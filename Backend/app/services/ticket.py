@@ -15,6 +15,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.exceptions import ConflictError, ForbiddenError, NotFoundError
 from app.models.event import Event, EventDiscount
+from app.models.discount_strategy import DiscountStrategy, EventDiscountStrategyLink
 from app.models.funding import Funding, FundingStatus
 from app.models.registration import Registration, RegistrationStatus
 from app.models.ticket import TicketSale, TicketSaleStatus, TicketTier, UserEventDiscount
@@ -67,6 +68,18 @@ async def compute_ticket_price(
     tier = await get_tier_or_404(db, event_id=event_id, tier_id=tier_id)
     base = tier.price_cents
 
+    # Free tier: skip all discount computation
+    if base == 0:
+        return {
+            "tier_price_cents": 0,
+            "common_discount_cents": 0,
+            "selective_discount_cents": 0,
+            "pledge_discount_cents": 0,
+            "event_discount_cents": 0,
+            "total_discount_cents": 0,
+            "final_price_cents": 0,
+        }
+
     common_cents = base * event.common_discount_percent // 100
 
     selective_cents = 0
@@ -96,21 +109,48 @@ async def compute_ticket_price(
         pledge_cents = total_pledged * event.pledge_discount_percent // 100
         pledge_cents = min(pledge_cents, base)
 
-    # Apply EventDiscount rules
+    # Apply EventDiscount rules + linked DiscountStrategy rules
     event_discount_cents = 0
+
+    # 1) Inline EventDiscount rules
     disc_q = select(EventDiscount).where(EventDiscount.event_id == event_id)
     disc_rows = list((await db.execute(disc_q)).scalars().all())
-    for d in disc_rows:
-        if d.target == "pledgers" and not has_pledged:
+
+    # 2) Linked DiscountStrategy rules — respect auto_apply & customer claims
+    from app.models.discount_strategy import CustomerDiscountClaim
+    from sqlalchemy.orm import selectinload as _sload
+
+    link_q = (
+        select(EventDiscountStrategyLink)
+        .options(_sload(EventDiscountStrategyLink.strategy))
+        .where(EventDiscountStrategyLink.event_id == event_id)
+    )
+    links = list((await db.execute(link_q)).scalars().all())
+
+    # Get IDs of links the user has claimed
+    claim_q = select(CustomerDiscountClaim.link_id).where(
+        CustomerDiscountClaim.user_id == user_id,
+        CustomerDiscountClaim.link_id.in_([l.id for l in links]) if links else False,
+    )
+    claimed_link_ids = set((await db.execute(claim_q)).scalars().all()) if links else set()
+
+    # Combine both into one list of (discount_type, value, target)
+    all_rules = [(d.discount_type, d.value, d.target) for d in disc_rows]
+    for link in links:
+        # auto_apply → always applied; non-auto → only if customer claimed
+        if link.auto_apply or link.id in claimed_link_ids:
+            s = link.strategy
+            all_rules.append((s.discount_type, s.value, s.target))
+
+    for d_type, d_value, d_target in all_rules:
+        if d_target == "pledgers" and not has_pledged:
             continue
-        if d.target == "non_pledgers" and has_pledged:
+        if d_target == "non_pledgers" and has_pledged:
             continue
-        if d.discount_type == "ticket_percent":
-            event_discount_cents += base * min(100, d.value) // 100
-        elif d.discount_type == "pledge_percent":
-            event_discount_cents += total_pledged * min(100, d.value) // 100
-        elif d.discount_type == "fixed_cents":
-            event_discount_cents += d.value
+        if d_type == "ticket_percent":
+            event_discount_cents += base * min(100, d_value) // 100
+        elif d_type == "pledge_percent":
+            event_discount_cents += total_pledged * min(100, d_value) // 100
 
     total_discount = common_cents + selective_cents + pledge_cents + event_discount_cents
     # Cap: discount cannot exceed ticket price
@@ -153,6 +193,15 @@ async def purchase_ticket(
     total_discount = price_info["total_discount_cents"]
     tier_price = price_info["tier_price_cents"]
 
+    # Compute platform commission (skip for free tickets)
+    from app.services import platform_settings as settings_svc
+    commission_cents = 0
+    net_to_organizer = final_cents
+    if final_cents > 0:
+        commission_pct = await settings_svc.get_int(db, "ticket_commission_percent")
+        commission_cents = final_cents * commission_pct // 100
+        net_to_organizer = final_cents - commission_cents
+
     ticket_code = secrets.token_urlsafe(24)
     sale = TicketSale(
         event_id=event_id,
@@ -161,6 +210,8 @@ async def purchase_ticket(
         ticket_code=ticket_code,
         amount_paid_cents=final_cents,
         discount_applied_cents=total_discount,
+        commission_cents=commission_cents,
+        net_to_organizer_cents=net_to_organizer,
         extra_perks=extra_perks if extra_perks else (None if total_discount < tier_price else ""),
         status=TicketSaleStatus.purchased,
     )

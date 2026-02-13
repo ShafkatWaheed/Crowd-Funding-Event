@@ -27,7 +27,7 @@ class TicketTier(Base):
     display_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     event = relationship("Event", back_populates="ticket_tiers")
-    ticket_sales = relationship("TicketSale", back_populates="ticket_tier")
+    ticket_sales = relationship("TicketSale", back_populates="ticket_tier", cascade="all, delete-orphan")
 
 
 class UserEventDiscount(Base):
@@ -55,6 +55,8 @@ class TicketSale(Base):
     ticket_code: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)  # unique code for QR
     amount_paid_cents: Mapped[int] = mapped_column(Integer, nullable=False)
     discount_applied_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    commission_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # platform commission
+    net_to_organizer_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # amount_paid - commission
     extra_perks: Mapped[str | None] = mapped_column(Text, nullable=True)  # when discount > price
     status: Mapped[TicketSaleStatus] = mapped_column(Enum(TicketSaleStatus), nullable=False, default=TicketSaleStatus.purchased)
     scanned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

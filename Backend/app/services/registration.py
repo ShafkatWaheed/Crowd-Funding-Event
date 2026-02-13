@@ -191,11 +191,23 @@ async def unregister(
     # Check if we are still within the refund window
     now = datetime.now(timezone.utc)
     event_start = event.start_time
-    if event_start.tzinfo is None:
-        event_start = event_start.replace(tzinfo=timezone.utc)
-    deadline_days = event.refund_deadline_days if event.refund_deadline_days is not None else 7
-    refund_cutoff = event_start - timedelta(days=deadline_days)
-    refund_eligible = now <= refund_cutoff
+    if event_start is not None:
+        if event_start.tzinfo is None:
+            event_start = event_start.replace(tzinfo=timezone.utc)
+        deadline_days = event.refund_deadline_days if event.refund_deadline_days is not None else 7
+        refund_cutoff = event_start - timedelta(days=deadline_days)
+        refund_eligible = now <= refund_cutoff
+    else:
+        # No start time set — use funding_end_at or default to eligible
+        fund_end = event.funding_end_at
+        if fund_end is not None:
+            if fund_end.tzinfo is None:
+                fund_end = fund_end.replace(tzinfo=timezone.utc)
+            deadline_days = event.refund_deadline_days if event.refund_deadline_days is not None else 7
+            refund_cutoff = fund_end - timedelta(days=deadline_days)
+            refund_eligible = now <= refund_cutoff
+        else:
+            refund_eligible = True
 
     refunded_cents = 0
     pledges_refunded = 0
@@ -209,6 +221,7 @@ async def unregister(
         )
 
     reg.status = RegistrationStatus.cancelled
+    event.registration_count = max(0, (event.registration_count or 1) - 1)
     await db.flush()
     return {"refunded_cents": refunded_cents, "pledges_refunded": pledges_refunded, "refund_eligible": refund_eligible}
 

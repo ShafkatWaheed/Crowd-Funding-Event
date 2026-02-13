@@ -66,12 +66,15 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Event> _trending = [];
   List<Event> _popular = [];
   List<Event> _comingSoon = [];
+  List<Event> _communityEvents = [];
   bool _featuredLoading = true;
 
   // My registered events
   List<Event> _myEvents = [];
   // ignore: unused_field
   bool _myEventsLoading = false;
+  String _myEventsSearch = '';
+  String? _myEventsGenre;
 
   @override
   void initState() {
@@ -90,17 +93,26 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final api = context.read<ApiService>();
       final data = await api.getMyEvents();
-      setState(() {
-        _myEvents = data.map((e) => Event.fromJson(e)).toList();
-      });
-    } catch (_) {}
-    setState(() => _myEventsLoading = false);
+      if (mounted) {
+        setState(() {
+          _myEvents = data.map((e) => Event.fromJson(e)).toList();
+        });
+      }
+    } catch (e) {
+      debugPrint('_loadMyEvents error: $e');
+    }
+    if (mounted) setState(() => _myEventsLoading = false);
   }
 
   Future<void> _loadFeatured() async {
     try {
       final api = context.read<ApiService>();
-      final data = await api.getFeaturedEvents();
+      final results = await Future.wait([
+        api.getFeaturedEvents(),
+        api.dio.get('/events', queryParameters: {'community_rules': 'true'}).then((r) => r.data as List),
+      ]);
+      final data = results[0] as Map<String, dynamic>;
+      final communityList = results[1] as List;
       setState(() {
         _trending = (data['trending'] as List? ?? [])
             .map((e) => Event.fromJson(e))
@@ -109,6 +121,9 @@ class _HomeScreenState extends State<HomeScreen> {
             .map((e) => Event.fromJson(e))
             .toList();
         _comingSoon = (data['coming_soon'] as List? ?? [])
+            .map((e) => Event.fromJson(e))
+            .toList();
+        _communityEvents = communityList
             .map((e) => Event.fromJson(e))
             .toList();
         _featuredLoading = false;
@@ -270,7 +285,14 @@ class _HomeScreenState extends State<HomeScreen> {
       floatingActionButton:
           user != null && (user.isOrganizer || user.isAdmin) && _navIndex != 3
               ? FloatingActionButton(
-                  onPressed: () => context.go('/events/create'),
+                  onPressed: () async {
+                    final created = await context.push<bool>('/events/create');
+                    if (created == true && mounted) {
+                      _applyFilters();
+                      _loadFeatured();
+                      _loadMyEvents();
+                    }
+                  },
                   backgroundColor: AppTheme.primaryColor,
                   child: const Icon(Icons.add, color: Colors.white, size: 28),
                 )
@@ -281,7 +303,16 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _navItem(int index, IconData activeIcon, IconData icon, String label) {
     final isActive = _navIndex == index;
     return GestureDetector(
-      onTap: () => setState(() => _navIndex = index),
+      onTap: () {
+        setState(() => _navIndex = index);
+        // Reload My Events when switching to that tab (index 2 for customers)
+        if (index == 2) {
+          final user = context.read<AuthProvider>().user;
+          if (user != null && user.isCustomer) {
+            _loadMyEvents();
+          }
+        }
+      },
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
@@ -548,7 +579,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       final event = _homeSearchResults[i];
                       return _UberEventCard(
                         event: event,
-                        onTap: () => context.go('/events/${event.id}'),
+                        onTap: () => context.push('/events/${event.id}'),
                       );
                     },
                     childCount: _homeSearchResults.length,
@@ -556,11 +587,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
           ] else ...[
-            // ── My Events ──
-            if (_myEvents.isNotEmpty)
-              _buildFeaturedSection(
-                  'My Events', Icons.bookmark_rounded, _myEvents),
-
             // ── Featured ──
             if (!_featuredLoading) ...[
               if (_trending.isNotEmpty)
@@ -572,6 +598,9 @@ class _HomeScreenState extends State<HomeScreen> {
               if (_popular.isNotEmpty)
                 _buildFeaturedSection(
                     'Most Popular', Icons.star_rounded, _popular),
+              if (_communityEvents.isNotEmpty)
+                _buildFeaturedSection(
+                    'Community Events', Icons.groups_rounded, _communityEvents),
             ],
           ],
 
@@ -899,7 +928,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   final event = events.events[index];
                   return _UberEventCard(
                     event: event,
-                    onTap: () => context.go('/events/${event.id}'),
+                    onTap: () => context.push('/events/${event.id}'),
                   );
                 },
                 childCount: events.events.length,
@@ -961,26 +990,33 @@ class _HomeScreenState extends State<HomeScreen> {
                     _quickActionCard(
                       icon: Icons.add_circle_rounded,
                       label: 'Create Event',
-                      onTap: () => context.go('/events/create'),
+                      onTap: () async {
+                        final created = await context.push<bool>('/events/create');
+                        if (created == true && mounted) {
+                          _applyFilters();
+                          _loadFeatured();
+                          _loadMyEvents();
+                        }
+                      },
                     ),
                     const SizedBox(width: 12),
                     _quickActionCard(
                       icon: Icons.location_city_rounded,
                       label: 'Venues',
-                      onTap: () => context.go('/venues'),
+                      onTap: () => context.push('/venues'),
                     ),
                     const SizedBox(width: 12),
                     _quickActionCard(
                       icon: Icons.confirmation_number_rounded,
                       label: 'Tickets',
-                      onTap: () => context.go('/ticket-strategies'),
+                      onTap: () => context.push('/ticket-strategies'),
                     ),
                     if (user != null && user.isAdmin) ...[
                       const SizedBox(width: 12),
                       _quickActionCard(
                         icon: Icons.admin_panel_settings_rounded,
                         label: 'Admin',
-                        onTap: () => context.go('/admin'),
+                        onTap: () => context.push('/admin'),
                       ),
                     ],
                   ],
@@ -991,19 +1027,19 @@ class _HomeScreenState extends State<HomeScreen> {
                     _quickActionCard(
                       icon: Icons.receipt_long_rounded,
                       label: 'All Sales',
-                      onTap: () => context.go('/manage/ticket-sales'),
+                      onTap: () => context.push('/manage/ticket-sales'),
                     ),
                     const SizedBox(width: 12),
                     _quickActionCard(
                       icon: Icons.qr_code_scanner_rounded,
                       label: 'Scanned',
-                      onTap: () => context.go('/manage/scanned-tickets'),
+                      onTap: () => context.push('/manage/scanned-tickets'),
                     ),
                     const SizedBox(width: 12),
                     _quickActionCard(
                       icon: Icons.hourglass_top_rounded,
                       label: 'Waitlist',
-                      onTap: () => context.go('/manage/waitlist'),
+                      onTap: () => context.push('/manage/waitlist'),
                     ),
                   ],
                 ),
@@ -1011,9 +1047,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 Row(
                   children: [
                     _quickActionCard(
-                      icon: Icons.people_rounded,
-                      label: 'Customers',
-                      onTap: () => context.go('/manage/customers'),
+                      icon: Icons.discount_rounded,
+                      label: 'Discounts',
+                      onTap: () => context.push('/manage/discounts'),
                     ),
                   ],
                 ),
@@ -1068,66 +1104,137 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildMyEventsTab() {
-    return CustomScrollView(
-      slivers: [
-        SliverToBoxAdapter(
-          child: Container(
-            color: Colors.white,
-            padding: const EdgeInsets.fromLTRB(24, 56, 24, 24),
-            child: const Text('My Events',
-                style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.5)),
+    final filtered = _myEvents.where((e) {
+      // Genre filter
+      if (_myEventsGenre != null && e.genre != _myEventsGenre) return false;
+      // Text search
+      if (_myEventsSearch.isNotEmpty) {
+        final q = _myEventsSearch.toLowerCase();
+        return (e.title.toLowerCase().contains(q)) ||
+            (e.genre?.toLowerCase().contains(q) ?? false) ||
+            (e.status.name.toLowerCase().contains(q));
+      }
+      return true;
+    }).toList();
+
+    return Column(
+      children: [
+        // Header + Search + Genre chips
+        Container(
+          color: Colors.white,
+          padding: const EdgeInsets.fromLTRB(24, 56, 24, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('My Events',
+                  style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.5)),
+              const SizedBox(height: 14),
+              TextField(
+                decoration: InputDecoration(
+                  hintText: 'Search my events…',
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                  filled: true,
+                  fillColor: AppTheme.surfaceColor,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+                onChanged: (v) => setState(() => _myEventsSearch = v),
+              ),
+              const SizedBox(height: 12),
+              // Genre chips
+              SizedBox(
+                height: 38,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: _genres.map((g) {
+                    final isActive = _myEventsGenre == g;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(g[0].toUpperCase() + g.substring(1)),
+                        selected: isActive,
+                        onSelected: (selected) {
+                          setState(() {
+                            _myEventsGenre = selected ? g : null;
+                          });
+                        },
+                        selectedColor: AppTheme.primaryColor,
+                        backgroundColor: Colors.white,
+                        side: BorderSide(
+                          color: isActive
+                              ? AppTheme.primaryColor
+                              : AppTheme.dividerColor,
+                        ),
+                        labelStyle: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: isActive ? Colors.white : AppTheme.textPrimary,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
           ),
         ),
-        if (_myEvents.isEmpty)
-          SliverFillRemaining(
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      color: AppTheme.surfaceColor,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Icon(Icons.bookmark_outline_rounded,
-                        size: 40, color: AppTheme.textSecondary),
+        // List or empty state
+        Expanded(
+          child: filtered.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          color: AppTheme.surfaceColor,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Icon(Icons.bookmark_outline_rounded,
+                            size: 40, color: AppTheme.textSecondary),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        _myEvents.isEmpty ? 'No events yet' : 'No matches',
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _myEvents.isEmpty
+                            ? 'Events you register for will appear here'
+                            : 'Try a different search term',
+                        style: TextStyle(color: AppTheme.textSecondary),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 16),
-                  const Text('No events yet',
-                      style:
-                          TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 4),
-                  Text('Events you register for will appear here',
-                      style: TextStyle(color: AppTheme.textSecondary)),
-                ],
-              ),
-            ),
-          )
-        else
-          SliverPadding(
-            padding: const EdgeInsets.all(16),
-            sliver: SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final event = _myEvents[index];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _UberEventCard(
-                      event: event,
-                      onTap: () => context.go('/events/${event.id}'),
-                    ),
-                  );
-                },
-                childCount: _myEvents.length,
-              ),
-            ),
-          ),
-        const SliverToBoxAdapter(child: SizedBox(height: 100)),
+                )
+              : RefreshIndicator(
+                  onRefresh: _loadMyEvents,
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: filtered.length,
+                    itemBuilder: (context, index) {
+                      final event = filtered[index];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _UberEventCard(
+                          event: event,
+                          onTap: () => context.push('/events/${event.id}'),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+        ),
       ],
     );
   }
@@ -1157,7 +1264,7 @@ class _HomeScreenState extends State<HomeScreen> {
             final event = events.events[index];
             return _UberEventCard(
               event: event,
-              onTap: () => context.go('/events/${event.id}'),
+              onTap: () => context.push('/events/${event.id}'),
             );
           },
           childCount: events.events.length,
@@ -1291,7 +1398,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       _profileTile(
                         icon: Icons.person_outline_rounded,
                         label: 'Edit Profile',
-                        onTap: () => context.go('/profile'),
+                        onTap: () => context.push('/profile'),
                       ),
                       const Divider(height: 1, indent: 56),
                       if (user.isCustomer) ...[
@@ -1343,13 +1450,13 @@ class _HomeScreenState extends State<HomeScreen> {
                           _profileTile(
                             icon: Icons.location_city_rounded,
                             label: 'My Venues',
-                            onTap: () => context.go('/venues'),
+                            onTap: () => context.push('/venues'),
                           ),
                           const Divider(height: 1, indent: 56),
                           _profileTile(
                             icon: Icons.confirmation_number_rounded,
                             label: 'Ticket Strategies',
-                            onTap: () => context.go('/ticket-strategies'),
+                            onTap: () => context.push('/ticket-strategies'),
                           ),
                           const Divider(height: 1, indent: 56),
                         ],
@@ -1357,7 +1464,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           _profileTile(
                             icon: Icons.admin_panel_settings_rounded,
                             label: 'Admin Dashboard',
-                            onTap: () => context.go('/admin'),
+                            onTap: () => context.push('/admin'),
                           ),
                       ],
                     ),
@@ -1481,7 +1588,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   margin: const EdgeInsets.only(right: 12),
                   child: _UberEventCard(
                     event: event,
-                    onTap: () => context.go('/events/${event.id}'),
+                    onTap: () => context.push('/events/${event.id}'),
                   ),
                 );
               },
@@ -1563,79 +1670,77 @@ class _UberEventCard extends StatelessWidget {
             ),
 
             // ── Body ──
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Date
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Date
+                  if (event.startTime != null) ...[
                     _iconRow(
                       Icons.schedule_rounded,
-                      event.startTime != null
-                          ? DateFormat('EEE, MMM d \u2022 h:mm a')
-                              .format(event.startTime!)
-                          : 'Date TBD',
+                      DateFormat('EEE, MMM d \u2022 h:mm a')
+                          .format(event.startTime!),
                     ),
                     const SizedBox(height: 5),
-                    // Venue
-                    if (event.venue != null)
-                      _iconRow(
-                        Icons.location_on_rounded,
-                        '${event.venue!.name}, ${event.venue!.city}',
-                      ),
-                    if (event.genre != null && event.genre!.isNotEmpty) ...[
-                      const SizedBox(height: 5),
-                      _iconRow(
-                        Icons.label_rounded,
-                        event.genre![0].toUpperCase() +
-                            event.genre!.substring(1),
-                        color: AppTheme.accentColor,
-                      ),
-                    ],
-                    const Spacer(),
-                    // Bottom stats row
-                    Row(
-                      children: [
-                        if (event.registrationCount > 0)
-                          _statChip(Icons.group_rounded,
-                              '${event.registrationCount}'),
-                        if (event.likeCount > 0)
-                          _statChip(
-                              Icons.favorite_rounded, '${event.likeCount}'),
-                        const Spacer(),
-                        if (event.fundingGoalCents != null &&
-                            event.fundingGoalCents! > 0)
-                          Text(
-                            event.totalPledgedFormatted,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: AppTheme.successColor,
-                            ),
-                          ),
-                      ],
+                  ],
+                  // Venue
+                  if (event.venue != null)
+                    _iconRow(
+                      Icons.location_on_rounded,
+                      '${event.venue!.name}, ${event.venue!.city}',
                     ),
-                    // Funding bar
-                    if (event.fundingGoalCents != null &&
-                        event.fundingGoalCents! > 0) ...[
-                      const SizedBox(height: 6),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: event.fundingProgress.clamp(0.0, 1.0),
-                          minHeight: 4,
-                          backgroundColor: AppTheme.dividerColor,
-                          valueColor: AlwaysStoppedAnimation(
-                            event.fundingProgress >= 1.0
-                                ? AppTheme.successColor
-                                : AppTheme.accentColor,
+                  if (event.genre != null && event.genre!.isNotEmpty) ...[
+                    const SizedBox(height: 5),
+                    _iconRow(
+                      Icons.label_rounded,
+                      event.genre![0].toUpperCase() +
+                          event.genre!.substring(1),
+                      color: AppTheme.accentColor,
+                    ),
+                  ],
+                  const SizedBox(height: 10),
+                  // Bottom stats row
+                  Row(
+                    children: [
+                      if (event.registrationCount > 0)
+                        _statChip(Icons.group_rounded,
+                            '${event.registrationCount}'),
+                      if (event.likeCount > 0)
+                        _statChip(
+                            Icons.favorite_rounded, '${event.likeCount}'),
+                      const Spacer(),
+                      if (event.fundingGoalCents != null &&
+                          event.fundingGoalCents! > 0)
+                        Text(
+                          event.totalPledgedFormatted,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.successColor,
                           ),
                         ),
-                      ),
                     ],
+                  ),
+                  // Funding bar
+                  if (event.fundingGoalCents != null &&
+                      event.fundingGoalCents! > 0) ...[
+                    const SizedBox(height: 6),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: event.fundingProgress.clamp(0.0, 1.0),
+                        minHeight: 4,
+                        backgroundColor: AppTheme.dividerColor,
+                        valueColor: AlwaysStoppedAnimation(
+                          event.fundingProgress >= 1.0
+                              ? AppTheme.successColor
+                              : AppTheme.accentColor,
+                        ),
+                      ),
+                    ),
                   ],
-                ),
+                ],
               ),
             ),
           ],

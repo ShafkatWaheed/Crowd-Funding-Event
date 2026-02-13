@@ -364,6 +364,13 @@ class ApiService {
     return resp.data;
   }
 
+  Future<Map<String, dynamic>> setEventDate(
+      int eventId, Map<String, dynamic> data) async {
+    final resp =
+        await dio.post('/events/$eventId/set-event-date', data: data);
+    return resp.data;
+  }
+
   Future<Map<String, dynamic>> decideExtension(
       int eventId, String action) async {
     final resp = await dio.post(
@@ -378,6 +385,51 @@ class ApiService {
   Future<List<dynamic>> getOrganizerCustomers() async {
     final resp = await dio.get('/me/customers');
     return resp.data;
+  }
+
+  // ─── Discount Strategies ───
+
+  Future<List<dynamic>> getDiscountStrategies() async {
+    final resp = await dio.get('/discount-strategies');
+    return resp.data;
+  }
+
+  Future<Map<String, dynamic>> createDiscountStrategy(
+      Map<String, dynamic> data) async {
+    final resp = await dio.post('/discount-strategies', data: data);
+    return resp.data;
+  }
+
+  Future<void> deleteDiscountStrategy(int id) async {
+    await dio.delete('/discount-strategies/$id');
+  }
+
+  Future<void> attachDiscountStrategy(int eventId, int strategyId, {bool autoApply = true}) async {
+    await dio.post('/events/$eventId/discount-strategies/$strategyId', data: {'auto_apply': autoApply});
+  }
+
+  Future<void> detachDiscountStrategy(int eventId, int strategyId) async {
+    await dio.delete('/events/$eventId/discount-strategies/$strategyId');
+  }
+
+  Future<List<dynamic>> getEventDiscountStrategies(int eventId) async {
+    final resp = await dio.get('/events/$eventId/discount-strategies');
+    return resp.data;
+  }
+
+  // ─── Customer Discount Claims ───
+
+  Future<List<dynamic>> getClaimableDiscounts(int eventId) async {
+    final resp = await dio.get('/events/$eventId/claimable-discounts');
+    return resp.data;
+  }
+
+  Future<void> claimDiscount(int eventId, int linkId) async {
+    await dio.post('/events/$eventId/claim-discount/$linkId');
+  }
+
+  Future<void> unclaimDiscount(int eventId, int linkId) async {
+    await dio.delete('/events/$eventId/claim-discount/$linkId');
   }
 
   // ─── Venues ───

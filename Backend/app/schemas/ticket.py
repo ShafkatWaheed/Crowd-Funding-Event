@@ -2,7 +2,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 class TicketTierCreate(BaseModel):
@@ -11,12 +11,26 @@ class TicketTierCreate(BaseModel):
     price_cents: int
     display_order: int = 0
 
+    @field_validator("price_cents")
+    @classmethod
+    def price_non_negative(cls, v: int) -> int:
+        if v < 0:
+            raise ValueError("price_cents must be >= 0")
+        return v
+
 
 class TicketTierUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
     price_cents: int | None = None
     display_order: int | None = None
+
+    @field_validator("price_cents")
+    @classmethod
+    def price_non_negative(cls, v: int | None) -> int | None:
+        if v is not None and v < 0:
+            raise ValueError("price_cents must be >= 0")
+        return v
 
 
 class TicketTierResponse(BaseModel):
@@ -35,8 +49,12 @@ class TicketPricePreviewResponse(BaseModel):
     common_discount_cents: int
     selective_discount_cents: int
     pledge_discount_cents: int
+    event_discount_cents: int = 0
     total_discount_cents: int
     final_price_cents: int
+    commission_cents: int = 0
+    net_to_organizer_cents: int = 0
+    ticket_commission_percent: int = 0
 
 
 class TicketPurchaseBody(BaseModel):
@@ -55,6 +73,8 @@ class TicketSaleResponse(BaseModel):
     attendee_display_name: str | None = None  # name on ticket (holder's display_name or email)
     amount_paid_cents: int
     discount_applied_cents: int
+    commission_cents: int = 0
+    net_to_organizer_cents: int = 0
     extra_perks: str | None
     status: str
     scanned_at: datetime | None = None  # past scan time when already scanned

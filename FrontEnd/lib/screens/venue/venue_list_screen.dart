@@ -194,7 +194,7 @@ class _VenueListScreenState extends State<VenueListScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.go('/venues/create'),
+        onPressed: () => context.push('/venues/create'),
         icon: const Icon(Icons.add),
         label: const Text('Add Venue'),
         backgroundColor: AppTheme.primaryColor,

@@ -154,12 +154,15 @@ class EventCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (event.fundingDaysLeft != null) ...[
+                    if (event.fundingEndAt != null) ...[
                       const SizedBox(height: 4),
                       Text(
-                        '${event.fundingDaysLeft} days left',
+                        event.fundingTimeLeftFormatted,
                         style: TextStyle(
-                            color: AppTheme.textSecondary, fontSize: 12),
+                            color: event.fundingHasTimeLeft
+                                ? AppTheme.textSecondary
+                                : AppTheme.errorColor,
+                            fontSize: 12),
                       ),
                     ],
                   ],

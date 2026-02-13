@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../models/venue.dart';
 import '../../models/ticket_strategy.dart';
-import '../../providers/event_provider.dart';
 import '../../services/api_service.dart';
 
 class CreateEventScreen extends StatefulWidget {
@@ -30,6 +29,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   DateTime? _fundingEndAt;
   String _registrationType = 'open';
   String? _genre;
+  bool _communityRules = false;
   bool _postsEnabled = true;
   int _refundDeadlineDays = 7;
   bool _publish = true; // true = Publish Now, false = Save as Draft
@@ -57,11 +57,17 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   final _strategyNameCtrl = TextEditingController();
   final List<_StrategyTierInput> _strategyTiers = [_StrategyTierInput()];
 
+  // Discount strategies: id → autoApply
+  List<Map<String, dynamic>> _discountStrategies = [];
+  final Map<int, bool> _selectedDiscounts = {}; // id → autoApply
+  String _discountSearch = '';
+
   @override
   void initState() {
     super.initState();
     _loadVenues();
     _loadStrategies();
+    _loadDiscounts();
   }
 
   Future<void> _loadVenues() async {
@@ -82,6 +88,76 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         _strategies = data.map((d) => TicketStrategy.fromJson(d)).toList();
       });
     } catch (_) {}
+  }
+
+  Future<void> _loadDiscounts() async {
+    try {
+      final api = context.read<ApiService>();
+      final data = await api.getDiscountStrategies();
+      setState(() {
+        _discountStrategies = data.cast<Map<String, dynamic>>();
+      });
+    } catch (_) {}
+  }
+
+  String _discountLabel(Map<String, dynamic> d) {
+    final name = d['name'] ?? '';
+    final type = d['discount_type'] ?? '';
+    final val = d['value'] ?? 0;
+    final target = d['target'] ?? 'all';
+    final typeLabel = type == 'ticket_percent' ? '% ticket' : '% pledge';
+    return '$name · $val$typeLabel · $target';
+  }
+
+  List<Widget> _buildAvailableDiscountList() {
+    final available = _discountStrategies.where((d) {
+      final id = d['id'] as int;
+      if (_selectedDiscounts.containsKey(id)) return false;
+      if (_discountSearch.isEmpty) return true;
+      return _discountLabel(d).toLowerCase().contains(_discountSearch);
+    }).toList();
+
+    if (available.isEmpty && _discountSearch.isNotEmpty) {
+      return [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Text('No matching discounts',
+              style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+        ),
+      ];
+    }
+    if (available.isEmpty) return [];
+    return available.take(3).map((d) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 4),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.deepPurple.withValues(alpha: 0.04),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(_discountLabel(d), style: const TextStyle(fontSize: 12)),
+              ),
+              const SizedBox(width: 6),
+              _CreateDiscountBtn(
+                label: 'Add + Apply',
+                color: Colors.green,
+                onTap: () => setState(() => _selectedDiscounts[d['id'] as int] = true),
+              ),
+              const SizedBox(width: 6),
+              _CreateDiscountBtn(
+                label: 'Add',
+                color: Colors.deepPurple,
+                onTap: () => setState(() => _selectedDiscounts[d['id'] as int] = false),
+              ),
+            ],
+          ),
+        ),
+      );
+    }).toList();
   }
 
   Future<DateTime?> _pickDateTimeGeneric({DateTime? initial}) async {
@@ -185,6 +261,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       'registration_type': _registrationType,
       'min_pledge_cents': (minPledge * 100).toInt(),
       'genre': _genre,
+      'community_rules': _communityRules,
       'posts_enabled': _postsEnabled,
       'publish': _publish,
     };
@@ -216,13 +293,23 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       data['lng'] = selectedVenue.lng;
     }
 
-    final success =
-        await context.read<EventProvider>().createEvent(data);
+    try {
+      final api = context.read<ApiService>();
+      final resp = await api.createEvent(data);
+      final eventId = resp['id'] as int;
 
-    setState(() => _isLoading = false);
+      // Attach selected discount strategies
+      for (final entry in _selectedDiscounts.entries) {
+        try {
+          await api.attachDiscountStrategy(eventId, entry.key, autoApply: entry.value);
+        } catch (_) {}
+      }
 
-    if (success && mounted) {
-      context.go('/');
+      setState(() => _isLoading = false);
+
+      if (mounted) context.pop(true);
+    } catch (_) {
+      setState(() => _isLoading = false);
     }
   }
 
@@ -647,6 +734,52 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                     )).toList(),
                     onChanged: (v) => setState(() => _genre = v),
                     validator: (v) => v == null ? 'Please select a genre' : null,
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // Community Rules toggle
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _communityRules ? Colors.orange.shade50 : Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: _communityRules ? Colors.orange.shade300 : Colors.grey.shade300),
+                    ),
+                    child: Column(
+                      children: [
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Row(
+                            children: [
+                              Icon(Icons.groups_rounded, size: 20, color: _communityRules ? Colors.orange : Colors.grey),
+                              const SizedBox(width: 8),
+                              const Text('Community Event Rules',
+                                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                            ],
+                          ),
+                          subtitle: const Text(
+                            'Enables max duration, ticket price caps, and listing fee',
+                            style: TextStyle(fontSize: 11),
+                          ),
+                          value: _communityRules,
+                          activeColor: Colors.orange,
+                          onChanged: (v) => setState(() => _communityRules = v),
+                        ),
+                        if (_communityRules) ...[
+                          Padding(
+                            padding: const EdgeInsets.only(left: 4, bottom: 10),
+                            child: Text(
+                              '\u2022 Max duration: configurable (default 14 days)\n'
+                              '\u2022 Max ticket price: configurable (default \$50)\n'
+                              '\u2022 Listing fee charged on publish\n'
+                              '\u2022 Rules are set by platform admin in Settings',
+                              style: TextStyle(fontSize: 12, color: Colors.orange.shade800, height: 1.5),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
 
                   const SizedBox(height: 24),
@@ -1185,6 +1318,119 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                     ),
                   ),
 
+                  // ═══════════════════════════════════════
+                  // SECTION 5b: Discount Strategies (shown when ticket selected)
+                  // ═══════════════════════════════════════
+                  if (_selectedStrategyId != null) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.deepPurple.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.deepPurple.withValues(alpha: 0.2)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.discount_rounded, size: 18, color: Colors.deepPurple),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Discounts (Optional)',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                  color: Colors.grey[800],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          // Selected discount chips
+                          if (_selectedDiscounts.isNotEmpty) ...[
+                            ..._selectedDiscounts.entries.map((entry) {
+                              final d = _discountStrategies.firstWhere(
+                                (s) => s['id'] == entry.key,
+                                orElse: () => {'name': '?', 'discount_type': '', 'value': 0, 'target': ''},
+                              );
+                              final autoApply = entry.value;
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 4),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                        decoration: BoxDecoration(
+                                          color: Colors.deepPurple.withValues(alpha: 0.08),
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(color: Colors.deepPurple.withValues(alpha: 0.3), width: 0.5),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                _discountLabel(d),
+                                                style: const TextStyle(fontSize: 12),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: autoApply
+                                                    ? Colors.green.withValues(alpha: 0.15)
+                                                    : Colors.orange.withValues(alpha: 0.15),
+                                                borderRadius: BorderRadius.circular(4),
+                                              ),
+                                              child: Text(
+                                                autoApply ? 'Auto' : 'Claimable',
+                                                style: TextStyle(
+                                                  color: autoApply ? Colors.green : Colors.orange,
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    InkWell(
+                                      onTap: () => setState(() => _selectedDiscounts.remove(entry.key)),
+                                      child: const Icon(Icons.close, size: 16, color: Colors.grey),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }),
+                            const SizedBox(height: 4),
+                          ],
+                          // Search field
+                          TextField(
+                            decoration: InputDecoration(
+                              hintText: 'Search discounts…',
+                              hintStyle: TextStyle(fontSize: 13, color: Colors.grey[500]),
+                              prefixIcon: Icon(Icons.search, color: Colors.grey[500], size: 20),
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide(color: Colors.grey.shade300),
+                              ),
+                            ),
+                            onChanged: (v) => setState(() => _discountSearch = v.toLowerCase()),
+                          ),
+                          // Available discount list
+                          ..._buildAvailableDiscountList(),
+                        ],
+                      ),
+                    ),
+                  ],
+
                   const SizedBox(height: 24),
 
                   // ═══════════════════════════════════════
@@ -1285,4 +1531,30 @@ class _StrategyTierInput {
   final descCtrl = TextEditingController();
   final priceCtrl = TextEditingController();
   final quantityCtrl = TextEditingController(text: '0');
+}
+
+class _CreateDiscountBtn extends StatelessWidget {
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+  const _CreateDiscountBtn({required this.label, required this.color, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: color.withValues(alpha: 0.12),
+      borderRadius: BorderRadius.circular(6),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+          child: Text(
+            label,
+            style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w700),
+          ),
+        ),
+      ),
+    );
+  }
 }

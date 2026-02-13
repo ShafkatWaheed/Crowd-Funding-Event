@@ -64,6 +64,7 @@ class Event(Base):
     cancellation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     registration_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # denormalized for trending
     genre: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True)
+    community_rules: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     posts_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     refund_deadline_days: Mapped[int | None] = mapped_column(Integer, nullable=True)  # only set when funding is used; default 20% of funding duration
     event_date_deadline: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)  # deadline to set event date (funding_end + 20% duration)
@@ -71,22 +72,27 @@ class Event(Base):
     like_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     dislike_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     pending_extension = mapped_column(JSON, nullable=True)  # {"funding_end_at": ..., "start_time": ..., "end_time": ...}
+    pending_cancellation = mapped_column(JSON, nullable=True)  # {"reason": ..., "requested_at": ..., "requested_by": ...}
+    terms_accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    payout_frozen: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
 
     organizer = relationship("User", back_populates="events", foreign_keys=[organizer_id])
     venue = relationship("Venue", back_populates="events")
-    fundings = relationship("Funding", back_populates="event")
-    registrations = relationship("Registration", back_populates="event")
-    ticket_tiers = relationship("TicketTier", back_populates="event")
-    user_event_discounts = relationship("UserEventDiscount", back_populates="event")
-    ticket_sales = relationship("TicketSale", back_populates="event")
+    fundings = relationship("Funding", back_populates="event", cascade="all, delete-orphan")
+    registrations = relationship("Registration", back_populates="event", cascade="all, delete-orphan")
+    ticket_tiers = relationship("TicketTier", back_populates="event", cascade="all, delete-orphan")
+    user_event_discounts = relationship("UserEventDiscount", back_populates="event", cascade="all, delete-orphan")
+    ticket_sales = relationship("TicketSale", back_populates="event", cascade="all, delete-orphan")
     event_organizers = relationship("EventOrganizer", back_populates="event", cascade="all, delete-orphan")
     posts = relationship("EventPost", back_populates="event", cascade="all, delete-orphan")
     images = relationship("EventImage", back_populates="event", cascade="all, delete-orphan")
     ticket_strategy = relationship("TicketStrategy", back_populates="events")
     reactions = relationship("EventReaction", back_populates="event", cascade="all, delete-orphan")
     event_discounts = relationship("EventDiscount", back_populates="event", cascade="all, delete-orphan")
+    discount_strategy_links = relationship("EventDiscountStrategyLink", back_populates="event", cascade="all, delete-orphan")
+    escrow = relationship("FundEscrow", back_populates="event", uselist=False, cascade="all, delete-orphan")
 
 
 class EventDiscount(Base):

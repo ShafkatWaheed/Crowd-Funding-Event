@@ -47,6 +47,7 @@ class EventCreate(BaseModel):
     common_discount_percent: int = 0
     pledge_discount_percent: int = 0
     genre: str | None = None
+    community_rules: bool = False
     posts_enabled: bool = True
     refund_deadline_days: int | None = None  # auto-calculated as 20% of funding duration; only when funding set
     ticket_strategy_id: int | None = None  # link to a reusable ticket strategy
@@ -66,16 +67,24 @@ class EventUpdate(BaseModel):
     common_discount_percent: int | None = None
     pledge_discount_percent: int | None = None
     genre: str | None = None
+    community_rules: bool | None = None
     posts_enabled: bool | None = None
     refund_deadline_days: int | None = None
     ticket_strategy_id: int | None = None
 
 
 class ExtendFundingBody(BaseModel):
-    """After funding deadline: extend period and/or set event date. At least one required."""
-    funding_end_at: str | None = None  # ISO datetime
-    start_time: str | None = None  # event date
-    end_time: str | None = None
+    """Extend funding period: new deadline and/or new goal. At least one required. Requires admin approval."""
+    funding_end_at: str | None = None  # ISO datetime — new funding deadline
+    funding_goal_cents: int | None = None  # new funding goal
+
+
+class SetEventDateBody(BaseModel):
+    """Set or update event date/time. Optionally change venue and ticket strategy. Applies directly (no admin approval)."""
+    start_time: str  # ISO datetime — required
+    end_time: str  # ISO datetime — required
+    venue_id: int | None = None  # optional — change venue
+    ticket_strategy_id: int | None = None  # optional — change ticket strategy (re-copies tiers)
 
 
 class UnregisterResponse(BaseModel):
@@ -124,6 +133,7 @@ class EventResponse(BaseModel):
     cancellation_reason: str | None = None
     registration_count: int = 0
     genre: str | None = None
+    community_rules: bool = False
     posts_enabled: bool = True
     refund_deadline_days: int | None = None
     event_date_deadline: datetime | None = None
@@ -131,6 +141,7 @@ class EventResponse(BaseModel):
     like_count: int = 0
     dislike_count: int = 0  # only populated for admin
     pending_extension: dict | None = None  # pending admin approval extension
+    pending_cancellation: dict | None = None  # pending admin approval cancellation
     lat: float | None
     lng: float | None
     created_at: datetime

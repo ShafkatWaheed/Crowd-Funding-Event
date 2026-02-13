@@ -86,6 +86,12 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
   int get _totalRevenue =>
       _all.fold<int>(0, (s, e) => s + ((e['amount_paid_cents'] ?? 0) as int));
 
+  int get _totalCommission =>
+      _all.fold<int>(0, (s, e) => s + ((e['commission_cents'] ?? 0) as int));
+
+  int get _totalNetToOrganizer =>
+      _all.fold<int>(0, (s, e) => s + ((e['net_to_organizer_cents'] ?? 0) as int));
+
   @override
   Widget build(BuildContext context) {
     final title = widget.scannedOnly ? 'Scanned Tickets' : 'All Ticket Sales';
@@ -154,6 +160,13 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
                   Icons.attach_money_rounded,
                   Colors.teal,
                 ),
+                const SizedBox(width: 8),
+                if (_totalCommission > 0)
+                  _statChip(
+                    'Net \$${(_totalNetToOrganizer / 100).toStringAsFixed(2)}',
+                    Icons.account_balance_wallet_rounded,
+                    Colors.deepPurple,
+                  ),
                 if (_searchCtrl.text.isNotEmpty) ...[
                   const SizedBox(width: 8),
                   _statChip(
@@ -242,6 +255,8 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
         sale['attendee_display_name'] ?? 'User #${sale['user_id']}';
     final code = sale['ticket_code'] ?? '';
     final amount = (sale['amount_paid_cents'] ?? 0) as int;
+    final commission = (sale['commission_cents'] ?? 0) as int;
+    final netAmount = (sale['net_to_organizer_cents'] ?? 0) as int;
     final scannedAt = sale['scanned_at'];
     final scannedBy = sale['scanned_by_display_name'];
     final isScanned = scannedAt != null;
@@ -333,12 +348,25 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
             ),
 
             // Amount
-            Text(
-              '\$${(amount / 100).toStringAsFixed(2)}',
-              style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 15,
-                  letterSpacing: -0.3),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  amount == 0 ? 'FREE' : '\$${(amount / 100).toStringAsFixed(2)}',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 15,
+                      letterSpacing: -0.3,
+                      color: amount == 0 ? Colors.green.shade700 : null),
+                ),
+                if (commission > 0) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    'Net \$${(netAmount / 100).toStringAsFixed(2)}',
+                    style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                  ),
+                ],
+              ],
             ),
           ],
         ),

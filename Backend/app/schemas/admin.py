@@ -28,3 +28,15 @@ class AdminStats(BaseModel):
     events_pending: int
     events_live: int
     users_total: int
+    total_ticket_commission_cents: int = 0
+    total_funding_commission_cents: int = 0
+
+
+class PlatformSettingItem(BaseModel):
+    key: str
+    value: str
+    description: str | None = None
+
+
+class PlatformSettingUpdate(BaseModel):
+    value: str

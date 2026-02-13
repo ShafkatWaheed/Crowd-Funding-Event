@@ -11,10 +11,10 @@ import '../screens/event/event_detail_screen.dart';
 import '../screens/event/waitlist_screen.dart';
 import '../screens/event/ticket_sales_screen.dart';
 import '../screens/event/co_organizer_screen.dart';
-import '../screens/event/event_discount_screen.dart';
+import '../screens/event/claim_discounts_screen.dart';
 import '../screens/manage/global_ticket_sales_screen.dart';
 import '../screens/manage/global_waitlist_screen.dart';
-import '../screens/manage/customer_history_screen.dart';
+import '../screens/manage/global_discounts_screen.dart';
 import '../screens/venue/venue_list_screen.dart';
 import '../screens/venue/create_venue_screen.dart';
 import '../screens/ticket_strategy/ticket_strategies_screen.dart';
@@ -126,10 +126,9 @@ GoRouter createRouter(AuthProvider authProvider) {
         path: '/events/:id/discounts',
         builder: (context, state) {
           final id = int.parse(state.pathParameters['id']!);
-          return EventDiscountScreen(eventId: id);
+          return ClaimDiscountsScreen(eventId: id);
         },
       ),
-
       // ─── Global Manage pages ───
       GoRoute(
         path: '/manage/ticket-sales',
@@ -146,8 +145,8 @@ GoRouter createRouter(AuthProvider authProvider) {
         builder: (context, state) => const GlobalWaitlistScreen(),
       ),
       GoRoute(
-        path: '/manage/customers',
-        builder: (context, state) => const CustomerHistoryScreen(),
+        path: '/manage/discounts',
+        builder: (context, state) => const GlobalDiscountsScreen(),
       ),
 
       // ─── Venues ───

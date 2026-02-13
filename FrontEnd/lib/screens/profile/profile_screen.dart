@@ -14,7 +14,19 @@ class ProfileScreen extends StatelessWidget {
     final user = auth.user;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              context.pop();
+            } else {
+              context.go('/');
+            }
+          },
+        ),
+        title: const Text('Profile'),
+      ),
       body: user == null
           ? const Center(child: Text('Not signed in'))
           : SingleChildScrollView(

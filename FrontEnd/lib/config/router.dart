@@ -8,6 +8,13 @@ import '../screens/home/home_screen.dart';
 import '../screens/event/create_event_screen.dart';
 import '../screens/event/edit_event_screen.dart';
 import '../screens/event/event_detail_screen.dart';
+import '../screens/event/waitlist_screen.dart';
+import '../screens/event/ticket_sales_screen.dart';
+import '../screens/event/co_organizer_screen.dart';
+import '../screens/event/event_discount_screen.dart';
+import '../screens/manage/global_ticket_sales_screen.dart';
+import '../screens/manage/global_waitlist_screen.dart';
+import '../screens/manage/customer_history_screen.dart';
 import '../screens/venue/venue_list_screen.dart';
 import '../screens/venue/create_venue_screen.dart';
 import '../screens/ticket_strategy/ticket_strategies_screen.dart';
@@ -86,6 +93,61 @@ GoRouter createRouter(AuthProvider authProvider) {
           final id = int.parse(state.pathParameters['id']!);
           return EditEventScreen(eventId: id);
         },
+      ),
+      GoRoute(
+        path: '/events/:id/waitlist',
+        builder: (context, state) {
+          final id = int.parse(state.pathParameters['id']!);
+          return WaitlistScreen(eventId: id);
+        },
+      ),
+      GoRoute(
+        path: '/events/:id/ticket-sales',
+        builder: (context, state) {
+          final id = int.parse(state.pathParameters['id']!);
+          return TicketSalesScreen(eventId: id);
+        },
+      ),
+      GoRoute(
+        path: '/events/:id/scanned-tickets',
+        builder: (context, state) {
+          final id = int.parse(state.pathParameters['id']!);
+          return TicketSalesScreen(eventId: id, scannedOnly: true);
+        },
+      ),
+      GoRoute(
+        path: '/events/:id/co-organizers',
+        builder: (context, state) {
+          final id = int.parse(state.pathParameters['id']!);
+          return CoOrganizerScreen(eventId: id);
+        },
+      ),
+      GoRoute(
+        path: '/events/:id/discounts',
+        builder: (context, state) {
+          final id = int.parse(state.pathParameters['id']!);
+          return EventDiscountScreen(eventId: id);
+        },
+      ),
+
+      // ─── Global Manage pages ───
+      GoRoute(
+        path: '/manage/ticket-sales',
+        builder: (context, state) =>
+            const GlobalTicketSalesScreen(scannedOnly: false),
+      ),
+      GoRoute(
+        path: '/manage/scanned-tickets',
+        builder: (context, state) =>
+            const GlobalTicketSalesScreen(scannedOnly: true),
+      ),
+      GoRoute(
+        path: '/manage/waitlist',
+        builder: (context, state) => const GlobalWaitlistScreen(),
+      ),
+      GoRoute(
+        path: '/manage/customers',
+        builder: (context, state) => const CustomerHistoryScreen(),
       ),
 
       // ─── Venues ───

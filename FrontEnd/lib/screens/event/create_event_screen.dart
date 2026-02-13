@@ -123,45 +123,34 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
-    if (_selectedVenueId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a venue')),
-      );
-      return;
-    }
-    // If start_time set, end_time must also be set
-    if (_startTime != null && _endTime == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('End time is required when start time is set')),
-      );
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
-    final fundingGoal = double.tryParse(_fundingGoalCtrl.text);
-    final minPledge = double.tryParse(_minPledgeCtrl.text) ?? 5.0;
-
-    // At least one of event date or funding deadline must be set
+    // ── Date check first (before form validation) ──
     if (_startTime == null && _fundingEndAt == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             content: Text(
                 'Set at least one of: Event Date or Funding Deadline')),
       );
-      setState(() => _isLoading = false);
+      return;
+    }
+
+    // If start_time set, end_time must also be set
+    if (_startTime != null && _endTime == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('End time is required when start time is set')),
+      );
       return;
     }
 
     // Event start must be after funding deadline
-    if (_startTime != null && _fundingEndAt != null && !_startTime!.isAfter(_fundingEndAt!)) {
+    if (_startTime != null &&
+        _fundingEndAt != null &&
+        !_startTime!.isAfter(_fundingEndAt!)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             content: Text(
                 'Event start time must be after the funding deadline')),
       );
-      setState(() => _isLoading = false);
       return;
     }
 
@@ -172,9 +161,21 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
             content: Text(
                 'Ticket strategy is required when no funding deadline is set')),
       );
-      setState(() => _isLoading = false);
       return;
     }
+
+    if (!_formKey.currentState!.validate()) return;
+    if (_selectedVenueId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a venue')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    final fundingGoal = double.tryParse(_fundingGoalCtrl.text);
+    final minPledge = double.tryParse(_minPledgeCtrl.text) ?? 5.0;
 
     final data = <String, dynamic>{
       'venue_id': _selectedVenueId,
@@ -596,7 +597,19 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Create Event')),
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              context.pop();
+            } else {
+              context.go('/');
+            }
+          },
+        ),
+        title: const Text('Create Event'),
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Center(
@@ -607,6 +620,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // ═══════════════════════════════════════
+                  // SECTION 1: Basic Info
+                  // ═══════════════════════════════════════
                   TextFormField(
                     controller: _titleCtrl,
                     decoration: const InputDecoration(labelText: 'Event Title'),
@@ -621,270 +637,23 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Venue dropdown
-                  DropdownButtonFormField<int>(
-                    value: _selectedVenueId,
-                    decoration: const InputDecoration(labelText: 'Venue'),
-                    items: _venues
-                        .map((v) => DropdownMenuItem(
-                            value: v.id, child: Text(v.name)))
-                        .toList(),
-                    onChanged: (v) => setState(() => _selectedVenueId = v),
-                    validator: (v) =>
-                        v == null ? 'Please select a venue' : null,
-                  ),
-                  const SizedBox(height: 8),
-
-                  // "Add new venue" toggle
-                  GestureDetector(
-                    onTap: () =>
-                        setState(() => _showVenueForm = !_showVenueForm),
-                    child: Row(
-                      children: [
-                        Icon(
-                          _showVenueForm
-                              ? Icons.expand_less
-                              : Icons.add_location_alt,
-                          size: 20,
-                          color: AppTheme.primaryColor,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          _showVenueForm
-                              ? 'Hide venue form'
-                              : 'Create a new venue',
-                          style: TextStyle(
-                            color: AppTheme.primaryColor,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
+                  // Genre
+                  DropdownButtonFormField<String>(
+                    value: _genre,
+                    decoration: const InputDecoration(labelText: 'Genre / Category *'),
+                    items: _genres.map((g) => DropdownMenuItem(
+                      value: g,
+                      child: Text(g[0].toUpperCase() + g.substring(1)),
+                    )).toList(),
+                    onChanged: (v) => setState(() => _genre = v),
+                    validator: (v) => v == null ? 'Please select a genre' : null,
                   ),
 
-                  // Inline venue creation card
-                  AnimatedCrossFade(
-                    firstChild: const SizedBox.shrink(),
-                    secondChild: Card(
-                      margin: const EdgeInsets.only(top: 12),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Text('New Venue',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleSmall
-                                    ?.copyWith(
-                                        fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 12),
-                            TextFormField(
-                              controller: _venueNameCtrl,
-                              decoration: const InputDecoration(
-                                  labelText: 'Venue Name'),
-                            ),
-                            const SizedBox(height: 10),
-                            TextFormField(
-                              controller: _venueAddressCtrl,
-                              decoration: const InputDecoration(
-                                  labelText: 'Address'),
-                            ),
-                            const SizedBox(height: 10),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: _venueCityCtrl,
-                                    decoration:
-                                        const InputDecoration(
-                                            labelText: 'City'),
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: _venueProvinceCtrl,
-                                    decoration:
-                                        const InputDecoration(
-                                            labelText: 'Province'),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            TextFormField(
-                              controller: _venueCapacityCtrl,
-                              decoration: const InputDecoration(
-                                  labelText: 'Max Capacity'),
-                              keyboardType: TextInputType.number,
-                            ),
-                            const SizedBox(height: 14),
-                            SizedBox(
-                              height: 42,
-                              child: ElevatedButton.icon(
-                                onPressed: _creatingVenue
-                                    ? null
-                                    : _createVenueInline,
-                                icon: _creatingVenue
-                                    ? const SizedBox(
-                                        height: 16,
-                                        width: 16,
-                                        child:
-                                            CircularProgressIndicator(
-                                                strokeWidth: 2,
-                                                color: Colors.white),
-                                      )
-                                    : const Icon(Icons.check,
-                                        size: 18),
-                                label: Text(_creatingVenue
-                                    ? 'Creating...'
-                                    : 'Create & Select Venue'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                      AppTheme.secondaryColor,
-                                  foregroundColor: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    crossFadeState: _showVenueForm
-                        ? CrossFadeState.showSecond
-                        : CrossFadeState.showFirst,
-                    duration: const Duration(milliseconds: 250),
-                  ),
+                  const SizedBox(height: 24),
 
-                  const SizedBox(height: 20),
-
-                  // ── Ticket Strategy ──
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: (_fundingEndAt == null && _selectedStrategyId == null)
-                          ? AppTheme.warningColor.withValues(alpha: 0.08)
-                          : Colors.grey.withValues(alpha: 0.04),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: (_fundingEndAt == null && _selectedStrategyId == null)
-                            ? AppTheme.warningColor.withValues(alpha: 0.3)
-                            : Colors.grey.withValues(alpha: 0.15),
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(Icons.confirmation_number,
-                                size: 18,
-                                color: _selectedStrategyId != null
-                                    ? AppTheme.successColor
-                                    : AppTheme.primaryColor),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                _fundingEndAt == null
-                                    ? 'Ticket Strategy (Required)'
-                                    : 'Ticket Strategy (Optional — can set later)',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 13,
-                                  color: _selectedStrategyId != null
-                                      ? AppTheme.successColor
-                                      : Colors.grey[800],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        DropdownButtonFormField<int>(
-                          value: _selectedStrategyId,
-                          decoration: const InputDecoration(
-                            labelText: 'Ticket Strategy',
-                            hintText: 'Select a strategy',
-                            isDense: true,
-                          ),
-                          items: _strategies.map((s) => DropdownMenuItem(
-                            value: s.id,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(s.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                                Text(s.tiersSummary,
-                                    style: TextStyle(fontSize: 11, color: Colors.grey[600])),
-                              ],
-                            ),
-                          )).toList(),
-                          onChanged: (v) => setState(() => _selectedStrategyId = v),
-                          validator: (v) {
-                            if (_fundingEndAt == null && v == null) {
-                              return 'Required when no funding deadline';
-                            }
-                            return null;
-                          },
-                        ),
-                        if (_selectedStrategyId != null) ...[
-                          const SizedBox(height: 8),
-                          _buildSelectedStrategyPreview(),
-                        ],
-                        const SizedBox(height: 8),
-                        GestureDetector(
-                          onTap: () => setState(
-                              () => _showStrategyForm = !_showStrategyForm),
-                          child: Row(
-                            children: [
-                              Icon(
-                                _showStrategyForm
-                                    ? Icons.expand_less
-                                    : Icons.add_circle_outline,
-                                size: 20,
-                                color: AppTheme.primaryColor,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                _showStrategyForm
-                                    ? 'Hide strategy form'
-                                    : 'Create a new strategy',
-                                style: TextStyle(
-                                  color: AppTheme.primaryColor,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        AnimatedCrossFade(
-                          firstChild: const SizedBox.shrink(),
-                          secondChild: _buildInlineStrategyForm(),
-                          crossFadeState: _showStrategyForm
-                              ? CrossFadeState.showSecond
-                              : CrossFadeState.showFirst,
-                          duration: const Duration(milliseconds: 250),
-                        ),
-                        if (_fundingEndAt != null && _selectedStrategyId == null) ...[
-                          const SizedBox(height: 6),
-                          Text(
-                            'You can also set up ticketing later during the "Waiting on Event Date" state.',
-                            style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey[600],
-                                fontStyle: FontStyle.italic),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // ── Required: at least one date ──
+                  // ═══════════════════════════════════════
+                  // SECTION 2: Dates & Funding Deadline
+                  // ═══════════════════════════════════════
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
@@ -1065,8 +834,60 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                     ),
                   ),
 
-                  const SizedBox(height: 16),
+                  // Refund deadline — only when funding deadline is set
+                  if (_fundingEndAt != null) ...[
+                    const SizedBox(height: 16),
+                    Builder(builder: (context) {
+                      final fundDuration = _fundingEndAt!
+                          .difference(DateTime.now())
+                          .inDays;
+                      final maxDays =
+                          (fundDuration * 0.2).ceil().clamp(1, 365);
+                      if (_refundDeadlineDays > maxDays) {
+                        _refundDeadlineDays = maxDays;
+                      }
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Refund Deadline: $_refundDeadlineDays day${_refundDeadlineDays == 1 ? '' : 's'} before funding ends',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Max $maxDays days (20% of funding duration). Customers can get a refund if they unregister before this cutoff.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Slider(
+                            value: _refundDeadlineDays.toDouble().clamp(0, maxDays.toDouble()),
+                            min: 0,
+                            max: maxDays.toDouble(),
+                            divisions: maxDays > 0 ? maxDays : 1,
+                            label: '$_refundDeadlineDays days',
+                            activeColor: AppTheme.primaryColor,
+                            onChanged: (v) {
+                              setState(() {
+                                _refundDeadlineDays = v.round();
+                              });
+                            },
+                          ),
+                        ],
+                      );
+                    }),
+                  ],
 
+                  const SizedBox(height: 24),
+
+                  // ═══════════════════════════════════════
+                  // SECTION 3: Capacity & Registration
+                  // ═══════════════════════════════════════
                   TextFormField(
                     controller: _capacityCtrl,
                     decoration:
@@ -1092,43 +913,306 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                     onChanged: (v) =>
                         setState(() => _registrationType = v ?? 'open'),
                   ),
+
                   const SizedBox(height: 24),
 
-                  // Funding section
-                  Text('Funding (optional)',
-                      style: Theme.of(context).textTheme.titleSmall),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _fundingGoalCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Funding Goal (\$)',
-                      prefixText: '\$ ',
-                    ),
-                    keyboardType: TextInputType.number,
+                  // ═══════════════════════════════════════
+                  // SECTION 4: Venue
+                  // ═══════════════════════════════════════
+                  DropdownButtonFormField<int>(
+                    value: _selectedVenueId,
+                    decoration: const InputDecoration(labelText: 'Venue'),
+                    items: _venues
+                        .map((v) => DropdownMenuItem(
+                            value: v.id, child: Text(v.name)))
+                        .toList(),
+                    onChanged: (v) => setState(() => _selectedVenueId = v),
+                    validator: (v) =>
+                        v == null ? 'Please select a venue' : null,
                   ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _minPledgeCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Minimum Pledge (\$)',
-                      prefixText: '\$ ',
+                  const SizedBox(height: 8),
+
+                  // "Add new venue" toggle
+                  GestureDetector(
+                    onTap: () =>
+                        setState(() => _showVenueForm = !_showVenueForm),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _showVenueForm
+                              ? Icons.expand_less
+                              : Icons.add_location_alt,
+                          size: 20,
+                          color: AppTheme.primaryColor,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          _showVenueForm
+                              ? 'Hide venue form'
+                              : 'Create a new venue',
+                          style: TextStyle(
+                            color: AppTheme.primaryColor,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
                     ),
-                    keyboardType: TextInputType.number,
                   ),
+
+                  // Inline venue creation card
+                  AnimatedCrossFade(
+                    firstChild: const SizedBox.shrink(),
+                    secondChild: Card(
+                      margin: const EdgeInsets.only(top: 12),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text('New Venue',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleSmall
+                                    ?.copyWith(
+                                        fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 12),
+                            TextFormField(
+                              controller: _venueNameCtrl,
+                              decoration: const InputDecoration(
+                                  labelText: 'Venue Name'),
+                            ),
+                            const SizedBox(height: 10),
+                            TextFormField(
+                              controller: _venueAddressCtrl,
+                              decoration: const InputDecoration(
+                                  labelText: 'Address'),
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: _venueCityCtrl,
+                                    decoration:
+                                        const InputDecoration(
+                                            labelText: 'City'),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: _venueProvinceCtrl,
+                                    decoration:
+                                        const InputDecoration(
+                                            labelText: 'Province'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            TextFormField(
+                              controller: _venueCapacityCtrl,
+                              decoration: const InputDecoration(
+                                  labelText: 'Max Capacity'),
+                              keyboardType: TextInputType.number,
+                            ),
+                            const SizedBox(height: 14),
+                            SizedBox(
+                              height: 42,
+                              child: ElevatedButton.icon(
+                                onPressed: _creatingVenue
+                                    ? null
+                                    : _createVenueInline,
+                                icon: _creatingVenue
+                                    ? const SizedBox(
+                                        height: 16,
+                                        width: 16,
+                                        child:
+                                            CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: Colors.white),
+                                      )
+                                    : const Icon(Icons.check,
+                                        size: 18),
+                                label: Text(_creatingVenue
+                                    ? 'Creating...'
+                                    : 'Create & Select Venue'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor:
+                                      AppTheme.secondaryColor,
+                                  foregroundColor: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    crossFadeState: _showVenueForm
+                        ? CrossFadeState.showSecond
+                        : CrossFadeState.showFirst,
+                    duration: const Duration(milliseconds: 250),
+                  ),
+
                   const SizedBox(height: 24),
 
-                  // Genre
-                  DropdownButtonFormField<String>(
-                    value: _genre,
-                    decoration: const InputDecoration(labelText: 'Genre / Category *'),
-                    items: _genres.map((g) => DropdownMenuItem(
-                      value: g,
-                      child: Text(g[0].toUpperCase() + g.substring(1)),
-                    )).toList(),
-                    onChanged: (v) => setState(() => _genre = v),
-                    validator: (v) => v == null ? 'Please select a genre' : null,
+                  // ═══════════════════════════════════════
+                  // SECTION 5: Ticket Strategy
+                  // ═══════════════════════════════════════
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: (_fundingEndAt == null && _selectedStrategyId == null)
+                          ? AppTheme.warningColor.withValues(alpha: 0.08)
+                          : Colors.grey.withValues(alpha: 0.04),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: (_fundingEndAt == null && _selectedStrategyId == null)
+                            ? AppTheme.warningColor.withValues(alpha: 0.3)
+                            : Colors.grey.withValues(alpha: 0.15),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.confirmation_number,
+                                size: 18,
+                                color: _selectedStrategyId != null
+                                    ? AppTheme.successColor
+                                    : AppTheme.primaryColor),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _fundingEndAt == null
+                                    ? 'Ticket Strategy (Required)'
+                                    : 'Ticket Strategy (Optional — can set later)',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                  color: _selectedStrategyId != null
+                                      ? AppTheme.successColor
+                                      : Colors.grey[800],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        DropdownButtonFormField<int>(
+                          value: _selectedStrategyId,
+                          decoration: const InputDecoration(
+                            labelText: 'Ticket Strategy',
+                            hintText: 'Select a strategy',
+                            isDense: true,
+                          ),
+                          items: _strategies.map((s) => DropdownMenuItem(
+                            value: s.id,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(s.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                Text(s.tiersSummary,
+                                    style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+                              ],
+                            ),
+                          )).toList(),
+                          onChanged: (v) => setState(() => _selectedStrategyId = v),
+                          validator: (v) {
+                            // Only require strategy when event-date-only (no funding)
+                            // The date check itself is handled before form.validate()
+                            if (_fundingEndAt == null &&
+                                _startTime != null &&
+                                v == null) {
+                              return 'Required when no funding deadline';
+                            }
+                            return null;
+                          },
+                        ),
+                        if (_selectedStrategyId != null) ...[
+                          const SizedBox(height: 8),
+                          _buildSelectedStrategyPreview(),
+                        ],
+                        const SizedBox(height: 8),
+                        GestureDetector(
+                          onTap: () => setState(
+                              () => _showStrategyForm = !_showStrategyForm),
+                          child: Row(
+                            children: [
+                              Icon(
+                                _showStrategyForm
+                                    ? Icons.expand_less
+                                    : Icons.add_circle_outline,
+                                size: 20,
+                                color: AppTheme.primaryColor,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                _showStrategyForm
+                                    ? 'Hide strategy form'
+                                    : 'Create a new strategy',
+                                style: TextStyle(
+                                  color: AppTheme.primaryColor,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        AnimatedCrossFade(
+                          firstChild: const SizedBox.shrink(),
+                          secondChild: _buildInlineStrategyForm(),
+                          crossFadeState: _showStrategyForm
+                              ? CrossFadeState.showSecond
+                              : CrossFadeState.showFirst,
+                          duration: const Duration(milliseconds: 250),
+                        ),
+                        if (_fundingEndAt != null && _selectedStrategyId == null) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            'You can also set up ticketing later during the "Waiting on Event Date" state.',
+                            style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey[600],
+                                fontStyle: FontStyle.italic),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 16),
+
+                  const SizedBox(height: 24),
+
+                  // ═══════════════════════════════════════
+                  // SECTION 6: Funding & Settings
+                  // ═══════════════════════════════════════
+                  if (_fundingEndAt != null) ...[
+                    Text('Funding Settings',
+                        style: Theme.of(context).textTheme.titleSmall),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _fundingGoalCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Funding Goal (\$)',
+                        prefixText: '\$ ',
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _minPledgeCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Minimum Pledge (\$)',
+                        prefixText: '\$ ',
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                    const SizedBox(height: 24),
+                  ],
 
                   // Posts enabled
                   SwitchListTile(
@@ -1141,45 +1225,6 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                     onChanged: (v) => setState(() => _postsEnabled = v),
                     contentPadding: EdgeInsets.zero,
                   ),
-
-                  // Refund deadline — only when funding deadline is set
-                  if (_fundingEndAt != null) ...[
-                    const SizedBox(height: 16),
-                    Builder(builder: (context) {
-                      // Calculate max allowed as 20% of funding duration
-                      final fundDuration = _fundingEndAt!
-                          .difference(DateTime.now())
-                          .inDays;
-                      final maxDays =
-                          (fundDuration * 0.2).ceil().clamp(1, 365);
-                      return TextFormField(
-                        initialValue: maxDays.toString(),
-                        decoration: InputDecoration(
-                          labelText:
-                              'Refund Deadline (days before funding ends)',
-                          helperText:
-                              'Max ${maxDays} days (20% of funding duration). Customers can refund before this cutoff.',
-                          helperMaxLines: 3,
-                        ),
-                        keyboardType: TextInputType.number,
-                        validator: (v) {
-                          if (v == null || v.isEmpty) return 'Required';
-                          final n = int.tryParse(v);
-                          if (n == null || n < 0) return 'Enter 0 or more';
-                          if (n > maxDays) {
-                            return 'Max $maxDays days';
-                          }
-                          return null;
-                        },
-                        onChanged: (v) {
-                          final n = int.tryParse(v);
-                          if (n != null && n >= 0) {
-                            _refundDeadlineDays = n;
-                          }
-                        },
-                      );
-                    }),
-                  ],
 
                   const SizedBox(height: 16),
 

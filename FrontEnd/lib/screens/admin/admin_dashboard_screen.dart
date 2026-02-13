@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
@@ -18,12 +19,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   List<dynamic> _users = [];
   List<dynamic> _pendingEvents = [];
   List<dynamic> _pendingApproval = [];
+  List<dynamic> _pendingExtensions = [];
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 4, vsync: this);
+    _tabCtrl = TabController(length: 5, vsync: this);
     _loadData();
   }
 
@@ -36,12 +38,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
         api.adminGetUsers(),
         api.adminGetEvents(params: {'status': 'draft'}),
         api.adminGetEvents(params: {'status': 'pending_approval'}),
+        api.adminGetEvents(),
       ]);
+      final allEvents = results[4] as List<dynamic>;
       setState(() {
         _stats = results[0] as Map<String, dynamic>;
         _users = results[1] as List<dynamic>;
         _pendingEvents = results[2] as List<dynamic>;
         _pendingApproval = results[3] as List<dynamic>;
+        _pendingExtensions = allEvents
+            .where((e) => e['pending_extension'] != null)
+            .toList();
       });
     } catch (_) {}
     setState(() => _isLoading = false);
@@ -64,6 +71,25 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     }
   }
 
+  Future<void> _decideExtension(int eventId, String action) async {
+    try {
+      final api = context.read<ApiService>();
+      await api.decideExtension(eventId, action);
+      _loadData();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Extension ${action}d')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Action failed: $e')),
+        );
+      }
+    }
+  }
+
   @override
   void dispose() {
     _tabCtrl.dispose();
@@ -74,12 +100,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              context.pop();
+            } else {
+              context.go('/');
+            }
+          },
+        ),
         title: const Text('Admin Dashboard'),
         bottom: TabBar(
           controller: _tabCtrl,
           tabs: [
             const Tab(text: 'Overview'),
             Tab(text: 'Pending Approval (${_pendingApproval.length})'),
+            Tab(text: 'Extensions (${_pendingExtensions.length})'),
             const Tab(text: 'Drafts'),
             const Tab(text: 'Users'),
           ],
@@ -92,6 +129,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
               children: [
                 _buildOverview(),
                 _buildPendingApproval(),
+                _buildPendingExtensions(),
                 _buildDrafts(),
                 _buildUsers(),
               ],
@@ -185,6 +223,82 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                       const Icon(Icons.cancel, color: AppTheme.errorColor),
                   tooltip: 'Reject (back to draft)',
                   onPressed: () => _approveEvent(event['id'], false),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPendingExtensions() {
+    if (_pendingExtensions.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.schedule, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            const Text('No pending extension requests'),
+          ],
+        ),
+      );
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: _pendingExtensions.length,
+      itemBuilder: (ctx, i) {
+        final e = _pendingExtensions[i];
+        final ext = e['pending_extension'] as Map<String, dynamic>?;
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(e['title'] ?? 'Event ${e['id']}',
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                const SizedBox(height: 4),
+                Text('Status: ${e['status']}',
+                    style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                if (ext != null) ...[
+                  const SizedBox(height: 8),
+                  if (ext['funding_end_at'] != null)
+                    Text('New funding end: ${ext['funding_end_at']}',
+                        style: const TextStyle(fontSize: 13)),
+                  if (ext['start_time'] != null)
+                    Text('New start time: ${ext['start_time']}',
+                        style: const TextStyle(fontSize: 13)),
+                  if (ext['end_time'] != null)
+                    Text('New end time: ${ext['end_time']}',
+                        style: const TextStyle(fontSize: 13)),
+                ],
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: () => _decideExtension(e['id'], 'approve'),
+                        icon: const Icon(Icons.check, size: 18),
+                        label: const Text('Approve'),
+                        style: FilledButton.styleFrom(
+                            backgroundColor: Colors.green),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _decideExtension(e['id'], 'reject'),
+                        icon: const Icon(Icons.close, size: 18),
+                        label: const Text('Reject'),
+                        style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.red),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

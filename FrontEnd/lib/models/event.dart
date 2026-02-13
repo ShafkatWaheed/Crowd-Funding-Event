@@ -43,6 +43,7 @@ class Event {
   final int? ticketStrategyId;
   final int likeCount;
   final int dislikeCount;
+  final Map<String, dynamic>? pendingExtension;
   final Venue? venue;
   final DateTime createdAt;
 
@@ -75,6 +76,7 @@ class Event {
     this.ticketStrategyId,
     this.likeCount = 0,
     this.dislikeCount = 0,
+    this.pendingExtension,
     this.venue,
     required this.createdAt,
   });
@@ -119,6 +121,9 @@ class Event {
       ticketStrategyId: json['ticket_strategy_id'],
       likeCount: json['like_count'] ?? 0,
       dislikeCount: json['dislike_count'] ?? 0,
+      pendingExtension: json['pending_extension'] != null
+          ? Map<String, dynamic>.from(json['pending_extension'])
+          : null,
       venue: json['venue'] != null ? Venue.fromJson(json['venue']) : null,
       createdAt: DateTime.parse(json['created_at']),
     );

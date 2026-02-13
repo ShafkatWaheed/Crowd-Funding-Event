@@ -75,7 +75,19 @@ class _CreateVenueScreenState extends State<CreateVenueScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Add Venue')),
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              context.pop();
+            } else {
+              context.go('/');
+            }
+          },
+        ),
+        title: const Text('Add Venue'),
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Center(

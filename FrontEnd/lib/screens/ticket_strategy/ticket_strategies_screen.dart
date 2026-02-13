@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
@@ -14,12 +15,20 @@ class TicketStrategiesScreen extends StatefulWidget {
 
 class _TicketStrategiesScreenState extends State<TicketStrategiesScreen> {
   List<TicketStrategy> _strategies = [];
+  List<TicketStrategy> _filtered = [];
   bool _loading = true;
+  final _searchCtrl = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -28,6 +37,7 @@ class _TicketStrategiesScreenState extends State<TicketStrategiesScreen> {
       final data = await api.getTicketStrategies();
       setState(() {
         _strategies = data.map((d) => TicketStrategy.fromJson(d)).toList();
+        _applySearch();
         _loading = false;
       });
     } catch (e) {
@@ -37,6 +47,25 @@ class _TicketStrategiesScreenState extends State<TicketStrategiesScreen> {
           SnackBar(content: Text('Failed to load: $e')),
         );
       }
+    }
+  }
+
+  void _applySearch() {
+    final q = _searchCtrl.text.trim().toLowerCase();
+    if (q.isEmpty) {
+      _filtered = List.from(_strategies);
+    } else {
+      _filtered = _strategies.where((s) {
+        if (s.name.toLowerCase().contains(q)) return true;
+        for (final t in s.tiers) {
+          if (t.name.toLowerCase().contains(q)) return true;
+          if (t.description != null &&
+              t.description!.toLowerCase().contains(q)) {
+            return true;
+          }
+        }
+        return false;
+      }).toList();
     }
   }
 
@@ -57,7 +86,19 @@ class _TicketStrategiesScreenState extends State<TicketStrategiesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Ticket Strategies')),
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              context.pop();
+            } else {
+              context.go('/');
+            }
+          },
+        ),
+        title: const Text('Ticket Strategies'),
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
           final created = await Navigator.push<bool>(
@@ -73,31 +114,76 @@ class _TicketStrategiesScreenState extends State<TicketStrategiesScreen> {
         backgroundColor: AppTheme.primaryColor,
         foregroundColor: Colors.white,
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _strategies.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.confirmation_number_outlined,
-                          size: 64, color: Colors.grey[300]),
-                      const SizedBox(height: 16),
-                      Text('No ticket strategies yet',
-                          style: TextStyle(
-                              fontSize: 16, color: Colors.grey[500])),
-                      const SizedBox(height: 8),
-                      const Text(
-                          'Create a strategy with tiers to use in events'),
-                    ],
-                  ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _strategies.length,
-                  itemBuilder: (context, index) {
-                    final s = _strategies[index];
-                    return Card(
+      body: Column(
+        children: [
+          // ── Search bar ──
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: TextField(
+              controller: _searchCtrl,
+              decoration: InputDecoration(
+                hintText: 'Search strategies or tiers…',
+                prefixIcon: const Icon(Icons.search, size: 20),
+                suffixIcon: _searchCtrl.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () {
+                          _searchCtrl.clear();
+                          setState(() => _applySearch());
+                        },
+                      )
+                    : null,
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(color: AppTheme.dividerColor),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(color: AppTheme.dividerColor),
+                ),
+              ),
+              onChanged: (_) => setState(() => _applySearch()),
+            ),
+          ),
+
+          // ── Content ──
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : _filtered.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.confirmation_number_outlined,
+                                size: 64, color: Colors.grey[300]),
+                            const SizedBox(height: 16),
+                            Text(
+                              _searchCtrl.text.isNotEmpty
+                                  ? 'No matching strategies'
+                                  : 'No ticket strategies yet',
+                              style: TextStyle(
+                                  fontSize: 16, color: Colors.grey[500]),
+                            ),
+                            if (_searchCtrl.text.isEmpty)
+                              const Padding(
+                                padding: EdgeInsets.only(top: 8),
+                                child: Text(
+                                    'Create a strategy with tiers to use in events'),
+                              ),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: _filtered.length,
+                        itemBuilder: (context, index) {
+                          final s = _filtered[index];
+                          return Card(
                       margin: const EdgeInsets.only(bottom: 12),
                       child: Padding(
                         padding: const EdgeInsets.all(16),
@@ -176,6 +262,9 @@ class _TicketStrategiesScreenState extends State<TicketStrategiesScreen> {
                     );
                   },
                 ),
+          ),
+        ],
+      ),
     );
   }
 }

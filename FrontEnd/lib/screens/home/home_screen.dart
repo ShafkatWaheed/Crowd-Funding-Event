@@ -54,6 +54,14 @@ class _HomeScreenState extends State<HomeScreen> {
     'food', 'charity', 'education', 'business', 'other',
   ];
 
+  // Home tab search
+  final _homeSearchCtrl = TextEditingController();
+  String? _homeGenre;
+  List<Event> _homeSearchResults = [];
+  bool _homeSearching = false;
+  bool get _isHomeFiltered =>
+      _homeSearchCtrl.text.isNotEmpty || _homeGenre != null;
+
   // Featured sections
   List<Event> _trending = [];
   List<Event> _popular = [];
@@ -113,7 +121,39 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _homeSearchCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _homeSearch() async {
+    if (!_isHomeFiltered) {
+      setState(() => _homeSearchResults = []);
+      return;
+    }
+    setState(() => _homeSearching = true);
+    try {
+      final api = context.read<ApiService>();
+      final params = <String, dynamic>{};
+      if (_homeSearchCtrl.text.isNotEmpty) {
+        params['search'] = _homeSearchCtrl.text;
+      }
+      if (_homeGenre != null) {
+        params['genre'] = _homeGenre;
+      }
+      final data = await api.getEvents(params: params);
+      setState(() {
+        _homeSearchResults = data.map((e) => Event.fromJson(e)).toList();
+      });
+    } catch (_) {}
+    setState(() => _homeSearching = false);
+  }
+
+  void _clearHomeSearch() {
+    setState(() {
+      _homeSearchCtrl.clear();
+      _homeGenre = null;
+      _homeSearchResults = [];
+    });
   }
 
   void _applyFilters() {
@@ -363,29 +403,30 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                   const SizedBox(height: 24),
-                  // Quick search bar
-                  GestureDetector(
-                    onTap: () => setState(() => _navIndex = 1),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 14),
-                      decoration: BoxDecoration(
-                        color: AppTheme.surfaceColor,
+                  // Search bar
+                  TextField(
+                    controller: _homeSearchCtrl,
+                    decoration: InputDecoration(
+                      hintText: 'Search events, venues, genres...',
+                      prefixIcon: const Icon(Icons.search,
+                          color: AppTheme.textSecondary, size: 22),
+                      suffixIcon: _homeSearchCtrl.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear, size: 20),
+                              onPressed: _clearHomeSearch,
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: AppTheme.surfaceColor,
+                      border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide.none,
                       ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.search,
-                              color: AppTheme.textSecondary, size: 22),
-                          const SizedBox(width: 12),
-                          Text(
-                            'Search events, venues, genres...',
-                            style: TextStyle(
-                                color: AppTheme.textSecondary, fontSize: 15),
-                          ),
-                        ],
-                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 14),
                     ),
+                    onChanged: (_) => setState(() {}),
+                    onSubmitted: (_) => _homeSearch(),
                   ),
                   const SizedBox(height: 20),
                   // Genre chips
@@ -394,21 +435,30 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: ListView(
                       scrollDirection: Axis.horizontal,
                       children: _genres.map((g) {
+                        final isActive = _homeGenre == g;
                         return Padding(
                           padding: const EdgeInsets.only(right: 8),
-                          child: ActionChip(
+                          child: ChoiceChip(
                             label: Text(g[0].toUpperCase() + g.substring(1)),
-                            onPressed: () {
+                            selected: isActive,
+                            onSelected: (selected) {
                               setState(() {
-                                _selectedGenre = g;
-                                _navIndex = 1;
+                                _homeGenre = selected ? g : null;
                               });
-                              _applyFilters();
+                              _homeSearch();
                             },
+                            selectedColor: AppTheme.primaryColor,
                             backgroundColor: Colors.white,
-                            side: const BorderSide(color: AppTheme.dividerColor),
-                            labelStyle: const TextStyle(
-                                fontSize: 13, fontWeight: FontWeight.w500),
+                            side: BorderSide(
+                              color: isActive
+                                  ? AppTheme.primaryColor
+                                  : AppTheme.dividerColor,
+                            ),
+                            labelStyle: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: isActive ? Colors.white : AppTheme.textPrimary,
+                            ),
                           ),
                         );
                       }).toList(),
@@ -419,18 +469,110 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
 
-          // ── My Events ──
-          if (_myEvents.isNotEmpty)
-            _buildFeaturedSection('My Events', Icons.bookmark_rounded, _myEvents),
+          // ── Search results OR featured sections ──
+          if (_isHomeFiltered) ...[
+            // Active filter banner
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
+                child: Row(
+                  children: [
+                    Icon(Icons.filter_list_rounded,
+                        size: 18, color: AppTheme.textSecondary),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        [
+                          if (_homeSearchCtrl.text.isNotEmpty)
+                            '"${_homeSearchCtrl.text}"',
+                          if (_homeGenre != null)
+                            _homeGenre![0].toUpperCase() +
+                                _homeGenre!.substring(1),
+                        ].join(' in '),
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.2,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: _clearHomeSearch,
+                      child: const Text('Clear',
+                          style: TextStyle(fontSize: 13)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (_homeSearching)
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.all(40),
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+              )
+            else if (_homeSearchResults.isEmpty)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(40),
+                  child: Center(
+                    child: Column(
+                      children: [
+                        Icon(Icons.search_off_rounded,
+                            size: 48, color: Colors.grey[300]),
+                        const SizedBox(height: 12),
+                        Text('No events found',
+                            style: TextStyle(
+                                color: Colors.grey[500],
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                  ),
+                ),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                sliver: SliverGrid(
+                  gridDelegate:
+                      const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 400,
+                    mainAxisExtent: 230,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                  ),
+                  delegate: SliverChildBuilderDelegate(
+                    (context, i) {
+                      final event = _homeSearchResults[i];
+                      return _UberEventCard(
+                        event: event,
+                        onTap: () => context.go('/events/${event.id}'),
+                      );
+                    },
+                    childCount: _homeSearchResults.length,
+                  ),
+                ),
+              ),
+          ] else ...[
+            // ── My Events ──
+            if (_myEvents.isNotEmpty)
+              _buildFeaturedSection(
+                  'My Events', Icons.bookmark_rounded, _myEvents),
 
-          // ── Featured ──
-          if (!_featuredLoading) ...[
-            if (_trending.isNotEmpty)
-              _buildFeaturedSection('Trending Now', Icons.local_fire_department_rounded, _trending),
-            if (_comingSoon.isNotEmpty)
-              _buildFeaturedSection('Coming Soon', Icons.upcoming_rounded, _comingSoon),
-            if (_popular.isNotEmpty)
-              _buildFeaturedSection('Most Popular', Icons.star_rounded, _popular),
+            // ── Featured ──
+            if (!_featuredLoading) ...[
+              if (_trending.isNotEmpty)
+                _buildFeaturedSection('Trending Now',
+                    Icons.local_fire_department_rounded, _trending),
+              if (_comingSoon.isNotEmpty)
+                _buildFeaturedSection(
+                    'Coming Soon', Icons.upcoming_rounded, _comingSoon),
+              if (_popular.isNotEmpty)
+                _buildFeaturedSection(
+                    'Most Popular', Icons.star_rounded, _popular),
+            ],
           ],
 
           const SliverToBoxAdapter(child: SizedBox(height: 100)),
@@ -843,6 +985,38 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ],
                 ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    _quickActionCard(
+                      icon: Icons.receipt_long_rounded,
+                      label: 'All Sales',
+                      onTap: () => context.go('/manage/ticket-sales'),
+                    ),
+                    const SizedBox(width: 12),
+                    _quickActionCard(
+                      icon: Icons.qr_code_scanner_rounded,
+                      label: 'Scanned',
+                      onTap: () => context.go('/manage/scanned-tickets'),
+                    ),
+                    const SizedBox(width: 12),
+                    _quickActionCard(
+                      icon: Icons.hourglass_top_rounded,
+                      label: 'Waitlist',
+                      onTap: () => context.go('/manage/waitlist'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    _quickActionCard(
+                      icon: Icons.people_rounded,
+                      label: 'Customers',
+                      onTap: () => context.go('/manage/customers'),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -997,10 +1171,266 @@ class _HomeScreenState extends State<HomeScreen> {
   // ════════════════════════════════════════════
 
   Widget _buildProfileTab() {
-    return Center(
-      child: ElevatedButton(
-        onPressed: () => context.go('/profile'),
-        child: const Text('Go to Profile'),
+    final auth = context.watch<AuthProvider>();
+    final user = auth.user;
+
+    if (user == null) {
+      return const Center(child: Text('Not signed in'));
+    }
+
+    return CustomScrollView(
+      slivers: [
+        // ── Profile Header ──
+        SliverToBoxAdapter(
+          child: Container(
+            decoration: const BoxDecoration(
+              color: AppTheme.primaryColor,
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(32),
+                bottomRight: Radius.circular(32),
+              ),
+            ),
+            padding: const EdgeInsets.fromLTRB(24, 60, 24, 32),
+            child: Column(
+              children: [
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(22),
+                  ),
+                  child: Center(
+                    child: Text(
+                      user.initial,
+                      style: const TextStyle(
+                        fontSize: 34,
+                        fontWeight: FontWeight.w900,
+                        color: AppTheme.primaryColor,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  user.displayLabel,
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                if (user.phone != null && user.phone!.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.phone_outlined,
+                          size: 15, color: Colors.white70),
+                      const SizedBox(width: 6),
+                      Text(user.phone!,
+                          style: const TextStyle(
+                              color: Colors.white70, fontSize: 14)),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 12),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.25)),
+                  ),
+                  child: Text(
+                    user.role.name.toUpperCase(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // ── Menu Items ──
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Account',
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textSecondary,
+                        letterSpacing: 0.5)),
+                const SizedBox(height: 12),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 12,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      _profileTile(
+                        icon: Icons.person_outline_rounded,
+                        label: 'Edit Profile',
+                        onTap: () => context.go('/profile'),
+                      ),
+                      const Divider(height: 1, indent: 56),
+                      if (user.isCustomer) ...[
+                        _profileTile(
+                          icon: Icons.volunteer_activism_rounded,
+                          label: 'My Pledges',
+                          onTap: () => ScaffoldMessenger.of(context)
+                              .showSnackBar(const SnackBar(
+                                  content: Text('Coming soon'))),
+                        ),
+                        const Divider(height: 1, indent: 56),
+                        _profileTile(
+                          icon: Icons.confirmation_number_rounded,
+                          label: 'My Tickets',
+                          onTap: () => ScaffoldMessenger.of(context)
+                              .showSnackBar(const SnackBar(
+                                  content: Text('Coming soon'))),
+                        ),
+                        const Divider(height: 1, indent: 56),
+                      ],
+                    ],
+                  ),
+                ),
+
+                if (user.isOrganizer || user.isAdmin) ...[
+                  const SizedBox(height: 24),
+                  const Text('Management',
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textSecondary,
+                          letterSpacing: 0.5)),
+                  const SizedBox(height: 12),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.04),
+                          blurRadius: 12,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        if (user.isOrganizer) ...[
+                          _profileTile(
+                            icon: Icons.location_city_rounded,
+                            label: 'My Venues',
+                            onTap: () => context.go('/venues'),
+                          ),
+                          const Divider(height: 1, indent: 56),
+                          _profileTile(
+                            icon: Icons.confirmation_number_rounded,
+                            label: 'Ticket Strategies',
+                            onTap: () => context.go('/ticket-strategies'),
+                          ),
+                          const Divider(height: 1, indent: 56),
+                        ],
+                        if (user.isAdmin)
+                          _profileTile(
+                            icon: Icons.admin_panel_settings_rounded,
+                            label: 'Admin Dashboard',
+                            onTap: () => context.go('/admin'),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 32),
+
+                // Sign out button
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      await auth.signOut();
+                      if (context.mounted) {
+                        context.go('/login');
+                      }
+                    },
+                    icon:
+                        const Icon(Icons.logout_rounded, color: AppTheme.errorColor),
+                    label: const Text('Sign Out',
+                        style: TextStyle(
+                            color: AppTheme.errorColor,
+                            fontWeight: FontWeight.w600)),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(
+                          color: AppTheme.errorColor.withValues(alpha: 0.3)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 100),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _profileTile({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceColor,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, size: 20, color: AppTheme.primaryColor),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(label,
+                  style: const TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.w500)),
+            ),
+            const Icon(Icons.chevron_right_rounded,
+                size: 22, color: AppTheme.textSecondary),
+          ],
+        ),
       ),
     );
   }

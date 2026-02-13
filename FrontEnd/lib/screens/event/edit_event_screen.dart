@@ -25,7 +25,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
   final _fundingGoalCtrl = TextEditingController();
   final _minPledgeCtrl = TextEditingController();
 
-  final _refundDeadlineCtrl = TextEditingController();
+  // _refundDeadlineCtrl removed — now using slider
 
   String _registrationType = 'open';
   String? _genre;
@@ -82,7 +82,6 @@ class _EditEventScreenState extends State<EditEventScreen> {
         _genre = event.genre;
         _postsEnabled = event.postsEnabled;
         _refundDeadlineDays = event.refundDeadlineDays ?? 0;
-        _refundDeadlineCtrl.text = (event.refundDeadlineDays ?? 0).toString();
         _startTime = event.startTime;
         _endTime = event.endTime;
         _fundingEndAt = event.fundingEndAt;
@@ -171,14 +170,25 @@ class _EditEventScreenState extends State<EditEventScreen> {
     _capacityCtrl.dispose();
     _fundingGoalCtrl.dispose();
     _minPledgeCtrl.dispose();
-    _refundDeadlineCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Edit Event')),
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              context.pop();
+            } else {
+              context.go('/');
+            }
+          },
+        ),
+        title: const Text('Edit Event'),
+      ),
       body: _loadingEvent
           ? const Center(child: CircularProgressIndicator())
           : _event == null
@@ -476,31 +486,52 @@ class _EditEventScreenState extends State<EditEventScreen> {
                             // Refund deadline — only when funding deadline is set
                             if (_fundingEndAt != null) ...[
                               const SizedBox(height: 16),
-                              TextFormField(
-                                controller: _refundDeadlineCtrl,
-                                decoration: const InputDecoration(
-                                  labelText:
-                                      'Refund Deadline (days before funding ends)',
-                                  helperText:
-                                      'Customers can refund before this cutoff. Max is 20% of funding duration.',
-                                  helperMaxLines: 3,
-                                ),
-                                keyboardType: TextInputType.number,
-                                validator: (v) {
-                                  if (v == null || v.isEmpty) return 'Required';
-                                  final n = int.tryParse(v);
-                                  if (n == null || n < 0) {
-                                    return 'Enter 0 or more';
-                                  }
-                                  return null;
-                                },
-                                onChanged: (v) {
-                                  final n = int.tryParse(v);
-                                  if (n != null && n >= 0) {
-                                    _refundDeadlineDays = n;
-                                  }
-                                },
-                              ),
+                              Builder(builder: (context) {
+                                final fundDuration = _fundingEndAt!
+                                    .difference(DateTime.now())
+                                    .inDays;
+                                final maxDays =
+                                    (fundDuration * 0.2).ceil().clamp(1, 365);
+                                if (_refundDeadlineDays > maxDays) {
+                                  _refundDeadlineDays = maxDays;
+                                }
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Refund Deadline: $_refundDeadlineDays day${_refundDeadlineDays == 1 ? '' : 's'} before funding ends',
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Max $maxDays days (20% of funding duration). Customers can get a refund if they unregister before this cutoff.',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Slider(
+                                      value: _refundDeadlineDays
+                                          .toDouble()
+                                          .clamp(0, maxDays.toDouble()),
+                                      min: 0,
+                                      max: maxDays.toDouble(),
+                                      divisions: maxDays > 0 ? maxDays : 1,
+                                      label: '$_refundDeadlineDays days',
+                                      activeColor: AppTheme.primaryColor,
+                                      onChanged: (v) {
+                                        setState(() {
+                                          _refundDeadlineDays = v.round();
+                                        });
+                                      },
+                                    ),
+                                  ],
+                                );
+                              }),
                             ],
 
                             const SizedBox(height: 24),

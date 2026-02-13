@@ -182,14 +182,30 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              context.pop();
+            } else {
+              context.go('/');
+            }
+          },
+        ),
         title: Text(event?.title ?? 'Event Details'),
         actions: [
-          if (event != null)
+          if (event != null) ...[
+            IconButton(
+              icon: const Icon(Icons.calendar_month),
+              tooltip: 'Add to calendar',
+              onPressed: () => _downloadCalendar(context, event),
+            ),
             IconButton(
               icon: const Icon(Icons.share),
               tooltip: 'Share event link',
               onPressed: () => _shareEvent(context, event),
             ),
+          ],
         ],
       ),
       body: eventProvider.isLoading
@@ -622,6 +638,11 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                 const SizedBox(height: 16),
                               ],
 
+                              // Your Discounts (customer view)
+                              if (user != null) ...[
+                                _CustomerDiscountsSection(eventId: event.id),
+                              ],
+
                               // Actions for customers
                               if (user != null && user.isCustomer) ...[
                                 _sectionTitle(context, 'Actions'),
@@ -719,6 +740,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                   children: [
                                     // Edit event
                                     if (event.status == EventStatus.draft ||
+                                        event.status == EventStatus.pending_approval ||
                                         event.status == EventStatus.approved ||
                                         event.status == EventStatus.live)
                                       ElevatedButton.icon(
@@ -726,7 +748,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                             context.go('/events/${event.id}/edit'),
                                         icon: const Icon(Icons.edit, size: 18),
                                         label: Text(
-                                          event.status == EventStatus.draft
+                                          event.status == EventStatus.draft ||
+                                                  event.status ==
+                                                      EventStatus.pending_approval
                                               ? 'Edit'
                                               : 'Edit (needs approval)',
                                         ),
@@ -786,6 +810,17 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                         ),
                                       ),
 
+                                    // Extend Funding (waiting_event_date)
+                                    if (event.status == EventStatus.waiting_event_date)
+                                      OutlinedButton.icon(
+                                        onPressed: () => _showExtendFundingDialog(context, event),
+                                        icon: const Icon(Icons.more_time_rounded, size: 18),
+                                        label: const Text('Extend Funding'),
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: AppTheme.accentColor,
+                                        ),
+                                      ),
+
                                     // Clone (completed events only)
                                     if (event.status == EventStatus.completed)
                                       ElevatedButton.icon(
@@ -798,8 +833,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                         ),
                                       ),
 
-                                    // Cancel (only for published, selling_tickets, or live events)
+                                    // Cancel (published, unpublished, selling_tickets, waiting, or live events)
                                     if (event.status ==
+                                            EventStatus.pending_approval ||
+                                        event.status ==
                                             EventStatus.approved ||
                                         event.status == EventStatus.selling_tickets ||
                                         event.status == EventStatus.waiting_event_date ||
@@ -821,9 +858,11 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                                     AppTheme.errorColor)),
                                       ),
 
-                                    // Delete permanently (draft or cancelled only)
+                                    // Delete permanently (draft, unpublished, or cancelled)
                                     if (event.status ==
                                             EventStatus.draft ||
+                                        event.status ==
+                                            EventStatus.pending_approval ||
                                         event.status ==
                                             EventStatus.cancelled)
                                       OutlinedButton.icon(
@@ -858,6 +897,21 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                   ],
                                 ),
                               ],
+
+                              // ──────── Management shortcuts (organizer) ────────
+                              if (user != null &&
+                                  (user.isOrganizer || user.isAdmin)) ...[
+                                const SizedBox(height: 28),
+                                _sectionTitle(context, 'Management'),
+                                const SizedBox(height: 12),
+                                _buildMgmtButtons(event),
+                              ],
+
+                              // ──────── Ticket Tier Management (organizer) ────────
+                              if (user != null &&
+                                  (user.isOrganizer || user.isAdmin) &&
+                                  event.ticketStrategyId != null)
+                                _buildTicketTierManagement(event),
 
                               // ──────── Event Feed / Posts ────────
                               const SizedBox(height: 32),
@@ -1105,7 +1159,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
   Widget _buildTicketTiersSection(Event event) {
     return FutureBuilder(
-      future: context.read<ApiService>().dio.get('/events/${event.id}/tickets/tiers'),
+      future: context.read<ApiService>().dio.get('/events/${event.id}/ticket-tiers'),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -1172,7 +1226,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     // Load ticket tiers for this event
     try {
       final api = context.read<ApiService>();
-      final tiersData = await api.dio.get('/events/${event.id}/tickets/tiers');
+      final tiersData = await api.dio.get('/events/${event.id}/ticket-tiers');
       final tiers = (tiersData.data as List);
       if (tiers.isEmpty) {
         if (mounted) {
@@ -1257,7 +1311,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   Future<void> _purchaseTicket(int eventId, int tierId) async {
     try {
       final api = context.read<ApiService>();
-      final resp = await api.dio.post('/events/$eventId/tickets/purchase', data: {'tier_id': tierId});
+      final resp = await api.dio.post('/events/$eventId/purchase-ticket', data: {'tier_id': tierId});
       final ticketCode = resp.data['ticket_code'] ?? '';
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1681,6 +1735,736 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  // ═══════════════════════════════════════════
+  // Add to Calendar
+  // ═══════════════════════════════════════════
+
+  Future<void> _downloadCalendar(BuildContext context, Event event) async {
+    final api = context.read<ApiService>();
+    final url = api.calendarUrl(event.id);
+    await Clipboard.setData(ClipboardData(text: url));
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Calendar link copied! Paste in browser to download .ics file.'),
+          action: SnackBarAction(
+            label: 'OK',
+            onPressed: () {},
+          ),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  // Waitlist Management
+  // ═══════════════════════════════════════════
+
+  // ═══════════════════════════════════════════
+  // Management nav buttons
+  // ═══════════════════════════════════════════
+
+  Widget _buildMgmtButtons(Event event) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _LiveMgmtStats(eventId: event.id),
+        const SizedBox(height: 12),
+        // Row: Co-organizers, Discounts
+        Row(
+          children: [
+            Expanded(
+              child: _mgmtActionCard(
+                icon: Icons.group_rounded,
+                label: 'Co-Organizers',
+                color: AppTheme.accentColor,
+                onTap: () => context.push('/events/${event.id}/co-organizers'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _mgmtActionCard(
+                icon: Icons.discount_rounded,
+                label: 'Discounts',
+                color: Colors.deepPurple,
+                onTap: () => context.push('/events/${event.id}/discounts'),
+              ),
+            ),
+          ],
+        ),
+        // Pending extension banner
+        if (event.pendingExtension != null) ...[
+          const SizedBox(height: 12),
+          _buildPendingExtensionBanner(event),
+        ],
+      ],
+    );
+  }
+
+  Widget _mgmtActionCard({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: color.withOpacity(0.08),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+          child: Row(
+            children: [
+              Icon(icon, size: 18, color: color),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  label,
+                  style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 13),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPendingExtensionBanner(Event event) {
+    final ext = event.pendingExtension!;
+    final user = context.read<AuthProvider>().user;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.warningColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.warningColor.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.schedule_rounded, size: 18, color: AppTheme.warningColor),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Extension Pending Admin Approval',
+                  style: TextStyle(fontWeight: FontWeight.w700, color: AppTheme.warningColor, fontSize: 14),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (ext['funding_end_at'] != null)
+            Text('New funding end: ${ext['funding_end_at']}',
+                style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+          if (ext['start_time'] != null)
+            Text('New start time: ${ext['start_time']}',
+                style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+          if (ext['end_time'] != null)
+            Text('New end time: ${ext['end_time']}',
+                style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+          if (user != null && user.isAdmin) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: () => _decideExtension(event.id, 'approve'),
+                    icon: const Icon(Icons.check, size: 18),
+                    label: const Text('Approve'),
+                    style: FilledButton.styleFrom(backgroundColor: AppTheme.successColor),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _decideExtension(event.id, 'reject'),
+                    icon: const Icon(Icons.close, size: 18),
+                    label: const Text('Reject'),
+                    style: OutlinedButton.styleFrom(foregroundColor: AppTheme.errorColor),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _decideExtension(int eventId, String action) async {
+    try {
+      await ApiService().decideExtension(eventId, action);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Extension ${action}d')),
+        );
+        context.read<EventProvider>().loadEvent(eventId);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  // Extend Funding Dialog
+  // ═══════════════════════════════════════════
+
+  Future<void> _showExtendFundingDialog(BuildContext context, Event event) async {
+    final fundingCtrl = TextEditingController();
+    final startCtrl = TextEditingController();
+    final endCtrl = TextEditingController();
+    final result = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Extend Funding Period'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'This will send a request to admin for approval.',
+                style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: fundingCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'New Funding End (ISO)',
+                  hintText: '2026-03-01T00:00:00',
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: startCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'New Start Time (ISO, optional)',
+                  hintText: '2026-04-01T18:00:00',
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: endCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'New End Time (ISO, optional)',
+                  hintText: '2026-04-01T22:00:00',
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () {
+              final data = <String, String>{};
+              if (fundingCtrl.text.trim().isNotEmpty) {
+                data['funding_end_at'] = fundingCtrl.text.trim();
+              }
+              if (startCtrl.text.trim().isNotEmpty) {
+                data['start_time'] = startCtrl.text.trim();
+              }
+              if (endCtrl.text.trim().isNotEmpty) {
+                data['end_time'] = endCtrl.text.trim();
+              }
+              Navigator.pop(ctx, data);
+            },
+            child: const Text('Submit Request'),
+          ),
+        ],
+      ),
+    );
+    if (result == null || result.isEmpty) return;
+    try {
+      await ApiService().extendFunding(event.id, result);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Extension request submitted for admin approval')),
+        );
+        context.read<EventProvider>().loadEvent(event.id);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  // Ticket Tier Management (Edit / Delete)
+  // ═══════════════════════════════════════════
+
+  Widget _buildTicketTierManagement(Event event) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 32),
+        _sectionTitle(context, 'Manage Ticket Tiers'),
+        const SizedBox(height: 12),
+        FutureBuilder<List<dynamic>>(
+          future:
+              context.read<ApiService>().dio.get('/events/${event.id}/ticket-tiers').then((r) => r.data as List),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (snapshot.hasError) {
+              return Text('Could not load tiers',
+                  style: TextStyle(color: Colors.grey[500]));
+            }
+            final tiers = snapshot.data ?? [];
+            if (tiers.isEmpty) {
+              return Text('No tiers configured',
+                  style: TextStyle(color: Colors.grey[500]));
+            }
+            return Column(
+              children: tiers.map((tier) {
+                final tierId = tier['id'];
+                final name = tier['name'] ?? '';
+                final desc = tier['description'] ?? '';
+                final priceCents = tier['price_cents'] ?? 0;
+                final price =
+                    '\$${(priceCents / 100).toStringAsFixed(2)}';
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(name,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 15)),
+                            if (desc.isNotEmpty)
+                              Text(desc,
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[600])),
+                            Text(price,
+                                style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.successColor)),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.edit_outlined, size: 20),
+                        tooltip: 'Edit tier',
+                        onPressed: () => _showEditTierDialog(
+                            event.id, tierId, name, desc, priceCents),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.delete_outline,
+                            size: 20, color: AppTheme.errorColor),
+                        tooltip: 'Delete tier',
+                        onPressed: () =>
+                            _confirmDeleteTier(event.id, tierId, name),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showEditTierDialog(int eventId, int tierId, String name,
+      String description, int priceCents) async {
+    final nameCtrl = TextEditingController(text: name);
+    final descCtrl = TextEditingController(text: description);
+    final priceCtrl = TextEditingController(
+        text: (priceCents / 100).toStringAsFixed(2));
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Edit Tier'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameCtrl,
+              decoration: const InputDecoration(labelText: 'Tier Name'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: descCtrl,
+              decoration: const InputDecoration(labelText: 'Description'),
+              maxLines: 2,
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: priceCtrl,
+              decoration: const InputDecoration(
+                  labelText: 'Price', prefixText: '\$ '),
+              keyboardType: TextInputType.number,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              final price = double.tryParse(priceCtrl.text);
+              if (nameCtrl.text.trim().isEmpty || price == null) return;
+              try {
+                final api = context.read<ApiService>();
+                await api.updateTicketTier(eventId, tierId, {
+                  'name': nameCtrl.text.trim(),
+                  'description': descCtrl.text.trim(),
+                  'price_cents': (price * 100).toInt(),
+                });
+                if (ctx.mounted) Navigator.pop(ctx, true);
+              } catch (e) {
+                if (ctx.mounted) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    SnackBar(content: Text('Failed: $e')),
+                  );
+                }
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (saved == true && mounted) {
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tier updated!')),
+      );
+    }
+  }
+
+  Future<void> _confirmDeleteTier(
+      int eventId, int tierId, String name) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Tier'),
+        content: Text('Delete "$name"? This cannot be undone.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style:
+                ElevatedButton.styleFrom(backgroundColor: AppTheme.errorColor),
+            child:
+                const Text('Delete', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      try {
+        final api = context.read<ApiService>();
+        await api.deleteTicketTier(eventId, tierId);
+        if (mounted) {
+          setState(() {});
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Tier deleted.')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed: $e')),
+          );
+        }
+      }
+    }
+  }
+
+  // ═══════════════════════════════════════════
+}
+
+// ═══════════════════════════════════════════
+// Live Management Stats — clickable stat chips
+// (sold, scanned, waitlist, revenue)
+// ═══════════════════════════════════════════
+
+class _LiveMgmtStats extends StatefulWidget {
+  final int eventId;
+  const _LiveMgmtStats({required this.eventId});
+
+  @override
+  State<_LiveMgmtStats> createState() => _LiveMgmtStatsState();
+}
+
+class _LiveMgmtStatsState extends State<_LiveMgmtStats> {
+  int _soldCount = 0;
+  int _scannedCount = 0;
+  int _waitlistCount = 0;
+  int _revenueCents = 0;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final api = context.read<ApiService>();
+      final results = await Future.wait([
+        api.getTicketSales(widget.eventId),
+        api.getScannedTickets(widget.eventId),
+        api.getRegistrations(widget.eventId),
+      ]);
+      final allSales = results[0];
+      final scanned = results[1];
+      final regs = results[2];
+      final revenue = allSales.fold<int>(
+          0, (s, e) => s + ((e['amount_paid_cents'] ?? 0) as int));
+      final waitlisted =
+          regs.where((r) => r['status'] == 'waitlist').length;
+      if (mounted) {
+        setState(() {
+          _soldCount = allSales.length;
+          _scannedCount = scanned.length;
+          _waitlistCount = waitlisted;
+          _revenueCents = revenue;
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const SizedBox(
+        height: 100,
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      );
+    }
+
+    return Column(
+      children: [
+        // Row 1: sold, scanned
+        Row(
+          children: [
+            Expanded(
+              child: _tapChip(
+                icon: Icons.confirmation_number_rounded,
+                label: '$_soldCount sold',
+                color: AppTheme.primaryColor,
+                onTap: () =>
+                    context.push('/events/${widget.eventId}/ticket-sales'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _tapChip(
+                icon: Icons.qr_code_scanner_rounded,
+                label: '$_scannedCount scanned',
+                color: AppTheme.successColor,
+                onTap: () =>
+                    context.push('/events/${widget.eventId}/scanned-tickets'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        // Row 2: waitlist, revenue
+        Row(
+          children: [
+            Expanded(
+              child: _tapChip(
+                icon: Icons.hourglass_top_rounded,
+                label: '$_waitlistCount waitlisted',
+                color: AppTheme.warningColor,
+                onTap: () =>
+                    context.push('/events/${widget.eventId}/waitlist'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _tapChip(
+                icon: Icons.attach_money_rounded,
+                label: '\$${(_revenueCents / 100).toStringAsFixed(0)}',
+                color: Colors.teal,
+                onTap: () =>
+                    context.push('/events/${widget.eventId}/ticket-sales'),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _tapChip({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: color.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Column(
+            children: [
+              Icon(icon, size: 22, color: color),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+// ═══════════════════════════════════════════
+// Customer Discounts Section
+// ═══════════════════════════════════════════
+
+class _CustomerDiscountsSection extends StatefulWidget {
+  final int eventId;
+  const _CustomerDiscountsSection({required this.eventId});
+
+  @override
+  State<_CustomerDiscountsSection> createState() => _CustomerDiscountsSectionState();
+}
+
+class _CustomerDiscountsSectionState extends State<_CustomerDiscountsSection> {
+  List<Map<String, dynamic>> _discounts = [];
+  bool _loaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final list = await ApiService().getMyDiscounts(widget.eventId);
+      if (mounted) {
+        setState(() {
+          _discounts = list.cast<Map<String, dynamic>>();
+          _loaded = true;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loaded = true);
+    }
+  }
+
+  String _describe(Map<String, dynamic> d) {
+    final type = d['discount_type'] ?? '';
+    final val = d['value'] ?? 0;
+    switch (type) {
+      case 'ticket_percent':
+        return '$val% off ticket price';
+      case 'pledge_percent':
+        final pledged = d['total_pledged_cents'] ?? 0;
+        final amount = pledged * val ~/ 100;
+        return '\$${(amount / 100).toStringAsFixed(2)} (${val}% of your pledge)';
+      case 'fixed_cents':
+        return '\$${(val / 100).toStringAsFixed(2)} flat discount';
+      default:
+        return '$val';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_loaded || _discounts.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 20),
+        Row(
+          children: [
+            Icon(Icons.local_offer_rounded, size: 20, color: Colors.deepPurple),
+            const SizedBox(width: 8),
+            Text('Your Discounts',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ..._discounts.map((d) => Container(
+              margin: const EdgeInsets.only(bottom: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.deepPurple.withOpacity(0.06),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.discount_rounded, size: 16, color: Colors.deepPurple),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(d['name'] ?? 'Discount',
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                        Text(_describe(d),
+                            style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            )),
+        const SizedBox(height: 8),
+      ],
     );
   }
 }

@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
 import '../../models/event.dart';
+import '../../models/venue.dart';
 import '../../models/ticket_strategy.dart';
 import '../../providers/event_provider.dart';
 import '../../services/api_service.dart';
@@ -40,6 +41,8 @@ class _EditEventScreenState extends State<EditEventScreen> {
   DateTime? _fundingEndAt;
   List<TicketStrategy> _strategies = [];
   int? _selectedStrategyId;
+  List<Venue> _venues = [];
+  int? _selectedVenueId;
 
   final List<String> _genres = [
     'community', 'music', 'tech', 'sports', 'arts',
@@ -52,7 +55,18 @@ class _EditEventScreenState extends State<EditEventScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadEvent();
       _loadStrategies();
+      _loadVenues();
     });
+  }
+
+  Future<void> _loadVenues() async {
+    try {
+      final api = context.read<ApiService>();
+      final data = await api.getVenues();
+      setState(() {
+        _venues = data.map((v) => Venue.fromJson(v)).toList();
+      });
+    } catch (_) {}
   }
 
   Future<void> _loadStrategies() async {
@@ -88,6 +102,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
         _endTime = event.endTime;
         _fundingEndAt = event.fundingEndAt;
         _selectedStrategyId = event.ticketStrategyId;
+        _selectedVenueId = event.venueId;
         _loadingEvent = false;
       });
     } catch (e) {
@@ -134,6 +149,9 @@ class _EditEventScreenState extends State<EditEventScreen> {
     }
     if (_selectedStrategyId != null) {
       data['ticket_strategy_id'] = _selectedStrategyId;
+    }
+    if (_selectedVenueId != null && _selectedVenueId != _event?.venueId) {
+      data['venue_id'] = _selectedVenueId;
     }
 
     try {
@@ -347,6 +365,24 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                   v == null ? 'Please select a genre' : null,
                             ),
                             const SizedBox(height: 16),
+
+                            // Venue dropdown
+                            if (_venues.isNotEmpty) ...[
+                              const SizedBox(height: 16),
+                              DropdownButtonFormField<int>(
+                                value: _venues.any((v) => v.id == _selectedVenueId)
+                                    ? _selectedVenueId
+                                    : null,
+                                decoration:
+                                    const InputDecoration(labelText: 'Venue'),
+                                items: _venues
+                                    .map((v) => DropdownMenuItem(
+                                        value: v.id, child: Text(v.name)))
+                                    .toList(),
+                                onChanged: (v) =>
+                                    setState(() => _selectedVenueId = v),
+                              ),
+                            ],
 
                             // Community Rules toggle — only in draft
                             if (_event?.status.name == 'draft')

@@ -303,6 +303,26 @@ class ApiService {
     return resp.data;
   }
 
+  Future<List<dynamic>> getWaitlistedTickets(int eventId) async {
+    final resp = await dio.get('/events/$eventId/waitlisted-tickets');
+    return resp.data;
+  }
+
+  Future<Map<String, dynamic>> approveWaitlistedTicket(int eventId, int ticketId) async {
+    final resp = await dio.post('/events/$eventId/waitlisted-tickets/$ticketId/approve');
+    return resp.data;
+  }
+
+  Future<Map<String, dynamic>> rejectWaitlistedTicket(int eventId, int ticketId) async {
+    final resp = await dio.post('/events/$eventId/waitlisted-tickets/$ticketId/reject');
+    return resp.data;
+  }
+
+  Future<Map<String, dynamic>> startSellingTickets(int eventId) async {
+    final resp = await dio.post('/events/$eventId/start-selling');
+    return resp.data;
+  }
+
   Future<Map<String, dynamic>> decideRegistration(
       int eventId, int registrationId, String action) async {
     final resp = await dio.post(

@@ -413,6 +413,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                     _modernInfoRow(Icons.badge_rounded, 'Registration', event.registrationType.name.replaceAll('_', ' ')),
                                     if (event.eventDateDeadline != null)
                                       _modernInfoRow(Icons.hourglass_bottom_rounded, 'Set Event Date By', dateFormat.format(event.eventDateDeadline!)),
+                                    if (event.ticketStrategyName != null)
+                                      _modernInfoRow(Icons.confirmation_number_rounded, 'Ticket Strategy', event.ticketStrategyName!),
                                     if (event.refundDeadlineDays != null)
                                       _modernInfoRow(
                                         Icons.shield_rounded,
@@ -535,7 +537,11 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                               if (event.status == EventStatus.selling_tickets)
                                 _infoBanner('Funding has ended. Tickets are now on sale!', Icons.confirmation_number, Colors.teal),
                               if (event.status == EventStatus.waiting_event_date)
-                                _infoBanner('Funding has ended. Waiting for organizer to set event date.', Icons.hourglass_top, Colors.orange),
+                                _infoBanner(
+                                  event.startTime != null && event.ticketStrategyId != null
+                                      ? 'Funding has ended. Ready to start selling tickets.'
+                                      : 'Funding has ended. Set event dates and ticket strategy, then start selling.',
+                                  Icons.hourglass_top, Colors.orange),
                               if (event.status == EventStatus.completed)
                                 _infoBanner('This event has been completed.', Icons.check_circle, Colors.grey),
 
@@ -643,6 +649,31 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                         label: const Text('Set Event Date'),
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: Colors.orange,
+                                          foregroundColor: Colors.white,
+                                        ),
+                                      ),
+
+                                    // Start Selling Tickets (waiting_event_date, dates + strategy set)
+                                    if (event.status == EventStatus.waiting_event_date &&
+                                        event.startTime != null &&
+                                        event.ticketStrategyId != null)
+                                      ElevatedButton.icon(
+                                        onPressed: () async {
+                                          final ok = await eventProvider.startSellingTickets(event.id);
+                                          if (ok && mounted) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              const SnackBar(content: Text('Tickets are now on sale!')),
+                                            );
+                                          } else if (!ok && mounted) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(content: Text(eventProvider.error ?? 'Failed to start selling tickets')),
+                                            );
+                                          }
+                                        },
+                                        icon: const Icon(Icons.storefront_rounded, size: 18),
+                                        label: const Text('Start Selling Tickets'),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.teal,
                                           foregroundColor: Colors.white,
                                         ),
                                       ),
@@ -1107,6 +1138,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
             final name = t['name'] ?? 'Tier';
             final desc = t['description'] as String?;
             final priceCents = t['price_cents'] ?? 0;
+            final quantity = t['quantity'] ?? 0;
             final isFree = priceCents == 0;
             final basePrice = isFree ? null : (priceCents / 100).toStringAsFixed(2);
 
@@ -1128,6 +1160,12 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                               style: const TextStyle(
                                   fontWeight: FontWeight.w600)),
                         ),
+                        if (quantity > 0)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: Text('$quantity left',
+                                style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                          ),
                         if (isFree)
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
@@ -1332,15 +1370,25 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       final ticketCode = resp.data['ticket_code'] ?? '';
       final amountPaid = resp.data['amount_paid_cents'] ?? 0;
       final commission = resp.data['commission_cents'] ?? 0;
+      final status = resp.data['status'] ?? 'purchased';
       final isFree = amountPaid == 0;
       if (mounted) {
-        final priceStr = isFree
-            ? 'Free ticket'
-            : 'Paid \$${(amountPaid / 100).toStringAsFixed(2)}'
-              '${commission > 0 ? ' (incl. \$${(commission / 100).toStringAsFixed(2)} platform fee)' : ''}';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$priceStr — Code: $ticketCode')),
-        );
+        if (status == 'waitlisted') {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Event/tier is at capacity — you have been added to the ticket waitlist.'),
+              duration: Duration(seconds: 4),
+            ),
+          );
+        } else {
+          final priceStr = isFree
+              ? 'Free ticket'
+              : 'Paid \$${(amountPaid / 100).toStringAsFixed(2)}'
+                '${commission > 0 ? ' (incl. \$${(commission / 100).toStringAsFixed(2)} platform fee)' : ''}';
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('$priceStr — Code: $ticketCode')),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -1680,6 +1728,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           onTap: () => context.push('/events/${event.id}/co-organizers'),
         ),
         const SizedBox(height: 12),
+        // Ticket waitlist button
+        _mgmtActionCard(
+          icon: Icons.confirmation_number_rounded,
+          label: 'Ticket Waitlist',
+          color: Colors.orange,
+          onTap: () => context.push('/events/${event.id}/ticket-waitlist'),
+        ),
+        const SizedBox(height: 12),
         // Inline discount attach/detach
         _EventDiscountDropdown(eventId: event.id),
         // Pending extension banner
@@ -1940,42 +1996,15 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   Future<void> _showSetEventDateDialog(BuildContext context, Event event) async {
     final api = context.read<ApiService>();
 
-    // Load venues, ticket strategies, and check for existing ticket sales
-    List<Map<String, dynamic>> venues = [];
-    List<Map<String, dynamic>> strategies = [];
-    bool hasTicketSales = false;
-    try {
-      final results = await Future.wait([
-        api.getVenues(),
-        api.getTicketStrategies(),
-        api.getTicketSales(event.id),
-      ]);
-      venues = (results[0] as List).cast<Map<String, dynamic>>();
-      strategies = (results[1] as List).cast<Map<String, dynamic>>();
-      hasTicketSales = (results[2] as List).isNotEmpty;
-    } catch (_) {}
-
-    final bool hasExistingStrategy = event.ticketStrategyId != null;
-    // If tickets sold → strategy is locked (don't show dropdown)
-    // If no strategy set → dropdown is mandatory
-    // If strategy set but no sales → dropdown is optional (can change)
-    final bool showStrategyDropdown = !hasTicketSales && strategies.isNotEmpty;
-    final bool strategyRequired = !hasExistingStrategy && !hasTicketSales;
-
     DateTime? pickedStart;
     DateTime? pickedEnd;
-    int? selectedVenueId = event.venue?.id;
-    int? selectedStrategyId = event.ticketStrategyId;
 
     if (!mounted) return;
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {
-          // Determine if the form is valid
-          final bool datesReady = pickedStart != null && pickedEnd != null;
-          final bool strategyReady = !strategyRequired || selectedStrategyId != null;
-          final bool canSubmit = datesReady && strategyReady;
+          final bool canSubmit = pickedStart != null && pickedEnd != null;
 
           return AlertDialog(
             title: const Text('Set Event Date'),
@@ -2080,114 +2109,26 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                         }
                       },
                     ),
-                    const Divider(),
                     const SizedBox(height: 8),
-                    // ── Venue dropdown ──
-                    if (venues.isNotEmpty)
-                      DropdownButtonFormField<int>(
-                        value: selectedVenueId,
-                        isExpanded: true,
-                        decoration: const InputDecoration(
-                          labelText: 'Venue',
-                          prefixIcon: Icon(Icons.location_city_rounded),
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                        ),
-                        items: venues.map((v) {
-                          return DropdownMenuItem<int>(
-                            value: v['id'] as int,
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline, size: 16, color: Colors.blue.shade700),
+                          const SizedBox(width: 8),
+                          Expanded(
                             child: Text(
-                              '${v['name']} — ${v['city']}',
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 13),
+                              'After setting dates, you can start selling tickets from the organizer actions.',
+                              style: TextStyle(color: Colors.blue.shade700, fontSize: 12),
                             ),
-                          );
-                        }).toList(),
-                        onChanged: (v) => setDialogState(() => selectedVenueId = v),
-                      ),
-                    if (venues.isNotEmpty) const SizedBox(height: 14),
-                    // ── Ticket Strategy ──
-                    if (hasTicketSales)
-                      // Tickets already sold — locked, show info
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.lock_rounded, size: 16, color: Colors.grey.shade600),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Ticket strategy locked — tickets have been sold.',
-                                style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    else if (showStrategyDropdown) ...[
-                      DropdownButtonFormField<int>(
-                        value: strategies.any((s) => s['id'] == selectedStrategyId)
-                            ? selectedStrategyId
-                            : null,
-                        isExpanded: true,
-                        decoration: InputDecoration(
-                          labelText: strategyRequired
-                              ? 'Ticket Strategy *'
-                              : 'Ticket Strategy',
-                          prefixIcon: const Icon(Icons.confirmation_number_rounded),
-                          border: const OutlineInputBorder(),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                        ),
-                        items: [
-                          if (!strategyRequired)
-                            const DropdownMenuItem<int>(
-                              value: null,
-                              child: Text('Keep current', style: TextStyle(fontSize: 13, color: Colors.grey)),
-                            ),
-                          ...strategies.map((s) {
-                            final tierCount = (s['tiers'] as List?)?.length ?? 0;
-                            return DropdownMenuItem<int>(
-                              value: s['id'] as int,
-                              child: Text(
-                                '${s['name']} ($tierCount tiers)',
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 13),
-                              ),
-                            );
-                          }),
+                          ),
                         ],
-                        onChanged: (v) => setDialogState(() => selectedStrategyId = v),
-                        validator: strategyRequired
-                            ? (v) => v == null ? 'Ticket strategy is required' : null
-                            : null,
                       ),
-                      if (strategyRequired) ...[
-                        const SizedBox(height: 6),
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.shade50,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.warning_amber_rounded, size: 16, color: Colors.orange.shade700),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'A ticket strategy is required to start selling tickets.',
-                                  style: TextStyle(color: Colors.orange.shade700, fontSize: 12),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ],
+                    ),
                   ],
                 ),
               ),
@@ -2201,12 +2142,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                           'start_time': pickedStart!.toIso8601String(),
                           'end_time': pickedEnd!.toIso8601String(),
                         };
-                        if (selectedVenueId != null && selectedVenueId != event.venue?.id) {
-                          data['venue_id'] = selectedVenueId;
-                        }
-                        if (selectedStrategyId != null && selectedStrategyId != event.ticketStrategyId) {
-                          data['ticket_strategy_id'] = selectedStrategyId;
-                        }
                         Navigator.pop(ctx, data);
                       }
                     : null,
@@ -2222,7 +2157,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       await api.setEventDate(event.id, result);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Event date set! Moving to ticket sales.')),
+          const SnackBar(content: Text('Event date set!')),
         );
         context.read<EventProvider>().loadEvent(event.id);
       }
@@ -2268,8 +2203,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 final name = tier['name'] ?? '';
                 final desc = tier['description'] ?? '';
                 final priceCents = tier['price_cents'] ?? 0;
+                final quantity = tier['quantity'] ?? 0;
                 final price =
                     '\$${(priceCents / 100).toStringAsFixed(2)}';
+                final qtyLabel = quantity > 0 ? '$quantity tickets' : 'Unlimited';
                 return Container(
                   margin: const EdgeInsets.only(bottom: 8),
                   padding: const EdgeInsets.all(14),
@@ -2299,11 +2236,20 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                   style: TextStyle(
                                       fontSize: 12,
                                       color: Colors.grey[600])),
-                            Text(price,
-                                style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppTheme.successColor)),
+                            Row(
+                              children: [
+                                Text(price,
+                                    style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppTheme.successColor)),
+                                const SizedBox(width: 8),
+                                Text('· $qtyLabel',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey[500])),
+                              ],
+                            ),
                           ],
                         ),
                       ),
@@ -2311,7 +2257,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                         icon: const Icon(Icons.edit_outlined, size: 20),
                         tooltip: 'Edit tier',
                         onPressed: () => _showEditTierDialog(
-                            event.id, tierId, name, desc, priceCents),
+                            event.id, tierId, name, desc, priceCents, quantity),
                       ),
                       IconButton(
                         icon: Icon(Icons.delete_outline,
@@ -2332,11 +2278,12 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   }
 
   Future<void> _showEditTierDialog(int eventId, int tierId, String name,
-      String description, int priceCents) async {
+      String description, int priceCents, [int quantity = 0]) async {
     final nameCtrl = TextEditingController(text: name);
     final descCtrl = TextEditingController(text: description);
     final priceCtrl = TextEditingController(
         text: (priceCents / 100).toStringAsFixed(2));
+    final quantityCtrl = TextEditingController(text: quantity.toString());
 
     final saved = await showDialog<bool>(
       context: context,
@@ -2362,6 +2309,15 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                   labelText: 'Price', prefixText: '\$ '),
               keyboardType: TextInputType.number,
             ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: quantityCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Quantity (0 = unlimited)',
+                hintText: '0',
+              ),
+              keyboardType: TextInputType.number,
+            ),
           ],
         ),
         actions: [
@@ -2378,6 +2334,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                   'name': nameCtrl.text.trim(),
                   'description': descCtrl.text.trim(),
                   'price_cents': (price * 100).toInt(),
+                  'quantity': int.tryParse(quantityCtrl.text) ?? 0,
                 });
                 if (ctx.mounted) Navigator.pop(ctx, true);
               } catch (e) {

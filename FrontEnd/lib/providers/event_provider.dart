@@ -97,6 +97,18 @@ class EventProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> startSellingTickets(int id) async {
+    try {
+      await _api.startSellingTickets(id);
+      await loadEvent(id);
+      return true;
+    } catch (e) {
+      _error = 'Failed to start selling tickets.';
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<bool> deleteEvent(int id) async {
     try {
       await _api.deleteEvent(id);

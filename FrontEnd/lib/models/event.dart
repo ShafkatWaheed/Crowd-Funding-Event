@@ -42,6 +42,7 @@ class Event {
   final int? refundDeadlineDays;
   final DateTime? eventDateDeadline;
   final int? ticketStrategyId;
+  final String? ticketStrategyName;
   final int likeCount;
   final int dislikeCount;
   final Map<String, dynamic>? pendingExtension;
@@ -77,6 +78,7 @@ class Event {
     this.refundDeadlineDays,
     this.eventDateDeadline,
     this.ticketStrategyId,
+    this.ticketStrategyName,
     this.likeCount = 0,
     this.dislikeCount = 0,
     this.pendingExtension,
@@ -124,6 +126,7 @@ class Event {
           ? DateTime.parse(json['event_date_deadline'])
           : null,
       ticketStrategyId: json['ticket_strategy_id'],
+      ticketStrategyName: json['ticket_strategy_name'],
       likeCount: json['like_count'] ?? 0,
       dislikeCount: json['dislike_count'] ?? 0,
       pendingExtension: json['pending_extension'] != null

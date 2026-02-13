@@ -26,9 +26,10 @@ async def auto_transition_status(db: AsyncSession, event: Event) -> Event:
 
     Lifecycle:
       approved → (funding_end_at passes):
-        - If start_time set → selling_tickets
+        - If start_time set → waiting_event_date (organizer must manually start selling)
         - If start_time NOT set → waiting_event_date (deadline = funding_end + grace days)
       approved (no funding, event date set) → stays approved until start_time
+      waiting_event_date → (organizer clicks "Start Selling") → selling_tickets
       selling_tickets / approved → (start_time reaches now) → live
       live → (end_time reaches now) → completed
       waiting_event_date → (event_date_deadline passes, no start_time) → cancelled + refund
@@ -45,29 +46,24 @@ async def auto_transition_status(db: AsyncSession, event: Event) -> Event:
 
     status = event.status
 
-    # ── approved → check funding end ──
+    # ── approved → check funding end / non-funded transitions ──
     if status == EventStatus.approved:
         funding_end = _tz(event.funding_end_at)
         if funding_end is not None and now >= funding_end:
-            if event.start_time is not None:
-                event.status = EventStatus.selling_tickets
-                changed = True
-            else:
-                # Configurable grace period (default 7 days)
-                grace_days = await settings_svc.get_int(db, "event_date_grace_days")
+            # Funding ended → always go to waiting_event_date (organizer must manually start selling)
+            grace_days = await settings_svc.get_int(db, "event_date_grace_days")
+            if event.event_date_deadline is None:
                 event.event_date_deadline = funding_end + timedelta(days=grace_days)
-                event.status = EventStatus.waiting_event_date
-                changed = True
-        elif funding_end is None and event.start_time is None:
-            pass  # No funding, no event date — stay approved (shouldn't normally happen)
-
-    # ── waiting_event_date → check if date set or deadline passed ──
-    if status == EventStatus.waiting_event_date:
-        if event.start_time is not None:
-            # Organizer set a date → move to selling_tickets
+            event.status = EventStatus.waiting_event_date
+            changed = True
+        elif funding_end is None and event.start_time is not None and event.ticket_strategy_id is not None:
+            # Non-funded event with dates + ticket strategy → go straight to selling_tickets
             event.status = EventStatus.selling_tickets
             changed = True
-        elif event.event_date_deadline is not None and now >= _tz(event.event_date_deadline):
+
+    # ── waiting_event_date → check if deadline passed (organizer must manually start selling) ──
+    if status == EventStatus.waiting_event_date:
+        if event.event_date_deadline is not None and now >= _tz(event.event_date_deadline) and event.start_time is None:
             # Deadline passed, no date set → cancel and refund
             event.status = EventStatus.cancelled
             event.cancellation_reason = "Event date was not set within the required deadline. Pledges refunded."
@@ -140,7 +136,7 @@ async def get_by_id(
     """Load event by id. Returns None if not found."""
     q = select(Event).where(Event.id == event_id)
     if load_venue:
-        q = q.options(selectinload(Event.venue))
+        q = q.options(selectinload(Event.venue), selectinload(Event.ticket_strategy))
     if load_organizer:
         q = q.options(selectinload(Event.organizer))
     result = await db.execute(q)
@@ -265,7 +261,7 @@ async def list_events(
         conditions.append(Event.community_rules == community_rules)
     if conditions:
         q = q.where(and_(*conditions))
-    q = q.options(selectinload(Event.venue)).order_by(Event.start_time.asc())
+    q = q.options(selectinload(Event.venue), selectinload(Event.ticket_strategy)).order_by(Event.start_time.asc())
     result = await db.execute(q)
     return result.scalars().unique().all()
 
@@ -468,6 +464,7 @@ async def update(
     description: str | None = None,
     start_time: datetime | None = None,
     end_time: datetime | None = None,
+    venue_id: int | None = None,
     funding_goal_cents: int | None = None,
     funding_end_at: datetime | None = None,
     min_pledge_cents: int | None = None,
@@ -483,6 +480,16 @@ async def update(
 ) -> Event:
     """Update event fields (only provided ones). When switching closed→open, auto-approve waitlist up to capacity."""
     old_registration_type = event.registration_type
+    if venue_id is not None and venue_id != event.venue_id:
+        venue_result = await db.execute(select(Venue).where(Venue.id == venue_id))
+        venue = venue_result.scalar_one_or_none()
+        if not venue:
+            raise NotFoundError("Venue", venue_id)
+        event.venue_id = venue_id
+        if venue.lat is not None:
+            event.lat = venue.lat
+        if venue.lng is not None:
+            event.lng = venue.lng
     if title is not None:
         event.title = title
     if description is not None:
@@ -593,9 +600,12 @@ async def _check_cancel_threshold(db: AsyncSession, event: Event, user: User, re
 
 async def cancel_event(db: AsyncSession, event: Event, user: User, *, reason: str | None = None) -> Event:
     """
-    Organizer cancels the event (anytime). Sets status to cancelled and refunds all pledges.
-    Not allowed if event is already cancelled or ended.
-    If >=80% funded, routes to admin approval queue instead.
+    Cancel the event. Rules:
+    - Not allowed if already cancelled or completed.
+    - selling_tickets: only admin can cancel directly; organizers create a
+      pending cancellation request that admin must approve.
+    - Other statuses: organizer can cancel directly (subject to funding threshold check).
+    - If >=80% funded (any status), routes to admin approval queue.
     """
     if not await user_can_edit_event(db, event, user):
         raise ForbiddenError("You cannot cancel this event")
@@ -603,6 +613,23 @@ async def cancel_event(db: AsyncSession, event: Event, user: User, *, reason: st
         raise ConflictError("Event is already cancelled")
     if event.status in (EventStatus.completed,):
         raise ConflictError("Cannot cancel a completed event")
+
+    from app.models.user import UserRole
+
+    # selling_tickets: non-admin must request admin approval
+    if event.status == EventStatus.selling_tickets and user.role != UserRole.admin:
+        from datetime import datetime, timezone
+        event.pending_cancellation = {
+            "reason": reason or "Organizer requested cancellation",
+            "requested_at": datetime.now(timezone.utc).isoformat(),
+            "requested_by": user.id,
+            "status": event.status.value,
+        }
+        await db.flush()
+        await db.refresh(event)
+        raise ConflictError(
+            "Cancellation request has been sent to admin for approval."
+        )
 
     # Check if cancel needs admin approval (high pledge %)
     blocked = await _check_cancel_threshold(db, event, user, reason)
@@ -679,13 +706,11 @@ async def set_event_date(
     *,
     new_start_time: datetime,
     new_end_time: datetime,
-    venue_id: int | None = None,
-    ticket_strategy_id: int | None = None,
 ) -> Event:
     """
-    Set or update event start/end time, and optionally change venue and ticket strategy.
-    Applies directly (no admin approval).
-    If event is in waiting_event_date, transitions to selling_tickets.
+    Set or update event start/end time.
+    Applies directly (no admin approval). Does NOT auto-transition — organizer must
+    manually start selling tickets via the dedicated action.
     """
     if not await user_can_edit_event(db, event, user):
         raise ForbiddenError("You cannot update this event")
@@ -702,43 +727,35 @@ async def set_event_date(
     event.start_time = new_start_time
     event.end_time = new_end_time
 
-    # Optionally update venue
-    if venue_id is not None and venue_id != event.venue_id:
-        from app.models.venue import Venue as VenueModel
-        venue = (await db.execute(select(VenueModel).where(VenueModel.id == venue_id))).scalar_one_or_none()
-        if venue is None:
-            raise ConflictError("Venue not found")
-        # Check ownership unless admin
-        if user.role.value != "admin" and venue.organizer_id != user.id:
-            raise ForbiddenError("You can only use your own venues")
-        event.venue_id = venue_id
+    await db.flush()
+    return event
 
-    # Optionally update ticket strategy (re-copies tiers, only if no sales)
-    if ticket_strategy_id is not None and ticket_strategy_id != event.ticket_strategy_id:
-        from app.models.ticket import TicketTier, TicketSale
-        existing_sales = (await db.execute(
-            select(TicketSale).where(TicketSale.event_id == event.id).limit(1)
-        )).scalar_one_or_none()
-        if existing_sales is not None:
-            raise ConflictError("Cannot change ticket strategy — tickets have already been sold")
-        # Delete old tiers and copy new ones
-        existing_tiers = (await db.execute(
-            select(TicketTier).where(TicketTier.event_id == event.id)
-        )).scalars().all()
-        for t in existing_tiers:
-            await db.delete(t)
-        await db.flush()
-        event.ticket_strategy_id = ticket_strategy_id
-        from app.services import ticket_strategy as ts_service
-        await ts_service.apply_strategy_to_event(db, strategy_id=ticket_strategy_id, event_id=event.id)
 
-    # Auto-transition: waiting_event_date → selling_tickets
-    if event.status == EventStatus.waiting_event_date:
-        # Ensure a ticket strategy is set before moving to selling_tickets
-        if event.ticket_strategy_id is None:
-            raise ConflictError("A ticket strategy is required before the event can start selling tickets")
-        event.status = EventStatus.selling_tickets
+async def start_selling_tickets(
+    db: AsyncSession,
+    event: Event,
+    user: User,
+) -> Event:
+    """
+    Manually transition event to selling_tickets.
+    Requires: event date set, ticket strategy set, event in waiting_event_date or approved (with funding ended).
+    """
+    if not await user_can_edit_event(db, event, user):
+        raise ForbiddenError("You cannot update this event")
+    if event.status not in (EventStatus.waiting_event_date, EventStatus.approved):
+        raise ConflictError(f"Cannot start selling tickets from {event.status.value} status")
+    if event.start_time is None or event.end_time is None:
+        raise ConflictError("Event start and end times must be set before selling tickets")
+    if event.ticket_strategy_id is None:
+        raise ConflictError("A ticket strategy is required before selling tickets")
+    # If approved with active funding, don't allow early ticket sales
+    if event.status == EventStatus.approved and event.funding_end_at is not None:
+        now = datetime.now(timezone.utc)
+        funding_end = event.funding_end_at if event.funding_end_at.tzinfo else event.funding_end_at.replace(tzinfo=timezone.utc)
+        if now < funding_end:
+            raise ConflictError("Cannot start selling tickets while funding is still active")
 
+    event.status = EventStatus.selling_tickets
     await db.flush()
     return event
 
@@ -861,7 +878,7 @@ async def get_my_registered_events(db: AsyncSession, *, user_id: int) -> Sequenc
             Registration.user_id == user_id,
             Registration.status.in_([RegistrationStatus.registered, RegistrationStatus.waitlist]),
         )
-        .options(selectinload(Event.venue))
+        .options(selectinload(Event.venue), selectinload(Event.ticket_strategy))
         .order_by(Event.created_at.desc())
     )
     result = await db.execute(q)
@@ -873,7 +890,7 @@ async def get_trending_events(db: AsyncSession, *, limit: int = 10) -> Sequence[
     q = (
         select(Event)
         .where(Event.status.in_([EventStatus.approved, EventStatus.selling_tickets, EventStatus.live]))
-        .options(selectinload(Event.venue))
+        .options(selectinload(Event.venue), selectinload(Event.ticket_strategy))
         .order_by(Event.registration_count.desc(), Event.created_at.desc())
         .limit(limit)
     )
@@ -891,7 +908,7 @@ async def get_coming_soon_events(db: AsyncSession, *, limit: int = 10) -> Sequen
             Event.start_time.isnot(None),
             Event.start_time > now,
         )
-        .options(selectinload(Event.venue))
+        .options(selectinload(Event.venue), selectinload(Event.ticket_strategy))
         .order_by(Event.start_time.asc())
         .limit(limit)
     )
@@ -907,7 +924,7 @@ async def get_popular_events(db: AsyncSession, *, limit: int = 10) -> Sequence[E
         .outerjoin(Funding, and_(Funding.event_id == Event.id, Funding.status == FundingStatus.pledged))
         .where(Event.status.in_([EventStatus.approved, EventStatus.selling_tickets, EventStatus.live]))
         .group_by(Event.id)
-        .options(selectinload(Event.venue))
+        .options(selectinload(Event.venue), selectinload(Event.ticket_strategy))
         .order_by(func.coalesce(func.sum(Funding.amount_cents), 0).desc())
         .limit(limit)
     )

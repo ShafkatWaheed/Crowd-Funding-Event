@@ -12,6 +12,7 @@ from app.db.base import Base
 
 class TicketSaleStatus(str, enum.Enum):
     purchased = "purchased"
+    waitlisted = "waitlisted"
     cancelled = "cancelled"
 
 
@@ -24,6 +25,7 @@ class TicketTier(Base):
     name: Mapped[str] = mapped_column(String(64), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)  # what this tier provides
     price_cents: Mapped[int] = mapped_column(Integer, nullable=False)
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # 0 = unlimited
     display_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     event = relationship("Event", back_populates="ticket_tiers")

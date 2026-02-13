@@ -126,6 +126,7 @@ async def apply_strategy_to_event(
             name=st.name,
             description=st.description,
             price_cents=st.price_cents,
+            quantity=st.quantity,
             display_order=st.display_order,
         )
         db.add(tier)

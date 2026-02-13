@@ -103,6 +103,7 @@ def _event_to_response(
         refund_deadline_days=e.refund_deadline_days,
         event_date_deadline=e.event_date_deadline,
         ticket_strategy_id=e.ticket_strategy_id,
+        ticket_strategy_name=e.ticket_strategy.name if e.ticket_strategy_id and e.ticket_strategy else None,
         like_count=e.like_count,
         dislike_count=e.dislike_count if include_dislike else 0,
         pending_extension=e.pending_extension,
@@ -379,6 +380,7 @@ async def update_event(
         description=body.description,
         start_time=start_time,
         end_time=end_time,
+        venue_id=body.venue_id,
         funding_goal_cents=body.funding_goal_cents,
         funding_end_at=funding_end_at,
         min_pledge_cents=body.min_pledge_cents,
@@ -457,9 +459,20 @@ async def set_event_date_endpoint(
         db, event, current_user,
         new_start_time=new_start,
         new_end_time=new_end,
-        venue_id=body.venue_id,
-        ticket_strategy_id=body.ticket_strategy_id,
     )
+    event = await event_service.get_by_id(db, event.id, load_venue=True)
+    return _event_to_response(event)
+
+
+@router.post("/{event_id}/start-selling", response_model=EventResponse)
+async def start_selling_tickets_endpoint(
+    event_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+):
+    """Manually transition event to selling_tickets. Requires dates + ticket strategy."""
+    event = await event_service.get_or_404(db, event_id)
+    event = await event_service.start_selling_tickets(db, event, current_user)
     event = await event_service.get_by_id(db, event.id, load_venue=True)
     return _event_to_response(event)
 
@@ -782,7 +795,8 @@ async def create_ticket_tier(
     tier = await ticket_service.create_tier(
         db, event_id=event_id, user=current_user,
         name=body.name, description=body.description,
-        price_cents=body.price_cents, display_order=body.display_order,
+        price_cents=body.price_cents, quantity=body.quantity,
+        display_order=body.display_order,
     )
     return TicketTierResponse.model_validate(tier)
 
@@ -800,7 +814,8 @@ async def update_ticket_tier(
     tier = await ticket_service.update_tier(
         db, tier, current_user,
         name=body.name, description=body.description,
-        price_cents=body.price_cents, display_order=body.display_order,
+        price_cents=body.price_cents, quantity=body.quantity,
+        display_order=body.display_order,
     )
     return TicketTierResponse.model_validate(tier)
 
@@ -928,6 +943,48 @@ async def list_event_scanned_tickets(
         raise ForbiddenError("You cannot view scanned tickets for this event")
     sales = await ticket_service.list_event_scanned_ticket_sales(db, event_id=event_id)
     return [_ticket_sale_to_response(s) for s in sales]
+
+
+@router.get("/{event_id}/waitlisted-tickets", response_model=list[TicketSaleResponse])
+async def list_event_waitlisted_tickets(
+    event_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+):
+    """List waitlisted tickets for event (organizer/admin)."""
+    event = await event_service.get_or_404(db, event_id)
+    if not await event_service.user_can_edit_event(db, event, current_user):
+        raise ForbiddenError("You cannot view waitlisted tickets for this event")
+    sales = await ticket_service.list_event_waitlisted_tickets(db, event_id=event_id)
+    return [_ticket_sale_to_response(s) for s in sales]
+
+
+@router.post("/{event_id}/waitlisted-tickets/{ticket_id}/approve", response_model=TicketSaleResponse)
+async def approve_waitlisted_ticket(
+    event_id: int,
+    ticket_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+):
+    """Approve a waitlisted ticket → purchased (organizer/admin)."""
+    sale = await ticket_service.approve_waitlisted_ticket(
+        db, event_id=event_id, ticket_sale_id=ticket_id, user=current_user,
+    )
+    return _ticket_sale_to_response(sale)
+
+
+@router.post("/{event_id}/waitlisted-tickets/{ticket_id}/reject", response_model=TicketSaleResponse)
+async def reject_waitlisted_ticket(
+    event_id: int,
+    ticket_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+):
+    """Reject a waitlisted ticket → cancelled (organizer/admin)."""
+    sale = await ticket_service.reject_waitlisted_ticket(
+        db, event_id=event_id, ticket_sale_id=ticket_id, user=current_user,
+    )
+    return _ticket_sale_to_response(sale)
 
 
 @router.post("/{event_id}/discounts")

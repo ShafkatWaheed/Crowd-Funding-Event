@@ -59,6 +59,7 @@ class EventUpdate(BaseModel):
     description: str | None = None
     start_time: str | None = None
     end_time: str | None = None
+    venue_id: int | None = None
     funding_goal_cents: int | None = None
     funding_end_at: str | None = None
     min_pledge_cents: int | None = None
@@ -80,11 +81,9 @@ class ExtendFundingBody(BaseModel):
 
 
 class SetEventDateBody(BaseModel):
-    """Set or update event date/time. Optionally change venue and ticket strategy. Applies directly (no admin approval)."""
+    """Set or update event date/time. Applies directly (no admin approval)."""
     start_time: str  # ISO datetime — required
     end_time: str  # ISO datetime — required
-    venue_id: int | None = None  # optional — change venue
-    ticket_strategy_id: int | None = None  # optional — change ticket strategy (re-copies tiers)
 
 
 class UnregisterResponse(BaseModel):
@@ -138,6 +137,7 @@ class EventResponse(BaseModel):
     refund_deadline_days: int | None = None
     event_date_deadline: datetime | None = None
     ticket_strategy_id: int | None = None
+    ticket_strategy_name: str | None = None
     like_count: int = 0
     dislike_count: int = 0  # only populated for admin
     pending_extension: dict | None = None  # pending admin approval extension

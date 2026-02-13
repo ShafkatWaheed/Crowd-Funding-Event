@@ -175,7 +175,12 @@ async def purchase_ticket(
     tier_id: int,
     extra_perks: str | None = None,
 ) -> TicketSale:
-    """Customer purchases a ticket. Must be registered (registered status)."""
+    """
+    Customer purchases a ticket. Must be registered (registered status).
+    If total purchased tickets for the event already reached venue/event
+    max_capacity, the ticket is placed on the waitlist instead of purchased.
+    Tier-level quantity limits are also enforced.
+    """
     event = await event_service.get_or_404(db, event_id)
     tier = await get_tier_or_404(db, event_id=event_id, tier_id=tier_id)
 
@@ -202,6 +207,31 @@ async def purchase_ticket(
         commission_cents = final_cents * commission_pct // 100
         net_to_organizer = final_cents - commission_cents
 
+    # ── Capacity check: event-level (venue capacity) ──
+    purchased_count_q = select(func.count()).where(
+        TicketSale.event_id == event_id,
+        TicketSale.status == TicketSaleStatus.purchased,
+    )
+    purchased_count = int((await db.execute(purchased_count_q)).scalar_one())
+    over_event_cap = purchased_count >= int(event.max_capacity)
+
+    # ── Capacity check: tier-level (tier quantity, 0 = unlimited) ──
+    over_tier_cap = False
+    if tier.quantity > 0:
+        tier_purchased_q = select(func.count()).where(
+            TicketSale.ticket_tier_id == tier_id,
+            TicketSale.status == TicketSaleStatus.purchased,
+        )
+        tier_purchased = int((await db.execute(tier_purchased_q)).scalar_one())
+        over_tier_cap = tier_purchased >= tier.quantity
+
+    # Determine ticket status based on capacity
+    ticket_status = (
+        TicketSaleStatus.waitlisted
+        if over_event_cap or over_tier_cap
+        else TicketSaleStatus.purchased
+    )
+
     ticket_code = secrets.token_urlsafe(24)
     sale = TicketSale(
         event_id=event_id,
@@ -213,7 +243,7 @@ async def purchase_ticket(
         commission_cents=commission_cents,
         net_to_organizer_cents=net_to_organizer,
         extra_perks=extra_perks if extra_perks else (None if total_discount < tier_price else ""),
-        status=TicketSaleStatus.purchased,
+        status=ticket_status,
     )
     db.add(sale)
     await db.flush()
@@ -229,10 +259,13 @@ async def purchase_ticket(
 
 
 async def list_my_tickets(db: AsyncSession, *, user_id: int) -> Sequence[TicketSale]:
-    """List ticket sales for a user (with event, tier, user loaded)."""
+    """List ticket sales for a user (purchased + waitlisted, with event, tier, user loaded)."""
     q = (
         select(TicketSale)
-        .where(TicketSale.user_id == user_id, TicketSale.status == TicketSaleStatus.purchased)
+        .where(
+            TicketSale.user_id == user_id,
+            TicketSale.status.in_([TicketSaleStatus.purchased, TicketSaleStatus.waitlisted]),
+        )
         .options(
             selectinload(TicketSale.event),
             selectinload(TicketSale.ticket_tier),
@@ -276,6 +309,77 @@ async def list_event_scanned_ticket_sales(db: AsyncSession, *, event_id: int) ->
     )
     res = await db.execute(q)
     return list(res.scalars().unique().all())
+
+
+async def list_event_waitlisted_tickets(db: AsyncSession, *, event_id: int) -> Sequence[TicketSale]:
+    """List waitlisted ticket sales for an event (organizer/admin)."""
+    await event_service.get_or_404(db, event_id)
+    q = (
+        select(TicketSale)
+        .where(TicketSale.event_id == event_id, TicketSale.status == TicketSaleStatus.waitlisted)
+        .options(
+            selectinload(TicketSale.user),
+            selectinload(TicketSale.ticket_tier),
+            selectinload(TicketSale.scanned_by),
+        )
+        .order_by(TicketSale.created_at.asc())  # FIFO: first-come first-served
+    )
+    res = await db.execute(q)
+    return list(res.scalars().unique().all())
+
+
+async def approve_waitlisted_ticket(
+    db: AsyncSession, *, event_id: int, ticket_sale_id: int, user: User
+) -> TicketSale:
+    """Organizer approves a waitlisted ticket → purchased."""
+    event = await event_service.get_or_404(db, event_id)
+    if not await _can_manage_event_tickets(db, user, event):
+        raise ForbiddenError("Only the event organizer or admin can approve waitlisted tickets")
+
+    q = select(TicketSale).where(
+        TicketSale.id == ticket_sale_id, TicketSale.event_id == event_id,
+    ).options(
+        selectinload(TicketSale.user),
+        selectinload(TicketSale.ticket_tier),
+        selectinload(TicketSale.event),
+    )
+    sale = (await db.execute(q)).scalar_one_or_none()
+    if not sale:
+        raise NotFoundError("TicketSale", ticket_sale_id)
+    if sale.status != TicketSaleStatus.waitlisted:
+        raise ConflictError("Only waitlisted tickets can be approved")
+
+    sale.status = TicketSaleStatus.purchased
+    await db.flush()
+    await db.refresh(sale)
+    return sale
+
+
+async def reject_waitlisted_ticket(
+    db: AsyncSession, *, event_id: int, ticket_sale_id: int, user: User
+) -> TicketSale:
+    """Organizer rejects a waitlisted ticket → cancelled."""
+    event = await event_service.get_or_404(db, event_id)
+    if not await _can_manage_event_tickets(db, user, event):
+        raise ForbiddenError("Only the event organizer or admin can reject waitlisted tickets")
+
+    q = select(TicketSale).where(
+        TicketSale.id == ticket_sale_id, TicketSale.event_id == event_id,
+    ).options(
+        selectinload(TicketSale.user),
+        selectinload(TicketSale.ticket_tier),
+        selectinload(TicketSale.event),
+    )
+    sale = (await db.execute(q)).scalar_one_or_none()
+    if not sale:
+        raise NotFoundError("TicketSale", ticket_sale_id)
+    if sale.status != TicketSaleStatus.waitlisted:
+        raise ConflictError("Only waitlisted tickets can be rejected")
+
+    sale.status = TicketSaleStatus.cancelled
+    await db.flush()
+    await db.refresh(sale)
+    return sale
 
 
 async def scan_ticket(
@@ -344,6 +448,7 @@ async def create_tier(
     name: str,
     description: str | None = None,
     price_cents: int,
+    quantity: int = 0,
     display_order: int = 0,
 ) -> TicketTier:
     event = await event_service.get_or_404(db, event_id)
@@ -356,6 +461,7 @@ async def create_tier(
         name=name,
         description=description,
         price_cents=price_cents,
+        quantity=quantity,
         display_order=display_order,
     )
     db.add(tier)
@@ -372,6 +478,7 @@ async def update_tier(
     name: str | None = None,
     description: str | None = None,
     price_cents: int | None = None,
+    quantity: int | None = None,
     display_order: int | None = None,
 ) -> TicketTier:
     event = await event_service.get_or_404(db, tier.event_id)
@@ -385,6 +492,10 @@ async def update_tier(
         if price_cents < 0:
             raise ConflictError("price_cents must be >= 0")
         tier.price_cents = price_cents
+    if quantity is not None:
+        if quantity < 0:
+            raise ConflictError("quantity must be >= 0")
+        tier.quantity = quantity
     if display_order is not None:
         tier.display_order = display_order
     await db.flush()
@@ -396,6 +507,9 @@ async def delete_tier(db: AsyncSession, tier: TicketTier, user: User) -> None:
     event = await event_service.get_or_404(db, tier.event_id)
     if not await _can_manage_event_tickets(db, user, event):
         raise ForbiddenError("Only the event organizer or admin can manage ticket tiers")
+    from app.models.event import EventStatus
+    if event.status in (EventStatus.selling_tickets, EventStatus.live, EventStatus.completed):
+        raise ConflictError("Cannot delete ticket tiers while tickets are on sale or the event is live/completed")
     await db.delete(tier)
     await db.flush()
 

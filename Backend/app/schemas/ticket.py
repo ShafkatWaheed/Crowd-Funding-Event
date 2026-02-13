@@ -9,6 +9,7 @@ class TicketTierCreate(BaseModel):
     name: str
     description: str | None = None
     price_cents: int
+    quantity: int = 0  # 0 = unlimited
     display_order: int = 0
 
     @field_validator("price_cents")
@@ -18,11 +19,19 @@ class TicketTierCreate(BaseModel):
             raise ValueError("price_cents must be >= 0")
         return v
 
+    @field_validator("quantity")
+    @classmethod
+    def quantity_non_negative(cls, v: int) -> int:
+        if v < 0:
+            raise ValueError("quantity must be >= 0")
+        return v
+
 
 class TicketTierUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
     price_cents: int | None = None
+    quantity: int | None = None
     display_order: int | None = None
 
     @field_validator("price_cents")
@@ -32,6 +41,13 @@ class TicketTierUpdate(BaseModel):
             raise ValueError("price_cents must be >= 0")
         return v
 
+    @field_validator("quantity")
+    @classmethod
+    def quantity_non_negative(cls, v: int | None) -> int | None:
+        if v is not None and v < 0:
+            raise ValueError("quantity must be >= 0")
+        return v
+
 
 class TicketTierResponse(BaseModel):
     id: int
@@ -39,6 +55,7 @@ class TicketTierResponse(BaseModel):
     name: str
     description: str | None = None
     price_cents: int
+    quantity: int = 0  # 0 = unlimited
     display_order: int
 
     model_config = {"from_attributes": True}

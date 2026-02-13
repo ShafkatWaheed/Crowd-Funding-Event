@@ -1,6 +1,7 @@
 """
 Event CRUD, ownership checks, list filters (city, status, live, organizer, search, date, capacity, has_funding, has_tickets).
 """
+import math
 from datetime import datetime, timezone
 from typing import Sequence
 
@@ -8,11 +9,12 @@ from sqlalchemy import func, select, and_, or_, exists
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.event import Event, EventOrganizer, EventStatus, RegistrationType
+from app.models.event import Event, EventOrganizer, EventDiscount, OrganizerCustomerHistory, EventStatus, RegistrationType
 from app.models.registration import Registration, RegistrationStatus
 from app.models.venue import Venue
 from app.models.user import User
 from app.models.ticket import TicketTier
+from app.models.funding import Funding, FundingStatus
 from app.core.exceptions import NotFoundError, ForbiddenError, ConflictError
 
 
@@ -99,7 +101,20 @@ def _event_can_edit(user: User, event: Event) -> bool:
 
 
 async def user_can_edit_event(db: AsyncSession, event: Event, user: User) -> bool:
-    """True if user is admin, main organizer, or co-organizer for this event."""
+    """True if user is admin, main organizer, or co-organizer with 'full' permission."""
+    if user.role.value == "admin" or event.organizer_id == user.id:
+        return True
+    q = select(EventOrganizer).where(
+        EventOrganizer.event_id == event.id,
+        EventOrganizer.user_id == user.id,
+    )
+    result = await db.execute(q)
+    eo = result.scalar_one_or_none()
+    return eo is not None and eo.permission == "full"
+
+
+async def user_can_read_event_mgmt(db: AsyncSession, event: Event, user: User) -> bool:
+    """True if user is admin, main organizer, or ANY co-organizer (read or full)."""
     if user.role.value == "admin" or event.organizer_id == user.id:
         return True
     q = select(EventOrganizer).where(
@@ -265,7 +280,6 @@ async def list_events_for_map(
     List events suitable for map markers: have lat/lng, not draft/pending/cancelled.
     Optional city (via venue), live filter, and lat/lng/radius_km (approximate bbox).
     """
-    import math
     conditions = [
         Event.lat.isnot(None),
         Event.lng.isnot(None),
@@ -352,11 +366,18 @@ async def create(
         if not allow_any_venue and ts.organizer_id != organizer_id:
             raise ForbiddenError("You can only use your own ticket strategies")
 
-    # Auto-calculate refund_deadline_days as 20% of funding duration if funding is set
-    if funding_end_at is not None and refund_deadline_days is None:
+    # Refund deadline: auto-calculate as 20% of funding duration, and cap at that max
+    if funding_end_at is not None:
         now = datetime.now(timezone.utc)
         funding_duration_days = max(1, (funding_end_at - now).days)
-        refund_deadline_days = max(1, int(funding_duration_days * 0.2))
+        max_refund_days = max(1, int(math.ceil(funding_duration_days * 0.2)))
+        if refund_deadline_days is None:
+            refund_deadline_days = max_refund_days
+        elif refund_deadline_days > max_refund_days:
+            raise ConflictError(
+                f"Refund deadline cannot exceed {max_refund_days} days "
+                f"(20% of {funding_duration_days}-day funding period)"
+            )
 
     use_lat = lat if lat is not None else venue.lat
     use_lng = lng if lng is not None else venue.lng
@@ -443,6 +464,17 @@ async def update(
     if posts_enabled is not None:
         event.posts_enabled = posts_enabled
     if refund_deadline_days is not None:
+        # Enforce 20% cap of funding duration
+        effective_funding_end = funding_end_at if funding_end_at is not None else event.funding_end_at
+        if effective_funding_end is not None:
+            now = datetime.now(timezone.utc)
+            funding_duration_days = max(1, (effective_funding_end - now).days)
+            max_refund_days = max(1, int(math.ceil(funding_duration_days * 0.2)))
+            if refund_deadline_days > max_refund_days:
+                raise ConflictError(
+                    f"Refund deadline cannot exceed {max_refund_days} days "
+                    f"(20% of {funding_duration_days}-day funding period)"
+                )
         event.refund_deadline_days = refund_deadline_days
     if ticket_strategy_id is not None and ticket_strategy_id != event.ticket_strategy_id:
         event.ticket_strategy_id = ticket_strategy_id
@@ -521,13 +553,68 @@ async def extend_funding_and_set_event_date(
     new_end_time: datetime | None = None,
 ) -> Event:
     """
-    After funding deadline, organizer can extend the funding period and/or set event date.
-    Gives customers new time to unregister or commit. Any of the three can be provided.
+    After funding deadline, organizer can request to extend the funding period and/or set event date.
+    Admin can do it directly; organizer request goes to pending approval.
     """
     if not await user_can_edit_event(db, event, user):
         raise ForbiddenError("You cannot update this event")
     if event.status in (EventStatus.cancelled, EventStatus.completed):
         raise ConflictError(f"Cannot extend a {event.status.value} event")
+
+    # Admin: apply immediately
+    if user.role.value == "admin":
+        return await _apply_extension(db, event, new_funding_end_at, new_start_time, new_end_time)
+
+    # Organizer: store as pending extension requiring admin approval
+    pending = {}
+    if new_funding_end_at is not None:
+        pending["funding_end_at"] = new_funding_end_at.isoformat()
+    if new_start_time is not None:
+        pending["start_time"] = new_start_time.isoformat()
+    if new_end_time is not None:
+        pending["end_time"] = new_end_time.isoformat()
+    if not pending:
+        raise ConflictError("At least one of funding_end_at, start_time, or end_time is required")
+    event.pending_extension = pending
+    await db.flush()
+    await db.refresh(event)
+    return event
+
+
+async def approve_extension(db: AsyncSession, event: Event, admin: User) -> Event:
+    """Admin approves a pending funding extension."""
+    if admin.role.value != "admin":
+        raise ForbiddenError("Only admin can approve extensions")
+    ext = event.pending_extension
+    if not ext:
+        raise ConflictError("No pending extension to approve")
+    funding_end = datetime.fromisoformat(ext["funding_end_at"]) if ext.get("funding_end_at") else None
+    start = datetime.fromisoformat(ext["start_time"]) if ext.get("start_time") else None
+    end = datetime.fromisoformat(ext["end_time"]) if ext.get("end_time") else None
+    event.pending_extension = None
+    return await _apply_extension(db, event, funding_end, start, end)
+
+
+async def reject_extension(db: AsyncSession, event: Event, admin: User) -> Event:
+    """Admin rejects a pending funding extension."""
+    if admin.role.value != "admin":
+        raise ForbiddenError("Only admin can reject extensions")
+    if not event.pending_extension:
+        raise ConflictError("No pending extension to reject")
+    event.pending_extension = None
+    await db.flush()
+    await db.refresh(event)
+    return event
+
+
+async def _apply_extension(
+    db: AsyncSession,
+    event: Event,
+    new_funding_end_at: datetime | None,
+    new_start_time: datetime | None,
+    new_end_time: datetime | None,
+) -> Event:
+    """Apply extension dates to the event directly."""
     if new_funding_end_at is not None:
         event.funding_end_at = new_funding_end_at
     if new_start_time is not None:
@@ -686,13 +773,17 @@ async def list_event_organizers(db: AsyncSession, *, event_id: int) -> tuple[Use
     return main, co_organizers
 
 
-async def add_event_organizer(db: AsyncSession, *, event_id: int, user_id: int, added_by: User) -> EventOrganizer:
+async def add_event_organizer(
+    db: AsyncSession, *, event_id: int, user_id: int, added_by: User, permission: str = "read"
+) -> EventOrganizer:
     """Main organizer adds a co-organizer. User must have role organizer."""
     event = await get_or_404(db, event_id)
     if not is_main_organizer(added_by, event):
         raise ForbiddenError("Only the main organizer can add co-organizers")
     if user_id == event.organizer_id:
         raise ConflictError("User is already the main organizer")
+    if permission not in ("read", "full"):
+        raise ConflictError("Permission must be 'read' or 'full'")
     # Load user to check role
     target = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
     if not target:
@@ -709,7 +800,7 @@ async def add_event_organizer(db: AsyncSession, *, event_id: int, user_id: int, 
     ).scalar_one_or_none()
     if existing:
         raise ConflictError("User is already a co-organizer for this event")
-    eo = EventOrganizer(event_id=event_id, user_id=user_id)
+    eo = EventOrganizer(event_id=event_id, user_id=user_id, permission=permission)
     db.add(eo)
     await db.flush()
     await db.refresh(eo)
@@ -733,3 +824,142 @@ async def remove_event_organizer(db: AsyncSession, *, event_id: int, user_id: in
         raise NotFoundError("Co-organizer", user_id)
     await db.delete(eo)
     await db.flush()
+
+
+# ═══════════════════════════════════════════
+# Event Discounts
+# ═══════════════════════════════════════════
+
+
+async def list_event_discounts(db: AsyncSession, *, event_id: int) -> list[EventDiscount]:
+    q = select(EventDiscount).where(EventDiscount.event_id == event_id).order_by(EventDiscount.id)
+    return list((await db.execute(q)).scalars().all())
+
+
+async def create_event_discount(
+    db: AsyncSession, *, event_id: int, user: User,
+    name: str, discount_type: str, value: int, target: str = "all",
+) -> EventDiscount:
+    event = await get_or_404(db, event_id)
+    if not await user_can_edit_event(db, event, user):
+        raise ForbiddenError("Only event organizer or admin can manage discounts")
+    if discount_type not in ("pledge_percent", "ticket_percent", "fixed_cents"):
+        raise ConflictError("discount_type must be 'pledge_percent', 'ticket_percent', or 'fixed_cents'")
+    if target not in ("all", "pledgers", "non_pledgers"):
+        raise ConflictError("target must be 'all', 'pledgers', or 'non_pledgers'")
+    if discount_type in ("pledge_percent", "ticket_percent") and not (0 < value <= 100):
+        raise ConflictError("Percent value must be 1-100")
+    if discount_type == "fixed_cents" and value <= 0:
+        raise ConflictError("Fixed discount must be > 0")
+    disc = EventDiscount(
+        event_id=event_id, name=name, discount_type=discount_type, value=value, target=target,
+    )
+    db.add(disc)
+    await db.flush()
+    await db.refresh(disc)
+    return disc
+
+
+async def delete_event_discount(db: AsyncSession, *, event_id: int, discount_id: int, user: User) -> None:
+    event = await get_or_404(db, event_id)
+    if not await user_can_edit_event(db, event, user):
+        raise ForbiddenError("Only event organizer or admin can manage discounts")
+    q = select(EventDiscount).where(EventDiscount.id == discount_id, EventDiscount.event_id == event_id)
+    disc = (await db.execute(q)).scalar_one_or_none()
+    if not disc:
+        raise NotFoundError("Discount", discount_id)
+    await db.delete(disc)
+    await db.flush()
+
+
+# ═══════════════════════════════════════════
+# Customer discounts (what discount a specific customer gets)
+# ═══════════════════════════════════════════
+
+
+async def compute_event_discounts_for_user(
+    db: AsyncSession, *, event_id: int, user_id: int,
+) -> list[dict]:
+    """Return all applicable EventDiscount rules for a user, with computed amounts."""
+    event = await get_or_404(db, event_id)
+    discounts = await list_event_discounts(db, event_id=event_id)
+
+    # Check if user has pledged
+    pledge_q = select(func.coalesce(func.sum(Funding.amount_cents), 0)).where(
+        Funding.event_id == event_id,
+        Funding.user_id == user_id,
+        Funding.status == FundingStatus.pledged,
+    )
+    total_pledged = int((await db.execute(pledge_q)).scalar_one())
+    has_pledged = total_pledged > 0
+
+    results = []
+    for d in discounts:
+        # Check target eligibility
+        if d.target == "pledgers" and not has_pledged:
+            continue
+        if d.target == "non_pledgers" and has_pledged:
+            continue
+        results.append({
+            "id": d.id,
+            "name": d.name,
+            "discount_type": d.discount_type,
+            "value": d.value,
+            "target": d.target,
+            "total_pledged_cents": total_pledged if d.discount_type == "pledge_percent" else 0,
+        })
+    return results
+
+
+# ═══════════════════════════════════════════
+# Organizer–Customer History
+# ═══════════════════════════════════════════
+
+
+async def record_customer_attendance(
+    db: AsyncSession, *, organizer_id: int, customer_id: int, event_id: int, scanned_at: datetime,
+) -> None:
+    """Record that a customer attended an organizer's event. Idempotent (ignores duplicates)."""
+    existing = (
+        await db.execute(
+            select(OrganizerCustomerHistory).where(
+                OrganizerCustomerHistory.organizer_id == organizer_id,
+                OrganizerCustomerHistory.customer_id == customer_id,
+                OrganizerCustomerHistory.event_id == event_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if existing:
+        return  # already recorded
+    h = OrganizerCustomerHistory(
+        organizer_id=organizer_id, customer_id=customer_id,
+        event_id=event_id, scanned_at=scanned_at,
+    )
+    db.add(h)
+    await db.flush()
+
+
+async def list_organizer_customers(db: AsyncSession, *, organizer_id: int) -> list[dict]:
+    """List all unique customers who attended events organized by this organizer, with event count."""
+    q = (
+        select(
+            OrganizerCustomerHistory.customer_id,
+            User.display_name,
+            func.count(OrganizerCustomerHistory.id).label("events_attended"),
+            func.max(OrganizerCustomerHistory.scanned_at).label("last_attended"),
+        )
+        .join(User, User.id == OrganizerCustomerHistory.customer_id)
+        .where(OrganizerCustomerHistory.organizer_id == organizer_id)
+        .group_by(OrganizerCustomerHistory.customer_id, User.display_name)
+        .order_by(func.count(OrganizerCustomerHistory.id).desc())
+    )
+    rows = (await db.execute(q)).all()
+    return [
+        {
+            "customer_id": r.customer_id,
+            "customer_name": r.display_name,
+            "events_attended": r.events_attended,
+            "last_attended": r.last_attended.isoformat() if r.last_attended else None,
+        }
+        for r in rows
+    ]

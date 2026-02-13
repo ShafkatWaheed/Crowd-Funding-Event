@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.exceptions import ConflictError, ForbiddenError, NotFoundError
-from app.models.event import Event
+from app.models.event import Event, EventDiscount
 from app.models.funding import Funding, FundingStatus
 from app.models.registration import Registration, RegistrationStatus
 from app.models.ticket import TicketSale, TicketSaleStatus, TicketTier, UserEventDiscount
@@ -60,7 +60,8 @@ async def compute_ticket_price(
 ) -> dict:
     """
     Returns: tier_price_cents, common_discount_cents, selective_discount_cents,
-    pledge_discount_cents, total_discount_cents, final_price_cents (>= 0).
+    pledge_discount_cents, event_discount_cents, total_discount_cents, final_price_cents (>= 0).
+    Discount cap: total discount cannot exceed ticket price.
     """
     event = await event_service.get_or_404(db, event_id)
     tier = await get_tier_or_404(db, event_id=event_id, tier_id=tier_id)
@@ -81,24 +82,46 @@ async def compute_ticket_price(
         else:
             selective_cents = min(base, ued.value)
 
+    # Get user's total pledged amount
+    sum_q = select(func.coalesce(func.sum(Funding.amount_cents), 0)).where(
+        Funding.event_id == event_id,
+        Funding.user_id == user_id,
+        Funding.status == FundingStatus.pledged,
+    )
+    total_pledged = int((await db.execute(sum_q)).scalar_one())
+    has_pledged = total_pledged > 0
+
     pledge_cents = 0
-    if event.pledge_discount_percent > 0:
-        sum_q = select(func.coalesce(func.sum(Funding.amount_cents), 0)).where(
-            Funding.event_id == event_id,
-            Funding.user_id == user_id,
-            Funding.status == FundingStatus.pledged,
-        )
-        total_pledged = int((await db.execute(sum_q)).scalar_one())
+    if event.pledge_discount_percent > 0 and has_pledged:
         pledge_cents = total_pledged * event.pledge_discount_percent // 100
         pledge_cents = min(pledge_cents, base)
 
-    total_discount = common_cents + selective_cents + pledge_cents
+    # Apply EventDiscount rules
+    event_discount_cents = 0
+    disc_q = select(EventDiscount).where(EventDiscount.event_id == event_id)
+    disc_rows = list((await db.execute(disc_q)).scalars().all())
+    for d in disc_rows:
+        if d.target == "pledgers" and not has_pledged:
+            continue
+        if d.target == "non_pledgers" and has_pledged:
+            continue
+        if d.discount_type == "ticket_percent":
+            event_discount_cents += base * min(100, d.value) // 100
+        elif d.discount_type == "pledge_percent":
+            event_discount_cents += total_pledged * min(100, d.value) // 100
+        elif d.discount_type == "fixed_cents":
+            event_discount_cents += d.value
+
+    total_discount = common_cents + selective_cents + pledge_cents + event_discount_cents
+    # Cap: discount cannot exceed ticket price
+    total_discount = min(total_discount, base)
     final = max(0, base - total_discount)
     return {
         "tier_price_cents": base,
         "common_discount_cents": common_cents,
         "selective_discount_cents": selective_cents,
         "pledge_discount_cents": pledge_cents,
+        "event_discount_cents": event_discount_cents,
         "total_discount_cents": total_discount,
         "final_price_cents": final,
     }
@@ -238,9 +261,19 @@ async def scan_ticket(
     already_scanned = sale.scanned_at is not None
     if not already_scanned:
         from datetime import datetime, timezone
-        sale.scanned_at = datetime.now(timezone.utc)
+        now = datetime.now(timezone.utc)
+        sale.scanned_at = now
         sale.scanned_by_id = scanned_by_user.id
         await db.flush()
+        # Auto-record customer attendance for the organizer
+        from app.services.event import record_customer_attendance
+        await record_customer_attendance(
+            db,
+            organizer_id=event.organizer_id,
+            customer_id=sale.user_id,
+            event_id=event_id,
+            scanned_at=now,
+        )
     # Reload with all relationships so response has attendee_display_name, scanned_at, scanned_by_display_name
     q2 = select(TicketSale).where(TicketSale.id == sale.id).options(
         selectinload(TicketSale.user),
@@ -258,6 +291,7 @@ async def create_tier(
     event_id: int,
     user: User,
     name: str,
+    description: str | None = None,
     price_cents: int,
     display_order: int = 0,
 ) -> TicketTier:
@@ -269,6 +303,7 @@ async def create_tier(
     tier = TicketTier(
         event_id=event_id,
         name=name,
+        description=description,
         price_cents=price_cents,
         display_order=display_order,
     )
@@ -284,6 +319,7 @@ async def update_tier(
     user: User,
     *,
     name: str | None = None,
+    description: str | None = None,
     price_cents: int | None = None,
     display_order: int | None = None,
 ) -> TicketTier:
@@ -292,6 +328,8 @@ async def update_tier(
         raise ForbiddenError("Only the event organizer or admin can manage ticket tiers")
     if name is not None:
         tier.name = name
+    if description is not None:
+        tier.description = description
     if price_cents is not None:
         if price_cents < 0:
             raise ConflictError("price_cents must be >= 0")

@@ -90,10 +90,12 @@ class EventOrganizerItem(BaseModel):
     display_name: str | None
     email: str
     is_main: bool
+    permission: str = "full"  # 'read' or 'full'; main organizer always 'full'
 
 
 class AddEventOrganizerBody(BaseModel):
     user_id: int
+    permission: str = "read"  # 'read' | 'full'
 
 
 class CancelBody(BaseModel):
@@ -128,6 +130,7 @@ class EventResponse(BaseModel):
     ticket_strategy_id: int | None = None
     like_count: int = 0
     dislike_count: int = 0  # only populated for admin
+    pending_extension: dict | None = None  # pending admin approval extension
     lat: float | None
     lng: float | None
     created_at: datetime
@@ -168,3 +171,44 @@ class MapEventMarker(BaseModel):
     end_time: str | None
     status: str
     is_live: bool
+
+
+# ─── Event Discounts ───
+
+
+class EventDiscountCreate(BaseModel):
+    name: str
+    discount_type: str  # 'pledge_percent' | 'ticket_percent' | 'fixed_cents'
+    value: int
+    target: str = "all"  # 'all' | 'pledgers' | 'non_pledgers'
+
+
+class EventDiscountResponse(BaseModel):
+    id: int
+    event_id: int
+    name: str
+    discount_type: str
+    value: int
+    target: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# ─── Organizer Customer History ───
+
+
+class CustomerHistoryItem(BaseModel):
+    customer_id: int
+    customer_name: str | None
+    event_id: int
+    event_title: str | None
+    scanned_at: datetime
+    events_attended: int = 0  # total events attended with this organizer
+
+
+# ─── Extension Approval ───
+
+
+class ExtensionApprovalAction(BaseModel):
+    action: str  # 'approve' | 'reject'

@@ -106,3 +106,12 @@ async def get_my_events(
     """Events the current user is registered to (includes cancelled events so the user can see cancellation reasons)."""
     events = await event_service.get_my_registered_events(db, user_id=current_user.id)
     return [_event_to_response(e) for e in events]
+
+
+@router.get("/customers")
+async def list_my_customers(
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+):
+    """List all customers who attended events organized by the current user, with event counts."""
+    return await event_service.list_organizer_customers(db, organizer_id=current_user.id)

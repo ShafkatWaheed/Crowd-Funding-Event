@@ -3,7 +3,7 @@ Event model: status, registration type, funding fields.
 """
 import enum
 from datetime import datetime
-from sqlalchemy import Boolean, String, Text, Integer, Float, DateTime, ForeignKey, Enum, UniqueConstraint
+from sqlalchemy import Boolean, String, Text, Integer, Float, DateTime, ForeignKey, Enum, UniqueConstraint, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -32,6 +32,7 @@ class EventOrganizer(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     event_id: Mapped[int] = mapped_column(ForeignKey("events.id"), nullable=False, index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    permission: Mapped[str] = mapped_column(String(10), nullable=False, default="read")  # 'read' | 'full'
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 
     event = relationship("Event", back_populates="event_organizers")
@@ -69,6 +70,7 @@ class Event(Base):
     ticket_strategy_id: Mapped[int | None] = mapped_column(ForeignKey("ticket_strategies.id"), nullable=True, index=True)
     like_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     dislike_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    pending_extension = mapped_column(JSON, nullable=True)  # {"funding_end_at": ..., "start_time": ..., "end_time": ...}
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -84,6 +86,39 @@ class Event(Base):
     images = relationship("EventImage", back_populates="event", cascade="all, delete-orphan")
     ticket_strategy = relationship("TicketStrategy", back_populates="events")
     reactions = relationship("EventReaction", back_populates="event", cascade="all, delete-orphan")
+    event_discounts = relationship("EventDiscount", back_populates="event", cascade="all, delete-orphan")
+
+
+class EventDiscount(Base):
+    """Flexible discount rule attached to an event. Applies to tickets."""
+    __tablename__ = "event_discounts"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    event_id: Mapped[int] = mapped_column(ForeignKey("events.id"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    discount_type: Mapped[str] = mapped_column(String(20), nullable=False)  # 'pledge_percent' | 'ticket_percent' | 'fixed_cents'
+    value: Mapped[int] = mapped_column(Integer, nullable=False)  # percent 0-100 or cents
+    target: Mapped[str] = mapped_column(String(16), nullable=False, default="all")  # 'all' | 'pledgers' | 'non_pledgers'
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+
+    event = relationship("Event", back_populates="event_discounts")
+
+
+class OrganizerCustomerHistory(Base):
+    """Tracks which customers attended events organized by an organizer (auto-populated on ticket scan)."""
+    __tablename__ = "organizer_customer_history"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    organizer_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    customer_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    event_id: Mapped[int] = mapped_column(ForeignKey("events.id"), nullable=False)
+    scanned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    organizer = relationship("User", foreign_keys=[organizer_id])
+    customer = relationship("User", foreign_keys=[customer_id])
+    event = relationship("Event")
+
+    __table_args__ = (UniqueConstraint("organizer_id", "customer_id", "event_id", name="uq_org_cust_event"),)
 
 
 class EventReaction(Base):

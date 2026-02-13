@@ -76,8 +76,36 @@ Run these in separate terminals. Ensure PostgreSQL is running (e.g. Docker) and 
 
 ---
 
+## Troubleshooting
+
+### Flutter cache permission error
+
+  If you see "Flutter failed to open a file at .../lockfile", run:
+
+  sudo chown -R $(whoami) /home/shafkat/development/flutter/bin/cache/
+
+### Hard refresh after code changes
+
+  After a hot restart, the browser may still serve stale code.
+  Do a hard refresh:
+    - Chrome/Edge: Ctrl+Shift+R (or Cmd+Shift+R on Mac)
+    - Firefox: Ctrl+Shift+R
+
+### Port already in use
+
+  If port 8080 or 8000 is already in use, kill the process:
+
+  fuser -k 8080/tcp   # kill whatever is using port 8080
+  fuser -k 8000/tcp   # kill whatever is using port 8000
+
+---
+
 ## One-liners (from project root)
 
-  Backend:   cd Backend && source venv/bin/activate && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+  Backend:    cd Backend && source venv/bin/activate && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
-  Frontend:  export PATH="$PATH:/home/shafkat/development/flutter/bin" && cd FrontEnd && flutter run -d web-server --web-port=8080
+  Frontend:   export PATH="$PATH:/home/shafkat/development/flutter/bin" && cd FrontEnd && flutter run -d web-server --web-port=8080
+
+  Migrations: cd Backend && source venv/bin/activate && alembic upgrade head
+
+  Fix perms:  sudo chown -R $(whoami) /home/shafkat/development/flutter/bin/cache/

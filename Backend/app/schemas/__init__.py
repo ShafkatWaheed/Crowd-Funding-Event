@@ -1,10 +1,12 @@
 # Pydantic schemas (request/response). Per-domain schemas live in separate modules.
 from app.schemas.admin import AdminEventItem, AdminStats, AdminUserItem, ApproveBody
 from app.schemas.event import (
-    AddEventOrganizerBody, CancelBody, EVENT_GENRES,
-    EventCreate, EventImageResponse, EventOrganizerItem,
+    AddEventOrganizerBody, CancelBody, CustomerHistoryItem, EVENT_GENRES,
+    EventCreate, EventDiscountCreate, EventDiscountResponse,
+    EventImageResponse, EventOrganizerItem,
     EventPostCreate, EventPostResponse, EventResponse, EventUpdate,
-    EventVenueInfo, ExtendFundingBody, MapEventMarker, UnregisterResponse,
+    EventVenueInfo, ExtendFundingBody, ExtensionApprovalAction,
+    MapEventMarker, UnregisterResponse,
 )
 from app.schemas.funding import FundingSummaryResponse, MyPledgeItem, PledgeBody, PledgeResponse, UnpledgeResponse
 from app.schemas.registration import RegistrationDecisionBody, RegistrationResponse
@@ -36,8 +38,11 @@ __all__ = [
     "AdminStats",
     "AdminUserItem",
     "ApproveBody",
+    "CustomerHistoryItem",
     "EVENT_GENRES",
     "EventCreate",
+    "EventDiscountCreate",
+    "EventDiscountResponse",
     "EventImageResponse",
     "EventOrganizerItem",
     "EventPostCreate",
@@ -46,6 +51,7 @@ __all__ = [
     "EventUpdate",
     "EventVenueInfo",
     "ExtendFundingBody",
+    "ExtensionApprovalAction",
     "FundingSummaryResponse",
     "MyPledgeItem",
     "MapEventMarker",

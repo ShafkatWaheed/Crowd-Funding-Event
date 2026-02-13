@@ -14,6 +14,8 @@ from app.schemas import (
     CancelBody,
     EVENT_GENRES,
     EventCreate,
+    EventDiscountCreate,
+    EventDiscountResponse,
     EventImageResponse,
     EventOrganizerItem,
     EventPostCreate,
@@ -22,6 +24,7 @@ from app.schemas import (
     EventUpdate,
     EventVenueInfo,
     ExtendFundingBody,
+    ExtensionApprovalAction,
     FundingSummaryResponse,
     PledgeBody,
     PledgeResponse,
@@ -97,6 +100,7 @@ def _event_to_response(
         ticket_strategy_id=e.ticket_strategy_id,
         like_count=e.like_count,
         dislike_count=e.dislike_count if include_dislike else 0,
+        pending_extension=e.pending_extension,
         lat=e.lat,
         lng=e.lng,
         created_at=e.created_at,
@@ -449,9 +453,9 @@ async def list_event_organizers(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
-    """List main + co-organizers for the event. Requires main organizer, co-organizer, or admin."""
+    """List main + co-organizers for the event. Requires organizer/co-organizer/admin."""
     event = await event_service.get_or_404(db, event_id)
-    if not await event_service.user_can_edit_event(db, event, current_user):
+    if not await event_service.user_can_read_event_mgmt(db, event, current_user):
         raise ForbiddenError("You cannot view organizers for this event")
     main, co_organizers = await event_service.list_event_organizers(db, event_id=event_id)
     out = [
@@ -460,6 +464,7 @@ async def list_event_organizers(
             display_name=main.display_name,
             email=main.email,
             is_main=True,
+            permission="full",
         ),
     ]
     for eo in co_organizers:
@@ -470,6 +475,7 @@ async def list_event_organizers(
                 display_name=u.display_name,
                 email=u.email,
                 is_main=False,
+                permission=eo.permission,
             ),
         )
     return out
@@ -486,8 +492,11 @@ async def add_event_organizer(
     event = await event_service.get_or_404(db, event_id)
     if not event_service.is_main_organizer(current_user, event):
         raise ForbiddenError("Only the main organizer can add co-organizers")
-    eo = await event_service.add_event_organizer(db, event_id=event_id, user_id=body.user_id, added_by=current_user)
-    return {"id": eo.id, "event_id": eo.event_id, "user_id": eo.user_id}
+    eo = await event_service.add_event_organizer(
+        db, event_id=event_id, user_id=body.user_id,
+        added_by=current_user, permission=body.permission,
+    )
+    return {"id": eo.id, "event_id": eo.event_id, "user_id": eo.user_id, "permission": eo.permission}
 
 
 @router.delete("/{event_id}/organizers/{user_id}")
@@ -735,7 +744,8 @@ async def create_ticket_tier(
     """Create a ticket tier (organizer/admin)."""
     tier = await ticket_service.create_tier(
         db, event_id=event_id, user=current_user,
-        name=body.name, price_cents=body.price_cents, display_order=body.display_order,
+        name=body.name, description=body.description,
+        price_cents=body.price_cents, display_order=body.display_order,
     )
     return TicketTierResponse.model_validate(tier)
 
@@ -752,7 +762,8 @@ async def update_ticket_tier(
     tier = await ticket_service.get_tier_or_404(db, event_id=event_id, tier_id=tier_id)
     tier = await ticket_service.update_tier(
         db, tier, current_user,
-        name=body.name, price_cents=body.price_cents, display_order=body.display_order,
+        name=body.name, description=body.description,
+        price_cents=body.price_cents, display_order=body.display_order,
     )
     return TicketTierResponse.model_validate(tier)
 
@@ -1117,5 +1128,93 @@ async def get_my_reaction(
     )
     existing = (await db.execute(q)).scalar_one_or_none()
     return {"reaction": existing.reaction if existing else None}
+
+
+# ═══════════════════════════════════════════
+# Extension Approval (admin)
+# ═══════════════════════════════════════════
+
+
+@router.post("/{event_id}/extension-decision", response_model=EventResponse)
+async def decide_extension(
+    event_id: int,
+    body: ExtensionApprovalAction,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.admin)),
+):
+    """Admin approve/reject a pending funding extension request."""
+    event = await event_service.get_or_404(db, event_id)
+    if body.action == "approve":
+        event = await event_service.approve_extension(db, event, current_user)
+    elif body.action == "reject":
+        event = await event_service.reject_extension(db, event, current_user)
+    else:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="action must be 'approve' or 'reject'")
+    event = await event_service.get_by_id(db, event.id, load_venue=True)
+    return _event_to_response(event)
+
+
+# ═══════════════════════════════════════════
+# Event Discounts CRUD
+# ═══════════════════════════════════════════
+
+
+@router.get("/{event_id}/discounts/rules", response_model=list[EventDiscountResponse])
+async def list_event_discounts(
+    event_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+):
+    """List all discount rules for an event."""
+    event = await event_service.get_or_404(db, event_id)
+    if not await event_service.user_can_read_event_mgmt(db, event, current_user):
+        raise ForbiddenError("You cannot view discounts for this event")
+    return await event_service.list_event_discounts(db, event_id=event_id)
+
+
+@router.post("/{event_id}/discounts/rules", response_model=EventDiscountResponse)
+async def create_event_discount(
+    event_id: int,
+    body: EventDiscountCreate,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+):
+    """Create a discount rule for the event."""
+    return await event_service.create_event_discount(
+        db, event_id=event_id, user=current_user,
+        name=body.name, discount_type=body.discount_type,
+        value=body.value, target=body.target,
+    )
+
+
+@router.delete("/{event_id}/discounts/rules/{discount_id}")
+async def delete_event_discount(
+    event_id: int,
+    discount_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+):
+    """Delete a discount rule from the event."""
+    await event_service.delete_event_discount(db, event_id=event_id, discount_id=discount_id, user=current_user)
+    return {"ok": True}
+
+
+@router.get("/{event_id}/my-discounts")
+async def get_my_discounts(
+    event_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.customer, UserRole.organizer, UserRole.admin)),
+):
+    """Return discount rules applicable to the current user for this event."""
+    return await event_service.compute_event_discounts_for_user(
+        db, event_id=event_id, user_id=current_user.id,
+    )
+
+
+# ═══════════════════════════════════════════
+# Organizer Customer History
+# ═══════════════════════════════════════════
+
 
 

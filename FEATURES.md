@@ -1,4 +1,4 @@
-# Crowd Funding Event — Features
+r# Crowd Funding Event — Features
 
 This document lists **implemented features**, **unused endpoints**, **completed phases**, and **unimplemented items**.
 
@@ -40,6 +40,7 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 - **Only Event date set:** Goes to `selling_tickets` (no funding phase) → `live` → `completed`
 - **Auto-transition:** Status transitions are checked automatically on every event fetch (no cron jobs)
 - **State restrictions:** Pledge and unregister blocked in `selling_tickets`, `waiting_event_date`, `live`, `completed`
+- **Spot release on live transition:** All unredeemed reserved spots from pledges are released (set to 0) when the event transitions to `live`, recalculating capacity based on actual tickets sold
 - **Terminal state:** `completed` is the only true dead-end — no transition out; only action is to clone into a new draft
 - **Near-terminal:** `live` can only transition to `completed` (automatic on end_time) or `cancelled`
 - **Status-aware organizer actions:**
@@ -85,6 +86,7 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 - **Per-event Waitlist** (`/events/{id}/waitlist`) — shows both fund and ticket waitlist for that specific event with approve/reject actions
 - **Global Waitlist** (`/manage/waitlist`) — aggregates both fund and ticket waitlists across all organiser events with search, accessible from Manage tab
 - Both waitlist views support search, count badges, and approve/reject actions
+- **Capacity impact preview on waitlist:** Each waitlist card shows what capacity would become if approved; ticket waitlist cards warn in red when approval would exceed capacity; capacity summary bar at top shows tickets sold, reserved spots, available slots with progress indicator
 
 ### Funding & Pledges
 - Pledge money to event (customer) — only during `approved` (funding active) status
@@ -97,6 +99,23 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 - Pledging blocked after funding ends (selling_tickets / waiting / live / completed)
 - **Pledge/unpledge buttons hidden for organizers and admins** — only customers see pledge actions in the Funding Card
 - **Self-contained Funding Card** — pledge/unpledge actions only refresh the funding section (not the entire page); card loads its own data via `getFundingSummary()` and shows backers count, progress bar, deadline, and min pledge
+- **Spot Reservation during Funding** — customers can reserve ticket spots while pledging; see dedicated section below
+
+### Spot Reservation during Funding
+- **Concept:** During the funding phase, customers can pledge money and simultaneously reserve a specific number of ticket spots, giving pledgers first-chance access to tickets
+- **Organizer-defined limit:** `max_reserved_spots_per_user` field on event (set during create/edit) — controls how many spots each user can reserve
+- **Minimum pledge enforcement:** Each reserved spot requires a minimum pledge of `min_pledge_cents` × spots; the pledge amount must be >= `reserved_spots × min_pledge_per_spot`
+- **Capacity tracking:** Reserved spots count towards `max_capacity` — capacity formula: `tickets_sold + total_reserved_spots`
+- **Guest restriction:** Unregistered (guest) users cannot reserve spots, as they cannot purchase tickets later
+- **3-step pledge flow:** Spot selector (choose spots + enter amount) → Invoice preview (shows pledge details, reserved spots, platform commission, net to organizer) → Receipt screen (full confirmation with receipt number)
+- **Receipt number generation:** Unique receipt number format `PLG-YYYYMMDD-eventId-pledgeId` generated on each pledge
+- **Pledge receipt screen:** Dedicated screen showing receipt number, event title, pledge amount, reserved spots, fee breakdown (platform fee %, net to organizer), and reserved spot info banner
+- **Pledge discount adjustment:** When a user has reserved spots, the pledge-based discount is divided by the number of reserved spots to compute the per-ticket discount; users with no reserved spots get the full pledge discount
+- **Reserved spot consumption on ticket purchase:** When a user with reserved spots buys tickets, their reserved spots are consumed first before affecting general ticket capacity; ticket invoice dialog shows "Using 1 of your X reserved spot(s) from pledging"
+- **Unredeemed spot release:** When the event transitions to `live` status, any unredeemed reserved spots are released back into the general capacity pool (`reserved_spots` set to 0 for all active pledges)
+- **Capacity decrease guard:** Organizers cannot reduce `max_capacity` below the sum of already sold tickets + unredeemed reserved spots
+- **Funding Card display:** Shows "X spots reserved" alongside backers count; capacity display shows `reg + reserved / max` when reserved spots exist
+- **Capacity info endpoint:** `GET /events/{id}/capacity-info` returns `max_capacity`, `tickets_sold`, `total_reserved_spots`, `occupied`, `available`, `registration_count`
 
 ### Ticket Strategies (Reusable Templates)
 - **Separate reusable object** (like venues) — organizers create ticket strategies with named tiers
@@ -155,7 +174,7 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 - **Detailed discount breakdown** — each ticket tier shows a line-by-line price calculation: base price, common discount, selective discount, pledge discount, event-strategy discount, total discount, and final price; displayed for both customers (in ticket tiers section) and organizers (in manage ticket tiers section)
 - **Free tickets from overwhelming discounts** — if combined discounts exceed the ticket price, final price is clamped to $0.00 and displayed as "FREE" (no negative prices)
 - Price preview with discounts (common + pledge-based + selective + event discounts, capped at ticket price)
-- Purchase ticket dialog with tier selection showing actual discounted prices per tier; "FREE" label for $0 tiers; "Get Ticket" instead of "Buy" for free tiers
+- Purchase ticket dialog with tier selection showing actual discounted prices per tier; "FREE" label for $0 tiers; "Get Ticket" instead of "Buy" for free tiers; **reserved spot consumption info** shown when buyer has reserved spots from pledging
 - Scan ticket by QR code (organizer/admin) — **auto-records customer attendance** for loyalty tracking
 - **Per-event Ticket Sales page** — full-page view with search, stats (total sold, revenue), per-sale detail (attendee, tier, code, amount, scan status)
 - **Per-event Scanned Tickets page** — full-page filtered view showing only scanned tickets with search and "scanned by" info
@@ -269,6 +288,7 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 | Phase 8b — Reactive UI & UX | **Self-contained widgets:** Funding Card (pledge/unpledge refresh only card), Reaction Bar (like/dislike refresh only itself), Event Feed (post/delete refresh only feed + refresh button); **Registration gate:** unregistered users see "Please register first" for pledge and feed post; **Modern event detail redesign:** hero header with status/genre/joined pills, Quick Action Bar (register + share + calendar), About card, Details grid with icon badges, transparent AppBar; **My Events tab auto-reload** on tab switch + pull-to-refresh |
 | Phase 9c — Post-Business Polish | **Mandatory funding goal** when funding deadline is set; **Detailed funding time display** (days+hours+minutes with color-coded urgency); **Configurable grace period** for setting event date after funding ends (`event_date_grace_days` admin setting, default 7 days); **Delete restricted** to draft/cancelled only; **Pledge/unpledge hidden** from organizers/admins on Funding Card; **Refactored Extend Funding** into separate "Extend Funding" (deadline + goal, needs admin approval) and "Set Event Date" (direct, no approval); **Detailed discount breakdown** per ticket tier (base, common, selective, pledge, event-strategy, total, final price) for customers and organizers; **Free tickets** from overwhelming discounts (clamped to $0, displayed as FREE); **Community event rules** decoupled from genre — toggle switch on create/edit (draft only), backend enforced, `community_rules` boolean on Event model, admin-configurable thresholds, "Community Events" section on home page; **Navigation fix** — proper pop/refresh after event creation |
 | Phase 9d — Event Management & UX Polish | **Status-aware event management UI** — modernized organizer actions on event detail with card-based layout (`_primaryActionCard`, `_setupTile`, `_menuTile`) that adapts to event lifecycle status; **Status-aware live management stats** (`_LiveMgmtStats`) showing different metrics per phase (registered/waitlist/capacity in early phases, sold/scanned/revenue in selling/live); **Capacity badge** (registered/max with color coding); **Ticket waitlist system** — purchases exceeding capacity get `waitlisted` status with approve/reject flow; **Unified waitlist screens** — per-event and global waitlist screens combined with segmented Fund/Ticket toggle filter and live count badges; **Removed tier quantity** — capacity enforced at event level only, no per-tier quantity; **Searchable venue & strategy pickers** — full-page screens with search, current selection highlighting; **Selective re-approval** — only substantive field changes trigger `pending_approval` (operational changes like venue/capacity/strategy bypass re-approval); **Strategy re-application** — re-selecting same strategy recreates tiers if manually deleted; **Tier deletion prevention** during selling_tickets/live; **Clone with editable title** — dialog prompts for new title; **"Under Review" label** for pending_approval status; **Publish validation** — requires at least one of event date or funding deadline; **Modern error toasts** (`AppToast`) — floating, color-coded, icon-bearing snackbar replacing all raw SnackBar calls across 18 screens; **Backend error extraction** (`ApiService.extractError`) — auto-pulls `detail` from FastAPI responses for all provider catch blocks; **Organizer Trust Score** — score = completed/published events ratio, labels (New/Low/Fair/Good/Excellent), color-coded badge pill in event hero header + funding card escrow banner, trusted organizers (>0.8) get Stage 1 escrow bumped to 40% |
+| Phase 10 — Spot Reservation during Funding | **Spot Reservation system** — customers reserve ticket spots while pledging, giving pledgers priority access to tickets. `max_reserved_spots_per_user` on Event model, `reserved_spots` + `receipt_number` on Funding model. Alembic migration with backfill. **3-step pledge flow** (spot selector → invoice preview → receipt screen) replacing old single dialog. **Pledge invoice** shows amount, reserved spots, platform commission %, net to organizer. **Pledge receipt screen** with receipt number (`PLG-YYYYMMDD-eventId-pledgeId`), fee breakdown, reserved spot info banner. **Pledge discount adjustment** — discount divided by reserved spots for per-ticket calculation. **Reserved spot consumption** on ticket purchase — spots consumed first before general capacity; ticket invoice shows "Using 1 of X reserved spots". **Unredeemed spot release** on `live` transition — sets `reserved_spots=0` for all pledges. **Capacity decrease guard** — `max_capacity` floor = `tickets_sold + total_reserved_spots`. **Guest restriction** — guests cannot reserve spots. **Waitlist capacity preview** — each waitlist card shows projected capacity impact if approved; capacity summary bar with progress indicator, tickets sold, reserved spots, available; ticket cards warn in red when approval would exceed capacity. **Capacity info endpoint** `GET /events/{id}/capacity-info`. **Funding Card** shows reserved spots count; capacity display shows `reg + reserved / max`. **Both receipts** (pledge + ticket) display platform commission fee. Backend: new helpers (`get_user_reserved_spots`, `get_total_reserved_spots`, `consume_one_reserved_spot`), updated `create_pledge()`, `compute_ticket_price()`, `purchase_ticket()`, `auto_transition_status()`, `update()` with capacity floor. API: pledge preview, pledge receipt, capacity info endpoints. Frontend: updated Event/Funding Dart models, create/edit event screens, pledge flow, ticket invoice, waitlist screen, pledge receipt screen |
 
 ---
 
@@ -307,6 +327,20 @@ These features have **working backend endpoints** but no frontend screen/button 
 | 9.4 | **Community Event Rules** | Done — Decoupled from genre: `community_rules` boolean toggle on create/edit (draft only). Rules: max 14-day duration, max $50/tier, $10 listing fee. All thresholds admin-configurable in `PlatformSettings`. "Community Events" featured section on home page |
 | 9.5 | **Fund Escrow & Release Gates** | Done — `FundEscrow` + `EscrowRelease` models, 3-stage release (30/40/30), auto Stage 1 on goal+date+venue, admin Escrow tab with stage timeline + freeze/unfreeze, escrow trust indicator on Funding Card |
 | 9.6 | **Organizer Trust Score** | Done — Score = completed / published events. Labels: New/Low/Fair/Good/Excellent. Color-coded badge pill on event detail header + Funding Card. Trusted organizers (>80%) get Stage 1 escrow bumped to 40%. Endpoint: `GET /events/{id}/organizer-trust` + included in `EventResponse` |
+
+### Phase 10 — Spot Reservation during Funding (COMPLETED)
+
+| # | Feature | Status |
+|---|---------|--------|
+| 10.1 | **Spot Reservation Model & Migration** | Done — `max_reserved_spots_per_user` on Event, `reserved_spots` + `receipt_number` on Funding, Alembic migration with backfill for existing pledges |
+| 10.2 | **Pledge Flow with Spot Selection** | Done — 3-step flow (spot selector → invoice preview → receipt), pledge amount validated against `spots × min_pledge_per_spot`, guest restriction enforced, per-user limit and capacity checks |
+| 10.3 | **Pledge Invoice & Receipt** | Done — Preview endpoint shows cost breakdown with commission; receipt screen with unique `PLG-YYYYMMDD-eventId-pledgeId` number, fee breakdown, reserved spot info |
+| 10.4 | **Pledge Discount Adjustment** | Done — Pledge discount divided by user's reserved spots for per-ticket calculation; full discount for users with no reserved spots |
+| 10.5 | **Reserved Spot Consumption on Ticket Purchase** | Done — `purchase_ticket()` consumes reserved spots first via `consume_one_reserved_spot()` before checking general capacity; ticket invoice shows consumption info |
+| 10.6 | **Unredeemed Spot Release at Live Transition** | Done — `auto_transition_status()` sets `reserved_spots=0` for all active pledges when event transitions to `live` |
+| 10.7 | **Capacity Guards** | Done — `max_capacity` floor enforced at `tickets_sold + total_reserved_spots`; capacity info endpoint for management screens |
+| 10.8 | **Waitlist Capacity Preview** | Done — Capacity summary bar on waitlist screen; per-card impact text ("If approved: X/Y occupied"); red warning when approval would exceed capacity |
+| 10.9 | **Commission on Receipts** | Done — Both pledge receipt (fee breakdown section) and ticket receipt (Platform Fee line) display platform commission |
 
 ---
 
@@ -489,10 +523,10 @@ Event (updated)
     ├── terms_accepted_at → 9.5
     └── payout_frozen → 9.5
 
-Recommended build order: 9.3 (smallest) → 9.1 (revenue) → 9.2 (cancel protection) → 9.5 (escrow — the big one) → 9.4 (genre rules)
+Recommended build order: 9.3 (smallest) → 9.1 (revenue) → 9.2 (cancel protection) → 9.5 (escrow — the big one) → 9.4 (genre rules) → 10 (spot reservation)
 ```
 
-### Phase 10 — Notifications & Email
+### Phase 11 — Notifications & Email
 
 Estimated: **1–2 sessions**.
 
@@ -501,7 +535,7 @@ Estimated: **1–2 sessions**.
 | 1 | **Cancellation Email** | Medium | Backend: email service (SendGrid/SES), send on cancel with reason to all registered users. Template design |
 | 2 | **Unpledge Confirmation Email** | Small | Backend: trigger email on successful unpledge with refund details |
 
-### Phase 11 — Media & Maps
+### Phase 12 — Media & Maps
 
 Estimated: **2 sessions**.
 
@@ -511,7 +545,7 @@ Estimated: **2 sessions**.
 | 2 | **Location-Based Discovery** | Medium | Frontend: browser geolocation API, pass coords to backend map endpoint, "Near Me" section on home tab |
 | 3 | **File Upload for Images** | Large | Backend: S3/GCS integration, upload endpoint. Frontend: file picker replacing URL input |
 
-### Phase 12 — Trust & Security
+### Phase 13 — Trust & Security
 
 Estimated: **2 sessions**.
 
@@ -521,7 +555,7 @@ Estimated: **2 sessions**.
 | 2 | **Ticket Encryption** | Medium | Backend: encrypt ticket codes with a secret key, verify on scan |
 | 3 | **Feature Flags / Admin Controls** | Medium | Backend: settings table with key-value pairs. Frontend: admin panel to toggle features |
 
-### Phase 13 — Nice to Have
+### Phase 14 — Nice to Have
 
 Lowest priority. Estimated: **1–2 sessions**.
 
@@ -532,7 +566,7 @@ Lowest priority. Estimated: **1–2 sessions**.
 | 3 | **Verify Organizer via External Apps** | Large | Third-party API integration — scope TBD |
 | 4 | **Chatbot for Support** | Large | Standalone feature — could use an off-the-shelf widget or build custom |
 
-**Recommended order:** Phase 9 → 10 → 11 → 12 → 13. Phase 9 adds real business value (commission = revenue). Phase 10 adds trust (users get notified). Phases 11–13 are enhancements.
+**Recommended order:** Phase 9 (done) → 10 (done) → 11 → 12 → 13 → 14. Phases 9–10 add real business value (commission, spot reservations). Phase 11 adds trust (users get notified). Phases 12–14 are enhancements.
 
 ---
 

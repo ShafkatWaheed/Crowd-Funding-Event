@@ -26,6 +26,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
   final _capacityCtrl = TextEditingController();
   final _fundingGoalCtrl = TextEditingController();
   final _minPledgeCtrl = TextEditingController();
+  final _maxReservedSpotsCtrl = TextEditingController(text: '0');
 
   // _refundDeadlineCtrl removed — now using slider
 
@@ -94,6 +95,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
             ? (event.fundingGoalCents! / 100).toStringAsFixed(2)
             : '';
         _minPledgeCtrl.text = (event.minPledgeCents / 100).toStringAsFixed(2);
+        _maxReservedSpotsCtrl.text = event.maxReservedSpotsPerUser.toString();
         _registrationType = event.registrationType.name;
         _genre = event.genre;
         _communityRules = event.communityRules;
@@ -127,6 +129,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
       'max_capacity': int.parse(_capacityCtrl.text),
       'registration_type': _registrationType,
       'min_pledge_cents': (minPledge * 100).toInt(),
+      'max_reserved_spots_per_user': int.tryParse(_maxReservedSpotsCtrl.text) ?? 0,
       'genre': _genre,
       'posts_enabled': _postsEnabled,
       if (_event?.status.name == 'draft') 'community_rules': _communityRules,
@@ -181,6 +184,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
     _capacityCtrl.dispose();
     _fundingGoalCtrl.dispose();
     _minPledgeCtrl.dispose();
+    _maxReservedSpotsCtrl.dispose();
     super.dispose();
   }
 
@@ -405,6 +409,15 @@ class _EditEventScreenState extends State<EditEventScreen> {
                               decoration: const InputDecoration(
                                 labelText: 'Minimum Pledge (\$)',
                                 prefixText: '\$ ',
+                              ),
+                              keyboardType: TextInputType.number,
+                            ),
+                            const SizedBox(height: 12),
+                            TextFormField(
+                              controller: _maxReservedSpotsCtrl,
+                              decoration: const InputDecoration(
+                                labelText: 'Max Reserved Spots Per User',
+                                helperText: 'How many ticket spots each pledger can reserve (0 = disabled)',
                               ),
                               keyboardType: TextInputType.number,
                             ),

@@ -16,6 +16,7 @@ import '../../widgets/event_lifecycle_bar.dart';
 import '../../widgets/app_toast.dart';
 import '../../services/api_service.dart';
 import 'ticket_receipt_screen.dart';
+import 'pledge_receipt_screen.dart';
 import 'venue_picker_screen.dart';
 import 'strategy_picker_screen.dart';
 
@@ -37,6 +38,11 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   String? _regStatus; // 'registered', 'waitlisted', 'cancelled'
   bool _regLoading = false;
 
+  // My ticket count for this event
+  int _myTicketCount = 0;
+  // My reserved spots for this event (from pledges)
+  int _myReservedSpots = 0;
+
   // Reaction state lives in _ReactionBar widget (self-contained)
 
   @override
@@ -46,6 +52,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       context.read<EventProvider>().loadEvent(widget.eventId);
       _loadImages();
       _checkRegistration();
+      _loadMyTicketCount();
+      _loadMyReservedSpots();
     });
   }
 
@@ -78,6 +86,32 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
         _isRegistered = data['registered'] == true;
         _regStatus = data['status'];
       });
+    } catch (_) {}
+  }
+
+  Future<void> _loadMyTicketCount() async {
+    final auth = context.read<AuthProvider>();
+    if (auth.user == null) return;
+    try {
+      final api = context.read<ApiService>();
+      final tickets = await api.getMyTickets();
+      final count = (tickets as List).where((t) =>
+          t['event_id'] == widget.eventId &&
+          (t['status'] == 'purchased' || t['status'] == 'waitlisted')).length;
+      if (mounted) setState(() => _myTicketCount = count);
+    } catch (_) {}
+  }
+
+  Future<void> _loadMyReservedSpots() async {
+    final auth = context.read<AuthProvider>();
+    if (auth.user == null) return;
+    try {
+      final api = context.read<ApiService>();
+      final pledges = await api.getMyPledges();
+      final spots = (pledges as List)
+          .where((p) => p['event_id'] == widget.eventId && p['status'] == 'pledged')
+          .fold<int>(0, (sum, p) => sum + ((p['reserved_spots'] ?? 0) as int));
+      if (mounted) setState(() => _myReservedSpots = spots);
     } catch (_) {}
   }
 
@@ -417,7 +451,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                       Icons.people_alt_rounded,
                                       'Capacity',
                                       event.maxCapacity > 0
-                                          ? '${event.registrationCount} / ${event.maxCapacity} registered'
+                                          ? event.totalReservedSpots > 0
+                                              ? '${event.registrationCount} reg + ${event.totalReservedSpots} reserved / ${event.maxCapacity}'
+                                              : '${event.registrationCount} / ${event.maxCapacity} registered'
                                           : '${event.registrationCount} registered',
                                       valueColor: event.maxCapacity > 0 && event.registrationCount >= event.maxCapacity
                                           ? AppTheme.errorColor
@@ -585,6 +621,40 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                             'Your registration is waiting for approval. Once approved, you can buy tickets.',
                                             style: TextStyle(fontSize: 12, color: Colors.grey[700]),
                                           ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                ],
+                                // Show user's ticket count for this event
+                                if (_myTicketCount > 0) ...[
+                                  Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                    decoration: BoxDecoration(
+                                      color: Colors.teal.withValues(alpha: 0.08),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: Colors.teal.withValues(alpha: 0.25)),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.confirmation_number_rounded, size: 18, color: Colors.teal),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Text(
+                                            'You have $_myTicketCount ticket${_myTicketCount == 1 ? '' : 's'} for this event.',
+                                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.teal),
+                                          ),
+                                        ),
+                                        TextButton(
+                                          onPressed: () => context.push('/my-tickets'),
+                                          style: TextButton.styleFrom(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                                            minimumSize: Size.zero,
+                                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                          ),
+                                          child: const Text('View', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
                                         ),
                                       ],
                                     ),
@@ -1582,11 +1652,57 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                         const Icon(Icons.confirmation_number_rounded,
                             size: 18, color: Colors.teal),
                         const SizedBox(width: 8),
-                        Text(tierName,
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w700, fontSize: 16)),
+                        Expanded(
+                          child: Text(tierName,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w700, fontSize: 16)),
+                        ),
                       ],
                     ),
+                    if (_myTicketCount > 0) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.teal.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.info_outline_rounded, size: 15, color: Colors.teal[600]),
+                            const SizedBox(width: 8),
+                            Text(
+                              'You already have $_myTicketCount ticket${_myTicketCount == 1 ? '' : 's'} for this event',
+                              style: TextStyle(fontSize: 12, color: Colors.teal[700], fontWeight: FontWeight.w500),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    if (_myReservedSpots > 0) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.deepPurple.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.event_seat_rounded, size: 15, color: Colors.deepPurple[600]),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Using 1 of your $_myReservedSpots reserved spot${_myReservedSpots == 1 ? '' : 's'} from pledging',
+                                style: TextStyle(fontSize: 12, color: Colors.deepPurple[700], fontWeight: FontWeight.w500),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 16),
 
                     // Price breakdown
@@ -1766,6 +1882,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
               : 'Paid \$${(amountPaid / 100).toStringAsFixed(2)}'
                 '${commission > 0 ? ' (incl. \$${(commission / 100).toStringAsFixed(2)} platform fee)' : ''}';
           AppToast.success(context, '$priceStr — Code: $ticketCode');
+          // Refresh ticket count, reserved spots & event data (capacity updates)
+          _loadMyTicketCount();
+          _loadMyReservedSpots();
+          context.read<EventProvider>().loadEvent(eventId);
           // Navigate to receipt screen with buy-again option
           if (mounted) {
             final event = context.read<EventProvider>().selectedEvent;
@@ -4147,6 +4267,7 @@ class _FundingCardState extends State<_FundingCard> {
   bool _loading = true;
   bool _pledging = false;
   int _fundingCommissionPercent = 0;
+  int _totalReservedSpots = 0;
 
   Event get event => widget.event;
 
@@ -4156,6 +4277,7 @@ class _FundingCardState extends State<_FundingCard> {
     // Seed from event data while we load fresh numbers
     _totalPledgedCents = event.totalPledgedCents ?? 0;
     _goalCents = event.fundingGoalCents;
+    _totalReservedSpots = event.totalReservedSpots;
     _loadFunding();
   }
 
@@ -4170,6 +4292,7 @@ class _FundingCardState extends State<_FundingCard> {
           _goalCents = data['goal_cents'];
           _goalMet = data['goal_met'] ?? false;
           _fundingCommissionPercent = data['funding_commission_percent'] ?? 0;
+          _totalReservedSpots = data['total_reserved_spots'] ?? 0;
           _loading = false;
         });
       }
@@ -4212,83 +4335,292 @@ class _FundingCardState extends State<_FundingCard> {
     return '\$${(_goalCents! / 100).toStringAsFixed(2)}';
   }
 
-  // ── Pledge dialog ──
+  // ── Step 1: Pledge dialog (amount + spot selector) ──
   Future<void> _showPledgeDialog() async {
     final amountController = TextEditingController();
+    int selectedSpots = 0;
+    final maxPerUser = event.maxReservedSpotsPerUser;
+    final minPledgeDollars = (event.minPledgeCents / 100).toStringAsFixed(2);
 
     await showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Make a Pledge'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppTheme.warningColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          final minRequired = selectedSpots * event.minPledgeCents;
+          final minRequiredDollars = (minRequired / 100).toStringAsFixed(2);
+          return AlertDialog(
+            title: const Text('Make a Pledge'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.info_outline,
-                      size: 18, color: AppTheme.warningColor),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'If you are not registered for this event, your pledge is treated as a guest pledge and is non-refundable.',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                  if (!widget.isRegistered)
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.warningColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.info_outline,
+                              size: 18, color: AppTheme.warningColor),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'You are not registered. Your pledge will be a guest pledge (non-refundable) and you cannot reserve spots.',
+                              style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  TextField(
+                    controller: amountController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'Amount (\$)',
+                      prefixText: '\$ ',
+                      helperText: selectedSpots > 0
+                          ? 'Min \$$minRequiredDollars for $selectedSpots spot(s)'
+                          : 'Min pledge: \$$minPledgeDollars',
                     ),
                   ),
+                  if (maxPerUser > 0 && widget.isRegistered) ...[
+                    const SizedBox(height: 16),
+                    Text('Reserve Ticket Spots',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                            color: Colors.grey[800])),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Each spot costs min \$$minPledgeDollars. Up to $maxPerUser per user.',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        IconButton(
+                          onPressed: selectedSpots > 0
+                              ? () => setDialogState(() => selectedSpots--)
+                              : null,
+                          icon: const Icon(Icons.remove_circle_outline),
+                          iconSize: 28,
+                        ),
+                        Text('$selectedSpots',
+                            style: const TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.bold)),
+                        IconButton(
+                          onPressed: selectedSpots < maxPerUser
+                              ? () => setDialogState(() => selectedSpots++)
+                              : null,
+                          icon: const Icon(Icons.add_circle_outline),
+                          iconSize: 28,
+                        ),
+                        const SizedBox(width: 8),
+                        Text('spot(s)',
+                            style: TextStyle(
+                                fontSize: 13, color: Colors.grey[600])),
+                      ],
+                    ),
+                    if (_totalReservedSpots > 0)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          '$_totalReservedSpots spot(s) already reserved for this event',
+                          style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                        ),
+                      ),
+                  ],
                 ],
               ),
             ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: amountController,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                labelText: 'Amount (\$)',
-                prefixText: '\$ ',
-                helperText:
-                    'Min pledge: \$${(event.minPledgeCents / 100).toStringAsFixed(2)}',
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
               ),
+              ElevatedButton(
+                onPressed: () {
+                  final amount = double.tryParse(amountController.text);
+                  if (amount == null || amount <= 0) return;
+                  Navigator.pop(ctx);
+                  _showPledgeInvoice((amount * 100).toInt(), selectedSpots);
+                },
+                child: const Text('Continue to Invoice'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  // ── Step 2: Pledge invoice ──
+  Future<void> _showPledgeInvoice(int amountCents, int reservedSpots) async {
+    Map<String, dynamic>? preview;
+    bool loadingPreview = true;
+    String? previewError;
+
+    try {
+      final api = context.read<ApiService>();
+      preview = await api.getPledgePreview(widget.eventId, amountCents, reservedSpots);
+      loadingPreview = false;
+    } catch (e) {
+      loadingPreview = false;
+      previewError = ApiService.extractError(e);
+    }
+
+    if (!mounted) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        final amountDollars = (amountCents / 100).toStringAsFixed(2);
+        final platformCut = preview?['platform_cut_cents'] ?? 0;
+        final netToOrganizer = preview?['net_to_organizer_cents'] ?? 0;
+        final commissionPct = preview?['funding_commission_percent'] ?? 0;
+
+        return AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.receipt_long, size: 22, color: Colors.deepPurple),
+              const SizedBox(width: 8),
+              const Text('Pledge Invoice'),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (previewError != null)
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(previewError!, style: const TextStyle(color: Colors.red, fontSize: 12)),
+                  )
+                else if (loadingPreview)
+                  const Center(child: CircularProgressIndicator())
+                else ...[
+                  _invoiceRow('Pledge Amount', '\$$amountDollars'),
+                  if (reservedSpots > 0)
+                    _invoiceRow('Reserved Spots', '$reservedSpots spot(s)'),
+                  const Divider(height: 20),
+                  _invoiceRow(
+                    'Platform Fee ($commissionPct%)',
+                    '\$${(platformCut / 100).toStringAsFixed(2)}',
+                    subtle: true,
+                  ),
+                  _invoiceRow(
+                    'Net to Organizer',
+                    '\$${(netToOrganizer / 100).toStringAsFixed(2)}',
+                  ),
+                  if (reservedSpots > 0) ...[
+                    const Divider(height: 20),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.teal.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.event_seat, size: 16, color: Colors.teal),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '$reservedSpots spot(s) will be reserved for your future ticket purchase.',
+                              style: const TextStyle(fontSize: 12, color: Colors.teal),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx, false);
+                _showPledgeDialog(); // go back to step 1
+              },
+              child: const Text('Back'),
+            ),
+            ElevatedButton(
+              onPressed: previewError != null
+                  ? null
+                  : () => Navigator.pop(ctx, true),
+              child: const Text('Confirm Pledge'),
             ),
           ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final amount = double.tryParse(amountController.text);
-              if (amount == null || amount <= 0) return;
-              try {
-                final api = context.read<ApiService>();
-                final result =
-                    await api.pledge(widget.eventId, (amount * 100).toInt());
-                if (ctx.mounted) Navigator.pop(ctx);
-                if (context.mounted) {
-                  final isGuest = result['is_guest'] == true;
-                  AppToast.success(context, isGuest
-                      ? 'Guest pledge of \$${amount.toStringAsFixed(2)} (non-refundable)'
-                      : 'Pledged \$${amount.toStringAsFixed(2)}!');
-                  // Refresh only this card
-                  _loadFunding();
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  AppToast.fromError(context, e, fallback: 'Pledge failed');
-                }
-              }
-            },
-            child: const Text('Pledge'),
-          ),
+        );
+      },
+    );
+
+    if (confirmed == true) {
+      await _executePledge(amountCents, reservedSpots);
+    }
+  }
+
+  Widget _invoiceRow(String label, String value, {bool subtle = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label,
+              style: TextStyle(
+                  fontSize: 13,
+                  color: subtle ? Colors.grey[500] : Colors.grey[800])),
+          Text(value,
+              style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: subtle ? FontWeight.normal : FontWeight.w600,
+                  color: subtle ? Colors.grey[500] : null)),
         ],
       ),
     );
+  }
+
+  // ── Step 3: Execute pledge and show receipt ──
+  Future<void> _executePledge(int amountCents, int reservedSpots) async {
+    setState(() => _pledging = true);
+    try {
+      final api = context.read<ApiService>();
+      final result = await api.pledge(widget.eventId, amountCents,
+          reservedSpots: reservedSpots);
+      if (mounted) {
+        final isGuest = result['is_guest'] == true;
+        final pledgeId = result['id'] as int;
+        AppToast.success(context, isGuest
+            ? 'Guest pledge (non-refundable)'
+            : 'Pledge confirmed!');
+        _loadFunding();
+        // Navigate to receipt
+        Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => PledgeReceiptScreen(
+            eventId: widget.eventId,
+            pledgeId: pledgeId,
+          ),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        AppToast.fromError(context, e, fallback: 'Pledge failed');
+      }
+    } finally {
+      if (mounted) setState(() => _pledging = false);
+    }
   }
 
   // ── Unpledge ──
@@ -4497,20 +4829,43 @@ class _FundingCardState extends State<_FundingCard> {
             ],
           ),
 
-          // Backers count
-          if (_backersCount > 0) ...[
+          // Backers count + reserved spots
+          if (_backersCount > 0 || _totalReservedSpots > 0) ...[
             const SizedBox(height: 8),
-            Row(
+            Wrap(
+              spacing: 12,
+              runSpacing: 4,
               children: [
-                Icon(Icons.people_outline, size: 14, color: Colors.grey[500]),
-                const SizedBox(width: 4),
-                Text(
-                  '$_backersCount backer${_backersCount == 1 ? '' : 's'}',
-                  style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[500],
-                      fontWeight: FontWeight.w500),
-                ),
+                if (_backersCount > 0)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.people_outline, size: 14, color: Colors.grey[500]),
+                      const SizedBox(width: 4),
+                      Text(
+                        '$_backersCount backer${_backersCount == 1 ? '' : 's'}',
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[500],
+                            fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                if (_totalReservedSpots > 0)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.event_seat, size: 14, color: Colors.teal),
+                      const SizedBox(width: 4),
+                      Text(
+                        '$_totalReservedSpots spot${_totalReservedSpots == 1 ? '' : 's'} reserved',
+                        style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.teal,
+                            fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
               ],
             ),
           ],

@@ -240,11 +240,36 @@ class ApiService {
     return resp.data;
   }
 
+  Future<Map<String, dynamic>> getPledgePreview(
+      int eventId, int amountCents, int reservedSpots) async {
+    final resp = await dio.get('/events/$eventId/pledge-preview', queryParameters: {
+      'amount_cents': amountCents,
+      'reserved_spots': reservedSpots,
+    });
+    return resp.data;
+  }
+
   Future<Map<String, dynamic>> pledge(
-      int eventId, int amountCents) async {
+      int eventId, int amountCents, {int reservedSpots = 0}) async {
     final resp = await dio.post('/events/$eventId/pledge', data: {
       'amount_cents': amountCents,
+      'reserved_spots': reservedSpots,
     });
+    return resp.data;
+  }
+
+  Future<Map<String, dynamic>> getPledgeReceipt(int eventId, int pledgeId) async {
+    final resp = await dio.get('/events/$eventId/pledges/$pledgeId/receipt');
+    return resp.data;
+  }
+
+  Future<Map<String, dynamic>> getMyPledgeReceipt(int pledgeId) async {
+    final resp = await dio.get('/me/pledges/$pledgeId/receipt');
+    return resp.data;
+  }
+
+  Future<Map<String, dynamic>> getCapacityInfo(int eventId) async {
+    final resp = await dio.get('/events/$eventId/capacity-info');
     return resp.data;
   }
 

@@ -30,10 +30,12 @@ class Event {
   final EventStatus status;
   final RegistrationType registrationType;
   final int maxCapacity;
+  final int maxReservedSpotsPerUser;
   final int commonDiscountPercent;
   final int pledgeDiscountPercent;
   final int? totalPledgedCents;
   final int? fundingDaysLeft;
+  final int totalReservedSpots;
   final String? cancellationReason;
   final int registrationCount;
   final String? genre;
@@ -70,10 +72,12 @@ class Event {
     required this.status,
     required this.registrationType,
     required this.maxCapacity,
+    this.maxReservedSpotsPerUser = 0,
     required this.commonDiscountPercent,
     required this.pledgeDiscountPercent,
     this.totalPledgedCents,
     this.fundingDaysLeft,
+    this.totalReservedSpots = 0,
     this.cancellationReason,
     this.registrationCount = 0,
     this.genre,
@@ -120,10 +124,12 @@ class Event {
         orElse: () => RegistrationType.open,
       ),
       maxCapacity: json['max_capacity'] ?? 0,
+      maxReservedSpotsPerUser: json['max_reserved_spots_per_user'] ?? 0,
       commonDiscountPercent: json['common_discount_percent'] ?? 0,
       pledgeDiscountPercent: json['pledge_discount_percent'] ?? 0,
       totalPledgedCents: json['total_pledged_cents'],
       fundingDaysLeft: json['funding_days_left'],
+      totalReservedSpots: json['total_reserved_spots'] ?? 0,
       cancellationReason: json['cancellation_reason'],
       registrationCount: json['registration_count'] ?? 0,
       genre: json['genre'],

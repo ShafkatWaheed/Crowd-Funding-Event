@@ -36,6 +36,12 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
   List<dynamic> _ticketAll = [];
   List<dynamic> _ticketFiltered = [];
 
+  // Capacity info
+  int _maxCapacity = 0;
+  int _ticketsSold = 0;
+  int _totalReservedSpots = 0;
+  int _registrationCount = 0;
+
   bool _loading = true;
   String? _error;
 
@@ -62,18 +68,24 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
     try {
       final api = context.read<ApiService>();
 
-      // Load both in parallel
+      // Load waitlists + capacity in parallel
       final results = await Future.wait([
         api.getRegistrations(widget.eventId),
         api.getWaitlistedTickets(widget.eventId),
+        api.getCapacityInfo(widget.eventId),
       ]);
 
       final regs = results[0] as List;
       final tickets = results[1] as List;
+      final cap = results[2] as Map<String, dynamic>;
 
       setState(() {
         _fundAll = regs.where((r) => r['status'] == 'waitlist').toList();
         _ticketAll = tickets;
+        _maxCapacity = cap['max_capacity'] ?? 0;
+        _ticketsSold = cap['tickets_sold'] ?? 0;
+        _totalReservedSpots = cap['total_reserved_spots'] ?? 0;
+        _registrationCount = cap['registration_count'] ?? 0;
         _applySearch();
         _loading = false;
       });
@@ -308,6 +320,9 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
 
           const SizedBox(height: 4),
 
+          // ── Capacity Summary Bar ──
+          if (!_loading && _maxCapacity > 0) _buildCapacityBar(),
+
           // ── Content ──
           Expanded(
             child: _loading
@@ -366,6 +381,100 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  // ── Capacity bar ──
+
+  int get _occupied => _ticketsSold + _totalReservedSpots;
+  int get _available => (_maxCapacity - _occupied).clamp(0, _maxCapacity);
+
+  Widget _buildCapacityBar() {
+    final pct = _maxCapacity > 0 ? (_occupied / _maxCapacity).clamp(0.0, 1.0) : 0.0;
+    final barColor = _available <= 0
+        ? AppTheme.errorColor
+        : pct > 0.85
+            ? AppTheme.warningColor
+            : AppTheme.successColor;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppTheme.dividerColor),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.people_alt_rounded, size: 16, color: Colors.grey[600]),
+                const SizedBox(width: 6),
+                Text(
+                  'Capacity',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.grey[700],
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  '$_occupied / $_maxCapacity occupied',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: pct,
+                minHeight: 6,
+                backgroundColor: Colors.grey[200],
+                valueColor: AlwaysStoppedAnimation(barColor),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 12,
+              children: [
+                _capLabel('Tickets sold', _ticketsSold, Colors.blue),
+                if (_totalReservedSpots > 0)
+                  _capLabel('Reserved spots', _totalReservedSpots, Colors.deepPurple),
+                _capLabel('Available', _available, AppTheme.successColor),
+                if (_type == _WaitlistType.fund)
+                  _capLabel('Registered', _registrationCount, Colors.teal),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _capLabel(String label, int value, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          '$value $label',
+          style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+        ),
+      ],
     );
   }
 
@@ -438,6 +547,9 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
   Widget _fundCard(dynamic reg) {
     final regId = reg['id'] as int;
     final userId = reg['user_id'];
+    // After approving a fund registration, the user becomes registered –
+    // registration_count increases by 1 but capacity math unchanged.
+    final newRegCount = _registrationCount + 1;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -454,36 +566,53 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
+        child: Column(
           children: [
+            Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: AppTheme.warningColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.hourglass_top,
+                      size: 22, color: AppTheme.warningColor),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('User #$userId',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w700, fontSize: 15)),
+                      const SizedBox(height: 2),
+                      Text('Registration #$regId',
+                          style:
+                              TextStyle(fontSize: 12, color: Colors.grey[500])),
+                    ],
+                  ),
+                ),
+                _approveButton(() => _decideFund(regId, 'approve')),
+                const SizedBox(width: 8),
+                _rejectButton(() => _decideFund(regId, 'reject')),
+              ],
+            ),
+            const SizedBox(height: 8),
             Container(
-              width: 44,
-              height: 44,
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: AppTheme.warningColor.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(12),
+                color: Colors.teal.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.hourglass_top,
-                  size: 22, color: AppTheme.warningColor),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('User #$userId',
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w700, fontSize: 15)),
-                  const SizedBox(height: 2),
-                  Text('Registration #$regId',
-                      style:
-                          TextStyle(fontSize: 12, color: Colors.grey[500])),
-                ],
+              child: Text(
+                'If approved: Registered $newRegCount / $_maxCapacity',
+                style: TextStyle(fontSize: 11, color: Colors.teal[700], fontWeight: FontWeight.w500),
               ),
             ),
-            _approveButton(() => _decideFund(regId, 'approve')),
-            const SizedBox(width: 8),
-            _rejectButton(() => _decideFund(regId, 'reject')),
           ],
         ),
       ),
@@ -501,6 +630,10 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
         ? 'Free'
         : '\$${(amountCents / 100).toStringAsFixed(2)}';
 
+    // Preview: approving this ticket uses 1 capacity slot
+    final newOccupied = _occupied + 1;
+    final wouldExceed = newOccupied > _maxCapacity;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
@@ -516,36 +649,70 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
+        child: Column(
           children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: Colors.orange.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(Icons.confirmation_number,
-                  size: 22, color: Colors.orange),
+            Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.confirmation_number,
+                      size: 22, color: Colors.orange),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('User #$userId',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w700, fontSize: 15)),
+                      const SizedBox(height: 2),
+                      Text('$tierName · $price',
+                          style:
+                              TextStyle(fontSize: 12, color: Colors.grey[500])),
+                    ],
+                  ),
+                ),
+                _approveButton(() => _approveTicket(ticketId)),
+                const SizedBox(width: 8),
+                _rejectButton(() => _rejectTicket(ticketId)),
+              ],
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: wouldExceed
+                    ? AppTheme.errorColor.withValues(alpha: 0.08)
+                    : Colors.blue.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
                 children: [
-                  Text('User #$userId',
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w700, fontSize: 15)),
-                  const SizedBox(height: 2),
-                  Text('$tierName · $price',
-                      style:
-                          TextStyle(fontSize: 12, color: Colors.grey[500])),
+                  if (wouldExceed)
+                    Icon(Icons.warning_amber_rounded, size: 14, color: AppTheme.errorColor),
+                  if (wouldExceed) const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      wouldExceed
+                          ? 'If approved: $newOccupied / $_maxCapacity — exceeds capacity!'
+                          : 'If approved: $newOccupied / $_maxCapacity occupied',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: wouldExceed ? AppTheme.errorColor : Colors.blue[700],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
-            _approveButton(() => _approveTicket(ticketId)),
-            const SizedBox(width: 8),
-            _rejectButton(() => _rejectTicket(ticketId)),
           ],
         ),
       ),

@@ -25,7 +25,7 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 - **Mandatory funding goal:** When a funding deadline is set, a funding goal is required (enforced on both create and update)
 - **Edit event:** Draft and unpublished (pending_approval) events edit freely; approved/live events move to `pending_approval` after edit (needs admin re-approval). Admin edits bypass approval.
 - **Delete event:** Only `draft` or `cancelled` events can be permanently deleted
-- Cancel event (with mandatory reason) — available for unpublished, approved, selling_tickets, waiting_event_date, and live events
+- Cancel event (with mandatory reason) — available for unpublished, approved, and waiting_event_date events (direct cancel); **selling_tickets requires admin approval** (organizer sends cancellation request, admin reviews and approves/rejects)
 - Reactivate cancelled event (cancelled -> draft)
 - Publish draft event (draft -> approved)
 - **Clone completed events** into a new draft with all parameters pre-filled (no dates, preserves community rules)
@@ -184,7 +184,7 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 - Users tab: full user list with email visible (masked for non-admin)
 - **Settings tab:** all platform settings displayed with distinct icons/colors and intelligent formatting (cents → dollars, percents, days); includes commission rates, community rules thresholds, escrow percentages, grace period days — all admin-editable
 - **Escrow tab:** events with held funds, stage timeline, freeze/unfreeze
-- **Requests tab:** pending cancellation requests from organizers (for events ≥80% funded)
+- **Requests tab:** pending cancellation requests from organizers (for events ≥80% funded OR events in selling_tickets status); context label shows funding % or event status as applicable
 
 ### Frontend Screens & UX
 - **Uber-inspired UI** — black/white/green accent, Inter font, rounded containers, subtle shadows
@@ -207,6 +207,7 @@ This document lists **implemented features**, **unused endpoints**, **completed 
   - Ticket tiers, discounts, state banners, buy tickets, organizer actions, management section
   - **Transparent AppBar** with circular close button
   - State-dependent actions (register/pledge only during funding; buy tickets during selling_tickets/live)
+  - **Cancel flow:** direct cancel for pre-selling statuses; "Request Cancellation" button for organizer during selling_tickets (sends to admin queue, shows pending banner); admin can cancel selling_tickets directly
   - Clone button for completed events, "Set Event Date" & "Extend Funding" for waiting_event_date
   - Co-Organizers & Discounts management links, pending extension banner (admin approve/reject inline)
   - "Your Discounts" section for customers
@@ -268,7 +269,7 @@ These features have **working backend endpoints** but no frontend screen/button 
 | # | Feature | Status |
 |---|---------|--------|
 | 9.1 | **Platform Commission (Tickets + Funding)** | Done — `PlatformSettings` model, `ticket_commission_percent` (5%), `funding_commission_percent` (3%), commission on every ticket sale & pledge, admin Settings tab, commission displayed on receipts, ticket sales pages, funding card |
-| 9.2 | **Admin Approval at 80% Pledge** | Done — `pending_cancellation` JSON on Event, cancel/delete blocked when ≥80% funded, routes to admin approval queue, admin dashboard Requests tab shows cancellations, organizer sees "Cancellation Pending" banner |
+| 9.2 | **Admin Approval at 80% Pledge + Selling Tickets** | Done — `pending_cancellation` JSON on Event, cancel blocked when ≥80% funded OR when event is in `selling_tickets` status (non-admin), routes to admin approval queue, admin dashboard Requests tab shows cancellations with context (funding % or event status), organizer sees "Cancellation Pending" banner, "Request Cancellation" button with reason dialog for selling_tickets organizers |
 | 9.3 | **Free Tickets / Flexible Pricing** | Done — Schema validates `price_cents >= 0`, "FREE" badge on tiers, "Get Ticket" button, discount/commission skipped on $0 tickets |
 | 9.4 | **Community Event Rules** | Done — Decoupled from genre: `community_rules` boolean toggle on create/edit (draft only). Rules: max 14-day duration, max $50/tier, $10 listing fee. All thresholds admin-configurable in `PlatformSettings`. "Community Events" featured section on home page |
 | 9.5 | **Fund Escrow & Release Gates** | Done — `FundEscrow` + `EscrowRelease` models, 3-stage release (30/40/30), auto Stage 1 on goal+date+venue, admin Escrow tab with stage timeline + freeze/unfreeze, escrow trust indicator on Funding Card |

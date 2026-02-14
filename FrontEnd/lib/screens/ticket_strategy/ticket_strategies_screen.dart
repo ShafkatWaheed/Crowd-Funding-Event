@@ -235,13 +235,6 @@ class _TicketStrategiesScreenState extends State<TicketStrategiesScreen> {
                                               style: const TextStyle(
                                                   fontWeight: FontWeight.w600,
                                                   color: AppTheme.successColor)),
-                                          if (t.quantity > 0) ...[
-                                            const SizedBox(width: 8),
-                                            Text('(${t.quantity} tickets)',
-                                                style: TextStyle(
-                                                    fontSize: 12,
-                                                    color: Colors.grey[500])),
-                                          ],
                                         ],
                                       ),
                                       if (t.description != null && t.description!.isNotEmpty)
@@ -303,7 +296,6 @@ class _CreateTicketStrategyScreenState
       final data = <String, dynamic>{
         'name': t.nameCtrl.text.trim(),
         'price_cents': ((double.tryParse(t.priceCtrl.text) ?? 0) * 100).toInt(),
-        'quantity': int.tryParse(t.quantityCtrl.text) ?? 0,
         'display_order': i,
       };
       if (t.descCtrl.text.trim().isNotEmpty) {
@@ -341,7 +333,6 @@ class _CreateTicketStrategyScreenState
       t.nameCtrl.dispose();
       t.descCtrl.dispose();
       t.priceCtrl.dispose();
-      t.quantityCtrl.dispose();
     }
     super.dispose();
   }
@@ -436,39 +427,22 @@ class _CreateTicketStrategyScreenState
                               maxLines: 2,
                             ),
                             const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: t.priceCtrl,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Price (\$)',
-                                      prefixText: '\$ ',
-                                    ),
-                                    keyboardType: TextInputType.number,
-                                    validator: (v) {
-                                      if (v == null || v.isEmpty) {
-                                        return 'Required';
-                                      }
-                                      if (double.tryParse(v) == null) {
-                                        return 'Invalid';
-                                      }
-                                      return null;
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: t.quantityCtrl,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Quantity',
-                                      hintText: '0 = unlimited',
-                                    ),
-                                    keyboardType: TextInputType.number,
-                                  ),
-                                ),
-                              ],
+                            TextFormField(
+                              controller: t.priceCtrl,
+                              decoration: const InputDecoration(
+                                labelText: 'Price (\$)',
+                                prefixText: '\$ ',
+                              ),
+                              keyboardType: TextInputType.number,
+                              validator: (v) {
+                                if (v == null || v.isEmpty) {
+                                  return 'Required';
+                                }
+                                if (double.tryParse(v) == null) {
+                                  return 'Invalid';
+                                }
+                                return null;
+                              },
                             ),
                           ],
                         ),
@@ -510,5 +484,4 @@ class _TierInput {
   final nameCtrl = TextEditingController();
   final descCtrl = TextEditingController();
   final priceCtrl = TextEditingController();
-  final quantityCtrl = TextEditingController(text: '0');
 }

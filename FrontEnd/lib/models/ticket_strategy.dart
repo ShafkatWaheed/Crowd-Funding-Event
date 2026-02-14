@@ -3,7 +3,6 @@ class TicketStrategyTier {
   final String name;
   final String? description;
   final int priceCents;
-  final int quantity;
   final int displayOrder;
 
   TicketStrategyTier({
@@ -11,7 +10,6 @@ class TicketStrategyTier {
     required this.name,
     this.description,
     required this.priceCents,
-    this.quantity = 0,
     this.displayOrder = 0,
   });
 
@@ -21,7 +19,6 @@ class TicketStrategyTier {
       name: json['name'],
       description: json['description'],
       priceCents: json['price_cents'],
-      quantity: json['quantity'] ?? 0,
       displayOrder: json['display_order'] ?? 0,
     );
   }

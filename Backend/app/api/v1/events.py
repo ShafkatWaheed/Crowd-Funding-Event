@@ -795,7 +795,7 @@ async def create_ticket_tier(
     tier = await ticket_service.create_tier(
         db, event_id=event_id, user=current_user,
         name=body.name, description=body.description,
-        price_cents=body.price_cents, quantity=body.quantity,
+        price_cents=body.price_cents,
         display_order=body.display_order,
     )
     return TicketTierResponse.model_validate(tier)
@@ -814,7 +814,7 @@ async def update_ticket_tier(
     tier = await ticket_service.update_tier(
         db, tier, current_user,
         name=body.name, description=body.description,
-        price_cents=body.price_cents, quantity=body.quantity,
+        price_cents=body.price_cents,
         display_order=body.display_order,
     )
     return TicketTierResponse.model_validate(tier)

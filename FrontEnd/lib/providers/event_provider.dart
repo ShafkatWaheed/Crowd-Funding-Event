@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import '../models/event.dart';
 import '../services/api_service.dart';
@@ -73,15 +74,28 @@ class EventProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> cancelEvent(int id, {required String reason}) async {
+  /// Cancel or request cancellation.
+  /// Returns a message string on success / pending-request, or null on failure.
+  Future<String?> cancelEvent(int id, {required String reason}) async {
     try {
       await _api.cancelEvent(id, reason: reason);
       await loadEvent(id);
-      return true;
+      return 'Event cancelled successfully.';
+    } on DioException catch (e) {
+      final detail = e.response?.data;
+      final msg = (detail is Map ? detail['detail'] : null) as String?;
+      // 409 with "sent to admin" means the request was registered, not a real error
+      if (e.response?.statusCode == 409 && msg != null && msg.contains('admin')) {
+        await loadEvent(id);
+        return msg;
+      }
+      _error = msg ?? 'Failed to cancel event.';
+      notifyListeners();
+      return null;
     } catch (e) {
       _error = 'Failed to cancel event.';
       notifyListeners();
-      return false;
+      return null;
     }
   }
 

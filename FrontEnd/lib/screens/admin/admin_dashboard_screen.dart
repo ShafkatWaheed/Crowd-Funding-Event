@@ -308,8 +308,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
           ),
           ..._pendingCancellations.map((e) {
             final cancel = e['pending_cancellation'] as Map<String, dynamic>? ?? {};
-            final pct = cancel['pledge_percent'] ?? '?';
+            final pct = cancel['pledge_percent'];
+            final eventStatus = cancel['status'] as String?;
             final reason = cancel['reason'] ?? 'No reason given';
+
+            // Build context label based on why approval is needed
+            final String contextLabel;
+            if (pct != null) {
+              contextLabel = '$pct% funded — cancellation requires approval';
+            } else if (eventStatus != null) {
+              final readableStatus = eventStatus.replaceAll('_', ' ');
+              contextLabel = 'Event is $readableStatus — cancellation requires approval';
+            } else {
+              contextLabel = 'Cancellation requires admin approval';
+            }
+
             return Card(
               margin: const EdgeInsets.only(bottom: 12),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -328,7 +341,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                         color: Colors.red.shade100,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Text('$pct% funded — cancellation requires approval',
+                      child: Text(contextLabel,
                           style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.red.shade800)),
                     ),
                     const SizedBox(height: 8),

@@ -179,7 +179,6 @@ async def purchase_ticket(
     Customer purchases a ticket. Must be registered (registered status).
     If total purchased tickets for the event already reached venue/event
     max_capacity, the ticket is placed on the waitlist instead of purchased.
-    Tier-level quantity limits are also enforced.
     """
     event = await event_service.get_or_404(db, event_id)
     tier = await get_tier_or_404(db, event_id=event_id, tier_id=tier_id)
@@ -215,20 +214,10 @@ async def purchase_ticket(
     purchased_count = int((await db.execute(purchased_count_q)).scalar_one())
     over_event_cap = purchased_count >= int(event.max_capacity)
 
-    # ── Capacity check: tier-level (tier quantity, 0 = unlimited) ──
-    over_tier_cap = False
-    if tier.quantity > 0:
-        tier_purchased_q = select(func.count()).where(
-            TicketSale.ticket_tier_id == tier_id,
-            TicketSale.status == TicketSaleStatus.purchased,
-        )
-        tier_purchased = int((await db.execute(tier_purchased_q)).scalar_one())
-        over_tier_cap = tier_purchased >= tier.quantity
-
     # Determine ticket status based on capacity
     ticket_status = (
         TicketSaleStatus.waitlisted
-        if over_event_cap or over_tier_cap
+        if over_event_cap
         else TicketSaleStatus.purchased
     )
 
@@ -448,7 +437,6 @@ async def create_tier(
     name: str,
     description: str | None = None,
     price_cents: int,
-    quantity: int = 0,
     display_order: int = 0,
 ) -> TicketTier:
     event = await event_service.get_or_404(db, event_id)
@@ -461,7 +449,6 @@ async def create_tier(
         name=name,
         description=description,
         price_cents=price_cents,
-        quantity=quantity,
         display_order=display_order,
     )
     db.add(tier)
@@ -478,7 +465,6 @@ async def update_tier(
     name: str | None = None,
     description: str | None = None,
     price_cents: int | None = None,
-    quantity: int | None = None,
     display_order: int | None = None,
 ) -> TicketTier:
     event = await event_service.get_or_404(db, tier.event_id)
@@ -492,10 +478,6 @@ async def update_tier(
         if price_cents < 0:
             raise ConflictError("price_cents must be >= 0")
         tier.price_cents = price_cents
-    if quantity is not None:
-        if quantity < 0:
-            raise ConflictError("quantity must be >= 0")
-        tier.quantity = quantity
     if display_order is not None:
         tier.display_order = display_order
     await db.flush()

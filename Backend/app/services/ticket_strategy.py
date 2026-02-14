@@ -57,7 +57,6 @@ async def create(
             name=t["name"],
             description=t.get("description"),
             price_cents=t["price_cents"],
-            quantity=t.get("quantity", 0),
             display_order=t.get("display_order", i),
         )
         db.add(tier)
@@ -92,7 +91,6 @@ async def update(
                 name=t["name"],
                 description=t.get("description"),
                 price_cents=t["price_cents"],
-                quantity=t.get("quantity", 0),
                 display_order=t.get("display_order", i),
             )
             db.add(tier)
@@ -126,7 +124,6 @@ async def apply_strategy_to_event(
             name=st.name,
             description=st.description,
             price_cents=st.price_cents,
-            quantity=st.quantity,
             display_order=st.display_order,
         )
         db.add(tier)

@@ -7,7 +7,6 @@ class TicketStrategyTierInput(BaseModel):
     name: str           # e.g. "Platinum", "Diamond", "General"
     description: str | None = None  # what this tier provides
     price_cents: int    # price in cents
-    quantity: int = 0   # 0 = unlimited
     display_order: int = 0
 
 
@@ -26,7 +25,6 @@ class TicketStrategyTierResponse(BaseModel):
     name: str
     description: str | None = None
     price_cents: int
-    quantity: int
     display_order: int
 
     model_config = {"from_attributes": True}

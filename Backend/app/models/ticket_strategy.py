@@ -36,7 +36,6 @@ class TicketStrategyTier(Base):
     name: Mapped[str] = mapped_column(String(64), nullable=False)  # e.g. "Platinum", "Diamond", "General"
     description: Mapped[str | None] = mapped_column(Text, nullable=True)  # what this tier provides
     price_cents: Mapped[int] = mapped_column(Integer, nullable=False)
-    quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # 0 = unlimited
     display_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     strategy = relationship("TicketStrategy", back_populates="tiers")

@@ -459,7 +459,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                               style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.orange.shade800)),
                                             const SizedBox(height: 4),
                                             Text(
-                                              '${event.pendingCancellation!['pledge_percent'] ?? '?'}% funded — admin must approve cancellation',
+                                              event.pendingCancellation!['pledge_percent'] != null
+                                                  ? '${event.pendingCancellation!['pledge_percent']}% funded — admin must approve cancellation'
+                                                  : 'Organizer requested cancellation — awaiting admin review',
                                               style: TextStyle(fontSize: 13, color: Colors.grey[700]),
                                             ),
                                             if (event.pendingCancellation!['reason'] != null) ...[
@@ -571,196 +573,247 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                 const SizedBox(height: 16),
                               ],
 
-                              // Actions for organizers
+                              // ──────── Organizer Actions (modern, status-aware) ────────
                               if (user != null &&
                                   (user.isOrganizer || user.isAdmin)) ...[
                                 const SizedBox(height: 24),
                                 _sectionTitle(context, 'Organizer Actions'),
-                                const SizedBox(height: 8),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 8,
-                                  children: [
-                                    // Edit event
-                                    if (event.status == EventStatus.draft ||
-                                        event.status == EventStatus.pending_approval ||
-                                        event.status == EventStatus.approved ||
-                                        event.status == EventStatus.live)
-                                      ElevatedButton.icon(
-                                        onPressed: () =>
-                                            context.push('/events/${event.id}/edit'),
-                                        icon: const Icon(Icons.edit, size: 18),
-                                        label: Text(
-                                          event.status == EventStatus.draft ||
-                                                  event.status ==
-                                                      EventStatus.pending_approval
-                                              ? 'Edit'
-                                              : 'Edit (needs approval)',
+                                const SizedBox(height: 12),
+
+                                // ── Primary Action Card (status-specific) ──
+                                // Draft → Publish
+                                if (event.status == EventStatus.draft)
+                                  _primaryActionCard(
+                                    icon: Icons.publish_rounded,
+                                    color: AppTheme.primaryColor,
+                                    title: 'Ready to publish?',
+                                    subtitle: 'Submit your event for approval.',
+                                    buttonLabel: 'Publish Event',
+                                    onPressed: () async {
+                                      await eventProvider.publishEvent(event.id);
+                                    },
+                                  ),
+
+                                // Cancelled → Reactivate
+                                if (event.status == EventStatus.cancelled)
+                                  _primaryActionCard(
+                                    icon: Icons.restore_rounded,
+                                    color: AppTheme.warningColor,
+                                    title: 'Reactivate this event?',
+                                    subtitle: 'Move it back to draft for editing.',
+                                    buttonLabel: 'Move to Draft',
+                                    onPressed: () async {
+                                      await eventProvider.reactivateEvent(event.id);
+                                    },
+                                  ),
+
+                                // waiting_event_date → Start Selling
+                                if (event.status == EventStatus.waiting_event_date)
+                                  _primaryActionCard(
+                                    icon: Icons.storefront_rounded,
+                                    color: Colors.teal,
+                                    title: 'Ready to sell tickets?',
+                                    subtitle: event.startTime != null && event.ticketStrategyId != null
+                                        ? 'Event date and tickets are set. Start selling now.'
+                                        : event.startTime == null
+                                            ? 'Set an event date first, then you can start selling.'
+                                            : 'Attach a ticket strategy first, then start selling.',
+                                    buttonLabel: 'Start Selling Tickets',
+                                    buttonEnabled: event.startTime != null && event.ticketStrategyId != null,
+                                    onPressed: () => _confirmStartSelling(context, eventProvider, event),
+                                  ),
+
+                                // Completed → Clone
+                                if (event.status == EventStatus.completed)
+                                  _primaryActionCard(
+                                    icon: Icons.copy_all_rounded,
+                                    color: AppTheme.primaryColor,
+                                    title: 'Run this event again?',
+                                    subtitle: 'Clone it into a new draft with all settings pre-filled.',
+                                    buttonLabel: 'Clone Event',
+                                    onPressed: () => _cloneEvent(context, event.id),
+                                  ),
+
+                                // ── Setup Grid (waiting_event_date only) ──
+                                if (event.status == EventStatus.waiting_event_date) ...[
+                                  const SizedBox(height: 14),
+                                  GridView.count(
+                                    crossAxisCount: 2,
+                                    shrinkWrap: true,
+                                    physics: const NeverScrollableScrollPhysics(),
+                                    mainAxisSpacing: 10,
+                                    crossAxisSpacing: 10,
+                                    childAspectRatio: 1.55,
+                                    children: [
+                                      _setupTile(
+                                        icon: Icons.calendar_month_rounded,
+                                        label: 'Event Date',
+                                        subtitle: event.startTime != null
+                                            ? DateFormat('MMM d, y – h:mm a').format(event.startTime!)
+                                            : 'Not set',
+                                        color: Colors.orange,
+                                        isSet: event.startTime != null,
+                                        onTap: () => _showSetEventDateDialog(context, event),
+                                      ),
+                                      _setupTile(
+                                        icon: Icons.location_on_rounded,
+                                        label: 'Venue',
+                                        subtitle: event.venue?.name ?? 'Not set',
+                                        color: Colors.indigo,
+                                        isSet: event.venue != null,
+                                        onTap: () => _selectVenueForEvent(context, event),
+                                      ),
+                                      _setupTile(
+                                        icon: Icons.confirmation_number_rounded,
+                                        label: 'Ticket Strategy',
+                                        subtitle: event.ticketStrategyName ?? 'Not set',
+                                        color: Colors.deepPurple,
+                                        isSet: event.ticketStrategyId != null,
+                                        onTap: () => _selectStrategyForEvent(context, event),
+                                      ),
+                                      _setupTile(
+                                        icon: Icons.people_rounded,
+                                        label: 'Max Capacity',
+                                        subtitle: '${event.maxCapacity}',
+                                        color: Colors.teal,
+                                        isSet: true,
+                                        onTap: () => _showChangeCapacityDialog(context, event),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+
+                                const SizedBox(height: 10),
+
+                                // ── Secondary Actions (menu tiles) ──
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(16),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.04),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      // Edit (draft, pending, approved only)
+                                      if (event.status == EventStatus.draft ||
+                                          event.status == EventStatus.pending_approval ||
+                                          event.status == EventStatus.approved)
+                                        _menuTile(
+                                          icon: Icons.edit_rounded,
+                                          iconColor: AppTheme.secondaryColor,
+                                          label: 'Edit Event',
+                                          trailing: event.status == EventStatus.approved
+                                              ? 'Needs approval'
+                                              : null,
+                                          onTap: () => context.push('/events/${event.id}/edit'),
                                         ),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor:
-                                              AppTheme.secondaryColor,
-                                          foregroundColor: Colors.white,
+
+                                      // Toggle posts (all statuses)
+                                      _menuTile(
+                                        icon: event.postsEnabled ? Icons.comments_disabled_rounded : Icons.comment_rounded,
+                                        iconColor: event.postsEnabled ? Colors.grey : AppTheme.primaryColor,
+                                        label: event.postsEnabled ? 'Disable Posts' : 'Enable Posts',
+                                        onTap: _togglePosts,
+                                      ),
+
+                                      // Change Venue (approved, waiting_event_date, selling_tickets)
+                                      if (event.status == EventStatus.approved ||
+                                          event.status == EventStatus.waiting_event_date ||
+                                          event.status == EventStatus.selling_tickets)
+                                        _menuTile(
+                                          icon: Icons.location_on_rounded,
+                                          iconColor: Colors.indigo,
+                                          label: 'Change Venue',
+                                          trailing: event.venue?.name,
+                                          onTap: () => _selectVenueForEvent(context, event),
                                         ),
-                                      ),
 
-                                    // Draft → Publish
-                                    if (event.status == EventStatus.draft)
-                                      ElevatedButton.icon(
-                                        onPressed: () async {
-                                          await eventProvider
-                                              .publishEvent(event.id);
-                                        },
-                                        icon: const Icon(Icons.publish,
-                                            size: 18),
-                                        label: const Text('Publish'),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor:
-                                              AppTheme.primaryColor,
-                                          foregroundColor: Colors.white,
+                                      // Change Ticket Strategy (approved, waiting_event_date)
+                                      if (event.status == EventStatus.approved ||
+                                          event.status == EventStatus.waiting_event_date)
+                                        _menuTile(
+                                          icon: Icons.confirmation_number_rounded,
+                                          iconColor: Colors.deepPurple,
+                                          label: 'Change Ticket Strategy',
+                                          trailing: event.ticketStrategyName,
+                                          onTap: () => _selectStrategyForEvent(context, event),
                                         ),
-                                      ),
 
-                                    // Cancelled → Move to Draft
-                                    if (event.status ==
-                                        EventStatus.cancelled)
-                                      ElevatedButton.icon(
-                                        onPressed: () async {
-                                          await eventProvider
-                                              .reactivateEvent(event.id);
-                                        },
-                                        icon: const Icon(Icons.restore,
-                                            size: 18),
-                                        label:
-                                            const Text('Move to Draft'),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor:
-                                              AppTheme.warningColor,
-                                          foregroundColor: Colors.white,
+                                      // Increase Capacity (approved, waiting_event_date, selling_tickets, live)
+                                      if (event.status == EventStatus.approved ||
+                                          event.status == EventStatus.waiting_event_date ||
+                                          event.status == EventStatus.selling_tickets ||
+                                          event.status == EventStatus.live)
+                                        _menuTile(
+                                          icon: Icons.group_add_rounded,
+                                          iconColor: Colors.teal,
+                                          label: 'Increase Capacity',
+                                          trailing: '${event.maxCapacity}',
+                                          onTap: () => _showChangeCapacityDialog(context, event),
                                         ),
-                                      ),
 
-                                    // Set Event Date (waiting_event_date → set dates)
-                                    if (event.status == EventStatus.waiting_event_date)
-                                      ElevatedButton.icon(
-                                        onPressed: () =>
-                                            _showSetEventDateDialog(context, event),
-                                        icon: const Icon(Icons.calendar_month, size: 18),
-                                        label: const Text('Set Event Date'),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.orange,
-                                          foregroundColor: Colors.white,
+                                      // Extend Funding (waiting_event_date)
+                                      if (event.status == EventStatus.waiting_event_date)
+                                        _menuTile(
+                                          icon: Icons.more_time_rounded,
+                                          iconColor: AppTheme.accentColor,
+                                          label: 'Extend Funding',
+                                          onTap: () => _showExtendFundingDialog(context, event),
                                         ),
-                                      ),
 
-                                    // Start Selling Tickets (waiting_event_date, dates + strategy set)
-                                    if (event.status == EventStatus.waiting_event_date &&
-                                        event.startTime != null &&
-                                        event.ticketStrategyId != null)
-                                      ElevatedButton.icon(
-                                        onPressed: () async {
-                                          final ok = await eventProvider.startSellingTickets(event.id);
-                                          if (ok && mounted) {
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              const SnackBar(content: Text('Tickets are now on sale!')),
-                                            );
-                                          } else if (!ok && mounted) {
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              SnackBar(content: Text(eventProvider.error ?? 'Failed to start selling tickets')),
-                                            );
-                                          }
-                                        },
-                                        icon: const Icon(Icons.storefront_rounded, size: 18),
-                                        label: const Text('Start Selling Tickets'),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.teal,
-                                          foregroundColor: Colors.white,
+                                      // Cancel — organizer or admin for pre-selling
+                                      if (event.status == EventStatus.pending_approval ||
+                                          event.status == EventStatus.approved ||
+                                          event.status == EventStatus.waiting_event_date)
+                                        _menuTile(
+                                          icon: Icons.cancel_rounded,
+                                          iconColor: AppTheme.errorColor,
+                                          label: 'Cancel Event',
+                                          onTap: () => _confirmCancel(context, eventProvider, event.id),
+                                          isDanger: true,
                                         ),
-                                      ),
 
-                                    // Extend Funding (waiting_event_date)
-                                    if (event.status == EventStatus.waiting_event_date)
-                                      OutlinedButton.icon(
-                                        onPressed: () => _showExtendFundingDialog(context, event),
-                                        icon: const Icon(Icons.more_time_rounded, size: 18),
-                                        label: const Text('Extend Funding'),
-                                        style: OutlinedButton.styleFrom(
-                                          foregroundColor: AppTheme.accentColor,
+                                      // Cancel — admin only for selling/live
+                                      if ((event.status == EventStatus.selling_tickets ||
+                                              event.status == EventStatus.live) &&
+                                          user != null && user.isAdmin)
+                                        _menuTile(
+                                          icon: Icons.cancel_rounded,
+                                          iconColor: AppTheme.errorColor,
+                                          label: 'Cancel Event (Admin)',
+                                          onTap: () => _confirmCancel(context, eventProvider, event.id),
+                                          isDanger: true,
                                         ),
-                                      ),
 
-                                    // Clone (completed events only)
-                                    if (event.status == EventStatus.completed)
-                                      ElevatedButton.icon(
-                                        onPressed: () => _cloneEvent(context, event.id),
-                                        icon: const Icon(Icons.copy_all, size: 18),
-                                        label: const Text('Clone Event'),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: AppTheme.primaryColor,
-                                          foregroundColor: Colors.white,
+                                      // Request Cancellation — organizer (not admin) during selling
+                                      if (event.status == EventStatus.selling_tickets &&
+                                          user != null && !user.isAdmin &&
+                                          event.pendingCancellation == null)
+                                        _menuTile(
+                                          icon: Icons.cancel_outlined,
+                                          iconColor: AppTheme.warningColor,
+                                          label: 'Request Cancellation',
+                                          onTap: () => _requestCancellation(context, eventProvider, event.id),
                                         ),
-                                      ),
 
-                                    // Cancel (published, unpublished, selling_tickets, waiting, or live events)
-                                    if (event.status ==
-                                            EventStatus.pending_approval ||
-                                        event.status ==
-                                            EventStatus.approved ||
-                                        event.status == EventStatus.selling_tickets ||
-                                        event.status == EventStatus.waiting_event_date ||
-                                        event.status ==
-                                            EventStatus.live)
-                                      OutlinedButton.icon(
-                                        onPressed: () =>
-                                            _confirmCancel(
-                                                context,
-                                                eventProvider,
-                                                event.id),
-                                        icon: const Icon(Icons.cancel,
-                                            size: 18,
-                                            color: AppTheme.errorColor),
-                                        label: const Text(
-                                            'Cancel Event',
-                                            style: TextStyle(
-                                                color:
-                                                    AppTheme.errorColor)),
-                                      ),
-
-                                    // Delete permanently (draft or cancelled only)
-                                    if (event.status ==
-                                            EventStatus.draft ||
-                                        event.status ==
-                                            EventStatus.cancelled)
-                                      OutlinedButton.icon(
-                                        onPressed: () =>
-                                            _confirmDelete(
-                                                context, eventProvider,
-                                                event.id),
-                                        icon: const Icon(
-                                            Icons.delete_forever,
-                                            size: 18,
-                                            color: AppTheme.errorColor),
-                                        label: const Text(
-                                            'Delete Permanently',
-                                            style: TextStyle(
-                                                color:
-                                                    AppTheme.errorColor)),
-                                      ),
-
-                                    // Toggle posts
-                                    OutlinedButton.icon(
-                                      onPressed: _togglePosts,
-                                      icon: Icon(
-                                        event.postsEnabled
-                                            ? Icons.comments_disabled
-                                            : Icons.comment,
-                                        size: 18,
-                                      ),
-                                      label: Text(event.postsEnabled
-                                          ? 'Disable Posts'
-                                          : 'Enable Posts'),
-                                    ),
-                                  ],
+                                      // Delete (draft or cancelled only)
+                                      if (event.status == EventStatus.draft ||
+                                          event.status == EventStatus.cancelled)
+                                        _menuTile(
+                                          icon: Icons.delete_forever_rounded,
+                                          iconColor: AppTheme.errorColor,
+                                          label: 'Delete Permanently',
+                                          onTap: () => _confirmDelete(context, eventProvider, event.id),
+                                          isDanger: true,
+                                        ),
+                                    ],
+                                  ),
                                 ),
                               ],
 
@@ -1138,7 +1191,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
             final name = t['name'] ?? 'Tier';
             final desc = t['description'] as String?;
             final priceCents = t['price_cents'] ?? 0;
-            final quantity = t['quantity'] ?? 0;
             final isFree = priceCents == 0;
             final basePrice = isFree ? null : (priceCents / 100).toStringAsFixed(2);
 
@@ -1160,12 +1212,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                               style: const TextStyle(
                                   fontWeight: FontWeight.w600)),
                         ),
-                        if (quantity > 0)
-                          Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: Text('$quantity left',
-                                style: TextStyle(fontSize: 11, color: Colors.grey[500])),
-                          ),
                         if (isFree)
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
@@ -1484,6 +1530,183 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     }
   }
 
+  Future<void> _confirmStartSelling(
+      BuildContext context, EventProvider eventProvider, Event event) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Start Selling Tickets'),
+        content: const Text(
+            'Once you start selling, attendees can purchase tickets immediately. Continue?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.teal),
+            child: const Text('Start Selling'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      final ok = await eventProvider.startSellingTickets(event.id);
+      if (ok && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Tickets are now on sale!')),
+        );
+      } else if (!ok && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(eventProvider.error ?? 'Failed to start selling tickets')),
+        );
+      }
+    }
+  }
+
+  Future<void> _selectVenueForEvent(BuildContext context, Event event) async {
+    final api = context.read<ApiService>();
+    final eventProvider = context.read<EventProvider>();
+    try {
+      final venues = await api.getVenues();
+      if (!mounted) return;
+      final selected = await showDialog<Map<String, dynamic>>(
+        context: context,
+        builder: (ctx) => SimpleDialog(
+          title: const Text('Select Venue'),
+          children: venues
+              .map<SimpleDialogOption>((v) => SimpleDialogOption(
+                    onPressed: () => Navigator.pop(ctx, v),
+                    child: ListTile(
+                      leading: const Icon(Icons.location_on_rounded),
+                      title: Text(v['name'] ?? ''),
+                      subtitle: Text(
+                          'Capacity: ${v['max_capacity'] ?? 'N/A'}',
+                          style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                      selected: v['id'] == event.venueId,
+                    ),
+                  ))
+              .toList(),
+        ),
+      );
+      if (selected != null && mounted) {
+        await api.updateEvent(event.id, {'venue_id': selected['id']});
+        await eventProvider.loadEvent(event.id);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Venue changed to ${selected['name']}')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _selectStrategyForEvent(BuildContext context, Event event) async {
+    final api = context.read<ApiService>();
+    final eventProvider = context.read<EventProvider>();
+    try {
+      final strategies = await api.getTicketStrategies();
+      if (!mounted) return;
+      final selected = await showDialog<Map<String, dynamic>>(
+        context: context,
+        builder: (ctx) => SimpleDialog(
+          title: const Text('Select Ticket Strategy'),
+          children: strategies
+              .map<SimpleDialogOption>((s) => SimpleDialogOption(
+                    onPressed: () => Navigator.pop(ctx, s),
+                    child: ListTile(
+                      leading: const Icon(Icons.confirmation_number_rounded),
+                      title: Text(s['name'] ?? ''),
+                      selected: s['id'] == event.ticketStrategyId,
+                    ),
+                  ))
+              .toList(),
+        ),
+      );
+      if (selected != null && mounted) {
+        await api.updateEvent(event.id, {'ticket_strategy_id': selected['id']});
+        await eventProvider.loadEvent(event.id);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Ticket strategy set to ${selected['name']}')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _showChangeCapacityDialog(BuildContext context, Event event) async {
+    final controller = TextEditingController(text: event.maxCapacity.toString());
+    final api = context.read<ApiService>();
+    final eventProvider = context.read<EventProvider>();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Change Max Capacity'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Current capacity: ${event.maxCapacity}',
+                style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'New Max Capacity',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Update'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      final val = int.tryParse(controller.text);
+      if (val == null || val <= 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Enter a valid number.')),
+        );
+        return;
+      }
+      try {
+        await api.updateEvent(event.id, {'max_capacity': val});
+        await eventProvider.loadEvent(event.id);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Capacity updated to $val')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed: $e')),
+          );
+        }
+      }
+    }
+    controller.dispose();
+  }
+
   Future<void> _confirmDelete(
       BuildContext context, EventProvider eventProvider, int eventId) async {
     final confirmed = await showDialog<bool>(
@@ -1660,8 +1883,73 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     );
 
     if (confirmed == true && context.mounted) {
-      await eventProvider.cancelEvent(eventId,
+      final msg = await eventProvider.cancelEvent(eventId,
           reason: reasonCtrl.text.trim());
+      if (context.mounted && msg != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(msg)),
+        );
+      }
+    }
+  }
+
+  /// Organizer requests admin approval to cancel a selling_tickets event.
+  Future<void> _requestCancellation(
+      BuildContext context, EventProvider eventProvider, int eventId) async {
+    final reasonCtrl = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Request Cancellation'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+                'This event is actively selling tickets. '
+                'Your cancellation request will be sent to an admin for review.\n\n'
+                'Please provide a reason:'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: reasonCtrl,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'Reason for cancellation',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Back'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (reasonCtrl.text.trim().isEmpty) return;
+              Navigator.pop(ctx, true);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.warningColor,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Send Request'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      final msg = await eventProvider.cancelEvent(eventId,
+          reason: reasonCtrl.text.trim());
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(msg ?? 'Failed to send cancellation request.'),
+            backgroundColor: msg != null ? AppTheme.successColor : AppTheme.errorColor,
+          ),
+        );
+      }
     }
   }
 
@@ -1718,7 +2006,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _LiveMgmtStats(eventId: event.id),
+        _LiveMgmtStats(event: event),
         const SizedBox(height: 12),
         // Co-organizers button
         _mgmtActionCard(
@@ -1726,14 +2014,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           label: 'Co-Organizers',
           color: AppTheme.accentColor,
           onTap: () => context.push('/events/${event.id}/co-organizers'),
-        ),
-        const SizedBox(height: 12),
-        // Ticket waitlist button
-        _mgmtActionCard(
-          icon: Icons.confirmation_number_rounded,
-          label: 'Ticket Waitlist',
-          color: Colors.orange,
-          onTap: () => context.push('/events/${event.id}/ticket-waitlist'),
         ),
         const SizedBox(height: 12),
         // Inline discount attach/detach
@@ -1744,6 +2024,195 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           _buildPendingExtensionBanner(event),
         ],
       ],
+    );
+  }
+
+  // ═══════════════════════════════════════════
+  // Modern Organizer UI Widgets
+  // ═══════════════════════════════════════════
+
+  Widget _primaryActionCard({
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String subtitle,
+    required String buttonLabel,
+    required VoidCallback onPressed,
+    bool buttonEnabled = true,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [color, color.withValues(alpha: 0.8)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.3),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: Colors.white, size: 24),
+              ),
+              const Spacer(),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(title,
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800)),
+          const SizedBox(height: 4),
+          Text(subtitle,
+              style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.85),
+                  fontSize: 13)),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: buttonEnabled ? onPressed : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: color,
+                disabledBackgroundColor: Colors.white.withValues(alpha: 0.5),
+                disabledForegroundColor: color.withValues(alpha: 0.4),
+                padding: const EdgeInsets.symmetric(vertical: 13),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+              ),
+              child: Text(buttonLabel,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w700, fontSize: 14)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _setupTile({
+    required IconData icon,
+    required String label,
+    required String subtitle,
+    required Color color,
+    required bool isSet,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSet
+                ? color.withValues(alpha: 0.3)
+                : Colors.grey.withValues(alpha: 0.2),
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(icon, size: 18, color: color),
+                ),
+                const Spacer(),
+                if (isSet)
+                  Icon(Icons.check_circle, size: 16, color: color),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.black87)),
+            Text(subtitle,
+                style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _menuTile({
+    required IconData icon,
+    required Color iconColor,
+    required String label,
+    String? trailing,
+    required VoidCallback onTap,
+    bool isDanger = false,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, size: 18, color: iconColor),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(label,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: isDanger ? AppTheme.errorColor : Colors.black87,
+                  )),
+            ),
+            if (trailing != null)
+              Text(trailing,
+                  style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+            const SizedBox(width: 4),
+            Icon(Icons.chevron_right,
+                size: 18, color: Colors.grey[400]),
+          ],
+        ),
+      ),
     );
   }
 
@@ -2203,10 +2672,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 final name = tier['name'] ?? '';
                 final desc = tier['description'] ?? '';
                 final priceCents = tier['price_cents'] ?? 0;
-                final quantity = tier['quantity'] ?? 0;
                 final price =
                     '\$${(priceCents / 100).toStringAsFixed(2)}';
-                final qtyLabel = quantity > 0 ? '$quantity tickets' : 'Unlimited';
+                final canDelete = event.status != EventStatus.selling_tickets &&
+                    event.status != EventStatus.live;
                 return Container(
                   margin: const EdgeInsets.only(bottom: 8),
                   padding: const EdgeInsets.all(14),
@@ -2236,20 +2705,11 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                   style: TextStyle(
                                       fontSize: 12,
                                       color: Colors.grey[600])),
-                            Row(
-                              children: [
-                                Text(price,
-                                    style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppTheme.successColor)),
-                                const SizedBox(width: 8),
-                                Text('· $qtyLabel',
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey[500])),
-                              ],
-                            ),
+                            Text(price,
+                                style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.successColor)),
                           ],
                         ),
                       ),
@@ -2257,15 +2717,16 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                         icon: const Icon(Icons.edit_outlined, size: 20),
                         tooltip: 'Edit tier',
                         onPressed: () => _showEditTierDialog(
-                            event.id, tierId, name, desc, priceCents, quantity),
+                            event.id, tierId, name, desc, priceCents),
                       ),
-                      IconButton(
-                        icon: Icon(Icons.delete_outline,
-                            size: 20, color: AppTheme.errorColor),
-                        tooltip: 'Delete tier',
-                        onPressed: () =>
-                            _confirmDeleteTier(event.id, tierId, name),
-                      ),
+                      if (canDelete)
+                        IconButton(
+                          icon: Icon(Icons.delete_outline,
+                              size: 20, color: AppTheme.errorColor),
+                          tooltip: 'Delete tier',
+                          onPressed: () =>
+                              _confirmDeleteTier(event.id, tierId, name),
+                        ),
                     ],
                   ),
                 );
@@ -2278,12 +2739,11 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   }
 
   Future<void> _showEditTierDialog(int eventId, int tierId, String name,
-      String description, int priceCents, [int quantity = 0]) async {
+      String description, int priceCents) async {
     final nameCtrl = TextEditingController(text: name);
     final descCtrl = TextEditingController(text: description);
     final priceCtrl = TextEditingController(
         text: (priceCents / 100).toStringAsFixed(2));
-    final quantityCtrl = TextEditingController(text: quantity.toString());
 
     final saved = await showDialog<bool>(
       context: context,
@@ -2309,15 +2769,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                   labelText: 'Price', prefixText: '\$ '),
               keyboardType: TextInputType.number,
             ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: quantityCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Quantity (0 = unlimited)',
-                hintText: '0',
-              ),
-              keyboardType: TextInputType.number,
-            ),
           ],
         ),
         actions: [
@@ -2334,7 +2785,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                   'name': nameCtrl.text.trim(),
                   'description': descCtrl.text.trim(),
                   'price_cents': (price * 100).toInt(),
-                  'quantity': int.tryParse(quantityCtrl.text) ?? 0,
                 });
                 if (ctx.mounted) Navigator.pop(ctx, true);
               } catch (e) {
@@ -2408,8 +2858,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 // ═══════════════════════════════════════════
 
 class _LiveMgmtStats extends StatefulWidget {
-  final int eventId;
-  const _LiveMgmtStats({required this.eventId});
+  final Event event;
+  const _LiveMgmtStats({required this.event});
 
   @override
   State<_LiveMgmtStats> createState() => _LiveMgmtStatsState();
@@ -2418,9 +2868,25 @@ class _LiveMgmtStats extends StatefulWidget {
 class _LiveMgmtStatsState extends State<_LiveMgmtStats> {
   int _soldCount = 0;
   int _scannedCount = 0;
-  int _waitlistCount = 0;
+  int _fundingWaitlistCount = 0;
+  int _ticketWaitlistCount = 0;
   int _revenueCents = 0;
   bool _loading = true;
+
+  Event get _event => widget.event;
+  int get _eventId => _event.id;
+
+  bool get _isEarlyPhase =>
+      _event.status == EventStatus.draft ||
+      _event.status == EventStatus.pending_approval ||
+      _event.status == EventStatus.approved ||
+      _event.status == EventStatus.waiting_event_date;
+
+  bool get _isTicketPhase =>
+      _event.status == EventStatus.selling_tickets ||
+      _event.status == EventStatus.live;
+
+  bool get _isCompleted => _event.status == EventStatus.completed;
 
   @override
   void initState() {
@@ -2431,26 +2897,44 @@ class _LiveMgmtStatsState extends State<_LiveMgmtStats> {
   Future<void> _load() async {
     try {
       final api = context.read<ApiService>();
-      final results = await Future.wait([
-        api.getTicketSales(widget.eventId),
-        api.getScannedTickets(widget.eventId),
-        api.getRegistrations(widget.eventId),
-      ]);
-      final allSales = results[0];
-      final scanned = results[1];
-      final regs = results[2];
-      final revenue = allSales.fold<int>(
-          0, (s, e) => s + ((e['amount_paid_cents'] ?? 0) as int));
-      final waitlisted =
-          regs.where((r) => r['status'] == 'waitlist').length;
-      if (mounted) {
-        setState(() {
-          _soldCount = allSales.length;
-          _scannedCount = scanned.length;
-          _waitlistCount = waitlisted;
-          _revenueCents = revenue;
-          _loading = false;
-        });
+
+      if (_isEarlyPhase) {
+        // Only need registrations for early phases
+        final regs = await api.getRegistrations(_eventId);
+        final waitlisted =
+            regs.where((r) => r['status'] == 'waitlist').length;
+        if (mounted) {
+          setState(() {
+            _fundingWaitlistCount = waitlisted;
+            _loading = false;
+          });
+        }
+      } else {
+        // Ticket & completed phases: load everything
+        final results = await Future.wait([
+          api.getTicketSales(_eventId),
+          api.getScannedTickets(_eventId),
+          api.getRegistrations(_eventId),
+          api.getWaitlistedTickets(_eventId),
+        ]);
+        final allSales = results[0] as List;
+        final scanned = results[1] as List;
+        final regs = results[2] as List;
+        final ticketWaitlist = results[3] as List;
+        final revenue = allSales.fold<int>(
+            0, (s, e) => s + ((e['amount_paid_cents'] ?? 0) as int));
+        final fundingWaitlisted =
+            regs.where((r) => r['status'] == 'waitlist').length;
+        if (mounted) {
+          setState(() {
+            _soldCount = allSales.length;
+            _scannedCount = scanned.length;
+            _fundingWaitlistCount = fundingWaitlisted;
+            _ticketWaitlistCount = ticketWaitlist.length;
+            _revenueCents = revenue;
+            _loading = false;
+          });
+        }
       }
     } catch (_) {
       if (mounted) setState(() => _loading = false);
@@ -2461,71 +2945,213 @@ class _LiveMgmtStatsState extends State<_LiveMgmtStats> {
   Widget build(BuildContext context) {
     if (_loading) {
       return const SizedBox(
-        height: 100,
+        height: 80,
         child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
       );
     }
 
-    return Column(
-      children: [
-        // Row 1: sold, scanned
-        Row(
-          children: [
-            Expanded(
-              child: _tapChip(
-                icon: Icons.confirmation_number_rounded,
-                label: '$_soldCount sold',
-                color: AppTheme.primaryColor,
-                onTap: () =>
-                    context.push('/events/${widget.eventId}/ticket-sales'),
+    final regCount = _event.registrationCount;
+    final maxCap = _event.maxCapacity;
+    final isFull = maxCap > 0 && regCount >= maxCap;
+
+    // ── Early Phases ──
+    if (_isEarlyPhase) {
+      return Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _statChip(
+                  icon: Icons.people_rounded,
+                  label: '$regCount registered',
+                  color: AppTheme.primaryColor,
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _tapChip(
-                icon: Icons.qr_code_scanner_rounded,
-                label: '$_scannedCount scanned',
-                color: AppTheme.successColor,
-                onTap: () =>
-                    context.push('/events/${widget.eventId}/scanned-tickets'),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _statChip(
+                  icon: Icons.hourglass_top_rounded,
+                  label: '$_fundingWaitlistCount fund waitlist',
+                  color: AppTheme.warningColor,
+                  onTap: () => context.push('/events/$_eventId/waitlist'),
+                ),
               ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _capacityBadge(regCount, maxCap, isFull),
+        ],
+      );
+    }
+
+    // ── Selling Tickets / Live ──
+    if (_isTicketPhase) {
+      return Column(
+        children: [
+          _capacityBadge(regCount, maxCap, isFull),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _statChip(
+                  icon: Icons.confirmation_number_rounded,
+                  label: '$_soldCount sold',
+                  color: AppTheme.primaryColor,
+                  onTap: () => context.push('/events/$_eventId/ticket-sales'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _statChip(
+                  icon: Icons.qr_code_scanner_rounded,
+                  label: '$_scannedCount scanned',
+                  color: AppTheme.successColor,
+                  onTap: () => context.push('/events/$_eventId/scanned-tickets'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _statChip(
+                  icon: Icons.event_seat_rounded,
+                  label: '$_ticketWaitlistCount ticket waitlist',
+                  color: Colors.orange,
+                  onTap: () => context.push('/events/$_eventId/ticket-waitlist'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _statChip(
+                  icon: Icons.attach_money_rounded,
+                  label: '\$${(_revenueCents / 100).toStringAsFixed(0)} revenue',
+                  color: Colors.teal,
+                  onTap: () => context.push('/events/$_eventId/ticket-sales'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      );
+    }
+
+    // ── Completed ── (read-only summary)
+    if (_isCompleted) {
+      return Column(
+        children: [
+          _capacityBadge(regCount, maxCap, isFull),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _statChip(
+                  icon: Icons.confirmation_number_rounded,
+                  label: '$_soldCount sold',
+                  color: AppTheme.primaryColor,
+                  onTap: () => context.push('/events/$_eventId/ticket-sales'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _statChip(
+                  icon: Icons.qr_code_scanner_rounded,
+                  label: '$_scannedCount scanned',
+                  color: AppTheme.successColor,
+                  onTap: () => context.push('/events/$_eventId/scanned-tickets'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _statChip(
+                  icon: Icons.hourglass_top_rounded,
+                  label: '$_fundingWaitlistCount fund wl',
+                  color: AppTheme.warningColor,
+                  onTap: () => context.push('/events/$_eventId/waitlist'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _statChip(
+                  icon: Icons.event_seat_rounded,
+                  label: '$_ticketWaitlistCount ticket wl',
+                  color: Colors.orange,
+                  onTap: () => context.push('/events/$_eventId/ticket-waitlist'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _statChip(
+            icon: Icons.attach_money_rounded,
+            label: '\$${(_revenueCents / 100).toStringAsFixed(0)} total revenue',
+            color: Colors.teal,
+            onTap: () => context.push('/events/$_eventId/ticket-sales'),
+          ),
+        ],
+      );
+    }
+
+    // Fallback (cancelled / unknown)
+    return const SizedBox.shrink();
+  }
+
+  // ── Capacity badge ──
+  Widget _capacityBadge(int registered, int maxCap, bool isFull) {
+    final color = isFull ? AppTheme.errorColor : AppTheme.primaryColor;
+    final label = maxCap > 0
+        ? '$registered / $maxCap capacity'
+        : '$registered registered';
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.2), width: 1),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            isFull ? Icons.warning_rounded : Icons.people_rounded,
+            size: 18,
+            color: color,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: color,
             ),
+          ),
+          if (isFull) ...[
+            const SizedBox(width: 6),
+            Text('FULL',
+                style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    color: color,
+                    letterSpacing: 1)),
           ],
-        ),
-        const SizedBox(height: 8),
-        // Row 2: waitlist, revenue
-        Row(
-          children: [
-            Expanded(
-              child: _tapChip(
-                icon: Icons.hourglass_top_rounded,
-                label: '$_waitlistCount waitlisted',
-                color: AppTheme.warningColor,
-                onTap: () =>
-                    context.push('/events/${widget.eventId}/waitlist'),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _tapChip(
-                icon: Icons.attach_money_rounded,
-                label: '\$${(_revenueCents / 100).toStringAsFixed(0)}',
-                color: Colors.teal,
-                onTap: () =>
-                    context.push('/events/${widget.eventId}/ticket-sales'),
-              ),
-            ),
-          ],
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  Widget _tapChip({
+  // ── Stat chip (tappable) ──
+  Widget _statChip({
     required IconData icon,
     required String label,
     required Color color,
-    required VoidCallback onTap,
+    VoidCallback? onTap,
   }) {
     return Material(
       color: color.withValues(alpha: 0.08),
@@ -2546,6 +3172,7 @@ class _LiveMgmtStatsState extends State<_LiveMgmtStats> {
                   fontWeight: FontWeight.w700,
                   color: color,
                 ),
+                textAlign: TextAlign.center,
               ),
             ],
           ),

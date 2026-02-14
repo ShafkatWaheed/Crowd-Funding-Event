@@ -396,7 +396,6 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
               'name': e.value.nameCtrl.text.trim(),
               'price_cents':
                   ((double.tryParse(e.value.priceCtrl.text) ?? 0) * 100).toInt(),
-              'quantity': int.tryParse(e.value.quantityCtrl.text) ?? 0,
               'display_order': e.key,
             };
             if (e.value.descCtrl.text.trim().isNotEmpty) {
@@ -440,14 +439,6 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     final s = _strategies.where((s) => s.id == _selectedStrategyId).firstOrNull;
     if (s == null) return const SizedBox.shrink();
 
-    // Calculate total ticket quantity
-    final totalQty = s.tiers.fold<int>(0, (sum, t) => sum + t.quantity);
-    final hasUnlimited = s.tiers.any((t) => t.quantity == 0);
-    final maxCap = int.tryParse(_capacityCtrl.text) ?? 0;
-    final shortfall = maxCap > 0 && !hasUnlimited && totalQty < maxCap
-        ? maxCap - totalQty
-        : 0;
-
     return Card(
       margin: const EdgeInsets.only(top: 4),
       child: Padding(
@@ -473,10 +464,6 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                       Expanded(child: Text(t.name, style: const TextStyle(fontWeight: FontWeight.w500))),
                       Text(t.priceFormatted,
                           style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.successColor)),
-                      if (t.quantity > 0)
-                        Text('  (${t.quantity})', style: TextStyle(fontSize: 11, color: Colors.grey[500]))
-                      else
-                        Text('  (unlimited)', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
                     ],
                   ),
                   if (t.description != null && t.description!.isNotEmpty)
@@ -488,32 +475,6 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                 ],
               ),
             )),
-            const Divider(height: 12),
-            // Capacity vs total qty check
-            Row(
-              children: [
-                Icon(
-                  shortfall > 0 ? Icons.warning_amber_rounded : Icons.check_circle_outline,
-                  size: 16,
-                  color: shortfall > 0 ? AppTheme.warningColor : AppTheme.successColor,
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    hasUnlimited
-                        ? 'Total tickets: unlimited (includes unlimited tier)'
-                        : shortfall > 0
-                            ? 'Total tickets: $totalQty — need $shortfall more to cover capacity ($maxCap)'
-                            : 'Total tickets: $totalQty (covers capacity of $maxCap)',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: shortfall > 0 ? AppTheme.warningColor : AppTheme.successColor,
-                    ),
-                  ),
-                ),
-              ],
-            ),
           ],
         ),
       ),
@@ -605,19 +566,6 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                               keyboardType: TextInputType.number,
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            flex: 1,
-                            child: TextFormField(
-                              controller: t.quantityCtrl,
-                              decoration: const InputDecoration(
-                                labelText: 'Qty',
-                                hintText: '0',
-                                isDense: true,
-                              ),
-                              keyboardType: TextInputType.number,
-                            ),
-                          ),
                         ],
                       ),
                       const SizedBox(height: 6),
@@ -676,7 +624,6 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       t.nameCtrl.dispose();
       t.descCtrl.dispose();
       t.priceCtrl.dispose();
-      t.quantityCtrl.dispose();
     }
     super.dispose();
   }
@@ -1050,18 +997,18 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                   const SizedBox(height: 24),
 
                   // ═══════════════════════════════════════
-                  // SECTION 4: Venue
+                  // SECTION 4: Venue (searchable)
                   // ═══════════════════════════════════════
-                  DropdownButtonFormField<int>(
-                    value: _selectedVenueId,
-                    decoration: const InputDecoration(labelText: 'Venue'),
-                    items: _venues
-                        .map((v) => DropdownMenuItem(
-                            value: v.id, child: Text(v.name)))
-                        .toList(),
-                    onChanged: (v) => setState(() => _selectedVenueId = v),
-                    validator: (v) =>
-                        v == null ? 'Please select a venue' : null,
+                  _SearchableDropdown<Venue>(
+                    label: 'Venue *',
+                    hint: 'Search venues…',
+                    items: _venues,
+                    selectedItem: _venues.where((v) => v.id == _selectedVenueId).firstOrNull,
+                    itemLabel: (v) => v.name,
+                    itemSubtitle: (v) => 'Capacity: ${v.maxCapacity}',
+                    filter: (v, q) => v.name.toLowerCase().contains(q.toLowerCase()),
+                    onSelected: (v) => setState(() => _selectedVenueId = v?.id),
+                    validator: (_) => _selectedVenueId == null ? 'Please select a venue' : null,
                   ),
                   const SizedBox(height: 8),
 
@@ -1234,32 +1181,19 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                           ],
                         ),
                         const SizedBox(height: 10),
-                        DropdownButtonFormField<int>(
-                          value: _selectedStrategyId,
-                          decoration: const InputDecoration(
-                            labelText: 'Ticket Strategy',
-                            hintText: 'Select a strategy',
-                            isDense: true,
-                          ),
-                          items: _strategies.map((s) => DropdownMenuItem(
-                            value: s.id,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(s.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                                Text(s.tiersSummary,
-                                    style: TextStyle(fontSize: 11, color: Colors.grey[600])),
-                              ],
-                            ),
-                          )).toList(),
-                          onChanged: (v) => setState(() => _selectedStrategyId = v),
-                          validator: (v) {
-                            // Only require strategy when event-date-only (no funding)
-                            // The date check itself is handled before form.validate()
+                        _SearchableDropdown<TicketStrategy>(
+                          label: 'Ticket Strategy',
+                          hint: 'Search strategies…',
+                          items: _strategies,
+                          selectedItem: _strategies.where((s) => s.id == _selectedStrategyId).firstOrNull,
+                          itemLabel: (s) => s.name,
+                          itemSubtitle: (s) => s.tiersSummary,
+                          filter: (s, q) => s.name.toLowerCase().contains(q.toLowerCase()),
+                          onSelected: (s) => setState(() => _selectedStrategyId = s?.id),
+                          validator: (_) {
                             if (_fundingEndAt == null &&
                                 _startTime != null &&
-                                v == null) {
+                                _selectedStrategyId == null) {
                               return 'Required when no funding deadline';
                             }
                             return null;
@@ -1530,7 +1464,178 @@ class _StrategyTierInput {
   final nameCtrl = TextEditingController();
   final descCtrl = TextEditingController();
   final priceCtrl = TextEditingController();
-  final quantityCtrl = TextEditingController(text: '0');
+}
+
+
+// ═══════════════════════════════════════════
+// Searchable Dropdown Widget
+// ═══════════════════════════════════════════
+
+class _SearchableDropdown<T> extends StatefulWidget {
+  final String label;
+  final String hint;
+  final List<T> items;
+  final T? selectedItem;
+  final String Function(T) itemLabel;
+  final String Function(T)? itemSubtitle;
+  final bool Function(T, String) filter;
+  final ValueChanged<T?> onSelected;
+  final String? Function(T?)? validator;
+
+  const _SearchableDropdown({
+    super.key,
+    required this.label,
+    required this.hint,
+    required this.items,
+    this.selectedItem,
+    required this.itemLabel,
+    this.itemSubtitle,
+    required this.filter,
+    required this.onSelected,
+    this.validator,
+  });
+
+  @override
+  State<_SearchableDropdown<T>> createState() => _SearchableDropdownState<T>();
+}
+
+class _SearchableDropdownState<T> extends State<_SearchableDropdown<T>> {
+  late TextEditingController _controller;
+  final _focusNode = FocusNode();
+  bool _isOpen = false;
+  String _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(
+      text: widget.selectedItem != null
+          ? widget.itemLabel(widget.selectedItem as T)
+          : '',
+    );
+    _focusNode.addListener(() {
+      if (_focusNode.hasFocus) {
+        setState(() => _isOpen = true);
+        _controller.selection = TextSelection(
+          baseOffset: 0,
+          extentOffset: _controller.text.length,
+        );
+      } else {
+        // Delay closing to allow tap to register
+        Future.delayed(const Duration(milliseconds: 200), () {
+          if (mounted) setState(() => _isOpen = false);
+        });
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant _SearchableDropdown<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.selectedItem != oldWidget.selectedItem) {
+      _controller.text = widget.selectedItem != null
+          ? widget.itemLabel(widget.selectedItem as T)
+          : '';
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  List<T> get _filteredItems {
+    if (_query.isEmpty) return widget.items;
+    return widget.items.where((item) => widget.filter(item, _query)).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FormField<T>(
+      validator: (_) => widget.validator?.call(widget.selectedItem),
+      builder: (state) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextFormField(
+              controller: _controller,
+              focusNode: _focusNode,
+              decoration: InputDecoration(
+                labelText: widget.label,
+                hintText: widget.hint,
+                suffixIcon: widget.selectedItem != null
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () {
+                          _controller.clear();
+                          widget.onSelected(null);
+                          setState(() => _query = '');
+                        },
+                      )
+                    : const Icon(Icons.arrow_drop_down),
+                errorText: state.errorText,
+              ),
+              onChanged: (v) => setState(() => _query = v),
+            ),
+            if (_isOpen && _filteredItems.isNotEmpty)
+              Container(
+                constraints: const BoxConstraints(maxHeight: 200),
+                margin: const EdgeInsets.only(top: 2),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  padding: EdgeInsets.zero,
+                  itemCount: _filteredItems.length,
+                  itemBuilder: (ctx, i) {
+                    final item = _filteredItems[i];
+                    final isSelected = widget.selectedItem != null &&
+                        widget.itemLabel(widget.selectedItem as T) ==
+                            widget.itemLabel(item);
+                    return ListTile(
+                      dense: true,
+                      selected: isSelected,
+                      title: Text(widget.itemLabel(item),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w600, fontSize: 14)),
+                      subtitle: widget.itemSubtitle != null
+                          ? Text(widget.itemSubtitle!(item),
+                              style: TextStyle(
+                                  fontSize: 11, color: Colors.grey[600]))
+                          : null,
+                      trailing: isSelected
+                          ? Icon(Icons.check_circle,
+                              size: 18, color: Theme.of(context).primaryColor)
+                          : null,
+                      onTap: () {
+                        widget.onSelected(item);
+                        _controller.text = widget.itemLabel(item);
+                        _focusNode.unfocus();
+                        setState(() {
+                          _query = '';
+                          _isOpen = false;
+                        });
+                      },
+                    );
+                  },
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
 }
 
 class _CreateDiscountBtn extends StatelessWidget {

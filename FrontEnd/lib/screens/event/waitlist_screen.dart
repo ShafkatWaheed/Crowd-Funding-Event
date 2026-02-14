@@ -168,7 +168,7 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
 
   String get _emptyLabel => _type == _WaitlistType.fund
       ? 'No pending fund waitlist requests'
-      : 'No waitlisted tickets';
+      : 'No tickets waiting approval';
 
   String get _searchEmptyLabel => _type == _WaitlistType.fund
       ? 'No matching registrations'
@@ -269,7 +269,7 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    '${_currentAll.length} waitlisted',
+                    '${_currentAll.length} waiting approval',
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,

@@ -303,6 +303,16 @@ class ApiService {
     return resp.data;
   }
 
+  Future<Map<String, dynamic>> getTicketReceipt(int eventId, int saleId) async {
+    final resp = await dio.get('/events/$eventId/tickets/$saleId/receipt');
+    return resp.data;
+  }
+
+  Future<Map<String, dynamic>> getMyTicketReceipt(int saleId) async {
+    final resp = await dio.get('/me/tickets/$saleId/receipt');
+    return resp.data;
+  }
+
   Future<Map<String, dynamic>> scanTicket(
       int eventId, String ticketCode) async {
     final resp = await dio.post('/events/$eventId/scan-ticket', data: {

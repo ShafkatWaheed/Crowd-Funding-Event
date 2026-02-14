@@ -33,6 +33,9 @@ class TicketSale {
   final int userId;
   final int ticketTierId;
   final String ticketCode;
+  final String? receiptNumber;
+  final String? tierName;
+  final String? eventTitle;
   final int amountPaidCents;
   final int discountAppliedCents;
   final String? extraPerks;
@@ -46,6 +49,9 @@ class TicketSale {
     required this.userId,
     required this.ticketTierId,
     required this.ticketCode,
+    this.receiptNumber,
+    this.tierName,
+    this.eventTitle,
     required this.amountPaidCents,
     required this.discountAppliedCents,
     this.extraPerks,
@@ -61,6 +67,9 @@ class TicketSale {
       userId: json['user_id'],
       ticketTierId: json['ticket_tier_id'],
       ticketCode: json['ticket_code'],
+      receiptNumber: json['receipt_number'],
+      tierName: json['tier_name'],
+      eventTitle: json['event_title'],
       amountPaidCents: json['amount_paid_cents'],
       discountAppliedCents: json['discount_applied_cents'] ?? 0,
       extraPerks: json['extra_perks'],

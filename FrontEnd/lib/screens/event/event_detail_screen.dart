@@ -15,6 +15,7 @@ import '../../providers/event_provider.dart';
 import '../../widgets/event_lifecycle_bar.dart';
 import '../../widgets/app_toast.dart';
 import '../../services/api_service.dart';
+import 'ticket_receipt_screen.dart';
 import 'venue_picker_screen.dart';
 import 'strategy_picker_screen.dart';
 
@@ -412,7 +413,16 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                       _modernInfoRow(Icons.event_available_rounded, 'Ends', dateFormat.format(event.endTime!)),
                                     if (event.startTime == null && event.endTime == null)
                                       _modernInfoRow(Icons.schedule_rounded, 'Date', 'Announced after funding milestone', valueColor: Colors.orange[700]),
-                                    _modernInfoRow(Icons.people_alt_rounded, 'Capacity', '${event.maxCapacity}'),
+                                    _modernInfoRow(
+                                      Icons.people_alt_rounded,
+                                      'Capacity',
+                                      event.maxCapacity > 0
+                                          ? '${event.registrationCount} / ${event.maxCapacity} registered'
+                                          : '${event.registrationCount} registered',
+                                      valueColor: event.maxCapacity > 0 && event.registrationCount >= event.maxCapacity
+                                          ? AppTheme.errorColor
+                                          : null,
+                                    ),
                                     _modernInfoRow(Icons.badge_rounded, 'Registration', event.registrationType.name.replaceAll('_', ' ')),
                                     if (event.eventDateDeadline != null)
                                       _modernInfoRow(Icons.hourglass_bottom_rounded, 'Set Event Date By', dateFormat.format(event.eventDateDeadline!)),
@@ -550,17 +560,52 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                               if (event.status == EventStatus.completed)
                                 _infoBanner('This event has been completed.', Icons.check_circle, Colors.grey),
 
-                              // Buy tickets (shown for everyone when selling)
+                              // Buy tickets (always visible for customers during selling/live)
                               if (user != null &&
                                   user.isCustomer &&
                                   (event.status == EventStatus.selling_tickets ||
                                       event.status == EventStatus.live)) ...[
                                 const SizedBox(height: 12),
+                                // Waiting approval banner (shown alongside Buy Tickets)
+                                if (_regStatus == 'waitlisted') ...[
+                                  Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.warningColor.withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: AppTheme.warningColor.withValues(alpha: 0.3)),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.hourglass_top_rounded, size: 18, color: AppTheme.warningColor),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Text(
+                                            'Your registration is waiting for approval. Once approved, you can buy tickets.',
+                                            style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                ],
                                 SizedBox(
                                   width: double.infinity,
                                   height: 48,
                                   child: ElevatedButton.icon(
-                                    onPressed: () => _showBuyTicketDialog(event),
+                                    onPressed: () {
+                                      if (!_isRegistered || _regStatus != 'registered') {
+                                        if (_regStatus == 'waitlisted') {
+                                          AppToast.info(context, 'Your registration is waiting for organizer approval. You can buy tickets once approved.');
+                                        } else {
+                                          AppToast.info(context, 'Please register for this event first to buy tickets.');
+                                        }
+                                        return;
+                                      }
+                                      _showBuyTicketDialog(event);
+                                    },
                                     icon: const Icon(Icons.confirmation_number),
                                     label: const Text('Buy Tickets',
                                         style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
@@ -1136,10 +1181,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                     )
                   : _quickActionBtn(
                       icon: _regStatus == 'waitlisted' ? Icons.hourglass_top : Icons.how_to_reg,
-                      label: _regStatus == 'waitlisted' ? 'Waitlisted' : 'Register',
+                      label: _regStatus == 'waitlisted' ? 'Waiting Approval' : 'Register',
                       color: _regStatus == 'waitlisted' ? AppTheme.warningColor : AppTheme.primaryColor,
                       filled: _regStatus != 'waitlisted',
-                      onTap: _regLoading ? null : () => _register(context),
+                      onTap: _regLoading || _regStatus == 'waitlisted' ? null : () => _register(context),
                     ),
             ),
 
@@ -1343,6 +1388,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       }));
       if (!mounted) return;
 
+      // Step 1: Select a tier
       await showDialog(
         context: context,
         builder: (ctx) {
@@ -1367,79 +1413,85 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                   final finalPrice = (finalCents / 100).toStringAsFixed(2);
 
                   return Card(
-                    child: ListTile(
-                      leading: const Icon(Icons.confirmation_number, color: Colors.teal),
-                      title: Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (isFree)
-                            Row(
-                              children: [
-                                if (baseCents > 0) ...[
-                                  Text('\$$basePrice',
-                                      style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey[500],
-                                          decoration: TextDecoration.lineThrough)),
-                                  const SizedBox(width: 6),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () {
+                        Navigator.of(ctx).pop();
+                        _showInvoiceDialog(event, t, preview);
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.confirmation_number, color: Colors.teal, size: 28),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                                  const SizedBox(height: 4),
+                                  if (isFree)
+                                    Row(
+                                      children: [
+                                        if (baseCents > 0) ...[
+                                          Text('\$$basePrice',
+                                              style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.grey[500],
+                                                  decoration: TextDecoration.lineThrough)),
+                                          const SizedBox(width: 6),
+                                        ],
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.green.shade50,
+                                            borderRadius: BorderRadius.circular(10),
+                                            border: Border.all(color: Colors.green.shade300),
+                                          ),
+                                          child: Text('FREE',
+                                              style: TextStyle(
+                                                  fontWeight: FontWeight.w800,
+                                                  fontSize: 11,
+                                                  color: Colors.green.shade700)),
+                                        ),
+                                      ],
+                                    )
+                                  else if (totalDiscount > 0)
+                                    Row(
+                                      children: [
+                                        Text('\$$basePrice',
+                                            style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey[500],
+                                                decoration: TextDecoration.lineThrough)),
+                                        const SizedBox(width: 6),
+                                        Text('\$$finalPrice',
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.w700,
+                                                color: Colors.teal)),
+                                        const SizedBox(width: 4),
+                                        Text('(-\$${(totalDiscount / 100).toStringAsFixed(2)})',
+                                            style: TextStyle(fontSize: 11, color: Colors.green.shade700)),
+                                      ],
+                                    )
+                                  else
+                                    Text('\$$basePrice', style: const TextStyle(fontWeight: FontWeight.w600)),
+                                  if (desc != null && desc.isNotEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 4),
+                                      child: Text(desc,
+                                          style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey[600],
+                                              fontStyle: FontStyle.italic)),
+                                    ),
                                 ],
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: Colors.green.shade50,
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(color: Colors.green.shade300),
-                                  ),
-                                  child: Text('FREE',
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.w800,
-                                          fontSize: 11,
-                                          color: Colors.green.shade700)),
-                                ),
-                              ],
-                            )
-                          else if (totalDiscount > 0)
-                            Row(
-                              children: [
-                                Text('\$$basePrice',
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey[500],
-                                        decoration: TextDecoration.lineThrough)),
-                                const SizedBox(width: 6),
-                                Text('\$$finalPrice',
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.w700,
-                                        color: Colors.teal)),
-                                const SizedBox(width: 4),
-                                Text('(-\$${(totalDiscount / 100).toStringAsFixed(2)})',
-                                    style: TextStyle(fontSize: 11, color: Colors.green.shade700)),
-                              ],
-                            )
-                          else
-                            Text('\$$basePrice'),
-                          if (desc != null && desc.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: Text(desc,
-                                  style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey[600],
-                                      fontStyle: FontStyle.italic)),
+                              ),
                             ),
-                        ],
-                      ),
-                      trailing: ElevatedButton(
-                        onPressed: () async {
-                          Navigator.of(ctx).pop();
-                          await _purchaseTicket(event.id, tierId);
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isFree ? Colors.green : Colors.teal,
-                          foregroundColor: Colors.white,
+                            const Icon(Icons.chevron_right_rounded, color: AppTheme.textSecondary),
+                          ],
                         ),
-                        child: Text(isFree ? 'Get Ticket' : 'Buy \$$finalPrice'),
                       ),
                     ),
                   );
@@ -1462,10 +1514,244 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     }
   }
 
+  /// Step 2: Show invoice/price breakdown before confirming purchase.
+  Future<void> _showInvoiceDialog(
+      Event event, Map<String, dynamic> tier, Map<String, dynamic>? preview) async {
+    final tierName = tier['name'] ?? 'Ticket';
+    final tierId = tier['id'] as int;
+    final baseCents = tier['price_cents'] ?? 0;
+    final commonDisc = preview?['common_discount_cents'] ?? 0;
+    final selectiveDisc = preview?['selective_discount_cents'] ?? 0;
+    final pledgeDisc = preview?['pledge_discount_cents'] ?? 0;
+    final eventDisc = preview?['event_discount_cents'] ?? 0;
+    final totalDiscount = preview?['total_discount_cents'] ?? 0;
+    final finalCents = preview?['final_price_cents'] ?? baseCents;
+    final commissionCents = preview?['commission_cents'] ?? 0;
+    final isFree = finalCents == 0;
+
+    String fmtCents(int c) => '\$${(c / 100).toStringAsFixed(2)}';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        contentPadding: EdgeInsets.zero,
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.teal,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(20),
+                    topRight: Radius.circular(20),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    const Icon(Icons.receipt_long_rounded, color: Colors.white, size: 32),
+                    const SizedBox(height: 8),
+                    const Text('Invoice',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 4),
+                    Text(event.title,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.8),
+                            fontSize: 13)),
+                  ],
+                ),
+              ),
+
+              // Invoice body
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Tier info
+                    Row(
+                      children: [
+                        const Icon(Icons.confirmation_number_rounded,
+                            size: 18, color: Colors.teal),
+                        const SizedBox(width: 8),
+                        Text(tierName,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w700, fontSize: 16)),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Price breakdown
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppTheme.surfaceColor,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Column(
+                        children: [
+                          _invoiceRow('Ticket Price', fmtCents(baseCents)),
+                          if (commonDisc > 0) ...[
+                            const SizedBox(height: 8),
+                            _invoiceRow('Common Discount',
+                                '- ${fmtCents(commonDisc)}',
+                                valueColor: AppTheme.successColor),
+                          ],
+                          if (selectiveDisc > 0) ...[
+                            const SizedBox(height: 8),
+                            _invoiceRow('Selective Discount',
+                                '- ${fmtCents(selectiveDisc)}',
+                                valueColor: AppTheme.successColor),
+                          ],
+                          if (pledgeDisc > 0) ...[
+                            const SizedBox(height: 8),
+                            _invoiceRow('Pledge Discount',
+                                '- ${fmtCents(pledgeDisc)}',
+                                valueColor: AppTheme.successColor),
+                          ],
+                          if (eventDisc > 0) ...[
+                            const SizedBox(height: 8),
+                            _invoiceRow('Event Discount',
+                                '- ${fmtCents(eventDisc)}',
+                                valueColor: AppTheme.successColor),
+                          ],
+                          if (commissionCents > 0) ...[
+                            const SizedBox(height: 8),
+                            _invoiceRow('Platform Fee',
+                                fmtCents(commissionCents),
+                                valueColor: Colors.grey[500]!),
+                          ],
+                          const SizedBox(height: 10),
+                          Container(height: 1, color: AppTheme.dividerColor),
+                          const SizedBox(height: 10),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Total',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 17)),
+                              Text(
+                                isFree ? 'FREE' : fmtCents(finalCents),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 20,
+                                  letterSpacing: -0.5,
+                                  color: isFree
+                                      ? AppTheme.successColor
+                                      : Colors.teal,
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (totalDiscount > 0) ...[
+                            const SizedBox(height: 6),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.successColor
+                                        .withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    'You save ${fmtCents(totalDiscount)}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTheme.successColor,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // Buy button
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton.icon(
+                        onPressed: () => Navigator.of(ctx).pop(true),
+                        icon: Icon(isFree
+                            ? Icons.check_circle_rounded
+                            : Icons.shopping_cart_rounded),
+                        label: Text(
+                          isFree ? 'Get Free Ticket' : 'Confirm Purchase',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w700, fontSize: 16),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: isFree ? Colors.green : Colors.teal,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14)),
+                          elevation: 0,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    // Back to tiers
+                    SizedBox(
+                      width: double.infinity,
+                      child: TextButton(
+                        onPressed: () => Navigator.of(ctx).pop(false),
+                        child: const Text('Back to Tiers'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      await _purchaseTicket(event.id, tierId);
+    } else if (confirmed == false && mounted) {
+      // Go back to tier selection
+      _showBuyTicketDialog(event);
+    }
+  }
+
+  Widget _invoiceRow(String label, String value, {Color? valueColor}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+        Text(value,
+            style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: valueColor)),
+      ],
+    );
+  }
+
   Future<void> _purchaseTicket(int eventId, int tierId) async {
     try {
       final api = context.read<ApiService>();
       final resp = await api.dio.post('/events/$eventId/purchase-ticket', data: {'tier_id': tierId});
+      final saleId = resp.data['id'] as int;
       final ticketCode = resp.data['ticket_code'] ?? '';
       final amountPaid = resp.data['amount_paid_cents'] ?? 0;
       final commission = resp.data['commission_cents'] ?? 0;
@@ -1473,13 +1759,27 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       final isFree = amountPaid == 0;
       if (mounted) {
         if (status == 'waitlisted') {
-          AppToast.success(context, 'Event/tier is at capacity — you have been added to the ticket waitlist.');
+          AppToast.info(context, 'Event is at capacity — your ticket is waiting for organizer approval.');
         } else {
           final priceStr = isFree
               ? 'Free ticket'
               : 'Paid \$${(amountPaid / 100).toStringAsFixed(2)}'
                 '${commission > 0 ? ' (incl. \$${(commission / 100).toStringAsFixed(2)} platform fee)' : ''}';
           AppToast.success(context, '$priceStr — Code: $ticketCode');
+          // Navigate to receipt screen with buy-again option
+          if (mounted) {
+            final event = context.read<EventProvider>().selectedEvent;
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => TicketReceiptScreen(
+                  eventId: eventId,
+                  saleId: saleId,
+                  showBuyAgain: true,
+                  onBuyAgain: event != null ? () => _showBuyTicketDialog(event) : null,
+                ),
+              ),
+            );
+          }
         }
       }
     } catch (e) {
@@ -1739,11 +2039,23 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     setState(() => _regLoading = true);
     try {
       final api = context.read<ApiService>();
-      await api.register(widget.eventId);
+      final result = await api.register(widget.eventId);
       await _checkRegistration();
       if (context.mounted) {
         context.read<EventProvider>().loadEvent(widget.eventId);
-        AppToast.success(context, 'Registered successfully!');
+        final status = result['status'] as String?;
+        final event = context.read<EventProvider>().selectedEvent;
+        final isSelling = event?.status == EventStatus.selling_tickets ||
+            event?.status == EventStatus.live;
+        if (status == 'waitlisted') {
+          AppToast.info(context, isSelling
+              ? 'Event is at capacity. Once the organizer approves, you can buy tickets.'
+              : 'Event is at capacity. Your registration is waiting for organizer approval.');
+        } else {
+          AppToast.success(context, isSelling
+              ? 'Registered! You can now buy tickets.'
+              : 'Registered successfully!');
+        }
       }
     } catch (e) {
       if (context.mounted) {
@@ -3600,17 +3912,17 @@ class _CustomerDiscountsSectionState extends State<_CustomerDiscountsSection> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.04),
+              color: Colors.deepPurple.withOpacity(0.05),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
               children: [
-                Icon(Icons.info_outline, size: 16, color: Colors.white38),
+                Icon(Icons.info_outline, size: 16, color: Colors.grey[500]),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     'No discounts applied yet. Tap Browse to see available discounts you can claim.',
-                    style: TextStyle(fontSize: 12, color: Colors.white54),
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                   ),
                 ),
               ],
@@ -3633,7 +3945,7 @@ class _CustomerDiscountsSectionState extends State<_CustomerDiscountsSection> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(d['name'] ?? 'Discount',
-                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: AppTheme.textPrimary)),
                           Text(_describe(d),
                               style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                         ],

@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../config/theme.dart';
 import '../../services/api_service.dart';
+import 'ticket_receipt_screen.dart';
 
 /// Full-page ticket sales list.
 /// [scannedOnly] = false → all sales, true → only scanned tickets.
@@ -250,6 +251,7 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
   }
 
   Widget _buildCard(dynamic sale) {
+    final saleId = sale['id'] as int;
     final tierName = sale['tier_name'] ?? 'Unknown';
     final attendee =
         sale['attendee_display_name'] ?? 'User #${sale['user_id']}';
@@ -266,7 +268,16 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
             .format(DateTime.parse(sale['created_at']).toLocal())
         : '';
 
-    return Container(
+    return GestureDetector(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => TicketReceiptScreen(
+            eventId: widget.eventId,
+            saleId: saleId,
+          ),
+        ),
+      ),
+      child: Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -371,6 +382,7 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
           ],
         ),
       ),
+    ),
     );
   }
 

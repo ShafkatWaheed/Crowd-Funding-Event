@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends
 
 from app.dependencies import CurrentUser, DbSession, require_role
 from app.models.user import User, UserRole
-from app.schemas import EventResponse, MeResponse, MeUpdate, MyPledgeItem, TicketSaleResponse
+from app.schemas import EventResponse, MeResponse, MeUpdate, MyPledgeItem, TicketReceiptResponse, TicketSaleResponse
 from app.api.v1.events import _event_to_response
 from app.services import event as event_service
 from app.services import funding as funding_service
@@ -82,6 +82,7 @@ async def get_my_tickets(
             user_id=s.user_id,
             ticket_tier_id=s.ticket_tier_id,
             ticket_code=s.ticket_code,
+            receipt_number=getattr(s, "receipt_number", None),
             tier_name=s.ticket_tier.name if s.ticket_tier else None,
             event_title=s.event.title if s.event else None,
             attendee_display_name=(s.user.display_name or s.user.email) if s.user else None,
@@ -96,6 +97,66 @@ async def get_my_tickets(
         )
         for s in sales
     ]
+
+
+@router.get("/tickets/{sale_id}/receipt", response_model=TicketReceiptResponse)
+async def get_my_ticket_receipt(
+    sale_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.customer)),
+):
+    """Get receipt for a specific ticket the current user purchased."""
+    sale = await ticket_service.get_ticket_receipt(db, sale_id=sale_id, user_id=current_user.id)
+
+    # Load venue info
+    venue_name = None
+    venue_address = None
+    if sale.event and sale.event.venue_id:
+        from app.models.venue import Venue
+        from sqlalchemy import select as sel
+        venue = (await db.execute(sel(Venue).where(Venue.id == sale.event.venue_id))).scalar_one_or_none()
+        if venue:
+            venue_name = venue.name
+            parts = [p for p in [venue.address, venue.city, venue.province] if p]
+            venue_address = ", ".join(parts) if parts else None
+
+    # Load organizer info
+    organizer_name = None
+    organizer_email = None
+    organizer_phone = None
+    if sale.event and sale.event.organizer_id:
+        from sqlalchemy import select as sel2
+        organizer = (await db.execute(sel2(User).where(User.id == sale.event.organizer_id))).scalar_one_or_none()
+        if organizer:
+            organizer_name = organizer.display_name or organizer.email
+            organizer_email = organizer.email
+            organizer_phone = organizer.phone
+
+    return TicketReceiptResponse(
+        receipt_number=sale.receipt_number or f"RCP-{sale.event_id}-{sale.id}",
+        ticket_code=sale.ticket_code,
+        status=sale.status.value,
+        attendee_name=(sale.user.display_name or sale.user.email) if sale.user else None,
+        attendee_email=sale.user.email if sale.user else None,
+        event_id=sale.event_id,
+        event_title=sale.event.title if sale.event else "Unknown Event",
+        event_start_time=sale.event.start_time if sale.event else None,
+        event_end_time=sale.event.end_time if sale.event else None,
+        organizer_name=organizer_name,
+        organizer_email=organizer_email,
+        organizer_phone=organizer_phone,
+        venue_name=venue_name,
+        venue_address=venue_address,
+        tier_name=sale.ticket_tier.name if sale.ticket_tier else "Unknown",
+        tier_price_cents=sale.ticket_tier.price_cents if sale.ticket_tier else 0,
+        amount_paid_cents=sale.amount_paid_cents,
+        discount_applied_cents=sale.discount_applied_cents,
+        commission_cents=getattr(sale, "commission_cents", 0) or 0,
+        net_to_organizer_cents=getattr(sale, "net_to_organizer_cents", 0) or 0,
+        extra_perks=sale.extra_perks,
+        purchased_at=sale.created_at,
+        scanned_at=sale.scanned_at,
+    )
 
 
 @router.get("/events", response_model=list[EventResponse])

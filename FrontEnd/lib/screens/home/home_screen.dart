@@ -1412,7 +1412,7 @@ _profileTile(
 _profileTile(
                         icon: Icons.confirmation_number_rounded,
                         label: 'My Tickets',
-                        onTap: () => AppToast.info(context, 'Coming soon'),
+                        onTap: () => context.push('/my-tickets'),
                       ),
                         const Divider(height: 1, indent: 56),
                       ],

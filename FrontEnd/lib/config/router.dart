@@ -8,6 +8,7 @@ import '../screens/home/home_screen.dart';
 import '../screens/event/create_event_screen.dart';
 import '../screens/event/edit_event_screen.dart';
 import '../screens/event/event_detail_screen.dart';
+import '../screens/event/ticket_receipt_screen.dart';
 import '../screens/event/waitlist_screen.dart';
 import '../screens/event/ticket_sales_screen.dart';
 import '../screens/event/co_organizer_screen.dart';
@@ -20,6 +21,7 @@ import '../screens/venue/create_venue_screen.dart';
 import '../screens/ticket_strategy/ticket_strategies_screen.dart';
 import '../screens/admin/admin_dashboard_screen.dart';
 import '../screens/profile/profile_screen.dart';
+import '../screens/profile/my_tickets_screen.dart';
 
 GoRouter createRouter(AuthProvider authProvider) {
   return GoRouter(
@@ -74,6 +76,10 @@ GoRouter createRouter(AuthProvider authProvider) {
         path: '/profile',
         builder: (context, state) => const ProfileScreen(),
       ),
+      GoRoute(
+        path: '/my-tickets',
+        builder: (context, state) => const MyTicketsScreen(),
+      ),
 
       // ─── Events ───
       GoRoute(
@@ -120,6 +126,14 @@ GoRouter createRouter(AuthProvider authProvider) {
         builder: (context, state) {
           final id = int.parse(state.pathParameters['id']!);
           return TicketSalesScreen(eventId: id, scannedOnly: true);
+        },
+      ),
+      GoRoute(
+        path: '/events/:id/tickets/:saleId/receipt',
+        builder: (context, state) {
+          final id = int.parse(state.pathParameters['id']!);
+          final saleId = int.parse(state.pathParameters['saleId']!);
+          return TicketReceiptScreen(eventId: id, saleId: saleId);
         },
       ),
       GoRoute(

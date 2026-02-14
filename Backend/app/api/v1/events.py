@@ -36,6 +36,7 @@ from app.schemas import (
     ScanTicketResponse,
     TicketPricePreviewResponse,
     TicketPurchaseBody,
+    TicketReceiptResponse,
     TicketSaleResponse,
     TicketTierCreate,
     TicketTierResponse,
@@ -937,6 +938,7 @@ def _ticket_sale_to_response(sale) -> TicketSaleResponse:
         user_id=sale.user_id,
         ticket_tier_id=sale.ticket_tier_id,
         ticket_code=sale.ticket_code,
+        receipt_number=getattr(sale, "receipt_number", None),
         tier_name=sale.ticket_tier.name if sale.ticket_tier else None,
         event_title=sale.event.title if sale.event else None,
         attendee_display_name=attendee_name,
@@ -950,6 +952,79 @@ def _ticket_sale_to_response(sale) -> TicketSaleResponse:
         scanned_by_id=sale.scanned_by_id,
         scanned_by_display_name=scanned_by_name,
         created_at=sale.created_at,
+    )
+
+
+# ----- Ticket receipt -----
+@router.get("/{event_id}/tickets/{sale_id}/receipt", response_model=TicketReceiptResponse)
+async def get_ticket_receipt(
+    event_id: int,
+    sale_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.customer, UserRole.organizer, UserRole.admin)),
+):
+    """Get full receipt for a ticket purchase. Customer can view own; organizer/admin can view any for their events."""
+    sale = await ticket_service.get_ticket_receipt(db, sale_id=sale_id)
+    if sale.event_id != event_id:
+        raise NotFoundError("TicketSale", sale_id)
+    # Access control: customer can only see own, organizer/admin can see any for their events
+    if current_user.role == UserRole.customer:
+        if sale.user_id != current_user.id:
+            raise ForbiddenError("You can only view your own ticket receipts")
+    else:
+        event = await event_service.get_or_404(db, event_id)
+        if not await event_service.user_can_edit_event(db, event, current_user):
+            raise ForbiddenError("You cannot view receipts for this event")
+
+    # Load venue info
+    venue_name = None
+    venue_address = None
+    if sale.event and sale.event.venue_id:
+        from app.models.venue import Venue
+        from sqlalchemy import select as sel
+        venue = (await db.execute(sel(Venue).where(Venue.id == sale.event.venue_id))).scalar_one_or_none()
+        if venue:
+            venue_name = venue.name
+            parts = [p for p in [venue.address, venue.city, venue.province] if p]
+            venue_address = ", ".join(parts) if parts else None
+
+    # Load organizer info
+    organizer_name = None
+    organizer_email = None
+    organizer_phone = None
+    if sale.event and sale.event.organizer_id:
+        from app.models.user import User as UserModel
+        from sqlalchemy import select as sel2
+        organizer = (await db.execute(sel2(UserModel).where(UserModel.id == sale.event.organizer_id))).scalar_one_or_none()
+        if organizer:
+            organizer_name = organizer.display_name or organizer.email
+            organizer_email = organizer.email
+            organizer_phone = organizer.phone
+
+    return TicketReceiptResponse(
+        receipt_number=sale.receipt_number or f"RCP-{sale.event_id}-{sale.id}",
+        ticket_code=sale.ticket_code,
+        status=sale.status.value,
+        attendee_name=(sale.user.display_name or sale.user.email) if sale.user else None,
+        attendee_email=sale.user.email if sale.user else None,
+        event_id=sale.event_id,
+        event_title=sale.event.title if sale.event else "Unknown Event",
+        event_start_time=sale.event.start_time if sale.event else None,
+        event_end_time=sale.event.end_time if sale.event else None,
+        organizer_name=organizer_name,
+        organizer_email=organizer_email,
+        organizer_phone=organizer_phone,
+        venue_name=venue_name,
+        venue_address=venue_address,
+        tier_name=sale.ticket_tier.name if sale.ticket_tier else "Unknown",
+        tier_price_cents=sale.ticket_tier.price_cents if sale.ticket_tier else 0,
+        amount_paid_cents=sale.amount_paid_cents,
+        discount_applied_cents=sale.discount_applied_cents,
+        commission_cents=getattr(sale, "commission_cents", 0) or 0,
+        net_to_organizer_cents=getattr(sale, "net_to_organizer_cents", 0) or 0,
+        extra_perks=sale.extra_perks,
+        purchased_at=sale.created_at,
+        scanned_at=sale.scanned_at,
     )
 
 

@@ -237,6 +237,13 @@ async def purchase_ticket(
     db.add(sale)
     await db.flush()
     await db.refresh(sale)
+
+    # Generate human-readable receipt number: RCP-YYYYMMDD-eventId-saleId
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+    sale.receipt_number = f"RCP-{now.strftime('%Y%m%d')}-{event_id}-{sale.id}"
+    await db.flush()
+    await db.refresh(sale)
     # Load relationships for response (including user for attendee_display_name)
     q = select(TicketSale).where(TicketSale.id == sale.id).options(
         selectinload(TicketSale.event),
@@ -245,6 +252,31 @@ async def purchase_ticket(
     )
     loaded = (await db.execute(q)).scalar_one()
     return loaded
+
+
+async def get_ticket_receipt(
+    db: AsyncSession, *, sale_id: int, user_id: int | None = None
+) -> TicketSale:
+    """
+    Load a single ticket sale with all relationships needed for a receipt.
+    If user_id is provided, verifies the sale belongs to that user.
+    """
+    q = (
+        select(TicketSale)
+        .where(TicketSale.id == sale_id)
+        .options(
+            selectinload(TicketSale.event),
+            selectinload(TicketSale.ticket_tier),
+            selectinload(TicketSale.user),
+        )
+    )
+    sale = (await db.execute(q)).scalar_one_or_none()
+    if not sale:
+        raise NotFoundError("TicketSale", sale_id)
+    if user_id is not None and sale.user_id != user_id:
+        from app.core.exceptions import ForbiddenError as FE
+        raise FE("You can only view your own ticket receipts")
+    return sale
 
 
 async def list_my_tickets(db: AsyncSession, *, user_id: int) -> Sequence[TicketSale]:

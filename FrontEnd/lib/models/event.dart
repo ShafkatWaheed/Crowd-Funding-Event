@@ -203,6 +203,10 @@ class Event {
   /// Whether pledging is allowed (only during approved/funding phase).
   bool get canPledge => status == EventStatus.approved && fundingEndAt != null;
 
-  /// Whether unregistering is allowed (not in post-funding states).
-  bool get canUnregister => status == EventStatus.approved || status == EventStatus.draft;
+  /// Whether registering / unregistering is allowed.
+  bool get canUnregister =>
+      status == EventStatus.approved ||
+      status == EventStatus.draft ||
+      status == EventStatus.waiting_event_date ||
+      status == EventStatus.selling_tickets;
 }

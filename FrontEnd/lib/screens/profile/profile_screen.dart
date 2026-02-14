@@ -100,9 +100,7 @@ class ProfileScreen extends StatelessWidget {
                                 leading: const Icon(Icons.confirmation_number),
                                 title: const Text('My Tickets'),
                                 trailing: const Icon(Icons.chevron_right),
-                                onTap: () {
-                                  AppToast.info(context, 'Coming soon');
-                                },
+                                onTap: () => context.push('/my-tickets'),
                               ),
                               const Divider(height: 1),
                             ],

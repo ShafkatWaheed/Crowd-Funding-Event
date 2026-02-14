@@ -54,6 +54,7 @@ class TicketSale(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     ticket_tier_id: Mapped[int] = mapped_column(ForeignKey("ticket_tiers.id"), nullable=False, index=True)
     ticket_code: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)  # unique code for QR
+    receipt_number: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True, index=True)  # human-readable receipt ID
     amount_paid_cents: Mapped[int] = mapped_column(Integer, nullable=False)
     discount_applied_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     commission_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # platform commission

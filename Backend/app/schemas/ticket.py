@@ -68,6 +68,7 @@ class TicketSaleResponse(BaseModel):
     user_id: int
     ticket_tier_id: int
     ticket_code: str  # unique code for QR; customer displays as QR for organizer to scan
+    receipt_number: str | None = None  # human-readable receipt ID
     tier_name: str | None = None
     event_title: str | None = None
     attendee_display_name: str | None = None  # name on ticket (holder's display_name or email)
@@ -81,6 +82,40 @@ class TicketSaleResponse(BaseModel):
     scanned_by_id: int | None = None
     scanned_by_display_name: str | None = None  # who scanned it
     created_at: datetime
+
+
+class TicketReceiptResponse(BaseModel):
+    """Full receipt detail for a ticket purchase."""
+    receipt_number: str
+    ticket_code: str
+    status: str
+    # Attendee
+    attendee_name: str | None = None
+    attendee_email: str | None = None
+    # Event
+    event_id: int
+    event_title: str
+    event_start_time: datetime | None = None
+    event_end_time: datetime | None = None
+    # Organizer
+    organizer_name: str | None = None
+    organizer_email: str | None = None
+    organizer_phone: str | None = None
+    # Venue
+    venue_name: str | None = None
+    venue_address: str | None = None
+    # Tier
+    tier_name: str
+    tier_price_cents: int
+    # Payment
+    amount_paid_cents: int
+    discount_applied_cents: int
+    commission_cents: int = 0
+    net_to_organizer_cents: int = 0
+    extra_perks: str | None = None
+    # Timestamps
+    purchased_at: datetime
+    scanned_at: datetime | None = None
 
 
 class ScanTicketBody(BaseModel):

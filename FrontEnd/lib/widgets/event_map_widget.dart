@@ -33,7 +33,7 @@ class EventMapWidget extends StatefulWidget {
 
 class _EventMapWidgetState extends State<EventMapWidget> {
   final MapController _mapController = MapController();
-  List<MapEvent> _events = [];
+  List<EventMarker> _events = [];
   bool _loading = true;
   Timer? _debounce;
 
@@ -74,7 +74,7 @@ class _EventMapWidgetState extends State<EventMapWidget> {
       );
       if (mounted) {
         setState(() {
-          _events = data.map((e) => MapEvent.fromJson(e)).toList();
+          _events = data.map((e) => EventMarker.fromJson(e)).toList();
           _loading = false;
         });
       }
@@ -89,8 +89,8 @@ class _EventMapWidgetState extends State<EventMapWidget> {
   }
 
   /// Group events by venue location (rounded lat/lng to cluster same-venue events).
-  Map<String, List<MapEvent>> _groupByVenue() {
-    final groups = <String, List<MapEvent>>{};
+  Map<String, List<EventMarker>> _groupByVenue() {
+    final groups = <String, List<EventMarker>>{};
     for (final e in _events) {
       // Use venue_id if available, otherwise round lat/lng to ~10m precision
       final key = e.venueId != null
@@ -101,7 +101,7 @@ class _EventMapWidgetState extends State<EventMapWidget> {
     return groups;
   }
 
-  void _showVenueEvents(List<MapEvent> events) {
+  void _showVenueEvents(List<EventMarker> events) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -237,7 +237,7 @@ class _EventMapWidgetState extends State<EventMapWidget> {
 // ─── Venue Events Bottom Sheet ───
 
 class _VenueEventsSheet extends StatelessWidget {
-  final List<MapEvent> events;
+  final List<EventMarker> events;
 
   const _VenueEventsSheet({required this.events});
 

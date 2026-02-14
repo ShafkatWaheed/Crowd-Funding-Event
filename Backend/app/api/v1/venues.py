@@ -2,12 +2,14 @@
 Venues: each organizer owns their venues; customers see all. Organizers cannot see others' venues.
 """
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import select, func
 
 from app.dependencies import DbSession, require_role, CurrentUserOptional
+from app.models.event import Event
 from app.models.user import User, UserRole
 from app.schemas import VenueCreate, VenueResponse, VenueUpdate
 from app.services import venue as venue_service
-from app.core.exceptions import ForbiddenError
+from app.core.exceptions import ConflictError, ForbiddenError
 
 router = APIRouter()
 
@@ -93,6 +95,18 @@ async def delete_venue(
     venue = await venue_service.get_or_404(db, venue_id)
     if not venue_service.can_edit_venue(current_user.id, venue, current_user.role == UserRole.admin):
         raise ForbiddenError("You cannot delete another organizer's venue")
+
+    # Prevent deletion if events are linked to this venue
+    event_count_result = await db.execute(
+        select(func.count()).select_from(Event).where(Event.venue_id == venue_id)
+    )
+    event_count = event_count_result.scalar() or 0
+    if event_count > 0:
+        raise ConflictError(
+            f"Cannot delete venue: {event_count} event(s) are still linked to it. "
+            "Reassign or delete those events first."
+        )
+
     await db.delete(venue)
     await db.flush()
     return {"ok": True}

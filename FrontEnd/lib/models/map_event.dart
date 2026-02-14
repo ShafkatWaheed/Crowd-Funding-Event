@@ -1,5 +1,5 @@
 /// Lightweight event marker model for map view.
-class MapEvent {
+class EventMarker {
   final int id;
   final String title;
   final double lat;
@@ -11,7 +11,7 @@ class MapEvent {
   final int? venueId;
   final String? venueName;
 
-  MapEvent({
+  EventMarker({
     required this.id,
     required this.title,
     required this.lat,
@@ -24,8 +24,8 @@ class MapEvent {
     this.venueName,
   });
 
-  factory MapEvent.fromJson(Map<String, dynamic> json) {
-    return MapEvent(
+  factory EventMarker.fromJson(Map<String, dynamic> json) {
+    return EventMarker(
       id: json['id'],
       title: json['title'],
       lat: (json['lat'] as num).toDouble(),

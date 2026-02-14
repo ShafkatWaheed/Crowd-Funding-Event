@@ -7,7 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
 import '../../services/api_service.dart';
-import '../../widgets/app_toast.dart';
+
 
 /// Full-screen QR code scanner for organizers to scan tickets at events.
 class TicketScannerScreen extends StatefulWidget {

@@ -9,13 +9,11 @@ import '../screens/event/create_event_screen.dart';
 import '../screens/event/edit_event_screen.dart';
 import '../screens/event/event_detail_screen.dart';
 import '../screens/event/waitlist_screen.dart';
-import '../screens/event/ticket_waitlist_screen.dart';
 import '../screens/event/ticket_sales_screen.dart';
 import '../screens/event/co_organizer_screen.dart';
 import '../screens/event/claim_discounts_screen.dart';
 import '../screens/manage/global_ticket_sales_screen.dart';
 import '../screens/manage/global_waitlist_screen.dart';
-import '../screens/manage/global_ticket_waitlist_screen.dart';
 import '../screens/manage/global_discounts_screen.dart';
 import '../screens/venue/venue_list_screen.dart';
 import '../screens/venue/create_venue_screen.dart';
@@ -107,7 +105,7 @@ GoRouter createRouter(AuthProvider authProvider) {
         path: '/events/:id/ticket-waitlist',
         builder: (context, state) {
           final id = int.parse(state.pathParameters['id']!);
-          return TicketWaitlistScreen(eventId: id);
+          return WaitlistScreen(eventId: id, initialTicketView: true);
         },
       ),
       GoRoute(
@@ -155,7 +153,8 @@ GoRouter createRouter(AuthProvider authProvider) {
       ),
       GoRoute(
         path: '/manage/ticket-waitlist',
-        builder: (context, state) => const GlobalTicketWaitlistScreen(),
+        builder: (context, state) =>
+            const GlobalWaitlistScreen(initialTicketView: true),
       ),
       GoRoute(
         path: '/manage/discounts',

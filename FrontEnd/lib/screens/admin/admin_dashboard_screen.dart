@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
-import '../../widgets/app_toast.dart';
 import '../../services/api_service.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
@@ -75,7 +74,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
       _loadData();
     } catch (e) {
       if (mounted) {
-        AppToast.fromError(context, e, fallback: 'Action failed');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Action failed: $e')),
+        );
       }
     }
   }
@@ -86,11 +87,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
       await api.decideExtension(eventId, action);
       _loadData();
       if (mounted) {
-        AppToast.success(context, 'Extension ${action}d');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Extension ${action}d')),
+        );
       }
     } catch (e) {
       if (mounted) {
-        AppToast.fromError(context, e, fallback: 'Action failed');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Action failed: $e')),
+        );
       }
     }
   }
@@ -255,11 +260,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
       await api.dio.post('/events/$eventId/cancellation/approve', data: {'action': action});
       _loadData();
       if (mounted) {
-        AppToast.success(context, 'Cancellation ${action}d');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Cancellation ${action}d')),
+        );
       }
     } catch (e) {
       if (mounted) {
-        AppToast.fromError(context, e, fallback: 'Action failed');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Action failed: $e')),
+        );
       }
     }
   }
@@ -537,11 +546,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
       await api.dio.patch('/admin/settings/$key', data: {'value': newValue});
       _loadData();
       if (mounted) {
-        AppToast.success(context, 'Setting "$key" updated to $newValue');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Setting "$key" updated to $newValue')),
+        );
       }
     } catch (e) {
       if (mounted) {
-        AppToast.fromError(context, e, fallback: 'Failed to update setting');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update setting: $e')),
+        );
       }
     }
   }
@@ -555,11 +568,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
       await api.dio.post(path);
       _loadData();
       if (mounted) {
-        AppToast.success(context, 'Escrow action "$action" completed');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Escrow action "$action" completed')),
+        );
       }
     } catch (e) {
       if (mounted) {
-        AppToast.fromError(context, e, fallback: 'Escrow action failed');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Escrow action failed: $e')),
+        );
       }
     }
   }

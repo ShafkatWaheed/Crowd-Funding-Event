@@ -6,9 +6,15 @@ import '../../config/theme.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_toast.dart';
 
-/// Shows waitlisted registrations across ALL organiser events.
+enum _WaitlistType { fund, ticket }
+
+/// Shows waitlisted registrations AND waitlisted tickets across ALL organiser events,
+/// with a segmented toggle to switch between the two views.
 class GlobalWaitlistScreen extends StatefulWidget {
-  const GlobalWaitlistScreen({super.key});
+  /// When true, opens with the Ticket Waitlist tab active.
+  final bool initialTicketView;
+
+  const GlobalWaitlistScreen({super.key, this.initialTicketView = false});
 
   @override
   State<GlobalWaitlistScreen> createState() => _GlobalWaitlistScreenState();
@@ -16,14 +22,23 @@ class GlobalWaitlistScreen extends StatefulWidget {
 
 class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
   final _searchCtrl = TextEditingController();
-  List<Map<String, dynamic>> _all = [];
-  List<Map<String, dynamic>> _filtered = [];
+  late _WaitlistType _type;
+
+  // Fund waitlist data (registrations with status == 'waitlist')
+  List<Map<String, dynamic>> _fundAll = [];
+  List<Map<String, dynamic>> _fundFiltered = [];
+
+  // Ticket waitlist data (tickets with status == 'waitlisted')
+  List<Map<String, dynamic>> _ticketAll = [];
+  List<Map<String, dynamic>> _ticketFiltered = [];
+
   bool _loading = true;
   String? _error;
 
   @override
   void initState() {
     super.initState();
+    _type = widget.initialTicketView ? _WaitlistType.ticket : _WaitlistType.fund;
     _load();
   }
 
@@ -33,6 +48,8 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
     super.dispose();
   }
 
+  // ── Data ──────────────────────────────────────────────────────
+
   Future<void> _load() async {
     setState(() {
       _loading = true;
@@ -41,29 +58,44 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
     try {
       final api = context.read<ApiService>();
       final events = await api.getMyEvents();
-      final List<Map<String, dynamic>> combined = [];
+
+      final List<Map<String, dynamic>> fundCombined = [];
+      final List<Map<String, dynamic>> ticketCombined = [];
 
       for (final evt in events) {
         final eventId = evt['id'] as int;
         final eventTitle = evt['title'] ?? 'Event #$eventId';
+
+        // Fund waitlist
         try {
           final regs = await api.getRegistrations(eventId);
           for (final r in regs) {
             if (r['status'] == 'waitlist') {
-              combined.add({
+              fundCombined.add({
                 ...Map<String, dynamic>.from(r),
                 '_event_title': eventTitle,
                 '_event_id': eventId,
               });
             }
           }
-        } catch (_) {
-          // skip events we can't access
-        }
+        } catch (_) {}
+
+        // Ticket waitlist
+        try {
+          final tickets = await api.getWaitlistedTickets(eventId);
+          for (final t in tickets) {
+            ticketCombined.add({
+              ...Map<String, dynamic>.from(t),
+              '_event_title': eventTitle,
+              '_event_id': eventId,
+            });
+          }
+        } catch (_) {}
       }
 
       setState(() {
-        _all = combined;
+        _fundAll = fundCombined;
+        _ticketAll = ticketCombined;
         _applySearch();
         _loading = false;
       });
@@ -78,17 +110,26 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
   void _applySearch() {
     final q = _searchCtrl.text.trim().toLowerCase();
     if (q.isEmpty) {
-      _filtered = List.from(_all);
+      _fundFiltered = List.from(_fundAll);
+      _ticketFiltered = List.from(_ticketAll);
     } else {
-      _filtered = _all.where((r) {
+      _fundFiltered = _fundAll.where((r) {
         final event = (r['_event_title'] ?? '').toString().toLowerCase();
         final userId = '${r['user_id']}'.toLowerCase();
         return event.contains(q) || userId.contains(q);
       }).toList();
+      _ticketFiltered = _ticketAll.where((t) {
+        final event = (t['_event_title'] ?? '').toString().toLowerCase();
+        final userId = '${t['user_id']}'.toLowerCase();
+        final tierName = (t['tier']?['name'] ?? '').toString().toLowerCase();
+        return event.contains(q) || userId.contains(q) || tierName.contains(q);
+      }).toList();
     }
   }
 
-  Future<void> _decide(int eventId, int regId, String action) async {
+  // ── Fund Actions ──
+
+  Future<void> _decideFund(int eventId, int regId, String action) async {
     try {
       final api = context.read<ApiService>();
       await api.decideRegistration(eventId, regId, action);
@@ -104,6 +145,55 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
       }
     }
   }
+
+  // ── Ticket Actions ──
+
+  Future<void> _approveTicket(int eventId, int ticketId) async {
+    try {
+      final api = context.read<ApiService>();
+      await api.approveWaitlistedTicket(eventId, ticketId);
+      if (mounted) {
+        AppToast.success(context, 'Ticket approved!');
+        _load();
+      }
+    } catch (e) {
+      if (mounted) {
+        AppToast.fromError(context, e, fallback: 'Failed to approve ticket');
+      }
+    }
+  }
+
+  Future<void> _rejectTicket(int eventId, int ticketId) async {
+    try {
+      final api = context.read<ApiService>();
+      await api.rejectWaitlistedTicket(eventId, ticketId);
+      if (mounted) {
+        AppToast.success(context, 'Ticket rejected.');
+        _load();
+      }
+    } catch (e) {
+      if (mounted) {
+        AppToast.fromError(context, e, fallback: 'Failed to reject ticket');
+      }
+    }
+  }
+
+  // ── Helpers ──
+
+  List<Map<String, dynamic>> get _currentAll =>
+      _type == _WaitlistType.fund ? _fundAll : _ticketAll;
+  List<Map<String, dynamic>> get _currentFiltered =>
+      _type == _WaitlistType.fund ? _fundFiltered : _ticketFiltered;
+
+  String get _emptyLabel => _type == _WaitlistType.fund
+      ? 'No pending fund waitlist requests'
+      : 'No waitlisted tickets';
+
+  String get _searchEmptyLabel => _type == _WaitlistType.fund
+      ? 'No matching waitlist entries'
+      : 'No matching tickets';
+
+  // ── Build ─────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -123,13 +213,47 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
       ),
       body: Column(
         children: [
+          // ── Filter Toggle ──
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceColor,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppTheme.dividerColor),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Row(
+                children: [
+                  _filterChip(
+                    label: 'Fund Waitlist',
+                    icon: Icons.hourglass_top,
+                    count: _fundAll.length,
+                    selected: _type == _WaitlistType.fund,
+                    onTap: () => setState(() => _type = _WaitlistType.fund),
+                  ),
+                  const SizedBox(width: 4),
+                  _filterChip(
+                    label: 'Ticket Waitlist',
+                    icon: Icons.confirmation_number,
+                    count: _ticketAll.length,
+                    selected: _type == _WaitlistType.ticket,
+                    onTap: () => setState(() => _type = _WaitlistType.ticket),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
           // ── Search ──
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
             child: TextField(
               controller: _searchCtrl,
               decoration: InputDecoration(
-                hintText: 'Search by event or user ID…',
+                hintText: _type == _WaitlistType.fund
+                    ? 'Search by event or user ID…'
+                    : 'Search by event, user ID, or tier…',
                 prefixIcon: const Icon(Icons.search, size: 20),
                 suffixIcon: _searchCtrl.text.isNotEmpty
                     ? IconButton(
@@ -170,7 +294,7 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    '${_all.length} waitlisted',
+                    '${_currentAll.length} waitlisted',
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -188,7 +312,7 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      '${_filtered.length} match${_filtered.length == 1 ? '' : 'es'}',
+                      '${_currentFiltered.length} match${_currentFiltered.length == 1 ? '' : 'es'}',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -229,7 +353,7 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
                           ],
                         ),
                       )
-                    : _filtered.isEmpty
+                    : _currentFiltered.isEmpty
                         ? Center(
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
@@ -241,8 +365,8 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
                                 const SizedBox(height: 12),
                                 Text(
                                   _searchCtrl.text.isNotEmpty
-                                      ? 'No matching waitlist entries'
-                                      : 'No pending waitlist requests',
+                                      ? _searchEmptyLabel
+                                      : _emptyLabel,
                                   style: TextStyle(
                                       color: Colors.grey[500], fontSize: 15),
                                 ),
@@ -254,8 +378,13 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
                             child: ListView.builder(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 16, vertical: 4),
-                              itemCount: _filtered.length,
-                              itemBuilder: (_, i) => _card(_filtered[i]),
+                              itemCount: _currentFiltered.length,
+                              itemBuilder: (_, i) {
+                                final item = _currentFiltered[i];
+                                return _type == _WaitlistType.fund
+                                    ? _fundCard(item)
+                                    : _ticketCard(item);
+                              },
                             ),
                           ),
           ),
@@ -264,7 +393,73 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
     );
   }
 
-  Widget _card(Map<String, dynamic> reg) {
+  // ── Filter chip ──
+
+  Widget _filterChip({
+    required String label,
+    required IconData icon,
+    required int count,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          margin: const EdgeInsets.symmetric(vertical: 6),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: selected ? AppTheme.primaryColor : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon,
+                  size: 18,
+                  color: selected ? Colors.white : Colors.grey[600]),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: selected ? Colors.white : Colors.grey[600],
+                ),
+              ),
+              if (count > 0) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? Colors.white.withValues(alpha: 0.25)
+                        : Colors.grey.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '$count',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: selected ? Colors.white : Colors.grey[600],
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Fund waitlist card ──
+
+  Widget _fundCard(Map<String, dynamic> reg) {
     final regId = reg['id'] as int;
     final eventId = reg['_event_id'] as int;
     final eventTitle = reg['_event_title'] ?? '';
@@ -317,38 +512,113 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
                 ],
               ),
             ),
-            FilledButton.tonal(
-              onPressed: () => _decide(eventId, regId, 'approve'),
-              style: FilledButton.styleFrom(
-                backgroundColor:
-                    AppTheme.successColor.withValues(alpha: 0.12),
-                foregroundColor: AppTheme.successColor,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                minimumSize: Size.zero,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
-              ),
-              child: const Text('Approve', style: TextStyle(fontSize: 13)),
-            ),
+            _approveButton(() => _decideFund(eventId, regId, 'approve')),
             const SizedBox(width: 8),
-            FilledButton.tonal(
-              onPressed: () => _decide(eventId, regId, 'reject'),
-              style: FilledButton.styleFrom(
-                backgroundColor:
-                    AppTheme.errorColor.withValues(alpha: 0.1),
-                foregroundColor: AppTheme.errorColor,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                minimumSize: Size.zero,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
-              ),
-              child: const Text('Reject', style: TextStyle(fontSize: 13)),
-            ),
+            _rejectButton(() => _decideFund(eventId, regId, 'reject')),
           ],
         ),
       ),
+    );
+  }
+
+  // ── Ticket waitlist card ──
+
+  Widget _ticketCard(Map<String, dynamic> ticket) {
+    final ticketId = ticket['id'] as int;
+    final eventId = ticket['_event_id'] as int;
+    final eventTitle = ticket['_event_title'] ?? '';
+    final userId = ticket['user_id'];
+    final tierName = ticket['tier']?['name'] ?? 'Unknown Tier';
+    final amountCents = ticket['amount_paid_cents'] ?? 0;
+    final price = amountCents == 0
+        ? 'Free'
+        : '\$${(amountCents / 100).toStringAsFixed(2)}';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.confirmation_number,
+                  size: 22, color: Colors.orange),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('User #$userId',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w700, fontSize: 15)),
+                  const SizedBox(height: 2),
+                  Text(eventTitle,
+                      style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: AppTheme.accentColor)),
+                  Text('$tierName · $price',
+                      style:
+                          TextStyle(fontSize: 11, color: Colors.grey[500])),
+                ],
+              ),
+            ),
+            _approveButton(() => _approveTicket(eventId, ticketId)),
+            const SizedBox(width: 8),
+            _rejectButton(() => _rejectTicket(eventId, ticketId)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Shared action buttons ──
+
+  Widget _approveButton(VoidCallback onPressed) {
+    return FilledButton.tonal(
+      onPressed: onPressed,
+      style: FilledButton.styleFrom(
+        backgroundColor: AppTheme.successColor.withValues(alpha: 0.12),
+        foregroundColor: AppTheme.successColor,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        minimumSize: Size.zero,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10)),
+      ),
+      child: const Text('Approve', style: TextStyle(fontSize: 13)),
+    );
+  }
+
+  Widget _rejectButton(VoidCallback onPressed) {
+    return FilledButton.tonal(
+      onPressed: onPressed,
+      style: FilledButton.styleFrom(
+        backgroundColor: AppTheme.errorColor.withValues(alpha: 0.1),
+        foregroundColor: AppTheme.errorColor,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        minimumSize: Size.zero,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10)),
+      ),
+      child: const Text('Reject', style: TextStyle(fontSize: 13)),
     );
   }
 }

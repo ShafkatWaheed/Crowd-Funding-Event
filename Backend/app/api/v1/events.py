@@ -3,7 +3,7 @@ Events: CRUD, list (filters), pledge, register, registrations.
 """
 from datetime import date, datetime, timezone
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from fastapi.responses import Response
 from pydantic import BaseModel
 
@@ -34,12 +34,14 @@ from app.schemas import (
     PledgeResponse,
     RegistrationDecisionBody,
     RegistrationResponse,
+    PurchaseGroupReceiptResponse,
     ScanTicketBody,
     ScanTicketResponse,
     TicketPricePreviewResponse,
     TicketPurchaseBody,
     TicketReceiptResponse,
     TicketSaleResponse,
+    TicketSalesStatsResponse,
     TicketTierCreate,
     TicketTierResponse,
     TicketTierUpdate,
@@ -54,6 +56,8 @@ from app.services import post as post_service
 from app.services import registration as registration_service
 from app.services import ticket as ticket_service
 from app.services import discount_strategy as ds_service
+from app.services import email_notifications as email_notify
+from app.services.ticket_crypto import encrypt_ticket_qr, decrypt_ticket_qr
 # DiscountStrategyResponse no longer needed — endpoint returns raw dicts
 
 router = APIRouter()
@@ -66,6 +70,21 @@ def _parse_iso_datetime(v: str | None) -> datetime | None:
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     return dt
+
+
+def _directions_url(e: Event) -> str | None:
+    """Build a Google Maps directions link from the venue address or event lat/lng."""
+    from urllib.parse import quote_plus
+
+    if e.venue:
+        parts = [e.venue.address, e.venue.city]
+        if e.venue.province:
+            parts.append(e.venue.province)
+        addr = ", ".join(parts)
+        return f"https://www.google.com/maps/dir/?api=1&destination={quote_plus(addr)}"
+    if e.lat is not None and e.lng is not None:
+        return f"https://www.google.com/maps/dir/?api=1&destination={e.lat},{e.lng}"
+    return None
 
 
 def _event_to_response(
@@ -125,6 +144,11 @@ def _event_to_response(
         pending_extension=e.pending_extension,
         pending_cancellation=e.pending_cancellation,
         organizer_trust=trust_info,
+        parking_info=e.parking_info,
+        transit_info=e.transit_info,
+        rideshare_info=e.rideshare_info,
+        accessibility_info=e.accessibility_info,
+        directions_url=_directions_url(e),
         lat=e.lat,
         lng=e.lng,
         created_at=e.created_at,
@@ -287,6 +311,10 @@ async def create_event(
         posts_enabled=body.posts_enabled,
         refund_deadline_days=body.refund_deadline_days,
         ticket_strategy_id=body.ticket_strategy_id,
+        parking_info=body.parking_info,
+        transit_info=body.transit_info,
+        rideshare_info=body.rideshare_info,
+        accessibility_info=body.accessibility_info,
     )
     event = await event_service.get_by_id(db, event.id, load_venue=True)
     return _event_to_response(event)
@@ -430,6 +458,10 @@ async def update_event(
         posts_enabled=body.posts_enabled,
         refund_deadline_days=body.refund_deadline_days,
         ticket_strategy_id=body.ticket_strategy_id,
+        parking_info=body.parking_info,
+        transit_info=body.transit_info,
+        rideshare_info=body.rideshare_info,
+        accessibility_info=body.accessibility_info,
     )
 
     if needs_approval:
@@ -445,6 +477,7 @@ async def cancel_event(
     event_id: int,
     body: CancelBody,
     db: DbSession,
+    bg: BackgroundTasks,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
     """Organizer (main or co-) cancels the event. A reason is required."""
@@ -452,6 +485,12 @@ async def cancel_event(
     if not await event_service.user_can_edit_event(db, event, current_user):
         raise ForbiddenError("You cannot cancel this event")
     event = await event_service.cancel_event(db, event, current_user, reason=body.reason)
+    # Send cancellation emails to all affected users
+    bg.add_task(
+        email_notify.notify_event_cancelled, db,
+        event_id=event.id, event_title=event.title or f"Event #{event.id}",
+        reason=body.reason, event_date=event.start_time,
+    )
     event = await event_service.get_by_id(db, event.id, load_venue=True)
     return _event_to_response(event)
 
@@ -727,6 +766,7 @@ async def get_pledge_receipt(
 async def unpledge_event(
     event_id: int,
     db: DbSession,
+    bg: BackgroundTasks,
     current_user: User = Depends(require_role(UserRole.customer)),
 ):
     """Unpledge from event (customer). Guest pledges are non-refundable."""
@@ -735,6 +775,17 @@ async def unpledge_event(
         event_id=event_id,
         user=current_user,
     )
+    # Send unpledge refund email
+    if result.get("refunded_cents", 0) > 0:
+        event = await event_service.get_or_404(db, event_id)
+        bg.add_task(
+            email_notify.notify_unpledge_refund,
+            user_email=current_user.email,
+            user_name=current_user.display_name or "",
+            event_title=event.title or f"Event #{event_id}",
+            refunded_cents=result["refunded_cents"],
+            pledges_count=result.get("pledges_refunded", 1),
+        )
     return UnpledgeResponse(**result)
 
 
@@ -826,6 +877,7 @@ async def get_my_registration(
 async def unregister_event(
     event_id: int,
     db: DbSession,
+    bg: BackgroundTasks,
     current_user: User = Depends(require_role(UserRole.customer)),
 ):
     """Customer unregisters from event. Not allowed after funding ends (selling_tickets/waiting/live/completed)."""
@@ -841,6 +893,15 @@ async def unregister_event(
             detail=f"Cannot unregister — event is in '{event.status.value}' state",
         )
     result = await registration_service.unregister(db, event_id=event_id, user=current_user)
+    # Send refund email if applicable
+    if result.get("refunded_cents", 0) > 0:
+        bg.add_task(
+            email_notify.notify_unregister_refund,
+            user_email=current_user.email,
+            user_name=current_user.display_name or "",
+            event_title=event.title or f"Event #{event_id}",
+            refunded_cents=result["refunded_cents"],
+        )
     return UnregisterResponse(
         refunded_cents=result["refunded_cents"],
         pledges_refunded=result["pledges_refunded"],
@@ -986,19 +1047,39 @@ async def get_ticket_price(
     return TicketPricePreviewResponse(**info)
 
 
-@router.post("/{event_id}/purchase-ticket", response_model=TicketSaleResponse)
+@router.post("/{event_id}/purchase-ticket", response_model=list[TicketSaleResponse])
 async def purchase_ticket(
     event_id: int,
     body: TicketPurchaseBody,
     db: DbSession,
+    bg: BackgroundTasks,
     current_user: User = Depends(require_role(UserRole.customer)),
 ):
-    """Purchase a ticket (customer, must be registered). Returns ticket with ticket_code for QR."""
-    sale = await ticket_service.purchase_ticket(
+    """Purchase one or more tickets (customer, must be registered). Returns list of tickets with ticket_code for QR."""
+    sales = await ticket_service.purchase_ticket(
         db, event_id=event_id, user=current_user,
-        tier_id=body.tier_id, extra_perks=body.extra_perks,
+        tier_id=body.tier_id, quantity=body.quantity, extra_perks=body.extra_perks,
     )
-    return _ticket_sale_to_response(sale)
+    # Send ticket purchase confirmation email
+    if sales:
+        first = sales[0]
+        event = first.event
+        tier = first.ticket_tier
+        bg.add_task(
+            email_notify.notify_ticket_purchased,
+            buyer_email=current_user.email,
+            buyer_name=current_user.display_name or "",
+            event_title=event.title if event else f"Event #{event_id}",
+            tier_name=tier.name if tier else "General",
+            ticket_code=first.ticket_code,
+            receipt_number=first.receipt_number or "",
+            amount_cents=first.amount_paid_cents,
+            quantity=len(sales),
+            event_date=event.start_time if event else None,
+            discount_cents=first.discount_applied_cents,
+            commission_cents=getattr(first, "commission_cents", 0) or 0,
+        )
+    return [_ticket_sale_to_response(s) for s in sales]
 
 
 # ----- Scan ticket (organizer) -----
@@ -1009,9 +1090,31 @@ async def scan_ticket(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
-    """Scan a ticket by QR code (organizer/admin). Returns ticket and already_scanned if already scanned."""
+    """Scan a ticket by QR code (organizer/admin). Accepts encrypted_payload (preferred) or legacy ticket_code."""
+    ticket_code: str | None = None
+
+    if body.encrypted_payload:
+        # Decrypt the AES-256-GCM encrypted QR payload
+        try:
+            data = decrypt_ticket_qr(body.encrypted_payload)
+        except ValueError as exc:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=400, detail=f"Invalid encrypted ticket: {exc}")
+        ticket_code = data["tc"]
+        # Cross-validate event_id from the encrypted payload against the URL
+        payload_event_id = data.get("eid")
+        if payload_event_id is not None and int(payload_event_id) != event_id:
+            from fastapi import HTTPException
+            raise HTTPException(
+                status_code=400,
+                detail="Ticket belongs to a different event",
+            )
+    else:
+        # Legacy plaintext fallback
+        ticket_code = body.ticket_code
+
     sale, already_scanned = await ticket_service.scan_ticket(
-        db, event_id=event_id, ticket_code=body.ticket_code, scanned_by_user=current_user,
+        db, event_id=event_id, ticket_code=ticket_code, scanned_by_user=current_user,
     )
     return ScanTicketResponse(already_scanned=already_scanned, ticket=_ticket_sale_to_response(sale))
 
@@ -1029,6 +1132,7 @@ def _ticket_sale_to_response(sale) -> TicketSaleResponse:
         event_id=sale.event_id,
         user_id=sale.user_id,
         ticket_tier_id=sale.ticket_tier_id,
+        purchase_group_id=getattr(sale, "purchase_group_id", None),
         ticket_code=sale.ticket_code,
         receipt_number=getattr(sale, "receipt_number", None),
         tier_name=sale.ticket_tier.name if sale.ticket_tier else None,
@@ -1043,6 +1147,7 @@ def _ticket_sale_to_response(sale) -> TicketSaleResponse:
         scanned_at=sale.scanned_at,
         scanned_by_id=sale.scanned_by_id,
         scanned_by_display_name=scanned_by_name,
+        encrypted_qr_payload=encrypt_ticket_qr(sale.ticket_code, sale.event_id, sale.id),
         created_at=sale.created_at,
     )
 
@@ -1094,6 +1199,8 @@ async def get_ticket_receipt(
             organizer_phone = organizer.phone
 
     return TicketReceiptResponse(
+        sale_id=sale.id,
+        user_id=sale.user_id,
         receipt_number=sale.receipt_number or f"RCP-{sale.event_id}-{sale.id}",
         ticket_code=sale.ticket_code,
         status=sale.status.value,
@@ -1115,9 +1222,109 @@ async def get_ticket_receipt(
         commission_cents=getattr(sale, "commission_cents", 0) or 0,
         net_to_organizer_cents=getattr(sale, "net_to_organizer_cents", 0) or 0,
         extra_perks=sale.extra_perks,
+        encrypted_qr_payload=encrypt_ticket_qr(sale.ticket_code, sale.event_id, sale.id),
         purchased_at=sale.created_at,
         scanned_at=sale.scanned_at,
     )
+
+
+# ----- Purchase group receipt -----
+@router.get("/{event_id}/purchase-group/{group_id}/receipt", response_model=PurchaseGroupReceiptResponse)
+async def get_purchase_group_receipt(
+    event_id: int,
+    group_id: str,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.customer, UserRole.organizer, UserRole.admin)),
+):
+    """Get aggregated receipt for a multi-ticket purchase group."""
+    sales = await ticket_service.get_purchase_group_tickets(db, purchase_group_id=group_id)
+    if not sales or sales[0].event_id != event_id:
+        raise NotFoundError("PurchaseGroup", group_id)
+    # Access control
+    if current_user.role == UserRole.customer:
+        if sales[0].user_id != current_user.id:
+            raise ForbiddenError("You can only view your own purchase groups")
+    else:
+        event = await event_service.get_or_404(db, event_id)
+        if not await event_service.user_can_edit_event(db, event, current_user):
+            raise ForbiddenError("You cannot view purchase groups for this event")
+
+    sale0 = sales[0]
+    # Load venue + organizer info (same as single receipt)
+    venue_name = None
+    venue_address = None
+    if sale0.event and sale0.event.venue_id:
+        from app.models.venue import Venue
+        from sqlalchemy import select as sel
+        venue = (await db.execute(sel(Venue).where(Venue.id == sale0.event.venue_id))).scalar_one_or_none()
+        if venue:
+            venue_name = venue.name
+            parts = [p for p in [venue.address, venue.city, venue.province] if p]
+            venue_address = ", ".join(parts) if parts else None
+
+    organizer_name = None
+    organizer_email = None
+    organizer_phone = None
+    if sale0.event and sale0.event.organizer_id:
+        from app.models.user import User as UserModel
+        from sqlalchemy import select as sel2
+        organizer = (await db.execute(sel2(UserModel).where(UserModel.id == sale0.event.organizer_id))).scalar_one_or_none()
+        if organizer:
+            organizer_name = organizer.display_name or organizer.email
+            organizer_email = organizer.email
+            organizer_phone = organizer.phone
+
+    from app.schemas.ticket import TicketSummaryItem
+    tickets = [
+        TicketSummaryItem(
+            sale_id=s.id,
+            ticket_code=s.ticket_code,
+            receipt_number=s.receipt_number,
+            encrypted_qr_payload=encrypt_ticket_qr(s.ticket_code, s.event_id, s.id),
+            status=s.status.value,
+            scanned_at=s.scanned_at,
+        )
+        for s in sales
+    ]
+
+    return PurchaseGroupReceiptResponse(
+        purchase_group_id=group_id,
+        event_id=event_id,
+        event_title=sale0.event.title if sale0.event else "Unknown Event",
+        event_start_time=sale0.event.start_time if sale0.event else None,
+        event_end_time=sale0.event.end_time if sale0.event else None,
+        organizer_name=organizer_name,
+        organizer_email=organizer_email,
+        organizer_phone=organizer_phone,
+        venue_name=venue_name,
+        venue_address=venue_address,
+        attendee_name=(sale0.user.display_name or sale0.user.email) if sale0.user else None,
+        attendee_email=sale0.user.email if sale0.user else None,
+        tier_name=sale0.ticket_tier.name if sale0.ticket_tier else "Unknown",
+        tier_price_cents=sale0.ticket_tier.price_cents if sale0.ticket_tier else 0,
+        quantity=len(sales),
+        total_amount_paid_cents=sum(s.amount_paid_cents for s in sales),
+        total_discount_applied_cents=sum(s.discount_applied_cents for s in sales),
+        total_commission_cents=sum(getattr(s, "commission_cents", 0) or 0 for s in sales),
+        total_net_to_organizer_cents=sum(getattr(s, "net_to_organizer_cents", 0) or 0 for s in sales),
+        tickets=tickets,
+        purchased_at=sale0.created_at,
+    )
+
+
+# ----- Ticket sales stats -----
+@router.get("/{event_id}/ticket-sales-stats", response_model=TicketSalesStatsResponse)
+async def get_ticket_sales_stats(
+    event_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+):
+    """Get ticket sold vs scanned stats for an event."""
+    event = await event_service.get_or_404(db, event_id)
+    if not await event_service.user_can_edit_event(db, event, current_user):
+        raise ForbiddenError("You cannot view stats for this event")
+    stats = await ticket_service.get_ticket_sales_stats(db, event_id=event_id)
+    return TicketSalesStatsResponse(**stats)
 
 
 # ----- Ticket sales list & user discounts (organizer) -----
@@ -1182,12 +1389,26 @@ async def reject_waitlisted_ticket(
     event_id: int,
     ticket_id: int,
     db: DbSession,
+    bg: BackgroundTasks,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
     """Reject a waitlisted ticket → cancelled (organizer/admin)."""
     sale = await ticket_service.reject_waitlisted_ticket(
         db, event_id=event_id, ticket_sale_id=ticket_id, user=current_user,
     )
+    # Send rejection email to the ticket buyer
+    buyer = sale.user
+    event = sale.event
+    tier = sale.ticket_tier
+    if buyer and buyer.email:
+        bg.add_task(
+            email_notify.notify_waitlist_ticket_rejected,
+            buyer_email=buyer.email,
+            buyer_name=buyer.display_name or "",
+            event_title=event.title if event else f"Event #{event_id}",
+            tier_name=tier.name if tier else "General",
+            amount_cents=sale.amount_paid_cents,
+        )
     return _ticket_sale_to_response(sale)
 
 
@@ -1493,6 +1714,7 @@ async def approve_cancellation(
     event_id: int,
     body: ExtensionApprovalAction,
     db: DbSession,
+    bg: BackgroundTasks,
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
     """Admin approve/reject a pending cancellation request."""
@@ -1509,6 +1731,12 @@ async def approve_cancellation(
         from app.services import funding as funding_service
         await funding_service.refund_all_pledges_for_event(db, event_id=event.id)
         await db.flush()
+        # Send cancellation emails to all affected users
+        bg.add_task(
+            email_notify.notify_event_cancelled, db,
+            event_id=event.id, event_title=event.title or f"Event #{event.id}",
+            reason=reason, event_date=event.start_time,
+        )
     elif body.action == "reject":
         event.pending_cancellation = None
         await db.flush()

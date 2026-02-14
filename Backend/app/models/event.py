@@ -76,6 +76,11 @@ class Event(Base):
     pending_cancellation = mapped_column(JSON, nullable=True)  # {"reason": ..., "requested_at": ..., "requested_by": ...}
     terms_accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     payout_frozen: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Parking & Transport info
+    parking_info: Mapped[str | None] = mapped_column(Text, nullable=True)
+    transit_info: Mapped[str | None] = mapped_column(Text, nullable=True)
+    rideshare_info: Mapped[str | None] = mapped_column(Text, nullable=True)
+    accessibility_info: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
 

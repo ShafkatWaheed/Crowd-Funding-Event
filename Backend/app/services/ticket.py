@@ -180,13 +180,19 @@ async def purchase_ticket(
     event_id: int,
     user: User,
     tier_id: int,
+    quantity: int = 1,
     extra_perks: str | None = None,
-) -> TicketSale:
+) -> list[TicketSale]:
     """
-    Customer purchases a ticket. Must be registered (registered status).
-    If total purchased tickets for the event already reached venue/event
-    max_capacity, the ticket is placed on the waitlist instead of purchased.
+    Customer purchases one or more tickets in a single transaction.
+    Must be registered (registered status).
+    All-or-nothing: if capacity is insufficient for the full quantity,
+    all tickets are placed on the waitlist.
+    Returns a list of created TicketSale records.
     """
+    if quantity < 1 or quantity > 10:
+        raise ConflictError("Quantity must be between 1 and 10")
+
     event = await event_service.get_or_404(db, event_id)
     tier = await get_tier_or_404(db, event_id=event_id, tier_id=tier_id)
 
@@ -223,52 +229,109 @@ async def purchase_ticket(
     purchased_count = int((await db.execute(purchased_count_q)).scalar_one())
 
     user_reserved = await funding_svc.get_user_reserved_spots(db, event_id, user.id)
+    total_reserved = await funding_svc.get_total_reserved_spots(db, event_id)
 
-    if user_reserved > 0:
-        # User has reserved spots — consume one (guaranteed seat)
-        await funding_svc.consume_one_reserved_spot(db, event_id, user.id)
-        ticket_status = TicketSaleStatus.purchased
+    # Determine how many reserved spots to consume (min of quantity and user's reserved)
+    spots_to_consume = min(quantity, user_reserved)
+    remaining_tickets = quantity - spots_to_consume
+
+    # Check capacity for the remaining (non-reserved) tickets
+    occupied = purchased_count + total_reserved  # total_reserved includes user_reserved
+    available = max(0, int(event.max_capacity) - occupied)
+
+    if remaining_tickets > available:
+        # Not enough general capacity — all tickets go to waitlist
+        ticket_status = TicketSaleStatus.waitlisted
+        spots_to_consume = 0  # Don't consume reserved spots if waitlisted
     else:
-        # Standard capacity: tickets_sold + total_reserved_spots vs max_capacity
-        total_reserved = await funding_svc.get_total_reserved_spots(db, event_id)
-        occupied = purchased_count + total_reserved
-        ticket_status = (
-            TicketSaleStatus.waitlisted
-            if occupied >= int(event.max_capacity)
-            else TicketSaleStatus.purchased
-        )
+        ticket_status = TicketSaleStatus.purchased
 
-    ticket_code = secrets.token_urlsafe(24)
-    sale = TicketSale(
-        event_id=event_id,
-        user_id=user.id,
-        ticket_tier_id=tier_id,
-        ticket_code=ticket_code,
-        amount_paid_cents=final_cents,
-        discount_applied_cents=total_discount,
-        commission_cents=commission_cents,
-        net_to_organizer_cents=net_to_organizer,
-        extra_perks=extra_perks if extra_perks else (None if total_discount < tier_price else ""),
-        status=ticket_status,
-    )
-    db.add(sale)
-    await db.flush()
-    await db.refresh(sale)
+    # Consume reserved spots
+    for _ in range(spots_to_consume):
+        await funding_svc.consume_one_reserved_spot(db, event_id, user.id)
 
-    # Generate human-readable receipt number: RCP-YYYYMMDD-eventId-saleId
+    # Generate purchase group ID for multi-ticket purchases
+    purchase_group_id = secrets.token_urlsafe(16) if quantity > 1 else None
+
     from datetime import datetime, timezone
     now = datetime.now(timezone.utc)
-    sale.receipt_number = f"RCP-{now.strftime('%Y%m%d')}-{event_id}-{sale.id}"
-    await db.flush()
-    await db.refresh(sale)
-    # Load relationships for response (including user for attendee_display_name)
-    q = select(TicketSale).where(TicketSale.id == sale.id).options(
-        selectinload(TicketSale.event),
-        selectinload(TicketSale.ticket_tier),
-        selectinload(TicketSale.user),
+
+    sales: list[TicketSale] = []
+    for _ in range(quantity):
+        ticket_code = secrets.token_urlsafe(24)
+        sale = TicketSale(
+            event_id=event_id,
+            user_id=user.id,
+            ticket_tier_id=tier_id,
+            purchase_group_id=purchase_group_id,
+            ticket_code=ticket_code,
+            amount_paid_cents=final_cents,
+            discount_applied_cents=total_discount,
+            commission_cents=commission_cents,
+            net_to_organizer_cents=net_to_organizer,
+            extra_perks=extra_perks if extra_perks else (None if total_discount < tier_price else ""),
+            status=ticket_status,
+        )
+        db.add(sale)
+        await db.flush()
+        await db.refresh(sale)
+
+        # Generate human-readable receipt number: RCP-YYYYMMDD-eventId-saleId
+        sale.receipt_number = f"RCP-{now.strftime('%Y%m%d')}-{event_id}-{sale.id}"
+        await db.flush()
+        await db.refresh(sale)
+        sales.append(sale)
+
+    # Load relationships for response
+    loaded_sales: list[TicketSale] = []
+    for sale in sales:
+        q = select(TicketSale).where(TicketSale.id == sale.id).options(
+            selectinload(TicketSale.event),
+            selectinload(TicketSale.ticket_tier),
+            selectinload(TicketSale.user),
+        )
+        loaded = (await db.execute(q)).scalar_one()
+        loaded_sales.append(loaded)
+    return loaded_sales
+
+
+async def get_purchase_group_tickets(
+    db: AsyncSession, *, purchase_group_id: str, user_id: int | None = None
+) -> list[TicketSale]:
+    """Load all ticket sales in a purchase group with relationships."""
+    q = (
+        select(TicketSale)
+        .where(TicketSale.purchase_group_id == purchase_group_id)
+        .options(
+            selectinload(TicketSale.event),
+            selectinload(TicketSale.ticket_tier),
+            selectinload(TicketSale.user),
+        )
+        .order_by(TicketSale.id.asc())
     )
-    loaded = (await db.execute(q)).scalar_one()
-    return loaded
+    sales = list((await db.execute(q)).scalars().unique().all())
+    if not sales:
+        raise NotFoundError("PurchaseGroup", purchase_group_id)
+    if user_id is not None and sales[0].user_id != user_id:
+        raise ForbiddenError("You can only view your own purchase groups")
+    return sales
+
+
+async def get_ticket_sales_stats(db: AsyncSession, *, event_id: int) -> dict:
+    """Return total_sold and total_scanned counts for an event."""
+    sold_q = select(func.count()).where(
+        TicketSale.event_id == event_id,
+        TicketSale.status == TicketSaleStatus.purchased,
+    )
+    total_sold = int((await db.execute(sold_q)).scalar_one())
+
+    scanned_q = select(func.count()).where(
+        TicketSale.event_id == event_id,
+        TicketSale.status == TicketSaleStatus.purchased,
+        TicketSale.scanned_at.isnot(None),
+    )
+    total_scanned = int((await db.execute(scanned_q)).scalar_one())
+    return {"total_sold": total_sold, "total_scanned": total_scanned}
 
 
 async def get_ticket_receipt(

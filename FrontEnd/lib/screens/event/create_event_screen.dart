@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -6,6 +8,7 @@ import '../../config/theme.dart';
 import '../../models/venue.dart';
 import '../../models/ticket_strategy.dart';
 import '../../services/api_service.dart';
+import '../../services/mapbox_geocoding_service.dart';
 import '../../widgets/app_toast.dart';
 
 class CreateEventScreen extends StatefulWidget {
@@ -51,6 +54,54 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   final _venueProvinceCtrl = TextEditingController();
   final _venueCapacityCtrl = TextEditingController();
 
+  // Venue geocoding state
+  double? _venueLat;
+  double? _venueLng;
+  List<GeocodingResult> _venueGeoSuggestions = [];
+  bool _showVenueGeoSuggestions = false;
+  bool _venueGeocoding = false;
+  Timer? _venueGeoDebounce;
+
+  void _onVenueAddressChanged(String query) {
+    _venueLat = null;
+    _venueLng = null;
+    _venueGeoDebounce?.cancel();
+    if (query.trim().length < 3) {
+      setState(() {
+        _venueGeoSuggestions = [];
+        _showVenueGeoSuggestions = false;
+      });
+      return;
+    }
+    _venueGeoDebounce = Timer(const Duration(milliseconds: 400), () async {
+      setState(() => _venueGeocoding = true);
+      final results = await MapboxGeocodingService.search(query);
+      if (mounted) {
+        setState(() {
+          _venueGeoSuggestions = results;
+          _showVenueGeoSuggestions = results.isNotEmpty;
+          _venueGeocoding = false;
+        });
+      }
+    });
+  }
+
+  void _selectVenueGeoSuggestion(GeocodingResult result) {
+    setState(() {
+      _venueAddressCtrl.text = result.fullAddress;
+      if (result.city != null && result.city!.isNotEmpty) {
+        _venueCityCtrl.text = result.city!;
+      }
+      if (result.province != null && result.province!.isNotEmpty) {
+        _venueProvinceCtrl.text = result.province!;
+      }
+      _venueLat = result.lat;
+      _venueLng = result.lng;
+      _showVenueGeoSuggestions = false;
+      _venueGeoSuggestions = [];
+    });
+  }
+
   // Ticket strategy
   List<TicketStrategy> _strategies = [];
   int? _selectedStrategyId;
@@ -63,6 +114,13 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   List<Map<String, dynamic>> _discountStrategies = [];
   final Map<int, bool> _selectedDiscounts = {}; // id → autoApply
   String _discountSearch = '';
+
+  // Parking & Transport
+  bool _showTransportSection = false;
+  final _parkingCtrl = TextEditingController();
+  final _transitCtrl = TextEditingController();
+  final _rideshareCtrl = TextEditingController();
+  final _accessibilityCtrl = TextEditingController();
 
   @override
   void initState() {
@@ -279,6 +337,12 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       data['lng'] = selectedVenue.lng;
     }
 
+    // Transport info
+    if (_parkingCtrl.text.trim().isNotEmpty) data['parking_info'] = _parkingCtrl.text.trim();
+    if (_transitCtrl.text.trim().isNotEmpty) data['transit_info'] = _transitCtrl.text.trim();
+    if (_rideshareCtrl.text.trim().isNotEmpty) data['rideshare_info'] = _rideshareCtrl.text.trim();
+    if (_accessibilityCtrl.text.trim().isNotEmpty) data['accessibility_info'] = _accessibilityCtrl.text.trim();
+
     try {
       final api = context.read<ApiService>();
       final resp = await api.createEvent(data);
@@ -318,6 +382,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         'city': _venueCityCtrl.text.trim(),
         'province': _venueProvinceCtrl.text.trim(),
         'max_capacity': int.parse(_venueCapacityCtrl.text.trim()),
+        if (_venueLat != null) 'lat': _venueLat,
+        if (_venueLng != null) 'lng': _venueLng,
       });
 
       // Reload venues and auto-select the new one
@@ -331,6 +397,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         _venueCityCtrl.clear();
         _venueProvinceCtrl.clear();
         _venueCapacityCtrl.clear();
+        _venueLat = null;
+        _venueLng = null;
       });
 
       if (mounted) {
@@ -587,12 +655,17 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     _fundingGoalCtrl.dispose();
     _minPledgeCtrl.dispose();
     _maxReservedSpotsCtrl.dispose();
+    _venueGeoDebounce?.cancel();
     _venueNameCtrl.dispose();
     _venueAddressCtrl.dispose();
     _venueCityCtrl.dispose();
     _venueProvinceCtrl.dispose();
     _venueCapacityCtrl.dispose();
     _strategyNameCtrl.dispose();
+    _parkingCtrl.dispose();
+    _transitCtrl.dispose();
+    _rideshareCtrl.dispose();
+    _accessibilityCtrl.dispose();
     for (final t in _strategyTiers) {
       t.nameCtrl.dispose();
       t.descCtrl.dispose();
@@ -1036,11 +1109,75 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                   labelText: 'Venue Name'),
                             ),
                             const SizedBox(height: 10),
+                            // Address with Mapbox autocomplete
                             TextFormField(
                               controller: _venueAddressCtrl,
-                              decoration: const InputDecoration(
-                                  labelText: 'Address'),
+                              decoration: InputDecoration(
+                                labelText: 'Address',
+                                suffixIcon: _venueGeocoding
+                                    ? const Padding(
+                                        padding: EdgeInsets.all(12),
+                                        child: SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(strokeWidth: 2),
+                                        ),
+                                      )
+                                    : _venueLat != null
+                                        ? const Icon(Icons.check_circle,
+                                            color: AppTheme.successColor, size: 18)
+                                        : null,
+                              ),
+                              onChanged: _onVenueAddressChanged,
                             ),
+                            if (_showVenueGeoSuggestions && _venueGeoSuggestions.isNotEmpty)
+                              Container(
+                                constraints: const BoxConstraints(maxHeight: 160),
+                                margin: const EdgeInsets.only(top: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: AppTheme.dividerColor),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.06),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: ListView.separated(
+                                  shrinkWrap: true,
+                                  padding: EdgeInsets.zero,
+                                  itemCount: _venueGeoSuggestions.length,
+                                  separatorBuilder: (_, __) => const Divider(height: 1),
+                                  itemBuilder: (context, i) {
+                                    final s = _venueGeoSuggestions[i];
+                                    return ListTile(
+                                      dense: true,
+                                      leading: const Icon(Icons.location_on_outlined,
+                                          size: 18, color: AppTheme.textSecondary),
+                                      title: Text(s.fullAddress,
+                                          style: const TextStyle(fontSize: 12),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis),
+                                      onTap: () => _selectVenueGeoSuggestion(s),
+                                    );
+                                  },
+                                ),
+                              ),
+                            if (_venueLat != null && _venueLng != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(
+                                  'Location: ${_venueLat!.toStringAsFixed(4)}, ${_venueLng!.toStringAsFixed(4)}',
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: AppTheme.successColor,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
                             const SizedBox(height: 10),
                             Row(
                               children: [
@@ -1386,6 +1523,119 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                     activeColor: AppTheme.primaryColor,
                     onChanged: (v) => setState(() => _postsEnabled = v),
                     contentPadding: EdgeInsets.zero,
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // ═══════════════════════════════════════
+                  // SECTION 7: Parking & Transport (collapsible)
+                  // ═══════════════════════════════════════
+                  GestureDetector(
+                    onTap: () => setState(() => _showTransportSection = !_showTransportSection),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: _showTransportSection
+                            ? AppTheme.primaryColor.withValues(alpha: 0.05)
+                            : Colors.grey.withValues(alpha: 0.04),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: _showTransportSection
+                              ? AppTheme.primaryColor.withValues(alpha: 0.2)
+                              : Colors.grey.withValues(alpha: 0.15),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.directions_car_rounded,
+                              size: 18,
+                              color: _showTransportSection
+                                  ? AppTheme.primaryColor
+                                  : Colors.grey[600]),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Parking & Transport Info (Optional)',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                                color: Colors.grey[800],
+                              ),
+                            ),
+                          ),
+                          Icon(
+                            _showTransportSection
+                                ? Icons.keyboard_arrow_up
+                                : Icons.keyboard_arrow_down,
+                            color: Colors.grey[500],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  AnimatedCrossFade(
+                    firstChild: const SizedBox.shrink(),
+                    secondChild: Container(
+                      margin: const EdgeInsets.only(top: 8),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.withValues(alpha: 0.03),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.withValues(alpha: 0.12)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          TextFormField(
+                            controller: _parkingCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'Parking',
+                              hintText: 'e.g. Free parking lot behind the venue',
+                              prefixIcon: Icon(Icons.local_parking_rounded, size: 20),
+                              isDense: true,
+                            ),
+                            maxLines: 2,
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _transitCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'Public Transit',
+                              hintText: 'e.g. Take the Blue Line to Central Station',
+                              prefixIcon: Icon(Icons.directions_transit_rounded, size: 20),
+                              isDense: true,
+                            ),
+                            maxLines: 2,
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _rideshareCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'Rideshare / Taxi',
+                              hintText: 'e.g. Drop-off at Gate 3 entrance',
+                              prefixIcon: Icon(Icons.local_taxi_rounded, size: 20),
+                              isDense: true,
+                            ),
+                            maxLines: 2,
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _accessibilityCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'Accessibility',
+                              hintText: 'e.g. Wheelchair ramp at main entrance',
+                              prefixIcon: Icon(Icons.accessible_rounded, size: 20),
+                              isDense: true,
+                            ),
+                            maxLines: 2,
+                          ),
+                        ],
+                      ),
+                    ),
+                    crossFadeState: _showTransportSection
+                        ? CrossFadeState.showSecond
+                        : CrossFadeState.showFirst,
+                    duration: const Duration(milliseconds: 250),
                   ),
 
                   const SizedBox(height: 16),

@@ -28,6 +28,16 @@ class Settings(BaseSettings):
     # CORS: from .env as string (e.g. * or http://localhost:3000,https://app.example.com)
     cors_origins_raw: str = Field(default="*", validation_alias="CORS_ORIGINS")
 
+    # ── Email (provider-agnostic) ──
+    EMAIL_ENABLED: bool = False  # master kill-switch
+    EMAIL_PROVIDER: str = "sendgrid"  # sendgrid | console | (future: smtp, resend, ses)
+    EMAIL_API_KEY: str = ""  # provider API key
+    EMAIL_FROM_ADDRESS: str = "noreply@crowdfundevent.com"
+    EMAIL_FROM_NAME: str = "CrowdFund Event"
+
+    # ── Ticket QR Encryption (AES-256-GCM) ──
+    TICKET_ENCRYPTION_KEY: str = ""  # 64-char hex string (32 bytes); empty = plaintext fallback (dev mode)
+
     @computed_field
     @property
     def CORS_ORIGINS(self) -> List[str]:

@@ -29,6 +29,8 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
   List<dynamic> _filtered = [];
   bool _loading = true;
   String? _error;
+  int _totalSold = 0;
+  int _totalScanned = 0;
 
   @override
   void initState() {
@@ -52,6 +54,12 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
       final data = widget.scannedOnly
           ? await api.getScannedTickets(widget.eventId)
           : await api.getTicketSales(widget.eventId);
+      // Fetch ticket stats (sold vs scanned)
+      try {
+        final stats = await api.getTicketSalesStats(widget.eventId);
+        _totalSold = (stats['total_sold'] ?? 0) as int;
+        _totalScanned = (stats['total_scanned'] ?? 0) as int;
+      } catch (_) {}
       setState(() {
         _all = data;
         _applySearch();
@@ -144,43 +152,89 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
           // ── Stats row ──
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
+            child: Column(
               children: [
-                _statChip(
-                  '${_all.length} ${widget.scannedOnly ? 'scanned' : 'sold'}',
-                  widget.scannedOnly
-                      ? Icons.qr_code_scanner_rounded
-                      : Icons.confirmation_number_rounded,
-                  widget.scannedOnly
-                      ? AppTheme.successColor
-                      : AppTheme.primaryColor,
-                ),
-                const SizedBox(width: 8),
-                _statChip(
-                  '\$${(_totalRevenue / 100).toStringAsFixed(2)}',
-                  Icons.attach_money_rounded,
-                  Colors.teal,
-                ),
-                const SizedBox(width: 8),
-                if (_totalCommission > 0)
-                  _statChip(
-                    'Net \$${(_totalNetToOrganizer / 100).toStringAsFixed(2)}',
-                    Icons.account_balance_wallet_rounded,
-                    Colors.deepPurple,
+                // Scanned / Total sold summary
+                if (_totalSold > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: AppTheme.successColor.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppTheme.successColor.withValues(alpha: 0.15)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.qr_code_scanner_rounded, size: 18, color: AppTheme.successColor),
+                          const SizedBox(width: 10),
+                          Text(
+                            '$_totalScanned scanned / $_totalSold total sold',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.successColor,
+                            ),
+                          ),
+                          const Spacer(),
+                          // Progress indicator
+                          SizedBox(
+                            width: 60,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: LinearProgressIndicator(
+                                value: _totalSold > 0 ? _totalScanned / _totalSold : 0,
+                                backgroundColor: AppTheme.successColor.withValues(alpha: 0.15),
+                                valueColor: AlwaysStoppedAnimation<Color>(AppTheme.successColor),
+                                minHeight: 6,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                if (_searchCtrl.text.isNotEmpty) ...[
-                  const SizedBox(width: 8),
-                  _statChip(
-                    '${_filtered.length} match${_filtered.length == 1 ? '' : 'es'}',
-                    Icons.filter_list_rounded,
-                    AppTheme.accentColor,
-                  ),
-                ],
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.refresh, size: 20),
-                  onPressed: _load,
-                  tooltip: 'Refresh',
+                Row(
+                  children: [
+                    _statChip(
+                      '${_all.length} ${widget.scannedOnly ? 'scanned' : 'sold'}',
+                      widget.scannedOnly
+                          ? Icons.qr_code_scanner_rounded
+                          : Icons.confirmation_number_rounded,
+                      widget.scannedOnly
+                          ? AppTheme.successColor
+                          : AppTheme.primaryColor,
+                    ),
+                    const SizedBox(width: 8),
+                    _statChip(
+                      '\$${(_totalRevenue / 100).toStringAsFixed(2)}',
+                      Icons.attach_money_rounded,
+                      Colors.teal,
+                    ),
+                    const SizedBox(width: 8),
+                    if (_totalCommission > 0)
+                      _statChip(
+                        'Net \$${(_totalNetToOrganizer / 100).toStringAsFixed(2)}',
+                        Icons.account_balance_wallet_rounded,
+                        Colors.deepPurple,
+                      ),
+                    if (_searchCtrl.text.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      _statChip(
+                        '${_filtered.length} match${_filtered.length == 1 ? '' : 'es'}',
+                        Icons.filter_list_rounded,
+                        AppTheme.accentColor,
+                      ),
+                    ],
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.refresh, size: 20),
+                      onPressed: _load,
+                      tooltip: 'Refresh',
+                    ),
+                  ],
                 ),
               ],
             ),

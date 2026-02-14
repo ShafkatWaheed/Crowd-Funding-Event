@@ -69,6 +69,16 @@ async def auto_transition_status(db: AsyncSession, event: Event) -> Event:
             event.cancellation_reason = "Event date was not set within the required deadline. Pledges refunded."
             from app.services import funding as funding_service
             await funding_service.refund_all_pledges_for_event(db, event_id=event.id, guest_refund=False)
+            # Send cancellation emails (fire-and-forget)
+            from app.services import email_notifications as email_notify
+            import asyncio
+            asyncio.ensure_future(email_notify.notify_event_cancelled(
+                db,
+                event_id=event.id,
+                event_title=event.title or f"Event #{event.id}",
+                reason=event.cancellation_reason,
+                event_date=event.start_time,
+            ))
             changed = True
 
     # ── selling_tickets / approved → check if event started ──
@@ -318,7 +328,7 @@ async def list_events_for_map(
         conditions.append(Event.lat <= lat + delta_lat)
         conditions.append(Event.lng >= lng - delta_lng)
         conditions.append(Event.lng <= lng + delta_lng)
-    q = q.where(and_(*conditions)).order_by(Event.start_time.asc())
+    q = q.options(selectinload(Event.venue)).where(and_(*conditions)).order_by(Event.start_time.asc())
     result = await db.execute(q)
     return result.scalars().unique().all()
 
@@ -349,6 +359,10 @@ async def create(
     posts_enabled: bool = True,
     refund_deadline_days: int | None = None,
     ticket_strategy_id: int | None = None,
+    parking_info: str | None = None,
+    transit_info: str | None = None,
+    rideshare_info: str | None = None,
+    accessibility_info: str | None = None,
 ) -> Event:
     """Create event. At least one of funding_end_at or start_time must be provided."""
     from datetime import timedelta
@@ -459,6 +473,10 @@ async def create(
         posts_enabled=posts_enabled,
         refund_deadline_days=refund_deadline_days,
         ticket_strategy_id=ticket_strategy_id,
+        parking_info=parking_info,
+        transit_info=transit_info,
+        rideshare_info=rideshare_info,
+        accessibility_info=accessibility_info,
         status=EventStatus.approved if publish else EventStatus.draft,
     )
     db.add(event)
@@ -495,6 +513,10 @@ async def update(
     posts_enabled: bool | None = None,
     refund_deadline_days: int | None = None,
     ticket_strategy_id: int | None = None,
+    parking_info: str | None = None,
+    transit_info: str | None = None,
+    rideshare_info: str | None = None,
+    accessibility_info: str | None = None,
 ) -> Event:
     """Update event fields (only provided ones). When switching closed→open, auto-approve waitlist up to capacity."""
     old_registration_type = event.registration_type
@@ -593,6 +615,15 @@ async def update(
                 await db.flush()
                 from app.services import ticket_strategy as ts_service
                 await ts_service.apply_strategy_to_event(db, strategy_id=ticket_strategy_id, event_id=event.id)
+    # Parking & Transport (operational — never triggers re-approval)
+    if parking_info is not None:
+        event.parking_info = parking_info
+    if transit_info is not None:
+        event.transit_info = transit_info
+    if rideshare_info is not None:
+        event.rideshare_info = rideshare_info
+    if accessibility_info is not None:
+        event.accessibility_info = accessibility_info
     # Validate dates if both are set
     if event.start_time is not None and event.end_time is not None and event.end_time <= event.start_time:
         raise ConflictError("end_time must be after start_time")

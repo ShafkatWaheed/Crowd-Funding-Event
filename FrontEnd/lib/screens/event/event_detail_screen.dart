@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../config/theme.dart';
 import '../../models/event.dart';
@@ -16,6 +17,7 @@ import '../../widgets/event_lifecycle_bar.dart';
 import '../../widgets/app_toast.dart';
 import '../../services/api_service.dart';
 import 'ticket_receipt_screen.dart';
+import 'purchase_group_receipt_screen.dart';
 import 'pledge_receipt_screen.dart';
 import 'venue_picker_screen.dart';
 import 'strategy_picker_screen.dart';
@@ -40,6 +42,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
   // My ticket count for this event
   int _myTicketCount = 0;
+  // My actual tickets for this event (for "Your Tickets" section)
+  List<Map<String, dynamic>> _myEventTickets = [];
   // My reserved spots for this event (from pledges)
   int _myReservedSpots = 0;
 
@@ -95,10 +99,15 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     try {
       final api = context.read<ApiService>();
       final tickets = await api.getMyTickets();
-      final count = (tickets as List).where((t) =>
+      final myTickets = (tickets as List).where((t) =>
           t['event_id'] == widget.eventId &&
-          (t['status'] == 'purchased' || t['status'] == 'waitlisted')).length;
-      if (mounted) setState(() => _myTicketCount = count);
+          (t['status'] == 'purchased' || t['status'] == 'waitlisted')).toList();
+      if (mounted) {
+        setState(() {
+          _myTicketCount = myTickets.length;
+          _myEventTickets = myTickets.cast<Map<String, dynamic>>();
+        });
+      }
     } catch (_) {}
   }
 
@@ -478,6 +487,70 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                               ),
                               const SizedBox(height: 20),
 
+                              // ── Getting There (Parking / Transport) ──
+                              if (event.hasTransportInfo) ...[
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(18),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.cardColor,
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(color: AppTheme.borderColor),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Icon(Icons.directions_rounded, size: 16, color: Colors.grey[500]),
+                                          const SizedBox(width: 8),
+                                          Text('Getting There',
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w700,
+                                              color: Colors.grey[500],
+                                              letterSpacing: 0.5,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 14),
+                                      if (event.parkingInfo != null && event.parkingInfo!.isNotEmpty)
+                                        _modernInfoRow(Icons.local_parking_rounded, 'Parking', event.parkingInfo!),
+                                      if (event.transitInfo != null && event.transitInfo!.isNotEmpty)
+                                        _modernInfoRow(Icons.directions_transit_rounded, 'Transit', event.transitInfo!),
+                                      if (event.rideshareInfo != null && event.rideshareInfo!.isNotEmpty)
+                                        _modernInfoRow(Icons.local_taxi_rounded, 'Rideshare', event.rideshareInfo!),
+                                      if (event.accessibilityInfo != null && event.accessibilityInfo!.isNotEmpty)
+                                        _modernInfoRow(Icons.accessible_rounded, 'Accessibility', event.accessibilityInfo!),
+                                      if (event.directionsUrl != null) ...[
+                                        const SizedBox(height: 12),
+                                        SizedBox(
+                                          width: double.infinity,
+                                          child: OutlinedButton.icon(
+                                            onPressed: () async {
+                                              final uri = Uri.parse(event.directionsUrl!);
+                                              if (await canLaunchUrl(uri)) {
+                                                await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                              }
+                                            },
+                                            icon: const Icon(Icons.navigation_rounded, size: 16),
+                                            label: const Text('Get Directions'),
+                                            style: OutlinedButton.styleFrom(
+                                              foregroundColor: AppTheme.primaryColor,
+                                              side: BorderSide(color: AppTheme.primaryColor.withOpacity(0.4)),
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                              padding: const EdgeInsets.symmetric(vertical: 10),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
+                              ],
+
                               // Pending cancellation banner
                               if (event.pendingCancellation != null) ...[
                                 Container(
@@ -627,38 +700,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                   ),
                                   const SizedBox(height: 8),
                                 ],
-                                // Show user's ticket count for this event
+                                // Show user's tickets for this event
                                 if (_myTicketCount > 0) ...[
-                                  Container(
-                                    width: double.infinity,
-                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                    decoration: BoxDecoration(
-                                      color: Colors.teal.withValues(alpha: 0.08),
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: Colors.teal.withValues(alpha: 0.25)),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        const Icon(Icons.confirmation_number_rounded, size: 18, color: Colors.teal),
-                                        const SizedBox(width: 10),
-                                        Expanded(
-                                          child: Text(
-                                            'You have $_myTicketCount ticket${_myTicketCount == 1 ? '' : 's'} for this event.',
-                                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.teal),
-                                          ),
-                                        ),
-                                        TextButton(
-                                          onPressed: () => context.push('/my-tickets'),
-                                          style: TextButton.styleFrom(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                                            minimumSize: Size.zero,
-                                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                          ),
-                                          child: const Text('View', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
+                                  _buildYourTicketsSection(),
                                   const SizedBox(height: 8),
                                 ],
                                 SizedBox(
@@ -1584,266 +1628,361 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     }
   }
 
-  /// Step 2: Show invoice/price breakdown before confirming purchase.
+  /// Step 2: Show invoice/price breakdown with quantity counter before confirming purchase.
   Future<void> _showInvoiceDialog(
       Event event, Map<String, dynamic> tier, Map<String, dynamic>? preview) async {
     final tierName = tier['name'] ?? 'Ticket';
     final tierId = tier['id'] as int;
-    final baseCents = tier['price_cents'] ?? 0;
-    final commonDisc = preview?['common_discount_cents'] ?? 0;
-    final selectiveDisc = preview?['selective_discount_cents'] ?? 0;
-    final pledgeDisc = preview?['pledge_discount_cents'] ?? 0;
-    final eventDisc = preview?['event_discount_cents'] ?? 0;
-    final totalDiscount = preview?['total_discount_cents'] ?? 0;
-    final finalCents = preview?['final_price_cents'] ?? baseCents;
-    final commissionCents = preview?['commission_cents'] ?? 0;
-    final isFree = finalCents == 0;
+    final baseCents = (tier['price_cents'] ?? 0) as int;
+    final commonDisc = (preview?['common_discount_cents'] ?? 0) as int;
+    final selectiveDisc = (preview?['selective_discount_cents'] ?? 0) as int;
+    final pledgeDisc = (preview?['pledge_discount_cents'] ?? 0) as int;
+    final eventDisc = (preview?['event_discount_cents'] ?? 0) as int;
+    final totalDiscountPerTicket = (preview?['total_discount_cents'] ?? 0) as int;
+    final finalCentsPerTicket = (preview?['final_price_cents'] ?? baseCents) as int;
+    final commissionPerTicket = (preview?['commission_cents'] ?? 0) as int;
 
     String fmtCents(int c) => '\$${(c / 100).toStringAsFixed(2)}';
 
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        contentPadding: EdgeInsets.zero,
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Header
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.teal,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(20),
-                    topRight: Radius.circular(20),
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    const Icon(Icons.receipt_long_rounded, color: Colors.white, size: 32),
-                    const SizedBox(height: 8),
-                    const Text('Invoice',
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800)),
-                    const SizedBox(height: 4),
-                    Text(event.title,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.8),
-                            fontSize: 13)),
-                  ],
-                ),
-              ),
+    int quantity = 1;
 
-              // Invoice body
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Tier info
-                    Row(
+    final result = await showDialog<int>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          final totalFinal = finalCentsPerTicket * quantity;
+          final totalDiscount = totalDiscountPerTicket * quantity;
+          final totalCommission = commissionPerTicket * quantity;
+          final isFree = finalCentsPerTicket == 0;
+          final spotsUsed = _myReservedSpots > 0 ? (_myReservedSpots < quantity ? _myReservedSpots : quantity) : 0;
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            contentPadding: EdgeInsets.zero,
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Header
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.teal,
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(20),
+                        topRight: Radius.circular(20),
+                      ),
+                    ),
+                    child: Column(
                       children: [
-                        const Icon(Icons.confirmation_number_rounded,
-                            size: 18, color: Colors.teal),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(tierName,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w700, fontSize: 16)),
-                        ),
+                        const Icon(Icons.receipt_long_rounded, color: Colors.white, size: 32),
+                        const SizedBox(height: 8),
+                        const Text('Invoice',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800)),
+                        const SizedBox(height: 4),
+                        Text(event.title,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.8),
+                                fontSize: 13)),
                       ],
                     ),
-                    if (_myTicketCount > 0) ...[
-                      const SizedBox(height: 8),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: Colors.teal.withValues(alpha: 0.06),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Row(
+                  ),
+
+                  // Invoice body
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Tier info
+                        Row(
                           children: [
-                            Icon(Icons.info_outline_rounded, size: 15, color: Colors.teal[600]),
-                            const SizedBox(width: 8),
-                            Text(
-                              'You already have $_myTicketCount ticket${_myTicketCount == 1 ? '' : 's'} for this event',
-                              style: TextStyle(fontSize: 12, color: Colors.teal[700], fontWeight: FontWeight.w500),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                    if (_myReservedSpots > 0) ...[
-                      const SizedBox(height: 8),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: Colors.deepPurple.withValues(alpha: 0.06),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.event_seat_rounded, size: 15, color: Colors.deepPurple[600]),
+                            const Icon(Icons.confirmation_number_rounded,
+                                size: 18, color: Colors.teal),
                             const SizedBox(width: 8),
                             Expanded(
-                              child: Text(
-                                'Using 1 of your $_myReservedSpots reserved spot${_myReservedSpots == 1 ? '' : 's'} from pledging',
-                                style: TextStyle(fontSize: 12, color: Colors.deepPurple[700], fontWeight: FontWeight.w500),
-                              ),
+                              child: Text(tierName,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w700, fontSize: 16)),
                             ),
                           ],
                         ),
-                      ),
-                    ],
-                    const SizedBox(height: 16),
 
-                    // Price breakdown
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppTheme.surfaceColor,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Column(
-                        children: [
-                          _invoiceRow('Ticket Price', fmtCents(baseCents)),
-                          if (commonDisc > 0) ...[
-                            const SizedBox(height: 8),
-                            _invoiceRow('Common Discount',
-                                '- ${fmtCents(commonDisc)}',
-                                valueColor: AppTheme.successColor),
-                          ],
-                          if (selectiveDisc > 0) ...[
-                            const SizedBox(height: 8),
-                            _invoiceRow('Selective Discount',
-                                '- ${fmtCents(selectiveDisc)}',
-                                valueColor: AppTheme.successColor),
-                          ],
-                          if (pledgeDisc > 0) ...[
-                            const SizedBox(height: 8),
-                            _invoiceRow('Pledge Discount',
-                                '- ${fmtCents(pledgeDisc)}',
-                                valueColor: AppTheme.successColor),
-                          ],
-                          if (eventDisc > 0) ...[
-                            const SizedBox(height: 8),
-                            _invoiceRow('Event Discount',
-                                '- ${fmtCents(eventDisc)}',
-                                valueColor: AppTheme.successColor),
-                          ],
-                          if (commissionCents > 0) ...[
-                            const SizedBox(height: 8),
-                            _invoiceRow('Platform Fee',
-                                fmtCents(commissionCents),
-                                valueColor: Colors.grey[500]!),
-                          ],
-                          const SizedBox(height: 10),
-                          Container(height: 1, color: AppTheme.dividerColor),
-                          const SizedBox(height: 10),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        // Quantity selector
+                        const SizedBox(height: 14),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: AppTheme.surfaceColor,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppTheme.dividerColor),
+                          ),
+                          child: Row(
                             children: [
-                              const Text('Total',
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 17)),
-                              Text(
-                                isFree ? 'FREE' : fmtCents(finalCents),
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 20,
-                                  letterSpacing: -0.5,
-                                  color: isFree
-                                      ? AppTheme.successColor
-                                      : Colors.teal,
+                              Icon(Icons.people_rounded, size: 18, color: Colors.teal[600]),
+                              const SizedBox(width: 10),
+                              const Text('Quantity',
+                                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                              const Spacer(),
+                              // Minus button
+                              GestureDetector(
+                                onTap: quantity > 1
+                                    ? () => setDialogState(() => quantity--)
+                                    : null,
+                                child: Container(
+                                  width: 32, height: 32,
+                                  decoration: BoxDecoration(
+                                    color: quantity > 1 ? Colors.teal : Colors.grey[200],
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(Icons.remove, size: 18,
+                                      color: quantity > 1 ? Colors.white : Colors.grey[400]),
+                                ),
+                              ),
+                              SizedBox(
+                                width: 44,
+                                child: Text('$quantity',
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                        fontSize: 18, fontWeight: FontWeight.w800)),
+                              ),
+                              // Plus button
+                              GestureDetector(
+                                onTap: quantity < 10
+                                    ? () => setDialogState(() => quantity++)
+                                    : null,
+                                child: Container(
+                                  width: 32, height: 32,
+                                  decoration: BoxDecoration(
+                                    color: quantity < 10 ? Colors.teal : Colors.grey[200],
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(Icons.add, size: 18,
+                                      color: quantity < 10 ? Colors.white : Colors.grey[400]),
                                 ),
                               ),
                             ],
                           ),
-                          if (totalDiscount > 0) ...[
-                            const SizedBox(height: 6),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
+                        ),
+
+                        if (_myTicketCount > 0) ...[
+                          const SizedBox(height: 8),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.teal.withValues(alpha: 0.06),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Row(
                               children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.successColor
-                                        .withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
+                                Icon(Icons.info_outline_rounded, size: 15, color: Colors.teal[600]),
+                                const SizedBox(width: 8),
+                                Expanded(
                                   child: Text(
-                                    'You save ${fmtCents(totalDiscount)}',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppTheme.successColor,
-                                    ),
+                                    'You already have $_myTicketCount ticket${_myTicketCount == 1 ? '' : 's'} for this event',
+                                    style: TextStyle(fontSize: 12, color: Colors.teal[700], fontWeight: FontWeight.w500),
                                   ),
                                 ),
                               ],
                             ),
-                          ],
+                          ),
                         ],
-                      ),
-                    ),
+                        if (_myReservedSpots > 0) ...[
+                          const SizedBox(height: 8),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.deepPurple.withValues(alpha: 0.06),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.event_seat_rounded, size: 15, color: Colors.deepPurple[600]),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Using $spotsUsed of your $_myReservedSpots reserved spot${_myReservedSpots == 1 ? '' : 's'} from pledging',
+                                    style: TextStyle(fontSize: 12, color: Colors.deepPurple[700], fontWeight: FontWeight.w500),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 16),
 
-                    const SizedBox(height: 20),
+                        // Price breakdown
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: AppTheme.surfaceColor,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Column(
+                            children: [
+                              _invoiceRow('Ticket Price', fmtCents(baseCents)),
+                              if (commonDisc > 0) ...[
+                                const SizedBox(height: 8),
+                                _invoiceRow('Common Discount',
+                                    '- ${fmtCents(commonDisc)}',
+                                    valueColor: AppTheme.successColor),
+                              ],
+                              if (selectiveDisc > 0) ...[
+                                const SizedBox(height: 8),
+                                _invoiceRow('Selective Discount',
+                                    '- ${fmtCents(selectiveDisc)}',
+                                    valueColor: AppTheme.successColor),
+                              ],
+                              if (pledgeDisc > 0) ...[
+                                const SizedBox(height: 8),
+                                _invoiceRow('Pledge Discount',
+                                    '- ${fmtCents(pledgeDisc)}',
+                                    valueColor: AppTheme.successColor),
+                              ],
+                              if (eventDisc > 0) ...[
+                                const SizedBox(height: 8),
+                                _invoiceRow('Event Discount',
+                                    '- ${fmtCents(eventDisc)}',
+                                    valueColor: AppTheme.successColor),
+                              ],
+                              if (commissionPerTicket > 0) ...[
+                                const SizedBox(height: 8),
+                                _invoiceRow('Platform Fee',
+                                    fmtCents(commissionPerTicket),
+                                    valueColor: Colors.grey[500]!),
+                              ],
+                              if (quantity > 1) ...[
+                                const SizedBox(height: 8),
+                                Container(height: 1, color: AppTheme.dividerColor),
+                                const SizedBox(height: 8),
+                                _invoiceRow('Per Ticket',
+                                    isFree ? 'FREE' : fmtCents(finalCentsPerTicket)),
+                                const SizedBox(height: 4),
+                                _invoiceRow('x Quantity', '$quantity'),
+                              ],
+                              const SizedBox(height: 10),
+                              Container(height: 1, color: AppTheme.dividerColor),
+                              const SizedBox(height: 10),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(quantity > 1 ? 'Total ($quantity tickets)' : 'Total',
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 17)),
+                                  Text(
+                                    isFree ? 'FREE' : fmtCents(totalFinal),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 20,
+                                      letterSpacing: -0.5,
+                                      color: isFree
+                                          ? AppTheme.successColor
+                                          : Colors.teal,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              if (totalDiscount > 0) ...[
+                                const SizedBox(height: 6),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.successColor
+                                            .withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        'You save ${fmtCents(totalDiscount)}',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppTheme.successColor,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                              if (totalCommission > 0) ...[
+                                const SizedBox(height: 6),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      'Includes ${fmtCents(totalCommission)} platform fee',
+                                      style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
 
-                    // Buy button
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton.icon(
-                        onPressed: () => Navigator.of(ctx).pop(true),
-                        icon: Icon(isFree
-                            ? Icons.check_circle_rounded
-                            : Icons.shopping_cart_rounded),
-                        label: Text(
-                          isFree ? 'Get Free Ticket' : 'Confirm Purchase',
-                          style: const TextStyle(
-                              fontWeight: FontWeight.w700, fontSize: 16),
+                        const SizedBox(height: 20),
+
+                        // Buy button
+                        SizedBox(
+                          width: double.infinity,
+                          height: 50,
+                          child: ElevatedButton.icon(
+                            onPressed: () => Navigator.of(ctx).pop(quantity),
+                            icon: Icon(isFree
+                                ? Icons.check_circle_rounded
+                                : Icons.shopping_cart_rounded),
+                            label: Text(
+                              isFree
+                                  ? (quantity > 1 ? 'Get $quantity Free Tickets' : 'Get Free Ticket')
+                                  : (quantity > 1 ? 'Buy $quantity Tickets' : 'Confirm Purchase'),
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w700, fontSize: 16),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: isFree ? Colors.green : Colors.teal,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14)),
+                              elevation: 0,
+                            ),
+                          ),
                         ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isFree ? Colors.green : Colors.teal,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14)),
-                          elevation: 0,
+                        const SizedBox(height: 8),
+                        // Back to tiers
+                        SizedBox(
+                          width: double.infinity,
+                          child: TextButton(
+                            onPressed: () => Navigator.of(ctx).pop(0),
+                            child: const Text('Back to Tiers'),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
-                    const SizedBox(height: 8),
-                    // Back to tiers
-                    SizedBox(
-                      width: double.infinity,
-                      child: TextButton(
-                        onPressed: () => Navigator.of(ctx).pop(false),
-                        child: const Text('Back to Tiers'),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
 
-    if (confirmed == true && mounted) {
-      await _purchaseTicket(event.id, tierId);
-    } else if (confirmed == false && mounted) {
+    if (result != null && result > 0 && mounted) {
+      await _purchaseTickets(event.id, tierId, result);
+    } else if (result == 0 && mounted) {
       // Go back to tier selection
       _showBuyTicketDialog(event);
     }
@@ -1863,42 +2002,61 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     );
   }
 
-  Future<void> _purchaseTicket(int eventId, int tierId) async {
+  Future<void> _purchaseTickets(int eventId, int tierId, int quantity) async {
     try {
       final api = context.read<ApiService>();
-      final resp = await api.dio.post('/events/$eventId/purchase-ticket', data: {'tier_id': tierId});
-      final saleId = resp.data['id'] as int;
-      final ticketCode = resp.data['ticket_code'] ?? '';
-      final amountPaid = resp.data['amount_paid_cents'] ?? 0;
-      final commission = resp.data['commission_cents'] ?? 0;
-      final status = resp.data['status'] ?? 'purchased';
-      final isFree = amountPaid == 0;
+      final salesList = await api.purchaseTickets(eventId, tierId: tierId, quantity: quantity);
+      if (salesList.isEmpty) return;
+
+      final first = salesList[0] as Map<String, dynamic>;
+      final status = first['status'] ?? 'purchased';
+      final purchaseGroupId = first['purchase_group_id'];
+
       if (mounted) {
         if (status == 'waitlisted') {
-          AppToast.info(context, 'Event is at capacity — your ticket is waiting for organizer approval.');
+          AppToast.info(context,
+              quantity > 1
+                  ? 'Event is at capacity — your $quantity tickets are waiting for organizer approval.'
+                  : 'Event is at capacity — your ticket is waiting for organizer approval.');
         } else {
+          final totalPaid = salesList.fold<int>(0, (sum, s) => sum + ((s['amount_paid_cents'] ?? 0) as int));
+          final isFree = totalPaid == 0;
+          final ticketWord = quantity > 1 ? '$quantity tickets' : 'ticket';
           final priceStr = isFree
-              ? 'Free ticket'
-              : 'Paid \$${(amountPaid / 100).toStringAsFixed(2)}'
-                '${commission > 0 ? ' (incl. \$${(commission / 100).toStringAsFixed(2)} platform fee)' : ''}';
-          AppToast.success(context, '$priceStr — Code: $ticketCode');
-          // Refresh ticket count, reserved spots & event data (capacity updates)
+              ? 'Free $ticketWord'
+              : 'Paid \$${(totalPaid / 100).toStringAsFixed(2)} for $ticketWord';
+          AppToast.success(context, priceStr);
+          // Refresh ticket count, reserved spots & event data
           _loadMyTicketCount();
           _loadMyReservedSpots();
           context.read<EventProvider>().loadEvent(eventId);
-          // Navigate to receipt screen with buy-again option
+          // Navigate to receipt
           if (mounted) {
             final event = context.read<EventProvider>().selectedEvent;
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => TicketReceiptScreen(
-                  eventId: eventId,
-                  saleId: saleId,
-                  showBuyAgain: true,
-                  onBuyAgain: event != null ? () => _showBuyTicketDialog(event) : null,
+            if (quantity > 1 && purchaseGroupId != null) {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => PurchaseGroupReceiptScreen(
+                    eventId: eventId,
+                    purchaseGroupId: purchaseGroupId,
+                    showBuyAgain: true,
+                    onBuyAgain: event != null ? () => _showBuyTicketDialog(event) : null,
+                  ),
                 ),
-              ),
-            );
+              );
+            } else {
+              final saleId = first['id'] as int;
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => TicketReceiptScreen(
+                    eventId: eventId,
+                    saleId: saleId,
+                    showBuyAgain: true,
+                    onBuyAgain: event != null ? () => _showBuyTicketDialog(event) : null,
+                  ),
+                ),
+              );
+            }
           }
         }
       }
@@ -1907,6 +2065,144 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
         AppToast.fromError(context, e, fallback: 'Purchase failed');
       }
     }
+  }
+
+  Widget _buildYourTicketsSection() {
+    final scannedCount = _myEventTickets.where((t) => t['scanned_at'] != null).length;
+    final dateFmt = DateFormat('MMM d \u2022 h:mm a');
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.teal.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.teal.withValues(alpha: 0.15)),
+      ),
+      child: Column(
+        children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 12, 8),
+            child: Row(
+              children: [
+                const Icon(Icons.confirmation_number_rounded, size: 18, color: Colors.teal),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Your Tickets ($_myTicketCount)',
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.teal),
+                      ),
+                      if (scannedCount > 0)
+                        Text(
+                          '$scannedCount of $_myTicketCount scanned',
+                          style: TextStyle(fontSize: 11, color: Colors.teal[400]),
+                        ),
+                    ],
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => context.push('/my-tickets'),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text('View All', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                ),
+              ],
+            ),
+          ),
+          // Ticket mini-cards (max 3 shown, rest collapsed)
+          ..._myEventTickets.take(3).map((t) {
+            final ticketCode = t['ticket_code'] ?? '';
+            final receiptNumber = t['receipt_number'] ?? '';
+            final status = t['status'] ?? '';
+            final isScanned = t['scanned_at'] != null;
+            final saleId = t['id'] as int;
+            final createdAt = t['created_at'] != null
+                ? dateFmt.format(DateTime.parse(t['created_at']).toLocal())
+                : '';
+            return GestureDetector(
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => TicketReceiptScreen(
+                    eventId: widget.eventId,
+                    saleId: saleId,
+                  ),
+                ),
+              ),
+              child: Container(
+                width: double.infinity,
+                margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: isScanned
+                      ? Border.all(color: AppTheme.successColor.withValues(alpha: 0.25))
+                      : null,
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      isScanned ? Icons.check_circle_rounded : Icons.qr_code_rounded,
+                      size: 16,
+                      color: isScanned ? AppTheme.successColor : Colors.grey[400],
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            receiptNumber.isNotEmpty ? receiptNumber : ticketCode,
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(createdAt,
+                              style: TextStyle(fontSize: 10, color: Colors.grey[500])),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: status == 'purchased'
+                            ? AppTheme.successColor.withValues(alpha: 0.1)
+                            : AppTheme.warningColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        status.toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          color: status == 'purchased' ? AppTheme.successColor : AppTheme.warningColor,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(Icons.chevron_right_rounded, size: 16, color: Colors.grey[400]),
+                  ],
+                ),
+              ),
+            );
+          }),
+          if (_myTicketCount > 3)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8, top: 2),
+              child: Text(
+                '+${_myTicketCount - 3} more ticket${_myTicketCount - 3 == 1 ? '' : 's'}',
+                style: TextStyle(fontSize: 11, color: Colors.grey[500], fontWeight: FontWeight.w500),
+              ),
+            ),
+          const SizedBox(height: 4),
+        ],
+      ),
+    );
   }
 
   Widget _infoBanner(String text, IconData icon, Color color) {

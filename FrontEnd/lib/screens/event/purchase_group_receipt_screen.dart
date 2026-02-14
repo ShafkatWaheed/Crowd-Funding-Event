@@ -8,32 +8,31 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../../config/theme.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_toast.dart';
+import 'ticket_receipt_screen.dart';
 
-/// Beautiful ticket receipt screen.
-/// Pass [eventId] + [saleId] to load via event route,
-/// or [saleId] alone to load via /me/tickets/{saleId}/receipt.
-///
-/// When [showBuyAgain] is true, a "Buy Another Ticket" button is shown at the
-/// bottom of the receipt. The [onBuyAgain] callback is invoked when tapped.
-class TicketReceiptScreen extends StatefulWidget {
-  final int? eventId;
-  final int saleId;
+/// Aggregated receipt for a multi-ticket purchase group.
+/// Shows purchase summary and individual ticket cards with QR codes.
+class PurchaseGroupReceiptScreen extends StatefulWidget {
+  final int eventId;
+  final String purchaseGroupId;
   final bool showBuyAgain;
   final VoidCallback? onBuyAgain;
 
-  const TicketReceiptScreen({
+  const PurchaseGroupReceiptScreen({
     super.key,
-    this.eventId,
-    required this.saleId,
+    required this.eventId,
+    required this.purchaseGroupId,
     this.showBuyAgain = false,
     this.onBuyAgain,
   });
 
   @override
-  State<TicketReceiptScreen> createState() => _TicketReceiptScreenState();
+  State<PurchaseGroupReceiptScreen> createState() =>
+      _PurchaseGroupReceiptScreenState();
 }
 
-class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
+class _PurchaseGroupReceiptScreenState
+    extends State<PurchaseGroupReceiptScreen> {
   Map<String, dynamic>? _receipt;
   bool _loading = true;
   String? _error;
@@ -51,9 +50,8 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
     });
     try {
       final api = context.read<ApiService>();
-      final data = widget.eventId != null
-          ? await api.getTicketReceipt(widget.eventId!, widget.saleId)
-          : await api.getMyTicketReceipt(widget.saleId);
+      final data = await api.getPurchaseGroupReceipt(
+          widget.eventId, widget.purchaseGroupId);
       if (mounted) setState(() { _receipt = data; _loading = false; });
     } catch (e) {
       if (mounted) {
@@ -74,7 +72,7 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
           icon: const Icon(Icons.close),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text('Receipt'),
+        title: const Text('Purchase Receipt'),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -85,12 +83,14 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.error_outline, size: 48, color: Colors.grey[400]),
+                        Icon(Icons.error_outline, size: 48,
+                            color: Colors.grey[400]),
                         const SizedBox(height: 12),
                         Text(_error!, textAlign: TextAlign.center,
                             style: TextStyle(color: Colors.grey[600])),
                         const SizedBox(height: 16),
-                        OutlinedButton(onPressed: _load, child: const Text('Retry')),
+                        OutlinedButton(
+                            onPressed: _load, child: const Text('Retry')),
                       ],
                     ),
                   ),
@@ -101,14 +101,16 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
 
   Widget _buildReceipt() {
     final r = _receipt!;
-    final receiptNumber = r['receipt_number'] ?? '';
-    final ticketCode = r['ticket_code'] ?? '';
-    final status = r['status'] ?? '';
-    final saleId = r['sale_id'];
-    final userId = r['user_id'];
-    final attendeeName = r['attendee_name'] ?? 'Unknown';
-    final attendeeEmail = r['attendee_email'] ?? '';
     final eventTitle = r['event_title'] ?? 'Unknown Event';
+    final quantity = (r['quantity'] ?? 1) as int;
+    final tierName = r['tier_name'] ?? '';
+    final tierPriceCents = (r['tier_price_cents'] ?? 0) as int;
+    final totalAmountPaid = (r['total_amount_paid_cents'] ?? 0) as int;
+    final totalDiscount = (r['total_discount_applied_cents'] ?? 0) as int;
+    final totalCommission = (r['total_commission_cents'] ?? 0) as int;
+    final purchasedAt = r['purchased_at'] != null
+        ? DateTime.parse(r['purchased_at']).toLocal()
+        : null;
     final eventStartTime = r['event_start_time'] != null
         ? DateTime.parse(r['event_start_time']).toLocal()
         : null;
@@ -120,27 +122,17 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
     final organizerPhone = r['organizer_phone'];
     final venueName = r['venue_name'];
     final venueAddress = r['venue_address'];
-    final tierName = r['tier_name'] ?? '';
-    final tierPriceCents = (r['tier_price_cents'] ?? 0) as int;
-    final amountPaidCents = (r['amount_paid_cents'] ?? 0) as int;
-    final discountCents = (r['discount_applied_cents'] ?? 0) as int;
-    final commissionCents = (r['commission_cents'] ?? 0) as int;
-    final purchasedAt = r['purchased_at'] != null
-        ? DateTime.parse(r['purchased_at']).toLocal()
-        : null;
-    final scannedAt = r['scanned_at'] != null
-        ? DateTime.parse(r['scanned_at']).toLocal()
-        : null;
-    final extraPerks = r['extra_perks'];
-
-    final isFree = amountPaidCents == 0;
+    final attendeeName = r['attendee_name'] ?? 'Unknown';
+    final attendeeEmail = r['attendee_email'] ?? '';
+    final tickets = (r['tickets'] as List? ?? []);
+    final isFree = totalAmountPaid == 0;
     final dateFmt = DateFormat.yMMMd().add_jm();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       child: Column(
         children: [
-          // ── Receipt Card ──
+          // ── Summary Card ──
           Container(
             width: double.infinity,
             decoration: BoxDecoration(
@@ -156,7 +148,7 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
             ),
             child: Column(
               children: [
-                // ── Header ──
+                // Header
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(24),
@@ -177,8 +169,7 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
                   child: Column(
                     children: [
                       Container(
-                        width: 56,
-                        height: 56,
+                        width: 56, height: 56,
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(16),
@@ -194,26 +185,19 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
                               fontWeight: FontWeight.w800,
                               letterSpacing: -0.5)),
                       const SizedBox(height: 4),
-                      Text(receiptNumber,
-                          style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.7),
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500)),
-                      const SizedBox(height: 12),
-                      // Status badge
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 5),
                         decoration: BoxDecoration(
-                          color: _statusColor(status).withValues(alpha: 0.2),
+                          color: Colors.white.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          status.toUpperCase(),
-                          style: TextStyle(
+                          '$quantity ticket${quantity == 1 ? '' : 's'}',
+                          style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 11,
+                            fontSize: 13,
                             fontWeight: FontWeight.w700,
-                            letterSpacing: 0.8,
                           ),
                         ),
                       ),
@@ -221,20 +205,15 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
                   ),
                 ),
 
-                // ── Dashed divider ──
-                Container(
-                  width: double.infinity,
-                  height: 1,
-                  color: AppTheme.dividerColor,
-                ),
+                Container(width: double.infinity, height: 1,
+                    color: AppTheme.dividerColor),
 
-                // ── Body ──
+                // Body
                 Padding(
                   padding: const EdgeInsets.all(24),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Event info
                       _sectionLabel('EVENT'),
                       const SizedBox(height: 8),
                       Text(eventTitle,
@@ -266,19 +245,19 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
 
                       const SizedBox(height: 20),
 
-                      // Organizer
                       if (organizerName != null) ...[
                         _sectionLabel('ORGANIZER'),
                         const SizedBox(height: 8),
                         _detailRow('Name', organizerName),
-                        if (organizerEmail != null && organizerEmail.isNotEmpty)
+                        if (organizerEmail != null &&
+                            organizerEmail.toString().isNotEmpty)
                           _detailRow('Email', organizerEmail),
-                        if (organizerPhone != null && organizerPhone.isNotEmpty)
+                        if (organizerPhone != null &&
+                            organizerPhone.toString().isNotEmpty)
                           _detailRow('Phone', organizerPhone),
                         const SizedBox(height: 20),
                       ],
 
-                      // Attendee
                       _sectionLabel('ATTENDEE'),
                       const SizedBox(height: 8),
                       _detailRow('Name', attendeeName),
@@ -287,60 +266,12 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
 
                       const SizedBox(height: 20),
 
-                      // Ticket info
-                      _sectionLabel('TICKET'),
+                      _sectionLabel('PURCHASE SUMMARY'),
                       const SizedBox(height: 8),
                       _detailRow('Tier', tierName),
-                      _detailRow('Ticket Code', ticketCode, copyable: true),
+                      _detailRow('Quantity', '$quantity'),
                       if (purchasedAt != null)
                         _detailRow('Purchased', dateFmt.format(purchasedAt)),
-                      if (scannedAt != null)
-                        _detailRow('Scanned', dateFmt.format(scannedAt)),
-                      if (extraPerks != null && extraPerks.toString().isNotEmpty)
-                        _detailRow('Extra Perks', extraPerks.toString()),
-
-                      const SizedBox(height: 20),
-
-                      // QR Code
-                      Center(
-                        child: Column(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(color: AppTheme.dividerColor),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.04),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: QrImageView(
-                                data: r['encrypted_qr_payload'] ?? jsonEncode({
-                                  'receipt_number': receiptNumber,
-                                  'event_id': r['event_id'],
-                                  'user_id': userId,
-                                  'sale_id': saleId,
-                                  'ticket_code': ticketCode,
-                                }),
-                                version: QrVersions.auto,
-                                size: 160,
-                                gapless: true,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text('Scan for entry',
-                                style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.grey[500],
-                                    fontWeight: FontWeight.w500)),
-                          ],
-                        ),
-                      ),
 
                       const SizedBox(height: 20),
 
@@ -356,25 +287,25 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
                         ),
                         child: Column(
                           children: [
-                            _priceRow('Ticket Price',
+                            _priceRow('Ticket Price (each)',
                                 _formatCents(tierPriceCents)),
-                            if (discountCents > 0) ...[
+                            const SizedBox(height: 4),
+                            _priceRow('x Quantity', '$quantity'),
+                            if (totalDiscount > 0) ...[
                               const SizedBox(height: 8),
-                              _priceRow('Discount',
-                                  '-${_formatCents(discountCents)}',
+                              _priceRow('Total Discount',
+                                  '-${_formatCents(totalDiscount)}',
                                   valueColor: AppTheme.successColor),
                             ],
-                            if (commissionCents > 0) ...[
+                            if (totalCommission > 0) ...[
                               const SizedBox(height: 8),
                               _priceRow('Platform Fee',
-                                  _formatCents(commissionCents),
+                                  _formatCents(totalCommission),
                                   valueColor: Colors.grey[500]!),
                             ],
                             const SizedBox(height: 10),
-                            Container(
-                              height: 1,
-                              color: AppTheme.dividerColor,
-                            ),
+                            Container(height: 1,
+                                color: AppTheme.dividerColor),
                             const SizedBox(height: 10),
                             Row(
                               mainAxisAlignment:
@@ -387,7 +318,7 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
                                 Text(
                                   isFree
                                       ? 'FREE'
-                                      : _formatCents(amountPaidCents),
+                                      : _formatCents(totalAmountPaid),
                                   style: TextStyle(
                                     fontWeight: FontWeight.w800,
                                     fontSize: 18,
@@ -406,11 +337,11 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
                   ),
                 ),
 
-                // ── Footer ──
+                // Footer
                 Container(
                   width: double.infinity,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 24, vertical: 16),
                   decoration: BoxDecoration(
                     color: AppTheme.surfaceColor,
                     borderRadius: const BorderRadius.only(
@@ -425,8 +356,7 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'This receipt is generated automatically upon ticket purchase. '
-                          'Keep your ticket code safe for event entry.',
+                          'Each ticket below has a unique QR code for event entry.',
                           style: TextStyle(
                               fontSize: 11, color: Colors.grey[500]),
                         ),
@@ -438,9 +368,21 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
             ),
           ),
 
-          // ── Buy Another Ticket button ──
+          const SizedBox(height: 24),
+
+          // ── Individual Ticket Cards ──
+          _sectionLabel('YOUR TICKETS'),
+          const SizedBox(height: 12),
+
+          ...tickets.asMap().entries.map((entry) {
+            final idx = entry.key;
+            final t = entry.value as Map<String, dynamic>;
+            return _buildTicketCard(t, idx + 1, quantity, r);
+          }),
+
+          // ── Buy Again button ──
           if (widget.showBuyAgain) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
             SizedBox(
               width: double.infinity,
               height: 52,
@@ -452,8 +394,9 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
                   }
                 },
                 icon: const Icon(Icons.confirmation_number_rounded),
-                label: const Text('Buy Another Ticket',
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                label: const Text('Buy More Tickets',
+                    style: TextStyle(
+                        fontWeight: FontWeight.w700, fontSize: 15)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.teal,
                   foregroundColor: Colors.white,
@@ -466,6 +409,211 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
           ],
 
           const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTicketCard(
+      Map<String, dynamic> ticket, int index, int total,
+      Map<String, dynamic> receipt) {
+    final ticketCode = ticket['ticket_code'] ?? '';
+    final receiptNumber = ticket['receipt_number'] ?? '';
+    final status = ticket['status'] ?? '';
+    final scannedAt = ticket['scanned_at'];
+    final saleId = ticket['sale_id'] as int;
+    final isScanned = scannedAt != null;
+    final dateFmt = DateFormat.yMMMd().add_jm();
+
+    // Use encrypted QR payload if available (AES-256-GCM), fall back to plaintext JSON
+    final qrData = ticket['encrypted_qr_payload'] ?? jsonEncode({
+      'receipt_number': receiptNumber,
+      'event_id': widget.eventId,
+      'user_id': receipt['attendee_email'],
+      'sale_id': saleId,
+      'ticket_code': ticketCode,
+    });
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: isScanned
+            ? Border.all(color: AppTheme.successColor.withValues(alpha: 0.3))
+            : null,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Card header
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: isScanned
+                  ? AppTheme.successColor.withValues(alpha: 0.05)
+                  : AppTheme.surfaceColor,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 32, height: 32,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Center(
+                    child: Text('$index',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 14,
+                            color: AppTheme.primaryColor)),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Ticket $index of $total',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w700, fontSize: 14)),
+                      Text(receiptNumber,
+                          style: TextStyle(
+                              fontSize: 11, color: Colors.grey[500])),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _statusColor(status).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    status.toUpperCase(),
+                    style: TextStyle(
+                      color: _statusColor(status),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // QR Code section
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppTheme.dividerColor),
+                  ),
+                  child: QrImageView(
+                    data: qrData,
+                    version: QrVersions.auto,
+                    size: 140,
+                    gapless: true,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                GestureDetector(
+                  onTap: () {
+                    Clipboard.setData(ClipboardData(text: ticketCode));
+                    AppToast.info(context, 'Ticket code copied');
+                  },
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(ticketCode,
+                          style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey[500],
+                              fontFamily: 'monospace')),
+                      const SizedBox(width: 4),
+                      Icon(Icons.copy_rounded,
+                          size: 12, color: Colors.grey[400]),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          if (isScanned) ...[
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.check_circle_rounded,
+                      size: 14, color: AppTheme.successColor),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Scanned ${dateFmt.format(DateTime.parse(scannedAt).toLocal())}',
+                    style: TextStyle(
+                        fontSize: 12, color: AppTheme.successColor),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          // View full receipt link
+          GestureDetector(
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => TicketReceiptScreen(
+                  eventId: widget.eventId,
+                  saleId: saleId,
+                ),
+              ),
+            ),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceColor,
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(16),
+                  bottomRight: Radius.circular(16),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.receipt_long_rounded,
+                      size: 14, color: AppTheme.primaryColor),
+                  const SizedBox(width: 6),
+                  Text('View Full Receipt',
+                      style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.primaryColor)),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -495,7 +643,7 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
     );
   }
 
-  Widget _detailRow(String label, String value, {bool copyable = false}) {
+  Widget _detailRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Row(
@@ -514,14 +662,6 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
                 style: const TextStyle(
                     fontSize: 13, fontWeight: FontWeight.w600)),
           ),
-          if (copyable)
-            GestureDetector(
-              onTap: () {
-                Clipboard.setData(ClipboardData(text: value));
-                AppToast.info(context, 'Copied to clipboard');
-              },
-              child: Icon(Icons.copy_rounded, size: 15, color: Colors.grey[400]),
-            ),
         ],
       ),
     );

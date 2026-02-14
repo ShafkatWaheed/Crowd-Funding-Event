@@ -174,15 +174,47 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 - **Detailed discount breakdown** — each ticket tier shows a line-by-line price calculation: base price, common discount, selective discount, pledge discount, event-strategy discount, total discount, and final price; displayed for both customers (in ticket tiers section) and organizers (in manage ticket tiers section)
 - **Free tickets from overwhelming discounts** — if combined discounts exceed the ticket price, final price is clamped to $0.00 and displayed as "FREE" (no negative prices)
 - Price preview with discounts (common + pledge-based + selective + event discounts, capped at ticket price)
-- Purchase ticket dialog with tier selection showing actual discounted prices per tier; "FREE" label for $0 tiers; "Get Ticket" instead of "Buy" for free tiers; **reserved spot consumption info** shown when buyer has reserved spots from pledging
+- **Multi-ticket purchase** — customers can buy 1–10 tickets in a single transaction via a quantity counter on the invoice dialog; all-or-nothing capacity check (either all tickets purchased or all waitlisted); reserved spots consumed first (`min(quantity, user_reserved)`), remainder checked against general capacity
+- **Purchase group** — multi-ticket purchases are linked by `purchase_group_id` on `TicketSale`; each ticket gets its own unique `ticket_code` and `receipt_number`
+- **Aggregated invoice** — quantity selector on the invoice dialog shows per-ticket and total price breakdown, total discount saved, total platform fee; button text adapts ("Buy 3 Tickets" / "Get Free Ticket")
+- **Aggregated purchase receipt** — `PurchaseGroupReceiptScreen` shows purchase summary (event, organizer, attendee, tier, quantity, total paid, discount, commission) followed by individual ticket cards each with a unique QR code
+- **Individual ticket receipt with QR code** — each ticket receipt displays a centered QR code between the TICKET and PAYMENT sections, encoding structured JSON (`receipt_number`, `event_id`, `user_id`, `sale_id`, `ticket_code`) for organizer scanning
+- **QR code scanning** — organizer scans QR code to automatically mark the specific ticket as scanned; scan status viewable in ticket sales lists
 - Scan ticket by QR code (organizer/admin) — **auto-records customer attendance** for loyalty tracking
-- **Per-event Ticket Sales page** — full-page view with search, stats (total sold, revenue), per-sale detail (attendee, tier, code, amount, scan status)
-- **Per-event Scanned Tickets page** — full-page filtered view showing only scanned tickets with search and "scanned by" info
+- **Per-event Ticket Sales page** — full-page view with search, stats (total sold, revenue), per-sale detail (attendee, tier, code, amount, scan status); **scanned/total stats banner** shows "X scanned / Y total sold" with progress bar
+- **Per-event Scanned Tickets page** — full-page filtered view showing only scanned tickets with search, "scanned by" info, and scanned/total stats banner
 - **Global All Ticket Sales page** (`/manage/ticket-sales`) — aggregates sales across all organiser events with search, accessible from Manage tab
 - **Global Scanned Tickets page** (`/manage/scanned-tickets`) — aggregates scanned tickets across all events with search, accessible from Manage tab
 - **Ticket Waitlist** — tickets purchased after event capacity is reached get `waitlisted` status; organizer can approve/reject from unified waitlist screen
+- **"Your Tickets" section on event detail** — shows the customer's tickets for the current event with scanned count ("X of Y scanned"), mini-cards with status badges, and link to full receipt; "View All" navigates to My Tickets
+- **My Tickets screen grouped by event** — tickets grouped under event headers with ticket count and scanned count; event header tappable to navigate to event detail; search, status filters (all/purchased/waitlisted/cancelled), scanned stat chip
 - **Live management stat chips** on event detail — status-aware 2×2 grid of clickable chips; early phases show registered count, fund waitlist, capacity badge; selling/live phases show tickets sold, scanned, ticket waitlist, revenue; completed shows all as read-only summary
 - **Capacity badge** — "Registered/Max Capacity" visual indicator with color coding (green → orange → red)
+
+### Terms and Conditions Agreement
+- **Signup agreement** — organizers and customers must agree to role-specific terms during registration via a checkbox with tappable "Terms and Conditions" link
+- **Role-specific terms content** — organizer terms cover platform fees, escrow policy, refund rules, clawback, account suspension; customer terms cover pledging, spot reservation, refund policy, escrow protection, tickets, community rules
+- **Terms screen** — dedicated `TermsScreen` displays formatted terms with role badge, accessible from signup (via link) and profile (Legal section)
+- **Backend support** — `terms_accepted_at` timestamp on User model, passed during signup via `verifyToken()`, stored on user creation
+- **Profile access** — "Terms & Conditions" ListTile in Legal section on Profile screen navigates to TermsScreen with the user's role
+- **Router** — `/terms?role=customer|organizer` route for direct navigation
+
+### Email Notifications (Provider-Agnostic)
+- **Provider-agnostic architecture** — `EmailBackend` abstract base class with pluggable backends; swap providers by changing `EMAIL_PROVIDER` in `.env`
+- **SendGrid backend** (default) — production email delivery via SendGrid v3 Web API
+- **Console backend** — logs emails to stdout for development/testing without a real provider
+- **Generic config** — `EMAIL_ENABLED` (master kill switch), `EMAIL_PROVIDER`, `EMAIL_API_KEY`, `EMAIL_FROM_ADDRESS`, `EMAIL_FROM_NAME`
+- **Background sending** — all emails sent via FastAPI `BackgroundTasks` (or `asyncio.ensure_future` for lifecycle transitions) so API responses are never delayed
+- **Graceful failure** — all email functions wrapped in try/except with logging; email errors never break the API
+- **6 email types with Uber-themed HTML templates** (inline CSS, mobile-friendly, black/white/green accent):
+  - **Event Cancelled** — sent to all registrants and ticket buyers when an event is cancelled
+  - **Cancellation + Refund** — sent to pledgers when event is cancelled (includes individual refund amount)
+  - **Ticket Purchased** — receipt email to buyer with tier, code, receipt number, amount, quantity, discount, commission
+  - **Unpledge Refund** — confirmation when a user unpledges with refund details
+  - **Unregister Refund** — confirmation when a user unregisters and receives a refund
+  - **Waitlist Ticket Rejected** — notification to buyer when their waitlisted ticket is rejected
+- **Trigger points:** cancel event endpoint, admin approve cancellation, auto-cancel lifecycle, purchase ticket, unpledge, unregister, reject waitlisted ticket
+- **Cancellation email logic** — queries all affected users (registrants, pledgers, ticket buyers), deduplicates by email, sends refund variant to pledgers and generic variant to others
 
 ### Like / Dislike System
 - Users (customers/organizers) see like & dislike buttons, can toggle reactions
@@ -289,6 +321,78 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 | Phase 9c — Post-Business Polish | **Mandatory funding goal** when funding deadline is set; **Detailed funding time display** (days+hours+minutes with color-coded urgency); **Configurable grace period** for setting event date after funding ends (`event_date_grace_days` admin setting, default 7 days); **Delete restricted** to draft/cancelled only; **Pledge/unpledge hidden** from organizers/admins on Funding Card; **Refactored Extend Funding** into separate "Extend Funding" (deadline + goal, needs admin approval) and "Set Event Date" (direct, no approval); **Detailed discount breakdown** per ticket tier (base, common, selective, pledge, event-strategy, total, final price) for customers and organizers; **Free tickets** from overwhelming discounts (clamped to $0, displayed as FREE); **Community event rules** decoupled from genre — toggle switch on create/edit (draft only), backend enforced, `community_rules` boolean on Event model, admin-configurable thresholds, "Community Events" section on home page; **Navigation fix** — proper pop/refresh after event creation |
 | Phase 9d — Event Management & UX Polish | **Status-aware event management UI** — modernized organizer actions on event detail with card-based layout (`_primaryActionCard`, `_setupTile`, `_menuTile`) that adapts to event lifecycle status; **Status-aware live management stats** (`_LiveMgmtStats`) showing different metrics per phase (registered/waitlist/capacity in early phases, sold/scanned/revenue in selling/live); **Capacity badge** (registered/max with color coding); **Ticket waitlist system** — purchases exceeding capacity get `waitlisted` status with approve/reject flow; **Unified waitlist screens** — per-event and global waitlist screens combined with segmented Fund/Ticket toggle filter and live count badges; **Removed tier quantity** — capacity enforced at event level only, no per-tier quantity; **Searchable venue & strategy pickers** — full-page screens with search, current selection highlighting; **Selective re-approval** — only substantive field changes trigger `pending_approval` (operational changes like venue/capacity/strategy bypass re-approval); **Strategy re-application** — re-selecting same strategy recreates tiers if manually deleted; **Tier deletion prevention** during selling_tickets/live; **Clone with editable title** — dialog prompts for new title; **"Under Review" label** for pending_approval status; **Publish validation** — requires at least one of event date or funding deadline; **Modern error toasts** (`AppToast`) — floating, color-coded, icon-bearing snackbar replacing all raw SnackBar calls across 18 screens; **Backend error extraction** (`ApiService.extractError`) — auto-pulls `detail` from FastAPI responses for all provider catch blocks; **Organizer Trust Score** — score = completed/published events ratio, labels (New/Low/Fair/Good/Excellent), color-coded badge pill in event hero header + funding card escrow banner, trusted organizers (>0.8) get Stage 1 escrow bumped to 40% |
 | Phase 10 — Spot Reservation during Funding | **Spot Reservation system** — customers reserve ticket spots while pledging, giving pledgers priority access to tickets. `max_reserved_spots_per_user` on Event model, `reserved_spots` + `receipt_number` on Funding model. Alembic migration with backfill. **3-step pledge flow** (spot selector → invoice preview → receipt screen) replacing old single dialog. **Pledge invoice** shows amount, reserved spots, platform commission %, net to organizer. **Pledge receipt screen** with receipt number (`PLG-YYYYMMDD-eventId-pledgeId`), fee breakdown, reserved spot info banner. **Pledge discount adjustment** — discount divided by reserved spots for per-ticket calculation. **Reserved spot consumption** on ticket purchase — spots consumed first before general capacity; ticket invoice shows "Using 1 of X reserved spots". **Unredeemed spot release** on `live` transition — sets `reserved_spots=0` for all pledges. **Capacity decrease guard** — `max_capacity` floor = `tickets_sold + total_reserved_spots`. **Guest restriction** — guests cannot reserve spots. **Waitlist capacity preview** — each waitlist card shows projected capacity impact if approved; capacity summary bar with progress indicator, tickets sold, reserved spots, available; ticket cards warn in red when approval would exceed capacity. **Capacity info endpoint** `GET /events/{id}/capacity-info`. **Funding Card** shows reserved spots count; capacity display shows `reg + reserved / max`. **Both receipts** (pledge + ticket) display platform commission fee. Backend: new helpers (`get_user_reserved_spots`, `get_total_reserved_spots`, `consume_one_reserved_spot`), updated `create_pledge()`, `compute_ticket_price()`, `purchase_ticket()`, `auto_transition_status()`, `update()` with capacity floor. API: pledge preview, pledge receipt, capacity info endpoints. Frontend: updated Event/Funding Dart models, create/edit event screens, pledge flow, ticket invoice, waitlist screen, pledge receipt screen |
+|| Phase 11 — Terms and Conditions | **Terms Agreement** — role-specific terms (organizer: fees, escrow, clawback; customer: pledging, refund, escrow). Checkbox on signup, `terms_accepted_at` on User model, Terms screen accessible from signup + profile. |
+|| Phase 12 — Multi-Ticket Purchase & QR | **Multi-ticket purchase** — quantity counter (1–10) on invoice, all-or-nothing capacity, `purchase_group_id` linking tickets. **Aggregated receipt** with individual ticket cards. **QR codes** on every ticket receipt (structured JSON). **Scanned stats** on ticket sales screens. **My Tickets grouped by event**. **"Your Tickets" section** on event detail. |
+|| Phase 13 — Email Notifications | **Provider-agnostic email system** — `EmailBackend` ABC with SendGrid + Console backends, generic config (`EMAIL_PROVIDER`, `EMAIL_API_KEY`), `BackgroundTasks` sending. 6 email types: event cancelled, cancellation refund, ticket purchased, unpledge refund, unregister refund, waitlist rejected. Uber-themed HTML templates. Integrated into cancel, purchase, unpledge, unregister, reject, auto-cancel lifecycle. |
+
+### Phase 11 — Terms and Conditions Agreement (COMPLETED)
+
+| # | Feature | Status |
+|---|---------|--------|
+| 11.1 | **User Model & Migration** | Done — `terms_accepted_at` DateTime column on users table, Alembic migration |
+| 11.2 | **Backend Auth Integration** | Done — `verify_and_upsert_user()` accepts and stores `terms_accepted_at` for new users; verify endpoint passes it through |
+| 11.3 | **Role-Specific Terms Content** | Done — `terms_content.dart` with `organizerTerms` (platform fees, escrow, refund, clawback, suspension) and `customerTerms` (pledging, spot reservation, refund, escrow, tickets, community rules) |
+| 11.4 | **Terms Screen** | Done — `TermsScreen` displays formatted terms with role badge, accessible from signup and profile |
+| 11.5 | **Signup Flow** | Done — Checkbox with tappable "Terms and Conditions" link on register screen; account creation blocked until agreed; `termsAcceptedAt` sent in verify request |
+| 11.6 | **Profile Access** | Done — "Terms & Conditions" in Legal section on Profile screen; route `/terms?role=` |
+
+### Phase 12 — Multi-Ticket Purchase & QR Codes (COMPLETED)
+
+| # | Feature | Status |
+|---|---------|--------|
+| 12.1 | **Backend: purchase_group_id** | Done — `purchase_group_id` column on `TicketSale` model + Alembic migration + index |
+| 12.2 | **Backend: Multi-ticket purchase** | Done — `purchase_ticket()` accepts `quantity` (1–10), creates N tickets in one transaction with shared `purchase_group_id`, all-or-nothing capacity check, reserved spot consumption (`min(quantity, user_reserved)`) |
+| 12.3 | **Backend: Schemas** | Done — `TicketPurchaseBody.quantity` with validator, `TicketSaleResponse.purchase_group_id`, `TicketSummaryItem`, `PurchaseGroupReceiptResponse` (aggregated receipt), `TicketSalesStatsResponse` (sold/scanned counts), `TicketReceiptResponse.sale_id + user_id` |
+| 12.4 | **Backend: Endpoints** | Done — `POST /events/{id}/purchase-ticket` returns `list[TicketSaleResponse]`, `GET /events/{id}/purchase-group/{group_id}/receipt`, `GET /events/{id}/ticket-sales-stats`, `GET /me/tickets` includes `purchase_group_id` + commission fields |
+| 12.5 | **Frontend: Quantity counter** | Done — Invoice dialog has +/- quantity selector (1–10), aggregated totals (per-ticket × quantity), adapted button text, reserved spot consumption info adjusted for quantity |
+| 12.6 | **Frontend: Purchase flow** | Done — `_purchaseTickets()` handles list response, navigates to `PurchaseGroupReceiptScreen` for multi-ticket or `TicketReceiptScreen` for single ticket |
+| 12.7 | **Frontend: Aggregated receipt** | Done — `PurchaseGroupReceiptScreen` with purchase summary + individual ticket cards each with unique QR code, "View Full Receipt" link per card, "Buy More Tickets" button |
+| 12.8 | **Frontend: QR code on receipt** | Done — Centered QR code on `TicketReceiptScreen` between TICKET and PAYMENT sections, encoding structured JSON (`receipt_number`, `event_id`, `user_id`, `sale_id`, `ticket_code`), "Scan for entry" label |
+| 12.9 | **Frontend: My Tickets grouped** | Done — `MyTicketsScreen` groups tickets by event with `_EventTicketGroup` widget, event header (tappable), ticket/scanned counts, "View All" link |
+| 12.10 | **Frontend: Your Tickets section** | Done — Event detail screen shows "Your Tickets" section for customers with mini-cards (receipt, code, status, scanned), scanned count, "View All" link to My Tickets |
+| 12.11 | **Frontend: Scanned stats** | Done — `TicketSalesScreen` fetches `getTicketSalesStats()`, displays "X scanned / Y total sold" banner with progress bar on both scanned-only and all-sales views |
+| 12.12 | **Frontend: Ticket model** | Done — `TicketSale` Dart model updated with `purchaseGroupId`, `commissionCents` fields |
+
+### Phase 13 — Email Notifications (COMPLETED)
+
+| # | Feature | Status |
+|---|---------|--------|
+| 13.1 | **Email Config** | Done — Generic config: `EMAIL_ENABLED`, `EMAIL_PROVIDER`, `EMAIL_API_KEY`, `EMAIL_FROM_ADDRESS`, `EMAIL_FROM_NAME` in `config.py`; `sendgrid` added to `requirements.txt` |
+| 13.2 | **Email Service (Provider-Agnostic)** | Done — `EmailBackend` ABC, `SendGridBackend` (production), `ConsoleBackend` (dev), `get_email_backend()` factory, cached singleton, `send_email()` and `send_email_bulk()` top-level helpers with graceful error handling |
+| 13.3 | **HTML Email Templates** | Done — 6 Uber-themed templates (inline CSS, mobile-friendly): event cancelled, cancellation refund, ticket purchased, unpledge refund, unregister refund, waitlist ticket rejected. Shared layout wrapper with black header, green accent, detail tables |
+| 13.4 | **Email Notifications Module** | Done — `email_notifications.py` with 5 high-level functions: `notify_event_cancelled` (queries registrants + pledgers + ticket buyers, deduplicates, sends refund variant to pledgers), `notify_ticket_purchased`, `notify_unpledge_refund`, `notify_unregister_refund`, `notify_waitlist_ticket_rejected` |
+| 13.5 | **Cancel Integration** | Done — `cancel_event` endpoint, `approve_cancellation` endpoint, and `auto_transition_status()` lifecycle all trigger cancellation emails via `BackgroundTasks` or `asyncio.ensure_future` |
+| 13.6 | **Purchase Integration** | Done — `purchase_ticket` endpoint sends receipt email with tier, code, receipt number, amount, quantity, discount, commission |
+| 13.7 | **Unpledge Integration** | Done — `unpledge` endpoint sends refund confirmation email when `refunded_cents > 0` |
+| 13.8 | **Unregister Integration** | Done — `unregister` endpoint sends refund email when `refunded_cents > 0` |
+| 13.9 | **Waitlist Reject Integration** | Done — `reject_waitlisted_ticket` endpoint sends rejection notice to buyer |
+
+### Phase 14 — Parking / Transport Info (COMPLETED)
+
+| # | Feature | Status |
+|---|---------|--------|
+| 14.1 | **Event Model & Migration** | Done — 4 new nullable text columns on `Event`: `parking_info`, `transit_info`, `rideshare_info`, `accessibility_info`. Alembic migration `dd4e5f6a7b8c_transport_info.py` |
+| 14.2 | **Backend Schemas** | Done — Fields added to `EventCreate`, `EventUpdate`, `EventResponse`. `directions_url` (computed) added to `EventResponse` |
+| 14.3 | **Directions URL** | Done — `_directions_url()` helper in API builds Google Maps directions link from venue address or event lat/lng. Auto-included in every event response |
+| 14.4 | **Create / Update Pass-through** | Done — `create()` and `update()` service functions accept and persist all 4 transport fields |
+| 14.5 | **Dart Model** | Done — 5 new fields on `Event` model (`parkingInfo`, `transitInfo`, `rideshareInfo`, `accessibilityInfo`, `directionsUrl`) + `hasTransportInfo` getter |
+| 14.6 | **Event Detail — "Getting There" Card** | Done — Conditional card with icon rows for each transport type + "Get Directions" button using `url_launcher`. Only shown when at least one field is set |
+| 14.7 | **Create Event Form** | Done — Collapsible "Parking & Transport Info (Optional)" section with 4 text fields (parking, transit, rideshare, accessibility), each with icon prefix and hint text |
+| 14.8 | **Edit Event Form** | Done — Same collapsible section pre-populated from existing event data. Supports clearing fields by leaving blank |
+
+### Phase 15 — Ticket QR Encryption (COMPLETED)
+
+| # | Feature | Status |
+|---|---------|--------|
+| 15.1 | **Config** | Done — `TICKET_ENCRYPTION_KEY` (64-char hex / 32 bytes AES-256) in `config.py`. Empty = plaintext fallback for dev mode |
+| 15.2 | **Dependencies** | Done — `cryptography>=42.0.0` added to `requirements.txt` |
+| 15.3 | **Crypto Service** | Done — `ticket_crypto.py` with `encrypt_ticket_qr()` and `decrypt_ticket_qr()` using AES-256-GCM. 12-byte random nonce, base64-encoded `nonce+ciphertext+tag`. Graceful fallback to plaintext JSON when key is unset |
+| 15.4 | **Schema Updates** | Done — `encrypted_qr_payload` field on `TicketSaleResponse`, `TicketReceiptResponse`, `TicketSummaryItem`. `ScanTicketBody` accepts `encrypted_payload` (preferred) or `ticket_code` (legacy) with model validator |
+| 15.5 | **API Response Wiring** | Done — `_ticket_sale_to_response()`, `get_ticket_receipt()`, and `get_purchase_group_receipt()` all populate `encrypted_qr_payload` via `encrypt_ticket_qr()` on every response |
+| 15.6 | **Scan Endpoint** | Done — `POST /events/{id}/scan-ticket` decrypts `encrypted_payload`, cross-validates `event_id` against URL path, falls back to `ticket_code` for backward compat |
+| 15.7 | **Dart Model** | Done — `encryptedQrPayload` field on `TicketSale` model, parsed from `json['encrypted_qr_payload']` |
+| 15.8 | **Receipt Screens** | Done — `ticket_receipt_screen.dart` and `purchase_group_receipt_screen.dart` use `encrypted_qr_payload` for QR codes with plaintext JSON fallback |
+| 15.9 | **API Service** | Done — `scanTicket()` sends `encrypted_payload` (preferred) or `ticket_code` (legacy) via named parameters |
 
 ---
 
@@ -306,16 +410,12 @@ These features have **working backend endpoints** but no frontend screen/button 
 
 | # | Feature | Description | Priority |
 |---|---------|-------------|----------|
-| 1 | **Cancellation Email** | When an event is cancelled, send email to all registered users with the cancellation reason | High |
-| 2 | **Unpledge Confirmation Email** | Send email when a user successfully unpledges | Medium |
-| 3 | **Organizer Verification** | Verification flow for organizers (identity/contact check before they can publish events) | Medium |
-| 4 | **File Upload for Images** | Replace URL-based image adding with actual file upload to cloud storage (S3/GCS) | Medium |
-| 5 | **Ticket Encryption** | Encrypt QR codes / ticket data so they cannot be forged | Medium |
-| 6 | **Location-Based Discovery** | Show events near the user based on browser geolocation or saved location | Medium |
-| 7 | **Parking / Transport Info** | Structured fields in event description for parking, transit, Uber-style directions | Low |
-| 8 | **Verify Organizer via External Apps** | Use third-party verification service or app for organizer identity | Low |
-| 9 | **Chatbot for Support** | In-app chatbot for user support and FAQ | Low |
-| 10 | **Newcomer / Trending Badges** | Newcomer badge for new organizers, trending indicator on tickets/events | Low |
+| 1 | **Organizer Verification** | Verification flow for organizers (identity/contact check before they can publish events) | Medium |
+| 2 | **File Upload for Images** | Replace URL-based image adding with actual file upload to cloud storage (S3/GCS) | Medium |
+| 3 | **Location-Based Discovery** | Show events near the user based on browser geolocation or saved location | Medium |
+| 4 | **Verify Organizer via External Apps** | Use third-party verification service or app for organizer identity | Low |
+| 5 | **Chatbot for Support** | In-app chatbot for user support and FAQ | Low |
+| 6 | **Newcomer / Trending Badges** | Newcomer badge for new organizers, trending indicator on tickets/events | Low |
 
 ### Phase 9 — Business Logic (COMPLETED)
 
@@ -526,16 +626,7 @@ Event (updated)
 Recommended build order: 9.3 (smallest) → 9.1 (revenue) → 9.2 (cancel protection) → 9.5 (escrow — the big one) → 9.4 (genre rules) → 10 (spot reservation)
 ```
 
-### Phase 11 — Notifications & Email
-
-Estimated: **1–2 sessions**.
-
-| # | Feature | Effort | What to Build |
-|---|---------|--------|--------------|
-| 1 | **Cancellation Email** | Medium | Backend: email service (SendGrid/SES), send on cancel with reason to all registered users. Template design |
-| 2 | **Unpledge Confirmation Email** | Small | Backend: trigger email on successful unpledge with refund details |
-
-### Phase 12 — Media & Maps
+### Phase 14 — Media & Maps
 
 Estimated: **2 sessions**.
 
@@ -545,28 +636,26 @@ Estimated: **2 sessions**.
 | 2 | **Location-Based Discovery** | Medium | Frontend: browser geolocation API, pass coords to backend map endpoint, "Near Me" section on home tab |
 | 3 | **File Upload for Images** | Large | Backend: S3/GCS integration, upload endpoint. Frontend: file picker replacing URL input |
 
-### Phase 13 — Trust & Security
+### Phase 16 — Trust & Security
 
 Estimated: **2 sessions**.
 
 | # | Feature | Effort | What to Build |
 |---|---------|--------|--------------|
 | 1 | **Organizer Verification** | Large | Backend: verification request model, document upload, admin review queue. Frontend: verification status badge, submission form |
-| 2 | **Ticket Encryption** | Medium | Backend: encrypt ticket codes with a secret key, verify on scan |
-| 3 | **Feature Flags / Admin Controls** | Medium | Backend: settings table with key-value pairs. Frontend: admin panel to toggle features |
+| 2 | **Feature Flags / Admin Controls** | Medium | Backend: settings table with key-value pairs. Frontend: admin panel to toggle features |
 
-### Phase 14 — Nice to Have
+### Phase 17 — Nice to Have
 
 Lowest priority. Estimated: **1–2 sessions**.
 
 | # | Feature | Effort | What to Build |
 |---|---------|--------|--------------|
-| 1 | **Parking / Transport Info** | Small | New fields on event model, display section on detail |
-| 2 | **Newcomer / Trending Badges** | Small | Backend: badge logic based on organizer age / event stats. Frontend: badge display on cards |
-| 3 | **Verify Organizer via External Apps** | Large | Third-party API integration — scope TBD |
-| 4 | **Chatbot for Support** | Large | Standalone feature — could use an off-the-shelf widget or build custom |
+| 1 | **Newcomer / Trending Badges** | Small | Backend: badge logic based on organizer age / event stats. Frontend: badge display on cards |
+| 2 | **Verify Organizer via External Apps** | Large | Third-party API integration — scope TBD |
+| 3 | **Chatbot for Support** | Large | Standalone feature — could use an off-the-shelf widget or build custom |
 
-**Recommended order:** Phase 9 (done) → 10 (done) → 11 → 12 → 13 → 14. Phases 9–10 add real business value (commission, spot reservations). Phase 11 adds trust (users get notified). Phases 12–14 are enhancements.
+**Recommended order:** Phase 9 (done) → 10 (done) → 11 (done) → 12 (done) → 13 (done) → 14 (done) → 15 (done) → 16 → 17. Phases 9–10 add real business value (commission, spot reservations). Phase 11 adds trust (terms agreement). Phase 12 enables multi-ticket purchases + QR codes. Phase 13 adds email notifications. Phase 14 adds transport/parking info. Phase 15 adds ticket QR encryption (AES-256-GCM). Phases 16–17 are enhancements.
 
 ---
 

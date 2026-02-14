@@ -52,6 +52,11 @@ class EventCreate(BaseModel):
     posts_enabled: bool = True
     refund_deadline_days: int | None = None  # auto-calculated as 20% of funding duration; only when funding set
     ticket_strategy_id: int | None = None  # link to a reusable ticket strategy
+    # Parking & Transport
+    parking_info: str | None = None
+    transit_info: str | None = None
+    rideshare_info: str | None = None
+    accessibility_info: str | None = None
     publish: bool = False  # True = approved immediately, False = draft
 
 
@@ -74,6 +79,11 @@ class EventUpdate(BaseModel):
     posts_enabled: bool | None = None
     refund_deadline_days: int | None = None
     ticket_strategy_id: int | None = None
+    # Parking & Transport
+    parking_info: str | None = None
+    transit_info: str | None = None
+    rideshare_info: str | None = None
+    accessibility_info: str | None = None
 
 
 class ExtendFundingBody(BaseModel):
@@ -157,6 +167,12 @@ class EventResponse(BaseModel):
     organizer_trust: OrganizerTrustInfo | None = None  # organizer trust score
     lat: float | None
     lng: float | None
+    # Parking & Transport
+    parking_info: str | None = None
+    transit_info: str | None = None
+    rideshare_info: str | None = None
+    accessibility_info: str | None = None
+    directions_url: str | None = None  # computed from venue address
     created_at: datetime
     updated_at: datetime
 
@@ -195,6 +211,8 @@ class MapEventMarker(BaseModel):
     end_time: str | None
     status: str
     is_live: bool
+    venue_id: int | None = None
+    venue_name: str | None = None
 
 
 # ─── Event Discounts ───

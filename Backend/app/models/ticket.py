@@ -53,6 +53,7 @@ class TicketSale(Base):
     event_id: Mapped[int] = mapped_column(ForeignKey("events.id"), nullable=False, index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     ticket_tier_id: Mapped[int] = mapped_column(ForeignKey("ticket_tiers.id"), nullable=False, index=True)
+    purchase_group_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)  # groups multi-ticket purchases
     ticket_code: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)  # unique code for QR
     receipt_number: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True, index=True)  # human-readable receipt ID
     amount_paid_cents: Mapped[int] = mapped_column(Integer, nullable=False)

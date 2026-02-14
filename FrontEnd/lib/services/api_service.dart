@@ -151,6 +151,25 @@ class ApiService {
     return resp.data;
   }
 
+  // ─── Map ───
+
+  Future<List<dynamic>> getMapEvents({
+    double? lat,
+    double? lng,
+    double? radiusKm,
+    String? city,
+    bool? live,
+  }) async {
+    final params = <String, dynamic>{};
+    if (lat != null) params['lat'] = lat;
+    if (lng != null) params['lng'] = lng;
+    if (radiusKm != null) params['radius_km'] = radiusKm;
+    if (city != null) params['city'] = city;
+    if (live != null) params['live'] = live;
+    final resp = await dio.get('/events/map', queryParameters: params);
+    return resp.data;
+  }
+
   Future<List<dynamic>> getGenres() async {
     final resp = await dio.get('/events/genres');
     return resp.data;
@@ -325,8 +344,13 @@ class ApiService {
     return resp.data;
   }
 
-  Future<Map<String, dynamic>> purchaseTicket(
-      int eventId, Map<String, dynamic> data) async {
+  Future<List<dynamic>> purchaseTickets(
+      int eventId, {required int tierId, int quantity = 1, String? extraPerks}) async {
+    final data = <String, dynamic>{
+      'tier_id': tierId,
+      'quantity': quantity,
+    };
+    if (extraPerks != null) data['extra_perks'] = extraPerks;
     final resp =
         await dio.post('/events/$eventId/purchase-ticket', data: data);
     return resp.data;
@@ -337,16 +361,30 @@ class ApiService {
     return resp.data;
   }
 
+  Future<Map<String, dynamic>> getPurchaseGroupReceipt(int eventId, String groupId) async {
+    final resp = await dio.get('/events/$eventId/purchase-group/$groupId/receipt');
+    return resp.data;
+  }
+
+  Future<Map<String, dynamic>> getTicketSalesStats(int eventId) async {
+    final resp = await dio.get('/events/$eventId/ticket-sales-stats');
+    return resp.data;
+  }
+
   Future<Map<String, dynamic>> getMyTicketReceipt(int saleId) async {
     final resp = await dio.get('/me/tickets/$saleId/receipt');
     return resp.data;
   }
 
   Future<Map<String, dynamic>> scanTicket(
-      int eventId, String ticketCode) async {
-    final resp = await dio.post('/events/$eventId/scan-ticket', data: {
-      'ticket_code': ticketCode,
-    });
+      int eventId, {String? ticketCode, String? encryptedPayload}) async {
+    final body = <String, dynamic>{};
+    if (encryptedPayload != null && encryptedPayload.isNotEmpty) {
+      body['encrypted_payload'] = encryptedPayload;
+    } else if (ticketCode != null) {
+      body['ticket_code'] = ticketCode;
+    }
+    final resp = await dio.post('/events/$eventId/scan-ticket', data: body);
     return resp.data;
   }
 

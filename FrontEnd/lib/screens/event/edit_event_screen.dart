@@ -46,6 +46,13 @@ class _EditEventScreenState extends State<EditEventScreen> {
   List<Venue> _venues = [];
   int? _selectedVenueId;
 
+  // Parking & Transport
+  bool _showTransportSection = false;
+  final _parkingCtrl = TextEditingController();
+  final _transitCtrl = TextEditingController();
+  final _rideshareCtrl = TextEditingController();
+  final _accessibilityCtrl = TextEditingController();
+
   final List<String> _genres = [
     'community', 'music', 'tech', 'sports', 'arts',
     'food', 'charity', 'education', 'business', 'other',
@@ -106,6 +113,11 @@ class _EditEventScreenState extends State<EditEventScreen> {
         _fundingEndAt = event.fundingEndAt;
         _selectedStrategyId = event.ticketStrategyId;
         _selectedVenueId = event.venueId;
+        _parkingCtrl.text = event.parkingInfo ?? '';
+        _transitCtrl.text = event.transitInfo ?? '';
+        _rideshareCtrl.text = event.rideshareInfo ?? '';
+        _accessibilityCtrl.text = event.accessibilityInfo ?? '';
+        _showTransportSection = event.hasTransportInfo;
         _loadingEvent = false;
       });
     } catch (e) {
@@ -156,6 +168,12 @@ class _EditEventScreenState extends State<EditEventScreen> {
       data['venue_id'] = _selectedVenueId;
     }
 
+    // Transport info (always send — empty string clears)
+    data['parking_info'] = _parkingCtrl.text.trim().isEmpty ? null : _parkingCtrl.text.trim();
+    data['transit_info'] = _transitCtrl.text.trim().isEmpty ? null : _transitCtrl.text.trim();
+    data['rideshare_info'] = _rideshareCtrl.text.trim().isEmpty ? null : _rideshareCtrl.text.trim();
+    data['accessibility_info'] = _accessibilityCtrl.text.trim().isEmpty ? null : _accessibilityCtrl.text.trim();
+
     try {
       final api = context.read<ApiService>();
       final updated = await api.updateEvent(widget.eventId, data);
@@ -185,6 +203,10 @@ class _EditEventScreenState extends State<EditEventScreen> {
     _fundingGoalCtrl.dispose();
     _minPledgeCtrl.dispose();
     _maxReservedSpotsCtrl.dispose();
+    _parkingCtrl.dispose();
+    _transitCtrl.dispose();
+    _rideshareCtrl.dispose();
+    _accessibilityCtrl.dispose();
     super.dispose();
   }
 
@@ -543,6 +565,117 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                 );
                               }),
                             ],
+
+                            const SizedBox(height: 16),
+
+                            // ─── Parking & Transport (collapsible) ───
+                            GestureDetector(
+                              onTap: () => setState(() => _showTransportSection = !_showTransportSection),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: _showTransportSection
+                                      ? AppTheme.primaryColor.withValues(alpha: 0.05)
+                                      : Colors.grey.withValues(alpha: 0.04),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: _showTransportSection
+                                        ? AppTheme.primaryColor.withValues(alpha: 0.2)
+                                        : Colors.grey.withValues(alpha: 0.15),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.directions_car_rounded,
+                                        size: 18,
+                                        color: _showTransportSection
+                                            ? AppTheme.primaryColor
+                                            : Colors.grey[600]),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        'Parking & Transport Info',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 13,
+                                          color: Colors.grey[800],
+                                        ),
+                                      ),
+                                    ),
+                                    Icon(
+                                      _showTransportSection
+                                          ? Icons.keyboard_arrow_up
+                                          : Icons.keyboard_arrow_down,
+                                      color: Colors.grey[500],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            AnimatedCrossFade(
+                              firstChild: const SizedBox.shrink(),
+                              secondChild: Container(
+                                margin: const EdgeInsets.only(top: 8),
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.withValues(alpha: 0.03),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: Colors.grey.withValues(alpha: 0.12)),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    TextFormField(
+                                      controller: _parkingCtrl,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Parking',
+                                        hintText: 'e.g. Free parking lot behind the venue',
+                                        prefixIcon: Icon(Icons.local_parking_rounded, size: 20),
+                                        isDense: true,
+                                      ),
+                                      maxLines: 2,
+                                    ),
+                                    const SizedBox(height: 12),
+                                    TextFormField(
+                                      controller: _transitCtrl,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Public Transit',
+                                        hintText: 'e.g. Take the Blue Line to Central Station',
+                                        prefixIcon: Icon(Icons.directions_transit_rounded, size: 20),
+                                        isDense: true,
+                                      ),
+                                      maxLines: 2,
+                                    ),
+                                    const SizedBox(height: 12),
+                                    TextFormField(
+                                      controller: _rideshareCtrl,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Rideshare / Taxi',
+                                        hintText: 'e.g. Drop-off at Gate 3 entrance',
+                                        prefixIcon: Icon(Icons.local_taxi_rounded, size: 20),
+                                        isDense: true,
+                                      ),
+                                      maxLines: 2,
+                                    ),
+                                    const SizedBox(height: 12),
+                                    TextFormField(
+                                      controller: _accessibilityCtrl,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Accessibility',
+                                        hintText: 'e.g. Wheelchair ramp at main entrance',
+                                        prefixIcon: Icon(Icons.accessible_rounded, size: 20),
+                                        isDense: true,
+                                      ),
+                                      maxLines: 2,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              crossFadeState: _showTransportSection
+                                  ? CrossFadeState.showSecond
+                                  : CrossFadeState.showFirst,
+                              duration: const Duration(milliseconds: 250),
+                            ),
 
                             const SizedBox(height: 24),
 

@@ -53,6 +53,12 @@ class Event {
   final String organizerTrustLabel;
   final int organizerCompletedEvents;
   final int organizerPublishedEvents;
+  // Parking & Transport
+  final String? parkingInfo;
+  final String? transitInfo;
+  final String? rideshareInfo;
+  final String? accessibilityInfo;
+  final String? directionsUrl;
   final Venue? venue;
   final DateTime createdAt;
 
@@ -95,6 +101,11 @@ class Event {
     this.organizerTrustLabel = 'New',
     this.organizerCompletedEvents = 0,
     this.organizerPublishedEvents = 0,
+    this.parkingInfo,
+    this.transitInfo,
+    this.rideshareInfo,
+    this.accessibilityInfo,
+    this.directionsUrl,
     this.venue,
     required this.createdAt,
   });
@@ -153,6 +164,11 @@ class Event {
       organizerTrustLabel: json['organizer_trust']?['label'] ?? 'New',
       organizerCompletedEvents: json['organizer_trust']?['completed_events'] ?? 0,
       organizerPublishedEvents: json['organizer_trust']?['published_events'] ?? 0,
+      parkingInfo: json['parking_info'],
+      transitInfo: json['transit_info'],
+      rideshareInfo: json['rideshare_info'],
+      accessibilityInfo: json['accessibility_info'],
+      directionsUrl: json['directions_url'],
       venue: json['venue'] != null ? Venue.fromJson(json['venue']) : null,
       createdAt: DateTime.parse(json['created_at']),
     );
@@ -208,6 +224,13 @@ class Event {
 
   /// Whether pledging is allowed (only during approved/funding phase).
   bool get canPledge => status == EventStatus.approved && fundingEndAt != null;
+
+  /// Whether any transport/parking info is set.
+  bool get hasTransportInfo =>
+      (parkingInfo != null && parkingInfo!.isNotEmpty) ||
+      (transitInfo != null && transitInfo!.isNotEmpty) ||
+      (rideshareInfo != null && rideshareInfo!.isNotEmpty) ||
+      (accessibilityInfo != null && accessibilityInfo!.isNotEmpty);
 
   /// Whether registering / unregistering is allowed.
   bool get canUnregister =>

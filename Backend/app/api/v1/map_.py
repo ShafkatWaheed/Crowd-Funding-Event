@@ -35,6 +35,8 @@ def _event_to_marker(e: Event) -> MapEventMarker:
         end_time=end,
         status=e.status.value,
         is_live=is_live,
+        venue_id=e.venue_id if hasattr(e, "venue_id") else None,
+        venue_name=e.venue.name if e.venue else None,
     )
 
 

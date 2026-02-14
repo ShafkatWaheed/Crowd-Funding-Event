@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -8,8 +9,9 @@ import '../../models/ticket.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_toast.dart';
 import '../event/ticket_receipt_screen.dart';
+import '../event/purchase_group_receipt_screen.dart';
 
-/// Screen for customers to view all their purchased tickets.
+/// Screen for customers to view all their purchased tickets, grouped by event.
 /// Each ticket card shows key info and tapping opens the full receipt.
 class MyTicketsScreen extends StatefulWidget {
   const MyTicketsScreen({super.key});
@@ -77,6 +79,15 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
     return list;
   }
 
+  /// Group filtered tickets by event, keeping insertion order.
+  Map<int, List<TicketSale>> get _groupedByEvent {
+    final map = <int, List<TicketSale>>{};
+    for (final t in _filtered) {
+      map.putIfAbsent(t.eventId, () => []).add(t);
+    }
+    return map;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -110,9 +121,10 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
   }
 
   Widget _buildContent() {
-    final filtered = _filtered;
+    final grouped = _groupedByEvent;
     final purchasedCount = _tickets.where((t) => t.status == 'purchased').length;
     final waitlistedCount = _tickets.where((t) => t.status == 'waitlisted').length;
+    final scannedCount = _tickets.where((t) => t.isScanned).length;
 
     return RefreshIndicator(
       onRefresh: _load,
@@ -149,6 +161,15 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                           '$waitlistedCount',
                           'Waitlist',
                           color: AppTheme.warningColor,
+                        ),
+                      ],
+                      if (scannedCount > 0) ...[
+                        const SizedBox(width: 10),
+                        _statChip(
+                          Icons.qr_code_scanner_rounded,
+                          '$scannedCount',
+                          'Scanned',
+                          color: Colors.teal,
                         ),
                       ],
                     ],
@@ -194,8 +215,8 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
             ),
           ),
 
-          // ── Ticket List ──
-          if (filtered.isEmpty)
+          // ── Grouped Ticket List ──
+          if (grouped.isEmpty)
             SliverFillRemaining(
               child: Center(
                 child: Column(
@@ -233,14 +254,21 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
               sliver: SliverList(
                 delegate: SliverChildBuilderDelegate(
-                  (context, index) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _TicketCard(
-                      ticket: filtered[index],
-                      onTap: () => _openReceipt(filtered[index]),
-                    ),
-                  ),
-                  childCount: filtered.length,
+                  (context, index) {
+                    final eventId = grouped.keys.elementAt(index);
+                    final tickets = grouped[eventId]!;
+                    final eventTitle = tickets.first.eventTitle ?? 'Event #$eventId';
+                    final scannedInGroup = tickets.where((t) => t.isScanned).length;
+                    return _EventTicketGroup(
+                      eventId: eventId,
+                      eventTitle: eventTitle,
+                      tickets: tickets,
+                      scannedCount: scannedInGroup,
+                      onTicketTap: _openReceipt,
+                      onEventTap: () => context.push('/events/$eventId'),
+                    );
+                  },
+                  childCount: grouped.length,
                 ),
               ),
             ),
@@ -309,6 +337,98 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
         fontSize: 13,
         fontWeight: FontWeight.w600,
         color: active ? Colors.white : AppTheme.textPrimary,
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// Event Ticket Group Widget
+// ═══════════════════════════════════════════════════════
+
+class _EventTicketGroup extends StatelessWidget {
+  final int eventId;
+  final String eventTitle;
+  final List<TicketSale> tickets;
+  final int scannedCount;
+  final void Function(TicketSale) onTicketTap;
+  final VoidCallback onEventTap;
+
+  const _EventTicketGroup({
+    required this.eventId,
+    required this.eventTitle,
+    required this.tickets,
+    required this.scannedCount,
+    required this.onTicketTap,
+    required this.onEventTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Event header
+          GestureDetector(
+            onTap: onEventTap,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                    color: AppTheme.primaryColor.withValues(alpha: 0.12)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 36, height: 36,
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.event_rounded,
+                        size: 18, color: AppTheme.primaryColor),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(eventTitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w700, fontSize: 14)),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${tickets.length} ticket${tickets.length == 1 ? '' : 's'}'
+                          '${scannedCount > 0 ? ' \u2022 $scannedCount scanned' : ''}',
+                          style: TextStyle(
+                              fontSize: 12, color: Colors.grey[600]),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.chevron_right_rounded,
+                      color: AppTheme.textSecondary, size: 20),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Ticket cards
+          ...tickets.map((ticket) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _TicketCard(
+                  ticket: ticket,
+                  onTap: () => onTicketTap(ticket),
+                ),
+              )),
+        ],
       ),
     );
   }

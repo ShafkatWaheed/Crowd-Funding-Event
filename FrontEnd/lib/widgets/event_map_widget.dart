@@ -1,0 +1,443 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:provider/provider.dart';
+
+import '../config/theme.dart';
+import '../models/map_event.dart';
+import '../services/api_service.dart';
+
+/// Full-screen map widget showing event markers.
+/// Tapping a marker shows a bottom sheet listing all events at that venue.
+class EventMapWidget extends StatefulWidget {
+  /// Optional initial center. Defaults to Ottawa.
+  final LatLng? initialCenter;
+
+  /// Optional initial zoom.
+  final double initialZoom;
+
+  const EventMapWidget({
+    super.key,
+    this.initialCenter,
+    this.initialZoom = 12.0,
+  });
+
+  @override
+  State<EventMapWidget> createState() => _EventMapWidgetState();
+}
+
+class _EventMapWidgetState extends State<EventMapWidget> {
+  final MapController _mapController = MapController();
+  List<MapEvent> _events = [];
+  bool _loading = true;
+  Timer? _debounce;
+
+  static String get _mapboxToken =>
+      dotenv.env['MAPBOX_ACCESS_TOKEN'] ?? '';
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadEvents());
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _mapController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadEvents() async {
+    try {
+      final api = context.read<ApiService>();
+      final bounds = _mapController.camera.visibleBounds;
+      final center = _mapController.camera.center;
+      // Compute approximate radius in km from bounds
+      const distance = Distance();
+      final radiusKm = distance.as(
+            LengthUnit.Kilometer,
+            center,
+            LatLng(bounds.north, bounds.east),
+          ) +
+          5; // extra buffer
+
+      final data = await api.getMapEvents(
+        lat: center.latitude,
+        lng: center.longitude,
+        radiusKm: radiusKm,
+      );
+      if (mounted) {
+        setState(() {
+          _events = data.map((e) => MapEvent.fromJson(e)).toList();
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _onMapMoved() {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), _loadEvents);
+  }
+
+  /// Group events by venue location (rounded lat/lng to cluster same-venue events).
+  Map<String, List<MapEvent>> _groupByVenue() {
+    final groups = <String, List<MapEvent>>{};
+    for (final e in _events) {
+      // Use venue_id if available, otherwise round lat/lng to ~10m precision
+      final key = e.venueId != null
+          ? 'v_${e.venueId}'
+          : '${e.lat.toStringAsFixed(4)}_${e.lng.toStringAsFixed(4)}';
+      groups.putIfAbsent(key, () => []).add(e);
+    }
+    return groups;
+  }
+
+  void _showVenueEvents(List<MapEvent> events) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => _VenueEventsSheet(events: events),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final center =
+        widget.initialCenter ?? const LatLng(45.4215, -75.6972); // Ottawa
+    final groups = _groupByVenue();
+
+    final tileUrl = _mapboxToken.isNotEmpty
+        ? 'https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/{z}/{x}/{y}@2x?access_token=$_mapboxToken'
+        : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+
+    return Stack(
+      children: [
+        FlutterMap(
+          mapController: _mapController,
+          options: MapOptions(
+            initialCenter: center,
+            initialZoom: widget.initialZoom,
+            onPositionChanged: (pos, hasGesture) {
+              if (hasGesture) _onMapMoved();
+            },
+          ),
+          children: [
+            TileLayer(
+              urlTemplate: tileUrl,
+              maxZoom: 19,
+              userAgentPackageName: 'com.crowdfunding.app',
+              tileProvider: NetworkTileProvider(),
+            ),
+            MarkerLayer(
+              markers: groups.entries.map((entry) {
+                final events = entry.value;
+                final first = events.first;
+                final hasLive = events.any((e) => e.isLive);
+                final count = events.length;
+
+                return Marker(
+                  point: LatLng(first.lat, first.lng),
+                  width: 44,
+                  height: 52,
+                  child: GestureDetector(
+                    onTap: () => _showVenueEvents(events),
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        // Pin
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: hasLive
+                                ? AppTheme.successColor
+                                : AppTheme.primaryColor,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                                color: Colors.white, width: 2.5),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.3),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.location_on_rounded,
+                            color: Colors.white,
+                            size: 22,
+                          ),
+                        ),
+                        // Count badge
+                        if (count > 1)
+                          Positioned(
+                            top: -4,
+                            right: -4,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 5, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppTheme.accentColor,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                    color: Colors.white, width: 1.5),
+                              ),
+                              child: Text(
+                                '$count',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+
+        // Loading indicator
+        if (_loading)
+          const Positioned(
+            top: 16,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: AppTheme.primaryColor,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+// ─── Venue Events Bottom Sheet ───
+
+class _VenueEventsSheet extends StatelessWidget {
+  final List<MapEvent> events;
+
+  const _VenueEventsSheet({required this.events});
+
+  @override
+  Widget build(BuildContext context) {
+    final venueName = events.first.venueName ?? 'Events';
+    final dateFmt = DateFormat('EEE, MMM d \u2022 h:mm a');
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.35,
+      minChildSize: 0.2,
+      maxChildSize: 0.7,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              // Drag handle
+              Padding(
+                padding: const EdgeInsets.only(top: 12, bottom: 8),
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppTheme.dividerColor,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              // Venue header
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.location_city_rounded,
+                          color: Colors.white, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            venueName,
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                          Text(
+                            '${events.length} event${events.length > 1 ? 's' : ''}',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: AppTheme.textSecondary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, size: 22),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              // Event list
+              Expanded(
+                child: ListView.separated(
+                  controller: scrollController,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  itemCount: events.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final event = events[index];
+                    DateTime? startDt;
+                    if (event.startTime != null) {
+                      try {
+                        startDt = DateTime.parse(event.startTime!);
+                      } catch (_) {}
+                    }
+
+                    return InkWell(
+                      onTap: () {
+                        Navigator.pop(context);
+                        context.push('/events/${event.id}');
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 12, horizontal: 4),
+                        child: Row(
+                          children: [
+                            // Status indicator
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: event.isLive
+                                    ? AppTheme.successColor
+                                    : _statusColor(event.status),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    event.title,
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: -0.2,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Row(
+                                    children: [
+                                      if (event.isLive) ...[
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 6, vertical: 1),
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.successColor,
+                                            borderRadius:
+                                                BorderRadius.circular(4),
+                                          ),
+                                          child: const Text(
+                                            'LIVE',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.w800,
+                                              letterSpacing: 0.5,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                      ],
+                                      if (startDt != null)
+                                        Expanded(
+                                          child: Text(
+                                            dateFmt.format(startDt),
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: AppTheme.textSecondary,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(
+                              Icons.chevron_right_rounded,
+                              size: 20,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Color _statusColor(String status) {
+    return switch (status) {
+      'live' => AppTheme.successColor,
+      'selling_tickets' => const Color(0xFF00838F),
+      'approved' => AppTheme.primaryColor,
+      _ => AppTheme.textSecondary,
+    };
+  }
+}

@@ -10,6 +10,8 @@ import '../../providers/event_provider.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/event_lifecycle_bar.dart';
+import '../../widgets/event_map_widget.dart';
+import '../../services/location_helper.dart';
 
 String _statusDisplayName(EventStatus s) {
   switch (s) {
@@ -49,6 +51,12 @@ class _HomeScreenState extends State<HomeScreen> {
   DateTime? _dateTo;
   bool? _hasFunding;
   bool _showAdvanced = false;
+  bool _showMapView = false;
+
+  // Near Me
+  List<Event> _nearMeEvents = [];
+  bool _nearMeLoading = false;
+  bool _nearMeAttempted = false;
 
   final List<String> _genres = [
     'community', 'music', 'tech', 'sports', 'arts',
@@ -84,6 +92,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _applyFilters();
       _loadFeatured();
       _loadMyEvents();
+      _loadNearMe();
     });
   }
 
@@ -132,6 +141,45 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (_) {
       setState(() => _featuredLoading = false);
     }
+  }
+
+  Future<void> _loadNearMe() async {
+    if (_nearMeAttempted) return;
+    setState(() {
+      _nearMeLoading = true;
+      _nearMeAttempted = true;
+    });
+    try {
+      final pos = await LocationHelper.getCurrentPosition();
+      if (pos == null || !mounted) {
+        if (mounted) setState(() => _nearMeLoading = false);
+        return;
+      }
+      final api = context.read<ApiService>();
+      final data = await api.getMapEvents(
+        lat: pos.latitude,
+        lng: pos.longitude,
+        radiusKm: 25,
+      );
+      if (mounted) {
+        // Convert map markers to full events by fetching them
+        // For now we'll use the limited data and fetch full events
+        final ids = (data as List)
+            .map((e) => e['id'] as int)
+            .take(10)
+            .toList();
+        if (ids.isNotEmpty) {
+          final fullEvents = <Event>[];
+          final allEvents = await api.getEvents();
+          for (final e in allEvents) {
+            final ev = Event.fromJson(e);
+            if (ids.contains(ev.id)) fullEvents.add(ev);
+          }
+          setState(() => _nearMeEvents = fullEvents);
+        }
+      }
+    } catch (_) {}
+    if (mounted) setState(() => _nearMeLoading = false);
   }
 
   @override
@@ -588,6 +636,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
           ] else ...[
+            // ── Near Me ──
+            if (_nearMeEvents.isNotEmpty)
+              _buildFeaturedSection(
+                  'Near Me', Icons.near_me_rounded, _nearMeEvents),
+
             // ── Featured ──
             if (!_featuredLoading) ...[
               if (_trending.isNotEmpty)
@@ -847,22 +900,59 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
 
-        // ── Results header ──
+        // ── Results header with Map/List toggle ──
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-            child: Text(
-              'All Events',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleLarge
-                  ?.copyWith(letterSpacing: -0.3),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _showMapView ? 'Map View' : 'All Events',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleLarge
+                        ?.copyWith(letterSpacing: -0.3),
+                  ),
+                ),
+                // Map / List toggle pill
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _toggleButton(
+                        icon: Icons.view_list_rounded,
+                        label: 'List',
+                        isActive: !_showMapView,
+                        onTap: () => setState(() => _showMapView = false),
+                      ),
+                      _toggleButton(
+                        icon: Icons.map_rounded,
+                        label: 'Map',
+                        isActive: _showMapView,
+                        onTap: () => setState(() => _showMapView = true),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
         ),
 
-        // ── Event Grid ──
-        if (events.isLoading)
+        // ── Map View or Event Grid ──
+        if (_showMapView)
+          SliverFillRemaining(
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              child: const EventMapWidget(),
+            ),
+          )
+        else if (events.isLoading)
           const SliverFillRemaining(
             child: Center(
                 child: CircularProgressIndicator(color: AppTheme.primaryColor)),
@@ -939,6 +1029,46 @@ class _HomeScreenState extends State<HomeScreen> {
 
         const SliverToBoxAdapter(child: SizedBox(height: 100)),
       ],
+    );
+  }
+
+  Widget _toggleButton({
+    required IconData icon,
+    required String label,
+    required bool isActive,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isActive
+              ? Colors.white
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 16,
+              color: isActive ? AppTheme.primaryColor : Colors.white60,
+            ),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: isActive ? AppTheme.primaryColor : Colors.white60,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

@@ -117,6 +117,7 @@ async def get_my_tickets(
             event_id=s.event_id,
             user_id=s.user_id,
             ticket_tier_id=s.ticket_tier_id,
+            purchase_group_id=getattr(s, "purchase_group_id", None),
             ticket_code=s.ticket_code,
             receipt_number=getattr(s, "receipt_number", None),
             tier_name=s.ticket_tier.name if s.ticket_tier else None,
@@ -124,6 +125,8 @@ async def get_my_tickets(
             attendee_display_name=(s.user.display_name or s.user.email) if s.user else None,
             amount_paid_cents=s.amount_paid_cents,
             discount_applied_cents=s.discount_applied_cents,
+            commission_cents=getattr(s, "commission_cents", 0) or 0,
+            net_to_organizer_cents=getattr(s, "net_to_organizer_cents", 0) or 0,
             extra_perks=s.extra_perks,
             status=s.status.value,
             scanned_at=s.scanned_at,
@@ -169,6 +172,8 @@ async def get_my_ticket_receipt(
             organizer_phone = organizer.phone
 
     return TicketReceiptResponse(
+        sale_id=sale.id,
+        user_id=sale.user_id,
         receipt_number=sale.receipt_number or f"RCP-{sale.event_id}-{sale.id}",
         ticket_code=sale.ticket_code,
         status=sale.status.value,

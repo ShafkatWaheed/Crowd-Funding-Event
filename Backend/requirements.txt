@@ -18,5 +18,11 @@ pytest>=7.4.0
 pytest-asyncio>=0.21.0
 httpx>=0.25.0
 
+# Email (SendGrid — default provider; swappable via EMAIL_PROVIDER)
+sendgrid>=6.11.0
+
+# Ticket QR encryption (AES-256-GCM)
+cryptography>=42.0.0
+
 # Migrations
 alembic>=1.13.0

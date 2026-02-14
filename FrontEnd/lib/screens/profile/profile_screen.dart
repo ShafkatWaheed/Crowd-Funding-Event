@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/app_toast.dart';
+import '../legal/terms_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -123,6 +124,32 @@ class ProfileScreen extends StatelessWidget {
                               ),
                               const Divider(height: 1),
                             ],
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Legal
+                      Card(
+                        child: Column(
+                          children: [
+                            ListTile(
+                              leading: const Icon(Icons.description_outlined),
+                              title: const Text('Terms & Conditions'),
+                              trailing: const Icon(Icons.chevron_right),
+                              onTap: () {
+                                final role = user.isOrganizer
+                                    ? 'organizer'
+                                    : 'customer';
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        TermsScreen(role: role),
+                                  ),
+                                );
+                              },
+                            ),
                           ],
                         ),
                       ),

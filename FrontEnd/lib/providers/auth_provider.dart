@@ -95,6 +95,7 @@ class AuthProvider extends ChangeNotifier {
     required String role,
     String? displayName,
     String? phone,
+    String? termsAcceptedAt,
   }) async {
     _errorMessage = null;
     _isLoading = true;
@@ -117,7 +118,8 @@ class AuthProvider extends ChangeNotifier {
       final idToken = await cred.user?.getIdToken();
       _log('signUp: got ID token (length=${idToken?.length}), calling backend /auth/verify...');
 
-      final verifyResp = await _api.verifyToken(idToken!, role);
+      final verifyResp = await _api.verifyToken(idToken!, role,
+          termsAcceptedAt: termsAcceptedAt);
       _log('signUp: backend verify response: $verifyResp');
 
       // Update phone if provided

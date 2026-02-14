@@ -1,4 +1,5 @@
 # User request/response schemas (optional; API may use inline Pydantic models in routes).
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel
@@ -13,6 +14,7 @@ class MeResponse(BaseModel):
     display_name: str | None
     phone: str | None
     role: str
+    terms_accepted_at: datetime | None = None
 
     model_config = {"from_attributes": True}
 
@@ -27,6 +29,7 @@ class VerifyBody(BaseModel):
 
     id_token: str
     role: SignUpRole = "customer"
+    terms_accepted_at: datetime | None = None
 
 
 class VerifyResponse(BaseModel):
@@ -34,3 +37,4 @@ class VerifyResponse(BaseModel):
     email: str
     display_name: str | None
     role: str
+    terms_accepted_at: datetime | None = None

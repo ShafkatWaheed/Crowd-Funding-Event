@@ -16,7 +16,10 @@ async def verify(body: VerifyBody, db: DbSession):
     """Verify Firebase ID token and create/update user. New users can sign up as customer or organizer via body.role."""
     try:
         user = await auth_service.verify_and_upsert_user(
-            db, body.id_token, sign_up_role=body.role
+            db,
+            body.id_token,
+            sign_up_role=body.role,
+            terms_accepted_at=body.terms_accepted_at,
         )
     except ValueError as e:
         raise HTTPException(status_code=401, detail=str(e))
@@ -25,4 +28,5 @@ async def verify(body: VerifyBody, db: DbSession):
         email=user.email,
         display_name=user.display_name,
         role=user.role.value,
+        terms_accepted_at=user.terms_accepted_at,
     )

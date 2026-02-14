@@ -22,6 +22,7 @@ import '../screens/ticket_strategy/ticket_strategies_screen.dart';
 import '../screens/admin/admin_dashboard_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import '../screens/profile/my_tickets_screen.dart';
+import '../screens/legal/terms_screen.dart';
 
 GoRouter createRouter(AuthProvider authProvider) {
   return GoRouter(
@@ -79,6 +80,15 @@ GoRouter createRouter(AuthProvider authProvider) {
       GoRoute(
         path: '/my-tickets',
         builder: (context, state) => const MyTicketsScreen(),
+      ),
+
+      // ─── Legal ───
+      GoRoute(
+        path: '/terms',
+        builder: (context, state) {
+          final role = state.uri.queryParameters['role'] ?? 'customer';
+          return TermsScreen(role: role);
+        },
       ),
 
       // ─── Events ───

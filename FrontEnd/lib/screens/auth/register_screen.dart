@@ -1,9 +1,11 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../config/theme.dart';
+import '../legal/terms_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -22,6 +24,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   String _selectedRole = 'customer';
+  bool _agreedToTerms = false;
 
   @override
   void dispose() {
@@ -35,6 +38,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Future<void> _handleRegister() async {
     if (!_formKey.currentState!.validate()) return;
+    if (!_agreedToTerms) return;
 
     await context.read<AuthProvider>().signUp(
           email: _emailController.text.trim(),
@@ -44,6 +48,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           phone: _phoneController.text.trim().isNotEmpty
               ? _phoneController.text.trim()
               : null,
+          termsAcceptedAt: DateTime.now().toUtc().toIso8601String(),
         );
   }
 
@@ -218,7 +223,63 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
+
+                // Terms & Conditions checkbox
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: Checkbox(
+                        value: _agreedToTerms,
+                        onChanged: (v) =>
+                            setState(() => _agreedToTerms = v ?? false),
+                        activeColor: AppTheme.primaryColor,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: RichText(
+                          text: TextSpan(
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey[700],
+                              height: 1.4,
+                            ),
+                            children: [
+                              const TextSpan(text: 'I have read and agree to the '),
+                              TextSpan(
+                                text: 'Terms and Conditions',
+                                style: TextStyle(
+                                  color: AppTheme.primaryColor,
+                                  fontWeight: FontWeight.w600,
+                                  decoration: TextDecoration.underline,
+                                ),
+                                recognizer: TapGestureRecognizer()
+                                  ..onTap = () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => TermsScreen(
+                                          role: _selectedRole,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
 
                 // Error message
                 if (auth.errorMessage != null)
@@ -240,10 +301,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 SizedBox(
                   height: 50,
                   child: ElevatedButton(
-                    onPressed: auth.isLoading ? null : _handleRegister,
+                    onPressed: auth.isLoading || !_agreedToTerms
+                        ? null
+                        : _handleRegister,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.primaryColor,
                       foregroundColor: Colors.white,
+                      disabledBackgroundColor: Colors.grey[300],
+                      disabledForegroundColor: Colors.grey[500],
                     ),
                     child: auth.isLoading
                         ? const SizedBox(

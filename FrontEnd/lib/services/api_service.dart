@@ -62,11 +62,15 @@ class ApiService {
   // ─── Auth ───
 
   Future<Map<String, dynamic>> verifyToken(
-      String idToken, String role) async {
-    final resp = await dio.post('/auth/verify', data: {
+      String idToken, String role, {String? termsAcceptedAt}) async {
+    final data = <String, dynamic>{
       'id_token': idToken,
       'role': role,
-    });
+    };
+    if (termsAcceptedAt != null) {
+      data['terms_accepted_at'] = termsAcceptedAt;
+    }
+    final resp = await dio.post('/auth/verify', data: data);
     return resp.data;
   }
 

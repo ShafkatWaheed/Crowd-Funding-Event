@@ -13,6 +13,7 @@ async def verify_and_upsert_user(
     id_token: str,
     *,
     sign_up_role: str | None = None,
+    terms_accepted_at=None,
 ) -> User:
     """
     Verify Firebase ID token and create or update user in DB.
@@ -47,6 +48,7 @@ async def verify_and_upsert_user(
         email=email,
         display_name=display_name,
         role=role,
+        terms_accepted_at=terms_accepted_at,
     )
     db.add(user)
     await db.flush()

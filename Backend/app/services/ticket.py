@@ -106,7 +106,14 @@ async def compute_ticket_price(
 
     pledge_cents = 0
     if event.pledge_discount_percent > 0 and has_pledged:
-        pledge_cents = total_pledged * event.pledge_discount_percent // 100
+        raw_pledge_discount = total_pledged * event.pledge_discount_percent // 100
+        # If user has reserved spots, divide discount across those spots
+        from app.services import funding as funding_svc
+        user_reserved = await funding_svc.get_user_reserved_spots(db, event_id, user_id)
+        if user_reserved > 0:
+            pledge_cents = raw_pledge_discount // user_reserved
+        else:
+            pledge_cents = raw_pledge_discount
         pledge_cents = min(pledge_cents, base)
 
     # Apply EventDiscount rules + linked DiscountStrategy rules
@@ -206,20 +213,30 @@ async def purchase_ticket(
         commission_cents = final_cents * commission_pct // 100
         net_to_organizer = final_cents - commission_cents
 
-    # ── Capacity check: event-level (venue capacity) ──
+    # ── Capacity check with reserved spots ──
+    from app.services import funding as funding_svc
+
     purchased_count_q = select(func.count()).where(
         TicketSale.event_id == event_id,
         TicketSale.status == TicketSaleStatus.purchased,
     )
     purchased_count = int((await db.execute(purchased_count_q)).scalar_one())
-    over_event_cap = purchased_count >= int(event.max_capacity)
 
-    # Determine ticket status based on capacity
-    ticket_status = (
-        TicketSaleStatus.waitlisted
-        if over_event_cap
-        else TicketSaleStatus.purchased
-    )
+    user_reserved = await funding_svc.get_user_reserved_spots(db, event_id, user.id)
+
+    if user_reserved > 0:
+        # User has reserved spots — consume one (guaranteed seat)
+        await funding_svc.consume_one_reserved_spot(db, event_id, user.id)
+        ticket_status = TicketSaleStatus.purchased
+    else:
+        # Standard capacity: tickets_sold + total_reserved_spots vs max_capacity
+        total_reserved = await funding_svc.get_total_reserved_spots(db, event_id)
+        occupied = purchased_count + total_reserved
+        ticket_status = (
+            TicketSaleStatus.waitlisted
+            if occupied >= int(event.max_capacity)
+            else TicketSaleStatus.purchased
+        )
 
     ticket_code = secrets.token_urlsafe(24)
     sale = TicketSale(

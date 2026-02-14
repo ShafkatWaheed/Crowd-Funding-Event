@@ -59,6 +59,7 @@ class Event(Base):
     status: Mapped[EventStatus] = mapped_column(Enum(EventStatus), nullable=False, default=EventStatus.draft, index=True)
     registration_type: Mapped[RegistrationType] = mapped_column(Enum(RegistrationType), nullable=False, default=RegistrationType.open)
     max_capacity: Mapped[int] = mapped_column(Integer, nullable=False)
+    max_reserved_spots_per_user: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # max spots a pledger can reserve
     common_discount_percent: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # ticket discount for all
     pledge_discount_percent: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # % of user's pledges as discount
     cancellation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)

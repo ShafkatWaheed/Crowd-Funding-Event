@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends
 
 from app.dependencies import CurrentUser, DbSession, require_role
 from app.models.user import User, UserRole
-from app.schemas import EventResponse, MeResponse, MeUpdate, MyPledgeItem, TicketReceiptResponse, TicketSaleResponse
+from app.schemas import EventResponse, MeResponse, MeUpdate, MyPledgeItem, PledgeReceiptResponse, TicketReceiptResponse, TicketSaleResponse
 from app.api.v1.events import _event_to_response
 from app.services import event as event_service
 from app.services import funding as funding_service
@@ -61,11 +61,47 @@ async def get_my_pledges(
             event_id=p.event_id,
             event_title=p.event.title if p.event else "",
             amount_cents=p.amount_cents,
+            reserved_spots=p.reserved_spots,
+            receipt_number=p.receipt_number,
             status=p.status.value,
             created_at=p.created_at,
         )
         for p in pledges
     ]
+
+
+@router.get("/pledges/{pledge_id}/receipt", response_model=PledgeReceiptResponse)
+async def get_my_pledge_receipt(
+    pledge_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.customer)),
+):
+    """Get a pledge receipt for the current user."""
+    from sqlalchemy import select
+    from app.models.funding import Funding
+    pledge = (await db.execute(
+        select(Funding).where(Funding.id == pledge_id, Funding.user_id == current_user.id)
+    )).scalar_one_or_none()
+    if not pledge:
+        from app.core.exceptions import NotFoundError
+        raise NotFoundError("Pledge", pledge_id)
+    event = await event_service.get_or_404(db, pledge.event_id)
+    from app.services import platform_settings as settings_svc
+    funding_pct = await settings_svc.get_int(db, "funding_commission_percent")
+    return PledgeReceiptResponse(
+        id=pledge.id,
+        receipt_number=pledge.receipt_number,
+        event_id=pledge.event_id,
+        event_title=event.title,
+        user_id=pledge.user_id,
+        amount_cents=pledge.amount_cents,
+        reserved_spots=pledge.reserved_spots,
+        platform_cut_cents=pledge.platform_cut_cents,
+        net_to_organizer_cents=pledge.net_to_organizer_cents,
+        funding_commission_percent=funding_pct,
+        status=pledge.status.value,
+        created_at=pledge.created_at,
+    )
 
 
 @router.get("/tickets", response_model=list[TicketSaleResponse])

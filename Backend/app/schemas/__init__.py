@@ -8,7 +8,10 @@ from app.schemas.event import (
     EventVenueInfo, ExtendFundingBody, ExtensionApprovalAction,
     MapEventMarker, OrganizerTrustInfo, SetEventDateBody, UnregisterResponse,
 )
-from app.schemas.funding import FundingSummaryResponse, MyPledgeItem, PledgeBody, PledgeResponse, UnpledgeResponse
+from app.schemas.funding import (
+    FundingSummaryResponse, MyPledgeItem, PledgeBody, PledgePreviewResponse,
+    PledgeReceiptResponse, PledgeResponse, UnpledgeResponse,
+)
 from app.schemas.registration import RegistrationDecisionBody, RegistrationResponse
 from app.schemas.ticket import (
     ScanTicketBody,
@@ -64,6 +67,8 @@ __all__ = [
     "MeResponse",
     "MeUpdate",
     "PledgeBody",
+    "PledgePreviewResponse",
+    "PledgeReceiptResponse",
     "PledgeResponse",
     "UnpledgeResponse",
     "RegistrationDecisionBody",

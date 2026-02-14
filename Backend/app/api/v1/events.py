@@ -29,6 +29,8 @@ from app.schemas import (
     SetEventDateBody,
     FundingSummaryResponse,
     PledgeBody,
+    PledgePreviewResponse,
+    PledgeReceiptResponse,
     PledgeResponse,
     RegistrationDecisionBody,
     RegistrationResponse,
@@ -71,6 +73,7 @@ def _event_to_response(
     *,
     total_pledged_cents: int | None = None,
     funding_days_left: int | None = None,
+    total_reserved_spots: int = 0,
     include_dislike: bool = False,
     organizer_trust: dict | None = None,
 ) -> EventResponse:
@@ -99,10 +102,12 @@ def _event_to_response(
         status=e.status.value,
         registration_type=e.registration_type.value,
         max_capacity=e.max_capacity,
+        max_reserved_spots_per_user=e.max_reserved_spots_per_user,
         funding_goal_cents=e.funding_goal_cents,
         funding_end_at=e.funding_end_at,
         total_pledged_cents=total_pledged_cents,
         funding_days_left=funding_days_left,
+        total_reserved_spots=total_reserved_spots,
         min_pledge_cents=e.min_pledge_cents,
         common_discount_percent=e.common_discount_percent,
         pledge_discount_percent=e.pledge_discount_percent,
@@ -272,6 +277,7 @@ async def create_event(
         min_pledge_cents=body.min_pledge_cents,
         registration_type=reg_type,
         max_capacity=body.max_capacity,
+        max_reserved_spots_per_user=body.max_reserved_spots_per_user,
         common_discount_percent=body.common_discount_percent,
         pledge_discount_percent=body.pledge_discount_percent,
         allow_any_venue=(current_user.role == UserRole.admin),
@@ -306,6 +312,7 @@ async def get_event(event_id: int, db: DbSession, current_user: CurrentUserOptio
         event,
         total_pledged_cents=summary["total_pledged_cents"],
         funding_days_left=days_left,
+        total_reserved_spots=summary.get("total_reserved_spots", 0),
         include_dislike=is_admin,
         organizer_trust=trust,
     )
@@ -415,6 +422,7 @@ async def update_event(
         min_pledge_cents=body.min_pledge_cents,
         registration_type=reg_type,
         max_capacity=body.max_capacity,
+        max_reserved_spots_per_user=body.max_reserved_spots_per_user,
         common_discount_percent=body.common_discount_percent,
         pledge_discount_percent=body.pledge_discount_percent,
         genre=body.genre,
@@ -626,6 +634,25 @@ async def clone_event(
     return _event_to_response(new_event)
 
 
+@router.get("/{event_id}/pledge-preview", response_model=PledgePreviewResponse)
+async def get_pledge_preview(
+    event_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.customer)),
+    amount_cents: int = Query(..., ge=1),
+    reserved_spots: int = Query(0, ge=0),
+):
+    """Preview invoice before confirming a pledge (customer)."""
+    preview = await funding_service.pledge_preview(
+        db,
+        event_id=event_id,
+        user=current_user,
+        amount_cents=amount_cents,
+        reserved_spots=reserved_spots,
+    )
+    return PledgePreviewResponse(**preview)
+
+
 @router.post("/{event_id}/pledge")
 async def pledge_event(
     event_id: int,
@@ -643,14 +670,55 @@ async def pledge_event(
         event_id=event_id,
         user=current_user,
         amount_cents=body.amount_cents,
+        reserved_spots=body.reserved_spots,
     )
     return PledgeResponse(
         id=pledge.id,
         event_id=pledge.event_id,
         user_id=pledge.user_id,
         amount_cents=pledge.amount_cents,
+        platform_cut_cents=pledge.platform_cut_cents,
+        net_to_organizer_cents=pledge.net_to_organizer_cents,
+        reserved_spots=pledge.reserved_spots,
+        receipt_number=pledge.receipt_number,
         status=pledge.status.value,
         is_guest=pledge.is_guest,
+        created_at=pledge.created_at,
+    )
+
+
+@router.get("/{event_id}/pledges/{pledge_id}/receipt", response_model=PledgeReceiptResponse)
+async def get_pledge_receipt(
+    event_id: int,
+    pledge_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.customer)),
+):
+    """Get a pledge receipt (customer — must be own pledge)."""
+    from sqlalchemy import select as sel2
+    from app.models.funding import Funding
+    pledge = (await db.execute(
+        sel2(Funding).where(Funding.id == pledge_id, Funding.event_id == event_id)
+    )).scalar_one_or_none()
+    if not pledge:
+        raise NotFoundError("Pledge", pledge_id)
+    if pledge.user_id != current_user.id:
+        raise ForbiddenError("You can only view your own pledge receipts")
+    event = await event_service.get_or_404(db, event_id)
+    from app.services import platform_settings as settings_svc
+    funding_pct = await settings_svc.get_int(db, "funding_commission_percent")
+    return PledgeReceiptResponse(
+        id=pledge.id,
+        receipt_number=pledge.receipt_number,
+        event_id=event_id,
+        event_title=event.title,
+        user_id=pledge.user_id,
+        amount_cents=pledge.amount_cents,
+        reserved_spots=pledge.reserved_spots,
+        platform_cut_cents=pledge.platform_cut_cents,
+        net_to_organizer_cents=pledge.net_to_organizer_cents,
+        funding_commission_percent=funding_pct,
+        status=pledge.status.value,
         created_at=pledge.created_at,
     )
 
@@ -675,6 +743,30 @@ async def get_event_funding(event_id: int, db: DbSession):
     """Funding summary for event (public or organizer/admin)."""
     summary = await funding_service.get_summary(db, event_id=event_id)
     return FundingSummaryResponse(**summary)
+
+
+@router.get("/{event_id}/capacity-summary")
+async def get_capacity_summary(
+    event_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+):
+    """Capacity breakdown for waitlist management (organizer/admin)."""
+    event = await event_service.get_or_404(db, event_id)
+    total_reserved = await funding_service.get_total_reserved_spots(db, event_id)
+    from app.models.ticket import TicketSale as _TS, TicketSaleStatus as _TSS
+    from sqlalchemy import select as sel2, func as fn2
+    tickets_sold = int((await db.execute(
+        sel2(fn2.count()).where(_TS.event_id == event_id, _TS.status == _TSS.purchased)
+    )).scalar_one())
+    return {
+        "max_capacity": event.max_capacity,
+        "tickets_sold": tickets_sold,
+        "reserved_spots": total_reserved,
+        "occupied": tickets_sold + total_reserved,
+        "available": max(0, event.max_capacity - tickets_sold - total_reserved),
+        "registration_count": event.registration_count,
+    }
 
 
 @router.get("/{event_id}/escrow")
@@ -1097,6 +1189,30 @@ async def reject_waitlisted_ticket(
         db, event_id=event_id, ticket_sale_id=ticket_id, user=current_user,
     )
     return _ticket_sale_to_response(sale)
+
+
+@router.get("/{event_id}/capacity-info")
+async def get_capacity_info(
+    event_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+):
+    """Capacity breakdown for waitlist management (organizer/admin)."""
+    event = await event_service.get_or_404(db, event_id)
+    from sqlalchemy import select as sel2, func as fn2
+    from app.models.ticket import TicketSale as _TS, TicketSaleStatus as _TSS
+    tickets_sold = int((await db.execute(
+        sel2(fn2.count()).where(_TS.event_id == event_id, _TS.status == _TSS.purchased)
+    )).scalar_one())
+    total_reserved = await funding_service.get_total_reserved_spots(db, event_id=event_id)
+    return {
+        "max_capacity": event.max_capacity,
+        "tickets_sold": tickets_sold,
+        "total_reserved_spots": total_reserved,
+        "occupied": tickets_sold + total_reserved,
+        "available": max(0, event.max_capacity - tickets_sold - total_reserved),
+        "registration_count": event.registration_count,
+    }
 
 
 @router.post("/{event_id}/discounts")

@@ -44,6 +44,7 @@ class EventCreate(BaseModel):
     min_pledge_cents: int = 500  # required minimum pledge amount in cents
     registration_type: Literal["open", "closed"] = "open"
     max_capacity: int
+    max_reserved_spots_per_user: int = 0  # max ticket spots a pledger can reserve (0 = disabled)
     common_discount_percent: int = 0
     pledge_discount_percent: int = 0
     genre: str | None = None
@@ -65,6 +66,7 @@ class EventUpdate(BaseModel):
     min_pledge_cents: int | None = None
     registration_type: Literal["open", "closed"] | None = None
     max_capacity: int | None = None
+    max_reserved_spots_per_user: int | None = None
     common_discount_percent: int | None = None
     pledge_discount_percent: int | None = None
     genre: str | None = None
@@ -130,10 +132,12 @@ class EventResponse(BaseModel):
     status: str
     registration_type: str
     max_capacity: int
+    max_reserved_spots_per_user: int = 0
     funding_goal_cents: int | None
     funding_end_at: datetime | None
     total_pledged_cents: int | None = None  # for cards: "$X of $Y"
     funding_days_left: int | None = None   # days until funding_end_at; <=0 = ended; None = no deadline
+    total_reserved_spots: int = 0  # sum of unredeemed reserved spots for the event
     min_pledge_cents: int
     common_discount_percent: int
     pledge_discount_percent: int

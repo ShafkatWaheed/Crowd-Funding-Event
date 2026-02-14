@@ -77,6 +77,18 @@ async def auto_transition_status(db: AsyncSession, event: Event) -> Event:
         if start is not None and now >= start:
             event.status = EventStatus.live
             changed = True
+            # Release all unredeemed reserved spots (capacity = tickets_sold only)
+            from sqlalchemy import update as sql_update
+            from app.models.funding import Funding, FundingStatus
+            await db.execute(
+                sql_update(Funding)
+                .where(
+                    Funding.event_id == event.id,
+                    Funding.status == FundingStatus.pledged,
+                    Funding.reserved_spots > 0,
+                )
+                .values(reserved_spots=0)
+            )
 
     # ── live → check if event ended ──
     if event.status == EventStatus.live:
@@ -325,6 +337,7 @@ async def create(
     min_pledge_cents: int,
     registration_type: RegistrationType,
     max_capacity: int,
+    max_reserved_spots_per_user: int = 0,
     common_discount_percent: int = 0,
     pledge_discount_percent: int = 0,
     lat: float | None = None,
@@ -438,6 +451,7 @@ async def create(
         min_pledge_cents=min_pledge_cents,
         registration_type=registration_type,
         max_capacity=max_capacity,
+        max_reserved_spots_per_user=max_reserved_spots_per_user,
         common_discount_percent=common_discount_percent,
         pledge_discount_percent=pledge_discount_percent,
         genre=genre,
@@ -473,6 +487,7 @@ async def update(
     min_pledge_cents: int | None = None,
     registration_type: RegistrationType | None = None,
     max_capacity: int | None = None,
+    max_reserved_spots_per_user: int | None = None,
     common_discount_percent: int | None = None,
     pledge_discount_percent: int | None = None,
     genre: str | None = None,
@@ -510,7 +525,25 @@ async def update(
     if registration_type is not None:
         event.registration_type = registration_type
     if max_capacity is not None:
+        # Capacity floor guard: cannot reduce below tickets_sold + reserved_spots
+        if max_capacity < event.max_capacity:
+            from app.services import funding as funding_svc
+            from app.models.ticket import TicketSale as _TS, TicketSaleStatus as _TSS
+            total_reserved = await funding_svc.get_total_reserved_spots(db, event.id)
+            tickets_sold_q = select(func.count()).where(
+                _TS.event_id == event.id,
+                _TS.status == _TSS.purchased,
+            )
+            tickets_sold = int((await db.execute(tickets_sold_q)).scalar_one())
+            floor = tickets_sold + total_reserved
+            if max_capacity < floor:
+                raise ConflictError(
+                    f"Cannot reduce capacity below {floor} "
+                    f"({tickets_sold} tickets sold + {total_reserved} reserved spots)"
+                )
         event.max_capacity = max_capacity
+    if max_reserved_spots_per_user is not None:
+        event.max_reserved_spots_per_user = max_reserved_spots_per_user
     if common_discount_percent is not None:
         event.common_discount_percent = common_discount_percent
     if pledge_discount_percent is not None:
@@ -966,6 +999,7 @@ async def clone_event(db: AsyncSession, event: Event, user: User) -> Event:
         min_pledge_cents=event.min_pledge_cents,
         registration_type=event.registration_type,
         max_capacity=event.max_capacity,
+        max_reserved_spots_per_user=event.max_reserved_spots_per_user,
         common_discount_percent=event.common_discount_percent,
         pledge_discount_percent=event.pledge_discount_percent,
         genre=event.genre,

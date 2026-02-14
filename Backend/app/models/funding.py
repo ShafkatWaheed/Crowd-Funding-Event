@@ -3,7 +3,7 @@ Funding / pledge model.
 """
 import enum
 from datetime import datetime
-from sqlalchemy import Boolean, Integer, DateTime, ForeignKey, Enum
+from sqlalchemy import Boolean, Integer, String, DateTime, ForeignKey, Enum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -26,6 +26,8 @@ class Funding(Base):
     net_to_organizer_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # amount - platform_cut
     status: Mapped[FundingStatus] = mapped_column(Enum(FundingStatus), nullable=False, default=FundingStatus.pledged)
     is_guest: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)  # guest pledges are non-refundable
+    reserved_spots: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # spots reserved for future ticket purchase
+    receipt_number: Mapped[str | None] = mapped_column(String(32), nullable=True, unique=True, index=True)  # human-readable pledge receipt ID
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 
     event = relationship("Event", back_populates="fundings")

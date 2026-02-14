@@ -4,8 +4,10 @@ Funding / pledges: create pledge and compute funding summary.
 MVP notes:
 - This records pledges only (no payment gateway yet).
 - A user can pledge multiple times to the same event (common crowdfunding behavior).
+- Spot reservation: pledgers can reserve future ticket spots (counted toward capacity).
 """
 
+from datetime import datetime, timezone
 from typing import Sequence
 
 from sqlalchemy import func, select
@@ -16,8 +18,92 @@ from app.core.exceptions import ConflictError, NotFoundError
 from app.models.event import EventStatus
 from app.models.funding import Funding, FundingStatus
 from app.models.registration import Registration, RegistrationStatus
+from app.models.ticket import TicketSale, TicketSaleStatus
 from app.models.user import User
 from app.services import event as event_service
+
+
+# ─── Spot reservation helpers ───────────────────────────────────────
+
+
+async def get_user_reserved_spots(db: AsyncSession, event_id: int, user_id: int) -> int:
+    """Sum of remaining (unredeemed) reserved spots for this user on this event."""
+    q = select(func.coalesce(func.sum(Funding.reserved_spots), 0)).where(
+        Funding.event_id == event_id,
+        Funding.user_id == user_id,
+        Funding.status == FundingStatus.pledged,
+    )
+    return int((await db.execute(q)).scalar_one())
+
+
+async def get_total_reserved_spots(db: AsyncSession, event_id: int) -> int:
+    """Sum of all unredeemed reserved spots across all pledgers for this event."""
+    q = select(func.coalesce(func.sum(Funding.reserved_spots), 0)).where(
+        Funding.event_id == event_id,
+        Funding.status == FundingStatus.pledged,
+    )
+    return int((await db.execute(q)).scalar_one())
+
+
+async def consume_one_reserved_spot(db: AsyncSession, event_id: int, user_id: int) -> None:
+    """Decrement the oldest pledge's reserved_spots by 1 for this user+event."""
+    q = (
+        select(Funding)
+        .where(
+            Funding.event_id == event_id,
+            Funding.user_id == user_id,
+            Funding.status == FundingStatus.pledged,
+            Funding.reserved_spots > 0,
+        )
+        .order_by(Funding.created_at.asc())
+        .limit(1)
+        .with_for_update()
+    )
+    pledge = (await db.execute(q)).scalar_one_or_none()
+    if pledge is None:
+        raise ConflictError("No reserved spots available to consume")
+    pledge.reserved_spots -= 1
+    await db.flush()
+
+
+# ─── Pledge preview (invoice) ───────────────────────────────────────
+
+
+async def pledge_preview(
+    db: AsyncSession,
+    *,
+    event_id: int,
+    user: User,
+    amount_cents: int,
+    reserved_spots: int = 0,
+) -> dict:
+    """Compute an invoice preview before confirming a pledge."""
+    event = await event_service.get_or_404(db, event_id)
+
+    from app.services import platform_settings as settings_svc
+    funding_pct = await settings_svc.get_int(db, "funding_commission_percent")
+    platform_cut = amount_cents * funding_pct // 100
+    net_to_organizer = amount_cents - platform_cut
+
+    user_existing = await get_user_reserved_spots(db, event_id, user.id)
+    max_per_user = event.max_reserved_spots_per_user
+    available_for_user = max(0, max_per_user - user_existing)
+
+    event_total = await get_total_reserved_spots(db, event_id)
+
+    return {
+        "amount_cents": amount_cents,
+        "reserved_spots": reserved_spots,
+        "cost_per_spot_cents": event.min_pledge_cents,
+        "platform_cut_cents": platform_cut,
+        "net_to_organizer_cents": net_to_organizer,
+        "funding_commission_percent": funding_pct,
+        "available_spots_for_user": available_for_user,
+        "event_total_reserved_spots": event_total,
+    }
+
+
+# ─── Create pledge ──────────────────────────────────────────────────
 
 
 async def create_pledge(
@@ -26,9 +112,13 @@ async def create_pledge(
     event_id: int,
     user: User,
     amount_cents: int,
+    reserved_spots: int = 0,
 ) -> Funding:
     if amount_cents <= 0:
         raise ConflictError("amount_cents must be greater than 0")
+    if reserved_spots < 0:
+        raise ConflictError("reserved_spots cannot be negative")
+
     event = await event_service.get_or_404(db, event_id)
     if amount_cents < event.min_pledge_cents:
         raise ConflictError(
@@ -49,6 +139,45 @@ async def create_pledge(
     is_registered = reg_result.scalar_one_or_none() is not None
     is_guest = not is_registered
 
+    # ── Spot reservation validation ──
+    if reserved_spots > 0:
+        if is_guest:
+            raise ConflictError("Only registered users can reserve spots. Please register first.")
+
+        if event.max_reserved_spots_per_user <= 0:
+            raise ConflictError("Spot reservation is not enabled for this event")
+
+        # Amount must cover spots
+        min_required = reserved_spots * event.min_pledge_cents
+        if amount_cents < min_required:
+            raise ConflictError(
+                f"Pledge amount must be at least {min_required} cents "
+                f"to reserve {reserved_spots} spot(s) ({event.min_pledge_cents} cents/spot)"
+            )
+
+        # Per-user limit
+        user_existing_spots = await get_user_reserved_spots(db, event_id, user.id)
+        if user_existing_spots + reserved_spots > event.max_reserved_spots_per_user:
+            raise ConflictError(
+                f"Cannot reserve {reserved_spots} more spot(s). "
+                f"You already have {user_existing_spots} and the limit is {event.max_reserved_spots_per_user}."
+            )
+
+        # Event capacity check: tickets_sold + total_reserved + new <= max_capacity
+        total_reserved = await get_total_reserved_spots(db, event_id)
+        tickets_sold_q = select(func.count()).where(
+            TicketSale.event_id == event_id,
+            TicketSale.status == TicketSaleStatus.purchased,
+        )
+        tickets_sold = int((await db.execute(tickets_sold_q)).scalar_one())
+        occupied = tickets_sold + total_reserved
+        if occupied + reserved_spots > event.max_capacity:
+            available = max(0, event.max_capacity - occupied)
+            raise ConflictError(
+                f"Not enough capacity to reserve {reserved_spots} spot(s). "
+                f"Only {available} spot(s) available."
+            )
+
     # Compute platform commission on pledge
     from app.services import platform_settings as settings_svc
     funding_pct = await settings_svc.get_int(db, "funding_commission_percent")
@@ -63,8 +192,15 @@ async def create_pledge(
         net_to_organizer_cents=net_to_organizer,
         status=FundingStatus.pledged,
         is_guest=is_guest,
+        reserved_spots=reserved_spots,
     )
     db.add(pledge)
+    await db.flush()
+    await db.refresh(pledge)
+
+    # Generate pledge receipt number: PLG-YYYYMMDD-eventId-pledgeId
+    now = datetime.now(timezone.utc)
+    pledge.receipt_number = f"PLG-{now.strftime('%Y%m%d')}-{event_id}-{pledge.id}"
     await db.flush()
     await db.refresh(pledge)
 
@@ -150,7 +286,7 @@ async def get_pledged_totals_for_events(
 
 async def get_summary(db: AsyncSession, *, event_id: int) -> dict:
     """
-    Returns funding summary including commission info.
+    Returns funding summary including commission info and reserved spots.
     """
     event = await event_service.get_or_404(db, event_id)
     total_q = select(func.coalesce(func.sum(Funding.amount_cents), 0)).where(
@@ -176,6 +312,8 @@ async def get_summary(db: AsyncSession, *, event_id: int) -> dict:
     goal = event.funding_goal_cents
     goal_met = bool(goal is not None and total >= goal)
 
+    total_reserved = await get_total_reserved_spots(db, event_id)
+
     from app.services import platform_settings as settings_svc
     funding_pct = await settings_svc.get_int(db, "funding_commission_percent")
 
@@ -188,6 +326,7 @@ async def get_summary(db: AsyncSession, *, event_id: int) -> dict:
         "goal_cents": goal,
         "goal_met": goal_met,
         "funding_commission_percent": funding_pct,
+        "total_reserved_spots": total_reserved,
     }
 
 

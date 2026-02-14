@@ -299,16 +299,24 @@ async def list_events_for_map(
     lat: float | None = None,
     lng: float | None = None,
     radius_km: float | None = None,
+    organizer_id: int | None = None,
 ) -> Sequence[Event]:
     """
     List events suitable for map markers: have lat/lng, not draft/pending/cancelled.
-    Optional city (via venue), live filter, and lat/lng/radius_km (approximate bbox).
+    Optional city (via venue), live filter, lat/lng/radius_km (approximate bbox),
+    and organizer_id to restrict to a specific organizer's events.
     """
     conditions = [
         Event.lat.isnot(None),
         Event.lng.isnot(None),
-        Event.status.not_in([EventStatus.draft, EventStatus.pending_approval, EventStatus.cancelled]),
     ]
+    if organizer_id is not None:
+        # Organizer sees all their own events (including draft/pending)
+        conditions.append(Event.organizer_id == organizer_id)
+    else:
+        conditions.append(
+            Event.status.not_in([EventStatus.draft, EventStatus.pending_approval, EventStatus.cancelled]),
+        )
     q = select(Event)
     if city is not None:
         q = q.join(Event.venue)

@@ -247,6 +247,10 @@ class _HomeScreenState extends State<HomeScreen> {
     if (user != null && (user.isOrganizer || user.isAdmin)) {
       filters['include_all_statuses'] = true;
     }
+    // Organizers see only their own events on Explore
+    if (user != null && user.isOrganizer) {
+      filters['organizer_id'] = user.id;
+    }
 
     context.read<EventProvider>().loadEvents(filters: filters);
   }
@@ -332,14 +336,13 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
       floatingActionButton:
-          user != null && (user.isOrganizer || user.isAdmin) && _navIndex != 3
+          user != null && (user.isOrganizer || user.isAdmin) && _navIndex != 3 && _navIndex != 2
               ? FloatingActionButton(
                   onPressed: () async {
                     final created = await context.push<bool>('/events/create');
                     if (created == true && mounted) {
                       _applyFilters();
                       _loadFeatured();
-                      _loadMyEvents();
                     }
                   },
                   backgroundColor: AppTheme.primaryColor,
@@ -679,16 +682,54 @@ class _HomeScreenState extends State<HomeScreen> {
         // ── Search Header ──
         SliverToBoxAdapter(
           child: Container(
-            color: Colors.white,
-            padding: const EdgeInsets.fromLTRB(20, 56, 20, 16),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(28),
+                bottomRight: Radius.circular(28),
+              ),
+            ),
+            padding: const EdgeInsets.fromLTRB(20, 56, 20, 20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Explore',
-                    style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.5)),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        user != null && user.isOrganizer
+                            ? 'My Events'
+                            : 'Explore',
+                        style: const TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.5),
+                      ),
+                    ),
+                    if (user != null && user.isOrganizer)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: AppTheme.accentColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.person_rounded,
+                                size: 14, color: AppTheme.accentColor),
+                            const SizedBox(width: 4),
+                            Text('Organizer View',
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppTheme.accentColor)),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
                 const SizedBox(height: 16),
                 TextField(
                   controller: _searchController,
@@ -908,7 +949,11 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 Expanded(
                   child: Text(
-                    _showMapView ? 'Map View' : 'All Events',
+                    _showMapView
+                        ? 'Map View'
+                        : (user != null && user.isOrganizer
+                            ? 'Your Events'
+                            : 'All Events'),
                     style: Theme.of(context)
                         .textTheme
                         .titleLarge
@@ -949,7 +994,9 @@ class _HomeScreenState extends State<HomeScreen> {
           SliverFillRemaining(
             child: ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-              child: const EventMapWidget(),
+              child: EventMapWidget(
+                organizerId: user != null && user.isOrganizer ? user.id : null,
+              ),
             ),
           )
         else if (events.isLoading)
@@ -1103,103 +1150,228 @@ class _HomeScreenState extends State<HomeScreen> {
     final user = context.watch<AuthProvider>().user;
     return CustomScrollView(
       slivers: [
+        // ── Header ──
         SliverToBoxAdapter(
           child: Container(
-            color: Colors.white,
-            padding: const EdgeInsets.fromLTRB(24, 56, 24, 24),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(28),
+                bottomRight: Radius.circular(28),
+              ),
+            ),
+            padding: const EdgeInsets.fromLTRB(24, 56, 24, 28),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Manage',
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text('Manage',
+                          style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.5)),
+                    ),
+                    // Create event prominent button
+                    SizedBox(
+                      height: 42,
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          final created =
+                              await context.push<bool>('/events/create');
+                          if (created == true && mounted) {
+                            _applyFilters();
+                            _loadFeatured();
+                          }
+                        },
+                        icon: const Icon(Icons.add_rounded, size: 20),
+                        label: const Text('New Event',
+                            style: TextStyle(
+                                fontSize: 14, fontWeight: FontWeight.w700)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryColor,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Tools & shortcuts for your events',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppTheme.textSecondary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // ── Quick Actions Grid ──
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Quick Actions',
                     style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.5)),
-                const SizedBox(height: 20),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textSecondary,
+                        letterSpacing: 0.5)),
+                const SizedBox(height: 14),
+                // Row 1
                 Row(
                   children: [
                     _quickActionCard(
-                      icon: Icons.add_circle_rounded,
-                      label: 'Create Event',
-                      onTap: () async {
-                        final created = await context.push<bool>('/events/create');
-                        if (created == true && mounted) {
-                          _applyFilters();
-                          _loadFeatured();
-                          _loadMyEvents();
-                        }
-                      },
-                    ),
-                    const SizedBox(width: 12),
-                    _quickActionCard(
                       icon: Icons.location_city_rounded,
                       label: 'Venues',
+                      color: const Color(0xFF276EF1),
                       onTap: () => context.push('/venues'),
                     ),
                     const SizedBox(width: 12),
                     _quickActionCard(
                       icon: Icons.confirmation_number_rounded,
-                      label: 'Tickets',
+                      label: 'Ticket Tiers',
+                      color: const Color(0xFF00838F),
                       onTap: () => context.push('/ticket-strategies'),
-                    ),
-                    if (user != null && user.isAdmin) ...[
-                      const SizedBox(width: 12),
-                      _quickActionCard(
-                        icon: Icons.admin_panel_settings_rounded,
-                        label: 'Admin',
-                        onTap: () => context.push('/admin'),
-                      ),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    _quickActionCard(
-                      icon: Icons.receipt_long_rounded,
-                      label: 'All Sales',
-                      onTap: () => context.push('/manage/ticket-sales'),
                     ),
                     const SizedBox(width: 12),
                     _quickActionCard(
+                      icon: Icons.receipt_long_rounded,
+                      label: 'All Sales',
+                      color: const Color(0xFF05944F),
+                      onTap: () => context.push('/manage/ticket-sales'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                // Row 2
+                Row(
+                  children: [
+                    _quickActionCard(
                       icon: Icons.qr_code_scanner_rounded,
                       label: 'Scanned',
+                      color: const Color(0xFF7356BF),
                       onTap: () => context.push('/manage/scanned-tickets'),
                     ),
                     const SizedBox(width: 12),
                     _quickActionCard(
                       icon: Icons.hourglass_top_rounded,
                       label: 'Waitlist',
+                      color: const Color(0xFFE65100),
                       onTap: () => context.push('/manage/waitlist'),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
+                    const SizedBox(width: 12),
                     _quickActionCard(
                       icon: Icons.discount_rounded,
                       label: 'Discounts',
+                      color: const Color(0xFFE11900),
                       onTap: () => context.push('/manage/discounts'),
                     ),
                   ],
+                ),
+                if (user != null && user.isAdmin) ...[
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      _quickActionCard(
+                        icon: Icons.admin_panel_settings_rounded,
+                        label: 'Admin',
+                        color: const Color(0xFF141414),
+                        onTap: () => context.push('/admin'),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(child: SizedBox()),
+                      const SizedBox(width: 12),
+                      const Expanded(child: SizedBox()),
+                    ],
+                  ),
+                ],
+
+                const SizedBox(height: 28),
+
+                // ── Helpful tip ──
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: AppTheme.accentColor.withValues(alpha: 0.07),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                        color: AppTheme.accentColor.withValues(alpha: 0.15)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: AppTheme.accentColor.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.lightbulb_outline_rounded,
+                            color: AppTheme.accentColor, size: 22),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Your events are on Explore',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: -0.2,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Switch to the Explore tab to view, search, and filter all your events.',
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                color: AppTheme.textSecondary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () => setState(() => _navIndex = 1),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: AppTheme.accentColor,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Text('Go',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700)),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
         ),
-        // Show organizer's events
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
-            child: Text('Your Events',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleLarge
-                    ?.copyWith(letterSpacing: -0.3)),
-          ),
-        ),
-        _buildMyEventsGrid(),
         const SliverToBoxAdapter(child: SizedBox(height: 100)),
       ],
     );
@@ -1209,20 +1381,36 @@ class _HomeScreenState extends State<HomeScreen> {
     required IconData icon,
     required String label,
     required VoidCallback onTap,
+    Color color = AppTheme.primaryColor,
   }) {
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 18),
+          padding: const EdgeInsets.symmetric(vertical: 20),
           decoration: BoxDecoration(
-            color: AppTheme.surfaceColor,
-            borderRadius: BorderRadius.circular(14),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 12,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: Column(
             children: [
-              Icon(icon, size: 28, color: AppTheme.primaryColor),
-              const SizedBox(height: 8),
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: Icon(icon, size: 24, color: color),
+              ),
+              const SizedBox(height: 10),
               Text(label,
                   style: const TextStyle(
                       fontSize: 12, fontWeight: FontWeight.w600),
@@ -1236,9 +1424,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildMyEventsTab() {
     final filtered = _myEvents.where((e) {
-      // Genre filter
       if (_myEventsGenre != null && e.genre != _myEventsGenre) return false;
-      // Text search
       if (_myEventsSearch.isNotEmpty) {
         final q = _myEventsSearch.toLowerCase();
         return (e.title.toLowerCase().contains(q)) ||
@@ -1250,36 +1436,65 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Column(
       children: [
-        // Header + Search + Genre chips
+        // Header + Search + Genre chips — rounded bottom like Home tab
         Container(
-          color: Colors.white,
-          padding: const EdgeInsets.fromLTRB(24, 56, 24, 16),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(
+              bottomLeft: Radius.circular(28),
+              bottomRight: Radius.circular(28),
+            ),
+          ),
+          padding: const EdgeInsets.fromLTRB(24, 56, 24, 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('My Events',
-                  style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.5)),
-              const SizedBox(height: 14),
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text('My Events',
+                        style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.5)),
+                  ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppTheme.surfaceColor,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '${_myEvents.length} event${_myEvents.length != 1 ? 's' : ''}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
               TextField(
                 decoration: InputDecoration(
                   hintText: 'Search my events…',
-                  prefixIcon: const Icon(Icons.search, size: 20),
+                  prefixIcon: const Icon(Icons.search,
+                      color: AppTheme.textSecondary, size: 22),
                   isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 14),
                   filled: true,
                   fillColor: AppTheme.surfaceColor,
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                     borderSide: BorderSide.none,
                   ),
                 ),
                 onChanged: (v) => setState(() => _myEventsSearch = v),
               ),
-              const SizedBox(height: 12),
-              // Genre chips
+              const SizedBox(height: 14),
               SizedBox(
                 height: 38,
                 child: ListView(
@@ -1306,7 +1521,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         labelStyle: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: isActive ? Colors.white : AppTheme.textPrimary,
+                          color:
+                              isActive ? Colors.white : AppTheme.textPrimary,
                         ),
                       ),
                     );
@@ -1328,7 +1544,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         height: 80,
                         decoration: BoxDecoration(
                           color: AppTheme.surfaceColor,
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: BorderRadius.circular(22),
                         ),
                         child: const Icon(Icons.bookmark_outline_rounded,
                             size: 40, color: AppTheme.textSecondary),
@@ -1336,22 +1552,25 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(height: 16),
                       Text(
                         _myEvents.isEmpty ? 'No events yet' : 'No matches',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.w700),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 6),
                       Text(
                         _myEvents.isEmpty
                             ? 'Events you register for will appear here'
                             : 'Try a different search term',
-                        style: TextStyle(color: AppTheme.textSecondary),
+                        style: TextStyle(
+                            color: AppTheme.textSecondary, fontSize: 14),
                       ),
                     ],
                   ),
                 )
               : RefreshIndicator(
+                  color: AppTheme.primaryColor,
                   onRefresh: _loadMyEvents,
                   child: ListView.builder(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
                     itemCount: filtered.length,
                     itemBuilder: (context, index) {
                       final event = filtered[index];
@@ -1367,40 +1586,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
         ),
       ],
-    );
-  }
-
-  SliverPadding _buildMyEventsGrid() {
-    final events = context.watch<EventProvider>();
-    if (events.isLoading) {
-      return SliverPadding(
-        padding: const EdgeInsets.all(40),
-        sliver: const SliverToBoxAdapter(
-          child: Center(
-              child: CircularProgressIndicator(color: AppTheme.primaryColor)),
-        ),
-      );
-    }
-    return SliverPadding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      sliver: SliverGrid(
-        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-          maxCrossAxisExtent: 340,
-          mainAxisExtent: 240,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-        ),
-        delegate: SliverChildBuilderDelegate(
-          (context, index) {
-            final event = events.events[index];
-            return _UberEventCard(
-              event: event,
-              onTap: () => context.push('/events/${event.id}'),
-            );
-          },
-          childCount: events.events.length,
-        ),
-      ),
     );
   }
 

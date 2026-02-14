@@ -48,9 +48,11 @@ async def map_events(
     radius_km: float | None = Query(None),
     city: str | None = Query(None, description="e.g. Ottawa"),
     live: bool | None = Query(None, description="Only events currently live"),
+    organizer_id: int | None = Query(None, description="Filter to a specific organizer's events"),
 ):
-    """Events for map view: by bbox/radius or city. Optionally filter by live."""
+    """Events for map view: by bbox/radius or city. Optionally filter by live or organizer."""
     events = await event_service.list_events_for_map(
-        db, city=city, live=live, lat=lat, lng=lng, radius_km=radius_km
+        db, city=city, live=live, lat=lat, lng=lng, radius_km=radius_km,
+        organizer_id=organizer_id,
     )
     return [_event_to_marker(e) for e in events if e.lat is not None and e.lng is not None]

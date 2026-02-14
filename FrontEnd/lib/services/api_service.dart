@@ -159,6 +159,7 @@ class ApiService {
     double? radiusKm,
     String? city,
     bool? live,
+    int? organizerId,
   }) async {
     final params = <String, dynamic>{};
     if (lat != null) params['lat'] = lat;
@@ -166,6 +167,7 @@ class ApiService {
     if (radiusKm != null) params['radius_km'] = radiusKm;
     if (city != null) params['city'] = city;
     if (live != null) params['live'] = live;
+    if (organizerId != null) params['organizer_id'] = organizerId;
     final resp = await dio.get('/events/map', queryParameters: params);
     return resp.data;
   }

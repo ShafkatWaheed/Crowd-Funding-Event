@@ -21,10 +21,14 @@ class EventMapWidget extends StatefulWidget {
   /// Optional initial zoom.
   final double initialZoom;
 
+  /// If provided, only show this organizer's events on the map.
+  final int? organizerId;
+
   const EventMapWidget({
     super.key,
     this.initialCenter,
     this.initialZoom = 12.0,
+    this.organizerId,
   });
 
   @override
@@ -71,6 +75,7 @@ class _EventMapWidgetState extends State<EventMapWidget> {
         lat: center.latitude,
         lng: center.longitude,
         radiusKm: radiusKm,
+        organizerId: widget.organizerId,
       );
       if (mounted) {
         setState(() {

@@ -357,15 +357,29 @@ async def update_event(
     """
     Update event (main organizer, co-organizer, or admin).
     - Draft events: edit freely, stays draft.
-    - Approved/live events: edit moves status to pending_approval (needs admin re-approval).
+    - Approved/live events: substantive edits (title, description, dates, funding,
+      registration type, genre, community rules) move status to pending_approval.
+    - Operational changes (venue, max_capacity, ticket_strategy, posts, discounts,
+      refund_deadline) are always allowed without re-approval.
     - Admin edits always apply without status change.
     """
     event = await event_service.get_or_404(db, event_id)
     if not await event_service.user_can_edit_event(db, event, current_user):
         raise ForbiddenError("You cannot update this event")
 
+    # Fields that require admin re-approval when changed on an approved/live event
+    _SUBSTANTIVE_FIELDS = {
+        "title", "description", "start_time", "end_time",
+        "funding_goal_cents", "funding_end_at", "min_pledge_cents",
+        "registration_type", "genre", "community_rules",
+        "common_discount_percent", "pledge_discount_percent",
+    }
+    body_data = body.model_dump(exclude_unset=True)
+    has_substantive_change = bool(_SUBSTANTIVE_FIELDS & body_data.keys())
+
     needs_approval = (
-        event.status in (EventStatus.approved, EventStatus.live)
+        has_substantive_change
+        and event.status in (EventStatus.approved, EventStatus.waiting_event_date)
         and current_user.role != UserRole.admin
     )
 

@@ -158,12 +158,15 @@ async def publish_event(db: AsyncSession, event_id: int, user: User) -> Event:
     """
     Publish a draft event (draft → approved). No admin approval needed.
     Only the organizer (or admin) can publish; event must be in draft status.
+    At least one of funding_end_at or start_time must be set.
     """
     event = await get_or_404(db, event_id)
     if not await user_can_edit_event(db, event, user):
         raise ForbiddenError("You cannot publish this event")
     if event.status != EventStatus.draft:
         raise ConflictError("Only draft events can be published")
+    if event.start_time is None and event.funding_end_at is None:
+        raise ConflictError("Set at least one of event date or funding deadline before publishing")
     event.status = EventStatus.approved
     await db.flush()
     await db.refresh(event)
@@ -533,22 +536,30 @@ async def update(
                     f"(20% of {funding_duration_days}-day funding period)"
                 )
         event.refund_deadline_days = refund_deadline_days
-    if ticket_strategy_id is not None and ticket_strategy_id != event.ticket_strategy_id:
-        event.ticket_strategy_id = ticket_strategy_id
-        # Re-copy tiers from strategy (delete old TicketTiers first, only if no sales)
+    if ticket_strategy_id is not None:
         from app.models.ticket import TicketTier, TicketSale
-        existing_sales = (await db.execute(
-            select(TicketSale).where(TicketSale.event_id == event.id).limit(1)
-        )).scalar_one_or_none()
-        if existing_sales is None:
-            existing_tiers = (await db.execute(
-                select(TicketTier).where(TicketTier.event_id == event.id)
-            )).scalars().all()
-            for t in existing_tiers:
-                await db.delete(t)
-            await db.flush()
-            from app.services import ticket_strategy as ts_service
-            await ts_service.apply_strategy_to_event(db, strategy_id=ticket_strategy_id, event_id=event.id)
+        strategy_changed = ticket_strategy_id != event.ticket_strategy_id
+        # Check if tiers are missing (e.g. manually deleted) even for the same strategy
+        tier_count = (await db.execute(
+            select(func.count()).where(TicketTier.event_id == event.id)
+        )).scalar_one()
+        tiers_missing = int(tier_count) == 0
+
+        if strategy_changed or tiers_missing:
+            event.ticket_strategy_id = ticket_strategy_id
+            # Re-copy tiers from strategy (delete old TicketTiers first, only if no sales)
+            existing_sales = (await db.execute(
+                select(TicketSale).where(TicketSale.event_id == event.id).limit(1)
+            )).scalar_one_or_none()
+            if existing_sales is None:
+                existing_tiers = (await db.execute(
+                    select(TicketTier).where(TicketTier.event_id == event.id)
+                )).scalars().all()
+                for t in existing_tiers:
+                    await db.delete(t)
+                await db.flush()
+                from app.services import ticket_strategy as ts_service
+                await ts_service.apply_strategy_to_event(db, strategy_id=ticket_strategy_id, event_id=event.id)
     # Validate dates if both are set
     if event.start_time is not None and event.end_time is not None and event.end_time <= event.start_time:
         raise ConflictError("end_time must be after start_time")

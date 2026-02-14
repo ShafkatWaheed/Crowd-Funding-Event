@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../services/api_service.dart';
 import '../../providers/event_provider.dart';
+import '../../widgets/app_toast.dart';
 
 class WaitlistScreen extends StatefulWidget {
   final int eventId;
@@ -74,21 +75,15 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
       final api = context.read<ApiService>();
       await api.decideRegistration(widget.eventId, regId, action);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(action == 'approve'
-                ? 'Registration approved!'
-                : 'Registration rejected.'),
-          ),
-        );
+        AppToast.success(context, action == 'approve'
+            ? 'Registration approved!'
+            : 'Registration rejected.');
         context.read<EventProvider>().loadEvent(widget.eventId);
         _load();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed: $e')),
-        );
+        AppToast.fromError(context, e, fallback: 'Failed to approve/reject registration');
       }
     }
   }

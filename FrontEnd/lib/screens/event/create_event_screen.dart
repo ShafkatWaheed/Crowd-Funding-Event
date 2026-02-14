@@ -6,6 +6,7 @@ import '../../config/theme.dart';
 import '../../models/venue.dart';
 import '../../models/ticket_strategy.dart';
 import '../../services/api_service.dart';
+import '../../widgets/app_toast.dart';
 
 class CreateEventScreen extends StatefulWidget {
   const CreateEventScreen({super.key});
@@ -201,20 +202,13 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   Future<void> _submit() async {
     // ── Date check first (before form validation) ──
     if (_startTime == null && _fundingEndAt == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text(
-                'Set at least one of: Event Date or Funding Deadline')),
-      );
+      AppToast.error(context, 'Set at least one of: Event Date or Funding Deadline');
       return;
     }
 
     // If start_time set, end_time must also be set
     if (_startTime != null && _endTime == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('End time is required when start time is set')),
-      );
+      AppToast.error(context, 'End time is required when start time is set');
       return;
     }
 
@@ -222,29 +216,19 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     if (_startTime != null &&
         _fundingEndAt != null &&
         !_startTime!.isAfter(_fundingEndAt!)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text(
-                'Event start time must be after the funding deadline')),
-      );
+      AppToast.error(context, 'Event start time must be after the funding deadline');
       return;
     }
 
     // If no funding, ticket strategy is required
     if (_fundingEndAt == null && _selectedStrategyId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text(
-                'Ticket strategy is required when no funding deadline is set')),
-      );
+      AppToast.error(context, 'Ticket strategy is required when no funding deadline is set');
       return;
     }
 
     if (!_formKey.currentState!.validate()) return;
     if (_selectedVenueId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a venue')),
-      );
+      AppToast.error(context, 'Please select a venue');
       return;
     }
 
@@ -318,9 +302,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         _venueAddressCtrl.text.trim().isEmpty ||
         _venueCityCtrl.text.trim().isEmpty ||
         _venueCapacityCtrl.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill in all venue fields')),
-      );
+      AppToast.error(context, 'Please fill in all venue fields');
       return;
     }
 
@@ -350,15 +332,11 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       });
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Venue created and selected!')),
-        );
+        AppToast.success(context, 'Venue created and selected!');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to create venue: $e')),
-        );
+        AppToast.fromError(context, e, fallback: 'Failed to create venue');
       }
     }
 
@@ -373,16 +351,12 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
   Future<void> _createStrategyInline() async {
     if (_strategyNameCtrl.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a strategy name')),
-      );
+      AppToast.error(context, 'Please enter a strategy name');
       return;
     }
     for (final t in _strategyTiers) {
       if (t.nameCtrl.text.trim().isEmpty || t.priceCtrl.text.trim().isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('All tier fields must be filled')),
-        );
+        AppToast.error(context, 'All tier fields must be filled');
         return;
       }
     }
@@ -420,15 +394,11 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       });
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Ticket strategy created and selected!')),
-        );
+        AppToast.success(context, 'Ticket strategy created and selected!');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed: $e')),
-        );
+        AppToast.fromError(context, e, fallback: 'Failed to create ticket strategy');
       }
     }
 

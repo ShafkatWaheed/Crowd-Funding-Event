@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
+import '../../widgets/app_toast.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 
@@ -43,9 +44,7 @@ class _CoOrganizerScreenState extends State<CoOrganizerScreen> {
     } catch (e) {
       setState(() => _loading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        AppToast.fromError(context, e, fallback: 'Failed to load organizers');
       }
     }
   }
@@ -53,9 +52,7 @@ class _CoOrganizerScreenState extends State<CoOrganizerScreen> {
   Future<void> _addOrganizer() async {
     final id = int.tryParse(_userIdCtrl.text.trim());
     if (id == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a valid user ID')),
-      );
+      AppToast.error(context, 'Enter a valid user ID');
       return;
     }
     try {
@@ -66,15 +63,11 @@ class _CoOrganizerScreenState extends State<CoOrganizerScreen> {
       _userIdCtrl.clear();
       _load();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Co-organizer added')),
-        );
+        AppToast.success(context, 'Co-organizer added');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        AppToast.fromError(context, e, fallback: 'Failed to add co-organizer');
       }
     }
   }
@@ -101,9 +94,7 @@ class _CoOrganizerScreenState extends State<CoOrganizerScreen> {
       _load();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        AppToast.fromError(context, e, fallback: 'Failed to remove co-organizer');
       }
     }
   }

@@ -8,10 +8,15 @@ import '../../config/theme.dart';
 import '../../models/event.dart';
 import '../../models/post.dart';
 import '../../models/event_image.dart';
+import '../../models/venue.dart';
+import '../../models/ticket_strategy.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/event_provider.dart';
 import '../../widgets/event_lifecycle_bar.dart';
+import '../../widgets/app_toast.dart';
 import '../../services/api_service.dart';
+import 'venue_picker_screen.dart';
+import 'strategy_picker_screen.dart';
 
 class EventDetailScreen extends StatefulWidget {
   final int eventId;
@@ -89,11 +94,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
         context.read<EventProvider>().loadEvent(widget.eventId);
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to toggle posts: $e')),
-        );
-      }
+      if (mounted) AppToast.fromError(context, e, fallback: 'Failed to toggle posts');
     }
   }
 
@@ -587,10 +588,16 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                     icon: Icons.publish_rounded,
                                     color: AppTheme.primaryColor,
                                     title: 'Ready to publish?',
-                                    subtitle: 'Submit your event for approval.',
+                                    subtitle: event.startTime == null && event.fundingEndAt == null
+                                        ? 'Set an event date or funding deadline first.'
+                                        : 'Submit your event for review.',
                                     buttonLabel: 'Publish Event',
+                                    buttonEnabled: event.startTime != null || event.fundingEndAt != null,
                                     onPressed: () async {
-                                      await eventProvider.publishEvent(event.id);
+                                      final ok = await eventProvider.publishEvent(event.id);
+                                      if (!ok && mounted) {
+                                        AppToast.error(context, eventProvider.error ?? 'Failed to publish');
+                                      }
                                     },
                                   ),
 
@@ -907,9 +914,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 _loadImages();
               } catch (e) {
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Failed: $e')),
-                  );
+                  AppToast.fromError(context, e, fallback: 'Image upload failed');
                 }
               }
             },
@@ -1263,9 +1268,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       final tiers = (tiersData.data as List);
       if (tiers.isEmpty) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('No ticket tiers available for this event')),
-          );
+          AppToast.error(context, 'No ticket tiers available for this event');
         }
         return;
       }
@@ -1402,9 +1405,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load tiers: $e')),
-        );
+        AppToast.fromError(context, e, fallback: 'Failed to load tiers');
       }
     }
   }
@@ -1420,27 +1421,18 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       final isFree = amountPaid == 0;
       if (mounted) {
         if (status == 'waitlisted') {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Event/tier is at capacity — you have been added to the ticket waitlist.'),
-              duration: Duration(seconds: 4),
-            ),
-          );
+          AppToast.success(context, 'Event/tier is at capacity — you have been added to the ticket waitlist.');
         } else {
           final priceStr = isFree
               ? 'Free ticket'
               : 'Paid \$${(amountPaid / 100).toStringAsFixed(2)}'
                 '${commission > 0 ? ' (incl. \$${(commission / 100).toStringAsFixed(2)} platform fee)' : ''}';
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('$priceStr — Code: $ticketCode')),
-          );
+          AppToast.success(context, '$priceStr — Code: $ticketCode');
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Purchase failed: $e')),
-        );
+        AppToast.fromError(context, e, fallback: 'Purchase failed');
       }
     }
   }
@@ -1475,7 +1467,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       case EventStatus.draft:
         return 'DRAFT';
       case EventStatus.pending_approval:
-        return 'UNPUBLISHED';
+        return 'UNDER REVIEW';
       case EventStatus.approved:
         return 'PUBLISHED';
       case EventStatus.selling_tickets:
@@ -1518,15 +1510,11 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       final data = await api.cloneEvent(eventId);
       if (!mounted) return;
       final newId = data['id'];
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Event cloned as draft! Redirecting to edit...')),
-      );
+      AppToast.success(context, 'Event cloned as draft! Redirecting to edit...');
       context.push('/events/$newId/edit');
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Clone failed: $e')),
-      );
+      AppToast.fromError(context, e, fallback: 'Clone failed');
     }
   }
 
@@ -1551,96 +1539,57 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     if (confirmed == true && mounted) {
       final ok = await eventProvider.startSellingTickets(event.id);
       if (ok && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Tickets are now on sale!')),
-        );
+        AppToast.success(context, 'Tickets are now on sale!');
       } else if (!ok && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(eventProvider.error ?? 'Failed to start selling tickets')),
-        );
+        AppToast.error(context, eventProvider.error ?? 'Failed to start selling tickets');
       }
     }
   }
 
   Future<void> _selectVenueForEvent(BuildContext context, Event event) async {
-    final api = context.read<ApiService>();
-    final eventProvider = context.read<EventProvider>();
-    try {
-      final venues = await api.getVenues();
-      if (!mounted) return;
-      final selected = await showDialog<Map<String, dynamic>>(
-        context: context,
-        builder: (ctx) => SimpleDialog(
-          title: const Text('Select Venue'),
-          children: venues
-              .map<SimpleDialogOption>((v) => SimpleDialogOption(
-                    onPressed: () => Navigator.pop(ctx, v),
-                    child: ListTile(
-                      leading: const Icon(Icons.location_on_rounded),
-                      title: Text(v['name'] ?? ''),
-                      subtitle: Text(
-                          'Capacity: ${v['max_capacity'] ?? 'N/A'}',
-                          style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                      selected: v['id'] == event.venueId,
-                    ),
-                  ))
-              .toList(),
-        ),
-      );
-      if (selected != null && mounted) {
-        await api.updateEvent(event.id, {'venue_id': selected['id']});
+    final selected = await Navigator.push<Venue>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => VenuePickerScreen(currentVenueId: event.venueId),
+      ),
+    );
+    if (selected != null && mounted) {
+      try {
+        final api = context.read<ApiService>();
+        final eventProvider = context.read<EventProvider>();
+        await api.updateEvent(event.id, {'venue_id': selected.id});
         await eventProvider.loadEvent(event.id);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Venue changed to ${selected['name']}')),
-          );
+          AppToast.success(context, 'Venue changed to ${selected.name}');
         }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed: $e')),
-        );
+      } catch (e) {
+        if (mounted) {
+          AppToast.fromError(context, e, fallback: 'Failed to change venue');
+        }
       }
     }
   }
 
   Future<void> _selectStrategyForEvent(BuildContext context, Event event) async {
-    final api = context.read<ApiService>();
-    final eventProvider = context.read<EventProvider>();
-    try {
-      final strategies = await api.getTicketStrategies();
-      if (!mounted) return;
-      final selected = await showDialog<Map<String, dynamic>>(
-        context: context,
-        builder: (ctx) => SimpleDialog(
-          title: const Text('Select Ticket Strategy'),
-          children: strategies
-              .map<SimpleDialogOption>((s) => SimpleDialogOption(
-                    onPressed: () => Navigator.pop(ctx, s),
-                    child: ListTile(
-                      leading: const Icon(Icons.confirmation_number_rounded),
-                      title: Text(s['name'] ?? ''),
-                      selected: s['id'] == event.ticketStrategyId,
-                    ),
-                  ))
-              .toList(),
-        ),
-      );
-      if (selected != null && mounted) {
-        await api.updateEvent(event.id, {'ticket_strategy_id': selected['id']});
+    final selected = await Navigator.push<TicketStrategy>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => StrategyPickerScreen(currentStrategyId: event.ticketStrategyId),
+      ),
+    );
+    if (selected != null && mounted) {
+      try {
+        final api = context.read<ApiService>();
+        final eventProvider = context.read<EventProvider>();
+        await api.updateEvent(event.id, {'ticket_strategy_id': selected.id});
         await eventProvider.loadEvent(event.id);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Ticket strategy set to ${selected['name']}')),
-          );
+          AppToast.success(context, 'Strategy changed to ${selected.name}');
         }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed: $e')),
-        );
+      } catch (e) {
+        if (mounted) {
+          AppToast.fromError(context, e, fallback: 'Failed to change strategy');
+        }
       }
     }
   }
@@ -1683,24 +1632,18 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     if (confirmed == true && mounted) {
       final val = int.tryParse(controller.text);
       if (val == null || val <= 0) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Enter a valid number.')),
-        );
+        AppToast.error(context, 'Enter a valid number.');
         return;
       }
       try {
         await api.updateEvent(event.id, {'max_capacity': val});
         await eventProvider.loadEvent(event.id);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Capacity updated to $val')),
-          );
+          AppToast.success(context, 'Capacity updated to $val');
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed: $e')),
-          );
+          AppToast.fromError(context, e, fallback: 'Failed to update capacity');
         }
       }
     }
@@ -1748,15 +1691,11 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       await _checkRegistration();
       if (context.mounted) {
         context.read<EventProvider>().loadEvent(widget.eventId);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Registered successfully!')),
-        );
+        AppToast.success(context, 'Registered successfully!');
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Registration failed: $e')),
-        );
+        AppToast.fromError(context, e, fallback: 'Registration failed');
       }
     }
     setState(() => _regLoading = false);
@@ -1825,15 +1764,11 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
         } else {
           msg = 'Unregistered successfully.';
         }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(msg)),
-        );
+        AppToast.success(context, msg);
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Unregister failed: $e')),
-        );
+        AppToast.fromError(context, e, fallback: 'Unregister failed');
       }
     }
     setState(() => _regLoading = false);
@@ -1886,9 +1821,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       final msg = await eventProvider.cancelEvent(eventId,
           reason: reasonCtrl.text.trim());
       if (context.mounted && msg != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(msg)),
-        );
+        AppToast.success(context, msg);
       }
     }
   }
@@ -1943,12 +1876,11 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       final msg = await eventProvider.cancelEvent(eventId,
           reason: reasonCtrl.text.trim());
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(msg ?? 'Failed to send cancellation request.'),
-            backgroundColor: msg != null ? AppTheme.successColor : AppTheme.errorColor,
-          ),
-        );
+        if (msg != null) {
+          AppToast.success(context, msg);
+        } else {
+          AppToast.error(context, 'Failed to send cancellation request.');
+        }
       }
     }
   }
@@ -1961,12 +1893,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
     await Clipboard.setData(ClipboardData(text: shareText));
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Event link copied to clipboard!'),
-          duration: Duration(seconds: 2),
-        ),
-      );
+      AppToast.success(context, 'Event link copied to clipboard!');
     }
   }
 
@@ -1981,16 +1908,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     final url = api.calendarUrl(event.id);
     await Clipboard.setData(ClipboardData(text: url));
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Calendar link copied! Paste in browser to download .ics file.'),
-          action: SnackBarAction(
-            label: 'OK',
-            onPressed: () {},
-          ),
-          duration: const Duration(seconds: 4),
-        ),
-      );
+      AppToast.success(context, 'Calendar link copied! Paste in browser to download .ics file.');
     }
   }
 
@@ -2313,16 +2231,12 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     try {
       await ApiService().decideExtension(eventId, action);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Extension ${action}d')),
-        );
+        AppToast.success(context, 'Extension ${action}d');
         context.read<EventProvider>().loadEvent(eventId);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        AppToast.fromError(context, e, fallback: 'Extension decision failed');
       }
     }
   }
@@ -2444,16 +2358,12 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     try {
       await context.read<ApiService>().extendFunding(event.id, result);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Extension request submitted for admin approval')),
-        );
+        AppToast.success(context, 'Extension request submitted for admin approval');
         context.read<EventProvider>().loadEvent(event.id);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        AppToast.fromError(context, e, fallback: 'Failed to request extension');
       }
     }
   }
@@ -2625,16 +2535,12 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     try {
       await api.setEventDate(event.id, result);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Event date set!')),
-        );
+        AppToast.success(context, 'Event date set!');
         context.read<EventProvider>().loadEvent(event.id);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        AppToast.fromError(context, e, fallback: 'Failed to set event date');
       }
     }
   }
@@ -2789,9 +2695,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 if (ctx.mounted) Navigator.pop(ctx, true);
               } catch (e) {
                 if (ctx.mounted) {
-                  ScaffoldMessenger.of(ctx).showSnackBar(
-                    SnackBar(content: Text('Failed: $e')),
-                  );
+                  AppToast.fromError(ctx, e, fallback: 'Failed to update tier');
                 }
               }
             },
@@ -2802,9 +2706,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     );
     if (saved == true && mounted) {
       setState(() {});
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Tier updated!')),
-      );
+      AppToast.success(context, 'Tier updated!');
     }
   }
 
@@ -2835,15 +2737,11 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
         await api.deleteTicketTier(eventId, tierId);
         if (mounted) {
           setState(() {});
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Tier deleted.')),
-          );
+          AppToast.success(context, 'Tier deleted.');
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed: $e')),
-          );
+          AppToast.fromError(context, e, fallback: 'Failed to delete tier');
         }
       }
     }
@@ -3231,9 +3129,7 @@ class _EventDiscountDropdownState extends State<_EventDiscountDropdown> {
       await _load();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to attach: $e')),
-        );
+        AppToast.fromError(context, e, fallback: 'Failed to attach');
       }
     }
   }
@@ -3244,9 +3140,7 @@ class _EventDiscountDropdownState extends State<_EventDiscountDropdown> {
       await _load();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to detach: $e')),
-        );
+        AppToast.fromError(context, e, fallback: 'Failed to detach');
       }
     }
   }
@@ -3770,9 +3664,7 @@ class _ReactionBarState extends State<_ReactionBar> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed: $e')),
-        );
+        AppToast.fromError(context, e, fallback: 'Reaction failed');
       }
     }
     if (mounted) setState(() => _reacting = false);
@@ -3995,21 +3887,15 @@ class _FundingCardState extends State<_FundingCard> {
                 if (ctx.mounted) Navigator.pop(ctx);
                 if (context.mounted) {
                   final isGuest = result['is_guest'] == true;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(isGuest
-                          ? 'Guest pledge of \$${amount.toStringAsFixed(2)} (non-refundable)'
-                          : 'Pledged \$${amount.toStringAsFixed(2)}!'),
-                    ),
-                  );
+                  AppToast.success(context, isGuest
+                      ? 'Guest pledge of \$${amount.toStringAsFixed(2)} (non-refundable)'
+                      : 'Pledged \$${amount.toStringAsFixed(2)}!');
                   // Refresh only this card
                   _loadFunding();
                 }
               } catch (e) {
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Pledge failed: $e')),
-                  );
+                  AppToast.fromError(context, e, fallback: 'Pledge failed');
                 }
               }
             },
@@ -4053,17 +3939,13 @@ class _FundingCardState extends State<_FundingCard> {
             msg +=
                 ' (\$${(guest / 100).toStringAsFixed(2)} guest pledges non-refundable)';
           }
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(msg)),
-          );
+          AppToast.success(context, msg);
           // Refresh only this card
           _loadFunding();
         }
       } catch (e) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Unpledge failed: $e')),
-          );
+          AppToast.fromError(context, e, fallback: 'Unpledge failed');
         }
       }
     }
@@ -4441,9 +4323,7 @@ class _EventFeedState extends State<_EventFeed> {
             ),
           );
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to post: $e')),
-          );
+          AppToast.fromError(context, e, fallback: 'Failed to post');
         }
       }
     }
@@ -4457,9 +4337,7 @@ class _EventFeedState extends State<_EventFeed> {
       await _loadPosts();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to delete post: $e')),
-        );
+        AppToast.fromError(context, e, fallback: 'Failed to delete post');
       }
     }
   }

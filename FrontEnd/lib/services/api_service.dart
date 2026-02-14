@@ -6,6 +6,35 @@ import '../config/api_config.dart';
 class ApiService {
   late final Dio dio;
 
+  /// Extract a human-readable error message from any exception.
+  /// Pulls the FastAPI `detail` field from DioException responses.
+  static String extractError(Object e, {String fallback = 'Something went wrong'}) {
+    if (e is DioException) {
+      final data = e.response?.data;
+      if (data is Map && data.containsKey('detail')) {
+        final detail = data['detail'];
+        if (detail is String) return detail;
+        if (detail is List && detail.isNotEmpty) {
+          // Pydantic validation errors: [{msg: "...", loc: [...]}]
+          return detail.map((d) => d['msg'] ?? d.toString()).join('; ');
+        }
+        return detail.toString();
+      }
+      if (e.response?.statusCode == 401) return 'Session expired. Please log in again.';
+      if (e.response?.statusCode == 403) return 'You don\'t have permission for this action.';
+      if (e.response?.statusCode == 404) return 'Not found.';
+      if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.receiveTimeout) {
+        return 'Server is taking too long. Please try again.';
+      }
+      if (e.type == DioExceptionType.connectionError) {
+        return 'Could not connect to server. Check your internet.';
+      }
+    }
+    final msg = e.toString().replaceFirst('Exception: ', '');
+    return msg.length > 200 ? fallback : msg;
+  }
+
   ApiService() {
     dio = Dio(BaseOptions(
       baseUrl: ApiConfig.apiUrl,

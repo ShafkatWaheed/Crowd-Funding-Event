@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
+import '../../widgets/app_toast.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -91,11 +92,7 @@ class ProfileScreen extends StatelessWidget {
                                 title: const Text('My Pledges'),
                                 trailing: const Icon(Icons.chevron_right),
                                 onTap: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                        content:
-                                            Text('Coming soon')),
-                                  );
+                                  AppToast.info(context, 'Coming soon');
                                 },
                               ),
                               const Divider(height: 1),
@@ -104,11 +101,7 @@ class ProfileScreen extends StatelessWidget {
                                 title: const Text('My Tickets'),
                                 trailing: const Icon(Icons.chevron_right),
                                 onTap: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                        content:
-                                            Text('Coming soon')),
-                                  );
+                                  AppToast.info(context, 'Coming soon');
                                 },
                               ),
                               const Divider(height: 1),

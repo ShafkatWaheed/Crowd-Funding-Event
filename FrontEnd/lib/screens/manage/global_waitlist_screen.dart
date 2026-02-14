@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
 import '../../services/api_service.dart';
+import '../../widgets/app_toast.dart';
 
 /// Shows waitlisted registrations across ALL organiser events.
 class GlobalWaitlistScreen extends StatefulWidget {
@@ -92,20 +93,14 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
       final api = context.read<ApiService>();
       await api.decideRegistration(eventId, regId, action);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(action == 'approve'
-                ? 'Registration approved!'
-                : 'Registration rejected.'),
-          ),
-        );
+        AppToast.success(context, action == 'approve'
+            ? 'Registration approved!'
+            : 'Registration rejected.');
         _load();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed: $e')),
-        );
+        AppToast.fromError(context, e, fallback: 'Failed to update registration');
       }
     }
   }

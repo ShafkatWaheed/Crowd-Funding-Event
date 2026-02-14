@@ -15,6 +15,7 @@ class EventProvider extends ChangeNotifier {
 
   List<Event> get events => _events;
   Event? get selectedEvent => _selectedEvent;
+  Event? get event => _selectedEvent;
   bool get isLoading => _isLoading;
   String? get error => _error;
 
@@ -27,7 +28,7 @@ class EventProvider extends ChangeNotifier {
       final data = await _api.getEvents(params: filters);
       _events = data.map((e) => Event.fromJson(e)).toList();
     } catch (e) {
-      _error = 'Failed to load events.';
+      _error = ApiService.extractError(e, fallback: 'Failed to load events.');
     }
 
     _isLoading = false;
@@ -43,7 +44,7 @@ class EventProvider extends ChangeNotifier {
       final data = await _api.getEvent(id);
       _selectedEvent = Event.fromJson(data);
     } catch (e) {
-      _error = 'Failed to load event details.';
+      _error = ApiService.extractError(e, fallback: 'Failed to load event details.');
     }
 
     _isLoading = false;
@@ -56,7 +57,7 @@ class EventProvider extends ChangeNotifier {
       await loadEvents();
       return true;
     } catch (e) {
-      _error = 'Failed to create event.';
+      _error = ApiService.extractError(e, fallback: 'Failed to create event.');
       notifyListeners();
       return false;
     }
@@ -68,7 +69,7 @@ class EventProvider extends ChangeNotifier {
       await loadEvent(id);
       return true;
     } catch (e) {
-      _error = 'Failed to publish event.';
+      _error = ApiService.extractError(e, fallback: 'Failed to publish event.');
       notifyListeners();
       return false;
     }
@@ -89,11 +90,11 @@ class EventProvider extends ChangeNotifier {
         await loadEvent(id);
         return msg;
       }
-      _error = msg ?? 'Failed to cancel event.';
+      _error = msg ?? ApiService.extractError(e, fallback: 'Failed to cancel event.');
       notifyListeners();
       return null;
     } catch (e) {
-      _error = 'Failed to cancel event.';
+      _error = ApiService.extractError(e, fallback: 'Failed to cancel event.');
       notifyListeners();
       return null;
     }
@@ -105,7 +106,7 @@ class EventProvider extends ChangeNotifier {
       await loadEvent(id);
       return true;
     } catch (e) {
-      _error = 'Failed to reactivate event.';
+      _error = ApiService.extractError(e, fallback: 'Failed to reactivate event.');
       notifyListeners();
       return false;
     }
@@ -117,7 +118,7 @@ class EventProvider extends ChangeNotifier {
       await loadEvent(id);
       return true;
     } catch (e) {
-      _error = 'Failed to start selling tickets.';
+      _error = ApiService.extractError(e, fallback: 'Failed to start selling tickets.');
       notifyListeners();
       return false;
     }
@@ -130,7 +131,7 @@ class EventProvider extends ChangeNotifier {
       await loadEvents();
       return true;
     } catch (e) {
-      _error = 'Failed to delete event.';
+      _error = ApiService.extractError(e, fallback: 'Failed to delete event.');
       notifyListeners();
       return false;
     }

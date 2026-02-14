@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../services/api_service.dart';
 import '../../providers/event_provider.dart';
+import '../../widgets/app_toast.dart';
 
 class TicketWaitlistScreen extends StatefulWidget {
   final int eventId;
@@ -73,17 +74,13 @@ class _TicketWaitlistScreenState extends State<TicketWaitlistScreen> {
       final api = context.read<ApiService>();
       await api.approveWaitlistedTicket(widget.eventId, ticketId);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Ticket approved!')),
-        );
+        AppToast.success(context, 'Ticket approved!');
         context.read<EventProvider>().loadEvent(widget.eventId);
         _load();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed: $e')),
-        );
+        AppToast.fromError(context, e, fallback: 'Failed to approve ticket');
       }
     }
   }
@@ -93,17 +90,13 @@ class _TicketWaitlistScreenState extends State<TicketWaitlistScreen> {
       final api = context.read<ApiService>();
       await api.rejectWaitlistedTicket(widget.eventId, ticketId);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Ticket rejected.')),
-        );
+        AppToast.success(context, 'Ticket rejected.');
         context.read<EventProvider>().loadEvent(widget.eventId);
         _load();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed: $e')),
-        );
+        AppToast.fromError(context, e, fallback: 'Failed to reject ticket');
       }
     }
   }

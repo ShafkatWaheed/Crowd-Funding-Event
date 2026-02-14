@@ -9,6 +9,7 @@ import '../../models/venue.dart';
 import '../../models/ticket_strategy.dart';
 import '../../providers/event_provider.dart';
 import '../../services/api_service.dart';
+import '../../widgets/app_toast.dart';
 
 class EditEventScreen extends StatefulWidget {
   final int eventId;
@@ -107,9 +108,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load event: $e')),
-        );
+        AppToast.fromError(context, e, fallback: 'Failed to load event');
         setState(() => _loadingEvent = false);
       }
     }
@@ -161,24 +160,15 @@ class _EditEventScreenState extends State<EditEventScreen> {
         final newStatus = updated['status'];
         context.read<EventProvider>().loadEvent(widget.eventId);
         if (newStatus == 'pending_approval') {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                  'Event updated! It now needs admin approval before going live again.'),
-            ),
-          );
+          AppToast.success(context, 'Event updated! It now needs admin approval before going live again.');
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Event updated!')),
-          );
+          AppToast.success(context, 'Event updated!');
         }
         context.go('/events/${widget.eventId}');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Update failed: $e')),
-        );
+        AppToast.fromError(context, e, fallback: 'Update failed');
       }
     }
     setState(() => _isLoading = false);

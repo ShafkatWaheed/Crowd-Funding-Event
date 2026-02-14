@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../config/theme.dart';
 import '../../services/api_service.dart';
+import '../../widgets/app_toast.dart';
 
 /// Customer-facing page where they can search, view, and claim
 /// non-auto-apply discounts that the organizer added to an event.
@@ -44,15 +45,11 @@ class _ClaimDiscountsScreenState extends State<ClaimDiscountsScreen> {
       await _api.claimDiscount(widget.eventId, linkId);
       await _load();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Discount claimed!')),
-        );
+        AppToast.success(context, 'Discount claimed!');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed: $e')),
-        );
+        AppToast.fromError(context, e, fallback: 'Failed to claim discount');
       }
     }
   }
@@ -62,15 +59,11 @@ class _ClaimDiscountsScreenState extends State<ClaimDiscountsScreen> {
       await _api.unclaimDiscount(widget.eventId, linkId);
       await _load();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Discount removed')),
-        );
+        AppToast.success(context, 'Discount removed');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed: $e')),
-        );
+        AppToast.fromError(context, e, fallback: 'Failed to remove discount');
       }
     }
   }

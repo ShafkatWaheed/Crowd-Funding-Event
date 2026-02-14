@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
+import '../../widgets/app_toast.dart';
 import '../../services/api_service.dart';
 
 class CreateVenueScreen extends StatefulWidget {
@@ -51,9 +52,7 @@ class _CreateVenueScreenState extends State<CreateVenueScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to create venue: $e')),
-        );
+        AppToast.fromError(context, e, fallback: 'Failed to create venue');
       }
     }
 

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
 import '../../services/api_service.dart';
+import '../../widgets/app_toast.dart';
 
 class GlobalDiscountsScreen extends StatefulWidget {
   const GlobalDiscountsScreen({super.key});
@@ -48,9 +49,7 @@ class _GlobalDiscountsScreenState extends State<GlobalDiscountsScreen> {
     final name = _nameCtrl.text.trim();
     final value = int.tryParse(_valueCtrl.text.trim());
     if (name.isEmpty || value == null || value <= 0 || value > 100) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a name and percentage (1-100)')),
-      );
+      AppToast.info(context, 'Enter a name and percentage (1-100)');
       return;
     }
     try {
@@ -64,15 +63,11 @@ class _GlobalDiscountsScreenState extends State<GlobalDiscountsScreen> {
       _valueCtrl.clear();
       _load();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Discount created')),
-        );
+        AppToast.success(context, 'Discount created');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        AppToast.fromError(context, e, fallback: 'Failed to create discount');
       }
     }
   }
@@ -83,9 +78,7 @@ class _GlobalDiscountsScreenState extends State<GlobalDiscountsScreen> {
       _load();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        AppToast.fromError(context, e, fallback: 'Failed to delete discount');
       }
     }
   }

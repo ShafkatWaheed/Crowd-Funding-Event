@@ -8,6 +8,7 @@ import '../../models/event.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/event_provider.dart';
 import '../../services/api_service.dart';
+import '../../widgets/app_toast.dart';
 import '../../widgets/event_lifecycle_bar.dart';
 
 String _statusDisplayName(EventStatus s) {
@@ -15,7 +16,7 @@ String _statusDisplayName(EventStatus s) {
     case EventStatus.draft:
       return 'Draft';
     case EventStatus.pending_approval:
-      return 'Unpublished';
+      return 'Under Review';
     case EventStatus.approved:
       return 'Published';
     case EventStatus.selling_tickets:
@@ -1402,21 +1403,17 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const Divider(height: 1, indent: 56),
                       if (user.isCustomer) ...[
-                        _profileTile(
-                          icon: Icons.volunteer_activism_rounded,
-                          label: 'My Pledges',
-                          onTap: () => ScaffoldMessenger.of(context)
-                              .showSnackBar(const SnackBar(
-                                  content: Text('Coming soon'))),
-                        ),
+_profileTile(
+                        icon: Icons.volunteer_activism_rounded,
+                        label: 'My Pledges',
+                        onTap: () => AppToast.info(context, 'Coming soon'),
+                      ),
                         const Divider(height: 1, indent: 56),
-                        _profileTile(
-                          icon: Icons.confirmation_number_rounded,
-                          label: 'My Tickets',
-                          onTap: () => ScaffoldMessenger.of(context)
-                              .showSnackBar(const SnackBar(
-                                  content: Text('Coming soon'))),
-                        ),
+_profileTile(
+                        icon: Icons.confirmation_number_rounded,
+                        label: 'My Tickets',
+                        onTap: () => AppToast.info(context, 'Coming soon'),
+                      ),
                         const Divider(height: 1, indent: 56),
                       ],
                     ],

@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
+import '../../widgets/app_toast.dart';
 import '../../models/ticket_strategy.dart';
 import '../../services/api_service.dart';
 
@@ -43,9 +44,7 @@ class _TicketStrategiesScreenState extends State<TicketStrategiesScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _loading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load: $e')),
-        );
+        AppToast.fromError(context, e, fallback: 'Failed to load');
       }
     }
   }
@@ -76,9 +75,7 @@ class _TicketStrategiesScreenState extends State<TicketStrategiesScreen> {
       _load();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Delete failed: $e')),
-        );
+        AppToast.fromError(context, e, fallback: 'Delete failed');
       }
     }
   }
@@ -311,16 +308,12 @@ class _CreateTicketStrategyScreenState
         'tiers': tiersData,
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Ticket strategy created!')),
-        );
+        AppToast.success(context, 'Ticket strategy created!');
         Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed: $e')),
-        );
+        AppToast.fromError(context, e, fallback: 'Failed');
       }
     }
     setState(() => _saving = false);

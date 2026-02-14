@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../models/venue.dart';
 import '../../services/api_service.dart';
+import '../../widgets/app_toast.dart';
 
 class VenueListScreen extends StatefulWidget {
   const VenueListScreen({super.key});
@@ -43,9 +44,7 @@ class _VenueListScreenState extends State<VenueListScreen> {
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load venues: $e')),
-        );
+        AppToast.fromError(context, e, fallback: 'Failed to load venues');
       }
     }
     setState(() => _isLoading = false);
@@ -71,9 +70,7 @@ class _VenueListScreenState extends State<VenueListScreen> {
       _loadVenues();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to delete venue: $e')),
-        );
+        AppToast.fromError(context, e, fallback: 'Failed to delete venue');
       }
     }
   }

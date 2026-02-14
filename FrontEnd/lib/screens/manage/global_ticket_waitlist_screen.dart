@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
 import '../../services/api_service.dart';
+import '../../widgets/app_toast.dart';
 
 /// Shows waitlisted tickets across ALL organiser events.
 class GlobalTicketWaitlistScreen extends StatefulWidget {
@@ -93,16 +94,12 @@ class _GlobalTicketWaitlistScreenState
       final api = context.read<ApiService>();
       await api.approveWaitlistedTicket(eventId, ticketId);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Ticket approved!')),
-        );
+        AppToast.success(context, 'Ticket approved!');
         _load();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed: $e')),
-        );
+        AppToast.fromError(context, e, fallback: 'Failed to approve ticket');
       }
     }
   }
@@ -112,16 +109,12 @@ class _GlobalTicketWaitlistScreenState
       final api = context.read<ApiService>();
       await api.rejectWaitlistedTicket(eventId, ticketId);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Ticket rejected.')),
-        );
+        AppToast.success(context, 'Ticket rejected.');
         _load();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed: $e')),
-        );
+        AppToast.fromError(context, e, fallback: 'Failed to reject ticket');
       }
     }
   }

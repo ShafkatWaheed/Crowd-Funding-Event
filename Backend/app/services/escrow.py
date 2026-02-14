@@ -47,7 +47,7 @@ async def refresh_total(db: AsyncSession, escrow: FundEscrow) -> FundEscrow:
 
 async def release_stage1(db: AsyncSession, *, event_id: int, released_by: str = "system") -> FundEscrow:
     """
-    Release Stage 1: 30% of total held.
+    Release Stage 1: 30% of total held (40% for trusted organizers with score > 0.8).
     Conditions: funding goal met + event date set + venue confirmed.
     """
     escrow = await get_or_create(db, event_id=event_id)
@@ -57,6 +57,14 @@ async def release_stage1(db: AsyncSession, *, event_id: int, released_by: str = 
         raise ConflictError("Escrow is frozen by admin")
 
     pct = await settings_svc.get_int(db, "escrow_stage1_percent")
+
+    # Trust score bump: organizers with score > 0.8 get 40% instead of default 30%
+    from app.services import event as event_svc
+    event = await event_svc.get_or_404(db, event_id)
+    trust = await event_svc.get_organizer_trust_score(db, organizer_id=event.organizer_id)
+    if trust["trust_score"] > 0.8 and pct < 40:
+        pct = 40
+
     amount = escrow.total_held_cents * pct // 100
     now = datetime.now(timezone.utc)
 

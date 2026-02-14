@@ -71,11 +71,21 @@ def _event_to_response(
     total_pledged_cents: int | None = None,
     funding_days_left: int | None = None,
     include_dislike: bool = False,
+    organizer_trust: dict | None = None,
 ) -> EventResponse:
     """Build response; e.venue must be loaded so everyone can see venue info when viewing an event."""
+    from app.schemas.event import OrganizerTrustInfo
     venue_info = EventVenueInfo.model_validate(e.venue) if e.venue else None
     if venue_info is None:
         raise ValueError("Event.venue must be loaded when building EventResponse")
+    trust_info = None
+    if organizer_trust:
+        trust_info = OrganizerTrustInfo(
+            trust_score=organizer_trust["trust_score"],
+            label=organizer_trust["label"],
+            completed_events=organizer_trust["completed_events"],
+            published_events=organizer_trust["published_events"],
+        )
     return EventResponse(
         id=e.id,
         organizer_id=e.organizer_id,
@@ -108,6 +118,7 @@ def _event_to_response(
         dislike_count=e.dislike_count if include_dislike else 0,
         pending_extension=e.pending_extension,
         pending_cancellation=e.pending_cancellation,
+        organizer_trust=trust_info,
         lat=e.lat,
         lng=e.lng,
         created_at=e.created_at,
@@ -288,11 +299,14 @@ async def get_event(event_id: int, db: DbSession, current_user: CurrentUserOptio
         delta = (end - now).days
         days_left = max(0, delta) if delta > 0 else 0
     is_admin = current_user is not None and current_user.role == UserRole.admin
+    # Compute organizer trust score
+    trust = await event_service.get_organizer_trust_score(db, organizer_id=event.organizer_id)
     return _event_to_response(
         event,
         total_pledged_cents=summary["total_pledged_cents"],
         funding_days_left=days_left,
         include_dislike=is_admin,
+        organizer_trust=trust,
     )
 
 
@@ -667,6 +681,15 @@ async def get_event_escrow(event_id: int, db: DbSession):
     """Escrow summary for event (public)."""
     from app.services import escrow as escrow_service
     return await escrow_service.get_escrow_summary(db, event_id=event_id)
+
+
+@router.get("/{event_id}/organizer-trust")
+async def get_event_organizer_trust(event_id: int, db: DbSession):
+    """Organizer trust score for this event's organizer (public)."""
+    event = await event_service.get_by_id(db, event_id)
+    if not event:
+        raise NotFoundError("Event", event_id)
+    return await event_service.get_organizer_trust_score(db, organizer_id=event.organizer_id)
 
 
 @router.post("/{event_id}/register")

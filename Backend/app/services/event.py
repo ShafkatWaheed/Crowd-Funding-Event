@@ -1232,3 +1232,61 @@ async def list_organizer_customers(db: AsyncSession, *, organizer_id: int) -> li
         }
         for r in rows
     ]
+
+
+async def get_organizer_trust_score(db: AsyncSession, *, organizer_id: int) -> dict:
+    """
+    Compute trust score for an organizer.
+
+    Score = completed events / total published events (approved or beyond).
+    Published means any event that has left the draft state at some point
+    (approved, selling_tickets, waiting_event_date, live, completed, cancelled).
+
+    Returns dict with score (0.0–1.0), completed count, published count,
+    and a label (New / Low / Good / Excellent).
+    """
+    published_statuses = [
+        EventStatus.approved,
+        EventStatus.pending_approval,
+        EventStatus.selling_tickets,
+        EventStatus.waiting_event_date,
+        EventStatus.live,
+        EventStatus.completed,
+        EventStatus.cancelled,
+    ]
+
+    total_published = (await db.execute(
+        select(func.count()).where(
+            Event.organizer_id == organizer_id,
+            Event.status.in_(published_statuses),
+        )
+    )).scalar_one()
+
+    total_completed = (await db.execute(
+        select(func.count()).where(
+            Event.organizer_id == organizer_id,
+            Event.status == EventStatus.completed,
+        )
+    )).scalar_one()
+
+    if total_published == 0:
+        score = 0.0
+        label = "New"
+    else:
+        score = round(total_completed / total_published, 2)
+        if score >= 0.8:
+            label = "Excellent"
+        elif score >= 0.5:
+            label = "Good"
+        elif score >= 0.2:
+            label = "Fair"
+        else:
+            label = "New" if total_completed == 0 else "Low"
+
+    return {
+        "organizer_id": organizer_id,
+        "trust_score": score,
+        "completed_events": int(total_completed),
+        "published_events": int(total_published),
+        "label": label,
+    }

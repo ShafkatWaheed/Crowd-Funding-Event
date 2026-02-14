@@ -6,7 +6,7 @@ from app.schemas.event import (
     EventImageResponse, EventOrganizerItem,
     EventPostCreate, EventPostResponse, EventResponse, EventUpdate,
     EventVenueInfo, ExtendFundingBody, ExtensionApprovalAction,
-    MapEventMarker, SetEventDateBody, UnregisterResponse,
+    MapEventMarker, OrganizerTrustInfo, SetEventDateBody, UnregisterResponse,
 )
 from app.schemas.funding import FundingSummaryResponse, MyPledgeItem, PledgeBody, PledgeResponse, UnpledgeResponse
 from app.schemas.registration import RegistrationDecisionBody, RegistrationResponse
@@ -54,6 +54,7 @@ __all__ = [
     "EventUpdate",
     "EventVenueInfo",
     "ExtendFundingBody",
+    "OrganizerTrustInfo",
     "ExtensionApprovalAction",
     "SetEventDateBody",
     "FundingSummaryResponse",

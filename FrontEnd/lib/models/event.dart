@@ -47,6 +47,10 @@ class Event {
   final int dislikeCount;
   final Map<String, dynamic>? pendingExtension;
   final Map<String, dynamic>? pendingCancellation;
+  final double organizerTrustScore;
+  final String organizerTrustLabel;
+  final int organizerCompletedEvents;
+  final int organizerPublishedEvents;
   final Venue? venue;
   final DateTime createdAt;
 
@@ -83,6 +87,10 @@ class Event {
     this.dislikeCount = 0,
     this.pendingExtension,
     this.pendingCancellation,
+    this.organizerTrustScore = 0.0,
+    this.organizerTrustLabel = 'New',
+    this.organizerCompletedEvents = 0,
+    this.organizerPublishedEvents = 0,
     this.venue,
     required this.createdAt,
   });
@@ -135,6 +143,10 @@ class Event {
       pendingCancellation: json['pending_cancellation'] != null
           ? Map<String, dynamic>.from(json['pending_cancellation'])
           : null,
+      organizerTrustScore: (json['organizer_trust']?['trust_score'] ?? 0.0).toDouble(),
+      organizerTrustLabel: json['organizer_trust']?['label'] ?? 'New',
+      organizerCompletedEvents: json['organizer_trust']?['completed_events'] ?? 0,
+      organizerPublishedEvents: json['organizer_trust']?['published_events'] ?? 0,
       venue: json['venue'] != null ? Venue.fromJson(json['venue']) : null,
       createdAt: DateTime.parse(json['created_at']),
     );

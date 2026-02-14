@@ -110,6 +110,14 @@ class CancelBody(BaseModel):
     reason: str
 
 
+class OrganizerTrustInfo(BaseModel):
+    """Organizer trust score summary included in event responses."""
+    trust_score: float = 0.0
+    label: str = "New"            # New / Low / Fair / Good / Excellent
+    completed_events: int = 0
+    published_events: int = 0
+
+
 class EventResponse(BaseModel):
     id: int
     organizer_id: int
@@ -142,6 +150,7 @@ class EventResponse(BaseModel):
     dislike_count: int = 0  # only populated for admin
     pending_extension: dict | None = None  # pending admin approval extension
     pending_cancellation: dict | None = None  # pending admin approval cancellation
+    organizer_trust: OrganizerTrustInfo | None = None  # organizer trust score
     lat: float | None
     lng: float | None
     created_at: datetime

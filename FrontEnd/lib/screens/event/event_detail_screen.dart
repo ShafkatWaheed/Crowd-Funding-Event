@@ -192,6 +192,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                       label: '${event.registrationCount} joined',
                                       color: AppTheme.accentColor,
                                     ),
+                                  // Trust badge
+                                  _trustBadgePill(event),
                                 ],
                               ),
                               const SizedBox(height: 16),
@@ -1021,6 +1023,56 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           Text(label,
               style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color, letterSpacing: 0.2)),
         ],
+      ),
+    );
+  }
+
+  Widget _trustBadgePill(Event event) {
+    final label = event.organizerTrustLabel;
+    final score = event.organizerTrustScore;
+    final Color color;
+    final IconData icon;
+    switch (label) {
+      case 'Excellent':
+        color = const Color(0xFF05944F);
+        icon = Icons.verified_rounded;
+        break;
+      case 'Good':
+        color = const Color(0xFF0077B6);
+        icon = Icons.verified_outlined;
+        break;
+      case 'Fair':
+        color = Colors.orange;
+        icon = Icons.shield_outlined;
+        break;
+      case 'Low':
+        color = Colors.red;
+        icon = Icons.warning_amber_rounded;
+        break;
+      default: // New
+        color = Colors.grey;
+        icon = Icons.person_outline;
+    }
+    return Tooltip(
+      message: '${event.organizerCompletedEvents} completed / ${event.organizerPublishedEvents} published events',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13, color: color),
+            const SizedBox(width: 5),
+            Text(
+              '$label ${(score * 100).toInt()}%',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color, letterSpacing: 0.2),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -3814,6 +3866,27 @@ class _FundingCardState extends State<_FundingCard> {
     }
   }
 
+  // ── Trust score helpers ──
+  static Color _trustColor(String label) {
+    switch (label) {
+      case 'Excellent': return const Color(0xFF05944F); // green
+      case 'Good':      return const Color(0xFF0077B6); // blue
+      case 'Fair':      return Colors.orange;
+      case 'Low':       return Colors.red;
+      default:          return Colors.grey;               // New
+    }
+  }
+
+  static IconData _trustIcon(String label) {
+    switch (label) {
+      case 'Excellent': return Icons.verified_rounded;
+      case 'Good':      return Icons.verified_outlined;
+      case 'Fair':      return Icons.shield_outlined;
+      case 'Low':       return Icons.warning_amber_rounded;
+      default:          return Icons.person_outline;       // New
+    }
+  }
+
   double get _progress {
     if (_goalCents == null || _goalCents == 0) return 0;
     return _totalPledgedCents / _goalCents!;
@@ -4130,31 +4203,72 @@ class _FundingCardState extends State<_FundingCard> {
             ),
           ],
 
-          // Escrow trust indicator
-          if (_totalPledgedCents > 0)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.blue.shade100),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.shield_outlined, size: 14, color: Colors.blue.shade700),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        'Pledges held in platform escrow until event milestones are met',
+          // Escrow + Organizer Trust indicator
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.blue.shade100),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Escrow line
+                  Row(
+                    children: [
+                      Icon(Icons.shield_outlined, size: 14, color: Colors.blue.shade700),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Pledges held in platform escrow until event milestones are met',
+                          style: TextStyle(fontSize: 11, color: Colors.blue.shade700),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  // Trust score line
+                  Row(
+                    children: [
+                      Icon(
+                        _trustIcon(event.organizerTrustLabel),
+                        size: 14,
+                        color: _trustColor(event.organizerTrustLabel),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Organizer Trust: ',
                         style: TextStyle(fontSize: 11, color: Colors.blue.shade700),
                       ),
-                    ),
-                  ],
-                ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: _trustColor(event.organizerTrustLabel).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          '${event.organizerTrustLabel} (${(event.organizerTrustScore * 100).toInt()}%)',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: _trustColor(event.organizerTrustLabel),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${event.organizerCompletedEvents}/${event.organizerPublishedEvents} events',
+                        style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
+          ),
 
           // Pledge / Unpledge buttons
           if (canPledge) ...[

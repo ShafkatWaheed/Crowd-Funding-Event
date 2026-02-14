@@ -17,6 +17,8 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 - List: organizers see own; customers see all
 - Inline venue creation on the Create Event page
 - **Search bar** on Venues page — filter by name, address, or capacity
+- **Mapbox address autocomplete** on venue creation — typing an address shows Mapbox Geocoding v6 suggestions; selecting a suggestion auto-fills address, city, province, and lat/lng (hidden fields); green checkmark and coordinates shown when location is resolved
+- Lat/lng fields hidden from user — auto-populated from geocoding selection
 
 ### Events — CRUD & Lifecycle
 - Create event (organizer/admin) with genre (required), posts toggle, funding fields
@@ -62,10 +64,12 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 - **Home tab search:** Real search bar on the home tab searches events by name, venue, or genre — results displayed as a grid directly on the home tab
 - **Genre chip filter:** Tapping a genre chip on the home tab filters events by that genre in-place (toggle on/off); combinable with text search
 - Genre filter on Explore tab (community, music, tech, sports, arts, food, charity, education, business, other)
-- Featured sections: Trending (by registration count), Popular (by pledge amount), Coming Soon (future approved), **Community Events** (events with community rules enabled)
+- Featured sections: Trending (by registration count), Popular (by pledge amount), Coming Soon (future approved), **Community Events** (events with community rules enabled), **Near Me** (events within 25km of user's location via geolocation)
 - "My Events" tab for logged-in customers (events they're registered to, including cancelled); **auto-reloads** when switching to the tab or pull-to-refresh; genre chips + text search
 - Status filter hides draft/pending/cancelled for customers; shows all for organizers/admins
 - When searching/filtering on home tab, featured sections are replaced by search results grid with filter banner and "Clear" button
+- **Map View on Explore tab** — List/Map toggle pill switches between event grid and interactive Mapbox map (dark-v11 style); markers show event locations with green pins for live events; blue count badges for multiple events at one venue; tapping a marker opens a bottom sheet listing all events at that venue with navigation to event details
+- **Location-Based Discovery** — "Near Me" section on Home tab uses device geolocation (geolocator package) to fetch events within 25km radius; graceful fallback when location permission is denied
 
 ### Co-Organizer Management
 - Main organizer can **add/remove co-organizers** for their event
@@ -324,6 +328,7 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 || Phase 11 — Terms and Conditions | **Terms Agreement** — role-specific terms (organizer: fees, escrow, clawback; customer: pledging, refund, escrow). Checkbox on signup, `terms_accepted_at` on User model, Terms screen accessible from signup + profile. |
 || Phase 12 — Multi-Ticket Purchase & QR | **Multi-ticket purchase** — quantity counter (1–10) on invoice, all-or-nothing capacity, `purchase_group_id` linking tickets. **Aggregated receipt** with individual ticket cards. **QR codes** on every ticket receipt (structured JSON). **Scanned stats** on ticket sales screens. **My Tickets grouped by event**. **"Your Tickets" section** on event detail. |
 || Phase 13 — Email Notifications | **Provider-agnostic email system** — `EmailBackend` ABC with SendGrid + Console backends, generic config (`EMAIL_PROVIDER`, `EMAIL_API_KEY`), `BackgroundTasks` sending. 6 email types: event cancelled, cancellation refund, ticket purchased, unpledge refund, unregister refund, waitlist rejected. Uber-themed HTML templates. Integrated into cancel, purchase, unpledge, unregister, reject, auto-cancel lifecycle. |
+|| Phase 16 — Map View, Location Discovery & Venue Geocoding | **Map View** — Mapbox dark-v11 interactive map on Explore tab with List/Map toggle, venue-grouped markers (black pins, green for live, blue count badges), bottom sheet listing events per venue. **Location Discovery** — "Near Me" section on Home tab via device geolocation (25km radius). **Venue Geocoding** — Mapbox Geocoding v6 address autocomplete on standalone and inline venue creation forms; auto-fills city, province, lat/lng from selected suggestion; lat/lng fields hidden from user. |
 
 ### Phase 11 — Terms and Conditions Agreement (COMPLETED)
 
@@ -394,17 +399,28 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 | 15.8 | **Receipt Screens** | Done — `ticket_receipt_screen.dart` and `purchase_group_receipt_screen.dart` use `encrypted_qr_payload` for QR codes with plaintext JSON fallback |
 | 15.9 | **API Service** | Done — `scanTicket()` sends `encrypted_payload` (preferred) or `ticket_code` (legacy) via named parameters |
 
+### Phase 16 — Map View, Location Discovery & Venue Geocoding (COMPLETED)
+
+| # | Feature | Status |
+|---|---------|--------|
+| 16.1 | **Flutter Dependencies** | Done — `flutter_map`, `latlong2`, `geolocator`, `http` added to `pubspec.yaml` |
+| 16.2 | **Mapbox Access Token** | Done — `MAPBOX_ACCESS_TOKEN` added to `.env` (user provides own token) |
+| 16.3 | **MapEvent Model** | Done — Lightweight `MapEvent` model in `models/map_event.dart` with `venueId`, `venueName`, `isLive` fields |
+| 16.4 | **Backend: MapEventMarker Schema** | Done — Added `venue_id` and `venue_name` to `MapEventMarker` schema; `_event_to_marker()` populates venue info; `list_events_for_map()` eagerly loads venue |
+| 16.5 | **API Service** | Done — `getMapEvents()` method with optional `lat`, `lng`, `radiusKm`, `city`, `live` parameters calling `GET /events/map` |
+| 16.6 | **Mapbox Geocoding Service** | Done — `MapboxGeocodingService.search()` using Mapbox Geocoding v6 forward API; returns `GeocodingResult` with `fullAddress`, `city`, `province`, `lat`, `lng`; debounced (400ms) |
+| 16.7 | **Location Helper** | Done — `LocationHelper.getCurrentPosition()` wrapping `geolocator` with permission handling and graceful fallback |
+| 16.8 | **EventMapWidget** | Done — Full interactive map with Mapbox `dark-v11` tiles (fallback to OpenStreetMap), auto-reload on pan/zoom (debounced 500ms), markers grouped by venue with count badges, tap opens bottom sheet with event list per venue |
+| 16.9 | **Map Markers** | Done — Black pins with white icons (green for live events), blue count badges for multi-event venues, white shadow for depth |
+| 16.10 | **Venue Events Bottom Sheet** | Done — `DraggableScrollableSheet` with venue name header, event count, event list with status dots, LIVE badges, date formatting, tap to navigate to event detail |
+| 16.11 | **Explore Tab Toggle** | Done — List/Map toggle pill (black rounded container with white active state) on Explore tab results header; switches between event grid and full `EventMapWidget` |
+| 16.12 | **Near Me Section** | Done — Home tab loads "Near Me" featured section using device geolocation (25km radius); only attempted once per session; graceful handling when location unavailable |
+| 16.13 | **Venue Auto-Geocoding (Standalone)** | Done — `create_venue_screen.dart` rewritten with Mapbox address autocomplete; suggestion dropdown auto-fills address, city, province, lat/lng; green checkmark when location resolved; lat/lng fields hidden |
+| 16.14 | **Venue Auto-Geocoding (Inline)** | Done — Inline venue form in `create_event_screen.dart` updated with same Mapbox address autocomplete, suggestion dropdown, auto-fill city/province/lat/lng, visual feedback |
+
 ---
 
 ## Unimplemented Features (To Do)
-
-### Backend Ready — Needs Frontend UI
-
-These features have **working backend endpoints** but no frontend screen/button yet. Sorted by priority.
-
-| # | Feature | Description | Backend Endpoints | Priority |
-|---|---------|-------------|-------------------|----------|
-| 1 | **Map View** | Show events on an interactive map, filter by bounding box, radius, or city | `GET /events/map` | High |
 
 ### No Backend Yet — Needs Full Implementation
 
@@ -412,10 +428,9 @@ These features have **working backend endpoints** but no frontend screen/button 
 |---|---------|-------------|----------|
 | 1 | **Organizer Verification** | Verification flow for organizers (identity/contact check before they can publish events) | Medium |
 | 2 | **File Upload for Images** | Replace URL-based image adding with actual file upload to cloud storage (S3/GCS) | Medium |
-| 3 | **Location-Based Discovery** | Show events near the user based on browser geolocation or saved location | Medium |
-| 4 | **Verify Organizer via External Apps** | Use third-party verification service or app for organizer identity | Low |
-| 5 | **Chatbot for Support** | In-app chatbot for user support and FAQ | Low |
-| 6 | **Newcomer / Trending Badges** | Newcomer badge for new organizers, trending indicator on tickets/events | Low |
+| 3 | **Verify Organizer via External Apps** | Use third-party verification service or app for organizer identity | Low |
+| 4 | **Chatbot for Support** | In-app chatbot for user support and FAQ | Low |
+| 5 | **Newcomer / Trending Badges** | Newcomer badge for new organizers, trending indicator on tickets/events | Low |
 
 ### Phase 9 — Business Logic (COMPLETED)
 
@@ -626,15 +641,13 @@ Event (updated)
 Recommended build order: 9.3 (smallest) → 9.1 (revenue) → 9.2 (cancel protection) → 9.5 (escrow — the big one) → 9.4 (genre rules) → 10 (spot reservation)
 ```
 
-### Phase 14 — Media & Maps
+### Phase 14 — Media
 
-Estimated: **2 sessions**.
+Estimated: **1 session**.
 
 | # | Feature | Effort | What to Build |
 |---|---------|--------|--------------|
-| 1 | **Map View** | Large | Frontend: integrate map library (Leaflet/Google Maps), plot events by lat/lng, connect to `GET /events/map` |
-| 2 | **Location-Based Discovery** | Medium | Frontend: browser geolocation API, pass coords to backend map endpoint, "Near Me" section on home tab |
-| 3 | **File Upload for Images** | Large | Backend: S3/GCS integration, upload endpoint. Frontend: file picker replacing URL input |
+| 1 | **File Upload for Images** | Large | Backend: S3/GCS integration, upload endpoint. Frontend: file picker replacing URL input |
 
 ### Phase 16 — Trust & Security
 
@@ -655,7 +668,7 @@ Lowest priority. Estimated: **1–2 sessions**.
 | 2 | **Verify Organizer via External Apps** | Large | Third-party API integration — scope TBD |
 | 3 | **Chatbot for Support** | Large | Standalone feature — could use an off-the-shelf widget or build custom |
 
-**Recommended order:** Phase 9 (done) → 10 (done) → 11 (done) → 12 (done) → 13 (done) → 14 (done) → 15 (done) → 16 → 17. Phases 9–10 add real business value (commission, spot reservations). Phase 11 adds trust (terms agreement). Phase 12 enables multi-ticket purchases + QR codes. Phase 13 adds email notifications. Phase 14 adds transport/parking info. Phase 15 adds ticket QR encryption (AES-256-GCM). Phases 16–17 are enhancements.
+**Recommended order:** Phase 9 (done) → 10 (done) → 11 (done) → 12 (done) → 13 (done) → 14 (done) → 15 (done) → 16 (done) → 17 → 18. Phases 9–10 add real business value (commission, spot reservations). Phase 11 adds trust (terms agreement). Phase 12 enables multi-ticket purchases + QR codes. Phase 13 adds email notifications. Phase 14 adds transport/parking info. Phase 15 adds ticket QR encryption (AES-256-GCM). Phase 16 adds map view, location discovery, and venue geocoding. Phases 17–18 are enhancements.
 
 ---
 

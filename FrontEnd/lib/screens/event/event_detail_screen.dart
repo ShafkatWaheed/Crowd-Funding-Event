@@ -2706,6 +2706,32 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       children: [
         _LiveMgmtStats(event: event),
         const SizedBox(height: 12),
+        // Scan QR button (prominent, for selling/live events)
+        if (event.status == EventStatus.selling_tickets ||
+            event.status == EventStatus.live)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton.icon(
+                onPressed: () => context.push(
+                  '/events/${event.id}/scan?title=${Uri.encodeComponent(event.title)}',
+                ),
+                icon: const Icon(Icons.qr_code_scanner_rounded, size: 22),
+                label: const Text('Scan Tickets',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.successColor,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  elevation: 0,
+                ),
+              ),
+            ),
+          ),
         // Co-organizers button
         _mgmtActionCard(
           icon: Icons.group_rounded,

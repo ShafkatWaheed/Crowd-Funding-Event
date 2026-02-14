@@ -23,6 +23,7 @@ import '../screens/admin/admin_dashboard_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import '../screens/profile/my_tickets_screen.dart';
 import '../screens/legal/terms_screen.dart';
+import '../screens/event/ticket_scanner_screen.dart';
 
 GoRouter createRouter(AuthProvider authProvider) {
   return GoRouter(
@@ -136,6 +137,14 @@ GoRouter createRouter(AuthProvider authProvider) {
         builder: (context, state) {
           final id = int.parse(state.pathParameters['id']!);
           return TicketSalesScreen(eventId: id, scannedOnly: true);
+        },
+      ),
+      GoRoute(
+        path: '/events/:id/scan',
+        builder: (context, state) {
+          final id = int.parse(state.pathParameters['id']!);
+          final title = state.uri.queryParameters['title'];
+          return TicketScannerScreen(eventId: id, eventTitle: title);
         },
       ),
       GoRoute(

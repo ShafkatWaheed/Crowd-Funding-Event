@@ -131,7 +131,7 @@ class _GlobalDiscountsScreenState extends State<GlobalDiscountsScreen> {
   Widget build(BuildContext context) {
     final items = _filtered;
     return Scaffold(
-      backgroundColor: AppTheme.surfaceColor,
+      backgroundColor: AppTheme.surfaceOf(context),
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.close),
@@ -168,9 +168,13 @@ class _GlobalDiscountsScreenState extends State<GlobalDiscountsScreen> {
                       hintText: 'Search discounts...',
                       prefixIcon: const Icon(Icons.search),
                       border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12)),
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: AppTheme.dividerOf(context))),
+                      enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: AppTheme.dividerOf(context))),
                       filled: true,
-                      fillColor: AppTheme.cardColor,
+                      fillColor: AppTheme.cardOf(context),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -183,7 +187,7 @@ class _GlobalDiscountsScreenState extends State<GlobalDiscountsScreen> {
                   const SizedBox(height: 4),
                   Text(
                     'Attach these to events from the event\'s Discounts page.',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.textSecondary),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.textSecondaryOf(context)),
                   ),
                   const SizedBox(height: 8),
 
@@ -191,16 +195,16 @@ class _GlobalDiscountsScreenState extends State<GlobalDiscountsScreen> {
                     Container(
                       padding: const EdgeInsets.all(32),
                       decoration: BoxDecoration(
-                        color: AppTheme.cardColor,
+                        color: AppTheme.cardOf(context),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Column(
                         children: [
                           Icon(Icons.discount_outlined,
-                              size: 48, color: Colors.grey[400]),
+                              size: 48, color: AppTheme.textSecondaryOf(context)),
                           const SizedBox(height: 8),
                           Text('No discounts yet',
-                              style: TextStyle(color: Colors.grey[500])),
+                              style: TextStyle(color: AppTheme.textSecondaryOf(context))),
                         ],
                       ),
                     )
@@ -216,7 +220,7 @@ class _GlobalDiscountsScreenState extends State<GlobalDiscountsScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.cardColor,
+        color: AppTheme.cardOf(context),
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
@@ -239,10 +243,16 @@ class _GlobalDiscountsScreenState extends State<GlobalDiscountsScreen> {
             decoration: InputDecoration(
               labelText: 'Name',
               hintText: 'e.g. Early Bird, Pledger Reward',
-              border:
-                  OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: AppTheme.dividerOf(context)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: AppTheme.dividerOf(context)),
+              ),
               filled: true,
-              fillColor: AppTheme.surfaceColor,
+              fillColor: AppTheme.surfaceOf(context),
             ),
           ),
           const SizedBox(height: 12),
@@ -259,7 +269,7 @@ class _GlobalDiscountsScreenState extends State<GlobalDiscountsScreen> {
                 selected: _discountType == 'ticket_percent',
                 onSelected: (_) =>
                     setState(() => _discountType = 'ticket_percent'),
-                selectedColor: AppTheme.accentColor.withValues(alpha: 0.15),
+                selectedColor: AppTheme.accentColor.withValues(alpha: 0.25),
               ),
               ChoiceChip(
                 label: const Text('% of Pledge'),
@@ -268,7 +278,7 @@ class _GlobalDiscountsScreenState extends State<GlobalDiscountsScreen> {
                   _discountType = 'pledge_percent';
                   if (_target == 'non_pledgers') _target = 'all';
                 }),
-                selectedColor: AppTheme.accentColor.withValues(alpha: 0.15),
+                selectedColor: AppTheme.accentColor.withValues(alpha: 0.25),
               ),
             ],
           ),
@@ -279,10 +289,16 @@ class _GlobalDiscountsScreenState extends State<GlobalDiscountsScreen> {
             keyboardType: TextInputType.number,
             decoration: InputDecoration(
               labelText: 'Percentage (1-100)',
-              border:
-                  OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: AppTheme.dividerOf(context)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: AppTheme.dividerOf(context)),
+              ),
               filled: true,
-              fillColor: AppTheme.surfaceColor,
+              fillColor: AppTheme.surfaceOf(context),
             ),
           ),
           const SizedBox(height: 12),
@@ -298,13 +314,13 @@ class _GlobalDiscountsScreenState extends State<GlobalDiscountsScreen> {
                 label: const Text('Everyone'),
                 selected: _target == 'all',
                 onSelected: (_) => setState(() => _target = 'all'),
-                selectedColor: AppTheme.successColor.withValues(alpha: 0.15),
+                selectedColor: AppTheme.successColor.withValues(alpha: 0.25),
               ),
               ChoiceChip(
                 label: const Text('Pledgers'),
                 selected: _target == 'pledgers',
                 onSelected: (_) => setState(() => _target = 'pledgers'),
-                selectedColor: AppTheme.successColor.withValues(alpha: 0.15),
+                selectedColor: AppTheme.successColor.withValues(alpha: 0.25),
               ),
               if (_discountType != 'pledge_percent')
                 ChoiceChip(
@@ -313,7 +329,7 @@ class _GlobalDiscountsScreenState extends State<GlobalDiscountsScreen> {
                   onSelected: (_) =>
                       setState(() => _target = 'non_pledgers'),
                   selectedColor:
-                      AppTheme.successColor.withValues(alpha: 0.15),
+                      AppTheme.successColor.withValues(alpha: 0.25),
                 ),
             ],
           ),
@@ -325,7 +341,7 @@ class _GlobalDiscountsScreenState extends State<GlobalDiscountsScreen> {
             style: Theme.of(context)
                 .textTheme
                 .bodySmall
-                ?.copyWith(color: AppTheme.textSecondary),
+                ?.copyWith(color: AppTheme.textSecondaryOf(context)),
           ),
           const SizedBox(height: 12),
           SizedBox(
@@ -345,8 +361,9 @@ class _GlobalDiscountsScreenState extends State<GlobalDiscountsScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: AppTheme.cardColor,
+        color: AppTheme.cardOf(context),
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.dividerOf(context)),
         boxShadow: [
           BoxShadow(
               color: Colors.black.withValues(alpha: 0.04),
@@ -356,15 +373,15 @@ class _GlobalDiscountsScreenState extends State<GlobalDiscountsScreen> {
       ),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: Colors.deepPurple.withValues(alpha: 0.1),
+          backgroundColor: Colors.deepPurple.withValues(alpha: 0.15),
           child: Icon(_typeIcon(d['discount_type'] ?? ''),
               color: Colors.deepPurple, size: 20),
         ),
         title: Text(d['name'] ?? 'Discount',
             style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Text(_describe(d),
-            style: const TextStyle(
-                fontSize: 13, color: AppTheme.textSecondary)),
+            style: TextStyle(
+                fontSize: 13, color: AppTheme.textSecondaryOf(context))),
         trailing: IconButton(
           icon: const Icon(Icons.delete_outline, color: AppTheme.errorColor),
           onPressed: () => _delete(d['id']),

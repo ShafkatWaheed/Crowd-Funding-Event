@@ -3821,17 +3821,25 @@ class _LiveMgmtStatsState extends State<_LiveMgmtStats> {
 
   // ── Capacity badge ──
   Widget _capacityBadge(int registered, int maxCap, bool isFull) {
-    final color = isFull ? AppTheme.errorColor : AppTheme.primaryColor;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final rawColor = isFull ? AppTheme.errorColor : AppTheme.accentColor;
+    final color = isDark && _isNearBlack(rawColor) ? AppTheme.accentColor : rawColor;
+    final textColor = isDark ? Colors.white : color;
     final label = maxCap > 0
         ? '$registered / $maxCap capacity'
         : '$registered registered';
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.2), width: 1),
+        color: isDark
+            ? AppTheme.cardOf(context)
+            : color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: color.withValues(alpha: isDark ? 0.4 : 0.2),
+          width: 1,
+        ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -3839,7 +3847,7 @@ class _LiveMgmtStatsState extends State<_LiveMgmtStats> {
           Icon(
             isFull ? Icons.warning_rounded : Icons.people_rounded,
             size: 18,
-            color: color,
+            color: textColor,
           ),
           const SizedBox(width: 8),
           Text(
@@ -3847,16 +3855,32 @@ class _LiveMgmtStatsState extends State<_LiveMgmtStats> {
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,
-              color: color,
+              color: textColor,
             ),
           ),
+          if (maxCap > 0) ...[
+            const SizedBox(width: 10),
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: maxCap > 0 ? (registered / maxCap).clamp(0.0, 1.0) : 0,
+                  minHeight: 6,
+                  backgroundColor: isDark
+                      ? Colors.white.withValues(alpha: 0.1)
+                      : color.withValues(alpha: 0.1),
+                  valueColor: AlwaysStoppedAnimation(color),
+                ),
+              ),
+            ),
+          ],
           if (isFull) ...[
             const SizedBox(width: 6),
             Text('FULL',
                 style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w900,
-                    color: color,
+                    color: textColor,
                     letterSpacing: 1)),
           ],
         ],
@@ -3871,24 +3895,39 @@ class _LiveMgmtStatsState extends State<_LiveMgmtStats> {
     required Color color,
     VoidCallback? onTap,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // In dark mode, lighten near-black colors so they're visible
+    final chipColor = isDark && _isNearBlack(color)
+        ? AppTheme.accentColor
+        : color;
+    final textColor = isDark ? Colors.white : chipColor;
     return Material(
-      color: color.withValues(alpha: 0.08),
+      color: isDark
+          ? AppTheme.cardOf(context)
+          : chipColor.withValues(alpha: 0.08),
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(14),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: chipColor.withValues(alpha: isDark ? 0.4 : 0.15),
+              width: 1,
+            ),
+          ),
           child: Column(
             children: [
-              Icon(icon, size: 22, color: color),
+              Icon(icon, size: 22, color: isDark ? chipColor : chipColor),
               const SizedBox(height: 6),
               Text(
                 label,
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
-                  color: color,
+                  color: textColor,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -3898,6 +3937,10 @@ class _LiveMgmtStatsState extends State<_LiveMgmtStats> {
       ),
     );
   }
+
+  /// Returns true if a color is near-black (e.g. AppTheme.primaryColor #141414).
+  bool _isNearBlack(Color c) =>
+      c.r < 0.15 && c.g < 0.15 && c.b < 0.15;
 }
 
 

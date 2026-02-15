@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
@@ -30,7 +31,10 @@ class MapboxGeocodingService {
     String query, {
     int limit = 5,
   }) async {
-    if (query.trim().isEmpty || _accessToken.isEmpty) return [];
+    if (query.trim().isEmpty || _accessToken.isEmpty) {
+      debugPrint('[MapboxGeocoding] Skipped: query="${query.trim()}", tokenPresent=${_accessToken.isNotEmpty}');
+      return [];
+    }
 
     final uri = Uri.https(
       'api.mapbox.com',
@@ -39,7 +43,7 @@ class MapboxGeocodingService {
         'q': query,
         'access_token': _accessToken,
         'limit': '$limit',
-        'types': 'address,place,poi',
+        'types': 'address,place,street,locality',
         'language': 'en',
       },
     );
@@ -75,7 +79,8 @@ class MapboxGeocodingService {
           lng: lng,
         );
       }).toList();
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[MapboxGeocoding] Error: $e');
       return [];
     }
   }

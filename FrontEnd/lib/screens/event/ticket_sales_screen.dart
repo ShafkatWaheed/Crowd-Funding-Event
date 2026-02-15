@@ -133,16 +133,16 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
                       )
                     : null,
                 filled: true,
-                fillColor: Colors.white,
+                fillColor: AppTheme.cardOf(context),
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: AppTheme.dividerColor),
+                  borderSide: BorderSide(color: AppTheme.dividerOf(context)),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: AppTheme.dividerColor),
+                  borderSide: BorderSide(color: AppTheme.dividerOf(context)),
                 ),
               ),
               onChanged: (_) => setState(() => _applySearch()),
@@ -252,10 +252,10 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.error_outline,
-                                size: 48, color: Colors.grey[400]),
+                                size: 48, color: AppTheme.textSecondaryOf(context)),
                             const SizedBox(height: 12),
                             Text('Failed to load',
-                                style: TextStyle(color: Colors.grey[500])),
+                                style: TextStyle(color: AppTheme.textSecondaryOf(context))),
                             const SizedBox(height: 8),
                             OutlinedButton(
                                 onPressed: _load,
@@ -273,7 +273,7 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
                                       ? Icons.qr_code_scanner_rounded
                                       : Icons.confirmation_number_outlined,
                                   size: 56,
-                                  color: Colors.grey[300],
+                                  color: AppTheme.textSecondaryOf(context),
                                 ),
                                 const SizedBox(height: 12),
                                 Text(
@@ -283,7 +283,7 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
                                           ? 'No scanned tickets yet'
                                           : 'No ticket sales yet',
                                   style: TextStyle(
-                                      color: Colors.grey[500], fontSize: 15),
+                                      color: AppTheme.textSecondaryOf(context), fontSize: 15),
                                 ),
                               ],
                             ),
@@ -334,12 +334,12 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
       child: Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.cardOf(context),
         borderRadius: BorderRadius.circular(14),
         border: isScanned
             ? Border.all(
                 color: AppTheme.successColor.withValues(alpha: 0.25))
-            : null,
+            : Border.all(color: AppTheme.dividerOf(context)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -360,7 +360,7 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
               decoration: BoxDecoration(
                 color: isScanned
                     ? AppTheme.successColor.withValues(alpha: 0.1)
-                    : AppTheme.surfaceColor,
+                    : AppTheme.surfaceOf(context),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
@@ -370,7 +370,7 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
                 size: 22,
                 color: isScanned
                     ? AppTheme.successColor
-                    : AppTheme.textSecondary,
+                    : AppTheme.textSecondaryOf(context),
               ),
             ),
             const SizedBox(width: 14),
@@ -386,12 +386,12 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
                   const SizedBox(height: 3),
                   Text('$tierName  •  $code',
                       style:
-                          TextStyle(fontSize: 12, color: Colors.grey[500])),
+                          TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context))),
                   if (createdAt.isNotEmpty) ...[
                     const SizedBox(height: 2),
                     Text('Purchased $createdAt',
                         style: TextStyle(
-                            fontSize: 11, color: Colors.grey[400])),
+                            fontSize: 11, color: AppTheme.textSecondaryOf(context))),
                   ],
                   if (isScanned) ...[
                     const SizedBox(height: 4),
@@ -422,13 +422,13 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
                       fontWeight: FontWeight.w800,
                       fontSize: 15,
                       letterSpacing: -0.3,
-                      color: amount == 0 ? Colors.green.shade700 : null),
+                      color: amount == 0 ? AppTheme.successColor : null),
                 ),
                 if (commission > 0) ...[
                   const SizedBox(height: 2),
                   Text(
                     'Net \$${(netAmount / 100).toStringAsFixed(2)}',
-                    style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                    style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context)),
                   ),
                 ],
               ],
@@ -441,22 +441,28 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
   }
 
   Widget _statChip(String label, IconData icon, Color color) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = isDark && _isNearBlack(color) ? AppTheme.accentColor : color;
+    final textC = isDark ? Colors.white : c;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+        color: isDark ? AppTheme.cardOf(context) : c.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: c.withValues(alpha: isDark ? 0.4 : 0.15)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: color),
+          Icon(icon, size: 14, color: c),
           const SizedBox(width: 4),
           Text(label,
               style: TextStyle(
-                  fontSize: 12, fontWeight: FontWeight.w600, color: color)),
+                  fontSize: 12, fontWeight: FontWeight.w600, color: textC)),
         ],
       ),
     );
   }
+
+  bool _isNearBlack(Color c) => c.r < 0.15 && c.g < 0.15 && c.b < 0.15;
 }

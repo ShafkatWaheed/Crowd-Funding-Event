@@ -96,6 +96,7 @@ class _TicketStrategiesScreenState extends State<TicketStrategiesScreen> {
         ),
         title: const Text('Ticket Strategies'),
       ),
+      backgroundColor: AppTheme.surfaceOf(context),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
           final created = await Navigator.push<bool>(
@@ -108,7 +109,7 @@ class _TicketStrategiesScreenState extends State<TicketStrategiesScreen> {
         },
         icon: const Icon(Icons.add),
         label: const Text('New Strategy'),
-        backgroundColor: AppTheme.primaryColor,
+        backgroundColor: AppTheme.accentColor,
         foregroundColor: Colors.white,
       ),
       body: Column(
@@ -131,16 +132,16 @@ class _TicketStrategiesScreenState extends State<TicketStrategiesScreen> {
                       )
                     : null,
                 filled: true,
-                fillColor: Colors.white,
+                fillColor: AppTheme.cardOf(context),
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: AppTheme.dividerColor),
+                  borderSide: BorderSide(color: AppTheme.dividerOf(context)),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: AppTheme.dividerColor),
+                  borderSide: BorderSide(color: AppTheme.dividerOf(context)),
                 ),
               ),
               onChanged: (_) => setState(() => _applySearch()),
@@ -157,14 +158,14 @@ class _TicketStrategiesScreenState extends State<TicketStrategiesScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.confirmation_number_outlined,
-                                size: 64, color: Colors.grey[300]),
+                                size: 64, color: AppTheme.textSecondaryOf(context)),
                             const SizedBox(height: 16),
                             Text(
                               _searchCtrl.text.isNotEmpty
                                   ? 'No matching strategies'
                                   : 'No ticket strategies yet',
                               style: TextStyle(
-                                  fontSize: 16, color: Colors.grey[500]),
+                                  fontSize: 16, color: AppTheme.textSecondaryOf(context)),
                             ),
                             if (_searchCtrl.text.isEmpty)
                               const Padding(
@@ -182,6 +183,11 @@ class _TicketStrategiesScreenState extends State<TicketStrategiesScreen> {
                           final s = _filtered[index];
                           return Card(
                       margin: const EdgeInsets.only(bottom: 12),
+                      color: AppTheme.cardOf(context),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        side: BorderSide(color: AppTheme.dividerOf(context)),
+                      ),
                       child: Padding(
                         padding: const EdgeInsets.all(16),
                         child: Column(
@@ -189,8 +195,8 @@ class _TicketStrategiesScreenState extends State<TicketStrategiesScreen> {
                           children: [
                             Row(
                               children: [
-                                const Icon(Icons.confirmation_number,
-                                    color: AppTheme.primaryColor),
+                                Icon(Icons.confirmation_number,
+                                    color: AppTheme.accentColor),
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: Text(s.name,
@@ -218,7 +224,7 @@ class _TicketStrategiesScreenState extends State<TicketStrategiesScreen> {
                                             width: 8,
                                             height: 8,
                                             decoration: BoxDecoration(
-                                              color: AppTheme.primaryColor,
+                                              color: AppTheme.accentColor,
                                               shape: BoxShape.circle,
                                             ),
                                           ),
@@ -240,7 +246,7 @@ class _TicketStrategiesScreenState extends State<TicketStrategiesScreen> {
                                           child: Text(t.description!,
                                               style: TextStyle(
                                                   fontSize: 12,
-                                                  color: Colors.grey[600],
+                                                  color: AppTheme.textSecondaryOf(context),
                                                   fontStyle: FontStyle.italic)),
                                         ),
                                     ],
@@ -357,8 +363,8 @@ class _CreateTicketStrategyScreenState
 
                   Row(
                     children: [
-                      const Icon(Icons.layers,
-                          color: AppTheme.primaryColor, size: 20),
+                      Icon(Icons.layers,
+                          color: AppTheme.accentColor, size: 20),
                       const SizedBox(width: 8),
                       Text('Tiers',
                           style: Theme.of(context).textTheme.titleSmall),
@@ -449,7 +455,7 @@ class _CreateTicketStrategyScreenState
                     child: ElevatedButton(
                       onPressed: _saving ? null : _save,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryColor,
+                        backgroundColor: AppTheme.accentColor,
                         foregroundColor: Colors.white,
                       ),
                       child: _saving

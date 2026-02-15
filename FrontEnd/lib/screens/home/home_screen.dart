@@ -336,7 +336,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
       floatingActionButton:
-          user != null && (user.isOrganizer || user.isAdmin) && _navIndex != 3 && _navIndex != 2
+          user != null && (user.isOrganizer || user.isAdmin) && _navIndex != 3
               ? FloatingActionButton(
                   onPressed: () async {
                     final created = await context.push<bool>('/events/create');
@@ -1210,6 +1210,20 @@ class _HomeScreenState extends State<HomeScreen> {
                 Row(
                   children: [
                     _quickActionCard(
+                      icon: Icons.add_circle_rounded,
+                      label: 'Create Event',
+                      color: AppTheme.accentColor,
+                      onTap: () async {
+                        final created =
+                            await context.push<bool>('/events/create');
+                        if (created == true && mounted) {
+                          _applyFilters();
+                          _loadFeatured();
+                        }
+                      },
+                    ),
+                    const SizedBox(width: 12),
+                    _quickActionCard(
                       icon: Icons.location_city_rounded,
                       label: 'Venues',
                       color: const Color(0xFF276EF1),
@@ -1222,19 +1236,19 @@ class _HomeScreenState extends State<HomeScreen> {
                       color: const Color(0xFF00838F),
                       onTap: () => context.push('/ticket-strategies'),
                     ),
-                    const SizedBox(width: 12),
-                    _quickActionCard(
-                      icon: Icons.receipt_long_rounded,
-                      label: 'All Sales',
-                      color: const Color(0xFF05944F),
-                      onTap: () => context.push('/manage/ticket-sales'),
-                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
                 // Row 2
                 Row(
                   children: [
+                    _quickActionCard(
+                      icon: Icons.receipt_long_rounded,
+                      label: 'All Sales',
+                      color: const Color(0xFF05944F),
+                      onTap: () => context.push('/manage/ticket-sales'),
+                    ),
+                    const SizedBox(width: 12),
                     _quickActionCard(
                       icon: Icons.qr_code_scanner_rounded,
                       label: 'Scanned',
@@ -1248,32 +1262,30 @@ class _HomeScreenState extends State<HomeScreen> {
                       color: const Color(0xFFE65100),
                       onTap: () => context.push('/manage/waitlist'),
                     ),
-                    const SizedBox(width: 12),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                // Row 3
+                Row(
+                  children: [
                     _quickActionCard(
                       icon: Icons.discount_rounded,
                       label: 'Discounts',
                       color: const Color(0xFFE11900),
                       onTap: () => context.push('/manage/discounts'),
                     ),
-                  ],
-                ),
-                if (user != null && user.isAdmin) ...[
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
+                    const SizedBox(width: 12),
+                    if (user != null && user.isAdmin)
                       _quickActionCard(
                         icon: Icons.admin_panel_settings_rounded,
                         label: 'Admin',
                         color: const Color(0xFF141414),
                         onTap: () => context.push('/admin'),
-                      ),
-                      const SizedBox(width: 12),
+                      )
+                    else
                       const Expanded(child: SizedBox()),
-                      const SizedBox(width: 12),
-                      const Expanded(child: SizedBox()),
-                    ],
-                  ),
-                ],
+                  ],
+                ),
 
               ],
             ),

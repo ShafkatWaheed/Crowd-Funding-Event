@@ -205,7 +205,7 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
             child: Container(
               decoration: BoxDecoration(
-                color: AppTheme.surfaceColor,
+                color: AppTheme.surfaceOf(context),
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: AppTheme.dividerColor),
               ),
@@ -252,7 +252,7 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
                       )
                     : null,
                 filled: true,
-                fillColor: Colors.white,
+                fillColor: AppTheme.inputFillOf(context),
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 border: OutlineInputBorder(
@@ -402,7 +402,7 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppTheme.cardOf(context),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: AppTheme.dividerColor),
         ),
@@ -438,7 +438,7 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
               child: LinearProgressIndicator(
                 value: pct,
                 minHeight: 6,
-                backgroundColor: Colors.grey[200],
+                backgroundColor: AppTheme.dividerOf(context),
                 valueColor: AlwaysStoppedAnimation(barColor),
               ),
             ),
@@ -554,7 +554,7 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.cardOf(context),
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
@@ -637,7 +637,7 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.cardOf(context),
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(

@@ -91,7 +91,7 @@ class _CompactBar extends StatelessWidget {
   final List<_Step> steps;
   final int activeIndex;
 
-  const _CompactBar({required this.steps, required this.activeIndex});
+  _CompactBar({required this.steps, required this.activeIndex});
 
   @override
   Widget build(BuildContext context) {
@@ -129,7 +129,7 @@ class _FullBar extends StatelessWidget {
   final List<_Step> steps;
   final int activeIndex;
 
-  const _FullBar({required this.steps, required this.activeIndex});
+  _FullBar({required this.steps, required this.activeIndex});
 
   @override
   Widget build(BuildContext context) {
@@ -146,10 +146,10 @@ class _FullBar extends StatelessWidget {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(2),
                   color: activeIndex == -1
-                      ? Colors.grey[300]
+                      ? AppTheme.dividerOf(context)
                       : isActive
                           ? _segmentColor(steps[i], isCurrent)
-                          : Colors.grey[200],
+                          : AppTheme.dividerOf(context),
                 ),
               ),
             );
@@ -163,12 +163,12 @@ class _FullBar extends StatelessWidget {
             final isActive = i <= activeIndex;
             final isCurrent = i == activeIndex;
             final color = activeIndex == -1
-                ? Colors.grey[400]!
+                ? AppTheme.textSecondaryOf(context)
                 : isCurrent
                     ? _segmentColor(step, true)
                     : isActive
-                        ? AppTheme.primaryColor.withValues(alpha: 0.6)
-                        : Colors.grey[400]!;
+                        ? AppTheme.textPrimaryOf(context).withValues(alpha: 0.6)
+                        : AppTheme.textSecondaryOf(context);
 
             return Expanded(
               child: Column(
@@ -203,14 +203,14 @@ class _FullBar extends StatelessWidget {
   }
 
   Color _segmentColor(_Step step, bool isCurrent) {
-    if (!isCurrent) return AppTheme.primaryColor.withValues(alpha: 0.4);
+    if (!isCurrent) return AppTheme.accentColor.withValues(alpha: 0.4);
     return switch (step.status) {
       EventStatus.approved => AppTheme.accentColor,
       EventStatus.selling_tickets => const Color(0xFF00838F),
       EventStatus.waiting_event_date => const Color(0xFFE65100),
       EventStatus.live => AppTheme.successColor,
-      EventStatus.completed => Colors.grey[700]!,
-      _ => AppTheme.primaryColor,
+      EventStatus.completed => Colors.grey[500]!,
+      _ => AppTheme.accentColor,
     };
   }
 }

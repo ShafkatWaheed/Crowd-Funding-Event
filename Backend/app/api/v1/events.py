@@ -93,6 +93,7 @@ def _event_to_response(
     total_pledged_cents: int | None = None,
     funding_days_left: int | None = None,
     total_reserved_spots: int = 0,
+    tickets_sold_count: int = 0,
     include_dislike: bool = False,
     organizer_trust: dict | None = None,
 ) -> EventResponse:
@@ -127,6 +128,7 @@ def _event_to_response(
         total_pledged_cents=total_pledged_cents,
         funding_days_left=funding_days_left,
         total_reserved_spots=total_reserved_spots,
+        tickets_sold_count=tickets_sold_count,
         min_pledge_cents=e.min_pledge_cents,
         common_discount_percent=e.common_discount_percent,
         pledge_discount_percent=e.pledge_discount_percent,
@@ -221,6 +223,8 @@ async def list_events(
     )
     event_ids = [e.id for e in events]
     pledged = await funding_service.get_pledged_totals_for_events(db, event_ids=event_ids)
+    reserved = await funding_service.get_total_reserved_spots_for_events(db, event_ids=event_ids)
+    tickets_sold = await ticket_service.get_ticket_sold_counts_for_events(db, event_ids=event_ids)
     now = datetime.now(timezone.utc)
     out = []
     for e in events:
@@ -235,6 +239,8 @@ async def list_events(
                 e,
                 total_pledged_cents=total_cents,
                 funding_days_left=days_left,
+                total_reserved_spots=reserved.get(e.id, 0),
+                tickets_sold_count=tickets_sold.get(e.id, 0),
             )
         )
     return out
@@ -258,6 +264,8 @@ async def get_featured_events(db: DbSession):
     coming_soon_ids = [e.id for e in coming_soon]
     all_ids = list(set(trending_ids + popular_ids + coming_soon_ids))
     pledged = await funding_service.get_pledged_totals_for_events(db, event_ids=all_ids)
+    reserved = await funding_service.get_total_reserved_spots_for_events(db, event_ids=all_ids)
+    tickets_sold = await ticket_service.get_ticket_sold_counts_for_events(db, event_ids=all_ids)
 
     now = datetime.now(timezone.utc)
 
@@ -268,7 +276,13 @@ async def get_featured_events(db: DbSession):
             end = e.funding_end_at if e.funding_end_at.tzinfo else e.funding_end_at.replace(tzinfo=timezone.utc)
             delta = (end - now).days
             days_left = max(0, delta) if delta > 0 else 0
-        return _event_to_response(e, total_pledged_cents=total_cents, funding_days_left=days_left)
+        return _event_to_response(
+            e,
+            total_pledged_cents=total_cents,
+            funding_days_left=days_left,
+            total_reserved_spots=reserved.get(e.id, 0),
+            tickets_sold_count=tickets_sold.get(e.id, 0),
+        )
 
     return {
         "trending": [_to_resp(e) for e in trending],
@@ -327,6 +341,7 @@ async def get_event(event_id: int, db: DbSession, current_user: CurrentUserOptio
     if not event:
         raise NotFoundError("Event", event_id)
     summary = await funding_service.get_summary(db, event_id=event_id)
+    ticket_stats = await ticket_service.get_ticket_sales_stats(db, event_id=event_id)
     now = datetime.now(timezone.utc)
     days_left = None
     if event.funding_end_at is not None:
@@ -341,6 +356,7 @@ async def get_event(event_id: int, db: DbSession, current_user: CurrentUserOptio
         total_pledged_cents=summary["total_pledged_cents"],
         funding_days_left=days_left,
         total_reserved_spots=summary.get("total_reserved_spots", 0),
+        tickets_sold_count=ticket_stats["total_sold"],
         include_dislike=is_admin,
         organizer_trust=trust,
     )

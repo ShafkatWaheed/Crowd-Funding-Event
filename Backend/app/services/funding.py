@@ -45,6 +45,26 @@ async def get_total_reserved_spots(db: AsyncSession, event_id: int) -> int:
     return int((await db.execute(q)).scalar_one())
 
 
+async def get_total_reserved_spots_for_events(
+    db: AsyncSession,
+    *,
+    event_ids: list[int],
+) -> dict[int, int]:
+    """Return { event_id: total_reserved_spots } for each event. Used for list/cards."""
+    if not event_ids:
+        return {}
+    q = (
+        select(Funding.event_id, func.coalesce(func.sum(Funding.reserved_spots), 0).label("total"))
+        .where(
+            Funding.event_id.in_(event_ids),
+            Funding.status == FundingStatus.pledged,
+        )
+        .group_by(Funding.event_id)
+    )
+    result = await db.execute(q)
+    return {int(row.event_id): int(row.total) for row in result.all()}
+
+
 async def consume_one_reserved_spot(db: AsyncSession, event_id: int, user_id: int) -> None:
     """Decrement the oldest pledge's reserved_spots by 1 for this user+event."""
     q = (

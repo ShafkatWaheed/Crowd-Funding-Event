@@ -84,7 +84,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   'Join CrowdFund Events today',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: Colors.grey[600],
+                        color: AppTheme.textSecondaryOf(context),
                       ),
                 ),
                 const SizedBox(height: 40),
@@ -249,7 +249,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           text: TextSpan(
                             style: TextStyle(
                               fontSize: 13,
-                              color: Colors.grey[700],
+                              color: AppTheme.textSecondaryOf(context),
                               height: 1.4,
                             ),
                             children: [
@@ -330,7 +330,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   children: [
                     Text(
                       'Already have an account? ',
-                      style: TextStyle(color: Colors.grey[600]),
+                      style: TextStyle(color: AppTheme.textSecondaryOf(context)),
                     ),
                     TextButton(
                       onPressed: () => context.go('/login'),
@@ -372,10 +372,10 @@ class _RoleCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected
               ? AppTheme.primaryColor.withValues(alpha: 0.1)
-              : Colors.grey[50],
+              : AppTheme.surfaceOf(context),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: selected ? AppTheme.primaryColor : Colors.grey.shade200,
+            color: selected ? AppTheme.primaryColor : AppTheme.dividerOf(context),
             width: selected ? 2 : 1,
           ),
         ),
@@ -389,14 +389,14 @@ class _RoleCard extends StatelessWidget {
               label,
               style: TextStyle(
                 fontWeight: FontWeight.w600,
-                color: selected ? AppTheme.primaryColor : Colors.grey[700],
+                color: selected ? AppTheme.primaryColor : AppTheme.textPrimaryOf(context),
               ),
             ),
             Text(
               subtitle,
               style: TextStyle(
                 fontSize: 12,
-                color: Colors.grey[500],
+                color: AppTheme.textSecondaryOf(context),
               ),
             ),
           ],

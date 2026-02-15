@@ -293,7 +293,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final user = auth.user;
 
     return Scaffold(
-      backgroundColor: AppTheme.surfaceColor,
+      backgroundColor: AppTheme.surfaceOf(context),
       body: IndexedStack(
         index: _navIndex,
         children: [
@@ -308,7 +308,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppTheme.cardOf(context),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.08),
@@ -345,7 +345,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       _loadFeatured();
                     }
                   },
-                  backgroundColor: AppTheme.primaryColor,
+                  backgroundColor: AppTheme.accentColor,
                   child: const Icon(Icons.add, color: Colors.white, size: 28),
                 )
               : null,
@@ -371,7 +371,7 @@ class _HomeScreenState extends State<HomeScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: isActive
             ? BoxDecoration(
-                color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                color: AppTheme.accentColor.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(12),
               )
             : null,
@@ -381,7 +381,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Icon(
               isActive ? activeIcon : icon,
               size: 24,
-              color: isActive ? AppTheme.primaryColor : AppTheme.textSecondary,
+              color: isActive ? AppTheme.accentColor : AppTheme.textSecondaryOf(context),
             ),
             const SizedBox(height: 2),
             Text(
@@ -389,7 +389,7 @@ class _HomeScreenState extends State<HomeScreen> {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                color: isActive ? AppTheme.primaryColor : AppTheme.textSecondary,
+                color: isActive ? AppTheme.accentColor : AppTheme.textSecondaryOf(context),
               ),
             ),
           ],
@@ -416,9 +416,9 @@ class _HomeScreenState extends State<HomeScreen> {
           // ── Hero Header ──
           SliverToBoxAdapter(
             child: Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.only(
+              decoration: BoxDecoration(
+                color: AppTheme.cardOf(context),
+                borderRadius: const BorderRadius.only(
                   bottomLeft: Radius.circular(28),
                   bottomRight: Radius.circular(28),
                 ),
@@ -458,15 +458,16 @@ class _HomeScreenState extends State<HomeScreen> {
                               'Welcome back',
                               style: TextStyle(
                                   fontSize: 13,
-                                  color: AppTheme.textSecondary,
+                                  color: AppTheme.textSecondaryOf(context),
                                   fontWeight: FontWeight.w500),
                             ),
                             Text(
                               user?.displayLabel ?? 'Guest',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 22,
                                 fontWeight: FontWeight.w800,
                                 letterSpacing: -0.5,
+                                color: AppTheme.textPrimaryOf(context),
                               ),
                             ),
                           ],
@@ -477,11 +478,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         width: 44,
                         height: 44,
                         decoration: BoxDecoration(
-                          color: AppTheme.surfaceColor,
+                          color: AppTheme.surfaceOf(context),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Icon(Icons.notifications_outlined,
-                            color: AppTheme.textPrimary),
+                        child: Icon(Icons.notifications_outlined,
+                            color: AppTheme.textPrimaryOf(context)),
                       ),
                     ],
                   ),
@@ -491,8 +492,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     controller: _homeSearchCtrl,
                     decoration: InputDecoration(
                       hintText: 'Search events, venues, genres...',
-                      prefixIcon: const Icon(Icons.search,
-                          color: AppTheme.textSecondary, size: 22),
+                      prefixIcon: Icon(Icons.search,
+                          color: AppTheme.textSecondaryOf(context), size: 22),
                       suffixIcon: _homeSearchCtrl.text.isNotEmpty
                           ? IconButton(
                               icon: const Icon(Icons.clear, size: 20),
@@ -500,7 +501,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             )
                           : null,
                       filled: true,
-                      fillColor: AppTheme.surfaceColor,
+                      fillColor: AppTheme.inputFillOf(context),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
                         borderSide: BorderSide.none,
@@ -531,16 +532,16 @@ class _HomeScreenState extends State<HomeScreen> {
                               _homeSearch();
                             },
                             selectedColor: AppTheme.primaryColor,
-                            backgroundColor: Colors.white,
+                            backgroundColor: AppTheme.cardOf(context),
                             side: BorderSide(
                               color: isActive
                                   ? AppTheme.primaryColor
-                                  : AppTheme.dividerColor,
+                                  : AppTheme.dividerOf(context),
                             ),
                             labelStyle: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
-                              color: isActive ? Colors.white : AppTheme.textPrimary,
+                              color: isActive ? Colors.white : AppTheme.textPrimaryOf(context),
                             ),
                           ),
                         );
@@ -556,12 +557,12 @@ class _HomeScreenState extends State<HomeScreen> {
           if (_isHomeFiltered) ...[
             // Active filter banner
             SliverToBoxAdapter(
-              child: Padding(
+                child: Padding(
                 padding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
                 child: Row(
                   children: [
                     Icon(Icons.filter_list_rounded,
-                        size: 18, color: AppTheme.textSecondary),
+                        size: 18, color: AppTheme.textSecondaryOf(context)),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -572,10 +573,11 @@ class _HomeScreenState extends State<HomeScreen> {
                             _homeGenre![0].toUpperCase() +
                                 _homeGenre!.substring(1),
                         ].join(' in '),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
                           letterSpacing: -0.2,
+                          color: AppTheme.textPrimaryOf(context),
                         ),
                       ),
                     ),
@@ -603,11 +605,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Column(
                       children: [
                         Icon(Icons.search_off_rounded,
-                            size: 48, color: Colors.grey[300]),
+                            size: 48, color: AppTheme.textSecondaryOf(context)),
                         const SizedBox(height: 12),
                         Text('No events found',
                             style: TextStyle(
-                                color: Colors.grey[500],
+                                color: AppTheme.textSecondaryOf(context),
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600)),
                       ],
@@ -682,9 +684,9 @@ class _HomeScreenState extends State<HomeScreen> {
         // ── Search Header ──
         SliverToBoxAdapter(
           child: Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.only(
+            decoration: BoxDecoration(
+              color: AppTheme.cardOf(context),
+              borderRadius: const BorderRadius.only(
                 bottomLeft: Radius.circular(28),
                 bottomRight: Radius.circular(28),
               ),
@@ -700,10 +702,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         user != null && user.isOrganizer
                             ? 'My Events'
                             : 'Explore',
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 28,
                             fontWeight: FontWeight.w800,
-                            letterSpacing: -0.5),
+                            letterSpacing: -0.5,
+                            color: AppTheme.textPrimaryOf(context)),
                       ),
                     ),
                     if (user != null && user.isOrganizer)
@@ -736,7 +739,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   decoration: InputDecoration(
                     hintText: 'Search events...',
                     prefixIcon:
-                        const Icon(Icons.search, color: AppTheme.textSecondary),
+                        Icon(Icons.search, color: AppTheme.textSecondaryOf(context)),
                     suffixIcon: _searchController.text.isNotEmpty
                         ? IconButton(
                             icon: const Icon(Icons.clear, size: 20),
@@ -747,7 +750,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           )
                         : null,
                     filled: true,
-                    fillColor: AppTheme.surfaceColor,
+                    fillColor: AppTheme.inputFillOf(context),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
                       borderSide: BorderSide.none,
@@ -770,7 +773,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           decoration: InputDecoration(
                             labelText: 'Status',
                             filled: true,
-                            fillColor: AppTheme.surfaceColor,
+                            fillColor: AppTheme.inputFillOf(context),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
                               borderSide: BorderSide.none,
@@ -808,7 +811,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       decoration: BoxDecoration(
                         color: _showAdvanced
                             ? AppTheme.primaryColor
-                            : AppTheme.surfaceColor,
+                            : AppTheme.surfaceOf(context),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: IconButton(
@@ -816,7 +819,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           Icons.tune_rounded,
                           color: _showAdvanced
                               ? Colors.white
-                              : AppTheme.textSecondary,
+                              : AppTheme.textSecondaryOf(context),
                           size: 20,
                         ),
                         onPressed: () =>
@@ -851,7 +854,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           decoration: InputDecoration(
                             labelText: 'Registration',
                             filled: true,
-                            fillColor: AppTheme.surfaceColor,
+                            fillColor: AppTheme.inputFillOf(context),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
                               borderSide: BorderSide.none,
@@ -880,7 +883,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           decoration: InputDecoration(
                             labelText: 'Genre',
                             filled: true,
-                            fillColor: AppTheme.surfaceColor,
+                            fillColor: AppTheme.inputFillOf(context),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
                               borderSide: BorderSide.none,
@@ -957,7 +960,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     style: Theme.of(context)
                         .textTheme
                         .titleLarge
-                        ?.copyWith(letterSpacing: -0.3),
+                        ?.copyWith(
+                          letterSpacing: -0.3,
+                          color: AppTheme.textPrimaryOf(context),
+                        ),
                   ),
                 ),
                 // Map / List toggle pill
@@ -1011,10 +1017,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.error_outline,
-                      size: 48, color: Colors.grey[400]),
+                      size: 48, color: AppTheme.textSecondaryOf(context)),
                   const SizedBox(height: 12),
                   Text(events.error!,
-                      style: TextStyle(color: AppTheme.textSecondary)),
+                      style: TextStyle(color: AppTheme.textSecondaryOf(context))),
                   const SizedBox(height: 16),
                   ElevatedButton(
                     onPressed: () => events.loadEvents(),
@@ -1034,19 +1040,21 @@ class _HomeScreenState extends State<HomeScreen> {
                     width: 80,
                     height: 80,
                     decoration: BoxDecoration(
-                      color: AppTheme.surfaceColor,
+                      color: AppTheme.surfaceOf(context),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: const Icon(Icons.event_busy_rounded,
-                        size: 40, color: AppTheme.textSecondary),
+                    child: Icon(Icons.event_busy_rounded,
+                        size: 40, color: AppTheme.textSecondaryOf(context)),
                   ),
                   const SizedBox(height: 16),
-                  const Text('No events found',
+                  Text('No events found',
                       style: TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.w600)),
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimaryOf(context))),
                   const SizedBox(height: 4),
                   Text('Try adjusting your filters',
-                      style: TextStyle(color: AppTheme.textSecondary)),
+                      style: TextStyle(color: AppTheme.textSecondaryOf(context))),
                 ],
               ),
             ),
@@ -1125,17 +1133,17 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: AppTheme.surfaceColor,
+          color: AppTheme.surfaceOf(context),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
           children: [
-            const Icon(Icons.calendar_today_rounded,
-                size: 16, color: AppTheme.textSecondary),
+            Icon(Icons.calendar_today_rounded,
+                size: 16, color: AppTheme.textSecondaryOf(context)),
             const SizedBox(width: 8),
             Text(label,
-                style: const TextStyle(
-                    fontSize: 13, color: AppTheme.textSecondary)),
+                style: TextStyle(
+                    fontSize: 13, color: AppTheme.textSecondaryOf(context))),
           ],
         ),
       ),
@@ -1153,9 +1161,9 @@ class _HomeScreenState extends State<HomeScreen> {
         // ── Header ──
         SliverToBoxAdapter(
           child: Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.only(
+            decoration: BoxDecoration(
+              color: AppTheme.cardOf(context),
+              borderRadius: const BorderRadius.only(
                 bottomLeft: Radius.circular(28),
                 bottomRight: Radius.circular(28),
               ),
@@ -1164,50 +1172,18 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    const Expanded(
-                      child: Text('Manage',
-                          style: TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.5)),
-                    ),
-                    // Create event prominent button
-                    SizedBox(
-                      height: 42,
-                      child: ElevatedButton.icon(
-                        onPressed: () async {
-                          final created =
-                              await context.push<bool>('/events/create');
-                          if (created == true && mounted) {
-                            _applyFilters();
-                            _loadFeatured();
-                          }
-                        },
-                        icon: const Icon(Icons.add_rounded, size: 20),
-                        label: const Text('New Event',
-                            style: TextStyle(
-                                fontSize: 14, fontWeight: FontWeight.w700)),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryColor,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                Text('Manage',
+                    style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.5,
+                        color: AppTheme.textPrimaryOf(context))),
                 const SizedBox(height: 8),
                 Text(
                   'Tools & shortcuts for your events',
                   style: TextStyle(
                     fontSize: 14,
-                    color: AppTheme.textSecondary,
+                    color: AppTheme.textSecondaryOf(context),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -1223,11 +1199,11 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Quick Actions',
+                Text('Quick Actions',
                     style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: AppTheme.textSecondary,
+                        color: AppTheme.textSecondaryOf(context),
                         letterSpacing: 0.5)),
                 const SizedBox(height: 14),
                 // Row 1
@@ -1299,75 +1275,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ],
 
-                const SizedBox(height: 28),
-
-                // ── Helpful tip ──
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    color: AppTheme.accentColor.withValues(alpha: 0.07),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                        color: AppTheme.accentColor.withValues(alpha: 0.15)),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: AppTheme.accentColor.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(Icons.lightbulb_outline_rounded,
-                            color: AppTheme.accentColor, size: 22),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Your events are on Explore',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: -0.2,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Switch to the Explore tab to view, search, and filter all your events.',
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                color: AppTheme.textSecondary,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      GestureDetector(
-                        onTap: () => setState(() => _navIndex = 1),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: AppTheme.accentColor,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Text('Go',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700)),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
               ],
             ),
           ),
@@ -1389,7 +1296,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 20),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppTheme.cardOf(context),
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
@@ -1412,8 +1319,10 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 10),
               Text(label,
-                  style: const TextStyle(
-                      fontSize: 12, fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textPrimaryOf(context)),
                   textAlign: TextAlign.center),
             ],
           ),
@@ -1438,9 +1347,9 @@ class _HomeScreenState extends State<HomeScreen> {
       children: [
         // Header + Search + Genre chips — rounded bottom like Home tab
         Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.only(
+          decoration: BoxDecoration(
+            color: AppTheme.cardOf(context),
+            borderRadius: const BorderRadius.only(
               bottomLeft: Radius.circular(28),
               bottomRight: Radius.circular(28),
             ),
@@ -1451,26 +1360,27 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Text('My Events',
                         style: TextStyle(
                             fontSize: 28,
                             fontWeight: FontWeight.w800,
-                            letterSpacing: -0.5)),
+                            letterSpacing: -0.5,
+                            color: AppTheme.textPrimaryOf(context))),
                   ),
                   Container(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: AppTheme.surfaceColor,
+                      color: AppTheme.surfaceOf(context),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
                       '${_myEvents.length} event${_myEvents.length != 1 ? 's' : ''}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: AppTheme.textSecondary,
+                        color: AppTheme.textSecondaryOf(context),
                       ),
                     ),
                   ),
@@ -1480,13 +1390,13 @@ class _HomeScreenState extends State<HomeScreen> {
               TextField(
                 decoration: InputDecoration(
                   hintText: 'Search my events…',
-                  prefixIcon: const Icon(Icons.search,
-                      color: AppTheme.textSecondary, size: 22),
+                  prefixIcon: Icon(Icons.search,
+                      color: AppTheme.textSecondaryOf(context), size: 22),
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(
                       horizontal: 16, vertical: 14),
                   filled: true,
-                  fillColor: AppTheme.surfaceColor,
+                  fillColor: AppTheme.inputFillOf(context),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
                     borderSide: BorderSide.none,
@@ -1512,17 +1422,17 @@ class _HomeScreenState extends State<HomeScreen> {
                           });
                         },
                         selectedColor: AppTheme.primaryColor,
-                        backgroundColor: Colors.white,
+                        backgroundColor: AppTheme.cardOf(context),
                         side: BorderSide(
                           color: isActive
                               ? AppTheme.primaryColor
-                              : AppTheme.dividerColor,
+                              : AppTheme.dividerOf(context),
                         ),
                         labelStyle: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                           color:
-                              isActive ? Colors.white : AppTheme.textPrimary,
+                              isActive ? Colors.white : AppTheme.textPrimaryOf(context),
                         ),
                       ),
                     );
@@ -1543,17 +1453,19 @@ class _HomeScreenState extends State<HomeScreen> {
                         width: 80,
                         height: 80,
                         decoration: BoxDecoration(
-                          color: AppTheme.surfaceColor,
+                          color: AppTheme.surfaceOf(context),
                           borderRadius: BorderRadius.circular(22),
                         ),
-                        child: const Icon(Icons.bookmark_outline_rounded,
-                            size: 40, color: AppTheme.textSecondary),
+                        child: Icon(Icons.bookmark_outline_rounded,
+                            size: 40, color: AppTheme.textSecondaryOf(context)),
                       ),
                       const SizedBox(height: 16),
                       Text(
                         _myEvents.isEmpty ? 'No events yet' : 'No matches',
-                        style: const TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.w700),
+                        style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.textPrimaryOf(context)),
                       ),
                       const SizedBox(height: 6),
                       Text(
@@ -1561,7 +1473,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ? 'Events you register for will appear here'
                             : 'Try a different search term',
                         style: TextStyle(
-                            color: AppTheme.textSecondary, fontSize: 14),
+                            color: AppTheme.textSecondaryOf(context), fontSize: 14),
                       ),
                     ],
                   ),
@@ -1690,16 +1602,16 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Account',
+                Text('Account',
                     style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: AppTheme.textSecondary,
+                        color: AppTheme.textSecondaryOf(context),
                         letterSpacing: 0.5)),
                 const SizedBox(height: 12),
                 Container(
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppTheme.cardOf(context),
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
@@ -1716,20 +1628,20 @@ class _HomeScreenState extends State<HomeScreen> {
                         label: 'Edit Profile',
                         onTap: () => context.push('/profile'),
                       ),
-                      const Divider(height: 1, indent: 56),
+                      Divider(height: 1, indent: 56, color: AppTheme.dividerOf(context)),
                       if (user.isCustomer) ...[
 _profileTile(
                         icon: Icons.volunteer_activism_rounded,
                         label: 'My Pledges',
                         onTap: () => AppToast.info(context, 'Coming soon'),
                       ),
-                        const Divider(height: 1, indent: 56),
+                        Divider(height: 1, indent: 56, color: AppTheme.dividerOf(context)),
 _profileTile(
                         icon: Icons.confirmation_number_rounded,
                         label: 'My Tickets',
                         onTap: () => context.push('/my-tickets'),
                       ),
-                        const Divider(height: 1, indent: 56),
+                        Divider(height: 1, indent: 56, color: AppTheme.dividerOf(context)),
                       ],
                     ],
                   ),
@@ -1737,16 +1649,16 @@ _profileTile(
 
                 if (user.isOrganizer || user.isAdmin) ...[
                   const SizedBox(height: 24),
-                  const Text('Management',
+                  Text('Management',
                       style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: AppTheme.textSecondary,
+                          color: AppTheme.textSecondaryOf(context),
                           letterSpacing: 0.5)),
                   const SizedBox(height: 12),
                   Container(
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppTheme.cardOf(context),
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
@@ -1764,13 +1676,13 @@ _profileTile(
                             label: 'My Venues',
                             onTap: () => context.push('/venues'),
                           ),
-                          const Divider(height: 1, indent: 56),
+                          Divider(height: 1, indent: 56, color: AppTheme.dividerOf(context)),
                           _profileTile(
                             icon: Icons.confirmation_number_rounded,
                             label: 'Ticket Strategies',
                             onTap: () => context.push('/ticket-strategies'),
                           ),
-                          const Divider(height: 1, indent: 56),
+                          Divider(height: 1, indent: 56, color: AppTheme.dividerOf(context)),
                         ],
                         if (user.isAdmin)
                           _profileTile(
@@ -1835,19 +1747,21 @@ _profileTile(
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: AppTheme.surfaceColor,
+                color: AppTheme.surfaceOf(context),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(icon, size: 20, color: AppTheme.primaryColor),
+              child: Icon(icon, size: 20, color: AppTheme.textPrimaryOf(context)),
             ),
             const SizedBox(width: 14),
             Expanded(
               child: Text(label,
-                  style: const TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.w500)),
+                  style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.textPrimaryOf(context))),
             ),
-            const Icon(Icons.chevron_right_rounded,
-                size: 22, color: AppTheme.textSecondary),
+            Icon(Icons.chevron_right_rounded,
+                size: 22, color: AppTheme.textSecondaryOf(context)),
           ],
         ),
       ),
@@ -1872,10 +1786,11 @@ _profileTile(
                 const SizedBox(width: 10),
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.3,
+                    color: AppTheme.textPrimaryOf(context),
                   ),
                 ),
                 const Spacer(),
@@ -1928,7 +1843,7 @@ class _UberEventCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppTheme.cardOf(context),
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
@@ -1990,6 +1905,7 @@ class _UberEventCard extends StatelessWidget {
                   // Date
                   if (event.startTime != null) ...[
                     _iconRow(
+                      context,
                       Icons.schedule_rounded,
                       DateFormat('EEE, MMM d \u2022 h:mm a')
                           .format(event.startTime!),
@@ -1999,12 +1915,14 @@ class _UberEventCard extends StatelessWidget {
                   // Venue
                   if (event.venue != null)
                     _iconRow(
+                      context,
                       Icons.location_on_rounded,
                       '${event.venue!.name}, ${event.venue!.city}',
                     ),
                   if (event.genre != null && event.genre!.isNotEmpty) ...[
                     const SizedBox(height: 5),
                     _iconRow(
+                      context,
                       Icons.label_rounded,
                       event.genre![0].toUpperCase() +
                           event.genre!.substring(1),
@@ -2016,10 +1934,10 @@ class _UberEventCard extends StatelessWidget {
                   Row(
                     children: [
                       if (event.registrationCount > 0)
-                        _statChip(Icons.group_rounded,
+                        _statChip(context, Icons.group_rounded,
                             '${event.registrationCount}'),
                       if (event.likeCount > 0)
-                        _statChip(
+                        _statChip(context,
                             Icons.favorite_rounded, '${event.likeCount}'),
                       const Spacer(),
                       if (event.fundingGoalCents != null &&
@@ -2043,7 +1961,7 @@ class _UberEventCard extends StatelessWidget {
                       child: LinearProgressIndicator(
                         value: event.fundingProgress.clamp(0.0, 1.0),
                         minHeight: 4,
-                        backgroundColor: AppTheme.dividerColor,
+                        backgroundColor: AppTheme.dividerOf(context),
                         valueColor: AlwaysStoppedAnimation(
                           event.fundingProgress >= 1.0
                               ? AppTheme.successColor
@@ -2061,17 +1979,17 @@ class _UberEventCard extends StatelessWidget {
     );
   }
 
-  Widget _iconRow(IconData icon, String text, {Color? color}) {
+  Widget _iconRow(BuildContext context, IconData icon, String text, {Color? color}) {
     return Row(
       children: [
-        Icon(icon, size: 15, color: color ?? AppTheme.textSecondary),
+        Icon(icon, size: 15, color: color ?? AppTheme.textSecondaryOf(context)),
         const SizedBox(width: 6),
         Expanded(
           child: Text(
             text,
             style: TextStyle(
                 fontSize: 12.5,
-                color: color ?? AppTheme.textSecondary,
+                color: color ?? AppTheme.textSecondaryOf(context),
                 fontWeight: FontWeight.w500),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -2081,24 +1999,24 @@ class _UberEventCard extends StatelessWidget {
     );
   }
 
-  Widget _statChip(IconData icon, String value) {
+  Widget _statChip(BuildContext context, IconData icon, String value) {
     return Container(
       margin: const EdgeInsets.only(right: 8),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceColor,
+        color: AppTheme.surfaceOf(context),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: AppTheme.textSecondary),
+          Icon(icon, size: 14, color: AppTheme.textSecondaryOf(context)),
           const SizedBox(width: 4),
           Text(value,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: AppTheme.textPrimary)),
+                  color: AppTheme.textPrimaryOf(context))),
         ],
       ),
     );

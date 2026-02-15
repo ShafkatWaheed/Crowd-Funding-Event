@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/theme_provider.dart';
 import '../../widgets/app_toast.dart';
 import '../legal/terms_screen.dart';
 
@@ -40,7 +41,7 @@ class ProfileScreen extends StatelessWidget {
                     children: [
                       CircleAvatar(
                         radius: 48,
-                        backgroundColor: AppTheme.primaryColor,
+                        backgroundColor: AppTheme.accentColor,
                         child: Text(
                           user.initial,
                           style: const TextStyle(
@@ -63,13 +64,13 @@ class ProfileScreen extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(Icons.phone_outlined,
-                                size: 16, color: Colors.grey[500]),
+                                size: 16, color: AppTheme.textSecondaryOf(context)),
                             const SizedBox(width: 6),
                             Text(
                               user.phone!,
                               style: TextStyle(
                                   fontSize: 14,
-                                  color: Colors.grey[500]),
+                                  color: AppTheme.textSecondaryOf(context)),
                             ),
                           ],
                         ),
@@ -78,7 +79,7 @@ class ProfileScreen extends StatelessWidget {
                       Chip(
                         label: Text(user.role.name.toUpperCase()),
                         backgroundColor:
-                            AppTheme.primaryColor.withValues(alpha: 0.1),
+                            AppTheme.accentColor.withValues(alpha: 0.15),
                         side: BorderSide.none,
                       ),
                       const SizedBox(height: 32),
@@ -89,41 +90,68 @@ class ProfileScreen extends StatelessWidget {
                           children: [
                             if (user.isCustomer) ...[
                               ListTile(
-                                leading: const Icon(Icons.volunteer_activism),
+                                leading: Icon(Icons.volunteer_activism, color: AppTheme.textSecondaryOf(context)),
                                 title: const Text('My Pledges'),
-                                trailing: const Icon(Icons.chevron_right),
+                                trailing: Icon(Icons.chevron_right, color: AppTheme.textSecondaryOf(context)),
                                 onTap: () {
                                   AppToast.info(context, 'Coming soon');
                                 },
                               ),
                               const Divider(height: 1),
                               ListTile(
-                                leading: const Icon(Icons.confirmation_number),
+                                leading: Icon(Icons.confirmation_number, color: AppTheme.textSecondaryOf(context)),
                                 title: const Text('My Tickets'),
-                                trailing: const Icon(Icons.chevron_right),
+                                trailing: Icon(Icons.chevron_right, color: AppTheme.textSecondaryOf(context)),
                                 onTap: () => context.push('/my-tickets'),
                               ),
                               const Divider(height: 1),
                             ],
                             if (user.isOrganizer) ...[
                               ListTile(
-                                leading: const Icon(Icons.location_city),
+                                leading: Icon(Icons.location_city, color: AppTheme.textSecondaryOf(context)),
                                 title: const Text('My Venues'),
-                                trailing: const Icon(Icons.chevron_right),
+                                trailing: Icon(Icons.chevron_right, color: AppTheme.textSecondaryOf(context)),
                                 onTap: () => context.push('/venues'),
                               ),
                               const Divider(height: 1),
                             ],
                             if (user.isAdmin) ...[
                               ListTile(
-                                leading:
-                                    const Icon(Icons.admin_panel_settings),
+                                leading: Icon(Icons.admin_panel_settings, color: AppTheme.textSecondaryOf(context)),
                                 title: const Text('Admin Dashboard'),
-                                trailing: const Icon(Icons.chevron_right),
+                                trailing: Icon(Icons.chevron_right, color: AppTheme.textSecondaryOf(context)),
                                 onTap: () => context.push('/admin'),
                               ),
                               const Divider(height: 1),
                             ],
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Appearance
+                      Card(
+                        child: Column(
+                          children: [
+                            Builder(builder: (ctx) {
+                              final themeProv = ctx.watch<ThemeProvider>();
+                              return ListTile(
+                                leading: Icon(
+                                  themeProv.isDark
+                                      ? Icons.dark_mode_rounded
+                                      : Icons.light_mode_rounded,
+                                  color: AppTheme.textSecondaryOf(ctx),
+                                ),
+                                title: const Text('Dark Mode'),
+                                trailing: Switch.adaptive(
+                                  value: themeProv.isDark,
+                                  activeColor: AppTheme.accentColor,
+                                  onChanged: (_) => themeProv.toggle(),
+                                ),
+                                onTap: () => themeProv.toggle(),
+                              );
+                            }),
                           ],
                         ),
                       ),
@@ -135,9 +163,9 @@ class ProfileScreen extends StatelessWidget {
                         child: Column(
                           children: [
                             ListTile(
-                              leading: const Icon(Icons.description_outlined),
+                              leading: Icon(Icons.description_outlined, color: AppTheme.textSecondaryOf(context)),
                               title: const Text('Terms & Conditions'),
-                              trailing: const Icon(Icons.chevron_right),
+                              trailing: Icon(Icons.chevron_right, color: AppTheme.textSecondaryOf(context)),
                               onTap: () {
                                 final role = user.isOrganizer
                                     ? 'organizer'

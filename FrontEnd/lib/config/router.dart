@@ -80,7 +80,11 @@ GoRouter createRouter(AuthProvider authProvider) {
       ),
       GoRoute(
         path: '/my-tickets',
-        builder: (context, state) => const MyTicketsScreen(),
+        builder: (context, state) {
+          final eventIdStr = state.uri.queryParameters['eventId'];
+          final eventId = eventIdStr != null ? int.tryParse(eventIdStr) : null;
+          return MyTicketsScreen(filterEventId: eventId);
+        },
       ),
 
       // ─── Legal ───

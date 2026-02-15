@@ -39,7 +39,6 @@ class _LoginScreenState extends State<LoginScreen> {
     final auth = context.watch<AuthProvider>();
 
     return Scaffold(
-      backgroundColor: Colors.white,
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(28),
@@ -83,7 +82,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   'Sign in to continue to CrowdFund Events',
                   style: TextStyle(
                     fontSize: 15,
-                    color: AppTheme.textSecondary,
+                    color: AppTheme.textSecondaryOf(context),
                   ),
                 ),
                 const SizedBox(height: 36),
@@ -99,10 +98,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         decoration: InputDecoration(
                           labelText: 'Email',
                           hintText: 'you@example.com',
-                          prefixIcon: const Icon(Icons.email_outlined,
-                              size: 20, color: AppTheme.textSecondary),
+                          prefixIcon: Icon(Icons.email_outlined,
+                              size: 20, color: AppTheme.textSecondaryOf(context)),
                           filled: true,
-                          fillColor: AppTheme.surfaceColor,
+                          fillColor: AppTheme.inputFillOf(context),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(14),
                             borderSide: BorderSide.none,
@@ -124,21 +123,21 @@ class _LoginScreenState extends State<LoginScreen> {
                         obscureText: _obscurePassword,
                         decoration: InputDecoration(
                           labelText: 'Password',
-                          prefixIcon: const Icon(Icons.lock_outlined,
-                              size: 20, color: AppTheme.textSecondary),
+                          prefixIcon: Icon(Icons.lock_outlined,
+                              size: 20, color: AppTheme.textSecondaryOf(context)),
                           suffixIcon: IconButton(
                             icon: Icon(
                               _obscurePassword
                                   ? Icons.visibility_off_outlined
                                   : Icons.visibility_outlined,
                               size: 20,
-                              color: AppTheme.textSecondary,
+                              color: AppTheme.textSecondaryOf(context),
                             ),
                             onPressed: () => setState(
                                 () => _obscurePassword = !_obscurePassword),
                           ),
                           filled: true,
-                          fillColor: AppTheme.surfaceColor,
+                          fillColor: AppTheme.inputFillOf(context),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(14),
                             borderSide: BorderSide.none,

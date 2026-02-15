@@ -36,6 +36,7 @@ class Event {
   final int? totalPledgedCents;
   final int? fundingDaysLeft;
   final int totalReservedSpots;
+  final int ticketsSoldCount;
   final String? cancellationReason;
   final int registrationCount;
   final String? genre;
@@ -84,6 +85,7 @@ class Event {
     this.totalPledgedCents,
     this.fundingDaysLeft,
     this.totalReservedSpots = 0,
+    this.ticketsSoldCount = 0,
     this.cancellationReason,
     this.registrationCount = 0,
     this.genre,
@@ -141,6 +143,7 @@ class Event {
       totalPledgedCents: json['total_pledged_cents'],
       fundingDaysLeft: json['funding_days_left'],
       totalReservedSpots: json['total_reserved_spots'] ?? 0,
+      ticketsSoldCount: json['tickets_sold_count'] ?? 0,
       cancellationReason: json['cancellation_reason'],
       registrationCount: json['registration_count'] ?? 0,
       genre: json['genre'],
@@ -233,9 +236,11 @@ class Event {
       (accessibilityInfo != null && accessibilityInfo!.isNotEmpty);
 
   /// Whether registering / unregistering is allowed.
+  /// Whether registering / unregistering is allowed.
   bool get canUnregister =>
       status == EventStatus.approved ||
       status == EventStatus.draft ||
       status == EventStatus.waiting_event_date ||
-      status == EventStatus.selling_tickets;
+      status == EventStatus.selling_tickets ||
+      status == EventStatus.live;
 }

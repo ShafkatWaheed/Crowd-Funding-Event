@@ -244,7 +244,7 @@ class _EventMapWidgetState extends State<EventMapWidget> {
 class _VenueEventsSheet extends StatelessWidget {
   final List<EventMarker> events;
 
-  const _VenueEventsSheet({required this.events});
+  _VenueEventsSheet({required this.events});
 
   @override
   Widget build(BuildContext context) {
@@ -257,9 +257,9 @@ class _VenueEventsSheet extends StatelessWidget {
       maxChildSize: 0.7,
       builder: (context, scrollController) {
         return Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          decoration: BoxDecoration(
+            color: AppTheme.cardOf(context),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: Column(
             children: [
@@ -308,7 +308,7 @@ class _VenueEventsSheet extends StatelessWidget {
                             '${events.length} event${events.length > 1 ? 's' : ''}',
                             style: TextStyle(
                               fontSize: 13,
-                              color: AppTheme.textSecondary,
+                              color: AppTheme.textSecondaryOf(context),
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -359,7 +359,7 @@ class _VenueEventsSheet extends StatelessWidget {
                                 shape: BoxShape.circle,
                                 color: event.isLive
                                     ? AppTheme.successColor
-                                    : _statusColor(event.status),
+                                    : _statusColor(context, event.status),
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -407,7 +407,7 @@ class _VenueEventsSheet extends StatelessWidget {
                                             dateFmt.format(startDt),
                                             style: TextStyle(
                                               fontSize: 12,
-                                              color: AppTheme.textSecondary,
+                                              color: AppTheme.textSecondaryOf(context),
                                             ),
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
@@ -418,10 +418,10 @@ class _VenueEventsSheet extends StatelessWidget {
                                 ],
                               ),
                             ),
-                            const Icon(
+                            Icon(
                               Icons.chevron_right_rounded,
                               size: 20,
-                              color: AppTheme.textSecondary,
+                              color: AppTheme.textSecondaryOf(context),
                             ),
                           ],
                         ),
@@ -437,12 +437,12 @@ class _VenueEventsSheet extends StatelessWidget {
     );
   }
 
-  Color _statusColor(String status) {
+  Color _statusColor(BuildContext context, String status) {
     return switch (status) {
       'live' => AppTheme.successColor,
       'selling_tickets' => const Color(0xFF00838F),
       'approved' => AppTheme.primaryColor,
-      _ => AppTheme.textSecondary,
+      _ => AppTheme.textSecondaryOf(context),
     };
   }
 }

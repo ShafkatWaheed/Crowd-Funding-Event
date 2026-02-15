@@ -66,7 +66,7 @@ class _PurchaseGroupReceiptScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.surfaceColor,
+      backgroundColor: AppTheme.surfaceOf(context),
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.close),
@@ -136,7 +136,7 @@ class _PurchaseGroupReceiptScreenState
           Container(
             width: double.infinity,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppTheme.cardOf(context),
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
@@ -282,7 +282,7 @@ class _PurchaseGroupReceiptScreenState
                         width: double.infinity,
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: AppTheme.surfaceColor,
+                          color: AppTheme.surfaceOf(context),
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: Column(
@@ -343,7 +343,7 @@ class _PurchaseGroupReceiptScreenState
                   padding: const EdgeInsets.symmetric(
                       horizontal: 24, vertical: 16),
                   decoration: BoxDecoration(
-                    color: AppTheme.surfaceColor,
+                    color: AppTheme.surfaceOf(context),
                     borderRadius: const BorderRadius.only(
                       bottomLeft: Radius.circular(20),
                       bottomRight: Radius.circular(20),
@@ -438,7 +438,7 @@ class _PurchaseGroupReceiptScreenState
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.cardOf(context),
         borderRadius: BorderRadius.circular(16),
         border: isScanned
             ? Border.all(color: AppTheme.successColor.withValues(alpha: 0.3))
@@ -527,13 +527,21 @@ class _PurchaseGroupReceiptScreenState
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppTheme.dividerColor),
+                    border: Border.all(color: AppTheme.dividerOf(context)),
                   ),
                   child: QrImageView(
                     data: qrData,
                     version: QrVersions.auto,
                     size: 140,
                     gapless: true,
+                    eyeStyle: const QrEyeStyle(
+                      eyeShape: QrEyeShape.square,
+                      color: Colors.black,
+                    ),
+                    dataModuleStyle: const QrDataModuleStyle(
+                      dataModuleShape: QrDataModuleShape.square,
+                      color: Colors.black,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -593,7 +601,7 @@ class _PurchaseGroupReceiptScreenState
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 10),
               decoration: BoxDecoration(
-                color: AppTheme.surfaceColor,
+                color: AppTheme.surfaceOf(context),
                 borderRadius: const BorderRadius.only(
                   bottomLeft: Radius.circular(16),
                   bottomRight: Radius.circular(16),

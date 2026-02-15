@@ -148,6 +148,7 @@ class EventResponse(BaseModel):
     total_pledged_cents: int | None = None  # for cards: "$X of $Y"
     funding_days_left: int | None = None   # days until funding_end_at; <=0 = ended; None = no deadline
     total_reserved_spots: int = 0  # sum of unredeemed reserved spots for the event
+    tickets_sold_count: int = 0  # count of purchased tickets (for capacity display)
     min_pledge_cents: int
     common_discount_percent: int
     pledge_discount_percent: int

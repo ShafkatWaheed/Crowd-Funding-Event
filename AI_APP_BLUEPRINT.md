@@ -17,7 +17,6 @@
 9. [Anti-Patterns to Avoid](#9-anti-patterns-to-avoid)
 10. [The Complete Workflow](#10-the-complete-workflow)
 11. [Prompt Templates](#11-prompt-templates)
-12. [Tech Stack Recommendations](#12-tech-stack-recommendations)
 
 ---
 

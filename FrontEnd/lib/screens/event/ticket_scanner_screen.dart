@@ -151,7 +151,7 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
         margin: const EdgeInsets.all(16),
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppTheme.cardOf(context),
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
@@ -197,7 +197,7 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
-                  color: AppTheme.surfaceColor,
+                  color: AppTheme.surfaceOf(context),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -361,7 +361,7 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppTheme.cardOf(context),
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(

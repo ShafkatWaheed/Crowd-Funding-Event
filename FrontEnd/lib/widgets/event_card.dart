@@ -10,17 +10,24 @@ class EventCard extends StatelessWidget {
 
   const EventCard({super.key, required this.event, this.onTap});
 
+  /// Total capacity used = reserved spots (unredeemed) + tickets sold.
+  int get _attendeeCount => event.totalReservedSpots + event.ticketsSoldCount;
+
+  /// Whether the event has reached its max capacity.
+  bool get _isFull => event.maxCapacity > 0 && _attendeeCount >= event.maxCapacity;
+
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppTheme.cardOf(context),
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
+              color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.06),
               blurRadius: 16,
               offset: const Offset(0, 4),
             ),
@@ -76,6 +83,7 @@ class EventCard extends StatelessWidget {
                 children: [
                   // Date
                   _infoRow(
+                    context,
                     Icons.schedule_rounded,
                     event.startTime != null
                         ? DateFormat('EEE, MMM d, y \u2022 h:mm a')
@@ -87,6 +95,7 @@ class EventCard extends StatelessWidget {
                   // Venue
                   if (event.venue != null)
                     _infoRow(
+                      context,
                       Icons.location_on_rounded,
                       '${event.venue!.name}, ${event.venue!.city}',
                     ),
@@ -95,24 +104,55 @@ class EventCard extends StatelessWidget {
                   if (event.genre != null && event.genre!.isNotEmpty) ...[
                     const SizedBox(height: 6),
                     _infoRow(
+                      context,
                       Icons.label_rounded,
                       event.genre![0].toUpperCase() + event.genre!.substring(1),
                       color: AppTheme.accentColor,
                     ),
                   ],
 
-                  // Stats row
-                  if (event.registrationCount > 0 || event.likeCount > 0) ...[
+                  // Stats row (capacity = registrations + tickets sold)
+                  if (_attendeeCount > 0 || event.likeCount > 0) ...[
                     const SizedBox(height: 12),
                     Row(
                       children: [
-                        if (event.registrationCount > 0)
-                          _stat(Icons.group_rounded,
-                              '${event.registrationCount} going'),
+                        if (_attendeeCount > 0)
+                          _stat(
+                            context,
+                            Icons.group_rounded,
+                            event.maxCapacity > 0
+                                ? '$_attendeeCount / ${event.maxCapacity}'
+                                : '$_attendeeCount going',
+                          ),
                         if (event.likeCount > 0)
-                          _stat(Icons.favorite_rounded,
+                          _stat(context, Icons.favorite_rounded,
                               '${event.likeCount}'),
                       ],
+                    ),
+                  ],
+
+                  // Capacity progress bar
+                  if (event.maxCapacity > 0) ...[
+                    const SizedBox(height: 8),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: (_attendeeCount / event.maxCapacity).clamp(0.0, 1.0),
+                        minHeight: 4,
+                        backgroundColor: AppTheme.dividerOf(context),
+                        valueColor: AlwaysStoppedAnimation(
+                          _isFull ? AppTheme.errorColor : AppTheme.accentColor,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _isFull ? 'FULL' : '${event.maxCapacity - _attendeeCount} spots left',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: _isFull ? AppTheme.errorColor : AppTheme.textSecondaryOf(context),
+                      ),
                     ),
                   ],
 
@@ -134,7 +174,7 @@ class EventCard extends StatelessWidget {
                         Text(
                           'Goal: ${event.fundingGoalFormatted}',
                           style: TextStyle(
-                            color: AppTheme.textSecondary,
+                            color: AppTheme.textSecondaryOf(context),
                             fontSize: 13,
                           ),
                         ),
@@ -146,7 +186,7 @@ class EventCard extends StatelessWidget {
                       child: LinearProgressIndicator(
                         value: event.fundingProgress.clamp(0.0, 1.0),
                         minHeight: 5,
-                        backgroundColor: AppTheme.dividerColor,
+                        backgroundColor: AppTheme.dividerOf(context),
                         valueColor: AlwaysStoppedAnimation(
                           event.fundingProgress >= 1.0
                               ? AppTheme.successColor
@@ -160,7 +200,7 @@ class EventCard extends StatelessWidget {
                         event.fundingTimeLeftFormatted,
                         style: TextStyle(
                             color: event.fundingHasTimeLeft
-                                ? AppTheme.textSecondary
+                                ? AppTheme.textSecondaryOf(context)
                                 : AppTheme.errorColor,
                             fontSize: 12),
                       ),
@@ -175,16 +215,17 @@ class EventCard extends StatelessWidget {
     );
   }
 
-  Widget _infoRow(IconData icon, String text, {Color? color}) {
+  Widget _infoRow(BuildContext context, IconData icon, String text, {Color? color}) {
+    final fallback = AppTheme.textSecondaryOf(context);
     return Row(
       children: [
-        Icon(icon, size: 16, color: color ?? AppTheme.textSecondary),
+        Icon(icon, size: 16, color: color ?? fallback),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
             text,
             style: TextStyle(
-                color: color ?? AppTheme.textSecondary,
+                color: color ?? fallback,
                 fontSize: 14,
                 fontWeight: FontWeight.w500),
             maxLines: 1,
@@ -195,24 +236,24 @@ class EventCard extends StatelessWidget {
     );
   }
 
-  Widget _stat(IconData icon, String value) {
+  Widget _stat(BuildContext context, IconData icon, String value) {
     return Container(
       margin: const EdgeInsets.only(right: 10),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceColor,
+        color: AppTheme.surfaceOf(context),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: AppTheme.textSecondary),
+          Icon(icon, size: 14, color: AppTheme.textSecondaryOf(context)),
           const SizedBox(width: 4),
           Text(value,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: AppTheme.textPrimary)),
+                  color: AppTheme.textPrimaryOf(context))),
         ],
       ),
     );

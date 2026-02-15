@@ -317,6 +317,26 @@ async def get_purchase_group_tickets(
     return sales
 
 
+async def get_ticket_sold_counts_for_events(
+    db: AsyncSession,
+    *,
+    event_ids: list[int],
+) -> dict[int, int]:
+    """Return { event_id: tickets_sold_count } for each event. Used for list/cards."""
+    if not event_ids:
+        return {}
+    q = (
+        select(TicketSale.event_id, func.count().label("cnt"))
+        .where(
+            TicketSale.event_id.in_(event_ids),
+            TicketSale.status == TicketSaleStatus.purchased,
+        )
+        .group_by(TicketSale.event_id)
+    )
+    result = await db.execute(q)
+    return {int(row.event_id): int(row.cnt) for row in result.all()}
+
+
 async def get_ticket_sales_stats(db: AsyncSession, *, event_id: int) -> dict:
     """Return total_sold and total_scanned counts for an event."""
     sold_q = select(func.count()).where(

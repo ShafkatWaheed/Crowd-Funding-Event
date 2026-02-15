@@ -68,7 +68,7 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.surfaceColor,
+      backgroundColor: AppTheme.surfaceOf(context),
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.close),
@@ -144,7 +144,7 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
           Container(
             width: double.infinity,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppTheme.cardOf(context),
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
@@ -310,7 +310,7 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(14),
-                                border: Border.all(color: AppTheme.dividerColor),
+                                border: Border.all(color: AppTheme.dividerOf(context)),
                                 boxShadow: [
                                   BoxShadow(
                                     color: Colors.black.withValues(alpha: 0.04),
@@ -330,13 +330,21 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
                                 version: QrVersions.auto,
                                 size: 160,
                                 gapless: true,
+                                eyeStyle: const QrEyeStyle(
+                                  eyeShape: QrEyeShape.square,
+                                  color: Colors.black,
+                                ),
+                                dataModuleStyle: const QrDataModuleStyle(
+                                  dataModuleShape: QrDataModuleShape.square,
+                                  color: Colors.black,
+                                ),
                               ),
                             ),
                             const SizedBox(height: 8),
                             Text('Scan for entry',
                                 style: TextStyle(
                                     fontSize: 11,
-                                    color: Colors.grey[500],
+                                    color: AppTheme.textSecondaryOf(context),
                                     fontWeight: FontWeight.w500)),
                           ],
                         ),
@@ -351,7 +359,7 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
                         width: double.infinity,
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: AppTheme.surfaceColor,
+                          color: AppTheme.surfaceOf(context),
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: Column(
@@ -412,7 +420,7 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                   decoration: BoxDecoration(
-                    color: AppTheme.surfaceColor,
+                    color: AppTheme.surfaceOf(context),
                     borderRadius: const BorderRadius.only(
                       bottomLeft: Radius.circular(20),
                       bottomRight: Radius.circular(20),

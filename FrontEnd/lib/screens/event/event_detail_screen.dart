@@ -156,7 +156,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           icon: Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: Colors.grey[100],
+              color: AppTheme.surfaceOf(context),
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.close, size: 18),
@@ -207,12 +207,12 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                               // ── Hero Header ──
                               Text(
                                 event.title,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 28,
                                   fontWeight: FontWeight.w900,
                                   letterSpacing: -0.8,
                                   height: 1.15,
-                                  color: AppTheme.textPrimary,
+                                  color: AppTheme.textPrimaryOf(context),
                                 ),
                               ),
                               const SizedBox(height: 12),
@@ -376,9 +376,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                   width: double.infinity,
                                   padding: const EdgeInsets.all(16),
                                   decoration: BoxDecoration(
-                                    color: Colors.white,
+                                    color: AppTheme.cardOf(context),
                                     borderRadius: BorderRadius.circular(14),
-                                    border: Border.all(color: AppTheme.dividerColor),
+                                    border: Border.all(color: AppTheme.dividerOf(context)),
                                   ),
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -400,10 +400,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                       const SizedBox(height: 10),
                                       Text(
                                         event.description!,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 15,
                                           height: 1.5,
-                                          color: AppTheme.textPrimary,
+                                          color: AppTheme.textPrimaryOf(context),
                                         ),
                                       ),
                                     ],
@@ -428,9 +428,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                 width: double.infinity,
                                 padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
-                                  color: Colors.white,
+                                  color: AppTheme.cardOf(context),
                                   borderRadius: BorderRadius.circular(14),
-                                  border: Border.all(color: AppTheme.dividerColor),
+                                  border: Border.all(color: AppTheme.dividerOf(context)),
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -460,11 +460,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                       Icons.people_alt_rounded,
                                       'Capacity',
                                       event.maxCapacity > 0
-                                          ? event.totalReservedSpots > 0
-                                              ? '${event.registrationCount} reg + ${event.totalReservedSpots} reserved / ${event.maxCapacity}'
-                                              : '${event.registrationCount} / ${event.maxCapacity} registered'
+                                          ? _capacityLabel(event)
                                           : '${event.registrationCount} registered',
-                                      valueColor: event.maxCapacity > 0 && event.registrationCount >= event.maxCapacity
+                                      valueColor: event.maxCapacity > 0 && _capacityUsed(event) >= event.maxCapacity
                                           ? AppTheme.errorColor
                                           : null,
                                     ),
@@ -495,7 +493,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                   decoration: BoxDecoration(
                                     color: AppTheme.cardColor,
                                     borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(color: AppTheme.dividerColor),
+                                    border: Border.all(color: AppTheme.dividerOf(context)),
                                   ),
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -856,7 +854,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                 // ── Secondary Actions (menu tiles) ──
                                 Container(
                                   decoration: BoxDecoration(
-                                    color: Colors.white,
+                                    color: AppTheme.cardOf(context),
                                     borderRadius: BorderRadius.circular(16),
                                     boxShadow: [
                                       BoxShadow(
@@ -1105,6 +1103,19 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     );
   }
 
+  /// Total capacity used = reserved spots (unredeemed) + tickets sold.
+  /// When a reserved-spot holder buys a ticket their reserved spot is
+  /// decremented and tickets_sold incremented, keeping the sum stable.
+  /// Once all reserved spots are redeemed, new ticket purchases grow the total.
+  int _capacityUsed(Event event) =>
+      event.totalReservedSpots + event.ticketsSoldCount;
+
+  /// Human-readable capacity label, e.g. "42 / 100".
+  String _capacityLabel(Event event) {
+    final used = _capacityUsed(event);
+    return '$used / ${event.maxCapacity}';
+  }
+
   Widget _modernInfoRow(IconData icon, String label, String value, {Color? valueColor}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -1113,7 +1124,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           Container(
             padding: const EdgeInsets.all(7),
             decoration: BoxDecoration(
-              color: Colors.grey[100],
+              color: AppTheme.surfaceOf(context),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon, size: 16, color: Colors.grey[600]),
@@ -1129,7 +1140,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 const SizedBox(height: 2),
                 Text(value,
                     style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600,
-                        color: valueColor ?? AppTheme.textPrimary)),
+                        color: valueColor ?? AppTheme.textPrimaryOf(context))),
               ],
             ),
           ),
@@ -1251,7 +1262,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       case EventStatus.live:
         return AppTheme.accentColor;
       case EventStatus.completed:
-        return AppTheme.primaryColor;
+        return Colors.grey[500]!;
       case EventStatus.cancelled:
         return AppTheme.errorColor;
     }
@@ -1274,9 +1285,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: Colors.grey[50],
+        color: AppTheme.surfaceOf(context),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: AppTheme.dividerOf(context)),
       ),
       child: Row(
         children: [
@@ -1311,7 +1322,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
             child: _quickActionBtn(
               icon: Icons.share_rounded,
               label: 'Share',
-              color: Colors.grey[700]!,
+              color: AppTheme.textSecondaryOf(context),
               filled: false,
               onTap: () => _shareEvent(context, event),
             ),
@@ -1324,7 +1335,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
             child: _quickActionBtn(
               icon: Icons.calendar_month_rounded,
               label: 'Calendar',
-              color: Colors.grey[700]!,
+              color: AppTheme.textSecondaryOf(context),
               filled: false,
               onTap: () => _downloadCalendar(context, event),
             ),
@@ -1603,7 +1614,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                 ],
                               ),
                             ),
-                            const Icon(Icons.chevron_right_rounded, color: AppTheme.textSecondary),
+                            Icon(Icons.chevron_right_rounded, color: AppTheme.textSecondaryOf(context)),
                           ],
                         ),
                       ),
@@ -1719,9 +1730,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                           decoration: BoxDecoration(
-                            color: AppTheme.surfaceColor,
+                            color: AppTheme.surfaceOf(context),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppTheme.dividerColor),
+                            border: Border.all(color: AppTheme.dividerOf(context)),
                           ),
                           child: Row(
                             children: [
@@ -1824,7 +1835,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                           width: double.infinity,
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: AppTheme.surfaceColor,
+                            color: AppTheme.surfaceOf(context),
                             borderRadius: BorderRadius.circular(14),
                           ),
                           child: Column(
@@ -1862,7 +1873,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                               ],
                               if (quantity > 1) ...[
                                 const SizedBox(height: 8),
-                                Container(height: 1, color: AppTheme.dividerColor),
+                                Container(height: 1, color: AppTheme.dividerOf(context)),
                                 const SizedBox(height: 8),
                                 _invoiceRow('Per Ticket',
                                     isFree ? 'FREE' : fmtCents(finalCentsPerTicket)),
@@ -1870,7 +1881,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                 _invoiceRow('x Quantity', '$quantity'),
                               ],
                               const SizedBox(height: 10),
-                              Container(height: 1, color: AppTheme.dividerColor),
+                              Container(height: 1, color: AppTheme.dividerOf(context)),
                               const SizedBox(height: 10),
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2103,7 +2114,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                   ),
                 ),
                 TextButton(
-                  onPressed: () => context.push('/my-tickets'),
+                  onPressed: () => context.push('/my-tickets?eventId=${widget.eventId}'),
                   style: TextButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     minimumSize: Size.zero,
@@ -2138,7 +2149,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppTheme.cardOf(context),
                   borderRadius: BorderRadius.circular(10),
                   border: isScanned
                       ? Border.all(color: AppTheme.successColor.withValues(alpha: 0.25))
@@ -2254,7 +2265,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   Color _statusColor(EventStatus status) {
     switch (status) {
       case EventStatus.draft:
-        return Colors.grey.shade200;
+        return Colors.grey.withValues(alpha: 0.2);
       case EventStatus.pending_approval:
         return AppTheme.warningColor.withValues(alpha: 0.2);
       case EventStatus.approved:
@@ -2266,7 +2277,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       case EventStatus.live:
         return AppTheme.secondaryColor.withValues(alpha: 0.2);
       case EventStatus.completed:
-        return AppTheme.primaryColor.withValues(alpha: 0.2);
+        return Colors.grey.withValues(alpha: 0.2);
       case EventStatus.cancelled:
         return AppTheme.errorColor.withValues(alpha: 0.2);
     }
@@ -2846,7 +2857,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppTheme.cardOf(context),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSet
@@ -3000,10 +3011,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           const SizedBox(height: 8),
           if (ext['funding_end_at'] != null)
             Text('New funding deadline: ${ext['funding_end_at']}',
-                style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryOf(context))),
           if (ext['funding_goal_cents'] != null)
             Text('New funding goal: \$${(ext['funding_goal_cents'] / 100).toStringAsFixed(2)}',
-                style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryOf(context))),
           if (user != null && user.isAdmin) ...[
             const SizedBox(height: 10),
             Row(
@@ -3392,7 +3403,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                   margin: const EdgeInsets.only(bottom: 8),
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppTheme.cardOf(context),
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
@@ -3655,8 +3666,11 @@ class _LiveMgmtStatsState extends State<_LiveMgmtStats> {
     }
 
     final regCount = _event.registrationCount;
+    final reservedCount = _event.totalReservedSpots;
+    final soldCount = _event.ticketsSoldCount;
+    final filledCount = reservedCount + soldCount; // capacity used = reserved + sold
     final maxCap = _event.maxCapacity;
-    final isFull = maxCap > 0 && regCount >= maxCap;
+    final isFull = maxCap > 0 && filledCount >= maxCap;
 
     // ── Early Phases ──
     if (_isEarlyPhase) {
@@ -3683,7 +3697,7 @@ class _LiveMgmtStatsState extends State<_LiveMgmtStats> {
             ],
           ),
           const SizedBox(height: 8),
-          _capacityBadge(regCount, maxCap, isFull),
+          _capacityBadge(filledCount, maxCap, isFull),
         ],
       );
     }
@@ -3692,7 +3706,7 @@ class _LiveMgmtStatsState extends State<_LiveMgmtStats> {
     if (_isTicketPhase) {
       return Column(
         children: [
-          _capacityBadge(regCount, maxCap, isFull),
+          _capacityBadge(filledCount, maxCap, isFull),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -3745,7 +3759,7 @@ class _LiveMgmtStatsState extends State<_LiveMgmtStats> {
     if (_isCompleted) {
       return Column(
         children: [
-          _capacityBadge(regCount, maxCap, isFull),
+          _capacityBadge(filledCount, maxCap, isFull),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -4387,9 +4401,9 @@ class _CustomerDiscountsSectionState extends State<_CustomerDiscountsSection> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(d['name'] ?? 'Discount',
-                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: AppTheme.textPrimary)),
+                              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: AppTheme.textPrimaryOf(context))),
                           Text(_describe(d),
-                              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                              style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context))),
                         ],
                       ),
                     ),
@@ -5001,7 +5015,7 @@ class _FundingCardState extends State<_FundingCard> {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.cardOf(context),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -5033,7 +5047,7 @@ class _FundingCardState extends State<_FundingCard> {
                   decoration: BoxDecoration(
                     color: hasTimeLeft
                         ? AppTheme.accentColor.withValues(alpha: 0.12)
-                        : AppTheme.textSecondary.withValues(alpha: 0.12),
+                        : AppTheme.textSecondaryOf(context).withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -5043,7 +5057,7 @@ class _FundingCardState extends State<_FundingCard> {
                       fontWeight: FontWeight.w700,
                       color: hasTimeLeft
                           ? AppTheme.accentColor
-                          : AppTheme.textSecondary,
+                          : AppTheme.textSecondaryOf(context),
                     ),
                   ),
                 ),
@@ -5063,7 +5077,7 @@ class _FundingCardState extends State<_FundingCard> {
                   letterSpacing: -0.5,
                   color: _progress >= 1.0
                       ? AppTheme.successColor
-                      : AppTheme.textPrimary,
+                      : AppTheme.textPrimaryOf(context),
                 ),
               ),
               const SizedBox(width: 6),
@@ -5071,9 +5085,9 @@ class _FundingCardState extends State<_FundingCard> {
                 padding: const EdgeInsets.only(bottom: 4),
                 child: Text(
                   'of $_goalFormatted',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
-                    color: AppTheme.textSecondary,
+                    color: AppTheme.textSecondaryOf(context),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -5102,7 +5116,7 @@ class _FundingCardState extends State<_FundingCard> {
             child: LinearProgressIndicator(
               value: _progress.clamp(0.0, 1.0),
               minHeight: 10,
-              backgroundColor: AppTheme.dividerColor,
+              backgroundColor: AppTheme.dividerOf(context),
               valueColor: AlwaysStoppedAnimation(
                 _progress >= 1.0
                     ? AppTheme.successColor
@@ -5124,27 +5138,27 @@ class _FundingCardState extends State<_FundingCard> {
           Row(
             children: [
               if (event.fundingEndAt != null) ...[
-                const Icon(Icons.timer_outlined,
-                    size: 14, color: AppTheme.textSecondary),
+                Icon(Icons.timer_outlined,
+                    size: 14, color: AppTheme.textSecondaryOf(context)),
                 const SizedBox(width: 4),
                 Text(
                   'Deadline: ${DateFormat('MMM d, y – h:mm a').format(event.fundingEndAt!.toLocal())}',
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 12,
-                      color: AppTheme.textSecondary,
+                      color: AppTheme.textSecondaryOf(context),
                       fontWeight: FontWeight.w500),
                 ),
               ],
               const Spacer(),
               if (event.minPledgeCents > 0) ...[
-                const Icon(Icons.arrow_downward,
-                    size: 14, color: AppTheme.textSecondary),
+                Icon(Icons.arrow_downward,
+                    size: 14, color: AppTheme.textSecondaryOf(context)),
                 const SizedBox(width: 4),
                 Text(
                   'Min: \$${(event.minPledgeCents / 100).toStringAsFixed(2)}',
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 12,
-                      color: AppTheme.textSecondary,
+                      color: AppTheme.textSecondaryOf(context),
                       fontWeight: FontWeight.w500),
                 ),
               ],
@@ -5463,8 +5477,8 @@ class _EventFeedState extends State<_EventFeed> {
         // Header row with title + refresh button
         Row(
           children: [
-            const Icon(Icons.forum_rounded,
-                size: 18, color: AppTheme.textPrimary),
+            Icon(Icons.forum_rounded,
+                size: 18, color: AppTheme.textPrimaryOf(context)),
             const SizedBox(width: 8),
             const Text(
               'Event Feed',
@@ -5479,7 +5493,7 @@ class _EventFeedState extends State<_EventFeed> {
               Chip(
                 label:
                     const Text('Disabled', style: TextStyle(fontSize: 11)),
-                backgroundColor: Colors.grey.shade200,
+                backgroundColor: AppTheme.dividerOf(context),
                 side: BorderSide.none,
               ),
             const Spacer(),
@@ -5500,7 +5514,7 @@ class _EventFeedState extends State<_EventFeed> {
                               CircularProgressIndicator(strokeWidth: 2),
                         )
                       : Icon(Icons.refresh_rounded,
-                          size: 20, color: Colors.grey[600]),
+                          size: 20, color: AppTheme.textSecondaryOf(context)),
                 ),
               ),
             ),
@@ -5537,7 +5551,7 @@ class _EventFeedState extends State<_EventFeed> {
                             strokeWidth: 2, color: Colors.white))
                     : const Icon(Icons.send),
                 style: IconButton.styleFrom(
-                  backgroundColor: AppTheme.primaryColor,
+                  backgroundColor: AppTheme.accentColor,
                 ),
               ),
             ],

@@ -1135,7 +1135,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                 constraints: const BoxConstraints(maxHeight: 160),
                                 margin: const EdgeInsets.only(top: 2),
                                 decoration: BoxDecoration(
-                                  color: Colors.white,
+                                  color: AppTheme.cardOf(context),
                                   borderRadius: BorderRadius.circular(10),
                                   border: Border.all(color: AppTheme.dividerColor),
                                   boxShadow: [
@@ -1714,7 +1714,7 @@ class _SearchableDropdown<T> extends StatefulWidget {
   final ValueChanged<T?> onSelected;
   final String? Function(T?)? validator;
 
-  const _SearchableDropdown({
+  _SearchableDropdown({
     super.key,
     required this.label,
     required this.hint,
@@ -1816,7 +1816,7 @@ class _SearchableDropdownState<T> extends State<_SearchableDropdown<T>> {
                 constraints: const BoxConstraints(maxHeight: 200),
                 margin: const EdgeInsets.only(top: 2),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppTheme.cardOf(context),
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(

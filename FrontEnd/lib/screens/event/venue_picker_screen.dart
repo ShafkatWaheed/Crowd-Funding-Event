@@ -92,16 +92,16 @@ class _VenuePickerScreenState extends State<VenuePickerScreen> {
                       )
                     : null,
                 filled: true,
-                fillColor: Colors.white,
+                fillColor: AppTheme.cardOf(context),
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: AppTheme.dividerColor),
+                  borderSide: BorderSide(color: AppTheme.dividerOf(context)),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: AppTheme.dividerColor),
+                  borderSide: BorderSide(color: AppTheme.dividerOf(context)),
                 ),
               ),
               onChanged: (_) => setState(() => _applySearch()),
@@ -118,14 +118,14 @@ class _VenuePickerScreenState extends State<VenuePickerScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.location_off_rounded,
-                                size: 56, color: Colors.grey[300]),
+                                size: 56, color: AppTheme.textSecondaryOf(context)),
                             const SizedBox(height: 12),
                             Text(
                               _searchCtrl.text.isNotEmpty
                                   ? 'No matching venues'
                                   : 'No venues available',
                               style: TextStyle(
-                                  fontSize: 16, color: Colors.grey[500]),
+                                  fontSize: 16, color: AppTheme.textSecondaryOf(context)),
                             ),
                           ],
                         ),
@@ -139,14 +139,15 @@ class _VenuePickerScreenState extends State<VenuePickerScreen> {
                           itemBuilder: (context, i) {
                             final v = _filtered[i];
                             final isActive = v.id == widget.currentVenueId;
+                            final accentClr = AppTheme.accentColor;
                             return Card(
                               margin: const EdgeInsets.only(bottom: 10),
+                              color: AppTheme.cardOf(context),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(14),
                                 side: isActive
-                                    ? BorderSide(
-                                        color: AppTheme.primaryColor, width: 2)
-                                    : BorderSide.none,
+                                    ? BorderSide(color: accentClr, width: 2)
+                                    : BorderSide(color: AppTheme.dividerOf(context)),
                               ),
                               child: InkWell(
                                 borderRadius: BorderRadius.circular(14),
@@ -160,18 +161,14 @@ class _VenuePickerScreenState extends State<VenuePickerScreen> {
                                         height: 46,
                                         decoration: BoxDecoration(
                                           color: isActive
-                                              ? AppTheme.primaryColor
-                                                  .withValues(alpha: 0.12)
-                                              : Colors.indigo
-                                                  .withValues(alpha: 0.08),
+                                              ? accentClr.withValues(alpha: 0.15)
+                                              : accentClr.withValues(alpha: 0.08),
                                           borderRadius:
                                               BorderRadius.circular(12),
                                         ),
                                         child: Icon(
                                           Icons.location_on_rounded,
-                                          color: isActive
-                                              ? AppTheme.primaryColor
-                                              : Colors.indigo,
+                                          color: accentClr,
                                           size: 22,
                                         ),
                                       ),
@@ -185,28 +182,26 @@ class _VenuePickerScreenState extends State<VenuePickerScreen> {
                                                 style: TextStyle(
                                                   fontWeight: FontWeight.w700,
                                                   fontSize: 15,
-                                                  color: isActive
-                                                      ? AppTheme.primaryColor
-                                                      : Colors.black87,
+                                                  color: AppTheme.textPrimaryOf(context),
                                                 )),
                                             const SizedBox(height: 3),
                                             Text(v.fullAddress,
                                                 style: TextStyle(
                                                     fontSize: 12,
-                                                    color: Colors.grey[600])),
+                                                    color: AppTheme.textSecondaryOf(context))),
                                             const SizedBox(height: 2),
                                             Text(
                                                 'Capacity: ${v.maxCapacity}',
                                                 style: TextStyle(
                                                     fontSize: 12,
                                                     fontWeight: FontWeight.w600,
-                                                    color: Colors.grey[500])),
+                                                    color: AppTheme.textSecondaryOf(context))),
                                           ],
                                         ),
                                       ),
                                       if (isActive)
                                         Icon(Icons.check_circle,
-                                            color: AppTheme.primaryColor,
+                                            color: accentClr,
                                             size: 24),
                                     ],
                                   ),

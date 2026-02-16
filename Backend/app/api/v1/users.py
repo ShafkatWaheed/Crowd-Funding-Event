@@ -6,7 +6,9 @@ from fastapi import APIRouter, Depends
 from app.dependencies import CurrentUser, DbSession, require_role
 from app.models.user import User, UserRole
 from app.schemas import EventResponse, MeResponse, MeUpdate, MyPledgeItem, PledgeReceiptResponse, TicketReceiptResponse, TicketSaleResponse
-from app.api.v1.events import _event_to_response
+from fastapi import Query
+
+from app.api.v1.events import _event_to_response, _ticket_sale_to_response
 from app.services import event as event_service
 from app.services import funding as funding_service
 from app.services import ticket as ticket_service
@@ -198,6 +200,19 @@ async def get_my_ticket_receipt(
         purchased_at=sale.created_at,
         scanned_at=sale.scanned_at,
     )
+
+
+@router.get("/organizer-ticket-sales", response_model=list[TicketSaleResponse])
+async def get_my_organizer_ticket_sales(
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+    scanned_only: bool = Query(False, description="If true, return only scanned tickets"),
+):
+    """All ticket sales across every event the current user organizes. Single query."""
+    sales = await ticket_service.list_organizer_ticket_sales(
+        db, organizer_id=current_user.id, scanned_only=scanned_only,
+    )
+    return [_ticket_sale_to_response(s) for s in sales]
 
 
 @router.get("/events", response_model=list[EventResponse])

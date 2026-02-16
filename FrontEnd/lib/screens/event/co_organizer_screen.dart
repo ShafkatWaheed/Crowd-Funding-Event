@@ -102,7 +102,7 @@ class _CoOrganizerScreenState extends State<CoOrganizerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.surfaceColor,
+      backgroundColor: AppTheme.surfaceOf(context),
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.close),
@@ -129,11 +129,11 @@ class _CoOrganizerScreenState extends State<CoOrganizerScreen> {
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: AppTheme.cardColor,
+                        color: AppTheme.cardOf(context),
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.04),
+                            color: Colors.black.withValues(alpha: 0.04),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -148,31 +148,47 @@ class _CoOrganizerScreenState extends State<CoOrganizerScreen> {
                           TextField(
                             controller: _userIdCtrl,
                             keyboardType: TextInputType.number,
+                            style: TextStyle(color: AppTheme.textPrimaryOf(context)),
                             decoration: InputDecoration(
                               labelText: 'User ID',
+                              labelStyle: TextStyle(color: AppTheme.textSecondaryOf(context)),
                               hintText: 'Enter user ID',
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                              hintStyle: TextStyle(color: AppTheme.textSecondaryOf(context)),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide(color: AppTheme.dividerOf(context)),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide(color: AppTheme.dividerOf(context)),
+                              ),
                               filled: true,
-                              fillColor: AppTheme.surfaceColor,
+                              fillColor: AppTheme.surfaceOf(context),
                             ),
                           ),
                           const SizedBox(height: 12),
-                          Text('Permission', style: Theme.of(context).textTheme.bodySmall),
+                          Text('Permission',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: AppTheme.textPrimaryOf(context))),
                           const SizedBox(height: 6),
                           Row(
                             children: [
                               ChoiceChip(
-                                label: const Text('Read Only'),
+                                label: Text('Read Only',
+                                    style: TextStyle(color: AppTheme.textPrimaryOf(context))),
                                 selected: _selectedPermission == 'read',
                                 onSelected: (_) => setState(() => _selectedPermission = 'read'),
-                                selectedColor: AppTheme.accentColor.withOpacity(0.15),
+                                selectedColor: AppTheme.accentColor.withValues(alpha: 0.25),
+                                checkmarkColor: Colors.white,
                               ),
                               const SizedBox(width: 8),
                               ChoiceChip(
-                                label: const Text('Full Access'),
+                                label: Text('Full Access',
+                                    style: TextStyle(color: AppTheme.textPrimaryOf(context))),
                                 selected: _selectedPermission == 'full',
                                 onSelected: (_) => setState(() => _selectedPermission = 'full'),
-                                selectedColor: AppTheme.successColor.withOpacity(0.15),
+                                selectedColor: AppTheme.successColor.withValues(alpha: 0.25),
+                                checkmarkColor: Colors.white,
                               ),
                             ],
                           ),
@@ -181,7 +197,8 @@ class _CoOrganizerScreenState extends State<CoOrganizerScreen> {
                             _selectedPermission == 'read'
                                 ? 'Can view event info, management stats, and scan tickets.'
                                 : 'Full organizer access — can edit, manage discounts, etc.',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.textSecondary),
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: AppTheme.textSecondaryOf(context)),
                           ),
                           const SizedBox(height: 12),
                           SizedBox(
@@ -208,11 +225,12 @@ class _CoOrganizerScreenState extends State<CoOrganizerScreen> {
                     return Container(
                       margin: const EdgeInsets.only(bottom: 8),
                       decoration: BoxDecoration(
-                        color: AppTheme.cardColor,
+                        color: AppTheme.cardOf(context),
                         borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppTheme.dividerOf(context)),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.04),
+                            color: Colors.black.withValues(alpha: 0.04),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -220,7 +238,7 @@ class _CoOrganizerScreenState extends State<CoOrganizerScreen> {
                       ),
                       child: ListTile(
                         leading: CircleAvatar(
-                          backgroundColor: isMain ? AppTheme.primaryColor : AppTheme.accentColor,
+                          backgroundColor: isMain ? AppTheme.accentColor : AppTheme.accentColor.withValues(alpha: 0.7),
                           child: Icon(
                             isMain ? Icons.star_rounded : Icons.person_rounded,
                             color: Colors.white,
@@ -229,12 +247,14 @@ class _CoOrganizerScreenState extends State<CoOrganizerScreen> {
                         ),
                         title: Text(
                           o['display_name'] ?? o['email'] ?? 'User ${o['user_id']}',
-                          style: const TextStyle(fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.textPrimaryOf(context)),
                         ),
                         subtitle: Text(
                           isMain ? 'Main Organizer' : 'Co-Organizer  •  $perm',
                           style: TextStyle(
-                            color: isMain ? AppTheme.successColor : AppTheme.textSecondary,
+                            color: isMain ? AppTheme.successColor : AppTheme.textSecondaryOf(context),
                             fontSize: 13,
                           ),
                         ),
@@ -244,9 +264,13 @@ class _CoOrganizerScreenState extends State<CoOrganizerScreen> {
                                 onPressed: () => _removeOrganizer(o['user_id']),
                               )
                             : isMain
-                                ? const Chip(
-                                    label: Text('Owner', style: TextStyle(fontSize: 11)),
-                                    backgroundColor: AppTheme.surfaceColor,
+                                ? Chip(
+                                    label: Text('Owner',
+                                        style: TextStyle(
+                                            fontSize: 11,
+                                            color: AppTheme.textPrimaryOf(context))),
+                                    backgroundColor: AppTheme.surfaceOf(context),
+                                    side: BorderSide.none,
                                     padding: EdgeInsets.zero,
                                   )
                                 : null,

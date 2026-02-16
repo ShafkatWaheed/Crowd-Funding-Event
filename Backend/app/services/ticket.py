@@ -432,6 +432,29 @@ async def list_event_scanned_ticket_sales(db: AsyncSession, *, event_id: int) ->
     return list(res.scalars().unique().all())
 
 
+async def list_organizer_ticket_sales(
+    db: AsyncSession, *, organizer_id: int, scanned_only: bool = False,
+) -> Sequence[TicketSale]:
+    """List all ticket sales across all events owned by organizer_id. Single query, no N+1."""
+    conditions = [Event.organizer_id == organizer_id]
+    if scanned_only:
+        conditions.append(TicketSale.scanned_at.isnot(None))
+    q = (
+        select(TicketSale)
+        .join(Event, TicketSale.event_id == Event.id)
+        .where(*conditions)
+        .options(
+            selectinload(TicketSale.event),
+            selectinload(TicketSale.user),
+            selectinload(TicketSale.ticket_tier),
+            selectinload(TicketSale.scanned_by),
+        )
+        .order_by(TicketSale.created_at.desc())
+    )
+    res = await db.execute(q)
+    return list(res.scalars().unique().all())
+
+
 async def list_event_waitlisted_tickets(db: AsyncSession, *, event_id: int) -> Sequence[TicketSale]:
     """List waitlisted ticket sales for an event (organizer/admin)."""
     await event_service.get_or_404(db, event_id)

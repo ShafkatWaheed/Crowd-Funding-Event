@@ -393,7 +393,9 @@ class _GlobalDiscountsScreenState extends State<GlobalDiscountsScreen> {
               color: Colors.deepPurple, size: 20),
         ),
         title: Text(d['name'] ?? 'Discount',
-            style: const TextStyle(fontWeight: FontWeight.w600)),
+            style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textPrimaryOf(context))),
         subtitle: Text(_describe(d),
             style: TextStyle(
                 fontSize: 13, color: AppTheme.textSecondaryOf(context))),

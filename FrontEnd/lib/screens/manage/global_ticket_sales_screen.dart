@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../config/theme.dart';
 import '../../services/api_service.dart';
+import '../event/ticket_receipt_screen.dart';
 
 /// Shows ticket sales across ALL organiser events.
 /// [scannedOnly] toggles between all-sales and scanned-only view.
@@ -43,35 +44,12 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
     });
     try {
       final api = context.read<ApiService>();
-      // Get organiser's events
-      final events = await api.getMyEvents();
-      final List<Map<String, dynamic>> combined = [];
-
-      for (final evt in events) {
-        final eventId = evt['id'] as int;
-        final eventTitle = evt['title'] ?? 'Event #$eventId';
-        try {
-          final sales = widget.scannedOnly
-              ? await api.getScannedTickets(eventId)
-              : await api.getTicketSales(eventId);
-          for (final s in sales) {
-            combined.add({
-              ...Map<String, dynamic>.from(s),
-              '_event_title': eventTitle,
-              '_event_id': eventId,
-            });
-          }
-        } catch (_) {
-          // skip events we can't fetch sales for
-        }
-      }
-
-      // Sort newest first
-      combined.sort((a, b) {
-        final ac = a['created_at'] ?? '';
-        final bc = b['created_at'] ?? '';
-        return bc.toString().compareTo(ac.toString());
-      });
+      final sales = await api.getOrganizerTicketSales(
+        scannedOnly: widget.scannedOnly,
+      );
+      final combined = sales
+          .map((s) => Map<String, dynamic>.from(s))
+          .toList();
 
       setState(() {
         _all = combined;
@@ -96,7 +74,7 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
             (s['attendee_display_name'] ?? '').toString().toLowerCase();
         final tier = (s['tier_name'] ?? '').toString().toLowerCase();
         final code = (s['ticket_code'] ?? '').toString().toLowerCase();
-        final event = (s['_event_title'] ?? '').toString().toLowerCase();
+        final event = (s['event_title'] ?? '').toString().toLowerCase();
         return attendee.contains(q) ||
             tier.contains(q) ||
             code.contains(q) ||
@@ -153,16 +131,16 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
                       )
                     : null,
                 filled: true,
-                fillColor: Colors.white,
+                fillColor: AppTheme.cardOf(context),
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: AppTheme.dividerColor),
+                  borderSide: BorderSide(color: AppTheme.dividerOf(context)),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: AppTheme.dividerColor),
+                  borderSide: BorderSide(color: AppTheme.dividerOf(context)),
                 ),
               ),
               onChanged: (_) => setState(() => _applySearch()),
@@ -181,7 +159,7 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
                       : Icons.confirmation_number_rounded,
                   widget.scannedOnly
                       ? AppTheme.successColor
-                      : AppTheme.primaryColor,
+                      : AppTheme.accentColor,
                 ),
                 const SizedBox(width: 8),
                 _chip(
@@ -240,6 +218,8 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
   }
 
   Widget _card(Map<String, dynamic> sale) {
+    final saleId = sale['id'] as int?;
+    final eventId = sale['event_id'] as int?;
     final tier = sale['tier_name'] ?? 'Unknown';
     final attendee =
         sale['attendee_display_name'] ?? 'User #${sale['user_id']}';
@@ -250,22 +230,34 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
     final scannedAt = sale['scanned_at'];
     final scannedBy = sale['scanned_by_display_name'];
     final isScanned = scannedAt != null;
-    final eventTitle = sale['_event_title'] ?? '';
+    final eventTitle = sale['event_title'] ?? '';
     final createdAt = sale['created_at'] != null
         ? DateFormat.yMMMd()
             .add_jm()
             .format(DateTime.parse(sale['created_at']).toLocal())
         : '';
 
-    return Container(
+    return GestureDetector(
+      onTap: saleId != null
+          ? () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => TicketReceiptScreen(
+                    eventId: eventId,
+                    saleId: saleId,
+                  ),
+                ),
+              )
+          : null,
+      child: Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.cardOf(context),
         borderRadius: BorderRadius.circular(14),
-        border: isScanned
-            ? Border.all(
-                color: AppTheme.successColor.withValues(alpha: 0.25))
-            : null,
+        border: Border.all(
+          color: isScanned
+              ? AppTheme.successColor.withValues(alpha: 0.25)
+              : AppTheme.dividerOf(context),
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -285,7 +277,7 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
               decoration: BoxDecoration(
                 color: isScanned
                     ? AppTheme.successColor.withValues(alpha: 0.1)
-                    : AppTheme.surfaceColor,
+                    : AppTheme.surfaceOf(context),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
@@ -295,7 +287,7 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
                 size: 20,
                 color: isScanned
                     ? AppTheme.successColor
-                    : AppTheme.textSecondary,
+                    : AppTheme.textSecondaryOf(context),
               ),
             ),
             const SizedBox(width: 12),
@@ -304,8 +296,10 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(attendee,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w700, fontSize: 14)),
+                      style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                          color: AppTheme.textPrimaryOf(context))),
                   const SizedBox(height: 2),
                   Text(eventTitle,
                       style: TextStyle(
@@ -313,12 +307,14 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
                           fontWeight: FontWeight.w500,
                           color: AppTheme.accentColor)),
                   Text('$tier  •  $code',
-                      style:
-                          TextStyle(fontSize: 11, color: Colors.grey[500])),
+                      style: TextStyle(
+                          fontSize: 11,
+                          color: AppTheme.textSecondaryOf(context))),
                   if (createdAt.isNotEmpty)
                     Text(createdAt,
                         style: TextStyle(
-                            fontSize: 11, color: Colors.grey[400])),
+                            fontSize: 11,
+                            color: AppTheme.textSecondaryOf(context))),
                   if (isScanned)
                     Row(
                       children: [
@@ -343,13 +339,17 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
                   style: TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 14,
-                      color: amount == 0 ? Colors.green.shade700 : null),
+                      color: amount == 0
+                          ? AppTheme.successColor
+                          : AppTheme.textPrimaryOf(context)),
                 ),
                 if (commission > 0) ...[
                   const SizedBox(height: 2),
                   Text(
                     'Net \$${(netAmount / 100).toStringAsFixed(2)}',
-                    style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+                    style: TextStyle(
+                        fontSize: 10,
+                        color: AppTheme.textSecondaryOf(context)),
                   ),
                 ],
               ],
@@ -357,15 +357,24 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
           ],
         ),
       ),
+    ),
     );
   }
 
-  Widget _chip(String label, IconData icon, Color color) {
+  Widget _chip(String label, IconData icon, Color c) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final color = (isDark && c.red < 50 && c.green < 50 && c.blue < 50)
+        ? AppTheme.accentColor
+        : c;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+        color: isDark
+            ? AppTheme.cardOf(context)
+            : color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+            color: color.withValues(alpha: isDark ? 0.4 : 0.15)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -374,7 +383,9 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
           const SizedBox(width: 4),
           Text(label,
               style: TextStyle(
-                  fontSize: 12, fontWeight: FontWeight.w600, color: color)),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.white : color)),
         ],
       ),
     );
@@ -384,10 +395,11 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.error_outline, size: 48, color: Colors.grey[400]),
+            Icon(Icons.error_outline,
+                size: 48, color: AppTheme.textSecondaryOf(context)),
             const SizedBox(height: 12),
             Text('Failed to load',
-                style: TextStyle(color: Colors.grey[500])),
+                style: TextStyle(color: AppTheme.textSecondaryOf(context))),
             const SizedBox(height: 8),
             OutlinedButton(onPressed: _load, child: const Text('Retry')),
           ],
@@ -403,7 +415,7 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
                   ? Icons.qr_code_scanner_rounded
                   : Icons.confirmation_number_outlined,
               size: 56,
-              color: Colors.grey[300],
+              color: AppTheme.textSecondaryOf(context),
             ),
             const SizedBox(height: 12),
             Text(
@@ -412,7 +424,8 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
                   : widget.scannedOnly
                       ? 'No scanned tickets yet'
                       : 'No ticket sales yet',
-              style: TextStyle(color: Colors.grey[500], fontSize: 15),
+              style: TextStyle(
+                  color: AppTheme.textSecondaryOf(context), fontSize: 15),
             ),
           ],
         ),

@@ -101,6 +101,13 @@ class ApiService {
     return resp.data;
   }
 
+  Future<List<dynamic>> getOrganizerTicketSales({bool scannedOnly = false}) async {
+    final resp = await dio.get('/me/organizer-ticket-sales', queryParameters: {
+      if (scannedOnly) 'scanned_only': true,
+    });
+    return resp.data;
+  }
+
   // ─── Events ───
 
   Future<List<dynamic>> getEvents({Map<String, dynamic>? params}) async {

@@ -103,7 +103,7 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final title = widget.scannedOnly ? 'Scanned Tickets' : 'All Ticket Sales';
+    final title = widget.scannedOnly ? 'Scanned Tickets' : 'Event Ticket Sales';
 
     return Scaffold(
       appBar: AppBar(

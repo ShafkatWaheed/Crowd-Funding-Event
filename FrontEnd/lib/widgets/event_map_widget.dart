@@ -150,64 +150,102 @@ class _EventMapWidgetState extends State<EventMapWidget> {
                 final hasLive = events.any((e) => e.isLive);
                 final count = events.length;
 
+                final venueName = first.venueName ?? '';
+
                 return Marker(
                   point: LatLng(first.lat, first.lng),
-                  width: 44,
-                  height: 52,
+                  width: 140,
+                  height: 70,
                   child: GestureDetector(
                     onTap: () => _showVenueEvents(events),
-                    child: Stack(
-                      clipBehavior: Clip.none,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Pin
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: hasLive
-                                ? AppTheme.successColor
-                                : AppTheme.primaryColor,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                                color: Colors.white, width: 2.5),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.3),
-                                blurRadius: 6,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: const Icon(
-                            Icons.location_on_rounded,
-                            color: Colors.white,
-                            size: 22,
-                          ),
-                        ),
-                        // Count badge
-                        if (count > 1)
-                          Positioned(
-                            top: -4,
-                            right: -4,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 5, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: AppTheme.accentColor,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                    color: Colors.white, width: 1.5),
-                              ),
-                              child: Text(
-                                '$count',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
+                        // Venue name label
+                        if (venueName.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: hasLive
+                                  ? AppTheme.successColor
+                                  : AppTheme.primaryColor,
+                              borderRadius: BorderRadius.circular(8),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.25),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 1),
                                 ),
+                              ],
+                            ),
+                            child: Text(
+                              venueName,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.2,
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
+                        const SizedBox(height: 2),
+                        // Pin + badge
+                        Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: hasLive
+                                    ? AppTheme.successColor
+                                    : AppTheme.primaryColor,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                    color: Colors.white, width: 2.5),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.3),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(
+                                Icons.location_on_rounded,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                            ),
+                            // Count badge
+                            if (count > 1)
+                              Positioned(
+                                top: -4,
+                                right: -4,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 5, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.accentColor,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                        color: Colors.white, width: 1.5),
+                                  ),
+                                  child: Text(
+                                    '$count',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
                       ],
                     ),
                   ),

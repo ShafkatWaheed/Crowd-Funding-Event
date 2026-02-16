@@ -883,7 +883,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                       // Toggle posts (all statuses)
                                       _menuTile(
                                         icon: event.postsEnabled ? Icons.comments_disabled_rounded : Icons.comment_rounded,
-                                        iconColor: event.postsEnabled ? Colors.grey : AppTheme.primaryColor,
+                                        iconColor: event.postsEnabled ? Colors.grey : AppTheme.accentColor,
                                         label: event.postsEnabled ? 'Disable Posts' : 'Enable Posts',
                                         onTap: _togglePosts,
                                       ),
@@ -2894,12 +2894,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
             ),
             const SizedBox(height: 8),
             Text(label,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
-                    color: Colors.black87)),
+                    color: AppTheme.textPrimaryOf(context))),
             Text(subtitle,
-                style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                style: TextStyle(
+                    fontSize: 11,
+                    color: AppTheme.textSecondaryOf(context)),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis),
           ],
@@ -2936,15 +2938,19 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: isDanger ? AppTheme.errorColor : Colors.black87,
+                    color: isDanger
+                        ? AppTheme.errorColor
+                        : AppTheme.textPrimaryOf(context),
                   )),
             ),
             if (trailing != null)
               Text(trailing,
-                  style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textSecondaryOf(context))),
             const SizedBox(width: 4),
             Icon(Icons.chevron_right,
-                size: 18, color: Colors.grey[400]),
+                size: 18, color: AppTheme.textSecondaryOf(context)),
           ],
         ),
       ),

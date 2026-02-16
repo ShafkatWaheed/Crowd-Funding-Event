@@ -77,7 +77,13 @@ class ProfileScreen extends StatelessWidget {
                       ],
                       const SizedBox(height: 8),
                       Chip(
-                        label: Text(user.role.name.toUpperCase()),
+                        label: Text(
+                          user.role.name.toUpperCase(),
+                          style: TextStyle(
+                            color: AppTheme.textPrimaryOf(context),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                         backgroundColor:
                             AppTheme.accentColor.withValues(alpha: 0.15),
                         side: BorderSide.none,

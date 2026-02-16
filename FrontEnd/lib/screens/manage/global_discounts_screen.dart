@@ -240,9 +240,12 @@ class _GlobalDiscountsScreenState extends State<GlobalDiscountsScreen> {
           const SizedBox(height: 12),
           TextField(
             controller: _nameCtrl,
+            style: TextStyle(color: AppTheme.textPrimaryOf(context)),
             decoration: InputDecoration(
               labelText: 'Name',
               hintText: 'e.g. Early Bird, Pledger Reward',
+              hintStyle: TextStyle(color: AppTheme.textSecondaryOf(context)),
+              labelStyle: TextStyle(color: AppTheme.textSecondaryOf(context)),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
                 borderSide: BorderSide(color: AppTheme.dividerOf(context)),
@@ -252,33 +255,37 @@ class _GlobalDiscountsScreenState extends State<GlobalDiscountsScreen> {
                 borderSide: BorderSide(color: AppTheme.dividerOf(context)),
               ),
               filled: true,
-              fillColor: AppTheme.surfaceOf(context),
             ),
           ),
           const SizedBox(height: 12),
 
           // Type
           Text('Discount Type',
-              style: Theme.of(context).textTheme.bodySmall),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppTheme.textPrimaryOf(context))),
           const SizedBox(height: 6),
           Wrap(
             spacing: 8,
             children: [
               ChoiceChip(
-                label: const Text('% of Ticket'),
+                label: Text('% of Ticket',
+                    style: TextStyle(color: AppTheme.textPrimaryOf(context))),
                 selected: _discountType == 'ticket_percent',
                 onSelected: (_) =>
                     setState(() => _discountType = 'ticket_percent'),
-                selectedColor: AppTheme.accentColor.withValues(alpha: 0.25),
+                selectedColor: AppTheme.accentColor.withValues(alpha: 0.35),
+                checkmarkColor: Colors.white,
               ),
               ChoiceChip(
-                label: const Text('% of Pledge'),
+                label: Text('% of Pledge',
+                    style: TextStyle(color: AppTheme.textPrimaryOf(context))),
                 selected: _discountType == 'pledge_percent',
                 onSelected: (_) => setState(() {
                   _discountType = 'pledge_percent';
                   if (_target == 'non_pledgers') _target = 'all';
                 }),
-                selectedColor: AppTheme.accentColor.withValues(alpha: 0.25),
+                selectedColor: AppTheme.accentColor.withValues(alpha: 0.35),
+                checkmarkColor: Colors.white,
               ),
             ],
           ),
@@ -287,8 +294,10 @@ class _GlobalDiscountsScreenState extends State<GlobalDiscountsScreen> {
           TextField(
             controller: _valueCtrl,
             keyboardType: TextInputType.number,
+            style: TextStyle(color: AppTheme.textPrimaryOf(context)),
             decoration: InputDecoration(
               labelText: 'Percentage (1-100)',
+              labelStyle: TextStyle(color: AppTheme.textSecondaryOf(context)),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
                 borderSide: BorderSide(color: AppTheme.dividerOf(context)),
@@ -298,38 +307,44 @@ class _GlobalDiscountsScreenState extends State<GlobalDiscountsScreen> {
                 borderSide: BorderSide(color: AppTheme.dividerOf(context)),
               ),
               filled: true,
-              fillColor: AppTheme.surfaceOf(context),
             ),
           ),
           const SizedBox(height: 12),
 
           // Target
           Text('Who gets this discount?',
-              style: Theme.of(context).textTheme.bodySmall),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppTheme.textPrimaryOf(context))),
           const SizedBox(height: 6),
           Wrap(
             spacing: 8,
             children: [
               ChoiceChip(
-                label: const Text('Everyone'),
+                label: Text('Everyone',
+                    style: TextStyle(color: AppTheme.textPrimaryOf(context))),
                 selected: _target == 'all',
                 onSelected: (_) => setState(() => _target = 'all'),
-                selectedColor: AppTheme.successColor.withValues(alpha: 0.25),
+                selectedColor: AppTheme.successColor.withValues(alpha: 0.35),
+                checkmarkColor: Colors.white,
               ),
               ChoiceChip(
-                label: const Text('Pledgers'),
+                label: Text('Pledgers',
+                    style: TextStyle(color: AppTheme.textPrimaryOf(context))),
                 selected: _target == 'pledgers',
                 onSelected: (_) => setState(() => _target = 'pledgers'),
-                selectedColor: AppTheme.successColor.withValues(alpha: 0.25),
+                selectedColor: AppTheme.successColor.withValues(alpha: 0.35),
+                checkmarkColor: Colors.white,
               ),
               if (_discountType != 'pledge_percent')
                 ChoiceChip(
-                  label: const Text('Non-Pledgers'),
+                  label: Text('Non-Pledgers',
+                      style: TextStyle(color: AppTheme.textPrimaryOf(context))),
                   selected: _target == 'non_pledgers',
                   onSelected: (_) =>
                       setState(() => _target = 'non_pledgers'),
                   selectedColor:
-                      AppTheme.successColor.withValues(alpha: 0.25),
+                      AppTheme.successColor.withValues(alpha: 0.35),
+                  checkmarkColor: Colors.white,
                 ),
             ],
           ),

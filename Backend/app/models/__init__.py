@@ -13,6 +13,7 @@ from app.models.image import EventImage
 from app.models.discount_strategy import DiscountStrategy, EventDiscountStrategyLink, CustomerDiscountClaim
 from app.models.platform_settings import PlatformSetting
 from app.models.escrow import FundEscrow, EscrowRelease, EscrowStatus
+from app.models.milestone import FundingMilestone, MilestoneReaction
 
 __all__ = [
     "User",
@@ -44,4 +45,6 @@ __all__ = [
     "FundEscrow",
     "EscrowRelease",
     "EscrowStatus",
+    "FundingMilestone",
+    "MilestoneReaction",
 ]

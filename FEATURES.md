@@ -68,13 +68,13 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 - "My Events" tab for logged-in customers (events they're registered to, including cancelled); **auto-reloads** when switching to the tab or pull-to-refresh; genre chips + text search
 - Status filter hides draft/pending/cancelled for customers; shows all for organizers/admins
 - When searching/filtering on home tab, featured sections are replaced by search results grid with filter banner and "Clear" button
-- **Map View on Explore tab** — List/Map toggle pill switches between event grid and interactive Mapbox map (dark-v11 style); markers show event locations with green pins for live events; blue count badges for multiple events at one venue; tapping a marker opens a bottom sheet listing all events at that venue with navigation to event details
+- **Map View on Explore tab** — List/Map toggle pill switches between event grid and interactive Mapbox map (dark-v11 style); markers show event locations with green pins for live events; blue count badges for multiple events at one venue; **venue name label** displayed above each pin; tapping a marker opens a bottom sheet listing all events at that venue with navigation to event details
 - **Location-Based Discovery** — "Near Me" section on Home tab uses device geolocation (geolocator package) to fetch events within 25km radius; graceful fallback when location permission is denied
 
 ### Co-Organizer Management
 - Main organizer can **add/remove co-organizers** for their event
 - **Permission levels:** `read` (view info, management stats, scan tickets) or `full` (all organizer actions including edit, discounts, etc.)
-- Dedicated **Co-Organizers screen** (`/events/{id}/co-organizers`) with add form, permission selector (ChoiceChip), and team list
+- Dedicated **Co-Organizers screen** (`/events/{id}/co-organizers`) with add form, permission selector (ChoiceChip), team list, and **full dark mode support**
 - Main organizer always has `full` permission; co-organizers cannot modify the organizer team
 - `user_can_edit_event` enforced server-side — only `full` co-organizers can write; `read` co-organizers can only view via `user_can_read_event_mgmt`
 
@@ -120,6 +120,23 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 - **Capacity decrease guard:** Organizers cannot reduce `max_capacity` below the sum of already sold tickets + unredeemed reserved spots
 - **Funding Card display:** Shows "X spots reserved" alongside backers count; capacity display shows `reg + reserved / max` when reserved spots exist
 - **Capacity info endpoint:** `GET /events/{id}/capacity-info` returns `max_capacity`, `tickets_sold`, `total_reserved_spots`, `occupied`, `available`, `registration_count`
+
+### Funding Milestones
+- **Percentage-based milestones** on funded events — organizers define milestones that unlock as funding reaches each percentage threshold
+- **Milestone model:** `FundingMilestone` (id, event_id, title, description, unlock_percent, benefit_description, sort_order, like_count, dislike_count)
+- **Per-milestone reactions:** `MilestoneReaction` (like/dislike per user per milestone, same toggle pattern as event reactions)
+- **Automatic unlock:** `is_unlocked` computed from `total_pledged_cents / goal_cents * 100 >= unlock_percent`
+- **6 API endpoints** under `/events/{id}/milestones`: list (public), create/update/delete (organizer), react and get-my-reaction (authenticated)
+- **Feature-flagged:** All endpoints gated by `feature_milestones_enabled` admin setting
+- **Milestone Timeline widget** on event detail below FundingCard — vertical progress bar with circular nodes (blue+checkmark when unlocked, grey+lock when locked), milestone cards with percentage, title, benefit description, UNLOCKED/LOCKED badges, per-milestone like/dislike
+- **Organizer milestone builder** — collapsible section in create/edit event forms (after Funding Settings, visible when funding deadline is set); title, unlock % slider (1-100), benefit description
+
+### Feature Flags (Admin Toggles)
+- **Admin can enable/disable features platform-wide** from the Settings tab using Switch toggles
+- **3 feature flags:** `feature_milestones_enabled`, `feature_schedule_enabled`, `feature_sponsors_enabled` (all default true)
+- **Backend guard:** `require_feature()` dependency raises 403 when flag is disabled
+- **Frontend:** `getFeatureFlags()` API method; UI sections hidden seamlessly when their flag is disabled
+- Boolean settings auto-detected and rendered as switches (not text edit dialogs)
 
 ### Ticket Strategies (Reusable Templates)
 - **Separate reusable object** (like venues) — organizers create ticket strategies with named tiers
@@ -187,8 +204,9 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 - Scan ticket by QR code (organizer/admin) — **auto-records customer attendance** for loyalty tracking
 - **Per-event Ticket Sales page** — full-page view with search, stats (total sold, revenue), per-sale detail (attendee, tier, code, amount, scan status); **scanned/total stats banner** shows "X scanned / Y total sold" with progress bar
 - **Per-event Scanned Tickets page** — full-page filtered view showing only scanned tickets with search, "scanned by" info, and scanned/total stats banner
-- **Global All Ticket Sales page** (`/manage/ticket-sales`) — aggregates sales across all organiser events with search, accessible from Manage tab
-- **Global Scanned Tickets page** (`/manage/scanned-tickets`) — aggregates scanned tickets across all events with search, accessible from Manage tab
+- **Global All Ticket Sales page** (`/manage/ticket-sales`) — aggregates sales across all organiser events with search, accessible from Manage tab; **single API call** via `GET /me/organizer-ticket-sales` (single SQL join query, no N+1); each card tappable to view full ticket receipt
+- **Global Scanned Tickets page** (`/manage/scanned-tickets`) — aggregates scanned tickets across all events with search, accessible from Manage tab; uses same single-query endpoint with `scanned_only=true`
+- **Per-event Ticket Sales page** titled "Event Ticket Sales" to distinguish from global view
 - **Ticket Waitlist** — tickets purchased after event capacity is reached get `waitlisted` status; organizer can approve/reject from unified waitlist screen
 - **"Your Tickets" section on event detail** — shows the customer's tickets for the current event with scanned count ("X of Y scanned"), mini-cards with status badges, and link to full receipt; "View All" navigates to My Tickets
 - **My Tickets screen grouped by event** — tickets grouped under event headers with ticket count and scanned count; event header tappable to navigate to event detail; search, status filters (all/purchased/waitlisted/cancelled), scanned stat chip
@@ -270,6 +288,13 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 - **Escrow tab:** events with held funds, stage timeline, freeze/unfreeze
 - **Requests tab:** pending cancellation requests from organizers (for events ≥80% funded OR events in selling_tickets status); context label shows funding % or event status as applicable
 
+### Dark Mode
+- **Full dark mode support** — toggleable from the Profile screen via `ThemeProvider`
+- **Persistent theme** — user's preference saved to `SharedPreferences` and restored on app launch
+- **`AppTheme` dark palette** — dedicated dark colors (`_dkSurface`, `_dkCard`, `_dkTextPrimary`, `_dkTextSecondary`, `_dkDivider`, `_dkInputFill`) with context-aware helpers (`cardOf()`, `textPrimaryOf()`, `surfaceOf()`, etc.)
+- **Comprehensive screen coverage** — dark mode applied to: Home, Explore, Manage, Profile, Event Detail (management section, stat chips, capacity badge, status bar), Ticket Sales, Ticket Strategies, Discounts, Co-Organizer, Venue Picker, Ticket Receipt (QR code forced white background), My Tickets, bottom navigation bar (accent color for active tab)
+- **Near-black color detection** — chips and badges dynamically swap near-black colors to `accentColor` in dark mode for visibility
+
 ### Frontend Screens & UX
 - **Uber-inspired UI** — black/white/green accent, Inter font, rounded containers, subtle shadows
 - **Bottom navigation bar** with 4 tabs: Home, Explore, Manage (organizer/admin) / My Events (customer), Profile
@@ -328,7 +353,10 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 || Phase 11 — Terms and Conditions | **Terms Agreement** — role-specific terms (organizer: fees, escrow, clawback; customer: pledging, refund, escrow). Checkbox on signup, `terms_accepted_at` on User model, Terms screen accessible from signup + profile. |
 || Phase 12 — Multi-Ticket Purchase & QR | **Multi-ticket purchase** — quantity counter (1–10) on invoice, all-or-nothing capacity, `purchase_group_id` linking tickets. **Aggregated receipt** with individual ticket cards. **QR codes** on every ticket receipt (structured JSON). **Scanned stats** on ticket sales screens. **My Tickets grouped by event**. **"Your Tickets" section** on event detail. |
 || Phase 13 — Email Notifications | **Provider-agnostic email system** — `EmailBackend` ABC with SendGrid + Console backends, generic config (`EMAIL_PROVIDER`, `EMAIL_API_KEY`), `BackgroundTasks` sending. 6 email types: event cancelled, cancellation refund, ticket purchased, unpledge refund, unregister refund, waitlist rejected. Uber-themed HTML templates. Integrated into cancel, purchase, unpledge, unregister, reject, auto-cancel lifecycle. |
-|| Phase 16 — Map View, Location Discovery & Venue Geocoding | **Map View** — Mapbox dark-v11 interactive map on Explore tab with List/Map toggle, venue-grouped markers (black pins, green for live, blue count badges), bottom sheet listing events per venue. **Location Discovery** — "Near Me" section on Home tab via device geolocation (25km radius). **Venue Geocoding** — Mapbox Geocoding v6 address autocomplete on standalone and inline venue creation forms; auto-fills city, province, lat/lng from selected suggestion; lat/lng fields hidden from user. |
+|| Phase 16 — Map View, Location Discovery & Venue Geocoding | **Map View** — Mapbox dark-v11 interactive map on Explore tab with List/Map toggle, venue-grouped markers (black pins, green for live, blue count badges, venue name labels), bottom sheet listing events per venue. **Location Discovery** — "Near Me" section on Home tab via device geolocation (25km radius). **Venue Geocoding** — Mapbox Geocoding v6 address autocomplete on standalone and inline venue creation forms; auto-fills city, province, lat/lng from selected suggestion; lat/lng fields hidden from user. |
+|| Phase 17 — Dark Mode & UI Polish | **Full dark mode** — `ThemeProvider` with `SharedPreferences` persistence, toggled from Profile screen. `AppTheme` dark palette with context-aware helpers (`cardOf()`, `textPrimaryOf()`, `surfaceOf()`, `dividerOf()`, etc.). Applied across all screens: Home, Explore, Manage, Profile, Event Detail (management stats, capacity badge, status bar), Ticket Sales, Ticket Strategies, Discounts, Co-Organizer, Venue Picker, Ticket Receipt (QR forced white bg), My Tickets, bottom nav. Near-black color detection swaps to `accentColor` in dark mode. **Map venue name labels** above pins. **Single API for All Ticket Sales** (`GET /me/organizer-ticket-sales`) replacing N+1 per-event calls. **Tappable receipt cards** in global ticket sales. **Per-event title** renamed to "Event Ticket Sales". |
+|| Phase 18a — Feature Flags | **Admin toggle system** — `get_bool()` helper for boolean settings, `require_feature()` FastAPI guard dependency (returns 403 when disabled), 3 feature flag keys (`feature_milestones_enabled`, `feature_schedule_enabled`, `feature_sponsors_enabled`) seeded in PlatformSettings. Admin Settings tab renders boolean settings as Switch toggles. Frontend `getFeatureFlags()` API method for conditional UI hiding. |
+|| Phase 18 — Funding Milestones | **Funding milestones** — percentage-based unlock goals on funded events. `FundingMilestone` + `MilestoneReaction` models with Alembic migration. Service layer with CRUD + like/dislike reactions (same toggle pattern as EventReaction). 6 API endpoints under `/events/{id}/milestones` (list, create, update, delete, react, my-reaction), all gated by `feature_milestones_enabled` flag. **Milestone Timeline widget** on event detail below FundingCard — vertical progress bar with circular nodes (blue+checkmark when unlocked, grey+lock when locked), milestone cards with percentage, title, benefit description, UNLOCKED/LOCKED badges, per-milestone like/dislike buttons. **Organizer milestone builder** — collapsible section in create/edit event forms (after Funding Settings, visible when funding deadline is set); title TextField, unlock % slider (1-100), benefit description; create screen uses local state with batch POST after event creation, edit screen uses live API CRUD. Dark mode compatible. |
 
 ### Phase 11 — Terms and Conditions Agreement (COMPLETED)
 
@@ -411,12 +439,51 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 | 16.6 | **Mapbox Geocoding Service** | Done — `MapboxGeocodingService.search()` using Mapbox Geocoding v6 forward API; returns `GeocodingResult` with `fullAddress`, `city`, `province`, `lat`, `lng`; debounced (400ms) |
 | 16.7 | **Location Helper** | Done — `LocationHelper.getCurrentPosition()` wrapping `geolocator` with permission handling and graceful fallback |
 | 16.8 | **EventMapWidget** | Done — Full interactive map with Mapbox `dark-v11` tiles (fallback to OpenStreetMap), auto-reload on pan/zoom (debounced 500ms), markers grouped by venue with count badges, tap opens bottom sheet with event list per venue |
-| 16.9 | **Map Markers** | Done — Black pins with white icons (green for live events), blue count badges for multi-event venues, white shadow for depth |
+| 16.9 | **Map Markers** | Done — Black pins with white icons (green for live events), blue count badges for multi-event venues, white shadow for depth, **venue name label** displayed above each pin |
 | 16.10 | **Venue Events Bottom Sheet** | Done — `DraggableScrollableSheet` with venue name header, event count, event list with status dots, LIVE badges, date formatting, tap to navigate to event detail |
 | 16.11 | **Explore Tab Toggle** | Done — List/Map toggle pill (black rounded container with white active state) on Explore tab results header; switches between event grid and full `EventMapWidget` |
 | 16.12 | **Near Me Section** | Done — Home tab loads "Near Me" featured section using device geolocation (25km radius); only attempted once per session; graceful handling when location unavailable |
 | 16.13 | **Venue Auto-Geocoding (Standalone)** | Done — `create_venue_screen.dart` rewritten with Mapbox address autocomplete; suggestion dropdown auto-fills address, city, province, lat/lng; green checkmark when location resolved; lat/lng fields hidden |
 | 16.14 | **Venue Auto-Geocoding (Inline)** | Done — Inline venue form in `create_event_screen.dart` updated with same Mapbox address autocomplete, suggestion dropdown, auto-fill city/province/lat/lng, visual feedback |
+
+### Phase 17 — Dark Mode & UI Polish (COMPLETED)
+
+| # | Feature | Status |
+|---|---------|--------|
+| 17.1 | **ThemeProvider** | Done — `ThemeProvider` with `SharedPreferences` persistence; `themeMode` getter/setter; auto-restores theme on app launch |
+| 17.2 | **AppTheme Dark Palette** | Done — Dark colors (`_dkSurface` #121212, `_dkCard` #1E1E1E, `_dkTextPrimary` #EAEAEA, `_dkTextSecondary` #9E9E9E, `_dkDivider` #2C2C2C, `_dkInputFill` #252525); `darkTheme` getter with full `ThemeData` including `ColorScheme.dark`, `ChipThemeData`, `InputDecorationTheme`, `BottomNavigationBarTheme` |
+| 17.3 | **Context-Aware Color Helpers** | Done — `AppTheme.cardOf(context)`, `textPrimaryOf(context)`, `textSecondaryOf(context)`, `surfaceOf(context)`, `dividerOf(context)`, `inputFillOf(context)`, `shimmerOf(context)` — auto-switch between light and dark palettes |
+| 17.4 | **Profile Toggle** | Done — Dark mode switch on Profile screen; persists across app restarts |
+| 17.5 | **Screen-by-Screen Dark Mode** | Done — Hardcoded `Colors.white`, `Colors.black87`, `Colors.grey[...]`, static `AppTheme.cardColor`/`surfaceColor`/`textSecondary` replaced with context-aware helpers across: Home, Explore, Manage, Profile, Event Detail, Ticket Sales, Ticket Strategies, Discounts, Co-Organizer, Venue Picker, Ticket Receipt, My Tickets, bottom nav bar |
+| 17.6 | **Near-Black Color Detection** | Done — Stat chips, capacity badges, and other colored elements detect near-black colors in dark mode and swap to `accentColor` (blue) for visibility |
+| 17.7 | **QR Code Dark Mode** | Done — QR code container forced to white background with black data modules; "Scan for entry" text uses theme-aware color |
+| 17.8 | **Bottom Nav Active Tab** | Done — Active tab icon/label and pill background use `accentColor` instead of near-black `primaryColor` in dark mode |
+| 17.9 | **Map Venue Name Labels** | Done — Venue name displayed as a pill-shaped label above each map pin; color matches pin (green for live, primary otherwise); truncates with ellipsis |
+| 17.10 | **Single API for Global Ticket Sales** | Done — `GET /me/organizer-ticket-sales` endpoint returns all ticket sales across organizer's events in one SQL join query; replaces N+1 per-event API calls; `scanned_only` query param for scanned-only view |
+| 17.11 | **Global Ticket Sales Receipt Navigation** | Done — Each card in "All Ticket Sales" (Manage tab) is tappable and navigates to `TicketReceiptScreen` with `saleId` and `eventId` |
+| 17.12 | **Per-Event Sales Title** | Done — Per-event ticket sales screen title changed from "All Ticket Sales" to "Event Ticket Sales" to distinguish from global view |
+
+### Phase 18a — Feature Flags (COMPLETED)
+
+| # | Feature | Status |
+|---|---------|--------|
+| 18a.1 | **Feature Flag Defaults + `get_bool()`** | Done — 3 feature flag keys (`feature_milestones_enabled`, `feature_schedule_enabled`, `feature_sponsors_enabled`) added to `DEFAULTS` in `platform_settings` service; `get_bool(db, key)` helper returns boolean from DB or default |
+| 18a.2 | **`require_feature()` Guard** | Done — Reusable FastAPI dependency in `dependencies.py`; raises 403 when flag is disabled; applied to all milestone endpoints |
+| 18a.3 | **Migration & Seeding** | Done — Alembic migration seeds 3 feature flag keys into `platform_settings` table with descriptions |
+| 18a.4 | **Admin Toggle UI** | Done — Admin Settings tab detects boolean settings (`value == "true"/"false"`) and renders Switch widget instead of text edit dialog; green color and toggle icon for feature flag keys |
+| 18a.5 | **Frontend Feature Flags** | Done — `getFeatureFlags()` API method fetches feature flags; Milestone Timeline widget checks flag before rendering |
+
+### Phase 18 — Funding Milestones (COMPLETED)
+
+| # | Feature | Status |
+|---|---------|--------|
+| 18.1 | **Milestone Model & Migration** | Done — `FundingMilestone` table (id, event_id, title, description, unlock_percent, benefit_description, sort_order, like_count, dislike_count, created_at) + `MilestoneReaction` table (id, milestone_id, user_id, reaction, created_at; unique constraint on milestone+user). Alembic migration for both tables. Relationship on Event model |
+| 18.2 | **Milestone Schemas** | Done — `MilestoneCreate` (title, unlock_percent 1-100, description?, benefit_description?, sort_order?), `MilestoneUpdate` (all optional), `MilestoneResponse` (with computed `is_unlocked` field), `MilestoneReactionResponse` (action, reaction, like_count, dislike_count) |
+| 18.3 | **Milestone Service** | Done — `list_milestones()` (sorted by unlock_percent, computes is_unlocked from funding summary), `create_milestone()` (validates organizer permission + funding goal + status), `update_milestone()`, `delete_milestone()`, `react_to_milestone()` (toggle/switch/add pattern mirroring EventReaction), `get_my_reaction()` |
+| 18.4 | **Milestone API Endpoints** | Done — 6 endpoints under `/events/{event_id}/milestones`: GET list (public), POST create (organizer), PATCH update (organizer), DELETE (organizer), POST `/{id}/react` (authenticated), GET `/{id}/my-reaction` (authenticated). All gated by `require_feature("feature_milestones_enabled")` |
+| 18.5 | **Dart Model & API Methods** | Done — `FundingMilestone` model with `fromJson`. 6 API methods: `getMilestones`, `createMilestone`, `updateMilestone`, `deleteMilestone`, `reactToMilestone`, `getMyMilestoneReaction` |
+| 18.6 | **Milestone Timeline Widget** | Done — `_MilestoneTimeline` self-contained widget on event detail below FundingCard. Vertical timeline with circular nodes (accent-color+checkmark when unlocked, grey+lock when locked). Milestone cards with percentage, title, benefit description, UNLOCKED/LOCKED badges. Per-milestone like/dislike buttons. Feature flag check hides widget when disabled. Dark mode compatible |
+| 18.7 | **Organizer Milestone CRUD** | Done — Collapsible "Funding Milestones (Optional)" section in create/edit event screens, visible when funding deadline is set. Each milestone: title TextField, unlock % slider (1-100), benefit description TextField, delete button. Create screen: local state, batch-submitted via POST after event creation. Edit screen: live CRUD against API with save/delete per milestone. Milestones editable in draft/pending_approval/approved states |
 
 ---
 
@@ -431,6 +498,9 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 | 3 | **Verify Organizer via External Apps** | Use third-party verification service or app for organizer identity | Low |
 | 4 | **Chatbot for Support** | In-app chatbot for user support and FAQ | Low |
 | 5 | **Newcomer / Trending Badges** | Newcomer badge for new organizers, trending indicator on tickets/events | Low |
+| 6 | **Event Schedule / Agenda** | Structured multi-day schedule with 3-layer hierarchy (date → time slot → description); vertical timeline UI with date tabs; Excel export for anyone; only available when event has start and end dates set | **High — Phase 19** |
+| 7 | **Sponsor Marketplace** | New Sponsor user role with company profile; organizer creates sponsorship categories (stalls, billboards, announcements) with spot counts; sponsors bid (amount + proposal) with back-and-forth negotiation; organizer approves winners; in-app payment with platform commission; auto-generated Sponsor Ticket (identification, not entry) listing all won categories; customers see approved sponsor logos as carousel only | **High — Phase 20** |
+| 8 | **Microservices Migration** | Modular monolith refactor (domain-based folders), then optional microservice extraction when scaling triggers are met (3+ devs, independent scaling needs, different deployment cadences) | **Low — Phase 24 (future)** |
 
 ### Phase 9 — Business Logic (COMPLETED)
 
@@ -641,7 +711,161 @@ Event (updated)
 Recommended build order: 9.3 (smallest) → 9.1 (revenue) → 9.2 (cancel protection) → 9.5 (escrow — the big one) → 9.4 (genre rules) → 10 (spot reservation)
 ```
 
-### Phase 14 — Media
+### Phase 18a — Feature Flags (Admin Toggle System)
+
+Estimated: **0.5 session** (built as foundation before Phase 18).
+
+| # | Feature | Effort | What to Build |
+|---|---------|--------|--------------|
+| 18a.1 | **Feature Flag Settings** | Small | Backend: Add boolean feature flag keys to `PlatformSettings` — `feature_milestones_enabled` (default true), `feature_schedule_enabled` (default true), `feature_sponsors_enabled` (default true). Add `get_bool(db, key)` helper to `platform_settings` service that returns `True`/`False` (default from `DEFAULTS` dict) |
+| 18a.2 | **Backend Guard Middleware** | Small | Backend: Create `require_feature(key)` dependency that checks the flag and raises `403 Feature disabled` if off. Apply to all feature-specific endpoint groups (milestones, schedule, sponsorships). Example: `feature_guard = Depends(require_feature("feature_milestones_enabled"))` on all milestone endpoints |
+| 18a.3 | **Admin Toggle UI** | Small | Frontend: Update admin Settings tab to render boolean settings as toggle switches (on/off) instead of text input dialogs. Auto-detect boolean keys (value is `"true"` or `"false"`). Non-boolean settings keep the existing number/text edit dialog |
+| 18a.4 | **Frontend Feature Check** | Small | Frontend: Add `getFeatureFlags()` API method that fetches all `feature_*` settings. Cache flags on app startup / event detail load. Conditionally hide UI sections (milestone timeline, schedule section, sponsorship button/carousel) when their flag is disabled. Show nothing — not an error, just hidden |
+
+**Design concept:**
+- Admin can toggle any feature on/off from the existing Settings tab using simple switches
+- When a feature is disabled: backend returns 403 on all related endpoints; frontend hides the entire UI section seamlessly
+- New features automatically get a flag added to `PlatformSettings` DEFAULTS
+- Flags are global (not per-event) — admin enables/disables features platform-wide
+
+**Existing PlatformSettings keys (unchanged):**
+- `ticket_commission_percent` (5%) — ticket sales commission
+- `funding_commission_percent` (3%) — pledge commission
+- `cancel_approval_threshold_percent` (80%) — cancellation approval threshold
+- `event_date_grace_days` (7) — grace period for setting event date
+
+**New feature flag keys:**
+- `feature_milestones_enabled` (true) — Phase 18 Funding Milestones
+- `feature_schedule_enabled` (true) — Phase 19 Event Schedule
+- `feature_sponsors_enabled` (true) — Phase 20 Sponsor Marketplace
+
+### Phase 18 — Funding Milestones
+
+Estimated: **2–3 sessions**.
+
+| # | Feature | Effort | What to Build |
+|---|---------|--------|--------------|
+| 18.1 | **Milestone Model & Migration** | Medium | Backend: `FundingMilestone` table (id, event_id, title, description, unlock_percent 1–100, benefit_description, sort_order, like_count, dislike_count, created_at). `MilestoneReaction` table (id, milestone_id, user_id, reaction, created_at; unique constraint on milestone+user). Alembic migration for both tables |
+| 18.2 | **Milestone Schema & Service** | Medium | Backend: Pydantic schemas (MilestoneCreate, MilestoneUpdate, MilestoneResponse with computed `is_unlocked` field, MilestoneReactionResponse). Service layer: list, create, update, delete milestones; react/toggle like-dislike (same pattern as EventReaction); compute unlock status from `total_pledged_cents / goal_cents * 100 >= unlock_percent` |
+| 18.3 | **Milestone API Endpoints** | Medium | Backend: 6 endpoints under `/events/{event_id}/milestones` — GET list (public, includes unlock status), POST create (organizer, before funding ends), PATCH update (organizer), DELETE (organizer), POST `/{id}/react` (authenticated, like/dislike toggle), GET `/{id}/my-reaction` |
+| 18.4 | **Dart Model & API Methods** | Small | Frontend: `FundingMilestone` model with `fromJson`. 6 API service methods: getMilestones, createMilestone, updateMilestone, deleteMilestone, reactToMilestone, getMyMilestoneReaction |
+| 18.5 | **Milestone Timeline Widget** | Large | Frontend: `_MilestoneTimeline` widget in event detail screen below FundingCard. Vertical progress bar (blue filled to current funding %, grey for remaining). Circular nodes at each milestone: filled blue + checkmark when unlocked, hollow grey when locked. Cards to the right of each node showing percentage, title, benefit description, UNLOCKED/LOCKED badge. Like/dislike row below each card (thumbs up/down with counts, same UX as event ReactionBar). Dark mode compatible via AppTheme helpers |
+| 18.6 | **Organizer Milestone CRUD** | Medium | Frontend: Milestone management section in create/edit event screens, visible when funding goal is configured. Add/remove/edit milestones (title, unlock %, benefit). Milestones editable anytime before funding ends. Create screen: stored locally, submitted via batch POST after event creation. Edit screen: live CRUD against API |
+
+**Design concept:**
+- Top-to-bottom timeline (git-log style) with a vertical progress bar showing funding progress
+- Each milestone is a node on the bar at its unlock percentage
+- Unlocked milestones: filled accent-color node with checkmark, green badge
+- Locked milestones: hollow grey node, grey badge with lock icon
+- Like/dislike on each milestone lets pledgers and users vote on which benefits excite them most
+- Milestones unlock automatically as funding reaches each percentage threshold
+- Organizers define milestones during event creation/editing (before funding ends)
+
+**Create Event Form — Milestone Builder:**
+
+The milestone builder section is placed **after Funding Settings** in the Create Event form (between "Max Reserved Spots Per User" and "Posts toggle"). It follows the same collapsible pattern as Parking & Transport.
+
+- **Visibility:** Only appears when a **funding deadline is set** (same condition as Funding Settings). No funding = no milestones.
+- **Collapsible header:** `🏆 Funding Milestones (Optional)` with expand/collapse arrow — starts collapsed, tap to expand. Uses `GestureDetector` + `AnimatedCrossFade` (same pattern as Parking & Transport section).
+- **Description text:** "Define milestones that unlock as your event reaches funding goals."
+- **Milestone cards:** Each milestone is a bordered card containing:
+  - **Title** — required `TextField` (e.g. "DJ Sound System Upgrade")
+  - **Unlock at** — `Slider` widget (1–100%) with current value label displayed alongside
+  - **Benefit description** — optional `TextField` (e.g. "Premium sound system for all attendees")
+  - **Delete button** — trash icon in the card header to remove the milestone
+- **"Add Milestone" button:** Dashed-outline button at the bottom of the list to append a new empty milestone card
+- **Local state on Create:** Milestones stored in a local `List` in widget state. They are **not** submitted individually — batch-created via `POST /events/{id}/milestones` after the event is successfully created (same pattern as inline ticket strategy tiers).
+- **Live CRUD on Edit:** On the Edit Event screen, milestones are loaded from the API and each add/edit/delete operates directly against the backend in real-time.
+- **Editable window:** Milestones can be added/edited anytime before funding ends (event status is `draft` or `approved`).
+
+```
+Form section order (with milestones):
+  1. Basic Info (title, description, genre, community rules)
+  2. Dates & Funding Deadline (event dates, funding deadline, refund slider)
+  3. Capacity & Registration
+  4. Venue (searchable picker + inline create)
+  5. Ticket Strategy (searchable picker + inline create)
+  6. Discount Strategies
+  7. Funding Settings (goal, min pledge, reserved spots) — only if funding deadline set
+  8. Funding Milestones (collapsible) — only if funding deadline set
+  9. Posts toggle
+  10. Parking & Transport (collapsible)
+  11. Publish/Draft toggle + submit button
+```
+
+**UI Mockup (dark mode):**
+
+![Funding Milestones Timeline Mockup](docs/images/milestone_timeline_mockup.png)
+
+### Phase 19 — Event Schedule / Agenda
+
+Estimated: **2–3 sessions**.
+
+| # | Feature | Effort | What to Build |
+|---|---------|--------|--------------|
+| 19.1 | **Schedule Model & Migration** | Medium | Backend: `EventScheduleItem` table (id, event_id, date, start_time, end_time, title, description, sort_order, created_at; composite index on event_id+date+sort_order). Add `has_schedule` boolean to Event model. Alembic migration for both |
+| 19.2 | **Schedule Schema & Service** | Medium | Backend: Pydantic schemas (ScheduleItemCreate, ScheduleItemUpdate, ScheduleItemResponse with `overlaps: bool` computed field, ScheduleDayGroup). Service layer: list (flat + grouped by date, detects overlaps per day), create (validates end > start, date within event range, allows overlaps), update, delete, bulk_create, export_schedule_xlsx (using `openpyxl`) |
+| 19.3 | **Schedule API Endpoints** | Medium | Backend: 6 endpoints under `/events/{event_id}/schedule` — GET list grouped by date (public), POST create single item (organizer), POST `/bulk` batch create (organizer), PATCH `/{id}` update (organizer), DELETE `/{id}` (organizer), GET `/export` download Excel .xlsx (public, StreamingResponse) |
+| 19.4 | **Dart Model & API Methods** | Small | Frontend: `ScheduleItem` and `ScheduleDay` models with `fromJson`. 6 API service methods: getSchedule, createScheduleItem, bulkCreateSchedule, updateScheduleItem, deleteScheduleItem, getScheduleExportUrl |
+| 19.5 | **Schedule Timeline Widget** | Large | Frontend: `_EventSchedule` widget in event detail screen below description. Header with "Event Schedule" + calendar icon + Excel download button. Horizontal scrollable date tab pills (one per unique date). Vertical timeline for selected date: thin blue line on left, circular nodes at each time slot, time label left of node, card right of node with time range + title + description. Overlapping slots: amber node + amber left border on card + "Overlaps" warning badge. Summary footer "N sessions across M days". Dark mode compatible via AppTheme helpers |
+| 19.6 | **Organizer Schedule Builder** | Medium | Frontend: In create/edit event screens — schedule toggle + builder **only visible when event has start and end dates set**. "Use structured schedule" switch below description. When ON: "Add Date" button (date picker constrained to event date range), time slot cards under each date (start/end time pickers, title, description fields, delete button), "Add Time Slot" button per date group. Create screen: stored locally, batch-submitted after event creation. Edit screen: live CRUD against API |
+
+**Prerequisite:** Schedule option only appears when the event has both start and end dates set. Date picker for schedule days is constrained to the event's date range.
+
+**Design concept:**
+- Toggle between plain-text description and structured schedule (organizer choice)
+- 3-layer hierarchy: Date → Time Slot (start/end) → Title + Description
+- Vertical timeline with date tabs — select a date to see its time slots
+- Each time slot is a node on the timeline with a card showing details
+- Anyone can export the full schedule as an Excel (.xlsx) spreadsheet
+- Dark mode compatible
+
+**Overlapping time slots:** Allowed with a visual warning (Option A). When two time slots on the same date overlap, the overlapping card gets an amber/orange left border and an "Overlaps" warning badge. The timeline node turns amber instead of blue. Slots remain in sequential order sorted by start time. This approach keeps the UI simple while flagging potential conflicts to both the organizer and attendees.
+
+**UI Mockup (dark mode):**
+
+![Event Schedule Timeline Mockup](docs/images/event_schedule_mockup.png)
+
+**Overlap Handling Mockup:**
+
+![Schedule Overlap - Sequential with Warning](docs/images/schedule_overlap_options.png)
+
+### Phase 20 — Sponsor Marketplace
+
+Estimated: **4–5 sessions** (recommended sub-phases: A Foundation, B Bidding, C Negotiation, D Payment+Ticket, E Carousel).
+
+| # | Feature | Effort | What to Build |
+|---|---------|--------|--------------|
+| 20.1 | **Sponsor Role & Profile** | Medium | Backend: Add `sponsor` to `UserRole` enum. `SponsorProfile` model (user_id, company_name, contact_name, profession, logo_url, description, website_url). Schema + service for CRUD. API: `POST/GET/PATCH /me/sponsor-profile`. Frontend: Sponsor Onboarding Screen with company info form |
+| 20.2 | **Sponsorship Categories** | Medium | Backend: `SponsorshipCategory` model (event_id, name, description, image_url, total_spots, filled_spots, min_bid_cents, sort_order). CRUD endpoints under `/{event_id}/sponsorships` (organizer only to create/edit/delete). GET list: **sponsor + organizer only** (hidden from customers), includes anonymous bid stats (count + amounts). Frontend: Sponsorship Categories Screen for sponsors to browse; category CRUD in create/edit event screens for organizers |
+| 20.3 | **Bidding System** | Large | Backend: `SponsorBid` model (category_id, sponsor_user_id, amount_cents, proposal_text, status: pending/accepted/rejected/withdrawn/paid; unique constraint on category+sponsor). Endpoints: place bid (sponsor, validates min bid + spot availability), update bid (while pending), withdraw, list all bids for category (organizer only), accept bid (increments filled_spots), reject bid. Frontend: Place Bid dialog (amount input, proposal text, shows anonymous bid stats); Bid Management Screen for organizer (all bids with sponsor profiles, accept/reject buttons) |
+| 20.4 | **Real-Time Negotiation Chat** | Large | Backend: `BidMessage` model (bid_id, sender_id, message, suggested_amount_cents nullable). **WebSocket endpoint** `WS /{event_id}/sponsorships/{cat_id}/bids/{bid_id}/chat` for real-time messaging (auth via token query param); messages persisted to DB + broadcast to connected clients. REST endpoints: `GET .../messages` for chat history on initial load, `POST .../messages/read` for unread tracking. **WebSocket Connection Manager** (`ws_manager.py`): tracks active connections per bid, broadcasts to other party, checks if recipient is online. **Push notifications**: when recipient is NOT connected via WebSocket, sends push notification (email via Phase 13 system) — "New message from [Company/Organizer] on your bid for [Category]". **Chat lifecycle**: chat is only active while bid status is `pending`; when bid is accepted/rejected/withdrawn/paid, server closes the WebSocket connection, sends a final system message ("Bid accepted — chat closed"), and the chat becomes read-only (history viewable but no new messages). Frontend: `BidChatService` (WebSocket wrapper with auto-reconnect), Negotiation Chat Screen — WhatsApp-style real-time chat UI, message bubbles with sender/timestamp, counter-offer messages highlighted with accent border + bold amount ("Suggested: $2,500"), "Suggest Amount" button, auto-scroll on new messages, unread badge on bid cards, typing indicator (optional). Read-only mode shows chat history with a banner "This negotiation has ended". Dark mode compatible |
+| 20.5 | **In-App Payment** | Medium | Backend: `SponsorPayment` model (bid_id, amount_cents, platform_cut_cents, net_to_organizer_cents, receipt_number, status: pending/completed/refunded). `sponsor_commission_percent` added to `PlatformSettings`. Pay endpoint computes commission, creates payment, updates bid status to `paid`. Frontend: payment confirmation flow for accepted bids |
+| 20.6 | **Sponsor Ticket** | Medium | Backend: `SponsorTicket` model (event_id, sponsor_user_id, qr_data_encrypted, receipt_number format `SPT-YYYYMMDD-eventId-ticketId`, scanned_at; unique on event+sponsor). Auto-generated on first payment for an event, QR data updated if sponsor wins additional categories. QR encrypted with AES-256-GCM (reuse Phase 15). Scan endpoint returns: company info, all won category names, category count. Frontend: Sponsor Ticket Screen with QR code + category list + count; scan result view for organizers |
+| 20.7 | **Sponsor Carousel** | Small | Backend: `GET /{event_id}/sponsors` — public endpoint returning approved sponsor profiles (company_name, logo_url only) where status is `paid`. Frontend: horizontal scrollable row of round `CircleAvatar` logos at bottom of event detail page, visible to customers only; tap shows company name + website in bottom sheet |
+| 20.8 | **Role-Based Visibility** | Medium | Frontend: hide sponsorship categories from customers entirely; block regular ticket purchase for sponsor-role users (buttons hidden/disabled with message); show "My Sponsor Ticket" button for sponsors with paid bids; show "Manage Sponsorships" for organizers. Backend: category listing endpoint restricted to sponsor + organizer roles |
+| 20.9 | **Sponsor Dashboard** | Medium | Frontend: section in Manage tab or Profile for sponsors — my active bids across events, bid statuses, sponsor tickets with QR codes, payment history |
+
+**Role-based visibility rules:**
+
+| Content | Customer | Sponsor | Organizer |
+|---------|----------|---------|-----------|
+| Event info (details, funding, etc.) | Full view | Full view | Full view |
+| Sponsorship categories (stalls, billboards...) | Hidden | Visible (browse + bid) | Visible (manage) |
+| Approved sponsor logos (carousel) | Visible (bottom of event page) | Visible | Visible |
+| Regular ticket purchasing | Can buy | Blocked | N/A |
+| Sponsor Ticket | N/A | Auto-generated after payment | Can scan to verify |
+
+**Design concept:**
+- New `sponsor` user role with dedicated onboarding (company info, logo URL, profession)
+- Organizer creates sponsorship categories per event with spot counts and minimum bid amounts
+- Sponsors bid (amount + proposal); bids are semi-public (count + amounts visible, identities hidden)
+- **Real-time WebSocket chat** between organizer and individual sponsors for negotiation — messages appear instantly (WhatsApp-style), with counter-offer amounts highlighted; push notification (email) sent when the other party is offline; unread badge tracking
+- Organizer approves winners; payment in-app with platform commission
+- One combined Sponsor Ticket per sponsor per event (identification only, not event entry); QR scan shows all won categories and count
+- Customers only see approved sponsor logos in a carousel — they never see the bidding/category system
+
+### Phase 21 — Media
 
 Estimated: **1 session**.
 
@@ -649,16 +873,17 @@ Estimated: **1 session**.
 |---|---------|--------|--------------|
 | 1 | **File Upload for Images** | Large | Backend: S3/GCS integration, upload endpoint. Frontend: file picker replacing URL input |
 
-### Phase 16 — Trust & Security
+### Phase 22 — Trust & Security
 
-Estimated: **2 sessions**.
+Estimated: **1–2 sessions**.
 
 | # | Feature | Effort | What to Build |
 |---|---------|--------|--------------|
 | 1 | **Organizer Verification** | Large | Backend: verification request model, document upload, admin review queue. Frontend: verification status badge, submission form |
-| 2 | **Feature Flags / Admin Controls** | Medium | Backend: settings table with key-value pairs. Frontend: admin panel to toggle features |
 
-### Phase 17 — Nice to Have
+> **Note:** Feature Flags / Admin Controls originally planned here have been moved to **Phase 18a** and built as a foundational system before all new features.
+
+### Phase 23 — Nice to Have
 
 Lowest priority. Estimated: **1–2 sessions**.
 
@@ -668,7 +893,50 @@ Lowest priority. Estimated: **1–2 sessions**.
 | 2 | **Verify Organizer via External Apps** | Large | Third-party API integration — scope TBD |
 | 3 | **Chatbot for Support** | Large | Standalone feature — could use an off-the-shelf widget or build custom |
 
-**Recommended order:** Phase 9 (done) → 10 (done) → 11 (done) → 12 (done) → 13 (done) → 14 (done) → 15 (done) → 16 (done) → 17 → 18. Phases 9–10 add real business value (commission, spot reservations). Phase 11 adds trust (terms agreement). Phase 12 enables multi-ticket purchases + QR codes. Phase 13 adds email notifications. Phase 14 adds transport/parking info. Phase 15 adds ticket QR encryption (AES-256-GCM). Phase 16 adds map view, location discovery, and venue geocoding. Phases 17–18 are enhancements.
+### Phase 24 — Microservices Migration (Future Consideration)
+
+**Status:** Not recommended yet. Revisit when scaling triggers are met.
+
+**Current architecture:** Monolithic FastAPI backend + Flutter frontend, single database, all features in one deployable unit. The codebase uses a modular structure (`models/`, `schemas/`, `services/`, `api/v1/`) that already separates concerns cleanly.
+
+**Why NOT now:**
+- Solo/small team — microservices add massive operational overhead (Docker orchestration, API gateway, service discovery, distributed tracing, per-service databases) with no development speed benefit
+- Data is deeply interconnected: Sponsor Tickets reuse AES-256-GCM encryption (Phase 15), milestones need `funding_service.get_summary()`, schedule depends on Event date fields, feature flags gate everything from one `PlatformSettings` table
+- Current traffic does not require independent scaling of any component
+- Splitting into services turns every cross-feature interaction into a distributed transaction problem
+
+**When to revisit (any of these become true):**
+- 3+ developers working simultaneously and experiencing merge conflicts / deployment bottlenecks
+- One feature needs independent horizontal scaling (e.g., sponsor bidding gets 10x traffic vs. the rest)
+- Different teams want different deployment cadences (sponsors team ships weekly, events team ships monthly)
+- A component needs a different tech stack (e.g., real-time bidding engine in Go/Rust for performance)
+
+**Recommended intermediate step — Modular Monolith:**
+
+Before going full microservices, reorganize into domain-based folders:
+
+```
+Backend/app/
+  domains/
+    events/        (models, schemas, services, routes)
+    funding/       (models, schemas, services, routes)
+    tickets/       (models, schemas, services, routes)
+    milestones/    (models, schemas, services, routes)
+    schedule/      (models, schemas, services, routes)
+    sponsors/      (models, schemas, services, routes)
+    platform/      (settings, feature flags)
+  shared/          (db, auth, encryption, utils)
+```
+
+Each domain is a self-contained module that **could** become a microservice later. They all deploy as one app and share one database today, but have clean boundaries that make extraction trivial when needed.
+
+| # | Feature | Effort | What to Build |
+|---|---------|--------|--------------|
+| 24.1 | **Modular Monolith Refactor** | Medium | Reorganize `Backend/app/` into domain-based folders (events, funding, tickets, milestones, schedule, sponsors, platform). Move models/schemas/services/routes into their respective domain folders. Update all imports. Shared utilities (db, auth, encryption) into `shared/` |
+| 24.2 | **Domain API Contracts** | Small | Define clear interfaces between domains (e.g., `funding.get_summary()` is the contract milestones use). Document which domains depend on which. No cross-domain direct model access — go through service functions |
+| 24.3 | **Microservice Extraction** | Very Large | Only when triggers above are met. Extract one domain at a time into its own FastAPI service with its own database. Add API gateway (e.g., Kong, Traefik), inter-service HTTP/gRPC calls, distributed tracing (OpenTelemetry), message queue for async events (e.g., Redis Streams or RabbitMQ) |
+
+**Recommended order:** Phase 9 (done) → 10 (done) → 11 (done) → 12 (done) → 13 (done) → 14 (done) → 15 (done) → 16 (done) → 17 (done) → 18a (done) → 18 (done) → **19 (next)** → **20** → 21 → 22 → 23 → 24 (only when scaling triggers are met). Phases 9–10 add real business value (commission, spot reservations). Phase 11 adds trust (terms agreement). Phase 12 enables multi-ticket purchases + QR codes. Phase 13 adds email notifications. Phase 14 adds transport/parking info. Phase 15 adds ticket QR encryption (AES-256-GCM). Phase 16 adds map view, location discovery, and venue geocoding. Phase 17 adds dark mode, venue name map labels, and API efficiency improvements. Phase 18a adds admin feature flag toggles — `get_bool()` service helper, `require_feature()` backend guard, toggle switch UI in admin Settings tab, frontend flag caching; all subsequent features (18, 19, 20) are gated by their respective flags. Phase 18 adds funding milestones with timeline UI, per-milestone like/dislike, and organizer CRUD. **Phase 19 adds structured event schedule** with date/time/description hierarchy, timeline UI, and Excel export. Phase 20 adds sponsor marketplace with new sponsor role, category bidding, negotiation, in-app payment, auto-generated sponsor tickets, and customer-facing sponsor carousel. Phases 21–23 are enhancements. Phase 24 is a future architecture migration — modular monolith refactor first, microservice extraction only when team/traffic scaling triggers are met.
 
 ---
 

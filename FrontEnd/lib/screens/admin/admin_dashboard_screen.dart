@@ -791,25 +791,33 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                 final isPercent = key.contains('percent');
                 final isCents = key.contains('_cents');
                 final isCommunity = key.startsWith('community');
-                final iconData = isCommunity
-                    ? Icons.groups_rounded
-                    : key.contains('ticket')
-                        ? Icons.confirmation_number
-                        : key.contains('funding') || key.contains('escrow')
-                            ? Icons.savings
-                            : key.contains('cancel') || key.contains('grace') || key.contains('scan')
-                                ? Icons.shield_rounded
-                                : Icons.settings;
-                final color = isCommunity
-                    ? Colors.orange
-                    : key.contains('ticket')
-                        ? Colors.deepPurple
-                        : key.contains('funding') || key.contains('escrow')
-                            ? Colors.teal
-                            : AppTheme.primaryColor;
+                final isFeatureFlag = key.startsWith('feature_');
+                final isBool = value == 'true' || value == 'false';
+                final iconData = isFeatureFlag
+                    ? Icons.toggle_on_rounded
+                    : isCommunity
+                        ? Icons.groups_rounded
+                        : key.contains('ticket')
+                            ? Icons.confirmation_number
+                            : key.contains('funding') || key.contains('escrow')
+                                ? Icons.savings
+                                : key.contains('cancel') || key.contains('grace') || key.contains('scan')
+                                    ? Icons.shield_rounded
+                                    : Icons.settings;
+                final color = isFeatureFlag
+                    ? Colors.green
+                    : isCommunity
+                        ? Colors.orange
+                        : key.contains('ticket')
+                            ? Colors.deepPurple
+                            : key.contains('funding') || key.contains('escrow')
+                                ? Colors.teal
+                                : AppTheme.primaryColor;
                 // Format display value
                 String displayValue = value;
-                if (isPercent) {
+                if (isBool) {
+                  displayValue = value == 'true' ? 'ON' : 'OFF';
+                } else if (isPercent) {
                   displayValue = '$value%';
                 } else if (isCents) {
                   final parsed = int.tryParse(value);
@@ -851,59 +859,69 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                           ),
                         ),
                         const SizedBox(width: 12),
-                        SizedBox(
-                          width: 100,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  displayValue,
-                                  style: TextStyle(
-                                      fontSize: isCents ? 16 : 22,
-                                      fontWeight: FontWeight.bold,
-                                      color: color),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
+                        if (isBool) ...[
+                          Switch(
+                            value: value == 'true',
+                            activeColor: Colors.green,
+                            onChanged: (on) {
+                              _updateSetting(key, on ? 'true' : 'false');
+                            },
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          icon: const Icon(Icons.edit, size: 20),
-                          tooltip: 'Edit',
-                          onPressed: () {
-                            final ctrl = TextEditingController(text: value);
-                            showDialog(
-                              context: context,
-                              builder: (ctx) => AlertDialog(
-                                title: Text('Edit ${key.replaceAll('_', ' ')}'),
-                                content: TextField(
-                                  controller: ctrl,
-                                  keyboardType: TextInputType.number,
-                                  decoration: InputDecoration(
-                                    labelText: 'Value',
-                                    suffixText: isPercent ? '%' : null,
+                        ] else ...[
+                          SizedBox(
+                            width: 100,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    displayValue,
+                                    style: TextStyle(
+                                        fontSize: isCents ? 16 : 22,
+                                        fontWeight: FontWeight.bold,
+                                        color: color),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.of(ctx).pop(),
-                                    child: const Text('Cancel'),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: const Icon(Icons.edit, size: 20),
+                            tooltip: 'Edit',
+                            onPressed: () {
+                              final ctrl = TextEditingController(text: value);
+                              showDialog(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  title: Text('Edit ${key.replaceAll('_', ' ')}'),
+                                  content: TextField(
+                                    controller: ctrl,
+                                    keyboardType: TextInputType.number,
+                                    decoration: InputDecoration(
+                                      labelText: 'Value',
+                                      suffixText: isPercent ? '%' : null,
+                                    ),
                                   ),
-                                  ElevatedButton(
-                                    onPressed: () {
-                                      Navigator.of(ctx).pop();
-                                      _updateSetting(key, ctrl.text.trim());
-                                    },
-                                    child: const Text('Save'),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.of(ctx).pop(),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    ElevatedButton(
+                                      onPressed: () {
+                                        Navigator.of(ctx).pop();
+                                        _updateSetting(key, ctrl.text.trim());
+                                      },
+                                      child: const Text('Save'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ],
                       ],
                     ),
                   ),

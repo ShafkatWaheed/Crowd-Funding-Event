@@ -99,6 +99,7 @@ class Event(Base):
     event_discounts = relationship("EventDiscount", back_populates="event", cascade="all, delete-orphan")
     discount_strategy_links = relationship("EventDiscountStrategyLink", back_populates="event", cascade="all, delete-orphan")
     escrow = relationship("FundEscrow", back_populates="event", uselist=False, cascade="all, delete-orphan")
+    milestones = relationship("FundingMilestone", back_populates="event", cascade="all, delete-orphan")
 
 
 class EventDiscount(Base):

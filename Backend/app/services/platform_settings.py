@@ -14,6 +14,10 @@ DEFAULTS = {
     "funding_commission_percent": 3,
     "cancel_approval_threshold_percent": 80,
     "event_date_grace_days": 7,
+    # Feature flags (boolean, stored as "true"/"false")
+    "feature_milestones_enabled": "true",
+    "feature_schedule_enabled": "true",
+    "feature_sponsors_enabled": "true",
 }
 
 
@@ -38,6 +42,15 @@ async def get_int(db: AsyncSession, key: str) -> int:
     if row is None:
         return DEFAULTS.get(key, 0)
     return int(row.value)
+
+
+async def get_bool(db: AsyncSession, key: str) -> bool:
+    """Get a setting as boolean. Falls back to DEFAULTS if missing."""
+    q = select(PlatformSetting).where(PlatformSetting.key == key)
+    row = (await db.execute(q)).scalar_one_or_none()
+    if row is None:
+        return str(DEFAULTS.get(key, "false")).lower() == "true"
+    return row.value.lower() == "true"
 
 
 async def get_str(db: AsyncSession, key: str) -> str | None:

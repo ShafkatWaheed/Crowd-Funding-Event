@@ -1,9 +1,9 @@
 """
-Global dependencies: DB session, current user, role checks.
+Global dependencies: DB session, current user, role checks, feature flags.
 """
 from typing import Annotated
 
-from fastapi import Depends
+from fastapi import Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_db_session
@@ -18,10 +18,18 @@ def require_role(*allowed_roles: UserRole):
         current_user: Annotated[User, Depends(get_current_user)]
     ) -> User:
         if current_user.role not in allowed_roles:
-            from fastapi import HTTPException
             raise HTTPException(status_code=403, detail="Insufficient permissions")
         return current_user
     return _require_role
+
+
+def require_feature(key: str):
+    """Dependency factory: returns 403 if the given feature flag is disabled."""
+    async def _guard(db: Annotated[AsyncSession, Depends(get_db_session)]):
+        from app.services import platform_settings as settings_svc
+        if not await settings_svc.get_bool(db, key):
+            raise HTTPException(status_code=403, detail=f"Feature disabled: {key}")
+    return _guard
 
 
 # Type aliases for cleaner route signatures

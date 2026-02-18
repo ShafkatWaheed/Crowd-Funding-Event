@@ -619,4 +619,55 @@ class ApiService {
     final resp = await dio.get('/admin/stats');
     return resp.data;
   }
+
+  // ─── Feature Flags ───
+
+  Future<Map<String, bool>> getFeatureFlags() async {
+    final resp = await dio.get('/admin/settings');
+    final list = resp.data as List;
+    return {
+      for (var s in list.where((s) => (s['key'] as String).startsWith('feature_')))
+        s['key'] as String: s['value'] == 'true',
+    };
+  }
+
+  // ─── Milestones ───
+
+  Future<List<dynamic>> getMilestones(int eventId) async {
+    final resp = await dio.get('/events/$eventId/milestones');
+    return resp.data;
+  }
+
+  Future<Map<String, dynamic>> createMilestone(
+      int eventId, Map<String, dynamic> data) async {
+    final resp = await dio.post('/events/$eventId/milestones', data: data);
+    return resp.data;
+  }
+
+  Future<Map<String, dynamic>> updateMilestone(
+      int eventId, int milestoneId, Map<String, dynamic> data) async {
+    final resp =
+        await dio.patch('/events/$eventId/milestones/$milestoneId', data: data);
+    return resp.data;
+  }
+
+  Future<void> deleteMilestone(int eventId, int milestoneId) async {
+    await dio.delete('/events/$eventId/milestones/$milestoneId');
+  }
+
+  Future<Map<String, dynamic>> reactToMilestone(
+      int eventId, int milestoneId, String reaction) async {
+    final resp = await dio.post(
+      '/events/$eventId/milestones/$milestoneId/react',
+      queryParameters: {'reaction': reaction},
+    );
+    return resp.data;
+  }
+
+  Future<Map<String, dynamic>> getMyMilestoneReaction(
+      int eventId, int milestoneId) async {
+    final resp =
+        await dio.get('/events/$eventId/milestones/$milestoneId/my-reaction');
+    return resp.data;
+  }
 }

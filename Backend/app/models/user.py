@@ -13,6 +13,7 @@ class UserRole(str, enum.Enum):
     admin = "admin"
     organizer = "organizer"
     customer = "customer"
+    sponsor = "sponsor"
 
 
 class User(Base):
@@ -39,3 +40,4 @@ class User(Base):
     event_organizers = relationship("EventOrganizer", back_populates="user")
     posts = relationship("EventPost", back_populates="user")
     discount_strategies = relationship("DiscountStrategy", back_populates="organizer", foreign_keys="DiscountStrategy.organizer_id")
+    sponsor_profile = relationship("SponsorProfile", back_populates="user", uselist=False)

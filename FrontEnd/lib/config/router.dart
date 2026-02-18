@@ -24,6 +24,11 @@ import '../screens/profile/profile_screen.dart';
 import '../screens/profile/my_tickets_screen.dart';
 import '../screens/legal/terms_screen.dart';
 import '../screens/event/ticket_scanner_screen.dart';
+import '../screens/sponsor/sponsor_onboarding_screen.dart';
+import '../screens/sponsor/sponsorship_categories_screen.dart';
+import '../screens/sponsor/bid_management_screen.dart';
+import '../screens/sponsor/sponsor_ticket_screen.dart';
+import '../screens/sponsor/sponsor_dashboard_screen.dart';
 
 GoRouter createRouter(AuthProvider authProvider) {
   return GoRouter(
@@ -212,6 +217,37 @@ GoRouter createRouter(AuthProvider authProvider) {
       GoRoute(
         path: '/ticket-strategies',
         builder: (context, state) => const TicketStrategiesScreen(),
+      ),
+
+      // ─── Sponsor ───
+      GoRoute(
+        path: '/sponsor/onboarding',
+        builder: (context, state) => const SponsorOnboardingScreen(),
+      ),
+      GoRoute(
+        path: '/events/:id/sponsorships',
+        builder: (context, state) {
+          final id = int.parse(state.pathParameters['id']!);
+          return SponsorshipCategoriesScreen(eventId: id);
+        },
+      ),
+      GoRoute(
+        path: '/sponsor/dashboard',
+        builder: (context, state) => const SponsorDashboardScreen(),
+      ),
+      GoRoute(
+        path: '/sponsor/tickets',
+        builder: (context, state) => const SponsorTicketScreen(),
+      ),
+      GoRoute(
+        path: '/events/:id/sponsorships/:catId/bids',
+        builder: (context, state) {
+          final id = int.parse(state.pathParameters['id']!);
+          final catId = int.parse(state.pathParameters['catId']!);
+          final catName = state.uri.queryParameters['name'];
+          return BidManagementScreen(
+              eventId: id, categoryId: catId, categoryName: catName);
+        },
       ),
 
       // ─── Admin ───

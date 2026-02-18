@@ -18,6 +18,7 @@ DEFAULTS = {
     "feature_milestones_enabled": "true",
     "feature_schedule_enabled": "true",
     "feature_sponsors_enabled": "true",
+    "sponsor_commission_percent": 5,
 }
 
 

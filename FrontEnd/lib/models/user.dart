@@ -1,4 +1,4 @@
-enum UserRole { admin, organizer, customer }
+enum UserRole { admin, organizer, customer, sponsor }
 
 class AppUser {
   final int id;
@@ -48,4 +48,5 @@ class AppUser {
   bool get isAdmin => role == UserRole.admin;
   bool get isOrganizer => role == UserRole.organizer;
   bool get isCustomer => role == UserRole.customer;
+  bool get isSponsor => role == UserRole.sponsor;
 }

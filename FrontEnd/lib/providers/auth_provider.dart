@@ -192,6 +192,15 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Re-fetch the backend user profile (e.g. after role change).
+  Future<void> refreshUser() async {
+    try {
+      final meData = await _api.getMe();
+      _user = AppUser.fromJson(meData);
+      notifyListeners();
+    } catch (_) {}
+  }
+
   /// Sign out of Firebase and clear local state.
   Future<void> signOut() async {
     _log('signOut: signing out...');

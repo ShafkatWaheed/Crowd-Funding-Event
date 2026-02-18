@@ -31,6 +31,15 @@ class _EditScheduleItem {
         endTime = const TimeOfDay(hour: 10, minute: 0);
 }
 
+class _EditSponsorCategory {
+  int? id;
+  final nameCtrl = TextEditingController();
+  final descCtrl = TextEditingController();
+  final spotsCtrl = TextEditingController(text: '1');
+  final minBidCtrl = TextEditingController(text: '100.00');
+  _EditSponsorCategory({this.id});
+}
+
 class EditEventScreen extends StatefulWidget {
   final int eventId;
   const EditEventScreen({super.key, required this.eventId});
@@ -83,6 +92,11 @@ class _EditEventScreenState extends State<EditEventScreen> {
   bool _hasSchedule = false;
   List<_EditScheduleItem> _scheduleItems = [];
   bool _scheduleLoaded = false;
+
+  // Sponsorship Categories (live CRUD)
+  bool _showSponsorshipSection = false;
+  List<_EditSponsorCategory> _sponsorCategories = [];
+  bool _sponsorCategoriesLoaded = false;
 
   final List<String> _genres = [
     'community', 'music', 'tech', 'sports', 'arts',
@@ -154,6 +168,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
       });
       _loadMilestones();
       _loadSchedule();
+      _loadSponsorCategories();
     } catch (e) {
       if (mounted) {
         AppToast.fromError(context, e, fallback: 'Failed to load event');
@@ -304,6 +319,173 @@ class _EditEventScreenState extends State<EditEventScreen> {
       }
     }
     setState(() => _scheduleItems.removeAt(idx));
+  }
+
+  Widget _buildEditSponsorCategoryCard(int index) {
+    final sc = _sponsorCategories[index];
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.teal.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.teal.withValues(alpha: 0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                  sc.id != null
+                      ? 'Category #${sc.id}'
+                      : 'New Category',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w600, fontSize: 13)),
+              const Spacer(),
+              IconButton(
+                icon: Icon(Icons.save, size: 18, color: Colors.teal[700]),
+                onPressed: () => _saveSponsorCategory(sc),
+                tooltip: 'Save',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(Icons.delete_outline,
+                    size: 18, color: AppTheme.errorColor),
+                onPressed: () => _deleteSponsorCategory(index),
+                tooltip: 'Delete',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: sc.nameCtrl,
+            decoration: const InputDecoration(
+              labelText: 'Category Name *',
+              hintText: 'e.g. Gold Sponsor, Food Stall',
+              isDense: true,
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: sc.descCtrl,
+            decoration: const InputDecoration(
+              labelText: 'Description',
+              isDense: true,
+            ),
+            maxLines: 2,
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: sc.spotsCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Total Spots *',
+                    isDense: true,
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextFormField(
+                  controller: sc.minBidCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Min Bid (\$) *',
+                    isDense: true,
+                  ),
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Sponsorship Categories (live CRUD) ──
+
+  Future<void> _loadSponsorCategories() async {
+    try {
+      final api = context.read<ApiService>();
+      final list = await api.getSponsorshipCategories(widget.eventId);
+      if (mounted) {
+        setState(() {
+          _sponsorCategories = list.map((j) {
+            final sc = _EditSponsorCategory(id: j['id']);
+            sc.nameCtrl.text = j['name'] ?? '';
+            sc.descCtrl.text = j['description'] ?? '';
+            sc.spotsCtrl.text = (j['total_spots'] ?? 1).toString();
+            sc.minBidCtrl.text =
+                ((j['min_bid_cents'] ?? 0) / 100).toStringAsFixed(2);
+            return sc;
+          }).toList();
+          _sponsorCategoriesLoaded = true;
+          if (_sponsorCategories.isNotEmpty) _showSponsorshipSection = true;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _sponsorCategoriesLoaded = true);
+    }
+  }
+
+  Future<void> _saveSponsorCategory(_EditSponsorCategory sc) async {
+    final name = sc.nameCtrl.text.trim();
+    if (name.isEmpty) return;
+    final spots = int.tryParse(sc.spotsCtrl.text.trim()) ?? 1;
+    final minBid =
+        ((double.tryParse(sc.minBidCtrl.text.trim()) ?? 0) * 100).round();
+    final api = context.read<ApiService>();
+    try {
+      if (sc.id != null) {
+        await api.updateSponsorshipCategory(widget.eventId, sc.id!, {
+          'name': name,
+          'description': sc.descCtrl.text.trim(),
+          'total_spots': spots,
+          'min_bid_cents': minBid,
+        });
+        if (mounted) AppToast.success(context, 'Category updated');
+      } else {
+        final resp = await api.createSponsorshipCategory(widget.eventId, {
+          'name': name,
+          if (sc.descCtrl.text.trim().isNotEmpty)
+            'description': sc.descCtrl.text.trim(),
+          'total_spots': spots,
+          'min_bid_cents': minBid,
+          'sort_order': _sponsorCategories.indexOf(sc),
+        });
+        sc.id = resp['id'] as int;
+        if (mounted) AppToast.success(context, 'Category created');
+      }
+    } catch (e) {
+      if (mounted) {
+        AppToast.fromError(context, e, fallback: 'Failed to save category');
+      }
+    }
+  }
+
+  Future<void> _deleteSponsorCategory(int idx) async {
+    final sc = _sponsorCategories[idx];
+    if (sc.id != null) {
+      try {
+        final api = context.read<ApiService>();
+        await api.deleteSponsorshipCategory(widget.eventId, sc.id!);
+      } catch (e) {
+        if (mounted) {
+          AppToast.fromError(context, e,
+              fallback: 'Failed to delete category');
+        }
+        return;
+      }
+    }
+    setState(() => _sponsorCategories.removeAt(idx));
   }
 
   Future<void> _submit() async {
@@ -1240,6 +1422,128 @@ class _EditEventScreenState extends State<EditEventScreen> {
                               ),
                               const SizedBox(height: 16),
                             ],
+
+                            // ═══════════════════════════════════════
+                            // Sponsorship Categories (collapsible, live CRUD)
+                            // ═══════════════════════════════════════
+                            GestureDetector(
+                              onTap: () => setState(() =>
+                                  _showSponsorshipSection =
+                                      !_showSponsorshipSection),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 14, vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: _showSponsorshipSection
+                                      ? Colors.teal.withValues(alpha: 0.08)
+                                      : Colors.grey.withValues(alpha: 0.04),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: _showSponsorshipSection
+                                        ? Colors.teal.withValues(alpha: 0.3)
+                                        : Colors.grey.withValues(alpha: 0.15),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.storefront_rounded,
+                                        size: 18,
+                                        color: _showSponsorshipSection
+                                            ? Colors.teal[700]
+                                            : Colors.grey[600]),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        'Sponsorship Categories (Optional)',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 13,
+                                          color: Colors.grey[800],
+                                        ),
+                                      ),
+                                    ),
+                                    if (_sponsorCategories.isNotEmpty)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.teal
+                                              .withValues(alpha: 0.12),
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                        ),
+                                        child: Text(
+                                          '${_sponsorCategories.length}',
+                                          style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.teal[700]),
+                                        ),
+                                      ),
+                                    const SizedBox(width: 4),
+                                    Icon(
+                                      _showSponsorshipSection
+                                          ? Icons.keyboard_arrow_up
+                                          : Icons.keyboard_arrow_down,
+                                      color: Colors.grey[500],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            AnimatedCrossFade(
+                              firstChild: const SizedBox.shrink(),
+                              secondChild: Container(
+                                margin: const EdgeInsets.only(top: 8),
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.withValues(alpha: 0.03),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                      color:
+                                          Colors.grey.withValues(alpha: 0.12)),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (!_sponsorCategoriesLoaded)
+                                      const Center(
+                                          child: Padding(
+                                        padding: EdgeInsets.all(16),
+                                        child: CircularProgressIndicator(),
+                                      ))
+                                    else ...[
+                                      for (int i = 0;
+                                          i < _sponsorCategories.length;
+                                          i++) ...[
+                                        _buildEditSponsorCategoryCard(i),
+                                        if (i < _sponsorCategories.length - 1)
+                                          const SizedBox(height: 10),
+                                      ],
+                                      const SizedBox(height: 10),
+                                      SizedBox(
+                                        width: double.infinity,
+                                        child: OutlinedButton.icon(
+                                          onPressed: () {
+                                            setState(() {
+                                              _sponsorCategories.add(
+                                                  _EditSponsorCategory());
+                                            });
+                                          },
+                                          icon: const Icon(Icons.add, size: 18),
+                                          label: const Text('Add Category'),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              crossFadeState: _showSponsorshipSection
+                                  ? CrossFadeState.showSecond
+                                  : CrossFadeState.showFirst,
+                              duration: const Duration(milliseconds: 250),
+                            ),
+                            const SizedBox(height: 16),
 
                             // Posts toggle
                             SwitchListTile(

@@ -111,6 +111,36 @@ class ProfileScreen extends StatelessWidget {
                                 onTap: () => context.push('/my-tickets'),
                               ),
                               const Divider(height: 1),
+                              ListTile(
+                                leading: Icon(Icons.storefront_rounded, color: AppTheme.accentColor),
+                                title: const Text('Become a Sponsor'),
+                                trailing: Icon(Icons.chevron_right, color: AppTheme.textSecondaryOf(context)),
+                                onTap: () => context.push('/sponsor/onboarding'),
+                              ),
+                              const Divider(height: 1),
+                            ],
+                            if (user.isSponsor) ...[
+                              ListTile(
+                                leading: Icon(Icons.dashboard_rounded, color: AppTheme.textSecondaryOf(context)),
+                                title: const Text('Sponsor Dashboard'),
+                                trailing: Icon(Icons.chevron_right, color: AppTheme.textSecondaryOf(context)),
+                                onTap: () => context.push('/sponsor/dashboard'),
+                              ),
+                              const Divider(height: 1),
+                              ListTile(
+                                leading: Icon(Icons.confirmation_number_outlined, color: AppTheme.textSecondaryOf(context)),
+                                title: const Text('Sponsor Tickets'),
+                                trailing: Icon(Icons.chevron_right, color: AppTheme.textSecondaryOf(context)),
+                                onTap: () => context.push('/sponsor/tickets'),
+                              ),
+                              const Divider(height: 1),
+                              ListTile(
+                                leading: Icon(Icons.storefront_rounded, color: AppTheme.textSecondaryOf(context)),
+                                title: const Text('Edit Sponsor Profile'),
+                                trailing: Icon(Icons.chevron_right, color: AppTheme.textSecondaryOf(context)),
+                                onTap: () => context.push('/sponsor/onboarding'),
+                              ),
+                              const Divider(height: 1),
                             ],
                             if (user.isOrganizer) ...[
                               ListTile(

@@ -704,4 +704,123 @@ class ApiService {
   String getScheduleExportUrl(int eventId) {
     return '${dio.options.baseUrl}/events/$eventId/schedule/export';
   }
+
+  // ── Sponsor Profile ──
+
+  Future<Map<String, dynamic>> getSponsorProfile() async {
+    final resp = await dio.get('/me/sponsor-profile');
+    return resp.data;
+  }
+
+  Future<Map<String, dynamic>> createSponsorProfile(
+      Map<String, dynamic> data) async {
+    final resp = await dio.post('/me/sponsor-profile', data: data);
+    return resp.data;
+  }
+
+  Future<Map<String, dynamic>> updateSponsorProfile(
+      Map<String, dynamic> data) async {
+    final resp = await dio.patch('/me/sponsor-profile', data: data);
+    return resp.data;
+  }
+
+  // ── Sponsorship Categories ──
+
+  Future<List<dynamic>> getSponsorshipCategories(int eventId) async {
+    final resp = await dio.get('/events/$eventId/sponsorships');
+    return resp.data as List;
+  }
+
+  Future<Map<String, dynamic>> createSponsorshipCategory(
+      int eventId, Map<String, dynamic> data) async {
+    final resp = await dio.post('/events/$eventId/sponsorships', data: data);
+    return resp.data;
+  }
+
+  Future<Map<String, dynamic>> updateSponsorshipCategory(
+      int eventId, int catId, Map<String, dynamic> data) async {
+    final resp =
+        await dio.patch('/events/$eventId/sponsorships/$catId', data: data);
+    return resp.data;
+  }
+
+  Future<void> deleteSponsorshipCategory(int eventId, int catId) async {
+    await dio.delete('/events/$eventId/sponsorships/$catId');
+  }
+
+  // ── Sponsor Bids ──
+
+  Future<Map<String, dynamic>> placeBid(
+      int eventId, int catId, Map<String, dynamic> data) async {
+    final resp = await dio.post(
+        '/events/$eventId/sponsorships/$catId/bids',
+        data: data);
+    return resp.data;
+  }
+
+  Future<Map<String, dynamic>> updateBid(
+      int eventId, int catId, int bidId, Map<String, dynamic> data) async {
+    final resp = await dio.patch(
+        '/events/$eventId/sponsorships/$catId/bids/$bidId',
+        data: data);
+    return resp.data;
+  }
+
+  Future<Map<String, dynamic>> withdrawBid(
+      int eventId, int catId, int bidId) async {
+    final resp = await dio.post(
+        '/events/$eventId/sponsorships/$catId/bids/$bidId/withdraw');
+    return resp.data;
+  }
+
+  Future<List<dynamic>> listBids(int eventId, int catId) async {
+    final resp =
+        await dio.get('/events/$eventId/sponsorships/$catId/bids');
+    return resp.data as List;
+  }
+
+  Future<Map<String, dynamic>> acceptBid(
+      int eventId, int catId, int bidId) async {
+    final resp = await dio.post(
+        '/events/$eventId/sponsorships/$catId/bids/$bidId/accept');
+    return resp.data;
+  }
+
+  Future<Map<String, dynamic>> rejectBid(
+      int eventId, int catId, int bidId) async {
+    final resp = await dio.post(
+        '/events/$eventId/sponsorships/$catId/bids/$bidId/reject');
+    return resp.data;
+  }
+
+  // ── Sponsor Payments ──
+
+  Future<Map<String, dynamic>> payBid(
+      int eventId, int catId, int bidId) async {
+    final resp = await dio.post(
+        '/events/$eventId/sponsorships/$catId/bids/$bidId/pay');
+    return resp.data;
+  }
+
+  // ── Sponsor Tickets ──
+
+  Future<List<dynamic>> getMySponsorTickets() async {
+    final resp = await dio.get('/me/sponsor-tickets');
+    return resp.data as List;
+  }
+
+  Future<Map<String, dynamic>> scanSponsorTicket(
+      int eventId, String encryptedPayload) async {
+    final resp = await dio.post('/events/$eventId/scan-sponsor', data: {
+      'encrypted_payload': encryptedPayload,
+    });
+    return resp.data;
+  }
+
+  // ── Public Sponsors ──
+
+  Future<List<dynamic>> getEventSponsors(int eventId) async {
+    final resp = await dio.get('/events/$eventId/sponsors');
+    return resp.data as List;
+  }
 }

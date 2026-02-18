@@ -680,6 +680,43 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                               if (event.status == EventStatus.completed)
                                 _infoBanner('This event has been completed.', Icons.check_circle, Colors.grey),
 
+                              // Sponsor: blocked from buying regular tickets
+                              if (user != null &&
+                                  user.isSponsor &&
+                                  (event.status == EventStatus.selling_tickets ||
+                                      event.status == EventStatus.live)) ...[
+                                const SizedBox(height: 12),
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(14),
+                                  decoration: BoxDecoration(
+                                    color: Colors.teal.withValues(alpha: 0.06),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Colors.teal.withValues(alpha: 0.2)),
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      Text(
+                                        'As a sponsor, you access this event through sponsorship categories.',
+                                        style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryOf(context)),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                      const SizedBox(height: 8),
+                                      SizedBox(
+                                        width: double.infinity,
+                                        child: ElevatedButton.icon(
+                                          onPressed: () => context.push('/events/${widget.eventId}/sponsorships'),
+                                          icon: const Icon(Icons.storefront_rounded, size: 18),
+                                          label: const Text('View Sponsorships'),
+                                          style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                              ],
+
                               // Buy tickets (always visible for customers during selling/live)
                               if (user != null &&
                                   user.isCustomer &&
@@ -1010,6 +1047,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                   (user.isOrganizer || user.isAdmin) &&
                                   event.ticketStrategyId != null)
                                 _buildTicketTierManagement(event),
+
+                              // ──────── Sponsor Carousel (public) ────────
+                              _SponsorCarousel(eventId: widget.eventId),
 
                               // ──────── Event Feed / Posts (self-contained) ────────
                               const SizedBox(height: 32),
@@ -2762,6 +2802,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           label: 'Co-Organizers',
           color: AppTheme.accentColor,
           onTap: () => context.push('/events/${event.id}/co-organizers'),
+        ),
+        const SizedBox(height: 12),
+        // Manage sponsorships
+        _mgmtActionCard(
+          icon: Icons.storefront_rounded,
+          label: 'Manage Sponsorships',
+          color: Colors.teal,
+          onTap: () => context.push('/events/${event.id}/sponsorships'),
         ),
         const SizedBox(height: 12),
         // Inline discount attach/detach
@@ -6397,6 +6445,149 @@ class _EventScheduleState extends State<_EventSchedule> {
           ],
         ),
       ),
+    );
+  }
+}
+
+
+// ═══════════════════════════════════════════
+// Sponsor Carousel (public: shows paid sponsor logos)
+// ═══════════════════════════════════════════
+
+class _SponsorCarousel extends StatefulWidget {
+  final int eventId;
+  const _SponsorCarousel({required this.eventId});
+
+  @override
+  State<_SponsorCarousel> createState() => _SponsorCarouselState();
+}
+
+class _SponsorCarouselState extends State<_SponsorCarousel> {
+  List<Map<String, dynamic>> _sponsors = [];
+  bool _loaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  Future<void> _load() async {
+    try {
+      final api = context.read<ApiService>();
+      final data = await api.getEventSponsors(widget.eventId);
+      if (mounted) {
+        setState(() {
+          _sponsors = data.cast<Map<String, dynamic>>();
+          _loaded = true;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loaded = true);
+    }
+  }
+
+  void _showSponsorSheet(Map<String, dynamic> sponsor) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircleAvatar(
+              radius: 32,
+              backgroundColor: AppTheme.accentColor.withValues(alpha: 0.1),
+              backgroundImage: sponsor['logo_url'] != null
+                  ? NetworkImage(sponsor['logo_url'])
+                  : null,
+              child: sponsor['logo_url'] == null
+                  ? Text(
+                      (sponsor['company_name'] as String? ?? '?')
+                          .substring(0, 1)
+                          .toUpperCase(),
+                      style: const TextStyle(
+                          fontSize: 24, fontWeight: FontWeight.bold),
+                    )
+                  : null,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              sponsor['company_name'] ?? 'Sponsor',
+              style:
+                  const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+            if (sponsor['website_url'] != null &&
+                (sponsor['website_url'] as String).isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                sponsor['website_url'],
+                style: TextStyle(
+                    color: AppTheme.accentColor, fontSize: 13),
+              ),
+            ],
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_loaded || _sponsors.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 24),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Text(
+            'Sponsored by',
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+              color: AppTheme.textSecondaryOf(context),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 56,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _sponsors.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              final s = _sponsors[index];
+              return GestureDetector(
+                onTap: () => _showSponsorSheet(s),
+                child: Tooltip(
+                  message: s['company_name'] ?? '',
+                  child: CircleAvatar(
+                    radius: 26,
+                    backgroundColor:
+                        AppTheme.accentColor.withValues(alpha: 0.08),
+                    backgroundImage: s['logo_url'] != null
+                        ? NetworkImage(s['logo_url'])
+                        : null,
+                    child: s['logo_url'] == null
+                        ? Text(
+                            (s['company_name'] as String? ?? '?')
+                                .substring(0, 1)
+                                .toUpperCase(),
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 18),
+                          )
+                        : null,
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }

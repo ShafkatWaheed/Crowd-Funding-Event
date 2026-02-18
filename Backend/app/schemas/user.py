@@ -4,8 +4,8 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-# Allowed roles when signing up (customer or event organizer).
-SignUpRole = Literal["customer", "organizer"]
+# Allowed roles when signing up.
+SignUpRole = Literal["customer", "organizer", "sponsor"]
 
 
 class MeResponse(BaseModel):
@@ -29,6 +29,7 @@ class VerifyBody(BaseModel):
 
     id_token: str
     role: SignUpRole = "customer"
+    display_name: str | None = None
     terms_accepted_at: datetime | None = None
 
 

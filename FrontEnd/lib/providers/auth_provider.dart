@@ -119,7 +119,7 @@ class AuthProvider extends ChangeNotifier {
       _log('signUp: got ID token (length=${idToken?.length}), calling backend /auth/verify...');
 
       final verifyResp = await _api.verifyToken(idToken!, role,
-          termsAcceptedAt: termsAcceptedAt);
+          displayName: displayName, termsAcceptedAt: termsAcceptedAt);
       _log('signUp: backend verify response: $verifyResp');
 
       // Update phone if provided

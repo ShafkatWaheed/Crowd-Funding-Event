@@ -19,6 +19,7 @@ async def verify(body: VerifyBody, db: DbSession):
             db,
             body.id_token,
             sign_up_role=body.role,
+            display_name_override=body.display_name,
             terms_accepted_at=body.terms_accepted_at,
         )
     except ValueError as e:

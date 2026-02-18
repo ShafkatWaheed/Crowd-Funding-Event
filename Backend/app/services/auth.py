@@ -13,12 +13,15 @@ async def verify_and_upsert_user(
     id_token: str,
     *,
     sign_up_role: str | None = None,
+    display_name_override: str | None = None,
     terms_accepted_at=None,
 ) -> User:
     """
     Verify Firebase ID token and create or update user in DB.
     - Existing user: update email/display_name only (role unchanged).
-    - New user: create with role from sign_up_role if "customer" or "organizer", else customer.
+    - New user: create with role from sign_up_role if "customer", "organizer", or "sponsor", else customer.
+    display_name_override takes precedence over the token's name claim
+    (Firebase doesn't embed it into the token immediately after updateDisplayName).
     Raises ValueError if token is invalid (caller should map to 401).
     """
     decoded = verify_id_token(id_token)
@@ -26,7 +29,11 @@ async def verify_and_upsert_user(
     if not uid:
         raise ValueError("Token missing uid")
     email = (decoded.get("email") or "").strip() or f"{uid}@firebase.local"
-    display_name = (decoded.get("name") or "").strip() or None
+    display_name = (
+        (display_name_override or "").strip()
+        or (decoded.get("name") or "").strip()
+        or None
+    )
 
     result = await db.execute(select(User).where(User.firebase_uid == uid))
     user = result.scalar_one_or_none()
@@ -40,7 +47,7 @@ async def verify_and_upsert_user(
 
     # New user: use requested role only if allowed (never admin)
     role = UserRole.customer
-    if sign_up_role in ("customer", "organizer"):
+    if sign_up_role in ("customer", "organizer", "sponsor"):
         role = UserRole(sign_up_role)
 
     user = User(

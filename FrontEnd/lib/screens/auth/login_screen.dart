@@ -216,16 +216,20 @@ class _LoginScreenState extends State<LoginScreen> {
                     Text(
                       "Don't have an account? ",
                       style: TextStyle(
-                          color: AppTheme.textSecondary, fontSize: 14),
+                          color: AppTheme.textSecondaryOf(context),
+                          fontSize: 14),
                     ),
-                    GestureDetector(
-                      onTap: () => context.go('/register'),
-                      child: const Text(
-                        'Sign Up',
-                        style: TextStyle(
-                          color: AppTheme.primaryColor,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14,
+                    MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: GestureDetector(
+                        onTap: () => context.go('/register'),
+                        child: Text(
+                          'Sign Up',
+                          style: TextStyle(
+                            color: AppTheme.accentColor,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                          ),
                         ),
                       ),
                     ),

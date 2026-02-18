@@ -63,6 +63,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     });
   }
 
+  void _refreshEvent() {
+    context.read<EventProvider>().loadEvent(widget.eventId);
+  }
+
   @override
   void dispose() {
     super.dispose();
@@ -504,7 +508,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                   width: double.infinity,
                                   padding: const EdgeInsets.all(18),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.cardColor,
+                                    color: AppTheme.cardOf(context),
                                     borderRadius: BorderRadius.circular(16),
                                     border: Border.all(color: AppTheme.dividerOf(context)),
                                   ),
@@ -548,8 +552,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                             icon: const Icon(Icons.navigation_rounded, size: 16),
                                             label: const Text('Get Directions'),
                                             style: OutlinedButton.styleFrom(
-                                              foregroundColor: AppTheme.primaryColor,
-                                              side: BorderSide(color: AppTheme.primaryColor.withOpacity(0.4)),
+                                              foregroundColor: AppTheme.primaryOf(context),
+                                              side: BorderSide(color: AppTheme.primaryOf(context).withOpacity(0.4)),
                                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                               padding: const EdgeInsets.symmetric(vertical: 10),
                                             ),
@@ -595,12 +599,12 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                               event.pendingCancellation!['pledge_percent'] != null
                                                   ? '${event.pendingCancellation!['pledge_percent']}% funded — admin must approve cancellation'
                                                   : 'Organizer requested cancellation — awaiting admin review',
-                                              style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+                                              style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryOf(context)),
                                             ),
                                             if (event.pendingCancellation!['reason'] != null) ...[
                                               const SizedBox(height: 4),
                                               Text('Reason: ${event.pendingCancellation!['reason']}',
-                                                style: TextStyle(fontSize: 12, color: Colors.grey[600], fontStyle: FontStyle.italic)),
+                                                style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context), fontStyle: FontStyle.italic)),
                                             ],
                                           ],
                                         ),
@@ -643,7 +647,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                               style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppTheme.errorColor)),
                                             const SizedBox(height: 4),
                                             Text(event.cancellationReason!,
-                                              style: TextStyle(fontSize: 14, color: Colors.grey[800], height: 1.4)),
+                                              style: TextStyle(fontSize: 14, color: AppTheme.textSecondaryOf(context), height: 1.4)),
                                           ],
                                         ),
                                       ),
@@ -740,7 +744,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                         Expanded(
                                           child: Text(
                                             'Your registration is waiting for approval. Once approved, you can buy tickets.',
-                                            style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                                            style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context)),
                                           ),
                                         ),
                                       ],
@@ -795,7 +799,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                 if (event.status == EventStatus.draft)
                                   _primaryActionCard(
                                     icon: Icons.publish_rounded,
-                                    color: AppTheme.primaryColor,
+                                    color: AppTheme.accentColor,
                                     title: 'Ready to publish?',
                                     subtitle: event.startTime == null && event.fundingEndAt == null
                                         ? 'Set an event date or funding deadline first.'
@@ -843,7 +847,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                 if (event.status == EventStatus.completed)
                                   _primaryActionCard(
                                     icon: Icons.copy_all_rounded,
-                                    color: AppTheme.primaryColor,
+                                    color: AppTheme.accentColor,
                                     title: 'Run this event again?',
                                     subtitle: 'Clone it into a new draft with all settings pre-filled.',
                                     buttonLabel: 'Clone Event',
@@ -928,6 +932,23 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                               ? 'Needs approval'
                                               : null,
                                           onTap: () => context.push('/events/${event.id}/edit'),
+                                        ),
+
+                                      // Manage Schedule (all statuses)
+                                      _menuTile(
+                                        icon: Icons.calendar_month_rounded,
+                                        iconColor: AppTheme.accentColor,
+                                        label: 'Manage Schedule',
+                                        onTap: () => _showManageScheduleSheet(context, event),
+                                      ),
+
+                                      // Manage Milestones (funding phase only)
+                                      if (event.status == EventStatus.approved)
+                                        _menuTile(
+                                          icon: Icons.flag_rounded,
+                                          iconColor: Colors.orange,
+                                          label: 'Manage Milestones',
+                                          onTap: () => _showManageMilestonesSheet(context, event),
                                         ),
 
                                       // Toggle posts (all statuses)
@@ -1148,9 +1169,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           const SizedBox(width: 12),
           Text(label,
               style: TextStyle(
-                  fontWeight: FontWeight.w600, color: Colors.grey[700])),
+                  fontWeight: FontWeight.w600, color: AppTheme.textSecondaryOf(context))),
           const Spacer(),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w500)),
+          Text(value, style: TextStyle(fontWeight: FontWeight.w500, color: AppTheme.textPrimaryOf(context))),
         ],
       ),
     );
@@ -1360,7 +1381,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                   : _quickActionBtn(
                       icon: _regStatus == 'waitlisted' ? Icons.hourglass_top : Icons.how_to_reg,
                       label: _regStatus == 'waitlisted' ? 'Waiting Approval' : 'Register',
-                      color: _regStatus == 'waitlisted' ? AppTheme.warningColor : AppTheme.primaryColor,
+                      color: _regStatus == 'waitlisted' ? AppTheme.warningColor : AppTheme.accentColor,
                       filled: _regStatus != 'waitlisted',
                       onTap: _regLoading || _regStatus == 'waitlisted' ? null : () => _register(context),
                     ),
@@ -2056,12 +2077,12 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+        Text(label, style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryOf(context))),
         Text(value,
             style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: valueColor)),
+                color: valueColor ?? AppTheme.textPrimaryOf(context))),
       ],
     );
   }
@@ -2439,7 +2460,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text('Current capacity: ${event.maxCapacity}',
-                style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                style: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 13)),
             const SizedBox(height: 12),
             TextField(
               controller: controller,
@@ -3126,6 +3147,567 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   }
 
   // ═══════════════════════════════════════════
+  // Manage Schedule (bottom sheet, available at any status)
+  // ═══════════════════════════════════════════
+
+  List<Map<String, dynamic>> _flattenScheduleDays(List<dynamic> dayGroups) {
+    final flat = <Map<String, dynamic>>[];
+    for (final group in dayGroups) {
+      final items = group['items'] as List? ?? [];
+      for (final item in items) {
+        flat.add(Map<String, dynamic>.from(item as Map));
+      }
+    }
+    flat.sort((a, b) {
+      final dc = (a['date'] ?? '').compareTo(b['date'] ?? '');
+      if (dc != 0) return dc;
+      return (a['start_time'] ?? '').compareTo(b['start_time'] ?? '');
+    });
+    return flat;
+  }
+
+  Future<void> _showManageScheduleSheet(BuildContext context, Event event) async {
+    final api = context.read<ApiService>();
+    List<Map<String, dynamic>> items = [];
+    bool loading = true;
+
+    final eventStart = event.startTime;
+    final eventEnd = event.endTime;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(builder: (ctx, setSheetState) {
+          if (loading) {
+            api.getSchedule(event.id).then((list) {
+              setSheetState(() {
+                items = _flattenScheduleDays(list);
+                loading = false;
+              });
+            }).catchError((_) {
+              setSheetState(() => loading = false);
+            });
+          }
+
+          return DraggableScrollableSheet(
+            initialChildSize: 0.7,
+            minChildSize: 0.4,
+            maxChildSize: 0.92,
+            expand: false,
+            builder: (_, scrollCtrl) {
+              return Padding(
+                padding: EdgeInsets.only(
+                  left: 20, right: 20, top: 16,
+                  bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 36, height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[600],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Icon(Icons.calendar_month_rounded, color: AppTheme.accentColor),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Manage Schedule',
+                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700,
+                                      color: AppTheme.textPrimaryOf(ctx))),
+                              if (eventStart != null)
+                                Text(
+                                  'Event: ${DateFormat('MMM d').format(eventStart)}'
+                                  '${eventEnd != null ? ' – ${DateFormat('MMM d, y').format(eventEnd)}' : ', ${DateFormat('y').format(eventStart)}'}',
+                                  style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(ctx)),
+                                ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.add_circle_rounded, color: AppTheme.accentColor, size: 28),
+                          onPressed: () => _showScheduleItemEditor(ctx, api, event, null, (newItem) {
+                            setSheetState(() => items.add(Map<String, dynamic>.from(newItem)));
+                            _refreshEvent();
+                          }),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: loading
+                          ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+                          : items.isEmpty
+                              ? Center(child: Text('No schedule items yet.\nTap + to add one.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(color: AppTheme.textSecondaryOf(ctx))))
+                              : ListView.separated(
+                                  controller: scrollCtrl,
+                                  itemCount: items.length,
+                                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                                  itemBuilder: (_, i) {
+                                    final item = items[i];
+                                    return Container(
+                                      padding: const EdgeInsets.all(14),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.inputFillOf(ctx),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(color: AppTheme.dividerOf(ctx)),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(item['title'] ?? '',
+                                                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14,
+                                                        color: AppTheme.textPrimaryOf(ctx))),
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  '${item['date'] ?? ''} • ${item['start_time'] ?? ''} – ${item['end_time'] ?? ''}',
+                                                  style: TextStyle(fontSize: 12, color: Colors.blue[300]),
+                                                ),
+                                                if (item['description'] != null && (item['description'] as String).isNotEmpty)
+                                                  Padding(
+                                                    padding: const EdgeInsets.only(top: 4),
+                                                    child: Text(item['description'],
+                                                        style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(ctx))),
+                                                  ),
+                                              ],
+                                            ),
+                                          ),
+                                          IconButton(
+                                            icon: Icon(Icons.edit_rounded, size: 18, color: AppTheme.accentColor),
+                                            onPressed: () => _showScheduleItemEditor(ctx, api, event, item, (updated) {
+                                              setSheetState(() => items[i] = Map<String, dynamic>.from(updated));
+                                              _refreshEvent();
+                                            }),
+                                          ),
+                                          IconButton(
+                                            icon: Icon(Icons.delete_rounded, size: 18, color: AppTheme.errorColor),
+                                            onPressed: () async {
+                                              try {
+                                                await api.deleteScheduleItem(event.id, item['id']);
+                                                setSheetState(() => items.removeAt(i));
+                                                _refreshEvent();
+                                              } catch (e) {
+                                                if (ctx.mounted) AppToast.fromError(ctx, e, fallback: 'Delete failed');
+                                              }
+                                            },
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        });
+      },
+    );
+  }
+
+  Future<void> _showScheduleItemEditor(
+    BuildContext parentCtx, ApiService api, Event event,
+    Map<String, dynamic>? existing, Function(Map<String, dynamic>) onSaved,
+  ) async {
+    final titleCtrl = TextEditingController(text: existing?['title'] ?? '');
+    final descCtrl = TextEditingController(text: existing?['description'] ?? '');
+
+    final eventStart = event.startTime;
+    final eventEnd = event.endTime;
+    final firstDate = eventStart ?? DateTime.now();
+    final lastDate = eventEnd ?? (eventStart?.add(const Duration(days: 7)) ?? DateTime.now().add(const Duration(days: 730)));
+
+    DateTime? date;
+    TimeOfDay startTime = const TimeOfDay(hour: 9, minute: 0);
+    TimeOfDay endTime = const TimeOfDay(hour: 10, minute: 0);
+
+    if (existing != null) {
+      try { date = DateTime.parse(existing['date']); } catch (_) {}
+      try {
+        final sp = (existing['start_time'] as String).split(':');
+        startTime = TimeOfDay(hour: int.parse(sp[0]), minute: int.parse(sp[1]));
+        final ep = (existing['end_time'] as String).split(':');
+        endTime = TimeOfDay(hour: int.parse(ep[0]), minute: int.parse(ep[1]));
+      } catch (_) {}
+    }
+
+    final result = await showDialog<Map<String, dynamic>>(
+      context: parentCtx,
+      builder: (ctx) {
+        return StatefulBuilder(builder: (ctx, setDlgState) {
+          String fmtTime(TimeOfDay t) =>
+              '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+          String fmtDate(DateTime? d) =>
+              d != null ? DateFormat('MMM d, yyyy').format(d) : 'Pick date';
+
+          return AlertDialog(
+            title: Text(existing != null ? 'Edit Session' : 'Add Session'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (eventStart != null)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(10),
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.accentColor.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'Event window: ${DateFormat('MMM d').format(firstDate)}'
+                        ' – ${DateFormat('MMM d, y').format(lastDate)}',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.accentColor),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  TextField(
+                    controller: titleCtrl,
+                    decoration: const InputDecoration(labelText: 'Title'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: descCtrl,
+                    decoration: const InputDecoration(labelText: 'Description (optional)'),
+                    maxLines: 2,
+                  ),
+                  const SizedBox(height: 12),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.calendar_today, color: AppTheme.accentColor),
+                    title: Text(fmtDate(date),
+                        style: TextStyle(color: date != null ? AppTheme.textPrimaryOf(ctx) : Colors.grey)),
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: ctx,
+                        initialDate: date ?? firstDate,
+                        firstDate: firstDate,
+                        lastDate: lastDate,
+                      );
+                      if (picked != null) setDlgState(() => date = picked);
+                    },
+                  ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(Icons.play_arrow_rounded, size: 20, color: Colors.teal),
+                          title: Text(fmtTime(startTime), style: const TextStyle(fontSize: 14)),
+                          subtitle: const Text('Start', style: TextStyle(fontSize: 11)),
+                          onTap: () async {
+                            final t = await showTimePicker(context: ctx, initialTime: startTime);
+                            if (t != null) setDlgState(() => startTime = t);
+                          },
+                        ),
+                      ),
+                      Expanded(
+                        child: ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(Icons.stop_rounded, size: 20, color: Colors.redAccent),
+                          title: Text(fmtTime(endTime), style: const TextStyle(fontSize: 14)),
+                          subtitle: const Text('End', style: TextStyle(fontSize: 11)),
+                          onTap: () async {
+                            final t = await showTimePicker(context: ctx, initialTime: endTime);
+                            if (t != null) setDlgState(() => endTime = t);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+              ElevatedButton(
+                onPressed: () {
+                  if (titleCtrl.text.trim().isEmpty || date == null) return;
+                  Navigator.pop(ctx, {
+                    'title': titleCtrl.text.trim(),
+                    'description': descCtrl.text.trim(),
+                    'date': DateFormat('yyyy-MM-dd').format(date!),
+                    'start_time': fmtTime(startTime),
+                    'end_time': fmtTime(endTime),
+                  });
+                },
+                child: const Text('Save'),
+              ),
+            ],
+          );
+        });
+      },
+    );
+
+    if (result != null) {
+      try {
+        Map<String, dynamic> resp;
+        if (existing != null && existing['id'] != null) {
+          resp = await api.updateScheduleItem(event.id, existing['id'], result);
+        } else {
+          resp = await api.createScheduleItem(event.id, result);
+        }
+        onSaved(resp);
+        if (parentCtx.mounted) AppToast.success(parentCtx, existing != null ? 'Session updated' : 'Session added');
+      } catch (e) {
+        if (parentCtx.mounted) AppToast.fromError(parentCtx, e, fallback: 'Failed to save session');
+      }
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  // Manage Milestones (bottom sheet, funding phase only)
+  // ═══════════════════════════════════════════
+
+  Future<void> _showManageMilestonesSheet(BuildContext context, Event event) async {
+    final api = context.read<ApiService>();
+    List<Map<String, dynamic>> items = [];
+    bool loading = true;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(builder: (ctx, setSheetState) {
+          if (loading) {
+            api.getMilestones(event.id).then((list) {
+              setSheetState(() {
+                items = List<Map<String, dynamic>>.from(list);
+                loading = false;
+              });
+            }).catchError((_) {
+              setSheetState(() => loading = false);
+            });
+          }
+
+          return DraggableScrollableSheet(
+            initialChildSize: 0.6,
+            minChildSize: 0.3,
+            maxChildSize: 0.85,
+            expand: false,
+            builder: (_, scrollCtrl) {
+              return Padding(
+                padding: EdgeInsets.only(
+                  left: 20, right: 20, top: 16,
+                  bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 36, height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[600],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Icon(Icons.flag_rounded, color: Colors.orange),
+                        const SizedBox(width: 10),
+                        Text('Manage Milestones',
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700,
+                                color: AppTheme.textPrimaryOf(ctx))),
+                        const Spacer(),
+                        IconButton(
+                          icon: Icon(Icons.add_circle_rounded, color: Colors.orange, size: 28),
+                          onPressed: () => _showMilestoneEditor(ctx, api, event.id, null, (newItem) {
+                            setSheetState(() => items.add(newItem));
+                            _refreshEvent();
+                          }),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: loading
+                          ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+                          : items.isEmpty
+                              ? Center(child: Text('No milestones yet.\nTap + to add one.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(color: AppTheme.textSecondaryOf(ctx))))
+                              : ListView.separated(
+                                  controller: scrollCtrl,
+                                  itemCount: items.length,
+                                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                                  itemBuilder: (_, i) {
+                                    final item = items[i];
+                                    return Container(
+                                      padding: const EdgeInsets.all(14),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.inputFillOf(ctx),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(color: AppTheme.dividerOf(ctx)),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            width: 42, height: 42,
+                                            decoration: BoxDecoration(
+                                              color: Colors.orange.withValues(alpha: 0.15),
+                                              borderRadius: BorderRadius.circular(10),
+                                            ),
+                                            child: Center(
+                                              child: Text('${item['unlock_percent'] ?? 0}%',
+                                                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Colors.orange[400])),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(item['title'] ?? '',
+                                                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14,
+                                                        color: AppTheme.textPrimaryOf(ctx))),
+                                                if (item['benefit'] != null && (item['benefit'] as String).isNotEmpty)
+                                                  Padding(
+                                                    padding: const EdgeInsets.only(top: 2),
+                                                    child: Text(item['benefit'],
+                                                        style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(ctx))),
+                                                  ),
+                                              ],
+                                            ),
+                                          ),
+                                          IconButton(
+                                            icon: Icon(Icons.edit_rounded, size: 18, color: AppTheme.accentColor),
+                                            onPressed: () => _showMilestoneEditor(ctx, api, event.id, item, (updated) {
+                                              setSheetState(() => items[i] = updated);
+                                              _refreshEvent();
+                                            }),
+                                          ),
+                                          IconButton(
+                                            icon: Icon(Icons.delete_rounded, size: 18, color: AppTheme.errorColor),
+                                            onPressed: () async {
+                                              try {
+                                                await api.deleteMilestone(event.id, item['id']);
+                                                setSheetState(() => items.removeAt(i));
+                                                _refreshEvent();
+                                              } catch (e) {
+                                                if (ctx.mounted) AppToast.fromError(ctx, e, fallback: 'Delete failed');
+                                              }
+                                            },
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        });
+      },
+    );
+  }
+
+  Future<void> _showMilestoneEditor(
+    BuildContext parentCtx, ApiService api, int eventId,
+    Map<String, dynamic>? existing, Function(Map<String, dynamic>) onSaved,
+  ) async {
+    final titleCtrl = TextEditingController(text: existing?['title'] ?? '');
+    final benefitCtrl = TextEditingController(text: existing?['benefit'] ?? '');
+    int unlockPercent = existing?['unlock_percent'] ?? 50;
+
+    final result = await showDialog<Map<String, dynamic>>(
+      context: parentCtx,
+      builder: (ctx) {
+        return StatefulBuilder(builder: (ctx, setDlgState) {
+          return AlertDialog(
+            title: Text(existing != null ? 'Edit Milestone' : 'Add Milestone'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: titleCtrl,
+                    decoration: const InputDecoration(labelText: 'Title'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: benefitCtrl,
+                    decoration: const InputDecoration(labelText: 'Benefit / what unlocks'),
+                    maxLines: 2,
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Text('Unlock at:', style: TextStyle(color: AppTheme.textSecondaryOf(ctx))),
+                      const SizedBox(width: 8),
+                      Text('$unlockPercent%',
+                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: Colors.orange[400])),
+                    ],
+                  ),
+                  Slider(
+                    value: unlockPercent.toDouble(),
+                    min: 10, max: 100, divisions: 18,
+                    activeColor: Colors.orange,
+                    label: '$unlockPercent%',
+                    onChanged: (v) => setDlgState(() => unlockPercent = v.round()),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+              ElevatedButton(
+                onPressed: () {
+                  if (titleCtrl.text.trim().isEmpty) return;
+                  Navigator.pop(ctx, {
+                    'title': titleCtrl.text.trim(),
+                    'benefit': benefitCtrl.text.trim(),
+                    'unlock_percent': unlockPercent,
+                  });
+                },
+                child: const Text('Save'),
+              ),
+            ],
+          );
+        });
+      },
+    );
+
+    if (result != null) {
+      try {
+        if (existing != null && existing['id'] != null) {
+          final resp = await api.updateMilestone(eventId, existing['id'], result);
+          onSaved(resp);
+        } else {
+          final resp = await api.createMilestone(eventId, result);
+          onSaved(resp);
+        }
+        if (parentCtx.mounted) AppToast.success(parentCtx, existing != null ? 'Milestone updated' : 'Milestone added');
+      } catch (e) {
+        if (parentCtx.mounted) AppToast.fromError(parentCtx, e, fallback: 'Failed to save milestone');
+      }
+    }
+  }
+
+  // ═══════════════════════════════════════════
   // Extend Funding Dialog (deadline + goal, admin approval)
   // ═══════════════════════════════════════════
 
@@ -3176,7 +3758,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                         : 'Pick new funding deadline',
                     style: TextStyle(
                       fontSize: 14,
-                      color: pickedDeadline != null ? Colors.black : Colors.grey,
+                      color: pickedDeadline != null ? AppTheme.textPrimaryOf(ctx) : Colors.grey,
                     ),
                   ),
                   trailing: const Icon(Icons.edit_calendar),
@@ -3307,7 +3889,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                             : 'Pick start time',
                         style: TextStyle(
                           fontSize: 14,
-                          color: pickedStart != null ? Colors.black : Colors.grey,
+                          color: pickedStart != null ? AppTheme.textPrimaryOf(ctx) : Colors.grey,
                         ),
                       ),
                       subtitle: const Text('Event start', style: TextStyle(fontSize: 11)),
@@ -3344,7 +3926,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                             : 'Pick end time',
                         style: TextStyle(
                           fontSize: 14,
-                          color: pickedEnd != null ? Colors.black : Colors.grey,
+                          color: pickedEnd != null ? AppTheme.textPrimaryOf(ctx) : Colors.grey,
                         ),
                       ),
                       subtitle: const Text('Event end', style: TextStyle(fontSize: 11)),
@@ -3494,7 +4076,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                               Text(desc,
                                   style: TextStyle(
                                       fontSize: 12,
-                                      color: Colors.grey[600])),
+                                      color: AppTheme.textSecondaryOf(context))),
                             Text(price,
                                 style: TextStyle(
                                     fontSize: 13,
@@ -3749,7 +4331,7 @@ class _LiveMgmtStatsState extends State<_LiveMgmtStats> {
                 child: _statChip(
                   icon: Icons.people_rounded,
                   label: '$regCount registered',
-                  color: AppTheme.primaryColor,
+                  color: AppTheme.accentColor,
                 ),
               ),
               const SizedBox(width: 8),
@@ -3781,7 +4363,7 @@ class _LiveMgmtStatsState extends State<_LiveMgmtStats> {
                 child: _statChip(
                   icon: Icons.confirmation_number_rounded,
                   label: '$_soldCount sold',
-                  color: AppTheme.primaryColor,
+                  color: AppTheme.accentColor,
                   onTap: () => context.push('/events/$_eventId/ticket-sales'),
                 ),
               ),
@@ -3834,7 +4416,7 @@ class _LiveMgmtStatsState extends State<_LiveMgmtStats> {
                 child: _statChip(
                   icon: Icons.confirmation_number_rounded,
                   label: '$_soldCount sold',
-                  color: AppTheme.primaryColor,
+                  color: AppTheme.accentColor,
                   onTap: () => context.push('/events/$_eventId/ticket-sales'),
                 ),
               ),
@@ -4488,7 +5070,7 @@ class _CustomerDiscountsSectionState extends State<_CustomerDiscountsSection> {
                 Expanded(
                   child: Text(
                     'No discounts applied yet. Tap Browse to see available discounts you can claim.',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context)),
                   ),
                 ),
               ],
@@ -4606,11 +5188,11 @@ class _ReactionBarState extends State<_ReactionBar> {
       // Admin: read-only counters (both like + dislike visible)
       return Row(
         children: [
-          Icon(Icons.thumb_up, size: 18, color: AppTheme.primaryColor),
+          Icon(Icons.thumb_up, size: 18, color: AppTheme.accentColor),
           const SizedBox(width: 6),
           Text(
             '$_likeCount like${_likeCount == 1 ? '' : 's'}',
-            style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey[700]),
+            style: TextStyle(fontWeight: FontWeight.w600, color: AppTheme.textSecondaryOf(context)),
           ),
           const SizedBox(width: 20),
           Icon(Icons.thumb_down, size: 18, color: Colors.grey[500]),
@@ -4629,7 +5211,7 @@ class _ReactionBarState extends State<_ReactionBar> {
         // Like button
         Material(
           color: _myReaction == 'like'
-              ? AppTheme.primaryColor.withValues(alpha: 0.1)
+              ? AppTheme.accentColor.withValues(alpha: 0.1)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
           child: InkWell(
@@ -4643,7 +5225,7 @@ class _ReactionBarState extends State<_ReactionBar> {
                   Icon(
                     _myReaction == 'like' ? Icons.thumb_up : Icons.thumb_up_outlined,
                     size: 20,
-                    color: _myReaction == 'like' ? AppTheme.primaryColor : Colors.grey[600],
+                    color: _myReaction == 'like' ? AppTheme.accentColor : Colors.grey[600],
                   ),
                   const SizedBox(width: 6),
                   Text(
@@ -4651,7 +5233,7 @@ class _ReactionBarState extends State<_ReactionBar> {
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 14,
-                      color: _myReaction == 'like' ? AppTheme.primaryColor : Colors.grey[700],
+                      color: _myReaction == 'like' ? AppTheme.accentColor : Colors.grey[700],
                     ),
                   ),
                 ],
@@ -5182,7 +5764,7 @@ class _FundingCardState extends State<_FundingCard> {
                           Expanded(
                             child: Text(
                               'You are not registered. Your pledge will be a guest pledge (non-refundable) and you cannot reserve spots.',
-                              style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                              style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context)),
                             ),
                           ),
                         ],
@@ -5205,11 +5787,11 @@ class _FundingCardState extends State<_FundingCard> {
                         style: TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 14,
-                            color: Colors.grey[800])),
+                            color: AppTheme.textPrimaryOf(context))),
                     const SizedBox(height: 4),
                     Text(
                       'Each spot costs min \$$minPledgeDollars. Up to $maxPerUser per user.',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context)),
                     ),
                     const SizedBox(height: 8),
                     Row(
@@ -5234,7 +5816,7 @@ class _FundingCardState extends State<_FundingCard> {
                         const SizedBox(width: 8),
                         Text('spot(s)',
                             style: TextStyle(
-                                fontSize: 13, color: Colors.grey[600])),
+                                fontSize: 13, color: AppTheme.textSecondaryOf(context))),
                       ],
                     ),
                     if (_totalReservedSpots > 0)
@@ -5392,12 +5974,12 @@ class _FundingCardState extends State<_FundingCard> {
           Text(label,
               style: TextStyle(
                   fontSize: 13,
-                  color: subtle ? Colors.grey[500] : Colors.grey[800])),
+                  color: subtle ? Colors.grey[500] : AppTheme.textSecondaryOf(context))),
           Text(value,
               style: TextStyle(
                   fontSize: 13,
                   fontWeight: subtle ? FontWeight.normal : FontWeight.w600,
-                  color: subtle ? Colors.grey[500] : null)),
+                  color: subtle ? Colors.grey[500] : AppTheme.textPrimaryOf(context))),
         ],
       ),
     );
@@ -6071,12 +6653,12 @@ class _EventFeedState extends State<_EventFeed> {
               return ListTile(
                 leading: CircleAvatar(
                   backgroundColor:
-                      AppTheme.primaryColor.withValues(alpha: 0.15),
+                      AppTheme.accentColor.withValues(alpha: 0.15),
                   child: Text(
                     (post.authorName ?? 'U')[0].toUpperCase(),
                     style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: AppTheme.primaryColor),
+                        color: AppTheme.accentColor),
                   ),
                 ),
                 title: Text(
@@ -6300,7 +6882,9 @@ class _EventScheduleState extends State<_EventSchedule> {
                           fontSize: 12,
                           fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                           color: isSelected
-                              ? Colors.blue[700]
+                              ? (Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.blue[300]
+                                  : Colors.blue[700])
                               : AppTheme.textSecondaryOf(context),
                         ),
                       ),
@@ -6357,18 +6941,17 @@ class _EventScheduleState extends State<_EventSchedule> {
                     Expanded(
                       child: Container(
                         margin: EdgeInsets.only(bottom: isLast ? 0 : 14),
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: AppTheme.surfaceOf(context),
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? const Color(0xFF2A2A2A)
+                              : Colors.white,
                           borderRadius: BorderRadius.circular(10),
-                          border: Border(
-                            left: BorderSide(
-                              color: isOverlap ? Colors.amber[700]! : Colors.blue.withValues(alpha: 0.3),
-                              width: 3,
-                            ),
-                            top: BorderSide(color: AppTheme.dividerOf(context)),
-                            right: BorderSide(color: AppTheme.dividerOf(context)),
-                            bottom: BorderSide(color: AppTheme.dividerOf(context)),
+                          border: Border.all(
+                            color: isOverlap
+                                ? Colors.amber.withValues(alpha: 0.5)
+                                : Colors.blue.withValues(alpha: 0.3),
+                            width: 1,
                           ),
                         ),
                         child: Column(
@@ -6376,12 +6959,23 @@ class _EventScheduleState extends State<_EventSchedule> {
                           children: [
                             Row(
                               children: [
-                                Text(
-                                  '${_formatTime24to12(item.startTime)} – ${_formatTime24to12(item.endTime)}',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                    color: isOverlap ? Colors.amber[800] : Colors.blue[700],
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: isOverlap
+                                        ? Colors.amber.withValues(alpha: 0.15)
+                                        : Colors.blue.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    '${_formatTime24to12(item.startTime)} – ${_formatTime24to12(item.endTime)}',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: isOverlap
+                                          ? Colors.amber[400]
+                                          : Colors.blue[300],
+                                    ),
                                   ),
                                 ),
                                 if (isOverlap) ...[
@@ -6396,20 +6990,22 @@ class _EventScheduleState extends State<_EventSchedule> {
                                       style: TextStyle(
                                         fontSize: 9,
                                         fontWeight: FontWeight.w700,
-                                        color: Colors.amber[800],
+                                        color: Colors.amber[400],
                                       ),
                                     ),
                                   ),
                                 ],
                               ],
                             ),
-                            const SizedBox(height: 6),
+                            const SizedBox(height: 8),
                             Text(
                               item.title,
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w700,
-                                color: AppTheme.textPrimaryOf(context),
+                                color: Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.white
+                                    : Colors.black87,
                               ),
                             ),
                             if (item.description != null && item.description!.isNotEmpty) ...[
@@ -6418,7 +7014,9 @@ class _EventScheduleState extends State<_EventSchedule> {
                                 item.description!,
                                 style: TextStyle(
                                   fontSize: 13,
-                                  color: AppTheme.textSecondaryOf(context),
+                                  color: Theme.of(context).brightness == Brightness.dark
+                                      ? Colors.grey[400]
+                                      : Colors.grey[700],
                                 ),
                               ),
                             ],

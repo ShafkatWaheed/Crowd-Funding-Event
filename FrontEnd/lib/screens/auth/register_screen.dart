@@ -69,7 +69,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 Icon(
                   Icons.celebration_rounded,
                   size: 64,
-                  color: AppTheme.primaryColor,
+                  color: AppTheme.primaryOf(context),
                 ),
                 const SizedBox(height: 16),
                 Text(
@@ -107,7 +107,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             setState(() => _selectedRole = 'customer'),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: _RoleCard(
                         icon: Icons.event,
@@ -116,6 +116,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         selected: _selectedRole == 'organizer',
                         onTap: () =>
                             setState(() => _selectedRole = 'organizer'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _RoleCard(
+                        icon: Icons.handshake_outlined,
+                        label: 'Sponsor Events',
+                        subtitle: 'Sponsor',
+                        selected: _selectedRole == 'sponsor',
+                        onTap: () =>
+                            setState(() => _selectedRole = 'sponsor'),
                       ),
                     ),
                   ],
@@ -236,7 +247,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         value: _agreedToTerms,
                         onChanged: (v) =>
                             setState(() => _agreedToTerms = v ?? false),
-                        activeColor: AppTheme.primaryColor,
+                        activeColor: AppTheme.accentColor,
                         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         visualDensity: VisualDensity.compact,
                       ),
@@ -257,7 +268,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               TextSpan(
                                 text: 'Terms and Conditions',
                                 style: TextStyle(
-                                  color: AppTheme.primaryColor,
+                                  color: AppTheme.accentColor,
                                   fontWeight: FontWeight.w600,
                                   decoration: TextDecoration.underline,
                                 ),
@@ -305,9 +316,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ? null
                         : _handleRegister,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
+                      backgroundColor: AppTheme.accentColor,
                       foregroundColor: Colors.white,
-                      disabledBackgroundColor: Colors.grey[300],
+                      disabledBackgroundColor: Colors.grey[800],
                       disabledForegroundColor: Colors.grey[500],
                     ),
                     child: auth.isLoading
@@ -364,42 +375,46 @@ class _RoleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: selected
-              ? AppTheme.primaryColor.withValues(alpha: 0.1)
-              : AppTheme.surfaceOf(context),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: selected ? AppTheme.primaryColor : AppTheme.dividerOf(context),
-            width: selected ? 2 : 1,
+    final accent = AppTheme.accentColor;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+          decoration: BoxDecoration(
+            color: selected
+                ? accent.withValues(alpha: 0.12)
+                : AppTheme.surfaceOf(context),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: selected ? accent : AppTheme.dividerOf(context),
+              width: selected ? 2 : 1,
+            ),
           ),
-        ),
-        child: Column(
-          children: [
-            Icon(icon,
-                size: 32,
-                color: selected ? AppTheme.primaryColor : Colors.grey),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: selected ? AppTheme.primaryColor : AppTheme.textPrimaryOf(context),
+          child: Column(
+            children: [
+              Icon(icon, size: 28, color: selected ? accent : Colors.grey),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  color: selected ? accent : AppTheme.textPrimaryOf(context),
+                ),
               ),
-            ),
-            Text(
-              subtitle,
-              style: TextStyle(
-                fontSize: 12,
-                color: AppTheme.textSecondaryOf(context),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: AppTheme.textSecondaryOf(context),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

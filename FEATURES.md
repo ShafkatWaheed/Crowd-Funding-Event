@@ -8,7 +8,7 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 
 ### Authentication & Users
 - Firebase Auth (email/password), backend token verify, login/register screens
-- Roles: admin, organizer, customer
+- Roles: admin, organizer, customer, sponsor
 - Profile (GET/PATCH /me): display name, phone, username (mandatory)
 - Email hidden everywhere except admin dashboard
 
@@ -370,6 +370,7 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 || Phase 18a — Feature Flags | **Admin toggle system** — `get_bool()` helper for boolean settings, `require_feature()` FastAPI guard dependency (returns 403 when disabled), 3 feature flag keys (`feature_milestones_enabled`, `feature_schedule_enabled`, `feature_sponsors_enabled`) seeded in PlatformSettings. Admin Settings tab renders boolean settings as Switch toggles. Frontend `getFeatureFlags()` API method for conditional UI hiding. |
 || Phase 18 — Funding Milestones | **Funding milestones** — percentage-based unlock goals on funded events. `FundingMilestone` + `MilestoneReaction` models with Alembic migration. Service layer with CRUD + like/dislike reactions (same toggle pattern as EventReaction). 6 API endpoints under `/events/{id}/milestones` (list, create, update, delete, react, my-reaction), all gated by `feature_milestones_enabled` flag. **Milestone Timeline widget** on event detail below FundingCard — vertical progress bar with circular nodes (blue+checkmark when unlocked, grey+lock when locked), milestone cards with percentage, title, benefit description, UNLOCKED/LOCKED badges, per-milestone like/dislike buttons. **Organizer milestone builder** — collapsible section in create/edit event forms (after Funding Settings, visible when funding deadline is set); title TextField, unlock % slider (1-100), benefit description; create screen uses local state with batch POST after event creation, edit screen uses live API CRUD. Dark mode compatible. |
 || Phase 19 — Event Schedule | **Structured event schedule** — date/time-slot based agenda. `EventScheduleItem` model + `has_schedule` boolean on Event, Alembic migration with composite index. Service layer with CRUD, bulk create, overlap detection (same-date time range intersection → `overlaps: bool` flag per item), and Excel export via `openpyxl` (one sheet per date). 6 API endpoints under `/events/{id}/schedule` (list grouped by date, create, bulk create, update, delete, export .xlsx), all gated by `feature_schedule_enabled` flag. **Schedule Timeline widget** on event detail — horizontal scrollable date tab pills, vertical timeline with blue circular nodes + time-slot cards (left blue border, time range + title + description), overlapping slots shown with amber nodes/border + "Overlaps" warning badge, Excel download button, summary footer ("N sessions across M days"). **Organizer schedule builder** — collapsible section in create/edit event forms (after Dates, visible when both start and end dates set); "Use structured schedule" switch toggle; date groups with date picker (constrained to event range), time slot cards with start/end time pickers + title + description; create screen uses local state with batch POST, edit screen uses live API CRUD with per-item save/delete buttons. Dark mode compatible. |
+|| Phase 20 — Sponsor Marketplace | **Sponsor Marketplace** — new `sponsor` user role with company profile onboarding. `SponsorProfile`, `SponsorshipCategory`, `SponsorBid`, `SponsorPayment`, `SponsorTicket` models with 4 Alembic migrations. Organizers define sponsorship categories per event (stalls, billboards, etc.) with spot counts and min bid amounts. Sponsors browse categories and place bids (amount + proposal); organizers accept/reject from bid management screen. Accepted bids paid in-app with `sponsor_commission_percent` (5%) platform cut. Auto-generated `SponsorTicket` per sponsor per event with AES-256-GCM encrypted QR (reuses Phase 15). Public sponsor carousel on event detail showing paid sponsor logos. Role-based visibility: categories hidden from customers, ticket purchase hidden from sponsors. Sponsor dashboard with profile, tickets, and payment history. All endpoints gated by `feature_sponsors_enabled` flag. Real-time negotiation chat (20.4) deferred. |
 
 ### Phase 11 — Terms and Conditions Agreement (COMPLETED)
 
@@ -509,6 +510,20 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 | 19.5 | **Schedule Timeline Widget** | Done — `_EventSchedule` self-contained widget on event detail below milestone section. Horizontal scrollable date tab pills, vertical timeline with blue circular nodes + time-slot cards (blue left border, time range in 12h format + title + description). Overlapping slots: amber node, amber left border, "Overlaps" warning badge. Excel download button. Summary footer ("N sessions across M days"). Feature flag check hides widget when disabled. Dark mode compatible |
 | 19.6 | **Organizer Schedule Builder** | Done — Collapsible "Event Schedule (Optional)" section in create/edit event screens, visible when both start and end dates are set. "Use structured schedule" switch toggle. Create screen: date groups with date picker (constrained to event range), time slot cards with start/end time pickers + title + description + delete; local state with batch POST via `bulkCreateSchedule` after event creation. Edit screen: flat list of schedule items loaded from API, live CRUD with per-item save/delete buttons. `has_schedule` sent in event create/update payload |
 
+### Phase 20 — Sponsor Marketplace (COMPLETED)
+
+| # | Feature | Status |
+|---|---------|--------|
+| 20.1 | **Sponsor Role & Profile** | Done — `sponsor` added to `UserRole` enum (backend + frontend). `SponsorProfile` model (user_id, company_name, contact_name, profession, logo_url, description, website_url). Pydantic schemas for create/update/response. Service: `get_profile()`, `create_profile()` (auto-upgrades customer→sponsor role), `update_profile()`. API: `POST/GET/PATCH /me/sponsor-profile` gated by `feature_sponsors_enabled`. Alembic migration adds `sponsor` to `userrole` enum, creates `sponsor_profiles` table, seeds `sponsor_commission_percent=5`. Frontend: `SponsorProfile` Dart model, `SponsorOnboardingScreen`, "Become a Sponsor"/"Edit Sponsor Profile" on Profile screen, `refreshUser()` for role change. Route: `/sponsor/onboarding` |
+| 20.2 | **Sponsorship Categories** | Done — `SponsorshipCategory` model (event_id, name, description, image_url, total_spots, filled_spots, min_bid_cents, sort_order; index on event_id+sort_order). Schemas include `bid_count` and `bid_amounts` from joined bid stats. Service: CRUD with organizer permission check. API: `GET/POST/PATCH/DELETE /events/{id}/sponsorships`. Alembic migration creates `sponsorship_categories` table. Frontend: `SponsorshipCategory` Dart model, collapsible section in create/edit event screens, `SponsorshipCategoriesScreen`. Route: `/events/:id/sponsorships` |
+| 20.3 | **Bidding System** | Done — `BidStatus` enum (pending, accepted, rejected, withdrawn, paid). `SponsorBid` model (category_id, sponsor_user_id, amount_cents, proposal_text, status; unique constraint on category+sponsor). Service: `place_bid()` (validates min bid + spots), `update_bid()`, `withdraw_bid()`, `list_bids()` (organizer), `accept_bid()` (increments filled_spots), `reject_bid()`. API: 6 endpoints under `/events/{id}/sponsorships/{cat_id}/bids`. Alembic migration creates `bidstatus` enum + `sponsor_bids` table. Frontend: "Place Bid" dialog, `BidManagementScreen` for organizers. Route: `/events/:id/sponsorships/:catId/bids` |
+| 20.4 | **Real-Time Negotiation Chat** | Deferred — communication relies on bid proposal text and accept/reject actions. WebSocket-based chat planned for a future phase |
+| 20.5 | **In-App Payment** | Done — `PaymentStatus` enum (pending, completed, refunded). `SponsorPayment` model (bid_id, amount_cents, platform_cut_cents, net_to_organizer_cents, receipt_number, status). Service: `pay_bid()` computes commission from `sponsor_commission_percent` setting, creates payment, updates bid→paid, calls `_ensure_sponsor_ticket()`. API: `POST /{bid_id}/pay`. Alembic migration creates `paymentstatus` enum + `sponsor_payments` table. Frontend: "Pay" button on accepted bids |
+| 20.6 | **Sponsor Ticket** | Done — `SponsorTicket` model (event_id, sponsor_user_id, qr_data_encrypted, receipt_number `SPT-YYYYMMDD-eventId-ticketId`, scanned_at; unique on event+sponsor). Auto-generated on first payment via `_ensure_sponsor_ticket()`, updated on subsequent payments. QR encrypted with AES-256-GCM (reuses Phase 15 `ticket_crypto.py`). Service: `get_sponsor_ticket()`, `list_sponsor_tickets()`, `get_won_categories()`, `scan_sponsor_ticket()`. API: `GET /me/sponsor-tickets`, `POST /events/{id}/scan-sponsor`. Frontend: `SponsorTicketScreen` with QR + won categories. Route: `/sponsor/tickets` |
+| 20.7 | **Sponsor Carousel** | Done — Service: `get_paid_sponsors()`. API: `GET /events/{id}/sponsors` (public). Frontend: `_SponsorCarousel` widget — horizontal `CircleAvatar` logos on event detail; tap shows company name + website |
+| 20.8 | **Role-Based Visibility** | Done — Categories hidden from customers. Ticket purchase hidden from sponsors. Sponsor-specific nav on profile. Category API restricted to sponsor + organizer roles |
+| 20.9 | **Sponsor Dashboard** | Done — `SponsorDashboardScreen` with profile summary, tickets, payment history. Route: `/sponsor/dashboard`. Profile screen shows sponsor navigation entries |
+
 ---
 
 ## Unimplemented Features (To Do)
@@ -517,21 +532,19 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 
 | # | Feature | Description | Priority |
 |---|---------|-------------|----------|
-| 1 | **Organizer Verification** | Verification flow for organizers (identity/contact check before they can publish events) | Medium |
-| 2 | **File Upload for Images** | Replace URL-based image adding with actual file upload to cloud storage (S3/GCS) | Medium |
-| 3 | **Verify Organizer via External Apps** | Use third-party verification service or app for organizer identity | Low |
-| 4 | **Chatbot for Support** | In-app chatbot for user support and FAQ | Low |
-| 5 | **Newcomer / Trending Badges** | Newcomer badge for new organizers, trending indicator on tickets/events | Low |
+| 1 | **Organizer Verification** | Verification flow for organizers (identity/contact check before they can publish events) | Medium — Phase 22 |
+| 2 | **File Upload for Images** | Replace URL-based image adding with actual file upload to cloud storage (S3/GCS) | Medium — Phase 21 |
+| 3 | **Verify Organizer via External Apps** | Use third-party verification service or app for organizer identity | Low — Phase 23 |
+| 4 | **Chatbot for Support** | In-app chatbot for user support and FAQ | Low — Phase 23 |
+| 5 | **Newcomer / Trending Badges** | Newcomer badge for new organizers, trending indicator on tickets/events | Low — Phase 23 |
 | 6 | ~~**Event Schedule / Agenda**~~ | ~~Moved to Phase 19 — COMPLETED~~ | ~~Done~~ |
-| 7 | **Sponsor Marketplace** | New Sponsor user role with company profile; organizer creates sponsorship categories (stalls, billboards, announcements) with spot counts; sponsors bid (amount + proposal) with back-and-forth negotiation; organizer approves winners; in-app payment with platform commission; auto-generated Sponsor Ticket (identification, not entry) listing all won categories; customers see approved sponsor logos as carousel only | **High — Phase 20** |
-| 8 | **Microservices Migration** | Modular monolith refactor (domain-based folders), then optional microservice extraction when scaling triggers are met (3+ devs, independent scaling needs, different deployment cadences) | **Low — Phase 24 (future)** |
+| 7 | ~~**Sponsor Marketplace**~~ | ~~Moved to Phase 20 — COMPLETED (excluding 20.4 Real-Time Chat, deferred)~~ | ~~Done~~ |
+| 8 | **Real-Time Sponsor Negotiation Chat** | WebSocket-based chat between organizer and sponsor per bid (deferred from Phase 20.4). WhatsApp-style UI, counter-offer amounts, push notifications when offline, read-only after bid resolution | Medium — Phase 20.4 (deferred) |
+| 9 | **K8s Role-Based Scaling** | Intermediate scaling step: same codebase, conditional route mounting via `SERVICE_ROLE` env var, 4 K8s Deployments (customer, organizer, sponsor, platform) with independent HPAs, Nginx Ingress path-based routing, shared PostgreSQL + Redis | Medium — Phase 24a |
+| 10 | **Domain-Based Modular Monolith** | Reorganize `Backend/app/` into domain folders (events/, funding/, tickets/, sponsors/, etc.) with `shared/` cross-cutting layer. Break up 78KB `events.py` into domain routes. Clean boundaries for future microservice extraction | Medium — Phase 24b |
+| 11 | **Full Microservice Extraction** | Extract domains into independent services with own databases, API gateway (Kong/Traefik), inter-service gRPC, distributed tracing (OpenTelemetry), message queue. Only when scaling triggers are met | **Low — Phase 24c (future)** |
 
 ### Phase 9 — Business Logic (COMPLETED)
-
-| # | Feature | Status |
-|---|---------|--------|
-| 9.1 | **Platform Commission (Tickets + Funding)** | Done — `PlatformSettings` model, `ticket_commission_percent` (5%), `funding_commission_percent` (3%), commission on every ticket sale & pledge, admin Settings tab, commission displayed on receipts, ticket sales pages, funding card |
-| 9.2 | **Admin Approval at 80% Pledge + Selling Tickets** | Done — `pending_cancellation` JSON on Event, cancel blocked when ≥80% funded OR when event is in `selling_tickets` status (non-admin), routes to admin approval queue, admin dashboard Requests tab shows cancellations with context (funding % or event status), organizer sees "Cancellation Pending" banner, "Request Cancellation" button with reason dialog for selling_tickets organizers |
 | 9.3 | **Free Tickets / Flexible Pricing** | Done — Schema validates `price_cents >= 0`, "FREE" badge on tiers, "Get Ticket" button, discount/commission skipped on $0 tickets |
 | 9.4 | **Community Event Rules** | Done — Decoupled from genre: `community_rules` boolean toggle on create/edit (draft only). Rules: max 14-day duration, max $50/tier, $10 listing fee. All thresholds admin-configurable in `PlatformSettings`. "Community Events" featured section on home page |
 | 9.5 | **Fund Escrow & Release Gates** | Done — `FundEscrow` + `EscrowRelease` models, 3-stage release (30/40/30), auto Stage 1 on goal+date+venue, admin Escrow tab with stage timeline + freeze/unfreeze, escrow trust indicator on Funding Card |
@@ -855,9 +868,9 @@ Estimated: **2–3 sessions**.
 
 ![Schedule Overlap - Sequential with Warning](docs/images/schedule_overlap_options.png)
 
-### Phase 20 — Sponsor Marketplace
+### Phase 20 — Sponsor Marketplace (COMPLETED)
 
-Estimated: **4–5 sessions** (recommended sub-phases: A Foundation, B Bidding, C Negotiation, D Payment+Ticket, E Carousel).
+Estimated: **4–5 sessions** (recommended sub-phases: A Foundation, B Bidding, C Negotiation, D Payment+Ticket, E Carousel). **Completed in 5 batches (A–E). 20.4 Real-Time Negotiation Chat deferred.**
 
 | # | Feature | Effort | What to Build |
 |---|---------|--------|--------------|
@@ -918,17 +931,87 @@ Lowest priority. Estimated: **1–2 sessions**.
 | 2 | **Verify Organizer via External Apps** | Large | Third-party API integration — scope TBD |
 | 3 | **Chatbot for Support** | Large | Standalone feature — could use an off-the-shelf widget or build custom |
 
-### Phase 24 — Microservices Migration (Future Consideration)
+### Phase 24a — K8s Role-Based Scaling (Minimal Effort)
+
+**Status:** Ready to implement when scaling is needed. Estimated: **1–2 sessions**.
+
+**Concept:** Same codebase, zero refactoring. One Docker image, four Kubernetes Deployments. Each Deployment sets `SERVICE_ROLE` env var to control which routers are mounted. Nginx Ingress routes by URL path to the correct service. Frontend unchanged (single `API_BASE_URL` points to Ingress).
+
+**Architecture:**
+
+```
+Flutter App → K8s Nginx Ingress → ┬─ platform-api  (auth, admin, settings)        replicas: 1-2
+                                   ├─ customer-api  (browse, register, buy)         HPA: 2-20 pods
+                                   ├─ organizer-api (manage, scan, venues, CRUD)    HPA: 2-5 pods
+                                   └─ sponsor-api   (bids, payments, tickets)       HPA: 2-10 pods
+                                                    ↓
+                                            Shared PostgreSQL + Redis
+```
+
+**Route ownership:**
+- **platform-api:** `/api/v1/auth/*`, `/api/v1/admin/*`, `/api/v1/me` (profile)
+- **customer-api:** `/api/v1/events` (list, detail, featured, map), register, pledge, purchase-ticket, posts, reactions, milestones/schedule (read-only), sponsor carousel, `/api/v1/me/tickets`, `/api/v1/me/pledges`
+- **organizer-api:** event CRUD, publish/cancel/clone, scan-ticket, ticket-sales, waitlist, co-organizers, ticket-tiers, discounts, venues, ticket-strategies, discount-strategies, milestones/schedule (CRUD), `/api/v1/me/organizer-ticket-sales`, `/api/v1/me/customers`
+- **sponsor-api:** `/api/v1/me/sponsor-profile`, `/api/v1/events/*/sponsorships/*`, bids, payments, `/api/v1/me/sponsor-tickets`, scan-sponsor
+
+**Overlapping routes (graceful degradation):** `events.router` mounted on both customer-api and organizer-api. If Ingress misroutes, it still works — routing is for scaling optimization, not hard isolation.
+
+| # | Feature | Effort | What to Build |
+|---|---------|--------|--------------|
+| 24a.1 | **Conditional Router Mounting** | Small | Modify `router.py` → `build_router(role)` function. Read `SERVICE_ROLE` env var (default `all`). Conditionally mount routers based on role. `all` = current behavior (no regression) |
+| 24a.2 | **Dockerfile** | Small | Single `Backend/Dockerfile`. `SERVICE_ROLE` overridden per K8s Deployment |
+| 24a.3 | **K8s Manifests** | Medium | `k8s/` directory: 4 Deployments + Services + HPAs, Nginx Ingress with path-based routing rules, ConfigMap (shared env), Secrets (DB password, encryption key, API keys), optional Redis Deployment |
+| 24a.4 | **Ingress Routing** | Small | Nginx Ingress rules: most-specific paths first (sponsor → organizer → platform), customer-api as catch-all fallback |
+
+### Phase 24b — Domain-Based Modular Monolith (Medium Effort)
+
+**Status:** Recommended after 24a is stable. Estimated: **4–6 sessions**.
+
+**Concept:** Reorganize `Backend/app/` into domain-based folders. Each domain owns its models, schemas, services, and routes. Cross-cutting concerns (db, auth, encryption, email) go into `shared/`. The biggest win is breaking up `events.py` (78.6 KB, 60+ endpoints) into 5-6 focused domain route files.
+
+**Target structure:**
+
+```
+Backend/app/
+  domains/
+    events/        (models.py, schemas.py, service.py, routes.py) — Event CRUD + lifecycle
+    funding/       (models.py, schemas.py, service.py, routes.py) — pledges, escrow, receipts
+    tickets/       (models.py, schemas.py, service.py, routes.py) — purchase, scan, tiers, waitlist
+    registration/  (models.py, schemas.py, service.py, routes.py) — register, unregister, waitlist
+    sponsors/      (models.py, schemas.py, service.py, routes.py) — profile, categories, bids, payments
+    milestones/    (models.py, schemas.py, service.py, routes.py) — already isolated
+    schedule/      (models.py, schemas.py, service.py, routes.py) — already isolated
+    venues/        (models.py, schemas.py, service.py, routes.py) — venue CRUD
+    discounts/     (models.py, schemas.py, service.py, routes.py) — rules, strategies, claims
+    users/         (models.py, schemas.py, service.py, routes.py) — auth, profile, /me
+    platform/      (models.py, service.py, routes.py) — admin, settings, feature flags
+  shared/
+    db.py          (engine, session, Base)
+    config.py      (Settings)
+    dependencies.py (DbSession, CurrentUser, require_role, require_feature)
+    security.py    (Firebase auth)
+    crypto.py      (AES-256-GCM)
+    queries.py     (shared read helpers: get_event_or_404, get_funding_summary)
+    email/         (service, templates, notifications)
+  main.py
+  router.py
+```
+
+**Key challenge — cross-domain dependencies:**
+- `event ↔ funding` bidirectional dependency resolved via `shared/queries.py` for read operations
+- Domain services import from `shared/` and own domain only, never from other domain services directly
+- Cross-domain writes orchestrated at the route handler level (route calls service A then service B)
+
+| # | Feature | Effort | What to Build |
+|---|---------|--------|--------------|
+| 24b.1 | **Domain Folder Structure** | Medium | Create 11 domain folders under `domains/`. Move ~40 files into new locations. Update ~200+ import paths |
+| 24b.2 | **Break Up events.py** | Large | Split 78.6KB `events.py` (60+ endpoints) into `events/routes.py`, `funding/routes.py`, `tickets/routes.py`, `registration/routes.py` (+ social endpoints distributed appropriately) |
+| 24b.3 | **Shared Queries Layer** | Small | `shared/queries.py` — extract common read helpers (`get_event_or_404`, `get_funding_summary`, `get_capacity_info`) used by multiple domains. Resolves bidirectional dependency between events ↔ funding |
+| 24b.4 | **Domain API Contracts** | Small | Define clear interfaces between domains. No cross-domain direct model access — go through service functions or shared queries |
+
+### Phase 24c — Full Microservice Extraction (Future)
 
 **Status:** Not recommended yet. Revisit when scaling triggers are met.
-
-**Current architecture:** Monolithic FastAPI backend + Flutter frontend, single database, all features in one deployable unit. The codebase uses a modular structure (`models/`, `schemas/`, `services/`, `api/v1/`) that already separates concerns cleanly.
-
-**Why NOT now:**
-- Solo/small team — microservices add massive operational overhead (Docker orchestration, API gateway, service discovery, distributed tracing, per-service databases) with no development speed benefit
-- Data is deeply interconnected: Sponsor Tickets reuse AES-256-GCM encryption (Phase 15), milestones need `funding_service.get_summary()`, schedule depends on Event date fields, feature flags gate everything from one `PlatformSettings` table
-- Current traffic does not require independent scaling of any component
-- Splitting into services turns every cross-feature interaction into a distributed transaction problem
 
 **When to revisit (any of these become true):**
 - 3+ developers working simultaneously and experiencing merge conflicts / deployment bottlenecks
@@ -936,32 +1019,25 @@ Lowest priority. Estimated: **1–2 sessions**.
 - Different teams want different deployment cadences (sponsors team ships weekly, events team ships monthly)
 - A component needs a different tech stack (e.g., real-time bidding engine in Go/Rust for performance)
 
-**Recommended intermediate step — Modular Monolith:**
-
-Before going full microservices, reorganize into domain-based folders:
-
-```
-Backend/app/
-  domains/
-    events/        (models, schemas, services, routes)
-    funding/       (models, schemas, services, routes)
-    tickets/       (models, schemas, services, routes)
-    milestones/    (models, schemas, services, routes)
-    schedule/      (models, schemas, services, routes)
-    sponsors/      (models, schemas, services, routes)
-    platform/      (settings, feature flags)
-  shared/          (db, auth, encryption, utils)
-```
-
-Each domain is a self-contained module that **could** become a microservice later. They all deploy as one app and share one database today, but have clean boundaries that make extraction trivial when needed.
-
 | # | Feature | Effort | What to Build |
 |---|---------|--------|--------------|
-| 24.1 | **Modular Monolith Refactor** | Medium | Reorganize `Backend/app/` into domain-based folders (events, funding, tickets, milestones, schedule, sponsors, platform). Move models/schemas/services/routes into their respective domain folders. Update all imports. Shared utilities (db, auth, encryption) into `shared/` |
-| 24.2 | **Domain API Contracts** | Small | Define clear interfaces between domains (e.g., `funding.get_summary()` is the contract milestones use). Document which domains depend on which. No cross-domain direct model access — go through service functions |
-| 24.3 | **Microservice Extraction** | Very Large | Only when triggers above are met. Extract one domain at a time into its own FastAPI service with its own database. Add API gateway (e.g., Kong, Traefik), inter-service HTTP/gRPC calls, distributed tracing (OpenTelemetry), message queue for async events (e.g., Redis Streams or RabbitMQ) |
+| 24c.1 | **Service Extraction** | Very Large | Extract one domain at a time into its own FastAPI service with its own database. Start with `sponsors/` (most isolated) |
+| 24c.2 | **API Gateway** | Large | Kong or Traefik as entry point. Service discovery, rate limiting, auth propagation |
+| 24c.3 | **Inter-Service Communication** | Large | gRPC or HTTP for sync calls, Redis Streams or RabbitMQ for async events (e.g., "bid accepted" triggers sponsor ticket generation) |
+| 24c.4 | **Observability** | Medium | Distributed tracing (OpenTelemetry), per-service logging, health dashboards |
 
-**Recommended order:** Phase 9 (done) → 10 (done) → 11 (done) → 12 (done) → 13 (done) → 14 (done) → 15 (done) → 16 (done) → 17 (done) → 18a (done) → 18 (done) → 19 (done) → 20 (done) → **21 (next)** → 22 → 23 → 24 (only when scaling triggers are met). Phases 9–10 add real business value (commission, spot reservations). Phase 11 adds trust (terms agreement). Phase 12 enables multi-ticket purchases + QR codes. Phase 13 adds email notifications. Phase 14 adds transport/parking info. Phase 15 adds ticket QR encryption (AES-256-GCM). Phase 16 adds map view, location discovery, and venue geocoding. Phase 17 adds dark mode, venue name map labels, and API efficiency improvements. Phase 18a adds admin feature flag toggles — `get_bool()` service helper, `require_feature()` backend guard, toggle switch UI in admin Settings tab, frontend flag caching; all subsequent features (18, 19, 20) are gated by their respective flags. Phase 18 adds funding milestones with timeline UI, per-milestone like/dislike, and organizer CRUD. Phase 19 adds structured event schedule with date/time/description hierarchy, timeline UI, and Excel export. **Phase 20 adds sponsor marketplace** with new sponsor role, sponsorship categories, bidding system, in-app payment with platform commission, auto-generated sponsor tickets with QR (reuses AES-256-GCM), public sponsor carousel, role-based visibility, and sponsor dashboard. Real-time negotiation chat (20.4) deferred. Phases 21–23 are enhancements. Phase 24 is a future architecture migration — modular monolith refactor first, microservice extraction only when team/traffic scaling triggers are met.
+**Recommended order:** Phase 9 (done) → 10 (done) → 11 (done) → 12 (done) → 13 (done) → 14 (done) → 15 (done) → 16 (done) → 17 (done) → 18a (done) → 18 (done) → 19 (done) → 20 (done) → **21 (next)** → 22 → 23 → 20.4 (when needed) → 24a → 24b → 24c (only when scaling triggers are met).
+
+**Completed phases (1–20):** Auth, venues, events, funding, tickets, registration, admin, search, business logic (commission, escrow, trust score), spot reservation, terms, multi-ticket + QR, email notifications, transport info, QR encryption, map view + geocoding, dark mode, feature flags, funding milestones, event schedule, sponsor marketplace. Real-time negotiation chat (20.4) deferred.
+
+**Remaining phases:**
+- **Phase 21 — Media:** File upload for images (S3/GCS integration replacing URL-based input)
+- **Phase 22 — Trust & Security:** Organizer verification flow (identity check, admin review queue)
+- **Phase 23 — Nice to Have:** Newcomer/trending badges, external organizer verification, chatbot
+- **Phase 20.4 — Sponsor Negotiation Chat (deferred):** WebSocket real-time chat per bid, counter-offers, push notifications
+- **Phase 24a — K8s Role-Based Scaling (minimal):** Same codebase, conditional route mounting via `SERVICE_ROLE` env var, 4 K8s Deployments (customer/organizer/sponsor/platform) with independent HPAs, Nginx Ingress routing. Zero code refactoring, ~1-2 sessions
+- **Phase 24b — Domain Modular Monolith (medium):** Reorganize into domain folders, break up 78KB `events.py`, shared queries layer, clean domain boundaries. ~4-6 sessions
+- **Phase 24c — Full Microservice Extraction (future):** Separate databases, API gateway, gRPC, distributed tracing. Only when team/traffic scaling triggers are met
 
 ---
 

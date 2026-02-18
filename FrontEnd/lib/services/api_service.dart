@@ -62,11 +62,15 @@ class ApiService {
   // ─── Auth ───
 
   Future<Map<String, dynamic>> verifyToken(
-      String idToken, String role, {String? termsAcceptedAt}) async {
+      String idToken, String role,
+      {String? displayName, String? termsAcceptedAt}) async {
     final data = <String, dynamic>{
       'id_token': idToken,
       'role': role,
     };
+    if (displayName != null) {
+      data['display_name'] = displayName;
+    }
     if (termsAcceptedAt != null) {
       data['terms_accepted_at'] = termsAcceptedAt;
     }

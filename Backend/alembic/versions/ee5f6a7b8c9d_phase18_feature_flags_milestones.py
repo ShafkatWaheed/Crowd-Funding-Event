@@ -1,7 +1,7 @@
 """Phase 18: Feature flags + Funding milestones tables.
 
-Revision ID: aa1b2c3d4e5f
-Revises: z7a8b9c0d1e2
+Revision ID: ee5f6a7b8c9d
+Revises: dd4e5f6a7b8c
 Create Date: 2026-02-18
 """
 from typing import Sequence, Union
@@ -9,8 +9,8 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 
-revision: str = "aa1b2c3d4e5f"
-down_revision: Union[str, None] = "z7a8b9c0d1e2"
+revision: str = "ee5f6a7b8c9d"
+down_revision: Union[str, None] = "dd4e5f6a7b8c"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

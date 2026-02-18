@@ -126,6 +126,11 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   bool _showMilestoneSection = false;
   final List<_MilestoneInput> _milestones = [];
 
+  // Event Schedule (local state, batch-created after event creation)
+  bool _showScheduleSection = false;
+  bool _hasSchedule = false;
+  final List<_ScheduleDayInput> _scheduleDays = [];
+
   @override
   void initState() {
     super.initState();
@@ -346,6 +351,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     if (_transitCtrl.text.trim().isNotEmpty) data['transit_info'] = _transitCtrl.text.trim();
     if (_rideshareCtrl.text.trim().isNotEmpty) data['rideshare_info'] = _rideshareCtrl.text.trim();
     if (_accessibilityCtrl.text.trim().isNotEmpty) data['accessibility_info'] = _accessibilityCtrl.text.trim();
+    if (_hasSchedule) data['has_schedule'] = true;
 
     try {
       final api = context.read<ApiService>();
@@ -371,6 +377,37 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
               'benefit_description': ms.benefitCtrl.text.trim(),
           });
         } catch (_) {}
+      }
+
+      // Batch-create schedule items
+      if (_hasSchedule && _scheduleDays.isNotEmpty) {
+        final scheduleItems = <Map<String, dynamic>>[];
+        for (final day in _scheduleDays) {
+          if (day.date == null) continue;
+          final dateStr =
+              '${day.date!.year}-${day.date!.month.toString().padLeft(2, '0')}-${day.date!.day.toString().padLeft(2, '0')}';
+          for (int i = 0; i < day.slots.length; i++) {
+            final slot = day.slots[i];
+            final title = slot.titleCtrl.text.trim();
+            if (title.isEmpty) continue;
+            scheduleItems.add({
+              'date': dateStr,
+              'start_time':
+                  '${slot.startTime.hour.toString().padLeft(2, '0')}:${slot.startTime.minute.toString().padLeft(2, '0')}',
+              'end_time':
+                  '${slot.endTime.hour.toString().padLeft(2, '0')}:${slot.endTime.minute.toString().padLeft(2, '0')}',
+              'title': title,
+              if (slot.descCtrl.text.trim().isNotEmpty)
+                'description': slot.descCtrl.text.trim(),
+              'sort_order': i,
+            });
+          }
+        }
+        if (scheduleItems.isNotEmpty) {
+          try {
+            await api.bulkCreateSchedule(eventId, scheduleItems);
+          } catch (_) {}
+        }
       }
 
       setState(() => _isLoading = false);
@@ -1025,6 +1062,471 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                         ],
                       );
                     }),
+                  ],
+
+                  const SizedBox(height: 24),
+
+                  // ═══════════════════════════════════════
+                  // SECTION 2b: Event Schedule (collapsible)
+                  // ═══════════════════════════════════════
+                  if (_startTime != null && _endTime != null) ...[
+                    GestureDetector(
+                      onTap: () => setState(
+                          () => _showScheduleSection = !_showScheduleSection),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: _showScheduleSection
+                              ? Colors.blue.withValues(alpha: 0.08)
+                              : Colors.grey.withValues(alpha: 0.04),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: _showScheduleSection
+                                ? Colors.blue.withValues(alpha: 0.3)
+                                : Colors.grey.withValues(alpha: 0.15),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.calendar_month_rounded,
+                                size: 18,
+                                color: _showScheduleSection
+                                    ? Colors.blue[700]
+                                    : Colors.grey[600]),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Event Schedule (Optional)',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                  color: AppTheme.textPrimaryOf(context),
+                                ),
+                              ),
+                            ),
+                            if (_scheduleDays.isNotEmpty)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                    '${_scheduleDays.fold<int>(0, (sum, d) => sum + d.slots.length)}',
+                                    style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.blue[800])),
+                              ),
+                            const SizedBox(width: 4),
+                            Icon(
+                              _showScheduleSection
+                                  ? Icons.keyboard_arrow_up
+                                  : Icons.keyboard_arrow_down,
+                              color: Colors.grey[500],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    AnimatedCrossFade(
+                      firstChild: const SizedBox.shrink(),
+                      secondChild: Container(
+                        margin: const EdgeInsets.only(top: 8),
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.withValues(alpha: 0.03),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                              color: Colors.grey.withValues(alpha: 0.12)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    'Use structured schedule',
+                                    style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppTheme.textPrimaryOf(context)),
+                                  ),
+                                ),
+                                Switch(
+                                  value: _hasSchedule,
+                                  onChanged: (v) =>
+                                      setState(() => _hasSchedule = v),
+                                ),
+                              ],
+                            ),
+                            if (_hasSchedule) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                'Add time slots for each day of your event.',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[600]),
+                              ),
+                              const SizedBox(height: 12),
+                              ..._scheduleDays.asMap().entries.map((dayEntry) {
+                                final dayIdx = dayEntry.key;
+                                final day = dayEntry.value;
+                                final dateLabel = day.date != null
+                                    ? '${day.date!.month}/${day.date!.day}/${day.date!.year}'
+                                    : 'Select date';
+                                return Container(
+                                  margin: const EdgeInsets.only(bottom: 12),
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                        color: Colors.blue.withValues(
+                                            alpha: 0.2)),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          GestureDetector(
+                                            onTap: () async {
+                                              final picked =
+                                                  await showDatePicker(
+                                                context: context,
+                                                initialDate: day.date ??
+                                                    _startTime!,
+                                                firstDate: _startTime!,
+                                                lastDate: _endTime!,
+                                              );
+                                              if (picked != null) {
+                                                setState(() =>
+                                                    day.date = picked);
+                                              }
+                                            },
+                                            child: Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 10,
+                                                      vertical: 6),
+                                              decoration: BoxDecoration(
+                                                color: Colors.blue
+                                                    .withValues(alpha: 0.08),
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                              ),
+                                              child: Row(
+                                                mainAxisSize:
+                                                    MainAxisSize.min,
+                                                children: [
+                                                  Icon(
+                                                      Icons
+                                                          .calendar_today_rounded,
+                                                      size: 14,
+                                                      color:
+                                                          Colors.blue[700]),
+                                                  const SizedBox(width: 6),
+                                                  Text(dateLabel,
+                                                      style: TextStyle(
+                                                          fontSize: 12,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                          color: Colors
+                                                              .blue[700])),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                          const Spacer(),
+                                          IconButton(
+                                            icon: Icon(Icons.delete_outline,
+                                                size: 18,
+                                                color: Colors.red[400]),
+                                            onPressed: () => setState(() =>
+                                                _scheduleDays
+                                                    .removeAt(dayIdx)),
+                                            padding: EdgeInsets.zero,
+                                            constraints:
+                                                const BoxConstraints(),
+                                            tooltip: 'Remove date',
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      ...day.slots.asMap().entries.map(
+                                          (slotEntry) {
+                                        final slotIdx = slotEntry.key;
+                                        final slot = slotEntry.value;
+                                        return Container(
+                                          margin: const EdgeInsets.only(
+                                              bottom: 8),
+                                          padding: const EdgeInsets.all(10),
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.surfaceOf(
+                                                context),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                            border: Border.all(
+                                                color: Colors.grey
+                                                    .withValues(
+                                                        alpha: 0.15)),
+                                          ),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.stretch,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Text(
+                                                      'Slot ${slotIdx + 1}',
+                                                      style: TextStyle(
+                                                          fontWeight:
+                                                              FontWeight
+                                                                  .w600,
+                                                          fontSize: 12,
+                                                          color: Colors
+                                                              .grey[700])),
+                                                  const Spacer(),
+                                                  IconButton(
+                                                    icon: Icon(
+                                                        Icons
+                                                            .delete_outline,
+                                                        size: 16,
+                                                        color: Colors
+                                                            .red[400]),
+                                                    onPressed: () =>
+                                                        setState(() => day
+                                                            .slots
+                                                            .removeAt(
+                                                                slotIdx)),
+                                                    padding:
+                                                        EdgeInsets.zero,
+                                                    constraints:
+                                                        const BoxConstraints(),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 6),
+                                              Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: GestureDetector(
+                                                      onTap: () async {
+                                                        final t = await showTimePicker(
+                                                          context: context,
+                                                          initialTime:
+                                                              slot.startTime,
+                                                        );
+                                                        if (t != null) {
+                                                          setState(() =>
+                                                              slot.startTime =
+                                                                  t);
+                                                        }
+                                                      },
+                                                      child: Container(
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .symmetric(
+                                                                horizontal:
+                                                                    10,
+                                                                vertical:
+                                                                    8),
+                                                        decoration:
+                                                            BoxDecoration(
+                                                          border: Border.all(
+                                                              color: Colors
+                                                                  .grey
+                                                                  .withValues(
+                                                                      alpha:
+                                                                          0.3)),
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(
+                                                                      8),
+                                                        ),
+                                                        child: Text(
+                                                            slot.startTime
+                                                                .format(
+                                                                    context),
+                                                            style: TextStyle(
+                                                                fontSize:
+                                                                    12,
+                                                                color: AppTheme
+                                                                    .textPrimaryOf(
+                                                                        context))),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  Padding(
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                        horizontal: 8),
+                                                    child: Text('–',
+                                                        style: TextStyle(
+                                                            color: Colors
+                                                                .grey[500])),
+                                                  ),
+                                                  Expanded(
+                                                    child: GestureDetector(
+                                                      onTap: () async {
+                                                        final t = await showTimePicker(
+                                                          context: context,
+                                                          initialTime:
+                                                              slot.endTime,
+                                                        );
+                                                        if (t != null) {
+                                                          setState(() =>
+                                                              slot.endTime =
+                                                                  t);
+                                                        }
+                                                      },
+                                                      child: Container(
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .symmetric(
+                                                                horizontal:
+                                                                    10,
+                                                                vertical:
+                                                                    8),
+                                                        decoration:
+                                                            BoxDecoration(
+                                                          border: Border.all(
+                                                              color: Colors
+                                                                  .grey
+                                                                  .withValues(
+                                                                      alpha:
+                                                                          0.3)),
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(
+                                                                      8),
+                                                        ),
+                                                        child: Text(
+                                                            slot.endTime
+                                                                .format(
+                                                                    context),
+                                                            style: TextStyle(
+                                                                fontSize:
+                                                                    12,
+                                                                color: AppTheme
+                                                                    .textPrimaryOf(
+                                                                        context))),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 8),
+                                              TextFormField(
+                                                controller:
+                                                    slot.titleCtrl,
+                                                decoration:
+                                                    const InputDecoration(
+                                                  labelText: 'Title',
+                                                  hintText:
+                                                      'e.g. Opening Keynote',
+                                                  isDense: true,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 8),
+                                              TextFormField(
+                                                controller:
+                                                    slot.descCtrl,
+                                                decoration:
+                                                    const InputDecoration(
+                                                  labelText:
+                                                      'Description (optional)',
+                                                  isDense: true,
+                                                ),
+                                                maxLines: 2,
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      }),
+                                      GestureDetector(
+                                        onTap: () => setState(
+                                            () => day.slots.add(
+                                                _ScheduleSlotInput())),
+                                        child: Container(
+                                          padding:
+                                              const EdgeInsets.symmetric(
+                                                  vertical: 10),
+                                          decoration: BoxDecoration(
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                            border: Border.all(
+                                              color: Colors.grey.withValues(
+                                                  alpha: 0.25),
+                                            ),
+                                          ),
+                                          child: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Icon(Icons.add_rounded,
+                                                  size: 16,
+                                                  color: Colors.grey[600]),
+                                              const SizedBox(width: 4),
+                                              Text('Add Time Slot',
+                                                  style: TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      fontSize: 12,
+                                                      color: Colors
+                                                          .grey[600])),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }),
+                              GestureDetector(
+                                onTap: () => setState(() =>
+                                    _scheduleDays.add(_ScheduleDayInput())),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 12),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color:
+                                          Colors.grey.withValues(alpha: 0.3),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.add_rounded,
+                                          size: 18,
+                                          color: Colors.grey[600]),
+                                      const SizedBox(width: 6),
+                                      Text('Add Date',
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 13,
+                                              color: Colors.grey[600])),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      crossFadeState: _showScheduleSection
+                          ? CrossFadeState.showSecond
+                          : CrossFadeState.showFirst,
+                      duration: const Duration(milliseconds: 250),
+                    ),
+                    const SizedBox(height: 16),
                   ],
 
                   const SizedBox(height: 24),
@@ -1932,6 +2434,21 @@ class _MilestoneInput {
   final titleCtrl = TextEditingController();
   final benefitCtrl = TextEditingController();
   int unlockPercent = 50;
+}
+
+class _ScheduleDayInput {
+  DateTime? date;
+  final List<_ScheduleSlotInput> slots = [];
+}
+
+class _ScheduleSlotInput {
+  TimeOfDay startTime;
+  TimeOfDay endTime;
+  final titleCtrl = TextEditingController();
+  final descCtrl = TextEditingController();
+  _ScheduleSlotInput()
+      : startTime = const TimeOfDay(hour: 9, minute: 0),
+        endTime = const TimeOfDay(hour: 10, minute: 0);
 }
 
 

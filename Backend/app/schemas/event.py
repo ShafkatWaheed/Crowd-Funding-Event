@@ -57,6 +57,7 @@ class EventCreate(BaseModel):
     transit_info: str | None = None
     rideshare_info: str | None = None
     accessibility_info: str | None = None
+    has_schedule: bool = False
     publish: bool = False  # True = approved immediately, False = draft
 
 
@@ -84,6 +85,7 @@ class EventUpdate(BaseModel):
     transit_info: str | None = None
     rideshare_info: str | None = None
     accessibility_info: str | None = None
+    has_schedule: bool | None = None
 
 
 class ExtendFundingBody(BaseModel):
@@ -173,6 +175,7 @@ class EventResponse(BaseModel):
     transit_info: str | None = None
     rideshare_info: str | None = None
     accessibility_info: str | None = None
+    has_schedule: bool = False
     directions_url: str | None = None  # computed from venue address
     created_at: datetime
     updated_at: datetime

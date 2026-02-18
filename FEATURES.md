@@ -138,6 +138,18 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 - **Frontend:** `getFeatureFlags()` API method; UI sections hidden seamlessly when their flag is disabled
 - Boolean settings auto-detected and rendered as switches (not text edit dialogs)
 
+### Event Schedule / Agenda
+- **Structured event schedule** — date/time-slot based agenda for multi-day events
+- **Schedule model:** `EventScheduleItem` (id, event_id, date, start_time, end_time, title, description, sort_order)
+- **`has_schedule` toggle** on Event model — organizer explicitly opts into structured schedule
+- **Grouped by date** — API returns schedule items grouped into `ScheduleDayGroup` (date + items list), sorted by date then start_time
+- **Overlap detection:** computed `overlaps: bool` per item when time ranges intersect on the same date
+- **Excel export:** public `GET /export` endpoint generates `.xlsx` workbook with one sheet per date (via openpyxl)
+- **6 API endpoints** under `/events/{id}/schedule`: list grouped (public), create/update/delete (organizer), bulk create (organizer), export .xlsx (public)
+- **Feature-flagged:** All endpoints gated by `feature_schedule_enabled` admin setting
+- **Schedule Timeline widget** on event detail — horizontal date tab pills, vertical timeline with blue nodes and time-slot cards, amber nodes/border for overlapping slots with "Overlaps" badge, Excel download button, summary footer
+- **Organizer schedule builder** — collapsible section in create/edit event forms (after Dates, visible when both start and end dates set); "Use structured schedule" switch, date groups with constrained date pickers, time slot cards with start/end time pickers + title + description
+
 ### Ticket Strategies (Reusable Templates)
 - **Separate reusable object** (like venues) — organizers create ticket strategies with named tiers
 - Each strategy has tiers (e.g. "Platinum", "Diamond", "General") with name, description, price, and display order
@@ -357,6 +369,7 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 || Phase 17 — Dark Mode & UI Polish | **Full dark mode** — `ThemeProvider` with `SharedPreferences` persistence, toggled from Profile screen. `AppTheme` dark palette with context-aware helpers (`cardOf()`, `textPrimaryOf()`, `surfaceOf()`, `dividerOf()`, etc.). Applied across all screens: Home, Explore, Manage, Profile, Event Detail (management stats, capacity badge, status bar), Ticket Sales, Ticket Strategies, Discounts, Co-Organizer, Venue Picker, Ticket Receipt (QR forced white bg), My Tickets, bottom nav. Near-black color detection swaps to `accentColor` in dark mode. **Map venue name labels** above pins. **Single API for All Ticket Sales** (`GET /me/organizer-ticket-sales`) replacing N+1 per-event calls. **Tappable receipt cards** in global ticket sales. **Per-event title** renamed to "Event Ticket Sales". |
 || Phase 18a — Feature Flags | **Admin toggle system** — `get_bool()` helper for boolean settings, `require_feature()` FastAPI guard dependency (returns 403 when disabled), 3 feature flag keys (`feature_milestones_enabled`, `feature_schedule_enabled`, `feature_sponsors_enabled`) seeded in PlatformSettings. Admin Settings tab renders boolean settings as Switch toggles. Frontend `getFeatureFlags()` API method for conditional UI hiding. |
 || Phase 18 — Funding Milestones | **Funding milestones** — percentage-based unlock goals on funded events. `FundingMilestone` + `MilestoneReaction` models with Alembic migration. Service layer with CRUD + like/dislike reactions (same toggle pattern as EventReaction). 6 API endpoints under `/events/{id}/milestones` (list, create, update, delete, react, my-reaction), all gated by `feature_milestones_enabled` flag. **Milestone Timeline widget** on event detail below FundingCard — vertical progress bar with circular nodes (blue+checkmark when unlocked, grey+lock when locked), milestone cards with percentage, title, benefit description, UNLOCKED/LOCKED badges, per-milestone like/dislike buttons. **Organizer milestone builder** — collapsible section in create/edit event forms (after Funding Settings, visible when funding deadline is set); title TextField, unlock % slider (1-100), benefit description; create screen uses local state with batch POST after event creation, edit screen uses live API CRUD. Dark mode compatible. |
+|| Phase 19 — Event Schedule | **Structured event schedule** — date/time-slot based agenda. `EventScheduleItem` model + `has_schedule` boolean on Event, Alembic migration with composite index. Service layer with CRUD, bulk create, overlap detection (same-date time range intersection → `overlaps: bool` flag per item), and Excel export via `openpyxl` (one sheet per date). 6 API endpoints under `/events/{id}/schedule` (list grouped by date, create, bulk create, update, delete, export .xlsx), all gated by `feature_schedule_enabled` flag. **Schedule Timeline widget** on event detail — horizontal scrollable date tab pills, vertical timeline with blue circular nodes + time-slot cards (left blue border, time range + title + description), overlapping slots shown with amber nodes/border + "Overlaps" warning badge, Excel download button, summary footer ("N sessions across M days"). **Organizer schedule builder** — collapsible section in create/edit event forms (after Dates, visible when both start and end dates set); "Use structured schedule" switch toggle; date groups with date picker (constrained to event range), time slot cards with start/end time pickers + title + description; create screen uses local state with batch POST, edit screen uses live API CRUD with per-item save/delete buttons. Dark mode compatible. |
 
 ### Phase 11 — Terms and Conditions Agreement (COMPLETED)
 
@@ -485,6 +498,17 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 | 18.6 | **Milestone Timeline Widget** | Done — `_MilestoneTimeline` self-contained widget on event detail below FundingCard. Vertical timeline with circular nodes (accent-color+checkmark when unlocked, grey+lock when locked). Milestone cards with percentage, title, benefit description, UNLOCKED/LOCKED badges. Per-milestone like/dislike buttons. Feature flag check hides widget when disabled. Dark mode compatible |
 | 18.7 | **Organizer Milestone CRUD** | Done — Collapsible "Funding Milestones (Optional)" section in create/edit event screens, visible when funding deadline is set. Each milestone: title TextField, unlock % slider (1-100), benefit description TextField, delete button. Create screen: local state, batch-submitted via POST after event creation. Edit screen: live CRUD against API with save/delete per milestone. Milestones editable in draft/pending_approval/approved states |
 
+### Phase 19 — Event Schedule / Agenda (COMPLETED)
+
+| # | Feature | Status |
+|---|---------|--------|
+| 19.1 | **Schedule Model & Migration** | Done — `EventScheduleItem` table (id, event_id, date, start_time, end_time, title, description, sort_order, created_at; composite index on event_id+date+sort_order). `has_schedule` boolean added to Event model. Alembic migration for both |
+| 19.2 | **Schedule Schema & Service** | Done — `ScheduleItemCreate` (date ISO, start_time HH:MM, end_time HH:MM, title, description?, sort_order), `ScheduleItemUpdate` (all optional), `ScheduleItemResponse` (with computed `overlaps: bool`), `ScheduleDayGroup` (date + items list). Service: `list_schedule()` (grouped by date, sorted by date+start_time, overlap detection via time range intersection), `create_item()` (validates end>start, date in event range, organizer permission), `update_item()`, `delete_item()`, `bulk_create()`, `export_schedule_xlsx()` (openpyxl workbook, one sheet per date) |
+| 19.3 | **Schedule API Endpoints** | Done — 6 endpoints under `/events/{event_id}/schedule`: GET list grouped by date (public), POST create single (organizer), POST `/bulk` batch create (organizer), PATCH `/{id}` update (organizer), DELETE `/{id}` (organizer), GET `/export` download .xlsx (public, StreamingResponse). All gated by `require_feature("feature_schedule_enabled")` |
+| 19.4 | **Dart Model & API Methods** | Done — `ScheduleItem` and `ScheduleDay` models with `fromJson`. 6 API methods: `getSchedule`, `createScheduleItem`, `bulkCreateSchedule`, `updateScheduleItem`, `deleteScheduleItem`, `getScheduleExportUrl`. `hasSchedule` field added to Dart Event model |
+| 19.5 | **Schedule Timeline Widget** | Done — `_EventSchedule` self-contained widget on event detail below milestone section. Horizontal scrollable date tab pills, vertical timeline with blue circular nodes + time-slot cards (blue left border, time range in 12h format + title + description). Overlapping slots: amber node, amber left border, "Overlaps" warning badge. Excel download button. Summary footer ("N sessions across M days"). Feature flag check hides widget when disabled. Dark mode compatible |
+| 19.6 | **Organizer Schedule Builder** | Done — Collapsible "Event Schedule (Optional)" section in create/edit event screens, visible when both start and end dates are set. "Use structured schedule" switch toggle. Create screen: date groups with date picker (constrained to event range), time slot cards with start/end time pickers + title + description + delete; local state with batch POST via `bulkCreateSchedule` after event creation. Edit screen: flat list of schedule items loaded from API, live CRUD with per-item save/delete buttons. `has_schedule` sent in event create/update payload |
+
 ---
 
 ## Unimplemented Features (To Do)
@@ -498,7 +522,7 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 | 3 | **Verify Organizer via External Apps** | Use third-party verification service or app for organizer identity | Low |
 | 4 | **Chatbot for Support** | In-app chatbot for user support and FAQ | Low |
 | 5 | **Newcomer / Trending Badges** | Newcomer badge for new organizers, trending indicator on tickets/events | Low |
-| 6 | **Event Schedule / Agenda** | Structured multi-day schedule with 3-layer hierarchy (date → time slot → description); vertical timeline UI with date tabs; Excel export for anyone; only available when event has start and end dates set | **High — Phase 19** |
+| 6 | ~~**Event Schedule / Agenda**~~ | ~~Moved to Phase 19 — COMPLETED~~ | ~~Done~~ |
 | 7 | **Sponsor Marketplace** | New Sponsor user role with company profile; organizer creates sponsorship categories (stalls, billboards, announcements) with spot counts; sponsors bid (amount + proposal) with back-and-forth negotiation; organizer approves winners; in-app payment with platform commission; auto-generated Sponsor Ticket (identification, not entry) listing all won categories; customers see approved sponsor logos as carousel only | **High — Phase 20** |
 | 8 | **Microservices Migration** | Modular monolith refactor (domain-based folders), then optional microservice extraction when scaling triggers are met (3+ devs, independent scaling needs, different deployment cadences) | **Low — Phase 24 (future)** |
 
@@ -779,18 +803,19 @@ The milestone builder section is placed **after Funding Settings** in the Create
 - **Editable window:** Milestones can be added/edited anytime before funding ends (event status is `draft` or `approved`).
 
 ```
-Form section order (with milestones):
+Form section order (with milestones + schedule):
   1. Basic Info (title, description, genre, community rules)
   2. Dates & Funding Deadline (event dates, funding deadline, refund slider)
-  3. Capacity & Registration
-  4. Venue (searchable picker + inline create)
-  5. Ticket Strategy (searchable picker + inline create)
-  6. Discount Strategies
-  7. Funding Settings (goal, min pledge, reserved spots) — only if funding deadline set
-  8. Funding Milestones (collapsible) — only if funding deadline set
-  9. Posts toggle
-  10. Parking & Transport (collapsible)
-  11. Publish/Draft toggle + submit button
+  3. Event Schedule (collapsible) — only if start + end dates set
+  4. Capacity & Registration
+  5. Venue (searchable picker + inline create)
+  6. Ticket Strategy (searchable picker + inline create)
+  7. Discount Strategies
+  8. Funding Settings (goal, min pledge, reserved spots) — only if funding deadline set
+  9. Funding Milestones (collapsible) — only if funding deadline set
+  10. Posts toggle
+  11. Parking & Transport (collapsible)
+  12. Publish/Draft toggle + submit button
 ```
 
 **UI Mockup (dark mode):**
@@ -936,7 +961,7 @@ Each domain is a self-contained module that **could** become a microservice late
 | 24.2 | **Domain API Contracts** | Small | Define clear interfaces between domains (e.g., `funding.get_summary()` is the contract milestones use). Document which domains depend on which. No cross-domain direct model access — go through service functions |
 | 24.3 | **Microservice Extraction** | Very Large | Only when triggers above are met. Extract one domain at a time into its own FastAPI service with its own database. Add API gateway (e.g., Kong, Traefik), inter-service HTTP/gRPC calls, distributed tracing (OpenTelemetry), message queue for async events (e.g., Redis Streams or RabbitMQ) |
 
-**Recommended order:** Phase 9 (done) → 10 (done) → 11 (done) → 12 (done) → 13 (done) → 14 (done) → 15 (done) → 16 (done) → 17 (done) → 18a (done) → 18 (done) → **19 (next)** → **20** → 21 → 22 → 23 → 24 (only when scaling triggers are met). Phases 9–10 add real business value (commission, spot reservations). Phase 11 adds trust (terms agreement). Phase 12 enables multi-ticket purchases + QR codes. Phase 13 adds email notifications. Phase 14 adds transport/parking info. Phase 15 adds ticket QR encryption (AES-256-GCM). Phase 16 adds map view, location discovery, and venue geocoding. Phase 17 adds dark mode, venue name map labels, and API efficiency improvements. Phase 18a adds admin feature flag toggles — `get_bool()` service helper, `require_feature()` backend guard, toggle switch UI in admin Settings tab, frontend flag caching; all subsequent features (18, 19, 20) are gated by their respective flags. Phase 18 adds funding milestones with timeline UI, per-milestone like/dislike, and organizer CRUD. **Phase 19 adds structured event schedule** with date/time/description hierarchy, timeline UI, and Excel export. Phase 20 adds sponsor marketplace with new sponsor role, category bidding, negotiation, in-app payment, auto-generated sponsor tickets, and customer-facing sponsor carousel. Phases 21–23 are enhancements. Phase 24 is a future architecture migration — modular monolith refactor first, microservice extraction only when team/traffic scaling triggers are met.
+**Recommended order:** Phase 9 (done) → 10 (done) → 11 (done) → 12 (done) → 13 (done) → 14 (done) → 15 (done) → 16 (done) → 17 (done) → 18a (done) → 18 (done) → 19 (done) → **20 (next)** → 21 → 22 → 23 → 24 (only when scaling triggers are met). Phases 9–10 add real business value (commission, spot reservations). Phase 11 adds trust (terms agreement). Phase 12 enables multi-ticket purchases + QR codes. Phase 13 adds email notifications. Phase 14 adds transport/parking info. Phase 15 adds ticket QR encryption (AES-256-GCM). Phase 16 adds map view, location discovery, and venue geocoding. Phase 17 adds dark mode, venue name map labels, and API efficiency improvements. Phase 18a adds admin feature flag toggles — `get_bool()` service helper, `require_feature()` backend guard, toggle switch UI in admin Settings tab, frontend flag caching; all subsequent features (18, 19, 20) are gated by their respective flags. Phase 18 adds funding milestones with timeline UI, per-milestone like/dislike, and organizer CRUD. **Phase 19 adds structured event schedule** with date/time/description hierarchy, timeline UI, and Excel export. Phase 20 adds sponsor marketplace with new sponsor role, category bidding, negotiation, in-app payment, auto-generated sponsor tickets, and customer-facing sponsor carousel. Phases 21–23 are enhancements. Phase 24 is a future architecture migration — modular monolith refactor first, microservice extraction only when team/traffic scaling triggers are met.
 
 ---
 

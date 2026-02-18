@@ -59,6 +59,7 @@ class Event {
   final String? transitInfo;
   final String? rideshareInfo;
   final String? accessibilityInfo;
+  final bool hasSchedule;
   final String? directionsUrl;
   final Venue? venue;
   final DateTime createdAt;
@@ -107,6 +108,7 @@ class Event {
     this.transitInfo,
     this.rideshareInfo,
     this.accessibilityInfo,
+    this.hasSchedule = false,
     this.directionsUrl,
     this.venue,
     required this.createdAt,
@@ -171,6 +173,7 @@ class Event {
       transitInfo: json['transit_info'],
       rideshareInfo: json['rideshare_info'],
       accessibilityInfo: json['accessibility_info'],
+      hasSchedule: json['has_schedule'] ?? false,
       directionsUrl: json['directions_url'],
       venue: json['venue'] != null ? Venue.fromJson(json['venue']) : null,
       createdAt: DateTime.parse(json['created_at']),

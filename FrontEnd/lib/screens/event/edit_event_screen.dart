@@ -19,6 +19,18 @@ class _EditMilestone {
   _EditMilestone({this.id});
 }
 
+class _EditScheduleItem {
+  int? id;
+  DateTime? date;
+  TimeOfDay startTime;
+  TimeOfDay endTime;
+  final titleCtrl = TextEditingController();
+  final descCtrl = TextEditingController();
+  _EditScheduleItem({this.id})
+      : startTime = const TimeOfDay(hour: 9, minute: 0),
+        endTime = const TimeOfDay(hour: 10, minute: 0);
+}
+
 class EditEventScreen extends StatefulWidget {
   final int eventId;
   const EditEventScreen({super.key, required this.eventId});
@@ -65,6 +77,12 @@ class _EditEventScreenState extends State<EditEventScreen> {
   bool _showMilestoneSection = false;
   List<_EditMilestone> _milestones = [];
   bool _milestonesLoaded = false;
+
+  // Schedule (live CRUD)
+  bool _showScheduleSection = false;
+  bool _hasSchedule = false;
+  List<_EditScheduleItem> _scheduleItems = [];
+  bool _scheduleLoaded = false;
 
   final List<String> _genres = [
     'community', 'music', 'tech', 'sports', 'arts',
@@ -131,9 +149,11 @@ class _EditEventScreenState extends State<EditEventScreen> {
         _rideshareCtrl.text = event.rideshareInfo ?? '';
         _accessibilityCtrl.text = event.accessibilityInfo ?? '';
         _showTransportSection = event.hasTransportInfo;
+        _hasSchedule = event.hasSchedule;
         _loadingEvent = false;
       });
       _loadMilestones();
+      _loadSchedule();
     } catch (e) {
       if (mounted) {
         AppToast.fromError(context, e, fallback: 'Failed to load event');
@@ -205,6 +225,87 @@ class _EditEventScreenState extends State<EditEventScreen> {
     setState(() => _milestones.removeAt(idx));
   }
 
+  Future<void> _loadSchedule() async {
+    try {
+      final api = context.read<ApiService>();
+      final list = await api.getSchedule(widget.eventId);
+      if (mounted) {
+        final items = <_EditScheduleItem>[];
+        for (final dayGroup in list) {
+          for (final item in (dayGroup['items'] as List)) {
+            final si = _EditScheduleItem(id: item['id']);
+            si.date = DateTime.tryParse(item['date'] ?? '');
+            final sParts = (item['start_time'] as String? ?? '09:00').split(':');
+            si.startTime = TimeOfDay(hour: int.parse(sParts[0]), minute: int.parse(sParts[1]));
+            final eParts = (item['end_time'] as String? ?? '10:00').split(':');
+            si.endTime = TimeOfDay(hour: int.parse(eParts[0]), minute: int.parse(eParts[1]));
+            si.titleCtrl.text = item['title'] ?? '';
+            si.descCtrl.text = item['description'] ?? '';
+            items.add(si);
+          }
+        }
+        setState(() {
+          _scheduleItems = items;
+          _scheduleLoaded = true;
+          if (_scheduleItems.isNotEmpty) _showScheduleSection = true;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _scheduleLoaded = true);
+    }
+  }
+
+  Future<void> _saveScheduleItem(_EditScheduleItem si) async {
+    final title = si.titleCtrl.text.trim();
+    if (title.isEmpty || si.date == null) return;
+    final api = context.read<ApiService>();
+    final dateStr =
+        '${si.date!.year}-${si.date!.month.toString().padLeft(2, '0')}-${si.date!.day.toString().padLeft(2, '0')}';
+    final startStr =
+        '${si.startTime.hour.toString().padLeft(2, '0')}:${si.startTime.minute.toString().padLeft(2, '0')}';
+    final endStr =
+        '${si.endTime.hour.toString().padLeft(2, '0')}:${si.endTime.minute.toString().padLeft(2, '0')}';
+    try {
+      if (si.id != null) {
+        await api.updateScheduleItem(widget.eventId, si.id!, {
+          'date': dateStr,
+          'start_time': startStr,
+          'end_time': endStr,
+          'title': title,
+          'description': si.descCtrl.text.trim(),
+        });
+        if (mounted) AppToast.success(context, 'Schedule item updated');
+      } else {
+        final resp = await api.createScheduleItem(widget.eventId, {
+          'date': dateStr,
+          'start_time': startStr,
+          'end_time': endStr,
+          'title': title,
+          if (si.descCtrl.text.trim().isNotEmpty)
+            'description': si.descCtrl.text.trim(),
+        });
+        si.id = resp['id'] as int;
+        if (mounted) AppToast.success(context, 'Schedule item created');
+      }
+    } catch (e) {
+      if (mounted) AppToast.fromError(context, e, fallback: 'Failed to save schedule item');
+    }
+  }
+
+  Future<void> _deleteScheduleItem(int idx) async {
+    final si = _scheduleItems[idx];
+    if (si.id != null) {
+      try {
+        final api = context.read<ApiService>();
+        await api.deleteScheduleItem(widget.eventId, si.id!);
+      } catch (e) {
+        if (mounted) AppToast.fromError(context, e, fallback: 'Failed to delete schedule item');
+        return;
+      }
+    }
+    setState(() => _scheduleItems.removeAt(idx));
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
@@ -250,6 +351,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
     data['transit_info'] = _transitCtrl.text.trim().isEmpty ? null : _transitCtrl.text.trim();
     data['rideshare_info'] = _rideshareCtrl.text.trim().isEmpty ? null : _rideshareCtrl.text.trim();
     data['accessibility_info'] = _accessibilityCtrl.text.trim().isEmpty ? null : _accessibilityCtrl.text.trim();
+    data['has_schedule'] = _hasSchedule;
 
     try {
       final api = context.read<ApiService>();
@@ -409,6 +511,304 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                   fontSize: 12, color: Colors.grey[600]),
                             ),
                             const SizedBox(height: 16),
+
+                            // ─── Event Schedule (collapsible, live CRUD) ───
+                            if (_startTime != null &&
+                                _endTime != null &&
+                                _event != null) ...[
+                              GestureDetector(
+                                onTap: () => setState(() =>
+                                    _showScheduleSection =
+                                        !_showScheduleSection),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 14, vertical: 12),
+                                  decoration: BoxDecoration(
+                                    color: _showScheduleSection
+                                        ? Colors.blue.withValues(alpha: 0.08)
+                                        : Colors.grey.withValues(alpha: 0.04),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: _showScheduleSection
+                                          ? Colors.blue.withValues(alpha: 0.3)
+                                          : Colors.grey.withValues(alpha: 0.15),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.calendar_month_rounded,
+                                          size: 18,
+                                          color: _showScheduleSection
+                                              ? Colors.blue[700]
+                                              : Colors.grey[600]),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          'Event Schedule',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 13,
+                                            color: AppTheme.textPrimaryOf(context),
+                                          ),
+                                        ),
+                                      ),
+                                      if (_scheduleItems.isNotEmpty)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.blue.withValues(alpha: 0.15),
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Text('${_scheduleItems.length}',
+                                              style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: Colors.blue[800])),
+                                        ),
+                                      const SizedBox(width: 4),
+                                      Icon(
+                                        _showScheduleSection
+                                            ? Icons.keyboard_arrow_up
+                                            : Icons.keyboard_arrow_down,
+                                        color: Colors.grey[500],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              AnimatedCrossFade(
+                                firstChild: const SizedBox.shrink(),
+                                secondChild: Container(
+                                  margin: const EdgeInsets.only(top: 8),
+                                  padding: const EdgeInsets.all(14),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.withValues(alpha: 0.03),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                        color: Colors.grey.withValues(alpha: 0.12)),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              'Use structured schedule',
+                                              style: TextStyle(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: AppTheme.textPrimaryOf(context)),
+                                            ),
+                                          ),
+                                          Switch(
+                                            value: _hasSchedule,
+                                            onChanged: (v) => setState(() => _hasSchedule = v),
+                                          ),
+                                        ],
+                                      ),
+                                      if (_hasSchedule) ...[
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          'Add time slots for your event. Save each item individually.',
+                                          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                        ),
+                                        const SizedBox(height: 12),
+                                        ..._scheduleItems.asMap().entries.map((entry) {
+                                          final idx = entry.key;
+                                          final si = entry.value;
+                                          final dateLabel = si.date != null
+                                              ? '${si.date!.month}/${si.date!.day}/${si.date!.year}'
+                                              : 'Select date';
+                                          return Container(
+                                            margin: const EdgeInsets.only(bottom: 10),
+                                            padding: const EdgeInsets.all(10),
+                                            decoration: BoxDecoration(
+                                              borderRadius: BorderRadius.circular(10),
+                                              border: Border.all(
+                                                  color: Colors.grey.withValues(alpha: 0.2)),
+                                            ),
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                                              children: [
+                                                Row(
+                                                  children: [
+                                                    GestureDetector(
+                                                      onTap: () async {
+                                                        final picked = await showDatePicker(
+                                                          context: context,
+                                                          initialDate: si.date ?? _startTime!,
+                                                          firstDate: _startTime!,
+                                                          lastDate: _endTime!,
+                                                        );
+                                                        if (picked != null) {
+                                                          setState(() => si.date = picked);
+                                                        }
+                                                      },
+                                                      child: Container(
+                                                        padding: const EdgeInsets.symmetric(
+                                                            horizontal: 10, vertical: 6),
+                                                        decoration: BoxDecoration(
+                                                          color: Colors.blue.withValues(alpha: 0.08),
+                                                          borderRadius: BorderRadius.circular(8),
+                                                        ),
+                                                        child: Row(
+                                                          mainAxisSize: MainAxisSize.min,
+                                                          children: [
+                                                            Icon(Icons.calendar_today_rounded,
+                                                                size: 14, color: Colors.blue[700]),
+                                                            const SizedBox(width: 6),
+                                                            Text(dateLabel,
+                                                                style: TextStyle(
+                                                                    fontSize: 12,
+                                                                    fontWeight: FontWeight.w600,
+                                                                    color: Colors.blue[700])),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    const Spacer(),
+                                                    IconButton(
+                                                      icon: Icon(Icons.save_rounded,
+                                                          size: 18, color: Colors.green[600]),
+                                                      onPressed: () => _saveScheduleItem(si),
+                                                      padding: EdgeInsets.zero,
+                                                      constraints: const BoxConstraints(),
+                                                      tooltip: 'Save',
+                                                    ),
+                                                    const SizedBox(width: 8),
+                                                    IconButton(
+                                                      icon: Icon(Icons.delete_outline,
+                                                          size: 18, color: Colors.red[400]),
+                                                      onPressed: () => _deleteScheduleItem(idx),
+                                                      padding: EdgeInsets.zero,
+                                                      constraints: const BoxConstraints(),
+                                                      tooltip: 'Delete',
+                                                    ),
+                                                  ],
+                                                ),
+                                                const SizedBox(height: 8),
+                                                Row(
+                                                  children: [
+                                                    Expanded(
+                                                      child: GestureDetector(
+                                                        onTap: () async {
+                                                          final t = await showTimePicker(
+                                                            context: context,
+                                                            initialTime: si.startTime,
+                                                          );
+                                                          if (t != null) {
+                                                            setState(() => si.startTime = t);
+                                                          }
+                                                        },
+                                                        child: Container(
+                                                          padding: const EdgeInsets.symmetric(
+                                                              horizontal: 10, vertical: 8),
+                                                          decoration: BoxDecoration(
+                                                            border: Border.all(
+                                                                color: Colors.grey.withValues(alpha: 0.3)),
+                                                            borderRadius: BorderRadius.circular(8),
+                                                          ),
+                                                          child: Text(si.startTime.format(context),
+                                                              style: TextStyle(
+                                                                  fontSize: 12,
+                                                                  color: AppTheme.textPrimaryOf(context))),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    Padding(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                                                      child: Text('–',
+                                                          style: TextStyle(color: Colors.grey[500])),
+                                                    ),
+                                                    Expanded(
+                                                      child: GestureDetector(
+                                                        onTap: () async {
+                                                          final t = await showTimePicker(
+                                                            context: context,
+                                                            initialTime: si.endTime,
+                                                          );
+                                                          if (t != null) {
+                                                            setState(() => si.endTime = t);
+                                                          }
+                                                        },
+                                                        child: Container(
+                                                          padding: const EdgeInsets.symmetric(
+                                                              horizontal: 10, vertical: 8),
+                                                          decoration: BoxDecoration(
+                                                            border: Border.all(
+                                                                color: Colors.grey.withValues(alpha: 0.3)),
+                                                            borderRadius: BorderRadius.circular(8),
+                                                          ),
+                                                          child: Text(si.endTime.format(context),
+                                                              style: TextStyle(
+                                                                  fontSize: 12,
+                                                                  color: AppTheme.textPrimaryOf(context))),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                const SizedBox(height: 8),
+                                                TextFormField(
+                                                  controller: si.titleCtrl,
+                                                  decoration: const InputDecoration(
+                                                    labelText: 'Title',
+                                                    hintText: 'e.g. Opening Keynote',
+                                                    isDense: true,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 8),
+                                                TextFormField(
+                                                  controller: si.descCtrl,
+                                                  decoration: const InputDecoration(
+                                                    labelText: 'Description (optional)',
+                                                    isDense: true,
+                                                  ),
+                                                  maxLines: 2,
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        }),
+                                        GestureDetector(
+                                          onTap: () => setState(
+                                              () => _scheduleItems.add(_EditScheduleItem())),
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(vertical: 12),
+                                            decoration: BoxDecoration(
+                                              borderRadius: BorderRadius.circular(10),
+                                              border: Border.all(
+                                                color: Colors.grey.withValues(alpha: 0.3),
+                                              ),
+                                            ),
+                                            child: Row(
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                Icon(Icons.add_rounded,
+                                                    size: 18, color: Colors.grey[600]),
+                                                const SizedBox(width: 6),
+                                                Text('Add Schedule Item',
+                                                    style: TextStyle(
+                                                        fontWeight: FontWeight.w600,
+                                                        fontSize: 13,
+                                                        color: Colors.grey[600])),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                                crossFadeState: _showScheduleSection
+                                    ? CrossFadeState.showSecond
+                                    : CrossFadeState.showFirst,
+                                duration: const Duration(milliseconds: 250),
+                              ),
+                              const SizedBox(height: 16),
+                            ],
 
                             TextFormField(
                               controller: _capacityCtrl,

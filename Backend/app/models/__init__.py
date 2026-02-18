@@ -14,6 +14,7 @@ from app.models.discount_strategy import DiscountStrategy, EventDiscountStrategy
 from app.models.platform_settings import PlatformSetting
 from app.models.escrow import FundEscrow, EscrowRelease, EscrowStatus
 from app.models.milestone import FundingMilestone, MilestoneReaction
+from app.models.schedule import EventScheduleItem
 
 __all__ = [
     "User",
@@ -47,4 +48,5 @@ __all__ = [
     "EscrowStatus",
     "FundingMilestone",
     "MilestoneReaction",
+    "EventScheduleItem",
 ]

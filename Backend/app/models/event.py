@@ -81,6 +81,7 @@ class Event(Base):
     transit_info: Mapped[str | None] = mapped_column(Text, nullable=True)
     rideshare_info: Mapped[str | None] = mapped_column(Text, nullable=True)
     accessibility_info: Mapped[str | None] = mapped_column(Text, nullable=True)
+    has_schedule: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -100,6 +101,7 @@ class Event(Base):
     discount_strategy_links = relationship("EventDiscountStrategyLink", back_populates="event", cascade="all, delete-orphan")
     escrow = relationship("FundEscrow", back_populates="event", uselist=False, cascade="all, delete-orphan")
     milestones = relationship("FundingMilestone", back_populates="event", cascade="all, delete-orphan")
+    schedule_items = relationship("EventScheduleItem", back_populates="event", cascade="all, delete-orphan")
 
 
 class EventDiscount(Base):

@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../config/theme.dart';
 import '../../models/event.dart';
 import '../../models/milestone.dart';
+import '../../models/schedule.dart';
 import '../../models/post.dart';
 import '../../models/event_image.dart';
 import '../../models/venue.dart';
@@ -428,6 +429,12 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                 ),
                                 const SizedBox(height: 24),
                               ],
+
+                              // ── Event Schedule (self-contained) ──
+                              _EventSchedule(
+                                eventId: widget.eventId,
+                                event: event,
+                              ),
 
                               // ── Event Details Grid ──
                               Container(
@@ -6053,6 +6060,343 @@ class _EventFeedState extends State<_EventFeed> {
             },
           ),
       ],
+    );
+  }
+}
+
+
+// ═══════════════════════════════════════════
+// SECTION: Event Schedule Timeline
+// ═══════════════════════════════════════════
+
+class _EventSchedule extends StatefulWidget {
+  final int eventId;
+  final Event event;
+
+  const _EventSchedule({required this.eventId, required this.event});
+
+  @override
+  State<_EventSchedule> createState() => _EventScheduleState();
+}
+
+class _EventScheduleState extends State<_EventSchedule> {
+  List<ScheduleDay> _days = [];
+  int _selectedIdx = 0;
+  bool _loading = true;
+  bool _featureEnabled = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final api = context.read<ApiService>();
+
+      try {
+        final flags = await api.getFeatureFlags();
+        if (flags['feature_schedule_enabled'] == false) {
+          if (mounted) setState(() { _featureEnabled = false; _loading = false; });
+          return;
+        }
+      } catch (_) {}
+
+      final list = await api.getSchedule(widget.eventId);
+      final days = list.map((j) => ScheduleDay.fromJson(j)).toList();
+
+      if (mounted) {
+        setState(() {
+          _days = days;
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  String _formatDate(String isoDate) {
+    try {
+      final d = DateTime.parse(isoDate);
+      return DateFormat('MMM d, yyyy').format(d);
+    } catch (_) {
+      return isoDate;
+    }
+  }
+
+  String _formatTime24to12(String hhmm) {
+    try {
+      final parts = hhmm.split(':');
+      final h = int.parse(parts[0]);
+      final m = int.parse(parts[1]);
+      final period = h >= 12 ? 'PM' : 'AM';
+      final h12 = h == 0 ? 12 : (h > 12 ? h - 12 : h);
+      return '$h12:${m.toString().padLeft(2, '0')} $period';
+    } catch (_) {
+      return hhmm;
+    }
+  }
+
+  Future<void> _downloadExcel() async {
+    final api = context.read<ApiService>();
+    final url = api.getScheduleExportUrl(widget.eventId);
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_featureEnabled) return const SizedBox.shrink();
+    if (_loading) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      );
+    }
+    if (_days.isEmpty) return const SizedBox.shrink();
+
+    final selectedDay = _days[_selectedIdx];
+    int totalSessions = 0;
+    for (final d in _days) {
+      totalSessions += d.items.length;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 24),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppTheme.cardOf(context),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppTheme.dividerOf(context)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              children: [
+                Icon(Icons.calendar_month_rounded, size: 18, color: Colors.blue[600]),
+                const SizedBox(width: 8),
+                Text(
+                  'Event Schedule',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.grey[500],
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const Spacer(),
+                Material(
+                  color: Colors.blue.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: _downloadExcel,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.download_rounded, size: 14, color: Colors.blue[600]),
+                          const SizedBox(width: 4),
+                          Text('Excel',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.blue[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+
+            // Date tab pills
+            SizedBox(
+              height: 36,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _days.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (context, idx) {
+                  final isSelected = idx == _selectedIdx;
+                  return GestureDetector(
+                    onTap: () => setState(() => _selectedIdx = idx),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? Colors.blue.withValues(alpha: 0.12)
+                            : AppTheme.surfaceOf(context),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: isSelected
+                              ? Colors.blue.withValues(alpha: 0.4)
+                              : AppTheme.dividerOf(context),
+                        ),
+                      ),
+                      child: Text(
+                        _formatDate(_days[idx].date),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                          color: isSelected
+                              ? Colors.blue[700]
+                              : AppTheme.textSecondaryOf(context),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Vertical timeline for selected date
+            ...selectedDay.items.asMap().entries.map((entry) {
+              final idx = entry.key;
+              final item = entry.value;
+              final isLast = idx == selectedDay.items.length - 1;
+              final isOverlap = item.overlaps;
+
+              return IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: 36,
+                      child: Column(
+                        children: [
+                          Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: isOverlap ? Colors.amber[700] : Colors.blue[600],
+                            ),
+                            child: Center(
+                              child: Icon(
+                                isOverlap ? Icons.warning_rounded : Icons.schedule_rounded,
+                                size: 13,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                          if (!isLast)
+                            Expanded(
+                              child: Container(
+                                width: 2,
+                                color: isOverlap
+                                    ? Colors.amber.withValues(alpha: 0.4)
+                                    : Colors.blue.withValues(alpha: 0.2),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Container(
+                        margin: EdgeInsets.only(bottom: isLast ? 0 : 14),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.surfaceOf(context),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border(
+                            left: BorderSide(
+                              color: isOverlap ? Colors.amber[700]! : Colors.blue.withValues(alpha: 0.3),
+                              width: 3,
+                            ),
+                            top: BorderSide(color: AppTheme.dividerOf(context)),
+                            right: BorderSide(color: AppTheme.dividerOf(context)),
+                            bottom: BorderSide(color: AppTheme.dividerOf(context)),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  '${_formatTime24to12(item.startTime)} – ${_formatTime24to12(item.endTime)}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: isOverlap ? Colors.amber[800] : Colors.blue[700],
+                                  ),
+                                ),
+                                if (isOverlap) ...[
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.amber.withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text('Overlaps',
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.amber[800],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              item.title,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.textPrimaryOf(context),
+                              ),
+                            ),
+                            if (item.description != null && item.description!.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                item.description!,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppTheme.textSecondaryOf(context),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+
+            const SizedBox(height: 14),
+            Center(
+              child: Text(
+                '$totalSessions session${totalSessions == 1 ? '' : 's'} across ${_days.length} day${_days.length == 1 ? '' : 's'}',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textSecondaryOf(context),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -670,4 +670,38 @@ class ApiService {
         await dio.get('/events/$eventId/milestones/$milestoneId/my-reaction');
     return resp.data;
   }
+
+  // ─── Schedule ───
+
+  Future<List<dynamic>> getSchedule(int eventId) async {
+    final resp = await dio.get('/events/$eventId/schedule');
+    return resp.data;
+  }
+
+  Future<Map<String, dynamic>> createScheduleItem(
+      int eventId, Map<String, dynamic> data) async {
+    final resp = await dio.post('/events/$eventId/schedule', data: data);
+    return resp.data;
+  }
+
+  Future<List<dynamic>> bulkCreateSchedule(
+      int eventId, List<Map<String, dynamic>> items) async {
+    final resp = await dio.post('/events/$eventId/schedule/bulk', data: items);
+    return resp.data as List;
+  }
+
+  Future<Map<String, dynamic>> updateScheduleItem(
+      int eventId, int itemId, Map<String, dynamic> data) async {
+    final resp =
+        await dio.patch('/events/$eventId/schedule/$itemId', data: data);
+    return resp.data;
+  }
+
+  Future<void> deleteScheduleItem(int eventId, int itemId) async {
+    await dio.delete('/events/$eventId/schedule/$itemId');
+  }
+
+  String getScheduleExportUrl(int eventId) {
+    return '${dio.options.baseUrl}/events/$eventId/schedule/export';
+  }
 }

@@ -4,9 +4,6 @@ import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/theme_provider.dart';
-import '../../widgets/app_toast.dart';
-import '../legal/terms_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -90,133 +87,54 @@ class ProfileScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 32),
 
-                      // Quick links
-                      Card(
-                        child: Column(
-                          children: [
-                            if (user.isCustomer) ...[
-                              ListTile(
-                                leading: Icon(Icons.volunteer_activism, color: AppTheme.textSecondaryOf(context)),
-                                title: const Text('My Pledges'),
-                                trailing: Icon(Icons.chevron_right, color: AppTheme.textSecondaryOf(context)),
-                                onTap: () {
-                                  AppToast.info(context, 'Coming soon');
-                                },
-                              ),
-                              const Divider(height: 1),
-                              ListTile(
-                                leading: Icon(Icons.confirmation_number, color: AppTheme.textSecondaryOf(context)),
-                                title: const Text('My Tickets'),
-                                trailing: Icon(Icons.chevron_right, color: AppTheme.textSecondaryOf(context)),
-                                onTap: () => context.push('/my-tickets'),
-                              ),
-                              const Divider(height: 1),
-                              ListTile(
-                                leading: Icon(Icons.storefront_rounded, color: AppTheme.accentColor),
-                                title: const Text('Become a Sponsor'),
-                                trailing: Icon(Icons.chevron_right, color: AppTheme.textSecondaryOf(context)),
-                                onTap: () => context.push('/sponsor/onboarding'),
-                              ),
-                              const Divider(height: 1),
-                            ],
-                            if (user.isSponsor) ...[
-                              ListTile(
-                                leading: Icon(Icons.dashboard_rounded, color: AppTheme.textSecondaryOf(context)),
-                                title: const Text('Sponsor Dashboard'),
-                                trailing: Icon(Icons.chevron_right, color: AppTheme.textSecondaryOf(context)),
-                                onTap: () => context.push('/sponsor/dashboard'),
-                              ),
-                              const Divider(height: 1),
-                              ListTile(
-                                leading: Icon(Icons.confirmation_number_outlined, color: AppTheme.textSecondaryOf(context)),
-                                title: const Text('Sponsor Tickets'),
-                                trailing: Icon(Icons.chevron_right, color: AppTheme.textSecondaryOf(context)),
-                                onTap: () => context.push('/sponsor/tickets'),
-                              ),
-                              const Divider(height: 1),
-                              ListTile(
-                                leading: Icon(Icons.storefront_rounded, color: AppTheme.textSecondaryOf(context)),
-                                title: const Text('Edit Sponsor Profile'),
-                                trailing: Icon(Icons.chevron_right, color: AppTheme.textSecondaryOf(context)),
-                                onTap: () => context.push('/sponsor/onboarding'),
-                              ),
-                              const Divider(height: 1),
-                            ],
-                            if (user.isOrganizer) ...[
-                              ListTile(
-                                leading: Icon(Icons.location_city, color: AppTheme.textSecondaryOf(context)),
-                                title: const Text('My Venues'),
-                                trailing: Icon(Icons.chevron_right, color: AppTheme.textSecondaryOf(context)),
-                                onTap: () => context.push('/venues'),
-                              ),
-                              const Divider(height: 1),
-                            ],
-                            if (user.isAdmin) ...[
-                              ListTile(
-                                leading: Icon(Icons.admin_panel_settings, color: AppTheme.textSecondaryOf(context)),
-                                title: const Text('Admin Dashboard'),
-                                trailing: Icon(Icons.chevron_right, color: AppTheme.textSecondaryOf(context)),
-                                onTap: () => context.push('/admin'),
-                              ),
-                              const Divider(height: 1),
-                            ],
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      // Appearance
-                      Card(
-                        child: Column(
-                          children: [
-                            Builder(builder: (ctx) {
-                              final themeProv = ctx.watch<ThemeProvider>();
-                              return ListTile(
-                                leading: Icon(
-                                  themeProv.isDark
-                                      ? Icons.dark_mode_rounded
-                                      : Icons.light_mode_rounded,
-                                  color: AppTheme.textSecondaryOf(ctx),
+                      if (user.isSponsor || user.isOrganizer || user.isAdmin)
+                        Card(
+                          child: Column(
+                            children: [
+                              if (user.isSponsor) ...[
+                                ListTile(
+                                  leading: Icon(Icons.dashboard_rounded, color: AppTheme.textSecondaryOf(context)),
+                                  title: const Text('Sponsor Dashboard'),
+                                  trailing: Icon(Icons.chevron_right, color: AppTheme.textSecondaryOf(context)),
+                                  onTap: () => context.push('/sponsor/dashboard'),
                                 ),
-                                title: const Text('Dark Mode'),
-                                trailing: Switch.adaptive(
-                                  value: themeProv.isDark,
-                                  activeColor: AppTheme.accentColor,
-                                  onChanged: (_) => themeProv.toggle(),
+                                const Divider(height: 1),
+                                ListTile(
+                                  leading: Icon(Icons.confirmation_number_outlined, color: AppTheme.textSecondaryOf(context)),
+                                  title: const Text('Sponsor Tickets'),
+                                  trailing: Icon(Icons.chevron_right, color: AppTheme.textSecondaryOf(context)),
+                                  onTap: () => context.push('/sponsor/tickets'),
                                 ),
-                                onTap: () => themeProv.toggle(),
-                              );
-                            }),
-                          ],
+                                const Divider(height: 1),
+                                ListTile(
+                                  leading: Icon(Icons.storefront_rounded, color: AppTheme.textSecondaryOf(context)),
+                                  title: const Text('Edit Sponsor Profile'),
+                                  trailing: Icon(Icons.chevron_right, color: AppTheme.textSecondaryOf(context)),
+                                  onTap: () => context.push('/sponsor/onboarding'),
+                                ),
+                                const Divider(height: 1),
+                              ],
+                              if (user.isOrganizer) ...[
+                                ListTile(
+                                  leading: Icon(Icons.location_city, color: AppTheme.textSecondaryOf(context)),
+                                  title: const Text('My Venues'),
+                                  trailing: Icon(Icons.chevron_right, color: AppTheme.textSecondaryOf(context)),
+                                  onTap: () => context.push('/venues'),
+                                ),
+                                const Divider(height: 1),
+                              ],
+                              if (user.isAdmin) ...[
+                                ListTile(
+                                  leading: Icon(Icons.admin_panel_settings, color: AppTheme.textSecondaryOf(context)),
+                                  title: const Text('Admin Dashboard'),
+                                  trailing: Icon(Icons.chevron_right, color: AppTheme.textSecondaryOf(context)),
+                                  onTap: () => context.push('/admin'),
+                                ),
+                                const Divider(height: 1),
+                              ],
+                            ],
+                          ),
                         ),
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      // Legal
-                      Card(
-                        child: Column(
-                          children: [
-                            ListTile(
-                              leading: Icon(Icons.description_outlined, color: AppTheme.textSecondaryOf(context)),
-                              title: const Text('Terms & Conditions'),
-                              trailing: Icon(Icons.chevron_right, color: AppTheme.textSecondaryOf(context)),
-                              onTap: () {
-                                final role = user.isOrganizer
-                                    ? 'organizer'
-                                    : 'customer';
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        TermsScreen(role: role),
-                                  ),
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
 
                       const SizedBox(height: 32),
 

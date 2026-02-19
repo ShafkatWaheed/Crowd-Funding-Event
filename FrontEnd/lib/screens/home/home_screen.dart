@@ -7,10 +7,12 @@ import '../../config/theme.dart';
 import '../../models/event.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/event_provider.dart';
+import '../../providers/theme_provider.dart';
 import '../../services/api_service.dart';
 import '../../widgets/event_lifecycle_bar.dart';
 import '../../widgets/event_map_widget.dart';
 import '../../services/location_helper.dart';
+import '../legal/terms_screen.dart';
 
 String _statusDisplayName(EventStatus s) {
   switch (s) {
@@ -1690,20 +1692,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         onTap: () => context.push('/profile'),
                       ),
                       Divider(height: 1, indent: 56, color: AppTheme.dividerOf(context)),
-                      if (user.isCustomer) ...[
-_profileTile(
-                        icon: Icons.volunteer_activism_rounded,
-                        label: 'My Pledges',
-                        onTap: () => context.push('/my-pledges'),
-                      ),
-                        Divider(height: 1, indent: 56, color: AppTheme.dividerOf(context)),
-_profileTile(
-                        icon: Icons.confirmation_number_rounded,
-                        label: 'My Tickets',
-                        onTap: () => context.push('/my-tickets'),
-                      ),
-                        Divider(height: 1, indent: 56, color: AppTheme.dividerOf(context)),
-                      ],
                     ],
                   ),
                 ),
@@ -1755,6 +1743,107 @@ _profileTile(
                     ),
                   ),
                 ],
+
+                if (user.isCustomer) ...[
+                  const SizedBox(height: 24),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppTheme.cardOf(context),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.04),
+                          blurRadius: 12,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: _profileTile(
+                      icon: Icons.storefront_rounded,
+                      label: 'Become a Sponsor',
+                      onTap: () => context.push('/sponsor/onboarding'),
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 24),
+                Text('Preferences',
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textSecondaryOf(context),
+                        letterSpacing: 0.5)),
+                const SizedBox(height: 12),
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppTheme.cardOf(context),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 12,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      Builder(builder: (ctx) {
+                        final themeProv = ctx.watch<ThemeProvider>();
+                        return InkWell(
+                          onTap: () => themeProv.toggle(),
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.surfaceOf(ctx),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Icon(
+                                    themeProv.isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+                                    size: 20,
+                                    color: AppTheme.textPrimaryOf(ctx),
+                                  ),
+                                ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Text('Dark Mode',
+                                      style: TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w500,
+                                          color: AppTheme.textPrimaryOf(ctx))),
+                                ),
+                                Switch.adaptive(
+                                  value: themeProv.isDark,
+                                  activeColor: AppTheme.accentColor,
+                                  onChanged: (_) => themeProv.toggle(),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }),
+                      Divider(height: 1, indent: 56, color: AppTheme.dividerOf(context)),
+                      _profileTile(
+                        icon: Icons.description_outlined,
+                        label: 'Terms & Conditions',
+                        onTap: () {
+                          final role = user.isOrganizer ? 'organizer' : 'customer';
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => TermsScreen(role: role),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
 
                 const SizedBox(height: 32),
 

@@ -27,5 +27,9 @@ cryptography>=42.0.0
 # Excel export (schedule)
 openpyxl>=3.1.0
 
+# File upload & static serving
+python-multipart>=0.0.7
+aiofiles>=23.2.0
+
 # Migrations
 alembic>=1.13.0

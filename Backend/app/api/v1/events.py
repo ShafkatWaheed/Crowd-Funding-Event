@@ -3,7 +3,7 @@ Events: CRUD, list (filters), pledge, register, registrations.
 """
 from datetime import date, datetime, timezone
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Query, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel
 
@@ -199,6 +199,8 @@ async def list_events(
     genre: str | None = Query(None, description="Filter by genre"),
     community_rules: bool | None = Query(None, description="True = community rules events only"),
     include_all_statuses: bool = Query(False, description="True = show draft/pending/cancelled (for organizer/admin)"),
+    offset: int = Query(0, ge=0, description="Pagination offset"),
+    limit: int = Query(20, ge=1, le=100, description="Page size (max 100)"),
 ):
     """List events with optional search and filters."""
     date_from_dt = _parse_date_or_datetime(date_from, end_of_day=False)
@@ -220,6 +222,8 @@ async def list_events(
         genre=genre,
         community_rules=community_rules,
         include_all_statuses=include_all_statuses,
+        offset=offset,
+        limit=limit,
     )
     event_ids = [e.id for e in events]
     pledged = await funding_service.get_pledged_totals_for_events(db, event_ids=event_ids)
@@ -1586,6 +1590,58 @@ async def add_event_image(
     if not await event_service.user_can_edit_event(db, event, current_user):
         raise ForbiddenError("You cannot manage this event")
     from app.models.image import EventImage
+    img = EventImage(
+        event_id=event_id,
+        image_url=image_url,
+        caption=caption,
+        display_order=display_order,
+    )
+    db.add(img)
+    await db.flush()
+    await db.refresh(img)
+    return EventImageResponse.model_validate(img)
+
+
+@router.post("/{event_id}/images/upload", response_model=EventImageResponse)
+async def upload_event_image(
+    event_id: int,
+    db: DbSession,
+    file: "UploadFile" = File(...),
+    caption: str | None = Form(None),
+    display_order: int = Form(0),
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+):
+    """Upload an image file for an event (organizer/admin)."""
+    from pathlib import Path
+    import uuid
+    from app.models.image import EventImage
+
+    event = await event_service.get_or_404(db, event_id)
+    if not await event_service.user_can_edit_event(db, event, current_user):
+        raise ForbiddenError("You cannot manage this event")
+
+    ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+    if file.content_type not in ALLOWED_TYPES:
+        from fastapi import HTTPException
+        raise HTTPException(400, f"Unsupported file type: {file.content_type}. Allowed: JPEG, PNG, WebP, GIF")
+
+    MAX_SIZE = 10 * 1024 * 1024  # 10 MB
+    contents = await file.read()
+    if len(contents) > MAX_SIZE:
+        from fastapi import HTTPException
+        raise HTTPException(400, "Image file too large (max 10 MB)")
+
+    ext = Path(file.filename or "img.jpg").suffix.lower() or ".jpg"
+    if ext not in {".jpg", ".jpeg", ".png", ".webp", ".gif"}:
+        ext = ".jpg"
+    filename = f"{event_id}_{uuid.uuid4().hex[:12]}{ext}"
+
+    upload_dir = Path(__file__).resolve().parent.parent.parent.parent / "static" / "uploads"
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    dest = upload_dir / filename
+    dest.write_bytes(contents)
+
+    image_url = f"/static/uploads/{filename}"
     img = EventImage(
         event_id=event_id,
         image_url=image_url,

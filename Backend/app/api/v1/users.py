@@ -228,10 +228,12 @@ async def get_my_organizer_ticket_sales(
 async def get_my_events(
     db: DbSession,
     current_user: CurrentUser,
+    offset: int = Query(0, ge=0, description="Pagination offset"),
+    limit: int = Query(20, ge=1, le=100, description="Page size (max 100)"),
 ):
     """Events the current user is registered to (includes cancelled events so the user can see cancellation reasons)."""
     from datetime import datetime, timezone
-    events = await event_service.get_my_registered_events(db, user_id=current_user.id)
+    events = await event_service.get_my_registered_events(db, user_id=current_user.id, offset=offset, limit=limit)
     event_ids = [e.id for e in events]
     pledged = await funding_service.get_pledged_totals_for_events(db, event_ids=event_ids) if event_ids else {}
     now = datetime.now(timezone.utc)

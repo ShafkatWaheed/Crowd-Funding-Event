@@ -213,6 +213,8 @@ async def list_events(
     genre: str | None = None,
     community_rules: bool | None = None,
     include_all_statuses: bool = False,
+    offset: int = 0,
+    limit: int | None = None,
 ) -> Sequence[Event]:
     """List events with optional filters. include_all_statuses=True skips the default hidden-status filter (for organizer/admin)."""
     conditions = []
@@ -291,6 +293,10 @@ async def list_events(
     if conditions:
         q = q.where(and_(*conditions))
     q = q.options(selectinload(Event.venue), selectinload(Event.ticket_strategy)).order_by(Event.start_time.asc())
+    if offset:
+        q = q.offset(offset)
+    if limit is not None:
+        q = q.limit(limit)
     result = await db.execute(q)
     return result.scalars().unique().all()
 
@@ -984,7 +990,9 @@ async def delete_or_cancel(db: AsyncSession, event: Event, user: User) -> None:
         await db.flush()
 
 
-async def get_my_registered_events(db: AsyncSession, *, user_id: int) -> Sequence[Event]:
+async def get_my_registered_events(
+    db: AsyncSession, *, user_id: int, offset: int = 0, limit: int | None = None,
+) -> Sequence[Event]:
     """Events the user is registered to (any registration status). Useful for 'My Events'."""
     q = (
         select(Event)
@@ -996,6 +1004,10 @@ async def get_my_registered_events(db: AsyncSession, *, user_id: int) -> Sequenc
         .options(selectinload(Event.venue), selectinload(Event.ticket_strategy))
         .order_by(Event.created_at.desc())
     )
+    if offset:
+        q = q.offset(offset)
+    if limit is not None:
+        q = q.limit(limit)
     result = await db.execute(q)
     return result.scalars().unique().all()
 

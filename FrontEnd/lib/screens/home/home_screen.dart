@@ -35,6 +35,27 @@ String _statusDisplayName(EventStatus s) {
   }
 }
 
+Color _statusChipColor(EventStatus s) {
+  switch (s) {
+    case EventStatus.approved:
+      return const Color(0xFF276EF1);
+    case EventStatus.selling_tickets:
+      return const Color(0xFF05944F);
+    case EventStatus.live:
+      return const Color(0xFFE11900);
+    case EventStatus.completed:
+      return const Color(0xFF7356BF);
+    case EventStatus.cancelled:
+      return const Color(0xFF8B0000);
+    case EventStatus.draft:
+      return const Color(0xFF757575);
+    case EventStatus.pending_approval:
+      return const Color(0xFFE65100);
+    case EventStatus.waiting_event_date:
+      return const Color(0xFF00838F);
+  }
+}
+
 class HomeScreen extends StatefulWidget {
   final int initialTab;
   const HomeScreen({super.key, this.initialTab = 0});
@@ -65,13 +86,39 @@ class _HomeScreenState extends State<HomeScreen> {
     'food', 'charity', 'education', 'business', 'other',
   ];
 
+  List<EventStatus> get _visibleStatuses {
+    final user = context.read<AuthProvider>().user;
+    if (user != null && (user.isOrganizer || user.isAdmin)) {
+      return EventStatus.values.toList();
+    }
+    return [
+      EventStatus.approved,
+      EventStatus.selling_tickets,
+      EventStatus.live,
+    ];
+  }
+
+  List<EventStatus> get _manageVisibleStatuses {
+    final user = context.read<AuthProvider>().user;
+    if (user != null && (user.isOrganizer || user.isAdmin)) {
+      return EventStatus.values.toList();
+    }
+    return [
+      EventStatus.approved,
+      EventStatus.selling_tickets,
+      EventStatus.live,
+      EventStatus.completed,
+    ];
+  }
+
   // Home tab search
   final _homeSearchCtrl = TextEditingController();
   String? _homeGenre;
+  String? _homeStatus;
   List<Event> _homeSearchResults = [];
   bool _homeSearching = false;
   bool get _isHomeFiltered =>
-      _homeSearchCtrl.text.isNotEmpty || _homeGenre != null;
+      _homeSearchCtrl.text.isNotEmpty || _homeGenre != null || _homeStatus != null;
 
   // Featured sections
   List<Event> _trending = [];
@@ -86,11 +133,13 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _myEventsLoading = false;
   String _myEventsSearch = '';
   String? _myEventsGenre;
+  String? _myEventsStatus;
 
   // Sponsor bid events
   List<_SponsorBidEvent> _sponsorBidEvents = [];
   bool _sponsorBidEventsLoading = false;
   String _sponsorBidSearch = '';
+  String? _sponsorBidStatus;
 
   @override
   void initState() {
@@ -248,6 +297,9 @@ class _HomeScreenState extends State<HomeScreen> {
       if (_homeGenre != null) {
         params['genre'] = _homeGenre;
       }
+      if (_homeStatus != null) {
+        params['status'] = _homeStatus;
+      }
       final data = await api.getEvents(params: params);
       setState(() {
         _homeSearchResults = data.map((e) => Event.fromJson(e)).toList();
@@ -260,6 +312,7 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _homeSearchCtrl.clear();
       _homeGenre = null;
+      _homeStatus = null;
       _homeSearchResults = [];
     });
   }
@@ -597,6 +650,42 @@ class _HomeScreenState extends State<HomeScreen> {
                       }).toList(),
                     ),
                   ),
+                  const SizedBox(height: 10),
+                  // Status chips
+                  SizedBox(
+                    height: 38,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      children: _visibleStatuses.map((s) {
+                        final isActive = _homeStatus == s.name;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ChoiceChip(
+                            label: Text(_statusDisplayName(s)),
+                            selected: isActive,
+                            onSelected: (selected) {
+                              setState(() {
+                                _homeStatus = selected ? s.name : null;
+                              });
+                              _homeSearch();
+                            },
+                            selectedColor: _statusChipColor(s),
+                            backgroundColor: AppTheme.cardOf(context),
+                            side: BorderSide(
+                              color: isActive
+                                  ? _statusChipColor(s)
+                                  : AppTheme.dividerOf(context),
+                            ),
+                            labelStyle: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: isActive ? Colors.white : AppTheme.textPrimaryOf(context),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -740,7 +829,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 bottomRight: Radius.circular(28),
               ),
             ),
-            padding: const EdgeInsets.fromLTRB(20, 56, 20, 20),
+            padding: const EdgeInsets.fromLTRB(20, 56, 20, 10),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -782,7 +871,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 TextField(
                   controller: _searchController,
                   decoration: InputDecoration(
@@ -809,84 +898,82 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   onSubmitted: (_) => _applyFilters(),
                 ),
-                const SizedBox(height: 12),
-                // Filters row
+                const SizedBox(height: 10),
                 Row(
                   children: [
                     Expanded(
                       child: SizedBox(
-                        height: 44,
-                        child: DropdownButtonFormField<String>(
-                          value: _selectedStatus,
-                          isDense: true,
-                          decoration: InputDecoration(
-                            labelText: 'Status',
-                            filled: true,
-                            fillColor: AppTheme.inputFillOf(context),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: BorderSide.none,
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 8),
-                          ),
-                          items: [
-                            const DropdownMenuItem(
-                                value: null, child: Text('All')),
-                            ...EventStatus.values
-                                .where((s) =>
-                                    (user != null &&
-                                        (user.isOrganizer || user.isAdmin)) ||
-                                    (s != EventStatus.draft &&
-                                        s != EventStatus.pending_approval &&
-                                        s != EventStatus.cancelled &&
-                                        s != EventStatus.waiting_event_date))
-                                .map((s) => DropdownMenuItem(
-                                    value: s.name,
-                                    child: Text(_statusDisplayName(s),
-                                        style: const TextStyle(fontSize: 13)))),
-                          ],
-                          onChanged: (v) {
-                            setState(() => _selectedStatus = v);
-                            _applyFilters();
-                          },
+                        height: 36,
+                        child: ListView(
+                          scrollDirection: Axis.horizontal,
+                          children: _visibleStatuses.map((s) {
+                            final isActive = _selectedStatus == s.name;
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: ChoiceChip(
+                                label: Text(_statusDisplayName(s)),
+                                selected: isActive,
+                                onSelected: (selected) {
+                                  setState(() {
+                                    _selectedStatus = selected ? s.name : null;
+                                  });
+                                  _applyFilters();
+                                },
+                                selectedColor: _statusChipColor(s),
+                                backgroundColor: AppTheme.cardOf(context),
+                                side: BorderSide(
+                                  color: isActive
+                                      ? _statusChipColor(s)
+                                      : AppTheme.dividerOf(context),
+                                ),
+                                labelStyle: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: isActive ? Colors.white : AppTheme.textPrimaryOf(context),
+                                ),
+                                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                visualDensity: VisualDensity.compact,
+                              ),
+                            );
+                          }).toList(),
                         ),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      height: 44,
-                      width: 44,
+                      height: 34,
+                      width: 34,
                       decoration: BoxDecoration(
                         color: _showAdvanced
                             ? AppTheme.primaryColor
                             : AppTheme.surfaceOf(context),
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(8),
                       ),
                       child: IconButton(
+                        padding: EdgeInsets.zero,
                         icon: Icon(
                           Icons.tune_rounded,
                           color: _showAdvanced
                               ? Colors.white
                               : AppTheme.textSecondaryOf(context),
-                          size: 20,
+                          size: 16,
                         ),
                         onPressed: () =>
                             setState(() => _showAdvanced = !_showAdvanced),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     SizedBox(
-                      height: 44,
+                      height: 34,
                       child: ElevatedButton(
                         onPressed: _applyFilters,
                         style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(8),
                           ),
                         ),
-                        child: const Text('Go', style: TextStyle(fontSize: 14)),
+                        child: const Text('Go', style: TextStyle(fontSize: 13)),
                       ),
                     ),
                   ],
@@ -996,7 +1083,7 @@ class _HomeScreenState extends State<HomeScreen> {
         // ── Results header with Map/List toggle ──
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 6),
             child: Row(
               children: [
                 Expanded(
@@ -1428,6 +1515,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildMyEventsTab() {
     final filtered = _myEvents.where((e) {
       if (_myEventsGenre != null && e.genre != _myEventsGenre) return false;
+      if (_myEventsStatus != null && e.status.name != _myEventsStatus) return false;
       if (_myEventsSearch.isNotEmpty) {
         final q = _myEventsSearch.toLowerCase();
         return (e.title.toLowerCase().contains(q)) ||
@@ -1550,6 +1638,40 @@ class _HomeScreenState extends State<HomeScreen> {
                   }).toList(),
                 ),
               ),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 38,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: _manageVisibleStatuses.map((s) {
+                    final isActive = _myEventsStatus == s.name;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(_statusDisplayName(s)),
+                        selected: isActive,
+                        onSelected: (selected) {
+                          setState(() {
+                            _myEventsStatus = selected ? s.name : null;
+                          });
+                        },
+                        selectedColor: _statusChipColor(s),
+                        backgroundColor: AppTheme.cardOf(context),
+                        side: BorderSide(
+                          color: isActive
+                              ? _statusChipColor(s)
+                              : AppTheme.dividerOf(context),
+                        ),
+                        labelStyle: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: isActive ? Colors.white : AppTheme.textPrimaryOf(context),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
             ],
           ),
         ),
@@ -1618,11 +1740,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildSponsorManageTab() {
     final filtered = _sponsorBidEvents.where((item) {
-      if (_sponsorBidSearch.isEmpty) return true;
-      final q = _sponsorBidSearch.toLowerCase();
-      return item.event.title.toLowerCase().contains(q) ||
-          (item.event.genre?.toLowerCase().contains(q) ?? false) ||
-          item.event.status.name.toLowerCase().contains(q);
+      if (_sponsorBidStatus != null && item.event.status.name != _sponsorBidStatus) return false;
+      if (_sponsorBidSearch.isNotEmpty) {
+        final q = _sponsorBidSearch.toLowerCase();
+        return item.event.title.toLowerCase().contains(q) ||
+            (item.event.genre?.toLowerCase().contains(q) ?? false) ||
+            item.event.status.name.toLowerCase().contains(q);
+      }
+      return true;
     }).toList();
 
     return Column(
@@ -1711,6 +1836,40 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 onChanged: (v) => setState(() => _sponsorBidSearch = v),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 38,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: _manageVisibleStatuses.map((s) {
+                    final isActive = _sponsorBidStatus == s.name;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(_statusDisplayName(s)),
+                        selected: isActive,
+                        onSelected: (selected) {
+                          setState(() {
+                            _sponsorBidStatus = selected ? s.name : null;
+                          });
+                        },
+                        selectedColor: _statusChipColor(s),
+                        backgroundColor: AppTheme.cardOf(context),
+                        side: BorderSide(
+                          color: isActive
+                              ? _statusChipColor(s)
+                              : AppTheme.dividerOf(context),
+                        ),
+                        labelStyle: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: isActive ? Colors.white : AppTheme.textPrimaryOf(context),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
               ),
             ],
           ),

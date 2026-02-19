@@ -237,11 +237,11 @@ async def list_events(
             return []
         conditions.append(Event.status == status_enum)
     elif not include_all_statuses and organizer_id is None:
-        # Default: hide draft/pending/cancelled/waiting_event_date from public listing (customers)
         conditions.append(
             Event.status.notin_([
                 EventStatus.draft, EventStatus.pending_approval,
                 EventStatus.cancelled, EventStatus.waiting_event_date,
+                EventStatus.completed,
             ])
         )
     if live is True:
@@ -315,7 +315,10 @@ async def list_events_for_map(
         conditions.append(Event.organizer_id == organizer_id)
     else:
         conditions.append(
-            Event.status.not_in([EventStatus.draft, EventStatus.pending_approval, EventStatus.cancelled]),
+            Event.status.not_in([
+                EventStatus.draft, EventStatus.pending_approval,
+                EventStatus.cancelled, EventStatus.completed,
+            ]),
         )
     q = select(Event)
     if city is not None:

@@ -727,6 +727,7 @@ async def pledge_event(
         amount_cents=body.amount_cents,
         reserved_spots=body.reserved_spots,
     )
+    await db.commit()
     return PledgeResponse(
         id=pledge.id,
         event_id=pledge.event_id,

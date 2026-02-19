@@ -7,7 +7,6 @@ import '../../config/theme.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_toast.dart';
 
-/// Pledge receipt screen showing pledge details, commission, and reserved spots.
 class PledgeReceiptScreen extends StatefulWidget {
   final int eventId;
   final int pledgeId;
@@ -48,7 +47,7 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F3FF),
+      backgroundColor: AppTheme.surfaceOf(context),
       appBar: AppBar(
         title: Text(_receipt != null && _receipt!['is_guest'] == true
             ? 'Donation Receipt'
@@ -63,12 +62,14 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.error_outline, size: 48, color: Colors.grey[400]),
+                      Icon(Icons.error_outline, size: 48, color: AppTheme.textSecondaryOf(context)),
                       const SizedBox(height: 12),
-                      Text(_error!, style: TextStyle(color: Colors.grey[600])),
+                      Text(_error!, style: TextStyle(color: AppTheme.textSecondaryOf(context))),
                       const SizedBox(height: 16),
-                      ElevatedButton(onPressed: () { setState(() { _loading = true; _error = null; }); _load(); },
-                          child: const Text('Retry')),
+                      ElevatedButton(
+                        onPressed: () { setState(() { _loading = true; _error = null; }); _load(); },
+                        child: const Text('Retry'),
+                      ),
                     ],
                   ),
                 )
@@ -93,6 +94,8 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
         ? DateTime.parse(r['created_at']).toLocal()
         : null;
 
+    final headerColor = isDonation ? Colors.amber.shade700 : Colors.deepPurple;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Center(
@@ -100,11 +103,11 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
           constraints: const BoxConstraints(maxWidth: 420),
           child: Container(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppTheme.cardOf(context),
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.deepPurple.withValues(alpha: 0.08),
+                  color: Colors.black.withValues(alpha: 0.1),
                   blurRadius: 20,
                   offset: const Offset(0, 6),
                 ),
@@ -118,7 +121,9 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 28),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [Colors.deepPurple.shade600, Colors.deepPurple.shade400],
+                      colors: isDonation
+                          ? [Colors.amber.shade800, Colors.amber.shade600]
+                          : [Colors.deepPurple.shade600, Colors.deepPurple.shade400],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
@@ -143,11 +148,11 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Event title
                       _sectionLabel('EVENT'),
                       const SizedBox(height: 6),
                       Text(eventTitle,
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600,
+                              color: AppTheme.textPrimaryOf(context))),
                       const SizedBox(height: 20),
 
                       _sectionLabel(isDonation ? 'DONATION DETAILS' : 'PLEDGE DETAILS'),
@@ -160,19 +165,16 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
                         _detailRow('Date', DateFormat('MMM d, yyyy h:mm a').format(createdAt)),
                       const SizedBox(height: 20),
 
-                      // Commission breakdown
                       _sectionLabel('FEE BREAKDOWN'),
                       const SizedBox(height: 8),
                       _priceRow('$typeLabel Amount', _formatCents(amountCents)),
                       const SizedBox(height: 6),
                       _priceRow('Platform Fee ($commissionPct%)',
-                          _formatCents(platformCutCents),
-                          valueColor: Colors.grey[500]!),
+                          _formatCents(platformCutCents), subtle: true),
                       const SizedBox(height: 6),
-                      const Divider(),
+                      Divider(color: AppTheme.dividerOf(context)),
                       _priceRow('Net to Organizer',
-                          _formatCents(netToOrganizerCents),
-                          isBold: true),
+                          _formatCents(netToOrganizerCents), isBold: true),
                       const SizedBox(height: 20),
 
                       if (isDonation) ...[
@@ -180,18 +182,18 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
                           width: double.infinity,
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: Colors.amber.withValues(alpha: 0.08),
+                            color: Colors.amber.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.amber.withValues(alpha: 0.2)),
+                            border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
                           ),
                           child: Row(
                             children: [
-                              Icon(Icons.info_outline_rounded, size: 20, color: Colors.amber.shade700),
+                              Icon(Icons.info_outline_rounded, size: 20, color: Colors.amber.shade600),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Text(
                                   'This is a guest donation and is non-refundable. No ticket spots are reserved.',
-                                  style: TextStyle(fontSize: 12, color: Colors.amber.shade700),
+                                  style: TextStyle(fontSize: 12, color: Colors.amber.shade600),
                                 ),
                               ),
                             ],
@@ -204,9 +206,9 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
                           width: double.infinity,
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: Colors.teal.withValues(alpha: 0.08),
+                            color: Colors.teal.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.teal.withValues(alpha: 0.2)),
+                            border: Border.all(color: Colors.teal.withValues(alpha: 0.3)),
                           ),
                           child: Row(
                             children: [
@@ -224,7 +226,6 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
                         const SizedBox(height: 16),
                       ],
 
-                      // Copy receipt number
                       SizedBox(
                         width: double.infinity,
                         height: 48,
@@ -233,9 +234,11 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
                             Clipboard.setData(ClipboardData(text: receiptNumber));
                             AppToast.success(context, 'Receipt number copied');
                           },
-                          icon: const Icon(Icons.copy_rounded, size: 18),
-                          label: const Text('Copy Receipt Number'),
+                          icon: Icon(Icons.copy_rounded, size: 18, color: headerColor),
+                          label: Text('Copy Receipt Number',
+                              style: TextStyle(color: headerColor)),
                           style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: headerColor.withValues(alpha: 0.4)),
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12)),
                           ),
@@ -243,14 +246,13 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
                       ),
                       const SizedBox(height: 12),
 
-                      // Done button
                       SizedBox(
                         width: double.infinity,
                         height: 52,
                         child: ElevatedButton(
                           onPressed: () => Navigator.of(context).pop(),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.deepPurple,
+                            backgroundColor: headerColor,
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12)),
@@ -277,7 +279,7 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
             fontSize: 11,
             fontWeight: FontWeight.w700,
             letterSpacing: 1.2,
-            color: Colors.grey[500]));
+            color: AppTheme.textSecondaryOf(context)));
   }
 
   Widget _detailRow(String label, String value) {
@@ -286,24 +288,25 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(fontSize: 13, color: Colors.grey[600])),
-          Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+          Text(label, style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryOf(context))),
+          Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500,
+              color: AppTheme.textPrimaryOf(context))),
         ],
       ),
     );
   }
 
   Widget _priceRow(String label, String value,
-      {Color? valueColor, bool isBold = false}) {
+      {bool subtle = false, bool isBold = false}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+        Text(label, style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryOf(context))),
         Text(value,
             style: TextStyle(
                 fontSize: 13,
                 fontWeight: isBold ? FontWeight.w700 : FontWeight.w500,
-                color: valueColor)),
+                color: subtle ? AppTheme.textSecondaryOf(context) : AppTheme.textPrimaryOf(context))),
       ],
     );
   }

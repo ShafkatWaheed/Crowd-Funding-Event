@@ -4,7 +4,7 @@ Fund escrow: holds pledged money and releases in stages.
 import enum
 from datetime import datetime
 
-from sqlalchemy import Integer, String, Text, DateTime, ForeignKey, Enum, Boolean
+from sqlalchemy import BigInteger, Integer, String, Text, DateTime, ForeignKey, Enum, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -24,22 +24,22 @@ class FundEscrow(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     event_id: Mapped[int] = mapped_column(ForeignKey("events.id"), unique=True, nullable=False, index=True)
-    total_held_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    total_held_cents: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
 
     # Stage 1: Planning (funding goal met + date + venue confirmed)
-    stage1_released_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    stage1_released_cents: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     stage1_released_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Stage 2: Ready (48h before event start)
-    stage2_released_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    stage2_released_cents: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     stage2_released_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Stage 3: Completed (event completed + scan threshold met)
-    stage3_released_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    stage3_released_cents: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     stage3_released_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     status: Mapped[EscrowStatus] = mapped_column(
-        Enum(EscrowStatus), nullable=False, default=EscrowStatus.holding
+        Enum(EscrowStatus, name="escrow_status"), nullable=False, default=EscrowStatus.holding
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -55,7 +55,7 @@ class EscrowRelease(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     escrow_id: Mapped[int] = mapped_column(ForeignKey("fund_escrows.id"), nullable=False, index=True)
     stage: Mapped[int] = mapped_column(Integer, nullable=False)  # 1, 2, or 3
-    amount_cents: Mapped[int] = mapped_column(Integer, nullable=False)
+    amount_cents: Mapped[int] = mapped_column(BigInteger, nullable=False)
     released_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     released_by: Mapped[str] = mapped_column(String(32), nullable=False)  # "system" or "admin"
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)

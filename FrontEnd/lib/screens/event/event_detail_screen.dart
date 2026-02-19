@@ -6342,9 +6342,9 @@ class _FundingCardState extends State<_FundingCard> {
                     height: 40,
                     child: ElevatedButton.icon(
                       onPressed: _pledging ? null : _showPledgeDialog,
-                      icon: const Icon(Icons.volunteer_activism, size: 18),
-                      label: const Text('Pledge',
-                          style: TextStyle(fontWeight: FontWeight.w700)),
+                      icon: Icon(widget.isRegistered ? Icons.volunteer_activism : Icons.card_giftcard_rounded, size: 18),
+                      label: Text(widget.isRegistered ? 'Pledge' : 'Donate',
+                          style: const TextStyle(fontWeight: FontWeight.w700)),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.accentColor,
                         foregroundColor: Colors.white,
@@ -6355,26 +6355,28 @@ class _FundingCardState extends State<_FundingCard> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: SizedBox(
-                    height: 40,
-                    child: OutlinedButton.icon(
-                      onPressed: _pledging ? null : _unpledge,
-                      icon: const Icon(Icons.money_off,
-                          size: 18, color: AppTheme.warningColor),
-                      label: const Text('Unpledge',
-                          style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: AppTheme.warningColor)),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: AppTheme.warningColor),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
+                if (widget.isRegistered) ...[
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: SizedBox(
+                      height: 40,
+                      child: OutlinedButton.icon(
+                        onPressed: _pledging ? null : _unpledge,
+                        icon: const Icon(Icons.money_off,
+                            size: 18, color: AppTheme.warningColor),
+                        label: const Text('Unpledge',
+                            style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.warningColor)),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: AppTheme.warningColor),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                        ),
                       ),
                     ),
                   ),
-                ),
+                ],
               ],
             ),
           ],

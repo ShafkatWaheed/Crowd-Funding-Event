@@ -159,6 +159,29 @@ class SponsorPayment {
 }
 
 
+class SponsorTicketCategory {
+  final String name;
+  final int amountCents;
+  final String status;
+
+  SponsorTicketCategory({
+    required this.name,
+    required this.amountCents,
+    required this.status,
+  });
+
+  String get amountDisplay =>
+      '\$${(amountCents / 100).toStringAsFixed(2)}';
+
+  factory SponsorTicketCategory.fromJson(Map<String, dynamic> json) {
+    return SponsorTicketCategory(
+      name: json['name'] ?? '',
+      amountCents: json['amount_cents'] ?? 0,
+      status: json['status'] ?? '',
+    );
+  }
+}
+
 class SponsorTicketModel {
   final int id;
   final int eventId;
@@ -166,8 +189,16 @@ class SponsorTicketModel {
   final String receiptNumber;
   final String? encryptedQrPayload;
   final String? scannedAt;
+  final String? createdAt;
+  final List<SponsorTicketCategory> categories;
   final List<String> categoryNames;
   final int categoryCount;
+  final String? eventTitle;
+  final String? eventStatus;
+  final String? eventStartTime;
+  final String? venueName;
+  final String? venueAddress;
+  final String? venueCity;
 
   SponsorTicketModel({
     required this.id,
@@ -176,9 +207,23 @@ class SponsorTicketModel {
     required this.receiptNumber,
     this.encryptedQrPayload,
     this.scannedAt,
+    this.createdAt,
+    this.categories = const [],
     this.categoryNames = const [],
     this.categoryCount = 0,
+    this.eventTitle,
+    this.eventStatus,
+    this.eventStartTime,
+    this.venueName,
+    this.venueAddress,
+    this.venueCity,
   });
+
+  int get totalAmountCents =>
+      categories.fold(0, (sum, c) => sum + c.amountCents);
+
+  String get totalAmountDisplay =>
+      '\$${(totalAmountCents / 100).toStringAsFixed(2)}';
 
   factory SponsorTicketModel.fromJson(Map<String, dynamic> json) {
     return SponsorTicketModel(
@@ -188,11 +233,22 @@ class SponsorTicketModel {
       receiptNumber: json['receipt_number'] ?? '',
       encryptedQrPayload: json['encrypted_qr_payload'],
       scannedAt: json['scanned_at'],
+      createdAt: json['created_at'],
+      categories: (json['categories'] as List?)
+              ?.map((e) => SponsorTicketCategory.fromJson(e))
+              .toList() ??
+          [],
       categoryNames: (json['category_names'] as List?)
               ?.map((e) => e.toString())
               .toList() ??
           [],
       categoryCount: json['category_count'] ?? 0,
+      eventTitle: json['event_title'],
+      eventStatus: json['event_status'],
+      eventStartTime: json['event_start_time'],
+      venueName: json['venue_name'],
+      venueAddress: json['venue_address'],
+      venueCity: json['venue_city'],
     );
   }
 }

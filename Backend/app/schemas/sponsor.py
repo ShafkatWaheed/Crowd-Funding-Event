@@ -113,6 +113,12 @@ class PaymentResponse(BaseModel):
 
 # ── Sponsor Tickets ──
 
+class SponsorTicketCategoryInfo(BaseModel):
+    name: str
+    amount_cents: int
+    status: str
+
+
 class SponsorTicketResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -122,5 +128,13 @@ class SponsorTicketResponse(BaseModel):
     receipt_number: str
     encrypted_qr_payload: str | None = None
     scanned_at: str | None = None
+    created_at: str | None = None
+    categories: list[SponsorTicketCategoryInfo] = []
     category_names: list[str] = []
     category_count: int = 0
+    event_title: str | None = None
+    event_status: str | None = None
+    event_start_time: str | None = None
+    venue_name: str | None = None
+    venue_address: str | None = None
+    venue_city: str | None = None

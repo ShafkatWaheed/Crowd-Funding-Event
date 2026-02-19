@@ -166,7 +166,6 @@ async def delete_category(
 
 async def _bid_to_response(db, bid) -> dict:
     profile = await sponsor_svc.get_profile(db, bid.sponsor_user_id)
-    profile_data = None
     if profile:
         profile_data = {
             "id": profile.id,
@@ -177,6 +176,20 @@ async def _bid_to_response(db, bid) -> dict:
             "logo_url": profile.logo_url,
             "description": profile.description,
             "website_url": profile.website_url,
+        }
+    else:
+        from app.models.user import User
+        from sqlalchemy import select
+        user = (await db.execute(
+            select(User).where(User.id == bid.sponsor_user_id)
+        )).scalar_one_or_none()
+        fallback_name = (user.display_name or user.email) if user else "Unknown"
+        profile_data = {
+            "id": 0,
+            "user_id": bid.sponsor_user_id,
+            "company_name": fallback_name,
+            "contact_name": (user.display_name or "") if user else "",
+            "profession": "",
         }
     return {
         "id": bid.id,
@@ -348,6 +361,34 @@ async def list_sponsor_bid_events(db: DbSession, current_user: CurrentUser):
     return result
 
 
+# ── Organizer: My Sponsors ──
+
+@router.get(
+    "/me/organizer-sponsors",
+    dependencies=[Depends(_feature_guard)],
+)
+async def list_organizer_sponsors(db: DbSession, current_user: CurrentUser):
+    """Sponsors with active bids on organizer's events."""
+    if current_user.role not in (UserRole.organizer, UserRole.admin):
+        raise HTTPException(status_code=403, detail="Only organizers can view their sponsors")
+    return await sponsor_svc.get_organizer_sponsors(db, current_user.id)
+
+
+@router.get(
+    "/me/organizer-sponsors/{sponsor_user_id}/events",
+    dependencies=[Depends(_feature_guard)],
+)
+async def list_sponsor_events_for_organizer(
+    sponsor_user_id: int,
+    db: DbSession,
+    current_user: CurrentUser,
+):
+    """Events where a specific sponsor has bids, for this organizer."""
+    if current_user.role not in (UserRole.organizer, UserRole.admin):
+        raise HTTPException(status_code=403, detail="Only organizers can view their sponsors")
+    return await sponsor_svc.get_sponsor_events_for_organizer(db, current_user.id, sponsor_user_id)
+
+
 # ── Sponsor Tickets ──
 
 @router.get(
@@ -360,6 +401,8 @@ async def list_my_sponsor_tickets(db: DbSession, current_user: CurrentUser):
     result = []
     for t in tickets:
         cats = await sponsor_svc.get_won_categories(db, t.event_id, current_user.id)
+        event = t.event
+        venue = event.venue if event else None
         result.append({
             "id": t.id,
             "event_id": t.event_id,
@@ -367,8 +410,16 @@ async def list_my_sponsor_tickets(db: DbSession, current_user: CurrentUser):
             "receipt_number": t.receipt_number,
             "encrypted_qr_payload": t.qr_data_encrypted,
             "scanned_at": t.scanned_at.isoformat() if t.scanned_at else None,
-            "category_names": cats,
+            "created_at": t.created_at.isoformat() if t.created_at else None,
+            "categories": cats,
+            "category_names": [c["name"] for c in cats],
             "category_count": len(cats),
+            "event_title": event.title if event else None,
+            "event_status": event.status.value if event else None,
+            "event_start_time": event.start_time.isoformat() if event and event.start_time else None,
+            "venue_name": venue.name if venue else None,
+            "venue_address": venue.address if venue else None,
+            "venue_city": venue.city if venue else None,
         })
     return result
 

@@ -290,12 +290,12 @@ class _StatusBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final label = switch (status) {
       EventStatus.draft => 'Draft',
-      EventStatus.pending_approval => 'Pending',
-      EventStatus.approved => 'Open',
+      EventStatus.pending_approval => 'Under Review',
+      EventStatus.approved => 'Funding',
       EventStatus.live => 'LIVE',
       EventStatus.selling_tickets => 'Tickets',
       EventStatus.waiting_event_date => 'Awaiting',
-      EventStatus.completed => 'Done',
+      EventStatus.completed => 'Completed',
       EventStatus.cancelled => 'Cancelled',
     };
 

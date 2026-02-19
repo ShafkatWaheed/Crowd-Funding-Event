@@ -21,7 +21,7 @@ String _statusDisplayName(EventStatus s) {
     case EventStatus.pending_approval:
       return 'Under Review';
     case EventStatus.approved:
-      return 'Published';
+      return 'Funding';
     case EventStatus.selling_tickets:
       return 'Selling Tickets';
     case EventStatus.waiting_event_date:
@@ -93,6 +93,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     return [
       EventStatus.approved,
+      EventStatus.waiting_event_date,
       EventStatus.selling_tickets,
       EventStatus.live,
     ];
@@ -105,9 +106,11 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     return [
       EventStatus.approved,
+      EventStatus.waiting_event_date,
       EventStatus.selling_tickets,
       EventStatus.live,
       EventStatus.completed,
+      EventStatus.cancelled,
     ];
   }
 
@@ -1138,6 +1141,9 @@ class _HomeScreenState extends State<HomeScreen> {
               borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
               child: EventMapWidget(
                 organizerId: user != null && user.isOrganizer ? user.id : null,
+                search: _searchController.text.isNotEmpty ? _searchController.text : null,
+                genre: _selectedGenre,
+                status: _selectedStatus,
               ),
             ),
           )
@@ -1409,6 +1415,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       label: 'Discounts',
                       color: const Color(0xFFE11900),
                       onTap: () => context.push('/manage/discounts'),
+                    ),
+                    const SizedBox(width: 12),
+                    _quickActionCard(
+                      icon: Icons.handshake_rounded,
+                      label: 'Sponsors',
+                      color: const Color(0xFF0D3B66),
+                      onTap: () => context.push('/manage/sponsors'),
                     ),
                     const SizedBox(width: 12),
                     if (user != null && user.isAdmin)
@@ -1805,10 +1818,10 @@ class _HomeScreenState extends State<HomeScreen> {
               Row(
                 children: [
                   _customerQuickAction(
-                    icon: Icons.confirmation_number_rounded,
-                    label: 'My Tickets',
-                    color: const Color(0xFF276EF1),
-                    onTap: () => context.push('/my-tickets'),
+                    icon: Icons.workspace_premium_rounded,
+                    label: 'Sponsor Tickets',
+                    color: const Color(0xFF0D3B66),
+                    onTap: () => context.push('/sponsor/tickets'),
                   ),
                   const SizedBox(width: 10),
                   _customerQuickAction(
@@ -2575,8 +2588,8 @@ class _StatusPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final label = switch (status) {
       EventStatus.draft => 'Draft',
-      EventStatus.pending_approval => 'Pending',
-      EventStatus.approved => 'Open',
+      EventStatus.pending_approval => 'Under Review',
+      EventStatus.approved => 'Funding',
       EventStatus.selling_tickets => 'Tickets',
       EventStatus.waiting_event_date => 'Awaiting',
       EventStatus.live => 'LIVE',
@@ -2698,7 +2711,7 @@ class _SponsorBidEventCard extends StatelessWidget {
                         _bidChip('${item.paid} Paid',
                             Colors.blue.shade600, Icons.payment_rounded),
                       if (item.pending > 0)
-                        _bidChip('${item.pending} Pending',
+                        _bidChip('${item.pending} Under Review',
                             Colors.orange.shade700, Icons.hourglass_top_rounded),
                       if (item.rejected > 0)
                         _bidChip('${item.rejected} Rejected',

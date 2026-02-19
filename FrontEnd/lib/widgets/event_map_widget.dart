@@ -24,11 +24,18 @@ class EventMapWidget extends StatefulWidget {
   /// If provided, only show this organizer's events on the map.
   final int? organizerId;
 
+  final String? search;
+  final String? genre;
+  final String? status;
+
   const EventMapWidget({
     super.key,
     this.initialCenter,
     this.initialZoom = 12.0,
     this.organizerId,
+    this.search,
+    this.genre,
+    this.status,
   });
 
   @override
@@ -51,6 +58,17 @@ class _EventMapWidgetState extends State<EventMapWidget> {
   }
 
   @override
+  void didUpdateWidget(EventMapWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.search != widget.search ||
+        oldWidget.genre != widget.genre ||
+        oldWidget.status != widget.status ||
+        oldWidget.organizerId != widget.organizerId) {
+      _loadEvents();
+    }
+  }
+
+  @override
   void dispose() {
     _debounce?.cancel();
     _mapController.dispose();
@@ -62,20 +80,22 @@ class _EventMapWidgetState extends State<EventMapWidget> {
       final api = context.read<ApiService>();
       final bounds = _mapController.camera.visibleBounds;
       final center = _mapController.camera.center;
-      // Compute approximate radius in km from bounds
       const distance = Distance();
       final radiusKm = distance.as(
             LengthUnit.Kilometer,
             center,
             LatLng(bounds.north, bounds.east),
           ) +
-          5; // extra buffer
+          5;
 
       final data = await api.getMapEvents(
         lat: center.latitude,
         lng: center.longitude,
         radiusKm: radiusKm,
         organizerId: widget.organizerId,
+        search: widget.search,
+        genre: widget.genre,
+        status: widget.status,
       );
       if (mounted) {
         setState(() {

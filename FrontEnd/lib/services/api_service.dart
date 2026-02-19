@@ -171,6 +171,9 @@ class ApiService {
     String? city,
     bool? live,
     int? organizerId,
+    String? search,
+    String? genre,
+    String? status,
   }) async {
     final params = <String, dynamic>{};
     if (lat != null) params['lat'] = lat;
@@ -179,6 +182,9 @@ class ApiService {
     if (city != null) params['city'] = city;
     if (live != null) params['live'] = live;
     if (organizerId != null) params['organizer_id'] = organizerId;
+    if (search != null && search.isNotEmpty) params['search'] = search;
+    if (genre != null) params['genre'] = genre;
+    if (status != null) params['status'] = status;
     final resp = await dio.get('/events/map', queryParameters: params);
     return resp.data;
   }
@@ -731,6 +737,18 @@ class ApiService {
       Map<String, dynamic> data) async {
     final resp = await dio.patch('/me/sponsor-profile', data: data);
     return resp.data;
+  }
+
+  // ── Organizer: My Sponsors ──
+
+  Future<List<dynamic>> getOrganizerSponsors() async {
+    final resp = await dio.get('/me/organizer-sponsors');
+    return resp.data as List;
+  }
+
+  Future<List<dynamic>> getSponsorEventsForOrganizer(int sponsorUserId) async {
+    final resp = await dio.get('/me/organizer-sponsors/$sponsorUserId/events');
+    return resp.data as List;
   }
 
   // ── Sponsorship Categories ──

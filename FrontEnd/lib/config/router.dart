@@ -30,6 +30,8 @@ import '../screens/sponsor/sponsorship_categories_screen.dart';
 import '../screens/sponsor/bid_management_screen.dart';
 import '../screens/sponsor/sponsor_ticket_screen.dart';
 import '../screens/sponsor/sponsor_dashboard_screen.dart';
+import '../screens/sponsor/organizer_sponsors_screen.dart';
+import '../screens/sponsor/sponsor_events_for_organizer_screen.dart';
 
 GoRouter createRouter(AuthProvider authProvider) {
   return GoRouter(
@@ -239,6 +241,21 @@ GoRouter createRouter(AuthProvider authProvider) {
       GoRoute(
         path: '/ticket-strategies',
         builder: (context, state) => const TicketStrategiesScreen(),
+      ),
+
+      // ─── Organizer: Sponsors ───
+      GoRoute(
+        path: '/manage/sponsors',
+        builder: (context, state) => const OrganizerSponsorsScreen(),
+      ),
+      GoRoute(
+        path: '/manage/sponsors/:sponsorId/events',
+        builder: (context, state) {
+          final id = int.parse(state.pathParameters['sponsorId']!);
+          final name = state.extra as String? ?? 'Sponsor';
+          return SponsorEventsForOrganizerScreen(
+              sponsorUserId: id, sponsorName: name);
+        },
       ),
 
       // ─── Sponsor ───

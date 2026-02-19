@@ -286,6 +286,9 @@ async def accept_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorBid:
     cat.filled_spots += 1
     await db.flush()
     await db.refresh(bid)
+
+    await _ensure_sponsor_ticket(db, cat.event_id, bid.sponsor_user_id)
+
     return bid
 
 
@@ -514,26 +517,38 @@ async def get_sponsor_ticket(
 async def list_sponsor_tickets(
     db: AsyncSession, sponsor_user_id: int
 ) -> list[SponsorTicket]:
-    q = select(SponsorTicket).where(
-        SponsorTicket.sponsor_user_id == sponsor_user_id
-    ).order_by(SponsorTicket.created_at.desc())
+    from sqlalchemy.orm import selectinload
+    q = (
+        select(SponsorTicket)
+        .where(SponsorTicket.sponsor_user_id == sponsor_user_id)
+        .options(selectinload(SponsorTicket.event).selectinload(Event.venue))
+        .order_by(SponsorTicket.created_at.desc())
+    )
     return list((await db.execute(q)).scalars().all())
 
 
 async def get_won_categories(
     db: AsyncSession, event_id: int, sponsor_user_id: int
-) -> list[str]:
-    """Return category names where sponsor has paid bids for this event."""
+) -> list[dict]:
+    """Return category info where sponsor has accepted or paid bids for this event."""
     q = (
-        select(SponsorshipCategory.name)
+        select(
+            SponsorshipCategory.name,
+            SponsorBid.amount_cents,
+            SponsorBid.status,
+        )
         .join(SponsorBid, SponsorBid.category_id == SponsorshipCategory.id)
         .where(
             SponsorshipCategory.event_id == event_id,
             SponsorBid.sponsor_user_id == sponsor_user_id,
-            SponsorBid.status == BidStatus.paid,
+            SponsorBid.status.in_([BidStatus.accepted, BidStatus.paid]),
         )
     )
-    return list((await db.execute(q)).scalars().all())
+    rows = (await db.execute(q)).all()
+    return [
+        {"name": r.name, "amount_cents": r.amount_cents, "status": r.status.value}
+        for r in rows
+    ]
 
 
 async def scan_sponsor_ticket(
@@ -570,10 +585,129 @@ async def scan_sponsor_ticket(
         "receipt_number": ticket.receipt_number,
         "company_name": profile.company_name if profile else "Unknown",
         "contact_name": profile.contact_name if profile else "",
-        "category_names": cats,
+        "categories": cats,
+        "category_names": [c["name"] for c in cats],
         "category_count": len(cats),
         "already_scanned": ticket.scanned_at is not None,
     }
+
+
+# ── Organizer: sponsors funding my events ──
+
+async def get_organizer_sponsors(db: AsyncSession, organizer_id: int) -> list[dict]:
+    """Distinct sponsors with active bids on any of this organizer's events."""
+    from sqlalchemy import distinct, func
+    from sqlalchemy.orm import selectinload
+
+    active = [BidStatus.pending, BidStatus.accepted, BidStatus.paid]
+
+    q = (
+        select(
+            SponsorBid.sponsor_user_id,
+            func.count(SponsorBid.id).label("total_bids"),
+            func.sum(SponsorBid.amount_cents).label("total_amount_cents"),
+        )
+        .join(SponsorshipCategory, SponsorBid.category_id == SponsorshipCategory.id)
+        .join(Event, SponsorshipCategory.event_id == Event.id)
+        .where(
+            Event.organizer_id == organizer_id,
+            SponsorBid.status.in_(active),
+        )
+        .group_by(SponsorBid.sponsor_user_id)
+        .order_by(func.sum(SponsorBid.amount_cents).desc())
+    )
+    rows = (await db.execute(q)).all()
+
+    result = []
+    for r in rows:
+        uid = r.sponsor_user_id
+        profile = await get_profile(db, uid)
+        user = (await db.execute(
+            select(User).where(User.id == uid)
+        )).scalar_one_or_none()
+
+        if profile:
+            name = profile.company_name
+            contact = profile.contact_name
+            logo = profile.logo_url
+        else:
+            name = (user.display_name or user.email) if user else "Unknown"
+            contact = (user.display_name or "") if user else ""
+            logo = None
+
+        result.append({
+            "sponsor_user_id": uid,
+            "company_name": name,
+            "contact_name": contact,
+            "logo_url": logo,
+            "total_bids": r.total_bids,
+            "total_amount_cents": r.total_amount_cents or 0,
+        })
+    return result
+
+
+async def get_sponsor_events_for_organizer(
+    db: AsyncSession, organizer_id: int, sponsor_user_id: int
+) -> list[dict]:
+    """Events where a specific sponsor has active bids, for this organizer."""
+    from sqlalchemy import distinct, func
+    from sqlalchemy.orm import selectinload
+
+    active = [BidStatus.pending, BidStatus.accepted, BidStatus.paid]
+
+    event_ids_q = (
+        select(distinct(SponsorshipCategory.event_id))
+        .join(SponsorBid, SponsorBid.category_id == SponsorshipCategory.id)
+        .join(Event, SponsorshipCategory.event_id == Event.id)
+        .where(
+            Event.organizer_id == organizer_id,
+            SponsorBid.sponsor_user_id == sponsor_user_id,
+            SponsorBid.status.in_(active),
+        )
+    )
+
+    events = list((await db.execute(
+        select(Event)
+        .options(selectinload(Event.venue), selectinload(Event.ticket_strategy))
+        .where(Event.id.in_(event_ids_q))
+        .order_by(Event.created_at.desc())
+    )).scalars().all())
+
+    result = []
+    for e in events:
+        summary = await get_sponsor_bid_summary_for_event(db, e.id, sponsor_user_id)
+        cats_q = (
+            select(
+                SponsorshipCategory.name,
+                SponsorBid.amount_cents,
+                SponsorBid.status,
+            )
+            .join(SponsorBid, SponsorBid.category_id == SponsorshipCategory.id)
+            .where(
+                SponsorshipCategory.event_id == e.id,
+                SponsorBid.sponsor_user_id == sponsor_user_id,
+                SponsorBid.status.in_(active),
+            )
+        )
+        cat_rows = (await db.execute(cats_q)).all()
+        bids_detail = [
+            {"category": r.name, "amount_cents": r.amount_cents, "status": r.status.value}
+            for r in cat_rows
+        ]
+        total_cents = sum(b["amount_cents"] for b in bids_detail)
+        venue = e.venue
+        result.append({
+            "event_id": e.id,
+            "title": e.title,
+            "status": e.status.value,
+            "start_time": e.start_time.isoformat() if e.start_time else None,
+            "venue_name": venue.name if venue else None,
+            "venue_city": venue.city if venue else None,
+            "bid_summary": summary,
+            "bids": bids_detail,
+            "total_amount_cents": total_cents,
+        })
+    return result
 
 
 # ── Public Carousel ──

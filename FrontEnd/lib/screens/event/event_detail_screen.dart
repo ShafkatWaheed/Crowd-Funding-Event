@@ -493,9 +493,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                         Icons.shield_rounded,
                                         'Refund',
                                         event.refundDeadlineDays! > 0
-                                            ? '${event.refundDeadlineDays}d before funding ends'
-                                            : 'No refunds',
-                                        valueColor: event.refundDeadlineDays! > 0 ? AppTheme.secondaryColor : AppTheme.errorColor,
+                                            ? '${event.refundDeadlineDays}d before event starts'
+                                            : 'Until event starts',
+                                        valueColor: AppTheme.secondaryColor,
                                       ),
                                   ],
                                 ),
@@ -678,15 +678,13 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
                               // State info banners
                               if (event.status == EventStatus.selling_tickets)
-                                _infoBanner('Funding has ended. Tickets are now on sale!', Icons.confirmation_number, Colors.teal),
+                                _infoBanner('Tickets are now on sale! Grab yours before they sell out.', Icons.confirmation_number, Colors.teal),
                               if (event.status == EventStatus.waiting_event_date)
                                 _infoBanner(
-                                  event.startTime != null && event.ticketStrategyId != null
-                                      ? 'Funding has ended. Ready to start selling tickets.'
-                                      : 'Funding has ended. Set event dates and ticket strategy, then start selling.',
-                                  Icons.hourglass_top, Colors.orange),
+                                  'The funding phase is complete. The organizer is finalizing event details — stay tuned for ticket sales!',
+                                  Icons.event_note_rounded, Colors.orange),
                               if (event.status == EventStatus.completed)
-                                _infoBanner('This event has been completed.', Icons.check_circle, Colors.grey),
+                                _infoBanner('This event has ended. Thanks for being part of it!', Icons.check_circle, Colors.grey),
 
                               // Sponsor: sponsorship categories access
                               if (user != null &&
@@ -837,12 +835,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                   _primaryActionCard(
                                     icon: Icons.storefront_rounded,
                                     color: Colors.teal,
-                                    title: 'Ready to sell tickets?',
+                                    title: 'Funding complete — next steps',
                                     subtitle: event.startTime != null && event.ticketStrategyId != null
-                                        ? 'Event date and tickets are set. Start selling now.'
-                                        : event.startTime == null
-                                            ? 'Set an event date first, then you can start selling.'
-                                            : 'Attach a ticket strategy first, then start selling.',
+                                        ? 'Everything is set. You can start selling tickets now!'
+                                        : event.startTime == null && event.ticketStrategyId == null
+                                            ? 'Set an event date and attach a ticket strategy to begin selling.'
+                                            : event.startTime == null
+                                                ? 'Set an event date to proceed.'
+                                                : 'Attach a ticket strategy to proceed.',
                                     buttonLabel: 'Start Selling Tickets',
                                     buttonEnabled: event.startTime != null && event.ticketStrategyId != null,
                                     onPressed: () => _confirmStartSelling(context, eventProvider, event),

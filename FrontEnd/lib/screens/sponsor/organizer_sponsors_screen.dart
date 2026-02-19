@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../config/theme.dart';
+import '../../widgets/shimmer_loaders.dart';
 import '../../services/api_service.dart';
 
 class OrganizerSponsorsScreen extends StatefulWidget {
@@ -63,7 +64,12 @@ class _OrganizerSponsorsScreenState extends State<OrganizerSponsorsScreen> {
         elevation: 0,
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: List.generate(4, (_) => const ShimmerListTile()),
+              ),
+            )
           : Column(
               children: [
                 Padding(

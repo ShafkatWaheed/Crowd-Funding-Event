@@ -238,7 +238,7 @@ class _EventCard extends StatelessWidget {
                   child: Row(
                     children: [
                       Icon(Icons.circle,
-                          size: 6, color: _bidStatusColor(bidStatus)),
+                          size: 6, color: _bidStatusColor(context, bidStatus)),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(cat,
@@ -261,7 +261,7 @@ class _EventCard extends StatelessWidget {
                           style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
-                              color: _bidStatusColor(bidStatus))),
+                              color: _bidStatusColor(context, bidStatus))),
                     ],
                   ),
                 );
@@ -279,7 +279,7 @@ class _EventCard extends StatelessWidget {
       'live' => const Color(0xFFE11900),
       'selling_tickets' => AppTheme.accentColor,
       'waiting_event_date' => Colors.orange,
-      'completed' => Colors.grey,
+      'completed' => AppTheme.textSecondaryOf(context),
       'cancelled' => AppTheme.errorColor,
       _ => AppTheme.textSecondaryOf(context),
     };
@@ -317,13 +317,13 @@ class _EventCard extends StatelessWidget {
     );
   }
 
-  Color _bidStatusColor(String status) {
+  Color _bidStatusColor(BuildContext context, String status) {
     return switch (status) {
       'pending' => Colors.orange,
       'accepted' => AppTheme.accentColor,
       'paid' => AppTheme.secondaryColor,
       'rejected' => AppTheme.errorColor,
-      _ => Colors.grey,
+      _ => AppTheme.textSecondaryOf(context),
     };
   }
 }

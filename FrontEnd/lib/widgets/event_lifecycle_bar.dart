@@ -148,7 +148,7 @@ class _FullBar extends StatelessWidget {
                   color: activeIndex == -1
                       ? AppTheme.dividerOf(context)
                       : isActive
-                          ? _segmentColor(steps[i], isCurrent)
+                          ? _segmentColor(context, steps[i], isCurrent)
                           : AppTheme.dividerOf(context),
                 ),
               ),
@@ -165,7 +165,7 @@ class _FullBar extends StatelessWidget {
             final color = activeIndex == -1
                 ? AppTheme.textSecondaryOf(context)
                 : isCurrent
-                    ? _segmentColor(step, true)
+                    ? _segmentColor(context, step, true)
                     : isActive
                         ? AppTheme.textPrimaryOf(context).withValues(alpha: 0.6)
                         : AppTheme.textSecondaryOf(context);
@@ -202,14 +202,14 @@ class _FullBar extends StatelessWidget {
     );
   }
 
-  Color _segmentColor(_Step step, bool isCurrent) {
+  Color _segmentColor(BuildContext context, _Step step, bool isCurrent) {
     if (!isCurrent) return AppTheme.accentColor.withValues(alpha: 0.4);
     return switch (step.status) {
       EventStatus.approved => AppTheme.accentColor,
       EventStatus.selling_tickets => const Color(0xFF00838F),
       EventStatus.waiting_event_date => const Color(0xFFE65100),
       EventStatus.live => AppTheme.successColor,
-      EventStatus.completed => Colors.grey[500]!,
+      EventStatus.completed => AppTheme.textSecondaryOf(context),
       _ => AppTheme.accentColor,
     };
   }

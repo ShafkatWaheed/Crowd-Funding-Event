@@ -6,6 +6,7 @@ import '../../config/theme.dart';
 import '../../models/venue.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_toast.dart';
+import '../../widgets/shimmer_loaders.dart';
 
 class VenueListScreen extends StatefulWidget {
   const VenueListScreen({super.key});
@@ -111,16 +112,16 @@ class _VenueListScreenState extends State<VenueListScreen> {
                       )
                     : null,
                 filled: true,
-                fillColor: Colors.white,
+                fillColor: AppTheme.inputFillOf(context),
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: AppTheme.dividerColor),
+                  borderSide: BorderSide(color: AppTheme.dividerOf(context)),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: AppTheme.dividerColor),
+                  borderSide: BorderSide(color: AppTheme.dividerOf(context)),
                 ),
               ),
               onChanged: (_) => setState(() => _applySearch()),
@@ -130,21 +131,26 @@ class _VenueListScreenState extends State<VenueListScreen> {
           // ── Content ──
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: List.generate(3, (_) => const ShimmerListTile()),
+                    ),
+                  )
                 : _filtered.isEmpty
                     ? Center(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.location_city,
-                                size: 64, color: Colors.grey[300]),
+                                size: 64, color: AppTheme.textSecondaryOf(context)),
                             const SizedBox(height: 16),
                             Text(
                               _searchCtrl.text.isNotEmpty
                                   ? 'No matching venues'
                                   : 'No venues yet',
                               style: TextStyle(
-                                  fontSize: 18, color: Colors.grey[500]),
+                                  fontSize: 18, color: AppTheme.textSecondaryOf(context)),
                             ),
                           ],
                         ),
@@ -157,22 +163,26 @@ class _VenueListScreenState extends State<VenueListScreen> {
                           itemBuilder: (context, index) {
                             final venue = _filtered[index];
                             return Card(
+                              color: AppTheme.cardOf(context),
                               child: ListTile(
-                                leading: const CircleAvatar(
-                                  backgroundColor: AppTheme.surfaceColor,
-                                  child: Icon(Icons.location_city,
+                                leading: CircleAvatar(
+                                  backgroundColor: AppTheme.surfaceOf(context),
+                                  child: const Icon(Icons.location_city,
                                       color: AppTheme.primaryColor),
                                 ),
                                 title: Text(venue.name,
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.w600)),
-                                subtitle: Text(venue.fullAddress),
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        color: AppTheme.textPrimaryOf(context))),
+                                subtitle: Text(venue.fullAddress,
+                                    style: TextStyle(
+                                        color: AppTheme.textSecondaryOf(context))),
                                 trailing: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Text('Cap: ${venue.maxCapacity}',
                                         style:
-                                            TextStyle(color: Colors.grey[600])),
+                                            TextStyle(color: AppTheme.textSecondaryOf(context))),
                                     const SizedBox(width: 8),
                                     IconButton(
                                       icon: const Icon(Icons.delete_outline,

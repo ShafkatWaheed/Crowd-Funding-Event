@@ -85,13 +85,11 @@ class _EditEventScreenState extends State<EditEventScreen> {
   // Milestones (live CRUD)
   bool _showMilestoneSection = false;
   List<_EditMilestone> _milestones = [];
-  bool _milestonesLoaded = false;
 
   // Schedule (live CRUD)
   bool _showScheduleSection = false;
   bool _hasSchedule = false;
   List<_EditScheduleItem> _scheduleItems = [];
-  bool _scheduleLoaded = false;
 
   // Sponsorship Categories (live CRUD)
   bool _showSponsorshipSection = false;
@@ -190,13 +188,10 @@ class _EditEventScreenState extends State<EditEventScreen> {
             ms.unlockPercent = j['unlock_percent'] ?? 50;
             return ms;
           }).toList();
-          _milestonesLoaded = true;
           if (_milestones.isNotEmpty) _showMilestoneSection = true;
         });
       }
-    } catch (_) {
-      if (mounted) setState(() => _milestonesLoaded = true);
-    }
+    } catch (_) {}
   }
 
   Future<void> _saveMilestone(_EditMilestone ms) async {
@@ -261,13 +256,10 @@ class _EditEventScreenState extends State<EditEventScreen> {
         }
         setState(() {
           _scheduleItems = items;
-          _scheduleLoaded = true;
           if (_scheduleItems.isNotEmpty) _showScheduleSection = true;
         });
       }
-    } catch (_) {
-      if (mounted) setState(() => _scheduleLoaded = true);
-    }
+    } catch (_) {}
   }
 
   Future<void> _saveScheduleItem(_EditScheduleItem si) async {
@@ -623,7 +615,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                       child: Text(
                                         'This event is currently ${_event!.status.name}. Editing will require admin approval before it goes live again.',
                                         style: TextStyle(
-                                            color: Colors.grey[800],
+                                            color: AppTheme.textPrimaryOf(context),
                                             fontSize: 13),
                                       ),
                                     ),
@@ -690,7 +682,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                             Text(
                               'At least one of Event Start Date or Funding Deadline must be set.',
                               style: TextStyle(
-                                  fontSize: 12, color: Colors.grey[600]),
+                                  fontSize: 12, color: AppTheme.textSecondaryOf(context)),
                             ),
                             const SizedBox(height: 16),
 
@@ -708,12 +700,12 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                   decoration: BoxDecoration(
                                     color: _showScheduleSection
                                         ? Colors.blue.withValues(alpha: 0.08)
-                                        : Colors.grey.withValues(alpha: 0.04),
+                                        : AppTheme.surfaceOf(context),
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
                                       color: _showScheduleSection
                                           ? Colors.blue.withValues(alpha: 0.3)
-                                          : Colors.grey.withValues(alpha: 0.15),
+                                          : AppTheme.dividerOf(context),
                                     ),
                                   ),
                                   child: Row(
@@ -722,7 +714,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                           size: 18,
                                           color: _showScheduleSection
                                               ? Colors.blue[700]
-                                              : Colors.grey[600]),
+                                              : AppTheme.textSecondaryOf(context)),
                                       const SizedBox(width: 8),
                                       Expanded(
                                         child: Text(
@@ -753,7 +745,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                         _showScheduleSection
                                             ? Icons.keyboard_arrow_up
                                             : Icons.keyboard_arrow_down,
-                                        color: Colors.grey[500],
+                                        color: AppTheme.textSecondaryOf(context),
                                       ),
                                     ],
                                   ),
@@ -765,10 +757,10 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                   margin: const EdgeInsets.only(top: 8),
                                   padding: const EdgeInsets.all(14),
                                   decoration: BoxDecoration(
-                                    color: Colors.grey.withValues(alpha: 0.03),
+                                    color: AppTheme.surfaceOf(context),
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
-                                        color: Colors.grey.withValues(alpha: 0.12)),
+                                        color: AppTheme.dividerOf(context)),
                                   ),
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -794,7 +786,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                         const SizedBox(height: 8),
                                         Text(
                                           'Add time slots for your event. Save each item individually.',
-                                          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                          style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context)),
                                         ),
                                         const SizedBox(height: 12),
                                         ..._scheduleItems.asMap().entries.map((entry) {
@@ -809,7 +801,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                             decoration: BoxDecoration(
                                               borderRadius: BorderRadius.circular(10),
                                               border: Border.all(
-                                                  color: Colors.grey.withValues(alpha: 0.2)),
+                                                  color: AppTheme.dividerOf(context)),
                                             ),
                                             child: Column(
                                               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -889,7 +881,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                                               horizontal: 10, vertical: 8),
                                                           decoration: BoxDecoration(
                                                             border: Border.all(
-                                                                color: Colors.grey.withValues(alpha: 0.3)),
+                                                                color: AppTheme.dividerOf(context)),
                                                             borderRadius: BorderRadius.circular(8),
                                                           ),
                                                           child: Text(si.startTime.format(context),
@@ -901,8 +893,8 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                                     ),
                                                     Padding(
                                                       padding: const EdgeInsets.symmetric(horizontal: 8),
-                                                      child: Text('–',
-                                                          style: TextStyle(color: Colors.grey[500])),
+                                                    child: Text('–',
+                                                        style: TextStyle(color: AppTheme.textSecondaryOf(context))),
                                                     ),
                                                     Expanded(
                                                       child: GestureDetector(
@@ -920,7 +912,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                                               horizontal: 10, vertical: 8),
                                                           decoration: BoxDecoration(
                                                             border: Border.all(
-                                                                color: Colors.grey.withValues(alpha: 0.3)),
+                                                                color: AppTheme.dividerOf(context)),
                                                             borderRadius: BorderRadius.circular(8),
                                                           ),
                                                           child: Text(si.endTime.format(context),
@@ -962,20 +954,20 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                             decoration: BoxDecoration(
                                               borderRadius: BorderRadius.circular(10),
                                               border: Border.all(
-                                                color: Colors.grey.withValues(alpha: 0.3),
+                                                color: AppTheme.dividerOf(context),
                                               ),
                                             ),
                                             child: Row(
                                               mainAxisAlignment: MainAxisAlignment.center,
                                               children: [
                                                 Icon(Icons.add_rounded,
-                                                    size: 18, color: Colors.grey[600]),
+                                                    size: 18, color: AppTheme.textSecondaryOf(context)),
                                                 const SizedBox(width: 6),
                                                 Text('Add Schedule Item',
                                                     style: TextStyle(
                                                         fontWeight: FontWeight.w600,
                                                         fontSize: 13,
-                                                        color: Colors.grey[600])),
+                                                        color: AppTheme.textSecondaryOf(context))),
                                               ],
                                             ),
                                           ),
@@ -1148,7 +1140,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                                 Padding(
                                                   padding: const EdgeInsets.only(left: 15, top: 2),
                                                   child: Text(t.description!,
-                                                      style: TextStyle(fontSize: 11, color: Colors.grey[600], fontStyle: FontStyle.italic)),
+                                                      style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context), fontStyle: FontStyle.italic)),
                                                 ),
                                             ],
                                           ),
@@ -1176,14 +1168,13 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                   decoration: BoxDecoration(
                                     color: _showMilestoneSection
                                         ? Colors.amber.withValues(alpha: 0.08)
-                                        : Colors.grey.withValues(alpha: 0.04),
+                                        : AppTheme.surfaceOf(context),
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
                                       color: _showMilestoneSection
                                           ? Colors.amber
                                               .withValues(alpha: 0.3)
-                                          : Colors.grey
-                                              .withValues(alpha: 0.15),
+                                          : AppTheme.dividerOf(context),
                                     ),
                                   ),
                                   child: Row(
@@ -1192,7 +1183,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                           size: 18,
                                           color: _showMilestoneSection
                                               ? Colors.amber[700]
-                                              : Colors.grey[600]),
+                                              : AppTheme.textSecondaryOf(context)),
                                       const SizedBox(width: 8),
                                       Expanded(
                                         child: Text(
@@ -1200,7 +1191,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                           style: TextStyle(
                                             fontWeight: FontWeight.w600,
                                             fontSize: 13,
-                                            color: Colors.grey[800],
+                                            color: AppTheme.textPrimaryOf(context),
                                           ),
                                         ),
                                       ),
@@ -1225,7 +1216,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                         _showMilestoneSection
                                             ? Icons.keyboard_arrow_up
                                             : Icons.keyboard_arrow_down,
-                                        color: Colors.grey[500],
+                                        color: AppTheme.textSecondaryOf(context),
                                       ),
                                     ],
                                   ),
@@ -1237,12 +1228,10 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                   margin: const EdgeInsets.only(top: 8),
                                   padding: const EdgeInsets.all(14),
                                   decoration: BoxDecoration(
-                                    color:
-                                        Colors.grey.withValues(alpha: 0.03),
+                                    color: AppTheme.surfaceOf(context),
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
-                                        color: Colors.grey
-                                            .withValues(alpha: 0.12)),
+                                        color: AppTheme.dividerOf(context)),
                                   ),
                                   child: Column(
                                     crossAxisAlignment:
@@ -1252,7 +1241,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                         'Define milestones that unlock as your event reaches funding goals.',
                                         style: TextStyle(
                                             fontSize: 12,
-                                            color: Colors.grey[600]),
+                                            color: AppTheme.textSecondaryOf(context)),
                                       ),
                                       const SizedBox(height: 12),
                                       ..._milestones
@@ -1269,8 +1258,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                             borderRadius:
                                                 BorderRadius.circular(10),
                                             border: Border.all(
-                                                color: Colors.grey.withValues(
-                                                    alpha: 0.2)),
+                                                color: AppTheme.dividerOf(context)),
                                           ),
                                           child: Column(
                                             crossAxisAlignment:
@@ -1331,8 +1319,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                                   Text('Unlock at:',
                                                       style: TextStyle(
                                                           fontSize: 12,
-                                                          color: Colors
-                                                              .grey[700])),
+                                                          color: AppTheme.textSecondaryOf(context))),
                                                   Expanded(
                                                     child: Slider(
                                                       value: ms.unlockPercent
@@ -1389,8 +1376,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                             borderRadius:
                                                 BorderRadius.circular(10),
                                             border: Border.all(
-                                              color: Colors.grey
-                                                  .withValues(alpha: 0.3),
+                                              color: AppTheme.dividerOf(context),
                                             ),
                                           ),
                                           child: Row(
@@ -1399,7 +1385,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                             children: [
                                               Icon(Icons.add_rounded,
                                                   size: 18,
-                                                  color: Colors.grey[600]),
+                                                  color: AppTheme.textSecondaryOf(context)),
                                               const SizedBox(width: 6),
                                               Text('Add Milestone',
                                                   style: TextStyle(
@@ -1407,7 +1393,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                                           FontWeight.w600,
                                                       fontSize: 13,
                                                       color:
-                                                          Colors.grey[600])),
+                                                          AppTheme.textSecondaryOf(context))),
                                             ],
                                           ),
                                         ),
@@ -1436,12 +1422,12 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                 decoration: BoxDecoration(
                                   color: _showSponsorshipSection
                                       ? Colors.teal.withValues(alpha: 0.08)
-                                      : Colors.grey.withValues(alpha: 0.04),
+                                      : AppTheme.surfaceOf(context),
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
                                     color: _showSponsorshipSection
                                         ? Colors.teal.withValues(alpha: 0.3)
-                                        : Colors.grey.withValues(alpha: 0.15),
+                                        : AppTheme.dividerOf(context),
                                   ),
                                 ),
                                 child: Row(
@@ -1450,7 +1436,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                         size: 18,
                                         color: _showSponsorshipSection
                                             ? Colors.teal[700]
-                                            : Colors.grey[600]),
+                                            : AppTheme.textSecondaryOf(context)),
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
@@ -1458,7 +1444,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                         style: TextStyle(
                                           fontWeight: FontWeight.w600,
                                           fontSize: 13,
-                                          color: Colors.grey[800],
+                                          color: AppTheme.textPrimaryOf(context),
                                         ),
                                       ),
                                     ),
@@ -1485,7 +1471,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                       _showSponsorshipSection
                                           ? Icons.keyboard_arrow_up
                                           : Icons.keyboard_arrow_down,
-                                      color: Colors.grey[500],
+                                      color: AppTheme.textSecondaryOf(context),
                                     ),
                                   ],
                                 ),
@@ -1497,11 +1483,11 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                 margin: const EdgeInsets.only(top: 8),
                                 padding: const EdgeInsets.all(14),
                                 decoration: BoxDecoration(
-                                  color: Colors.grey.withValues(alpha: 0.03),
+                                  color: AppTheme.surfaceOf(context),
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
                                       color:
-                                          Colors.grey.withValues(alpha: 0.12)),
+                                          AppTheme.dividerOf(context)),
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1585,7 +1571,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                       'Max $maxDays days (20% of funding duration). Customers can get a refund if they unregister before this cutoff.',
                                       style: TextStyle(
                                         fontSize: 12,
-                                        color: Colors.grey[600],
+                                        color: AppTheme.textSecondaryOf(context),
                                       ),
                                     ),
                                     const SizedBox(height: 8),
@@ -1619,12 +1605,12 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                 decoration: BoxDecoration(
                                   color: _showTransportSection
                                       ? AppTheme.primaryColor.withValues(alpha: 0.05)
-                                      : Colors.grey.withValues(alpha: 0.04),
+                                      : AppTheme.surfaceOf(context),
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
                                     color: _showTransportSection
                                         ? AppTheme.primaryColor.withValues(alpha: 0.2)
-                                        : Colors.grey.withValues(alpha: 0.15),
+                                        : AppTheme.dividerOf(context),
                                   ),
                                 ),
                                 child: Row(
@@ -1633,7 +1619,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                         size: 18,
                                         color: _showTransportSection
                                             ? AppTheme.primaryColor
-                                            : Colors.grey[600]),
+                                            : AppTheme.textSecondaryOf(context)),
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
@@ -1641,7 +1627,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                         style: TextStyle(
                                           fontWeight: FontWeight.w600,
                                           fontSize: 13,
-                                          color: Colors.grey[800],
+                                          color: AppTheme.textPrimaryOf(context),
                                         ),
                                       ),
                                     ),
@@ -1649,7 +1635,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                       _showTransportSection
                                           ? Icons.keyboard_arrow_up
                                           : Icons.keyboard_arrow_down,
-                                      color: Colors.grey[500],
+                                      color: AppTheme.textSecondaryOf(context),
                                     ),
                                   ],
                                 ),
@@ -1661,9 +1647,9 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                 margin: const EdgeInsets.only(top: 8),
                                 padding: const EdgeInsets.all(14),
                                 decoration: BoxDecoration(
-                                  color: Colors.grey.withValues(alpha: 0.03),
+                                  color: AppTheme.surfaceOf(context),
                                   borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: Colors.grey.withValues(alpha: 0.12)),
+                                  border: Border.all(color: AppTheme.dividerOf(context)),
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1771,7 +1757,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                     ? DateFormat('MMM d, y  h:mm a').format(value)
                     : 'Not set',
                 style: TextStyle(
-                  color: value != null ? Colors.black87 : Colors.grey,
+                  color: value != null ? AppTheme.textPrimaryOf(context) : AppTheme.textSecondaryOf(context),
                 ),
               ),
             ),
@@ -1954,7 +1940,7 @@ class _SearchableDropdownState<T> extends State<_SearchableDropdown<T>> {
                       subtitle: widget.itemSubtitle != null
                           ? Text(widget.itemSubtitle!(item),
                               style: TextStyle(
-                                  fontSize: 11, color: Colors.grey[600]))
+                                  fontSize: 11, color: AppTheme.textSecondaryOf(context)))
                           : null,
                       trailing: isSelected
                           ? Icon(Icons.check_circle,

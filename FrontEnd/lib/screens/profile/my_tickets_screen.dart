@@ -5,11 +5,11 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
+import '../../widgets/shimmer_loaders.dart';
 import '../../models/ticket.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_toast.dart';
 import '../event/ticket_receipt_screen.dart';
-import '../event/purchase_group_receipt_screen.dart';
 
 /// Screen for customers to view all their purchased tickets, grouped by event.
 /// Each ticket card shows key info and tapping opens the full receipt.
@@ -109,7 +109,12 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
             : 'My Tickets'),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: List.generate(4, (_) => const ShimmerListTile()),
+              ),
+            )
           : _error != null
               ? _buildError()
               : _buildContent(),
@@ -468,7 +473,7 @@ class _TicketCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final dateFmt = DateFormat('MMM d, yyyy \u2022 h:mm a');
     final isFree = ticket.amountPaidCents == 0;
-    final statusColor = _statusColor(ticket.status);
+    final statusColor = _statusColor(context, ticket.status);
 
     return GestureDetector(
       onTap: onTap,
@@ -740,7 +745,7 @@ class _TicketCard extends StatelessWidget {
     });
   }
 
-  Color _statusColor(String status) {
+  Color _statusColor(BuildContext context, String status) {
     switch (status.toLowerCase()) {
       case 'purchased':
         return AppTheme.successColor;
@@ -749,7 +754,7 @@ class _TicketCard extends StatelessWidget {
       case 'cancelled':
         return AppTheme.errorColor;
       default:
-        return Colors.grey;
+        return AppTheme.textSecondaryOf(context);
     }
   }
 }

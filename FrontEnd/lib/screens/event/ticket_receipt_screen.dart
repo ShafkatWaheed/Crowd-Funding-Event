@@ -8,6 +8,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../../config/theme.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_toast.dart';
+import '../../widgets/shimmer_loaders.dart';
 
 /// Beautiful ticket receipt screen.
 /// Pass [eventId] + [saleId] to load via event route,
@@ -77,7 +78,7 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
         title: const Text('Receipt'),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: ShimmerReceiptCard())
           : _error != null
               ? Center(
                   child: Padding(
@@ -85,10 +86,10 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.error_outline, size: 48, color: Colors.grey[400]),
+                        Icon(Icons.error_outline, size: 48, color: AppTheme.textSecondaryOf(context)),
                         const SizedBox(height: 12),
                         Text(_error!, textAlign: TextAlign.center,
-                            style: TextStyle(color: Colors.grey[600])),
+                            style: TextStyle(color: AppTheme.textSecondaryOf(context))),
                         const SizedBox(height: 16),
                         OutlinedButton(onPressed: _load, child: const Text('Retry')),
                       ],
@@ -136,9 +137,12 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
     final isFree = amountPaidCents == 0;
     final dateFmt = DateFormat.yMMMd().add_jm();
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      child: Column(
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        child: Column(
         children: [
           // ── Receipt Card ──
           Container(
@@ -204,7 +208,7 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
                         decoration: BoxDecoration(
-                          color: _statusColor(status).withValues(alpha: 0.2),
+                          color: _statusColor(context, status).withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
@@ -225,7 +229,7 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
                 Container(
                   width: double.infinity,
                   height: 1,
-                  color: AppTheme.dividerColor,
+                  color: AppTheme.dividerOf(context),
                 ),
 
                 // ── Body ──
@@ -242,17 +246,17 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
                               fontSize: 17, fontWeight: FontWeight.w700)),
                       if (eventStartTime != null) ...[
                         const SizedBox(height: 6),
-                        _iconRow(Icons.calendar_today_rounded,
+                        _iconRow(context, Icons.calendar_today_rounded,
                             dateFmt.format(eventStartTime)),
                       ],
                       if (eventEndTime != null) ...[
                         const SizedBox(height: 4),
-                        _iconRow(Icons.schedule_rounded,
+                        _iconRow(context, Icons.schedule_rounded,
                             'Ends ${dateFmt.format(eventEndTime)}'),
                       ],
                       if (venueName != null) ...[
                         const SizedBox(height: 4),
-                        _iconRow(Icons.location_on_outlined, venueName),
+                        _iconRow(context, Icons.location_on_outlined, venueName),
                       ],
                       if (venueAddress != null) ...[
                         const SizedBox(height: 2),
@@ -260,7 +264,7 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
                           padding: const EdgeInsets.only(left: 26),
                           child: Text(venueAddress,
                               style: TextStyle(
-                                  fontSize: 12, color: Colors.grey[500])),
+                                  fontSize: 12, color: AppTheme.textSecondaryOf(context))),
                         ),
                       ],
 
@@ -270,34 +274,34 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
                       if (organizerName != null) ...[
                         _sectionLabel('ORGANIZER'),
                         const SizedBox(height: 8),
-                        _detailRow('Name', organizerName),
+                        _detailRow(context, 'Name', organizerName),
                         if (organizerEmail != null && organizerEmail.isNotEmpty)
-                          _detailRow('Email', organizerEmail),
+                          _detailRow(context, 'Email', organizerEmail),
                         if (organizerPhone != null && organizerPhone.isNotEmpty)
-                          _detailRow('Phone', organizerPhone),
+                          _detailRow(context, 'Phone', organizerPhone),
                         const SizedBox(height: 20),
                       ],
 
                       // Attendee
                       _sectionLabel('ATTENDEE'),
                       const SizedBox(height: 8),
-                      _detailRow('Name', attendeeName),
+                      _detailRow(context, 'Name', attendeeName),
                       if (attendeeEmail.isNotEmpty)
-                        _detailRow('Email', attendeeEmail),
+                        _detailRow(context, 'Email', attendeeEmail),
 
                       const SizedBox(height: 20),
 
                       // Ticket info
                       _sectionLabel('TICKET'),
                       const SizedBox(height: 8),
-                      _detailRow('Tier', tierName),
-                      _detailRow('Ticket Code', ticketCode, copyable: true),
+                      _detailRow(context, 'Tier', tierName),
+                      _detailRow(context, 'Ticket Code', ticketCode, copyable: true),
                       if (purchasedAt != null)
-                        _detailRow('Purchased', dateFmt.format(purchasedAt)),
+                        _detailRow(context, 'Purchased', dateFmt.format(purchasedAt)),
                       if (scannedAt != null)
-                        _detailRow('Scanned', dateFmt.format(scannedAt)),
+                        _detailRow(context, 'Scanned', dateFmt.format(scannedAt)),
                       if (extraPerks != null && extraPerks.toString().isNotEmpty)
-                        _detailRow('Extra Perks', extraPerks.toString()),
+                        _detailRow(context, 'Extra Perks', extraPerks.toString()),
 
                       const SizedBox(height: 20),
 
@@ -308,7 +312,7 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
                             Container(
                               padding: const EdgeInsets.all(14),
                               decoration: BoxDecoration(
-                                color: Colors.white,
+                                color: AppTheme.cardOf(context),
                                 borderRadius: BorderRadius.circular(14),
                                 border: Border.all(color: AppTheme.dividerOf(context)),
                                 boxShadow: [
@@ -364,34 +368,35 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
                         ),
                         child: Column(
                           children: [
-                            _priceRow('Ticket Price',
+                            _priceRow(context, 'Ticket Price',
                                 _formatCents(tierPriceCents)),
                             if (discountCents > 0) ...[
                               const SizedBox(height: 8),
-                              _priceRow('Discount',
+                              _priceRow(context, 'Discount',
                                   '-${_formatCents(discountCents)}',
                                   valueColor: AppTheme.successColor),
                             ],
                             if (commissionCents > 0) ...[
                               const SizedBox(height: 8),
-                              _priceRow('Platform Fee',
+                              _priceRow(context, 'Platform Fee',
                                   _formatCents(commissionCents),
-                                  valueColor: Colors.grey[500]!),
+                                  valueColor: AppTheme.textSecondaryOf(context)),
                             ],
                             const SizedBox(height: 10),
                             Container(
                               height: 1,
-                              color: AppTheme.dividerColor,
+                              color: AppTheme.dividerOf(context),
                             ),
                             const SizedBox(height: 10),
                             Row(
                               mainAxisAlignment:
                                   MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text('Total Paid',
+                                Text('Total Paid',
                                     style: TextStyle(
                                         fontWeight: FontWeight.w800,
-                                        fontSize: 16)),
+                                        fontSize: 16,
+                                        color: AppTheme.textPrimaryOf(context))),
                                 Text(
                                   isFree
                                       ? 'FREE'
@@ -429,14 +434,14 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
                   child: Row(
                     children: [
                       Icon(Icons.verified_outlined,
-                          size: 16, color: Colors.grey[400]),
+                          size: 16, color: AppTheme.textSecondaryOf(context)),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           'This receipt is generated automatically upon ticket purchase. '
                           'Keep your ticket code safe for event entry.',
                           style: TextStyle(
-                              fontSize: 11, color: Colors.grey[500]),
+                              fontSize: 11, color: AppTheme.textSecondaryOf(context)),
                         ),
                       ),
                     ],
@@ -476,6 +481,7 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
           const SizedBox(height: 24),
         ],
       ),
+    ),
     );
   }
 
@@ -490,20 +496,20 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
             letterSpacing: 1.2));
   }
 
-  Widget _iconRow(IconData icon, String text) {
+  Widget _iconRow(BuildContext context, IconData icon, String text) {
     return Row(
       children: [
-        Icon(icon, size: 15, color: Colors.grey[500]),
+        Icon(icon, size: 15, color: AppTheme.textSecondaryOf(context)),
         const SizedBox(width: 8),
         Expanded(
           child: Text(text,
-              style: TextStyle(fontSize: 13, color: Colors.grey[700])),
+              style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryOf(context))),
         ),
       ],
     );
   }
 
-  Widget _detailRow(String label, String value, {bool copyable = false}) {
+  Widget _detailRow(BuildContext context, String label, String value, {bool copyable = false}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Row(
@@ -514,13 +520,14 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
             child: Text(label,
                 style: TextStyle(
                     fontSize: 13,
-                    color: Colors.grey[500],
+                    color: AppTheme.textSecondaryOf(context),
                     fontWeight: FontWeight.w500)),
           ),
           Expanded(
             child: Text(value,
-                style: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w600)),
+                style: TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimaryOf(context))),
           ),
           if (copyable)
             GestureDetector(
@@ -528,24 +535,24 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
                 Clipboard.setData(ClipboardData(text: value));
                 AppToast.info(context, 'Copied to clipboard');
               },
-              child: Icon(Icons.copy_rounded, size: 15, color: Colors.grey[400]),
+              child: Icon(Icons.copy_rounded, size: 15, color: AppTheme.textSecondaryOf(context)),
             ),
         ],
       ),
     );
   }
 
-  Widget _priceRow(String label, String value, {Color? valueColor}) {
+  Widget _priceRow(BuildContext context, String label, String value, {Color? valueColor}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label,
-            style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+            style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryOf(context))),
         Text(value,
             style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: valueColor)),
+                color: valueColor ?? AppTheme.textPrimaryOf(context))),
       ],
     );
   }
@@ -553,7 +560,7 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
   String _formatCents(int cents) =>
       '\$${(cents / 100).toStringAsFixed(2)}';
 
-  Color _statusColor(String status) {
+  Color _statusColor(BuildContext context, String status) {
     switch (status.toLowerCase()) {
       case 'purchased':
         return AppTheme.successColor;
@@ -562,7 +569,7 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
       case 'cancelled':
         return AppTheme.errorColor;
       default:
-        return Colors.grey;
+        return AppTheme.textSecondaryOf(context);
     }
   }
 }

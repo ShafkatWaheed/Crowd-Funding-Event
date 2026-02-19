@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_toast.dart';
+import '../../widgets/shimmer_loaders.dart';
 
 class GlobalDiscountsScreen extends StatefulWidget {
   const GlobalDiscountsScreen({super.key});
@@ -152,7 +153,12 @@ class _GlobalDiscountsScreenState extends State<GlobalDiscountsScreen> {
       body: RefreshIndicator(
         onRefresh: _load,
         child: _loading
-            ? const Center(child: CircularProgressIndicator())
+            ? Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: List.generate(3, (_) => const ShimmerListTile()),
+                ),
+              )
             : ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
@@ -174,7 +180,7 @@ class _GlobalDiscountsScreenState extends State<GlobalDiscountsScreen> {
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide(color: AppTheme.dividerOf(context))),
                       filled: true,
-                      fillColor: AppTheme.cardOf(context),
+                      fillColor: AppTheme.inputFillOf(context),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -255,6 +261,7 @@ class _GlobalDiscountsScreenState extends State<GlobalDiscountsScreen> {
                 borderSide: BorderSide(color: AppTheme.dividerOf(context)),
               ),
               filled: true,
+              fillColor: AppTheme.inputFillOf(context),
             ),
           ),
           const SizedBox(height: 12),
@@ -307,6 +314,7 @@ class _GlobalDiscountsScreenState extends State<GlobalDiscountsScreen> {
                 borderSide: BorderSide(color: AppTheme.dividerOf(context)),
               ),
               filled: true,
+              fillColor: AppTheme.inputFillOf(context),
             ),
           ),
           const SizedBox(height: 12),

@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
+import '../../widgets/shimmer_loaders.dart';
 import '../../services/api_service.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
@@ -136,7 +137,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
         ),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: List.generate(4, (_) => const ShimmerListTile()),
+              ),
+            )
           : TabBarView(
               controller: _tabCtrl,
               children: [
@@ -157,8 +163,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
       return const Center(child: Text('Failed to load stats'));
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(20),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 800),
@@ -202,25 +211,40 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
           ),
         ),
       ),
+    ),
     );
   }
 
   Widget _buildPendingApproval() {
     if (_pendingApproval.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.check_circle, size: 64, color: Colors.grey[300]),
-            const SizedBox(height: 16),
-            Text('No events awaiting approval',
-                style: TextStyle(fontSize: 18, color: Colors.grey[500])),
-          ],
+      return LayoutBuilder(
+        builder: (context, constraints) => RefreshIndicator(
+          onRefresh: _loadData,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.check_circle, size: 64, color: AppTheme.textSecondaryOf(context)),
+                    const SizedBox(height: 16),
+                    Text('No events awaiting approval',
+                        style: TextStyle(fontSize: 18, color: AppTheme.textSecondaryOf(context))),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ),
       );
     }
 
-    return ListView.builder(
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       itemCount: _pendingApproval.length,
       itemBuilder: (context, index) {
@@ -251,6 +275,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
           ),
         );
       },
+    ),
     );
   }
 
@@ -278,19 +303,34 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     final hasCancellations = _pendingCancellations.isNotEmpty;
 
     if (!hasExtensions && !hasCancellations) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.check_circle, size: 64, color: Colors.grey[300]),
-            const SizedBox(height: 16),
-            const Text('No pending requests'),
-          ],
+      return LayoutBuilder(
+        builder: (context, constraints) => RefreshIndicator(
+          onRefresh: _loadData,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.check_circle, size: 64, color: AppTheme.textSecondaryOf(context)),
+                    const SizedBox(height: 16),
+                    Text('No pending requests',
+                        style: TextStyle(color: AppTheme.textSecondaryOf(context))),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ),
       );
     }
 
-    return ListView(
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       children: [
         // ── Pending Cancellations ──
@@ -402,7 +442,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                         style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
                     const SizedBox(height: 4),
                     Text('Status: ${e['status']}',
-                        style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                        style: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 13)),
                     if (ext != null) ...[
                       const SizedBox(height: 8),
                       if (ext['funding_end_at'] != null)
@@ -441,25 +481,40 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
           }),
         ],
       ],
+    ),
     );
   }
 
   Widget _buildDrafts() {
     if (_pendingEvents.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.check_circle, size: 64, color: Colors.grey[300]),
-            const SizedBox(height: 16),
-            Text('No draft events',
-                style: TextStyle(fontSize: 18, color: Colors.grey[500])),
-          ],
+      return LayoutBuilder(
+        builder: (context, constraints) => RefreshIndicator(
+          onRefresh: _loadData,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.check_circle, size: 64, color: AppTheme.textSecondaryOf(context)),
+                    const SizedBox(height: 16),
+                    Text('No draft events',
+                        style: TextStyle(fontSize: 18, color: AppTheme.textSecondaryOf(context))),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ),
       );
     }
 
-    return ListView.builder(
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       itemCount: _pendingEvents.length,
       itemBuilder: (context, index) {
@@ -490,23 +545,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
           ),
         );
       },
+    ),
     );
   }
 
-  /// Mask an email string: show first 2 chars + *** + @domain
-  String _maskEmail(String email) {
-    if (email.isEmpty) return '';
-    final parts = email.split('@');
-    if (parts.length != 2) return email;
-    final local = parts[0];
-    final domain = parts[1];
-    final visible = local.length >= 2 ? local.substring(0, 2) : local;
-    return '$visible***@$domain';
-  }
-
   Widget _buildUsers() {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
       itemCount: _users.length,
       itemBuilder: (context, index) {
         final user = _users[index];
@@ -515,7 +563,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
         return Card(
           child: ListTile(
             leading: CircleAvatar(
-              backgroundColor: AppTheme.surfaceColor,
+              backgroundColor: AppTheme.surfaceOf(context),
               child: Text(
                 (name != 'No name' ? name : email)
                     .substring(0, 1)
@@ -537,6 +585,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
           ),
         );
       },
+    ),
     );
   }
 
@@ -583,21 +632,36 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
 
   Widget _buildEscrows() {
     if (_escrows.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.account_balance, size: 64, color: Colors.grey[300]),
-            const SizedBox(height: 16),
-            const Text('No escrows yet'),
-            const SizedBox(height: 8),
-            Text('Escrows are created when funded events receive pledges.',
-                style: TextStyle(color: Colors.grey[500], fontSize: 13)),
-          ],
+      return LayoutBuilder(
+        builder: (context, constraints) => RefreshIndicator(
+          onRefresh: _loadData,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.account_balance, size: 64, color: AppTheme.textSecondaryOf(context)),
+                    const SizedBox(height: 16),
+                    Text('No escrows yet',
+                        style: TextStyle(color: AppTheme.textSecondaryOf(context))),
+                    const SizedBox(height: 8),
+                    Text('Escrows are created when funded events receive pledges.',
+                        style: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 13)),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ),
       );
     }
-    return ListView.builder(
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       itemCount: _escrows.length,
       itemBuilder: (ctx, i) {
@@ -701,6 +765,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
           ),
         );
       },
+    ),
     );
   }
 
@@ -708,7 +773,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+        Text(label, style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context))),
         Text('\$${(cents / 100).toStringAsFixed(2)}',
             style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: color)),
       ],
@@ -722,17 +787,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
           width: 28,
           height: 28,
           decoration: BoxDecoration(
-            color: done ? color : Colors.grey.shade200,
+            color: done ? color : AppTheme.dividerOf(context),
             shape: BoxShape.circle,
           ),
           child: Center(
             child: done
                 ? const Icon(Icons.check, color: Colors.white, size: 16)
-                : Text(label, style: TextStyle(fontSize: 10, color: Colors.grey[500])),
+                : Text(label, style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryOf(context))),
           ),
         ),
         const SizedBox(height: 2),
-        Text(label, style: TextStyle(fontSize: 9, color: done ? color : Colors.grey[400])),
+        Text(label, style: TextStyle(fontSize: 9, color: done ? color : AppTheme.textSecondaryOf(context))),
       ],
     );
   }
@@ -743,7 +808,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
         height: 3,
         margin: const EdgeInsets.symmetric(horizontal: 4),
         decoration: BoxDecoration(
-          color: active ? Colors.green.shade300 : Colors.grey.shade200,
+          color: active ? Colors.green.shade300 : AppTheme.dividerOf(context),
           borderRadius: BorderRadius.circular(2),
         ),
       ),
@@ -770,8 +835,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     if (_settings.isEmpty) {
       return const Center(child: Text('No settings configured'));
     }
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(20),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 700),
@@ -782,7 +850,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                   style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
               const SizedBox(height: 4),
               Text('Configure commission rates and platform rules.',
-                  style: TextStyle(color: Colors.grey[600])),
+                  style: TextStyle(color: AppTheme.textSecondaryOf(context))),
               const SizedBox(height: 20),
               ..._settings.map((s) {
                 final key = s['key'] ?? '';
@@ -853,7 +921,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                                   padding: const EdgeInsets.only(top: 2),
                                   child: Text(desc,
                                       style: TextStyle(
-                                          fontSize: 12, color: Colors.grey[500])),
+                                          fontSize: 12, color: AppTheme.textSecondaryOf(context))),
                                 ),
                             ],
                           ),
@@ -931,6 +999,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
           ),
         ),
       ),
+    ),
     );
   }
 }
@@ -966,7 +1035,7 @@ class _StatCard extends StatelessWidget {
               const SizedBox(height: 4),
               Text(label,
                   style:
-                      TextStyle(color: Colors.grey[600], fontSize: 14)),
+                      TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 14)),
             ],
           ),
         ),

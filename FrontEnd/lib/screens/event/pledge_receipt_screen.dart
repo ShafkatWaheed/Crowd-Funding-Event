@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_toast.dart';
+import '../../widgets/shimmer_loaders.dart';
 
 class PledgeReceiptScreen extends StatefulWidget {
   final int eventId;
@@ -56,7 +57,7 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
         elevation: 0,
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: ShimmerReceiptCard())
           : _error != null
               ? Center(
                   child: Column(
@@ -96,9 +97,12 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
 
     final headerColor = isDonation ? Colors.amber.shade700 : Colors.deepPurple;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Center(
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(20),
+        child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 420),
           child: Container(
@@ -270,6 +274,7 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 

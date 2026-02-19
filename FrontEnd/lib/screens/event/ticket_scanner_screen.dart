@@ -147,11 +147,13 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
       context: context,
       backgroundColor: Colors.transparent,
       isDismissible: true,
-      builder: (ctx) => Container(
+      builder: (ctx) {
+        final themeCtx = ctx;
+        return Container(
         margin: const EdgeInsets.all(16),
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: AppTheme.cardOf(context),
+          color: AppTheme.cardOf(themeCtx),
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
@@ -187,7 +189,7 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
               subtitle,
               style: TextStyle(
                 fontSize: 14,
-                color: AppTheme.textSecondary,
+                color: AppTheme.textSecondaryOf(themeCtx),
               ),
               textAlign: TextAlign.center,
             ),
@@ -197,7 +199,7 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
-                  color: AppTheme.surfaceOf(context),
+                  color: AppTheme.surfaceOf(themeCtx),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -230,7 +232,8 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
             ),
           ],
         ),
-      ),
+      );
+      },
     );
   }
 
@@ -379,14 +382,14 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
                       decoration: BoxDecoration(
                         color: _scannedCount > 0
                             ? AppTheme.successColor.withValues(alpha: 0.1)
-                            : AppTheme.surfaceColor,
+                            : AppTheme.surfaceOf(context),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Icon(
                         Icons.qr_code_scanner_rounded,
                         color: _scannedCount > 0
                             ? AppTheme.successColor
-                            : AppTheme.textSecondary,
+                            : AppTheme.textSecondaryOf(context),
                         size: 24,
                       ),
                     ),
@@ -400,10 +403,11 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
                             _isProcessing
                                 ? 'Processing...'
                                 : 'Point camera at QR code',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w700,
                               letterSpacing: -0.2,
+                              color: AppTheme.textPrimaryOf(context),
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -415,7 +419,7 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
                               fontSize: 12,
                               color: _scannedCount > 0
                                   ? AppTheme.successColor
-                                  : AppTheme.textSecondary,
+                                  : AppTheme.textSecondaryOf(context),
                               fontWeight: FontWeight.w500,
                             ),
                           ),

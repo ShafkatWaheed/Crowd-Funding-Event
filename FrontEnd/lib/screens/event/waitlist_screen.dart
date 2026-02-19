@@ -6,6 +6,7 @@ import '../../config/theme.dart';
 import '../../services/api_service.dart';
 import '../../providers/event_provider.dart';
 import '../../widgets/app_toast.dart';
+import '../../widgets/shimmer_loaders.dart';
 
 enum _WaitlistType { fund, ticket }
 
@@ -207,7 +208,7 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
               decoration: BoxDecoration(
                 color: AppTheme.surfaceOf(context),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppTheme.dividerColor),
+                border: Border.all(color: AppTheme.dividerOf(context)),
               ),
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: Row(
@@ -257,11 +258,11 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: AppTheme.dividerColor),
+                  borderSide: BorderSide(color: AppTheme.dividerOf(context)),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: AppTheme.dividerColor),
+                  borderSide: BorderSide(color: AppTheme.dividerOf(context)),
                 ),
               ),
               onChanged: (_) => setState(() => _applySearch()),
@@ -326,17 +327,22 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
           // ── Content ──
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator())
+                ? Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: List.generate(4, (_) => const ShimmerListTile()),
+                    ),
+                  )
                 : _error != null
                     ? Center(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.error_outline,
-                                size: 48, color: Colors.grey[400]),
+                                size: 48, color: AppTheme.textSecondaryOf(context)),
                             const SizedBox(height: 12),
                             Text('Failed to load',
-                                style: TextStyle(color: Colors.grey[500])),
+                                style: TextStyle(color: AppTheme.textSecondaryOf(context))),
                             const SizedBox(height: 8),
                             OutlinedButton(
                                 onPressed: _load,
@@ -359,7 +365,7 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
                                       ? _searchEmptyLabel
                                       : _emptyLabel,
                                   style: TextStyle(
-                                      color: Colors.grey[500], fontSize: 15),
+                                      color: AppTheme.textSecondaryOf(context), fontSize: 15),
                                 ),
                               ],
                             ),
@@ -411,14 +417,14 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
           children: [
             Row(
               children: [
-                Icon(Icons.people_alt_rounded, size: 16, color: Colors.grey[600]),
+                Icon(Icons.people_alt_rounded, size: 16, color: AppTheme.textSecondaryOf(context)),
                 const SizedBox(width: 6),
                 Text(
                   'Capacity',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
-                    color: Colors.grey[700],
+                    color: AppTheme.textSecondaryOf(context),
                   ),
                 ),
                 const Spacer(),
@@ -427,7 +433,7 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: Colors.grey[600],
+                    color: AppTheme.textSecondaryOf(context),
                   ),
                 ),
               ],
@@ -446,12 +452,12 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
             Wrap(
               spacing: 12,
               children: [
-                _capLabel('Tickets sold', _ticketsSold, Colors.blue),
+                _capLabel(context, 'Tickets sold', _ticketsSold, Colors.blue),
                 if (_totalReservedSpots > 0)
-                  _capLabel('Reserved spots', _totalReservedSpots, Colors.deepPurple),
-                _capLabel('Available', _available, AppTheme.successColor),
+                  _capLabel(context, 'Reserved spots', _totalReservedSpots, Colors.deepPurple),
+                _capLabel(context, 'Available', _available, AppTheme.successColor),
                 if (_type == _WaitlistType.fund)
-                  _capLabel('Registered', _registrationCount, Colors.teal),
+                  _capLabel(context, 'Registered', _registrationCount, Colors.teal),
               ],
             ),
           ],
@@ -460,7 +466,7 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
     );
   }
 
-  Widget _capLabel(String label, int value, Color color) {
+  Widget _capLabel(BuildContext context, String label, int value, Color color) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -472,7 +478,7 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
         const SizedBox(width: 4),
         Text(
           '$value $label',
-          style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+          style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context)),
         ),
       ],
     );
@@ -504,14 +510,14 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
             children: [
               Icon(icon,
                   size: 18,
-                  color: selected ? Colors.white : Colors.grey[600]),
+                  color: selected ? Colors.white : AppTheme.textSecondaryOf(context)),
               const SizedBox(width: 6),
               Text(
                 label,
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: selected ? Colors.white : Colors.grey[600],
+                  color: selected ? Colors.white : AppTheme.textSecondaryOf(context),
                 ),
               ),
               if (count > 0) ...[
@@ -522,7 +528,7 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
                   decoration: BoxDecoration(
                     color: selected
                         ? Colors.white.withValues(alpha: 0.25)
-                        : Colors.grey.withValues(alpha: 0.15),
+                        : AppTheme.dividerOf(context).withValues(alpha: 0.5),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -530,7 +536,7 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
-                      color: selected ? Colors.white : Colors.grey[600],
+                      color: selected ? Colors.white : AppTheme.textSecondaryOf(context),
                     ),
                   ),
                 ),
@@ -591,7 +597,7 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
                       const SizedBox(height: 2),
                       Text('Registration #$regId',
                           style:
-                              TextStyle(fontSize: 12, color: Colors.grey[500])),
+                              TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context))),
                     ],
                   ),
                 ),
@@ -674,7 +680,7 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
                       const SizedBox(height: 2),
                       Text('$tierName · $price',
                           style:
-                              TextStyle(fontSize: 12, color: Colors.grey[500])),
+                              TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context))),
                     ],
                   ),
                 ),

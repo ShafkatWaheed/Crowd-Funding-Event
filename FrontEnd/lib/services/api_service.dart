@@ -100,8 +100,11 @@ class ApiService {
     return resp.data;
   }
 
-  Future<List<dynamic>> getMyEvents() async {
-    final resp = await dio.get('/me/events');
+  Future<List<dynamic>> getMyEvents({int offset = 0, int limit = 20}) async {
+    final resp = await dio.get('/me/events', queryParameters: {
+      'offset': offset,
+      'limit': limit,
+    });
     return resp.data;
   }
 
@@ -114,8 +117,13 @@ class ApiService {
 
   // ─── Events ───
 
-  Future<List<dynamic>> getEvents({Map<String, dynamic>? params}) async {
-    final resp = await dio.get('/events', queryParameters: params);
+  Future<List<dynamic>> getEvents({Map<String, dynamic>? params, int offset = 0, int limit = 20}) async {
+    final merged = <String, dynamic>{
+      ...?params,
+      'offset': offset,
+      'limit': limit,
+    };
+    final resp = await dio.get('/events', queryParameters: merged);
     return resp.data;
   }
 
@@ -228,6 +236,16 @@ class ApiService {
       if (caption != null) 'caption': caption,
       'display_order': displayOrder,
     });
+    return resp.data;
+  }
+
+  Future<Map<String, dynamic>> uploadEventImage(int eventId, {required List<int> fileBytes, required String fileName, String? caption, int displayOrder = 0}) async {
+    final formData = FormData.fromMap({
+      'file': MultipartFile.fromBytes(fileBytes, filename: fileName),
+      if (caption != null) 'caption': caption,
+      'display_order': displayOrder,
+    });
+    final resp = await dio.post('/events/$eventId/images/upload', data: formData);
     return resp.data;
   }
 

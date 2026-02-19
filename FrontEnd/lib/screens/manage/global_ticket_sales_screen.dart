@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../config/theme.dart';
 import '../../services/api_service.dart';
 import '../event/ticket_receipt_screen.dart';
+import '../../widgets/shimmer_loaders.dart';
 
 /// Shows ticket sales across ALL organiser events.
 /// [scannedOnly] toggles between all-sales and scanned-only view.
@@ -197,7 +198,12 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
           // ── List ──
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator())
+                ? Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: List.generate(4, (_) => const ShimmerListTile()),
+                    ),
+                  )
                 : _error != null
                     ? _errorWidget()
                     : _filtered.isEmpty
@@ -385,7 +391,7 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
               style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: isDark ? Colors.white : color)),
+                  color: isDark ? AppTheme.textPrimaryOf(context) : color)),
         ],
       ),
     );

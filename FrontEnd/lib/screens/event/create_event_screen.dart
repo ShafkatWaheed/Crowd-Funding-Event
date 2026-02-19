@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
@@ -135,6 +137,11 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   bool _showSponsorshipSection = false;
   final List<_SponsorCategoryInput> _sponsorCategories = [];
 
+  // Event Images (picked locally, uploaded after event creation)
+  final List<XFile> _pickedImages = [];
+  final Map<int, Uint8List> _imageBytes = {};
+  final ImagePicker _imagePicker = ImagePicker();
+
   @override
   void initState() {
     super.initState();
@@ -173,6 +180,47 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     } catch (_) {}
   }
 
+  Future<void> _pickImages({bool singleMode = false}) async {
+    try {
+      List<XFile> picked;
+      if (singleMode) {
+        final single = await _imagePicker.pickImage(source: ImageSource.gallery);
+        picked = single != null ? [single] : [];
+      } else {
+        picked = await _imagePicker.pickMultiImage();
+      }
+      if (picked.isEmpty) return;
+      for (final xFile in picked) {
+        final bytes = await xFile.readAsBytes();
+        final idx = _pickedImages.length;
+        _pickedImages.add(xFile);
+        _imageBytes[idx] = bytes;
+      }
+      if (mounted) setState(() {});
+    } catch (e) {
+      if (mounted) {
+        AppToast.error(context, 'Could not pick images: $e');
+      }
+    }
+  }
+
+  void _removeImage(int index) {
+    setState(() {
+      _pickedImages.removeAt(index);
+      // Rebuild bytes map with new indices
+      final newBytes = <int, Uint8List>{};
+      for (int i = 0; i < _pickedImages.length; i++) {
+        final oldIdx = i >= index ? i + 1 : i;
+        if (_imageBytes.containsKey(oldIdx)) {
+          newBytes[i] = _imageBytes[oldIdx]!;
+        }
+      }
+      _imageBytes
+        ..clear()
+        ..addAll(newBytes);
+    });
+  }
+
   String _discountLabel(Map<String, dynamic> d) {
     final name = d['name'] ?? '';
     final type = d['discount_type'] ?? '';
@@ -195,7 +243,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Text('No matching discounts',
-              style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context))),
         ),
       ];
     }
@@ -433,6 +481,19 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         } catch (_) {}
       }
 
+      // Upload picked images
+      for (int i = 0; i < _pickedImages.length; i++) {
+        try {
+          final bytes = _imageBytes[i] ?? await _pickedImages[i].readAsBytes();
+          await api.uploadEventImage(
+            eventId,
+            fileBytes: bytes,
+            fileName: _pickedImages[i].name,
+            displayOrder: i,
+          );
+        } catch (_) {}
+      }
+
       setState(() => _isLoading = false);
 
       if (mounted) context.pop(true);
@@ -651,7 +712,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                       Container(
                         width: 7, height: 7,
                         decoration: BoxDecoration(
-                          color: AppTheme.primaryColor,
+                          color: AppTheme.accentColor,
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -665,7 +726,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                     Padding(
                       padding: const EdgeInsets.only(left: 15, top: 2),
                       child: Text(t.description!,
-                          style: TextStyle(fontSize: 11, color: Colors.grey[600], fontStyle: FontStyle.italic)),
+                          style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context), fontStyle: FontStyle.italic)),
                     ),
                 ],
               ),
@@ -700,7 +761,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
             const SizedBox(height: 12),
             Row(
               children: [
-                const Icon(Icons.layers, size: 16, color: AppTheme.primaryColor),
+                Icon(Icons.layers, size: 16, color: AppTheme.textSecondaryOf(context)),
                 const SizedBox(width: 6),
                 Text('Tiers', style: Theme.of(context).textTheme.bodyMedium),
                 const Spacer(),
@@ -870,6 +931,138 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                     decoration: const InputDecoration(labelText: 'Description'),
                     maxLines: 3,
                   ),
+                  const SizedBox(height: 20),
+
+                  // ═══════════════════════════════════════
+                  // Event Images
+                  // ═══════════════════════════════════════
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppTheme.cardOf(context),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppTheme.dividerOf(context)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.photo_library_rounded, size: 20, color: AppTheme.accentColor),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Event Images',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                  color: AppTheme.textPrimaryOf(context),
+                                ),
+                              ),
+                            ),
+                            Text(
+                              '${_pickedImages.length} selected',
+                              style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context)),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        if (_pickedImages.isNotEmpty) ...[
+                          SizedBox(
+                            height: 120,
+                            child: ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: _pickedImages.length,
+                              separatorBuilder: (_, __) => const SizedBox(width: 10),
+                              itemBuilder: (context, i) {
+                                final bytes = _imageBytes[i];
+                                return Stack(
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(10),
+                                      child: bytes != null
+                                          ? Image.memory(bytes, width: 120, height: 120, fit: BoxFit.cover)
+                                          : Container(
+                                              width: 120, height: 120,
+                                              color: AppTheme.dividerOf(context),
+                                              child: const Icon(Icons.image, size: 32),
+                                            ),
+                                    ),
+                                    Positioned(
+                                      top: 4,
+                                      right: 4,
+                                      child: GestureDetector(
+                                        onTap: () => _removeImage(i),
+                                        child: Container(
+                                          padding: const EdgeInsets.all(4),
+                                          decoration: BoxDecoration(
+                                            color: Colors.black.withValues(alpha: 0.6),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: const Icon(Icons.close, size: 14, color: Colors.white),
+                                        ),
+                                      ),
+                                    ),
+                                    if (i == 0)
+                                      Positioned(
+                                        bottom: 4,
+                                        left: 4,
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.primaryOf(context),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: const Text('Cover', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600)),
+                                        ),
+                                      ),
+                                  ],
+                                );
+                              },
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                        ],
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () => _pickImages(),
+                                icon: const Icon(Icons.photo_library_rounded, size: 18),
+                                label: const Text('Select Multiple'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppTheme.primaryOf(context),
+                                  side: BorderSide(color: AppTheme.primaryOf(context).withValues(alpha: 0.4)),
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () => _pickImages(singleMode: true),
+                                icon: const Icon(Icons.add_photo_alternate_rounded, size: 18),
+                                label: const Text('Pick One'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppTheme.textSecondaryOf(context),
+                                  side: BorderSide(color: AppTheme.dividerOf(context)),
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (_pickedImages.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Text(
+                              'Add photos to make your event stand out. The first image will be the cover.',
+                              style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context)),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
                   const SizedBox(height: 16),
 
                   // Genre
@@ -890,9 +1083,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
-                      color: _communityRules ? Colors.orange.shade50 : Colors.grey.shade50,
+                      color: _communityRules ? Colors.orange.withValues(alpha: 0.08) : AppTheme.cardOf(context),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: _communityRules ? Colors.orange.shade300 : Colors.grey.shade300),
+                      border: Border.all(color: _communityRules ? Colors.orange.withValues(alpha: 0.4) : AppTheme.dividerOf(context)),
                     ),
                     child: Column(
                       children: [
@@ -900,7 +1093,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                           contentPadding: EdgeInsets.zero,
                           title: Row(
                             children: [
-                              Icon(Icons.groups_rounded, size: 20, color: _communityRules ? Colors.orange : Colors.grey),
+                              Icon(Icons.groups_rounded, size: 20, color: _communityRules ? Colors.orange : AppTheme.textSecondaryOf(context)),
                               const SizedBox(width: 8),
                               const Text('Community Event Rules',
                                   style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
@@ -922,7 +1115,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                               '\u2022 Max ticket price: configurable (default \$50)\n'
                               '\u2022 Listing fee charged on publish\n'
                               '\u2022 Rules are set by platform admin in Settings',
-                              style: TextStyle(fontSize: 12, color: Colors.orange.shade800, height: 1.5),
+                              style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context), height: 1.5),
                             ),
                           ),
                         ],
@@ -969,7 +1162,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                 fontWeight: FontWeight.w600,
                                 fontSize: 13,
                                 color: (_startTime == null && _fundingEndAt == null)
-                                    ? Colors.grey[800]
+                                    ? AppTheme.textPrimaryOf(context)
                                     : AppTheme.successColor,
                               ),
                             ),
@@ -982,7 +1175,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                             style: TextStyle(
                                 fontWeight: FontWeight.w600,
                                 fontSize: 13,
-                                color: Colors.grey[700])),
+                                color: AppTheme.textSecondaryOf(context))),
                         const SizedBox(height: 6),
                         Row(
                           children: [
@@ -992,16 +1185,16 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                 icon: Icon(Icons.calendar_today,
                                     size: 18,
                                     color: _startTime != null
-                                        ? AppTheme.primaryColor
-                                        : Colors.grey),
+                                        ? AppTheme.primaryOf(context)
+                                        : AppTheme.textSecondaryOf(context)),
                                 label: Text(
                                   _startTime != null
                                       ? '${_startTime!.month}/${_startTime!.day}/${_startTime!.year} ${_startTime!.hour}:${_startTime!.minute.toString().padLeft(2, '0')}'
                                       : 'Start Date & Time',
                                   style: TextStyle(
                                     color: _startTime != null
-                                        ? Colors.black87
-                                        : Colors.grey,
+                                        ? AppTheme.textPrimaryOf(context)
+                                        : AppTheme.textSecondaryOf(context),
                                   ),
                                 ),
                               ),
@@ -1027,16 +1220,16 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                 icon: Icon(Icons.calendar_today,
                                     size: 18,
                                     color: _endTime != null
-                                        ? AppTheme.primaryColor
-                                        : Colors.grey),
+                                        ? AppTheme.primaryOf(context)
+                                        : AppTheme.textSecondaryOf(context)),
                                 label: Text(
                                   _endTime != null
                                       ? '${_endTime!.month}/${_endTime!.day}/${_endTime!.year} ${_endTime!.hour}:${_endTime!.minute.toString().padLeft(2, '0')}'
                                       : 'End Date & Time',
                                   style: TextStyle(
                                     color: _endTime != null
-                                        ? Colors.black87
-                                        : Colors.grey,
+                                        ? AppTheme.textPrimaryOf(context)
+                                        : AppTheme.textSecondaryOf(context),
                                   ),
                                 ),
                               ),
@@ -1061,7 +1254,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                             style: TextStyle(
                                 fontWeight: FontWeight.w600,
                                 fontSize: 13,
-                                color: Colors.grey[700])),
+                                color: AppTheme.textSecondaryOf(context))),
                         const SizedBox(height: 6),
                         Row(
                           children: [
@@ -1072,15 +1265,15 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                     size: 18,
                                     color: _fundingEndAt != null
                                         ? Colors.teal
-                                        : Colors.grey),
+                                        : AppTheme.textSecondaryOf(context)),
                                 label: Text(
                                   _fundingEndAt != null
                                       ? '${_fundingEndAt!.month}/${_fundingEndAt!.day}/${_fundingEndAt!.year} ${_fundingEndAt!.hour}:${_fundingEndAt!.minute.toString().padLeft(2, '0')}'
                                       : 'Set Funding Deadline',
                                   style: TextStyle(
                                     color: _fundingEndAt != null
-                                        ? Colors.black87
-                                        : Colors.grey,
+                                        ? AppTheme.textPrimaryOf(context)
+                                        : AppTheme.textSecondaryOf(context),
                                   ),
                                 ),
                               ),
@@ -1108,7 +1301,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                       : '',
                           style: TextStyle(
                               fontSize: 11,
-                              color: Colors.grey[600],
+                              color: AppTheme.textSecondaryOf(context),
                               fontStyle: FontStyle.italic),
                         ),
                       ],
@@ -1142,7 +1335,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                             'Max $maxDays days (20% of funding duration). Customers can get a refund if they unregister before this cutoff.',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.grey[600],
+                              color: AppTheme.textSecondaryOf(context),
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -1152,7 +1345,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                             max: maxDays.toDouble(),
                             divisions: maxDays > 0 ? maxDays : 1,
                             label: '$_refundDeadlineDays days',
-                            activeColor: AppTheme.primaryColor,
+                            activeColor: AppTheme.accentColor,
                             onChanged: (v) {
                               setState(() {
                                 _refundDeadlineDays = v.round();
@@ -1179,12 +1372,12 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                         decoration: BoxDecoration(
                           color: _showScheduleSection
                               ? Colors.blue.withValues(alpha: 0.08)
-                              : Colors.grey.withValues(alpha: 0.04),
+                              : AppTheme.cardOf(context),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: _showScheduleSection
                                 ? Colors.blue.withValues(alpha: 0.3)
-                                : Colors.grey.withValues(alpha: 0.15),
+                                : AppTheme.dividerOf(context),
                           ),
                         ),
                         child: Row(
@@ -1192,8 +1385,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                             Icon(Icons.calendar_month_rounded,
                                 size: 18,
                                 color: _showScheduleSection
-                                    ? Colors.blue[700]
-                                    : Colors.grey[600]),
+                                    ? Colors.blue
+                                    : AppTheme.textSecondaryOf(context)),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
@@ -1218,14 +1411,14 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                     style: TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.w700,
-                                        color: Colors.blue[800])),
+                                        color: AppTheme.primaryOf(context))),
                               ),
                             const SizedBox(width: 4),
                             Icon(
                               _showScheduleSection
                                   ? Icons.keyboard_arrow_up
                                   : Icons.keyboard_arrow_down,
-                              color: Colors.grey[500],
+                              color: AppTheme.textSecondaryOf(context),
                             ),
                           ],
                         ),
@@ -1237,10 +1430,10 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                         margin: const EdgeInsets.only(top: 8),
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: Colors.grey.withValues(alpha: 0.03),
+                          color: AppTheme.cardOf(context),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                              color: Colors.grey.withValues(alpha: 0.12)),
+                              color: AppTheme.dividerOf(context)),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1269,7 +1462,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                 'Add time slots for each day of your event.',
                                 style: TextStyle(
                                     fontSize: 12,
-                                    color: Colors.grey[600]),
+                                    color: AppTheme.textSecondaryOf(context)),
                               ),
                               const SizedBox(height: 12),
                               ..._scheduleDays.asMap().entries.map((dayEntry) {
@@ -1328,7 +1521,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                                           .calendar_today_rounded,
                                                       size: 14,
                                                       color:
-                                                          Colors.blue[700]),
+                                                          Colors.blue),
                                                   const SizedBox(width: 6),
                                                   Text(dateLabel,
                                                       style: TextStyle(
@@ -1371,9 +1564,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                             borderRadius:
                                                 BorderRadius.circular(8),
                                             border: Border.all(
-                                                color: Colors.grey
-                                                    .withValues(
-                                                        alpha: 0.15)),
+                                                color: AppTheme.dividerOf(context)),
                                           ),
                                           child: Column(
                                             crossAxisAlignment:
@@ -1388,8 +1579,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                                               FontWeight
                                                                   .w600,
                                                           fontSize: 12,
-                                                          color: Colors
-                                                              .grey[700])),
+                                                          color: AppTheme.textSecondaryOf(context))),
                                                   const Spacer(),
                                                   IconButton(
                                                     icon: Icon(
@@ -1438,11 +1628,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                                         decoration:
                                                             BoxDecoration(
                                                           border: Border.all(
-                                                              color: Colors
-                                                                  .grey
-                                                                  .withValues(
-                                                                      alpha:
-                                                                          0.3)),
+                                                              color: AppTheme.dividerOf(context)),
                                                           borderRadius:
                                                               BorderRadius
                                                                   .circular(
@@ -1467,8 +1653,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                                         horizontal: 8),
                                                     child: Text('–',
                                                         style: TextStyle(
-                                                            color: Colors
-                                                                .grey[500])),
+                                                            color: AppTheme.textSecondaryOf(context))),
                                                   ),
                                                   Expanded(
                                                     child: GestureDetector(
@@ -1495,11 +1680,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                                         decoration:
                                                             BoxDecoration(
                                                           border: Border.all(
-                                                              color: Colors
-                                                                  .grey
-                                                                  .withValues(
-                                                                      alpha:
-                                                                          0.3)),
+                                                              color: AppTheme.dividerOf(context)),
                                                           borderRadius:
                                                               BorderRadius
                                                                   .circular(
@@ -1560,8 +1741,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                             borderRadius:
                                                 BorderRadius.circular(8),
                                             border: Border.all(
-                                              color: Colors.grey.withValues(
-                                                  alpha: 0.25),
+                                              color: AppTheme.dividerOf(context),
                                             ),
                                           ),
                                           child: Row(
@@ -1570,15 +1750,14 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                             children: [
                                               Icon(Icons.add_rounded,
                                                   size: 16,
-                                                  color: Colors.grey[600]),
+                                                  color: AppTheme.textSecondaryOf(context)),
                                               const SizedBox(width: 4),
                                               Text('Add Time Slot',
                                                   style: TextStyle(
                                                       fontWeight:
                                                           FontWeight.w600,
                                                       fontSize: 12,
-                                                      color: Colors
-                                                          .grey[600])),
+                                                      color: AppTheme.textSecondaryOf(context))),
                                             ],
                                           ),
                                         ),
@@ -1596,8 +1775,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                   decoration: BoxDecoration(
                                     borderRadius: BorderRadius.circular(10),
                                     border: Border.all(
-                                      color:
-                                          Colors.grey.withValues(alpha: 0.3),
+                                      color: AppTheme.dividerOf(context),
                                     ),
                                   ),
                                   child: Row(
@@ -1606,13 +1784,13 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                     children: [
                                       Icon(Icons.add_rounded,
                                           size: 18,
-                                          color: Colors.grey[600]),
+                                          color: AppTheme.textSecondaryOf(context)),
                                       const SizedBox(width: 6),
                                       Text('Add Date',
                                           style: TextStyle(
                                               fontWeight: FontWeight.w600,
                                               fontSize: 13,
-                                              color: Colors.grey[600])),
+                                              color: AppTheme.textSecondaryOf(context))),
                                     ],
                                   ),
                                 ),
@@ -1689,7 +1867,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                               ? Icons.expand_less
                               : Icons.add_location_alt,
                           size: 20,
-                          color: AppTheme.primaryColor,
+                          color: AppTheme.primaryOf(context),
                         ),
                         const SizedBox(width: 6),
                         Text(
@@ -1697,7 +1875,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                               ? 'Hide venue form'
                               : 'Create a new venue',
                           style: TextStyle(
-                            color: AppTheme.primaryColor,
+                            color: AppTheme.primaryOf(context),
                             fontWeight: FontWeight.w600,
                             fontSize: 14,
                           ),
@@ -1775,8 +1953,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                     final s = _venueGeoSuggestions[i];
                                     return ListTile(
                                       dense: true,
-                                      leading: const Icon(Icons.location_on_outlined,
-                                          size: 18, color: AppTheme.textSecondary),
+                                      leading: Icon(Icons.location_on_outlined,
+                                          size: 18, color: AppTheme.textSecondaryOf(context)),
                                       title: Text(s.fullAddress,
                                           style: const TextStyle(fontSize: 12),
                                           maxLines: 2,
@@ -1875,12 +2053,12 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                     decoration: BoxDecoration(
                       color: (_fundingEndAt == null && _selectedStrategyId == null)
                           ? AppTheme.warningColor.withValues(alpha: 0.08)
-                          : Colors.grey.withValues(alpha: 0.04),
+                          : AppTheme.cardOf(context),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: (_fundingEndAt == null && _selectedStrategyId == null)
                             ? AppTheme.warningColor.withValues(alpha: 0.3)
-                            : Colors.grey.withValues(alpha: 0.15),
+                            : AppTheme.dividerOf(context),
                       ),
                     ),
                     child: Column(
@@ -1892,7 +2070,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                 size: 18,
                                 color: _selectedStrategyId != null
                                     ? AppTheme.successColor
-                                    : AppTheme.primaryColor),
+                                    : AppTheme.primaryOf(context)),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
@@ -1904,7 +2082,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                   fontSize: 13,
                                   color: _selectedStrategyId != null
                                       ? AppTheme.successColor
-                                      : Colors.grey[800],
+                                      : AppTheme.textPrimaryOf(context),
                                 ),
                               ),
                             ),
@@ -1944,7 +2122,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                     ? Icons.expand_less
                                     : Icons.add_circle_outline,
                                 size: 20,
-                                color: AppTheme.primaryColor,
+                                color: AppTheme.primaryOf(context),
                               ),
                               const SizedBox(width: 6),
                               Text(
@@ -1952,7 +2130,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                     ? 'Hide strategy form'
                                     : 'Create a new strategy',
                                 style: TextStyle(
-                                  color: AppTheme.primaryColor,
+                                  color: AppTheme.primaryOf(context),
                                   fontWeight: FontWeight.w600,
                                   fontSize: 14,
                                 ),
@@ -1974,7 +2152,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                             'You can also set up ticketing later during the "Waiting on Event Date" state.',
                             style: TextStyle(
                                 fontSize: 11,
-                                color: Colors.grey[600],
+                                color: AppTheme.textSecondaryOf(context),
                                 fontStyle: FontStyle.italic),
                           ),
                         ],
@@ -2006,7 +2184,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                 style: TextStyle(
                                   fontWeight: FontWeight.w600,
                                   fontSize: 13,
-                                  color: Colors.grey[800],
+                                  color: AppTheme.textPrimaryOf(context),
                                 ),
                               ),
                             ],
@@ -2065,7 +2243,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                     const SizedBox(width: 6),
                                     InkWell(
                                       onTap: () => setState(() => _selectedDiscounts.remove(entry.key)),
-                                      child: const Icon(Icons.close, size: 16, color: Colors.grey),
+                                      child: Icon(Icons.close, size: 16, color: AppTheme.textSecondaryOf(context)),
                                     ),
                                   ],
                                 ),
@@ -2077,13 +2255,13 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                           TextField(
                             decoration: InputDecoration(
                               hintText: 'Search discounts…',
-                              hintStyle: TextStyle(fontSize: 13, color: Colors.grey[500]),
-                              prefixIcon: Icon(Icons.search, color: Colors.grey[500], size: 20),
+                              hintStyle: TextStyle(fontSize: 13, color: AppTheme.textSecondaryOf(context)),
+                              prefixIcon: Icon(Icons.search, color: AppTheme.textSecondaryOf(context), size: 20),
                               isDense: true,
                               contentPadding: const EdgeInsets.symmetric(vertical: 10),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
-                                borderSide: BorderSide(color: Colors.grey.shade300),
+                                borderSide: BorderSide(color: AppTheme.dividerOf(context)),
                               ),
                             ),
                             onChanged: (v) => setState(() => _discountSearch = v.toLowerCase()),
@@ -2146,12 +2324,12 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                         decoration: BoxDecoration(
                           color: _showMilestoneSection
                               ? Colors.amber.withValues(alpha: 0.08)
-                              : Colors.grey.withValues(alpha: 0.04),
+                              : AppTheme.cardOf(context),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: _showMilestoneSection
                                 ? Colors.amber.withValues(alpha: 0.3)
-                                : Colors.grey.withValues(alpha: 0.15),
+                                : AppTheme.dividerOf(context),
                           ),
                         ),
                         child: Row(
@@ -2160,7 +2338,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                 size: 18,
                                 color: _showMilestoneSection
                                     ? Colors.amber[700]
-                                    : Colors.grey[600]),
+                                    : AppTheme.textSecondaryOf(context)),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
@@ -2168,7 +2346,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                 style: TextStyle(
                                   fontWeight: FontWeight.w600,
                                   fontSize: 13,
-                                  color: Colors.grey[800],
+                                  color: AppTheme.textPrimaryOf(context),
                                 ),
                               ),
                             ),
@@ -2191,7 +2369,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                               _showMilestoneSection
                                   ? Icons.keyboard_arrow_up
                                   : Icons.keyboard_arrow_down,
-                              color: Colors.grey[500],
+                              color: AppTheme.textSecondaryOf(context),
                             ),
                           ],
                         ),
@@ -2203,10 +2381,10 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                         margin: const EdgeInsets.only(top: 8),
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: Colors.grey.withValues(alpha: 0.03),
+                          color: AppTheme.cardOf(context),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                              color: Colors.grey.withValues(alpha: 0.12)),
+                              color: AppTheme.dividerOf(context)),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2214,7 +2392,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                             Text(
                               'Define milestones that unlock as your event reaches funding goals.',
                               style: TextStyle(
-                                  fontSize: 12, color: Colors.grey[600]),
+                                  fontSize: 12, color: AppTheme.textSecondaryOf(context)),
                             ),
                             const SizedBox(height: 12),
                             ..._milestones.asMap().entries.map((entry) {
@@ -2227,7 +2405,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                   borderRadius: BorderRadius.circular(10),
                                   border: Border.all(
                                       color:
-                                          Colors.grey.withValues(alpha: 0.2)),
+                                          AppTheme.dividerOf(context)),
                                 ),
                                 child: Column(
                                   crossAxisAlignment:
@@ -2268,7 +2446,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                         Text('Unlock at:',
                                             style: TextStyle(
                                                 fontSize: 12,
-                                                color: Colors.grey[700])),
+                                                color: AppTheme.textSecondaryOf(context))),
                                         Expanded(
                                           child: Slider(
                                             value: ms.unlockPercent.toDouble(),
@@ -2315,7 +2493,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(10),
                                   border: Border.all(
-                                    color: Colors.grey.withValues(alpha: 0.3),
+                                    color: AppTheme.dividerOf(context),
                                     style: BorderStyle.solid,
                                   ),
                                 ),
@@ -2323,13 +2501,13 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Icon(Icons.add_rounded,
-                                        size: 18, color: Colors.grey[600]),
+                                        size: 18, color: AppTheme.textSecondaryOf(context)),
                                     const SizedBox(width: 6),
                                     Text('Add Milestone',
                                         style: TextStyle(
                                             fontWeight: FontWeight.w600,
                                             fontSize: 13,
-                                            color: Colors.grey[600])),
+                                            color: AppTheme.textSecondaryOf(context))),
                                   ],
                                 ),
                               ),
@@ -2357,12 +2535,12 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                       decoration: BoxDecoration(
                         color: _showSponsorshipSection
                             ? Colors.teal.withValues(alpha: 0.08)
-                            : Colors.grey.withValues(alpha: 0.04),
+                            : AppTheme.cardOf(context),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: _showSponsorshipSection
                               ? Colors.teal.withValues(alpha: 0.3)
-                              : Colors.grey.withValues(alpha: 0.15),
+                              : AppTheme.dividerOf(context),
                         ),
                       ),
                       child: Row(
@@ -2370,8 +2548,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                           Icon(Icons.storefront_rounded,
                               size: 18,
                               color: _showSponsorshipSection
-                                  ? Colors.teal[700]
-                                  : Colors.grey[600]),
+                                  ? Colors.teal
+                                  : AppTheme.textSecondaryOf(context)),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -2379,7 +2557,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                               style: TextStyle(
                                 fontWeight: FontWeight.w600,
                                 fontSize: 13,
-                                color: Colors.grey[800],
+                                color: AppTheme.textPrimaryOf(context),
                               ),
                             ),
                           ),
@@ -2396,7 +2574,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                 style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.teal[700]),
+                                    color: Colors.teal),
                               ),
                             ),
                           const SizedBox(width: 4),
@@ -2404,7 +2582,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                             _showSponsorshipSection
                                 ? Icons.keyboard_arrow_up
                                 : Icons.keyboard_arrow_down,
-                            color: Colors.grey[500],
+                            color: AppTheme.textSecondaryOf(context),
                           ),
                         ],
                       ),
@@ -2416,10 +2594,10 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                       margin: const EdgeInsets.only(top: 8),
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: Colors.grey.withValues(alpha: 0.03),
+                        color: AppTheme.cardOf(context),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                            color: Colors.grey.withValues(alpha: 0.12)),
+                            color: AppTheme.dividerOf(context)),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2462,7 +2640,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                     subtitle: const Text(
                         'Registered users can post on the event wall'),
                     value: _postsEnabled,
-                    activeColor: AppTheme.primaryColor,
+                    activeColor: AppTheme.accentColor,
                     onChanged: (v) => setState(() => _postsEnabled = v),
                     contentPadding: EdgeInsets.zero,
                   ),
@@ -2478,13 +2656,13 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
                         color: _showTransportSection
-                            ? AppTheme.primaryColor.withValues(alpha: 0.05)
-                            : Colors.grey.withValues(alpha: 0.04),
+                            ? AppTheme.primaryOf(context).withValues(alpha: 0.05)
+                            : AppTheme.cardOf(context),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: _showTransportSection
-                              ? AppTheme.primaryColor.withValues(alpha: 0.2)
-                              : Colors.grey.withValues(alpha: 0.15),
+                              ? AppTheme.primaryOf(context).withValues(alpha: 0.2)
+                              : AppTheme.dividerOf(context),
                         ),
                       ),
                       child: Row(
@@ -2492,8 +2670,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                           Icon(Icons.directions_car_rounded,
                               size: 18,
                               color: _showTransportSection
-                                  ? AppTheme.primaryColor
-                                  : Colors.grey[600]),
+                                  ? AppTheme.primaryOf(context)
+                                  : AppTheme.textSecondaryOf(context)),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -2501,7 +2679,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                               style: TextStyle(
                                 fontWeight: FontWeight.w600,
                                 fontSize: 13,
-                                color: Colors.grey[800],
+                                color: AppTheme.textPrimaryOf(context),
                               ),
                             ),
                           ),
@@ -2509,7 +2687,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                             _showTransportSection
                                 ? Icons.keyboard_arrow_up
                                 : Icons.keyboard_arrow_down,
-                            color: Colors.grey[500],
+                            color: AppTheme.textSecondaryOf(context),
                           ),
                         ],
                       ),
@@ -2521,9 +2699,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                       margin: const EdgeInsets.only(top: 8),
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: Colors.grey.withValues(alpha: 0.03),
+                        color: AppTheme.cardOf(context),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey.withValues(alpha: 0.12)),
+                        border: Border.all(color: AppTheme.dividerOf(context)),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2594,7 +2772,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                           : 'You can publish it later from the event detail page',
                     ),
                     value: _publish,
-                    activeColor: AppTheme.primaryColor,
+                    activeColor: AppTheme.accentColor,
                     onChanged: (v) => setState(() => _publish = v),
                     contentPadding: EdgeInsets.zero,
                   ),
@@ -2607,8 +2785,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                       onPressed: _isLoading ? null : _submit,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _publish
-                            ? AppTheme.primaryColor
-                            : Colors.grey[700],
+                            ? AppTheme.accentColor
+                            : AppTheme.textSecondaryOf(context),
                         foregroundColor: Colors.white,
                       ),
                       child: _isLoading
@@ -2814,7 +2992,7 @@ class _SearchableDropdownState<T> extends State<_SearchableDropdown<T>> {
                       subtitle: widget.itemSubtitle != null
                           ? Text(widget.itemSubtitle!(item),
                               style: TextStyle(
-                                  fontSize: 11, color: Colors.grey[600]))
+                                  fontSize: 11, color: AppTheme.textSecondaryOf(context)))
                           : null,
                       trailing: isSelected
                           ? Icon(Icons.check_circle,

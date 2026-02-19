@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
 import '../../widgets/app_toast.dart';
+import '../../widgets/shimmer_loaders.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 
@@ -120,7 +121,12 @@ class _CoOrganizerScreenState extends State<CoOrganizerScreen> {
       body: RefreshIndicator(
         onRefresh: _load,
         child: _loading
-            ? const Center(child: CircularProgressIndicator())
+            ? Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: List.generate(3, (_) => const ShimmerListTile()),
+                ),
+              )
             : ListView(
                 padding: const EdgeInsets.all(16),
                 children: [

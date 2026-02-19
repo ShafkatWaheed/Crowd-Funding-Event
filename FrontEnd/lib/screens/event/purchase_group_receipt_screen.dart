@@ -8,6 +8,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../../config/theme.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_toast.dart';
+import '../../widgets/shimmer_loaders.dart';
 import 'ticket_receipt_screen.dart';
 
 /// Aggregated receipt for a multi-ticket purchase group.
@@ -75,7 +76,7 @@ class _PurchaseGroupReceiptScreenState
         title: const Text('Purchase Receipt'),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: ShimmerReceiptCard())
           : _error != null
               ? Center(
                   child: Padding(
@@ -84,10 +85,10 @@ class _PurchaseGroupReceiptScreenState
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.error_outline, size: 48,
-                            color: Colors.grey[400]),
+                            color: AppTheme.textSecondaryOf(context)),
                         const SizedBox(height: 12),
                         Text(_error!, textAlign: TextAlign.center,
-                            style: TextStyle(color: Colors.grey[600])),
+                            style: TextStyle(color: AppTheme.textSecondaryOf(context))),
                         const SizedBox(height: 16),
                         OutlinedButton(
                             onPressed: _load, child: const Text('Retry')),
@@ -206,7 +207,7 @@ class _PurchaseGroupReceiptScreenState
                 ),
 
                 Container(width: double.infinity, height: 1,
-                    color: AppTheme.dividerColor),
+                    color: AppTheme.dividerOf(context)),
 
                 // Body
                 Padding(
@@ -217,21 +218,22 @@ class _PurchaseGroupReceiptScreenState
                       _sectionLabel('EVENT'),
                       const SizedBox(height: 8),
                       Text(eventTitle,
-                          style: const TextStyle(
-                              fontSize: 17, fontWeight: FontWeight.w700)),
+                          style: TextStyle(
+                              fontSize: 17, fontWeight: FontWeight.w700,
+                              color: AppTheme.textPrimaryOf(context))),
                       if (eventStartTime != null) ...[
                         const SizedBox(height: 6),
-                        _iconRow(Icons.calendar_today_rounded,
+                        _iconRow(context, Icons.calendar_today_rounded,
                             dateFmt.format(eventStartTime)),
                       ],
                       if (eventEndTime != null) ...[
                         const SizedBox(height: 4),
-                        _iconRow(Icons.schedule_rounded,
+                        _iconRow(context, Icons.schedule_rounded,
                             'Ends ${dateFmt.format(eventEndTime)}'),
                       ],
                       if (venueName != null) ...[
                         const SizedBox(height: 4),
-                        _iconRow(Icons.location_on_outlined, venueName),
+                        _iconRow(context, Icons.location_on_outlined, venueName),
                       ],
                       if (venueAddress != null) ...[
                         const SizedBox(height: 2),
@@ -239,39 +241,39 @@ class _PurchaseGroupReceiptScreenState
                           padding: const EdgeInsets.only(left: 26),
                           child: Text(venueAddress,
                               style: TextStyle(
-                                  fontSize: 12, color: Colors.grey[500])),
+                                  fontSize: 12, color: AppTheme.textSecondaryOf(context))),
                         ),
                       ],
 
                       const SizedBox(height: 20),
 
-                      if (organizerName != null) ...[
+                            if (organizerName != null) ...[
                         _sectionLabel('ORGANIZER'),
                         const SizedBox(height: 8),
-                        _detailRow('Name', organizerName),
+                        _detailRow(context, 'Name', organizerName),
                         if (organizerEmail != null &&
                             organizerEmail.toString().isNotEmpty)
-                          _detailRow('Email', organizerEmail),
+                          _detailRow(context, 'Email', organizerEmail),
                         if (organizerPhone != null &&
                             organizerPhone.toString().isNotEmpty)
-                          _detailRow('Phone', organizerPhone),
+                          _detailRow(context, 'Phone', organizerPhone),
                         const SizedBox(height: 20),
                       ],
 
                       _sectionLabel('ATTENDEE'),
                       const SizedBox(height: 8),
-                      _detailRow('Name', attendeeName),
+                      _detailRow(context, 'Name', attendeeName),
                       if (attendeeEmail.isNotEmpty)
-                        _detailRow('Email', attendeeEmail),
+                        _detailRow(context, 'Email', attendeeEmail),
 
                       const SizedBox(height: 20),
 
                       _sectionLabel('PURCHASE SUMMARY'),
                       const SizedBox(height: 8),
-                      _detailRow('Tier', tierName),
-                      _detailRow('Quantity', '$quantity'),
+                      _detailRow(context, 'Tier', tierName),
+                      _detailRow(context, 'Quantity', '$quantity'),
                       if (purchasedAt != null)
-                        _detailRow('Purchased', dateFmt.format(purchasedAt)),
+                        _detailRow(context, 'Purchased', dateFmt.format(purchasedAt)),
 
                       const SizedBox(height: 20),
 
@@ -287,34 +289,35 @@ class _PurchaseGroupReceiptScreenState
                         ),
                         child: Column(
                           children: [
-                            _priceRow('Ticket Price (each)',
+                            _priceRow(context, 'Ticket Price (each)',
                                 _formatCents(tierPriceCents)),
                             const SizedBox(height: 4),
-                            _priceRow('x Quantity', '$quantity'),
+                            _priceRow(context, 'x Quantity', '$quantity'),
                             if (totalDiscount > 0) ...[
                               const SizedBox(height: 8),
-                              _priceRow('Total Discount',
+                              _priceRow(context, 'Total Discount',
                                   '-${_formatCents(totalDiscount)}',
                                   valueColor: AppTheme.successColor),
                             ],
                             if (totalCommission > 0) ...[
                               const SizedBox(height: 8),
-                              _priceRow('Platform Fee',
+                              _priceRow(context, 'Platform Fee',
                                   _formatCents(totalCommission),
-                                  valueColor: Colors.grey[500]!),
+                                  valueColor: AppTheme.textSecondaryOf(context)),
                             ],
                             const SizedBox(height: 10),
                             Container(height: 1,
-                                color: AppTheme.dividerColor),
+                                color: AppTheme.dividerOf(context)),
                             const SizedBox(height: 10),
                             Row(
                               mainAxisAlignment:
                                   MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text('Total Paid',
+                                Text('Total Paid',
                                     style: TextStyle(
                                         fontWeight: FontWeight.w800,
-                                        fontSize: 16)),
+                                        fontSize: 16,
+                                        color: AppTheme.textPrimaryOf(context))),
                                 Text(
                                   isFree
                                       ? 'FREE'
@@ -352,13 +355,13 @@ class _PurchaseGroupReceiptScreenState
                   child: Row(
                     children: [
                       Icon(Icons.verified_outlined,
-                          size: 16, color: Colors.grey[400]),
+                          size: 16, color: AppTheme.textSecondaryOf(context)),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           'Each ticket below has a unique QR code for event entry.',
                           style: TextStyle(
-                              fontSize: 11, color: Colors.grey[500]),
+                              fontSize: 11, color: AppTheme.textSecondaryOf(context)),
                         ),
                       ),
                     ],
@@ -377,7 +380,7 @@ class _PurchaseGroupReceiptScreenState
           ...tickets.asMap().entries.map((entry) {
             final idx = entry.key;
             final t = entry.value as Map<String, dynamic>;
-            return _buildTicketCard(t, idx + 1, quantity, r);
+            return _buildTicketCard(context, t, idx + 1, quantity, r);
           }),
 
           // ── Buy Again button ──
@@ -414,7 +417,7 @@ class _PurchaseGroupReceiptScreenState
     );
   }
 
-  Widget _buildTicketCard(
+  Widget _buildTicketCard(BuildContext context,
       Map<String, dynamic> ticket, int index, int total,
       Map<String, dynamic> receipt) {
     final ticketCode = ticket['ticket_code'] ?? '';
@@ -460,7 +463,7 @@ class _PurchaseGroupReceiptScreenState
             decoration: BoxDecoration(
               color: isScanned
                   ? AppTheme.successColor.withValues(alpha: 0.05)
-                  : AppTheme.surfaceColor,
+                  : AppTheme.surfaceOf(context),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(16),
                 topRight: Radius.circular(16),
@@ -488,11 +491,12 @@ class _PurchaseGroupReceiptScreenState
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('Ticket $index of $total',
-                          style: const TextStyle(
-                              fontWeight: FontWeight.w700, fontSize: 14)),
+                          style: TextStyle(
+                              fontWeight: FontWeight.w700, fontSize: 14,
+                              color: AppTheme.textPrimaryOf(context))),
                       Text(receiptNumber,
                           style: TextStyle(
-                              fontSize: 11, color: Colors.grey[500])),
+                              fontSize: 11, color: AppTheme.textSecondaryOf(context))),
                     ],
                   ),
                 ),
@@ -500,13 +504,13 @@ class _PurchaseGroupReceiptScreenState
                   padding: const EdgeInsets.symmetric(
                       horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: _statusColor(status).withValues(alpha: 0.1),
+                    color: _statusColor(context, status).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
                     status.toUpperCase(),
                     style: TextStyle(
-                      color: _statusColor(status),
+                      color: _statusColor(context, status),
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 0.5,
@@ -525,7 +529,7 @@ class _PurchaseGroupReceiptScreenState
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppTheme.cardOf(context),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: AppTheme.dividerOf(context)),
                   ),
@@ -556,11 +560,11 @@ class _PurchaseGroupReceiptScreenState
                       Text(ticketCode,
                           style: TextStyle(
                               fontSize: 11,
-                              color: Colors.grey[500],
+                              color: AppTheme.textSecondaryOf(context),
                               fontFamily: 'monospace')),
                       const SizedBox(width: 4),
                       Icon(Icons.copy_rounded,
-                          size: 12, color: Colors.grey[400]),
+                          size: 12, color: AppTheme.textSecondaryOf(context)),
                     ],
                   ),
                 ),
@@ -638,20 +642,20 @@ class _PurchaseGroupReceiptScreenState
             letterSpacing: 1.2));
   }
 
-  Widget _iconRow(IconData icon, String text) {
+  Widget _iconRow(BuildContext context, IconData icon, String text) {
     return Row(
       children: [
-        Icon(icon, size: 15, color: Colors.grey[500]),
+        Icon(icon, size: 15, color: AppTheme.textSecondaryOf(context)),
         const SizedBox(width: 8),
         Expanded(
           child: Text(text,
-              style: TextStyle(fontSize: 13, color: Colors.grey[700])),
+              style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryOf(context))),
         ),
       ],
     );
   }
 
-  Widget _detailRow(String label, String value) {
+  Widget _detailRow(BuildContext context, String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Row(
@@ -662,30 +666,31 @@ class _PurchaseGroupReceiptScreenState
             child: Text(label,
                 style: TextStyle(
                     fontSize: 13,
-                    color: Colors.grey[500],
+                    color: AppTheme.textSecondaryOf(context),
                     fontWeight: FontWeight.w500)),
           ),
           Expanded(
             child: Text(value,
-                style: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w600)),
+                style: TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimaryOf(context))),
           ),
         ],
       ),
     );
   }
 
-  Widget _priceRow(String label, String value, {Color? valueColor}) {
+  Widget _priceRow(BuildContext context, String label, String value, {Color? valueColor}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label,
-            style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+            style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryOf(context))),
         Text(value,
             style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: valueColor)),
+                color: valueColor ?? AppTheme.textPrimaryOf(context))),
       ],
     );
   }
@@ -693,7 +698,7 @@ class _PurchaseGroupReceiptScreenState
   String _formatCents(int cents) =>
       '\$${(cents / 100).toStringAsFixed(2)}';
 
-  Color _statusColor(String status) {
+  Color _statusColor(BuildContext context, String status) {
     switch (status.toLowerCase()) {
       case 'purchased':
         return AppTheme.successColor;
@@ -702,7 +707,7 @@ class _PurchaseGroupReceiptScreenState
       case 'cancelled':
         return AppTheme.errorColor;
       default:
-        return Colors.grey;
+        return AppTheme.textSecondaryOf(context);
     }
   }
 }

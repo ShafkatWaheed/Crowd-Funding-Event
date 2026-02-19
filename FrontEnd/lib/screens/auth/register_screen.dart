@@ -402,7 +402,7 @@ class _RoleCard extends StatelessWidget {
           ),
           child: Column(
             children: [
-              Icon(icon, size: 28, color: selected ? accent : Colors.grey),
+              Icon(icon, size: 28, color: selected ? accent : AppTheme.textSecondaryOf(context)),
               const SizedBox(height: 6),
               Text(
                 label,

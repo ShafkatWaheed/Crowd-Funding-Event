@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_toast.dart';
+import '../../widgets/shimmer_loaders.dart';
 
 enum _WaitlistType { fund, ticket }
 
@@ -218,9 +219,9 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
             child: Container(
               decoration: BoxDecoration(
-                color: AppTheme.surfaceColor,
+                color: AppTheme.surfaceOf(context),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppTheme.dividerColor),
+                border: Border.all(color: AppTheme.dividerOf(context)),
               ),
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: Row(
@@ -265,16 +266,16 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
                       )
                     : null,
                 filled: true,
-                fillColor: Colors.white,
+                fillColor: AppTheme.inputFillOf(context),
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: AppTheme.dividerColor),
+                  borderSide: BorderSide(color: AppTheme.dividerOf(context)),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: AppTheme.dividerColor),
+                  borderSide: BorderSide(color: AppTheme.dividerOf(context)),
                 ),
               ),
               onChanged: (_) => setState(() => _applySearch()),
@@ -335,17 +336,22 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
           // ── List ──
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator())
+                ? Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: List.generate(4, (_) => const ShimmerListTile()),
+                    ),
+                  )
                 : _error != null
                     ? Center(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.error_outline,
-                                size: 48, color: Colors.grey[400]),
+                                size: 48, color: AppTheme.textSecondaryOf(context)),
                             const SizedBox(height: 12),
                             Text('Failed to load',
-                                style: TextStyle(color: Colors.grey[500])),
+                                style: TextStyle(color: AppTheme.textSecondaryOf(context))),
                             const SizedBox(height: 8),
                             OutlinedButton(
                                 onPressed: _load,
@@ -368,7 +374,7 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
                                       ? _searchEmptyLabel
                                       : _emptyLabel,
                                   style: TextStyle(
-                                      color: Colors.grey[500], fontSize: 15),
+                                      color: AppTheme.textSecondaryOf(context), fontSize: 15),
                                 ),
                               ],
                             ),
@@ -411,7 +417,7 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
           margin: const EdgeInsets.symmetric(vertical: 6),
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: selected ? AppTheme.primaryColor : Colors.transparent,
+                  color: selected ? AppTheme.primaryColor : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
           ),
           child: Row(
@@ -419,14 +425,14 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
             children: [
               Icon(icon,
                   size: 18,
-                  color: selected ? Colors.white : Colors.grey[600]),
+                  color: selected ? Colors.white : AppTheme.textSecondaryOf(context)),
               const SizedBox(width: 6),
               Text(
                 label,
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: selected ? Colors.white : Colors.grey[600],
+                  color: selected ? Colors.white : AppTheme.textSecondaryOf(context),
                 ),
               ),
               if (count > 0) ...[
@@ -445,7 +451,7 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
-                      color: selected ? Colors.white : Colors.grey[600],
+                      color: selected ? Colors.white : AppTheme.textSecondaryOf(context),
                     ),
                   ),
                 ),
@@ -468,7 +474,7 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.cardOf(context),
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
@@ -508,7 +514,7 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
                           color: AppTheme.accentColor)),
                   Text('Registration #$regId',
                       style:
-                          TextStyle(fontSize: 11, color: Colors.grey[500])),
+                          TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context))),
                 ],
               ),
             ),
@@ -537,7 +543,7 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.cardOf(context),
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
@@ -577,7 +583,7 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
                           color: AppTheme.accentColor)),
                   Text('$tierName · $price',
                       style:
-                          TextStyle(fontSize: 11, color: Colors.grey[500])),
+                          TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context))),
                 ],
               ),
             ),

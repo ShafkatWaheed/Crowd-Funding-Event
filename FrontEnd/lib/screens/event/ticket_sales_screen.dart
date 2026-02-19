@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../config/theme.dart';
 import '../../services/api_service.dart';
+import '../../widgets/shimmer_loaders.dart';
 import 'ticket_receipt_screen.dart';
 
 /// Full-page ticket sales list.
@@ -133,7 +134,7 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
                       )
                     : null,
                 filled: true,
-                fillColor: AppTheme.cardOf(context),
+                fillColor: AppTheme.inputFillOf(context),
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 border: OutlineInputBorder(
@@ -245,7 +246,12 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
           // ── Content ──
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator())
+                ? Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: List.generate(4, (_) => const ShimmerListTile()),
+                    ),
+                  )
                 : _error != null
                     ? Center(
                         child: Column(
@@ -443,7 +449,7 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
   Widget _statChip(String label, IconData icon, Color color) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final c = isDark && _isNearBlack(color) ? AppTheme.accentColor : color;
-    final textC = isDark ? Colors.white : c;
+    final textC = isDark ? AppTheme.textPrimaryOf(context) : c;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(

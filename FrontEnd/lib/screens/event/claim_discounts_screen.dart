@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../config/theme.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_toast.dart';
+import '../../widgets/shimmer_loaders.dart';
 
 /// Customer-facing page where they can search, view, and claim
 /// non-auto-apply discounts that the organizer added to an event.
@@ -94,7 +95,12 @@ class _ClaimDiscountsScreenState extends State<ClaimDiscountsScreen> {
       body: RefreshIndicator(
         onRefresh: _load,
         child: _loading
-            ? const Center(child: CircularProgressIndicator())
+            ? Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: List.generate(3, (_) => const ShimmerListTile()),
+                ),
+              )
             : Column(
                 children: [
                   // Search
@@ -103,12 +109,15 @@ class _ClaimDiscountsScreenState extends State<ClaimDiscountsScreen> {
                     child: TextField(
                       decoration: InputDecoration(
                         hintText: 'Search available discounts…',
-                        prefixIcon: const Icon(Icons.search, size: 20),
+                        hintStyle: TextStyle(color: AppTheme.textSecondaryOf(context)),
+                        prefixIcon: Icon(Icons.search, size: 20, color: AppTheme.textSecondaryOf(context)),
                         isDense: true,
+                        filled: true,
+                        fillColor: AppTheme.inputFillOf(context),
                         contentPadding: const EdgeInsets.symmetric(vertical: 10),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
+                          borderSide: BorderSide(color: AppTheme.dividerOf(context)),
                         ),
                       ),
                       onChanged: (v) => setState(() => _search = v.toLowerCase()),
@@ -130,7 +139,7 @@ class _ClaimDiscountsScreenState extends State<ClaimDiscountsScreen> {
                           Expanded(
                             child: Text(
                               'Claim discounts here. Once claimed, they apply automatically when you purchase a ticket.',
-                              style: TextStyle(color: Colors.grey[700], fontSize: 12),
+                              style: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 12),
                             ),
                           ),
                         ],
@@ -145,11 +154,11 @@ class _ClaimDiscountsScreenState extends State<ClaimDiscountsScreen> {
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.discount_outlined, size: 48, color: Colors.grey[300]),
+                                Icon(Icons.discount_outlined, size: 48, color: AppTheme.textSecondaryOf(context)),
                                 const SizedBox(height: 8),
                                 Text(
                                   _discounts.isEmpty ? 'No claimable discounts' : 'No matches',
-                                  style: TextStyle(color: Colors.grey[500], fontSize: 14),
+                                  style: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 14),
                                 ),
                               ],
                             ),
@@ -166,12 +175,12 @@ class _ClaimDiscountsScreenState extends State<ClaimDiscountsScreen> {
                                 decoration: BoxDecoration(
                                   color: claimed
                                       ? Colors.green.withValues(alpha: 0.06)
-                                      : Colors.white,
+                                      : AppTheme.cardOf(context),
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
                                     color: claimed
                                         ? Colors.green.withValues(alpha: 0.4)
-                                        : Colors.grey.shade200,
+                                        : AppTheme.dividerOf(context),
                                   ),
                                 ),
                                 padding: const EdgeInsets.all(14),
@@ -189,15 +198,16 @@ class _ClaimDiscountsScreenState extends State<ClaimDiscountsScreen> {
                                         children: [
                                           Text(
                                             d['name'] ?? '',
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               fontWeight: FontWeight.w700,
                                               fontSize: 14,
+                                              color: AppTheme.textPrimaryOf(context),
                                             ),
                                           ),
                                           const SizedBox(height: 2),
                                           Text(
                                             _descLine(d),
-                                            style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                                            style: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 12),
                                           ),
                                         ],
                                       ),

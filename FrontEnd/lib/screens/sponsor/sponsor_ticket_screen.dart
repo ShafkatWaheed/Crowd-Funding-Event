@@ -8,6 +8,7 @@ import '../../config/theme.dart';
 import '../../models/sponsor.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_toast.dart';
+import '../../widgets/shimmer_loaders.dart';
 
 class SponsorTicketScreen extends StatefulWidget {
   const SponsorTicketScreen({super.key});
@@ -50,7 +51,12 @@ class _SponsorTicketScreenState extends State<SponsorTicketScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Sponsor Tickets')),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: List.generate(3, (_) => const ShimmerListTile()),
+              ),
+            )
           : _tickets.isEmpty
               ? Center(
                   child: Column(
@@ -411,7 +417,7 @@ class _SponsorTicketReceiptPage extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: AppTheme.cardOf(context),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: QrImageView(
@@ -419,13 +425,17 @@ class _SponsorTicketReceiptPage extends StatelessWidget {
                         version: QrVersions.auto,
                         size: 180,
                         gapless: true,
-                        eyeStyle: const QrEyeStyle(
+                        eyeStyle: QrEyeStyle(
                           eyeShape: QrEyeShape.square,
-                          color: Colors.black,
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white
+                              : Colors.black,
                         ),
-                        dataModuleStyle: const QrDataModuleStyle(
+                        dataModuleStyle: QrDataModuleStyle(
                           dataModuleShape: QrDataModuleShape.square,
-                          color: Colors.black,
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white
+                              : Colors.black,
                         ),
                       ),
                     ),
@@ -507,9 +517,10 @@ class _SponsorTicketReceiptPage extends StatelessWidget {
                               children: [
                                 Text(
                                   cat.name,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontWeight: FontWeight.w700,
                                     fontSize: 14,
+                                    color: AppTheme.textPrimaryOf(context),
                                   ),
                                 ),
                                 const SizedBox(height: 2),
@@ -528,9 +539,10 @@ class _SponsorTicketReceiptPage extends StatelessWidget {
                           ),
                           Text(
                             cat.amountDisplay,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontWeight: FontWeight.w800,
                               fontSize: 16,
+                              color: AppTheme.textPrimaryOf(context),
                             ),
                           ),
                         ],
@@ -538,7 +550,7 @@ class _SponsorTicketReceiptPage extends StatelessWidget {
                     ),
                   );
                 }),
-                const Divider(height: 1),
+                Divider(height: 1, color: AppTheme.dividerOf(context)),
                 const SizedBox(height: 10),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -553,9 +565,10 @@ class _SponsorTicketReceiptPage extends StatelessWidget {
                     ),
                     Text(
                       ticket.totalAmountDisplay,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
+                        color: AppTheme.textPrimaryOf(context),
                       ),
                     ),
                   ],

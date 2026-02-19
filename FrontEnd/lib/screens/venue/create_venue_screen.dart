@@ -186,9 +186,9 @@ class _CreateVenueScreenState extends State<CreateVenueScreen> {
                             constraints: const BoxConstraints(maxHeight: 200),
                             margin: const EdgeInsets.only(top: 2),
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: AppTheme.cardOf(context),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: AppTheme.dividerColor),
+                              border: Border.all(color: AppTheme.dividerOf(context)),
                               boxShadow: [
                                 BoxShadow(
                                   color: Colors.black.withValues(alpha: 0.08),
@@ -207,13 +207,13 @@ class _CreateVenueScreenState extends State<CreateVenueScreen> {
                                 final s = _suggestions[index];
                                 return ListTile(
                                   dense: true,
-                                  leading: const Icon(
+                                  leading: Icon(
                                       Icons.location_on_outlined,
                                       size: 20,
-                                      color: AppTheme.textSecondary),
+                                      color: AppTheme.textSecondaryOf(context)),
                                   title: Text(
                                     s.fullAddress,
-                                    style: const TextStyle(fontSize: 13),
+                                    style: TextStyle(fontSize: 13, color: AppTheme.textPrimaryOf(context)),
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                   ),

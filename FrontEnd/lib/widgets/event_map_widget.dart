@@ -328,7 +328,7 @@ class _VenueEventsSheet extends StatelessWidget {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: AppTheme.dividerColor,
+                    color: AppTheme.dividerOf(context),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -356,10 +356,11 @@ class _VenueEventsSheet extends StatelessWidget {
                         children: [
                           Text(
                             venueName,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 17,
                               fontWeight: FontWeight.w800,
                               letterSpacing: -0.3,
+                              color: AppTheme.textPrimaryOf(context),
                             ),
                           ),
                           Text(
@@ -427,10 +428,11 @@ class _VenueEventsSheet extends StatelessWidget {
                                 children: [
                                   Text(
                                     event.title,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 15,
                                       fontWeight: FontWeight.w700,
                                       letterSpacing: -0.2,
+                                      color: AppTheme.textPrimaryOf(context),
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,

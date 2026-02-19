@@ -5,6 +5,7 @@ import '../../config/theme.dart';
 import '../../models/sponsor.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_toast.dart';
+import '../../widgets/shimmer_loaders.dart';
 
 class BidManagementScreen extends StatefulWidget {
   final int eventId;
@@ -126,7 +127,12 @@ class _BidManagementScreenState extends State<BidManagementScreen> {
             : 'Bid Management'),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: List.generate(4, (_) => const ShimmerListTile()),
+              ),
+            )
           : Column(
               children: [
                 Padding(
@@ -270,7 +276,10 @@ class _BidCard extends StatelessWidget {
                     children: [
                       Text(
                         profile?.companyName ?? 'Unknown Sponsor',
-                        style: const TextStyle(fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimaryOf(context),
+                        ),
                       ),
                       if (profile?.profession != null)
                         Text(
@@ -309,8 +318,10 @@ class _BidCard extends StatelessWidget {
                     size: 16, color: AppTheme.successColor),
                 const SizedBox(width: 4),
                 Text(bid.amountDisplay,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 16)),
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: AppTheme.textPrimaryOf(context))),
               ],
             ),
             if (bid.proposalText != null &&
@@ -320,7 +331,7 @@ class _BidCard extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.grey.withValues(alpha: 0.06),
+                  color: AppTheme.inputFillOf(context),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(

@@ -6,6 +6,7 @@ import '../../config/theme.dart';
 import '../../models/sponsor.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_toast.dart';
+import '../../widgets/shimmer_loaders.dart';
 
 class SponsorDashboardScreen extends StatefulWidget {
   const SponsorDashboardScreen({super.key});
@@ -53,10 +54,18 @@ class _SponsorDashboardScreenState extends State<SponsorDashboardScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Sponsor Dashboard')),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
+          ? Padding(
               padding: const EdgeInsets.all(16),
-              child: Center(
+              child: Column(
+                children: List.generate(4, (_) => const ShimmerListTile()),
+              ),
+            )
+          : RefreshIndicator(
+              onRefresh: _load,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16),
+                child: Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 600),
                   child: Column(
@@ -158,6 +167,7 @@ class _SponsorDashboardScreenState extends State<SponsorDashboardScreen> {
                 ),
               ),
             ),
+          ),
     );
   }
 

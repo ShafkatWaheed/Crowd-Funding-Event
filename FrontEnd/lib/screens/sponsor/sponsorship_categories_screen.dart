@@ -7,6 +7,7 @@ import '../../models/sponsor.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_toast.dart';
+import '../../widgets/shimmer_loaders.dart';
 
 class SponsorshipCategoriesScreen extends StatefulWidget {
   final int eventId;
@@ -136,18 +137,37 @@ class _SponsorshipCategoriesScreenState
     return Scaffold(
       appBar: AppBar(title: const Text('Sponsorship Categories')),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: List.generate(3, (_) => const ShimmerListTile()),
+              ),
+            )
           : _categories.isEmpty
-              ? Center(
-                  child: Text(
-                    'No sponsorship categories yet.',
-                    style: TextStyle(
-                        color: AppTheme.textSecondaryOf(context)),
+              ? LayoutBuilder(
+                  builder: (context, constraints) => RefreshIndicator(
+                    onRefresh: _load,
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                        child: Center(
+                          child: Text(
+                            'No sponsorship categories yet.',
+                            style: TextStyle(
+                                color: AppTheme.textSecondaryOf(context)),
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 )
-              : ListView.separated(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _categories.length,
+              : RefreshIndicator(
+                  onRefresh: _load,
+                  child: ListView.separated(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _categories.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
                     final cat = _categories[index];
@@ -158,9 +178,10 @@ class _SponsorshipCategoriesScreenState
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(cat.name,
-                                style: const TextStyle(
+                                style: TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 16)),
+                                    fontSize: 16,
+                                    color: AppTheme.textPrimaryOf(context))),
                             if (cat.description != null &&
                                 cat.description!.isNotEmpty) ...[
                               const SizedBox(height: 4),
@@ -226,6 +247,7 @@ class _SponsorshipCategoriesScreenState
                     );
                   },
                 ),
+              ),
     );
   }
 

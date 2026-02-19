@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
+import '../../widgets/shimmer_loaders.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_toast.dart';
 import '../event/pledge_receipt_screen.dart';
@@ -88,7 +89,12 @@ class _MyPledgesScreenState extends State<MyPledgesScreen> {
       backgroundColor: AppTheme.surfaceOf(context),
       appBar: AppBar(title: const Text('My Pledges')),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: List.generate(4, (_) => const ShimmerListTile()),
+              ),
+            )
           : _error != null
               ? _buildError()
               : _buildContent(),
@@ -412,7 +418,6 @@ class _PledgeCard extends StatelessWidget {
         : null;
 
     final statusLabel = isGuest ? 'DONATION' : status.toUpperCase();
-    final statusColor = _statusColor(status, isGuest);
     final headerColor = isGuest ? Colors.amber.shade700 : Colors.deepPurple;
 
     return GestureDetector(
@@ -616,17 +621,4 @@ class _PledgeCard extends StatelessWidget {
     );
   }
 
-  Color _statusColor(String status, bool isGuest) {
-    if (isGuest) return Colors.amber.shade700;
-    switch (status.toLowerCase()) {
-      case 'pledged':
-        return AppTheme.successColor;
-      case 'collected':
-        return Colors.teal;
-      case 'refunded':
-        return AppTheme.errorColor;
-      default:
-        return Colors.grey;
-    }
-  }
 }

@@ -21,7 +21,7 @@ class TermsScreen extends StatelessWidget {
         _isOrganizer ? TermsContent.organizerTerms : TermsContent.customerTerms;
 
     return Scaffold(
-      backgroundColor: AppTheme.surfaceColor,
+      backgroundColor: AppTheme.surfaceOf(context),
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.close),
@@ -36,7 +36,7 @@ class TermsScreen extends StatelessWidget {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            color: Colors.white,
+            color: AppTheme.cardOf(context),
             child: Row(
               children: [
                 Container(
@@ -95,7 +95,7 @@ class TermsScreen extends StatelessWidget {
                     width: double.infinity,
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppTheme.cardOf(context),
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
@@ -107,10 +107,10 @@ class TermsScreen extends StatelessWidget {
                     ),
                     child: SelectableText(
                       termsText.trim(),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
                         height: 1.7,
-                        color: Color(0xFF333333),
+                        color: AppTheme.textPrimaryOf(context),
                         fontFamily: 'monospace',
                       ),
                     ),

@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
+import '../../widgets/shimmer_loaders.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../services/mapbox_geocoding_service.dart';
@@ -77,6 +78,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (user != null && user.isSponsor) {
       _loadSponsorProfile();
+    }
+  }
+
+  Future<void> _refreshProfile() async {
+    await context.read<AuthProvider>().refreshUser();
+    if (!mounted) return;
+    final user = context.read<AuthProvider>().user;
+    if (user != null) {
+      setState(() {
+        _nameCtrl.text = user.displayName ?? '';
+        _phoneCtrl.text = user.phone ?? '';
+        _addressCtrl.text = user.address ?? '';
+        _experienceCtrl.text = user.yearsOfExperience?.toString() ?? '';
+        if (user.birthday != null) {
+          try {
+            _selectedBirthday = DateTime.parse(user.birthday!);
+            _birthdayCtrl.text = DateFormat('MMM dd, yyyy').format(_selectedBirthday!);
+          } catch (_) {}
+        }
+      });
+    }
+    if (user != null && user.isSponsor) {
+      await _loadSponsorProfile();
     }
   }
 
@@ -507,9 +531,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
       body: user == null
           ? const Center(child: Text('Not signed in'))
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Center(
+          : RefreshIndicator(
+              onRefresh: _refreshProfile,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(24),
+                child: Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 500),
                   child: Form(
@@ -612,8 +639,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         ),
                                       )
                                     : (_addressCtrl.text.trim().isNotEmpty
-                                        ? const Icon(Icons.check_circle,
-                                            color: Colors.green, size: 20)
+                                        ? Icon(Icons.check_circle,
+                                            color: AppTheme.successColor, size: 20)
                                         : null),
                               ),
                               onChanged: _onAddressChanged,
@@ -719,12 +746,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           _sectionHeader('Company Details'),
                           const SizedBox(height: 16),
                           if (_loadingSponsorProfile)
-                            const Center(
-                              child: Padding(
-                                padding: EdgeInsets.all(24),
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              ),
-                            )
+                            const ShimmerProfileSection()
                           else ...[
                             TextFormField(
                               controller: _companyNameCtrl,
@@ -880,6 +902,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
             ),
+          ),
     );
   }
 

@@ -16,6 +16,7 @@ import '../../models/ticket_strategy.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/event_provider.dart';
 import '../../widgets/event_lifecycle_bar.dart';
+import '../../widgets/shimmer_loaders.dart';
 import '../../widgets/app_toast.dart';
 import '../../services/api_service.dart';
 import 'ticket_receipt_screen.dart';
@@ -35,7 +36,6 @@ class EventDetailScreen extends StatefulWidget {
 
 class _EventDetailScreenState extends State<EventDetailScreen> {
   List<EventImage> _images = [];
-  bool _loadingImages = false;
 
   // Registration state
   bool _isRegistered = false;
@@ -71,6 +71,18 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     context.read<EventProvider>().loadEvent(widget.eventId);
   }
 
+  Future<void> _refreshAll() async {
+    final eventProvider = context.read<EventProvider>();
+    await Future.wait([
+      eventProvider.loadEvent(widget.eventId),
+      _loadImages(),
+      _checkRegistration(),
+      _loadMyTicketCount(),
+      _loadMyReservedSpots(),
+      _loadRevenue(),
+    ]);
+  }
+
   @override
   void dispose() {
     super.dispose();
@@ -79,7 +91,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   // _loadPosts moved into _EventFeed widget
 
   Future<void> _loadImages() async {
-    setState(() => _loadingImages = true);
     try {
       final api = context.read<ApiService>();
       final data = await api.getEventImages(widget.eventId);
@@ -87,7 +98,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
         _images = data.map((i) => EventImage.fromJson(i)).toList();
       });
     } catch (_) {}
-    setState(() => _loadingImages = false);
   }
 
   Future<void> _checkRegistration() async {
@@ -109,7 +119,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     try {
       final api = context.read<ApiService>();
       final tickets = await api.getMyTickets();
-      final myTickets = (tickets as List).where((t) =>
+      final myTickets = tickets.where((t) =>
           t['event_id'] == widget.eventId &&
           (t['status'] == 'purchased' || t['status'] == 'waitlisted')).toList();
       if (mounted) {
@@ -127,7 +137,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     try {
       final api = context.read<ApiService>();
       final pledges = await api.getMyPledges();
-      final spots = (pledges as List)
+      final spots = pledges
           .where((p) => p['event_id'] == widget.eventId && p['status'] == 'pledged')
           .fold<int>(0, (sum, p) => sum + ((p['reserved_spots'] ?? 0) as int));
       if (mounted) setState(() => _myReservedSpots = spots);
@@ -141,7 +151,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     try {
       final api = context.read<ApiService>();
       final sales = await api.getTicketSales(widget.eventId);
-      final total = (sales as List).fold<int>(
+      final total = sales.fold<int>(
           0, (s, e) => s + ((e['amount_paid_cents'] ?? 0) as int));
       if (mounted) setState(() => _revenueCents = total);
     } catch (_) {}
@@ -198,7 +208,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
         surfaceTintColor: Colors.transparent,
       ),
       body: eventProvider.isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const ShimmerDetailHeader()
           : eventProvider.error != null
               ? Center(
                   child: Column(
@@ -219,10 +229,13 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 )
               : event == null
                   ? const Center(child: Text('Event not found'))
-                  : SingleChildScrollView(
-                      padding: const EdgeInsets.all(20),
-                      child: Center(
-                        child: ConstrainedBox(
+                  : RefreshIndicator(
+                      onRefresh: _refreshAll,
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.all(20),
+                        child: Center(
+                          child: ConstrainedBox(
                           constraints: const BoxConstraints(maxWidth: 700),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -290,7 +303,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
                               // Image gallery
                               if (_images.isNotEmpty) ...[
-                                _sectionTitle(context, 'Photos'),
+                                _sectionTitle(context, 'Photos', icon: Icons.photo_library_rounded, iconColor: Colors.amber.shade700),
                                 const SizedBox(height: 8),
                                 SizedBox(
                                   height: 180,
@@ -392,7 +405,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                 const SizedBox(height: 24),
                               ] else if (user != null &&
                                   (user.isOrganizer || user.isAdmin)) ...[
-                                _sectionTitle(context, 'Photos'),
+                                _sectionTitle(context, 'Photos', icon: Icons.photo_library_rounded, iconColor: Colors.amber.shade700),
                                 const SizedBox(height: 8),
                                 _addImageButton(context),
                                 const SizedBox(height: 24),
@@ -688,8 +701,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                               if (event.ticketStrategyId != null &&
                                   (user == null || (!user.isOrganizer && !user.isAdmin))) ...[
                                 const SizedBox(height: 16),
-                                _sectionTitle(context, 'Ticket Tiers'),
-                                const SizedBox(height: 8),
+                                _sectionTitle(context, 'Ticket Tiers', icon: Icons.confirmation_number_rounded, iconColor: Colors.deepPurple),
+                                const SizedBox(height: 10),
                                 _buildTicketTiersSection(event),
                                 const SizedBox(height: 16),
                               ],
@@ -816,9 +829,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                               // ──────── Organizer Actions (modern, status-aware) ────────
                               if (user != null &&
                                   (user.isOrganizer || user.isAdmin)) ...[
-                                const SizedBox(height: 24),
-                                _sectionTitle(context, 'Organizer Actions'),
-                                const SizedBox(height: 12),
+                                const SizedBox(height: 28),
+                                _sectionTitle(context, 'Organizer Actions', icon: Icons.admin_panel_settings_rounded, iconColor: AppTheme.accentColor),
+                                const SizedBox(height: 14),
 
                                 // ── Primary Action Card (status-specific) ──
                                 // Draft → Publish
@@ -884,14 +897,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
                                 // ── Setup Grid (waiting_event_date only) ──
                                 if (event.status == EventStatus.waiting_event_date) ...[
-                                  const SizedBox(height: 14),
+                                  const SizedBox(height: 16),
                                   GridView.count(
                                     crossAxisCount: 2,
                                     shrinkWrap: true,
                                     physics: const NeverScrollableScrollPhysics(),
-                                    mainAxisSpacing: 10,
-                                    crossAxisSpacing: 10,
-                                    childAspectRatio: 1.55,
+                                    mainAxisSpacing: 12,
+                                    crossAxisSpacing: 12,
+                                    childAspectRatio: 1.45,
                                     children: [
                                       _setupTile(
                                         icon: Icons.calendar_month_rounded,
@@ -934,20 +947,22 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                 const SizedBox(height: 10),
 
                                 // ── Secondary Actions (menu tiles) ──
-                                Container(
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.cardOf(context),
-                                    borderRadius: BorderRadius.circular(16),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.04),
-                                        blurRadius: 12,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Column(
-                                    children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.cardOf(context),
+                                      borderRadius: BorderRadius.circular(16),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(alpha: 0.04),
+                                          blurRadius: 12,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Column(
+                                      children: [
                                       // Edit (draft, pending, approved only)
                                       if (event.status == EventStatus.draft ||
                                           event.status == EventStatus.pending_approval ||
@@ -1047,7 +1062,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                       // Cancel — admin only for selling/live
                                       if ((event.status == EventStatus.selling_tickets ||
                                               event.status == EventStatus.live) &&
-                                          user != null && user.isAdmin)
+                                          user.isAdmin)
                                         _menuTile(
                                           icon: Icons.cancel_rounded,
                                           iconColor: AppTheme.errorColor,
@@ -1058,7 +1073,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
                                       // Request Cancellation — organizer (not admin) during selling
                                       if (event.status == EventStatus.selling_tickets &&
-                                          user != null && !user.isAdmin &&
+                                          !user.isAdmin &&
                                           event.pendingCancellation == null)
                                         _menuTile(
                                           icon: Icons.cancel_outlined,
@@ -1079,6 +1094,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                         ),
                                     ],
                                   ),
+                                  ),
                                 ),
                               ],
 
@@ -1086,8 +1102,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                               if (user != null &&
                                   (user.isOrganizer || user.isAdmin)) ...[
                                 const SizedBox(height: 28),
-                                _sectionTitle(context, 'Management'),
-                                const SizedBox(height: 12),
+                                _sectionTitle(context, 'Management', icon: Icons.dashboard_rounded, iconColor: Colors.indigo),
+                                const SizedBox(height: 14),
                                 _buildMgmtButtons(event),
                               ],
 
@@ -1112,6 +1128,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                         ),
                       ),
                     ),
+                  ),
     );
   }
 
@@ -1187,23 +1204,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   }
 
   // ─── Helpers ───
-
-  Widget _infoRow(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Icon(icon, size: 20, color: Colors.grey[600]),
-          const SizedBox(width: 12),
-          Text(label,
-              style: TextStyle(
-                  fontWeight: FontWeight.w600, color: AppTheme.textSecondaryOf(context))),
-          const Spacer(),
-          Text(value, style: TextStyle(fontWeight: FontWeight.w500, color: AppTheme.textPrimaryOf(context))),
-        ],
-      ),
-    );
-  }
 
   /// Total capacity used = reserved spots (unredeemed) + tickets sold.
   /// When a reserved-spot holder buys a ticket their reserved spot is
@@ -1370,13 +1370,32 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     }
   }
 
-  Widget _sectionTitle(BuildContext context, String title) {
-    return Text(
-      title,
-      style: Theme.of(context)
-          .textTheme
-          .titleMedium
-          ?.copyWith(fontWeight: FontWeight.bold),
+  Widget _sectionTitle(BuildContext context, String title, {IconData? icon, Color? iconColor}) {
+    return Row(
+      children: [
+        if (icon != null) ...[
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: (iconColor ?? AppTheme.primaryColor).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, size: 16, color: iconColor ?? AppTheme.primaryColor),
+          ),
+          const SizedBox(width: 10),
+        ],
+        Expanded(
+          child: Text(
+            title,
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+              color: AppTheme.textPrimaryOf(context),
+              letterSpacing: -0.3,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -2817,55 +2836,66 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Live stats
         _LiveMgmtStats(event: event),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
+
         // Scan QR button (prominent, for selling/live events)
         if (event.status == EventStatus.selling_tickets ||
-            event.status == EventStatus.live)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: ElevatedButton.icon(
-                onPressed: () => context.push(
-                  '/events/${event.id}/scan?title=${Uri.encodeComponent(event.title)}',
+            event.status == EventStatus.live) ...[
+          SizedBox(
+            width: double.infinity,
+            height: 54,
+            child: ElevatedButton.icon(
+              onPressed: () => context.push(
+                '/events/${event.id}/scan?title=${Uri.encodeComponent(event.title)}',
+              ),
+              icon: const Icon(Icons.qr_code_scanner_rounded, size: 22),
+              label: const Text('Scan Tickets',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.successColor,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
                 ),
-                icon: const Icon(Icons.qr_code_scanner_rounded, size: 22),
-                label: const Text('Scan Tickets',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.successColor,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  elevation: 0,
-                ),
+                elevation: 0,
               ),
             ),
           ),
-        // Co-organizers button
-        _mgmtActionCard(
-          icon: Icons.group_rounded,
-          label: 'Co-Organizers',
-          color: AppTheme.accentColor,
-          onTap: () => context.push('/events/${event.id}/co-organizers'),
+          const SizedBox(height: 16),
+        ],
+
+        // Quick links grid
+        Row(
+          children: [
+            Expanded(
+              child: _mgmtActionCard(
+                icon: Icons.group_rounded,
+                label: 'Co-Organizers',
+                color: AppTheme.accentColor,
+                onTap: () => context.push('/events/${event.id}/co-organizers'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _mgmtActionCard(
+                icon: Icons.storefront_rounded,
+                label: 'Sponsorships',
+                color: Colors.teal,
+                onTap: () => context.push('/events/${event.id}/sponsorships'),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 12),
-        // Manage sponsorships
-        _mgmtActionCard(
-          icon: Icons.storefront_rounded,
-          label: 'Manage Sponsorships',
-          color: Colors.teal,
-          onTap: () => context.push('/events/${event.id}/sponsorships'),
-        ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
+
         // Inline discount attach/detach
         _EventDiscountDropdown(eventId: event.id),
+
         // Pending extension banner
         if (event.pendingExtension != null) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           _buildPendingExtensionBanner(event),
         ],
       ],
@@ -3027,43 +3057,64 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     String? trailing,
     required VoidCallback onTap,
     bool isDanger = false,
+    bool isLast = false,
   }) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: iconColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, size: 18, color: iconColor),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        InkWell(
+          onTap: onTap,
+          borderRadius: isLast
+              ? const BorderRadius.vertical(bottom: Radius.circular(16))
+              : BorderRadius.zero,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(9),
+                  decoration: BoxDecoration(
+                    color: iconColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, size: 20, color: iconColor),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(label,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: isDanger
+                                ? AppTheme.errorColor
+                                : AppTheme.textPrimaryOf(context),
+                          )),
+                      if (trailing != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(trailing,
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.textSecondaryOf(context)),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(Icons.chevron_right_rounded,
+                    size: 20, color: AppTheme.textSecondaryOf(context)),
+              ],
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Text(label,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: isDanger
-                        ? AppTheme.errorColor
-                        : AppTheme.textPrimaryOf(context),
-                  )),
-            ),
-            if (trailing != null)
-              Text(trailing,
-                  style: TextStyle(
-                      fontSize: 12,
-                      color: AppTheme.textSecondaryOf(context))),
-            const SizedBox(width: 4),
-            Icon(Icons.chevron_right,
-                size: 18, color: AppTheme.textSecondaryOf(context)),
-          ],
+          ),
         ),
-      ),
+        if (!isLast)
+          Divider(height: 1, indent: 60, color: AppTheme.dividerOf(context)),
+      ],
     );
   }
 
@@ -3072,26 +3123,54 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     required String label,
     required Color color,
     required VoidCallback onTap,
+    String? subtitle,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Material(
-      color: color.withOpacity(0.08),
-      borderRadius: BorderRadius.circular(12),
+      color: isDark ? AppTheme.cardOf(context) : color.withValues(alpha: 0.06),
+      borderRadius: BorderRadius.circular(14),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: color.withValues(alpha: isDark ? 0.3 : 0.15)),
+          ),
           child: Row(
             children: [
-              Icon(icon, size: 18, color: color),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  label,
-                  style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 13),
-                  overflow: TextOverflow.ellipsis,
+              Container(
+                padding: const EdgeInsets.all(9),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, size: 20, color: color),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: TextStyle(
+                        color: AppTheme.textPrimaryOf(context),
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
+                    ),
+                    if (subtitle != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(subtitle,
+                            style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context))),
+                      ),
+                  ],
                 ),
               ),
+              Icon(Icons.chevron_right_rounded, size: 20, color: AppTheme.textSecondaryOf(context)),
             ],
           ),
         ),
@@ -4047,90 +4126,138 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 32),
-        _sectionTitle(context, 'Manage Ticket Tiers'),
-        const SizedBox(height: 12),
+        const SizedBox(height: 28),
+        _sectionTitle(context, 'Ticket Tiers', icon: Icons.confirmation_number_rounded, iconColor: Colors.deepPurple),
+        const SizedBox(height: 14),
         FutureBuilder<List<dynamic>>(
           future:
               context.read<ApiService>().dio.get('/events/${event.id}/ticket-tiers').then((r) => r.data as List),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+              return const Center(child: Padding(
+                padding: EdgeInsets.all(20),
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ));
             }
             if (snapshot.hasError) {
-              return Text('Could not load tiers',
-                  style: TextStyle(color: Colors.grey[500]));
+              return Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text('Could not load tiers',
+                    style: TextStyle(color: AppTheme.textSecondaryOf(context))),
+              );
             }
             final tiers = snapshot.data ?? [];
             if (tiers.isEmpty) {
-              return Text('No tiers configured',
-                  style: TextStyle(color: Colors.grey[500]));
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: AppTheme.cardOf(context),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppTheme.dividerOf(context)),
+                ),
+                child: Column(
+                  children: [
+                    Icon(Icons.layers_clear_rounded, size: 32, color: AppTheme.textSecondaryOf(context)),
+                    const SizedBox(height: 8),
+                    Text('No tiers configured',
+                        style: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 14)),
+                  ],
+                ),
+              );
             }
-            return Column(
-              children: tiers.map((tier) {
-                final tierId = tier['id'];
-                final name = tier['name'] ?? '';
-                final desc = tier['description'] ?? '';
-                final priceCents = tier['price_cents'] ?? 0;
-                final price =
-                    '\$${(priceCents / 100).toStringAsFixed(2)}';
-                final canDelete = event.status != EventStatus.selling_tickets &&
-                    event.status != EventStatus.live;
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: AppTheme.cardOf(context),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.04),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
+            return Container(
+              decoration: BoxDecoration(
+                color: AppTheme.cardOf(context),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 12,
+                    offset: const Offset(0, 2),
                   ),
-                  child: Row(
+                ],
+              ),
+              child: Column(
+                children: tiers.asMap().entries.map((entry) {
+                  final i = entry.key;
+                  final tier = entry.value;
+                  final tierId = tier['id'];
+                  final name = tier['name'] ?? '';
+                  final desc = tier['description'] ?? '';
+                  final priceCents = tier['price_cents'] ?? 0;
+                  final price = '\$${(priceCents / 100).toStringAsFixed(2)}';
+                  final canDelete = event.status != EventStatus.selling_tickets &&
+                      event.status != EventStatus.live;
+                  final isLast = i == tiers.length - 1;
+                  return Column(
                     children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        child: Row(
                           children: [
-                            Text(name,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 15)),
-                            if (desc.isNotEmpty)
-                              Text(desc,
-                                  style: TextStyle(
-                                      fontSize: 12,
-                                      color: AppTheme.textSecondaryOf(context))),
-                            Text(price,
-                                style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppTheme.successColor)),
+                            Container(
+                              padding: const EdgeInsets.all(9),
+                              decoration: BoxDecoration(
+                                color: Colors.deepPurple.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(Icons.confirmation_number_rounded, size: 20, color: Colors.deepPurple),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(name,
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 15,
+                                          color: AppTheme.textPrimaryOf(context))),
+                                  if (desc.isNotEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 2),
+                                      child: Text(desc,
+                                          style: TextStyle(
+                                              fontSize: 13,
+                                              color: AppTheme.textSecondaryOf(context)),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis),
+                                    ),
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 3),
+                                    child: Text(price,
+                                        style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w700,
+                                            color: AppTheme.successColor)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              icon: Icon(Icons.edit_outlined, size: 20, color: AppTheme.textSecondaryOf(context)),
+                              tooltip: 'Edit tier',
+                              onPressed: () => _showEditTierDialog(
+                                  event.id, tierId, name, desc, priceCents),
+                            ),
+                            if (canDelete)
+                              IconButton(
+                                icon: Icon(Icons.delete_outline_rounded,
+                                    size: 20, color: AppTheme.errorColor),
+                                tooltip: 'Delete tier',
+                                onPressed: () =>
+                                    _confirmDeleteTier(event.id, tierId, name),
+                              ),
                           ],
                         ),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.edit_outlined, size: 20),
-                        tooltip: 'Edit tier',
-                        onPressed: () => _showEditTierDialog(
-                            event.id, tierId, name, desc, priceCents),
-                      ),
-                      if (canDelete)
-                        IconButton(
-                          icon: Icon(Icons.delete_outline,
-                              size: 20, color: AppTheme.errorColor),
-                          tooltip: 'Delete tier',
-                          onPressed: () =>
-                              _confirmDeleteTier(event.id, tierId, name),
-                        ),
+                      if (!isLast)
+                        Divider(height: 1, indent: 60, color: AppTheme.dividerOf(context)),
                     ],
-                  ),
-                );
-              }).toList(),
+                  );
+                }).toList(),
+              ),
             );
           },
         ),
@@ -4262,7 +4389,6 @@ class _LiveMgmtStatsState extends State<_LiveMgmtStats> {
   int _scannedCount = 0;
   int _fundingWaitlistCount = 0;
   int _ticketWaitlistCount = 0;
-  int _revenueCents = 0;
   bool _loading = true;
 
   Event get _event => widget.event;
@@ -4309,12 +4435,10 @@ class _LiveMgmtStatsState extends State<_LiveMgmtStats> {
           api.getRegistrations(_eventId),
           api.getWaitlistedTickets(_eventId),
         ]);
-        final allSales = results[0] as List;
-        final scanned = results[1] as List;
-        final regs = results[2] as List;
-        final ticketWaitlist = results[3] as List;
-        final revenue = allSales.fold<int>(
-            0, (s, e) => s + ((e['amount_paid_cents'] ?? 0) as int));
+        final allSales = results[0];
+        final scanned = results[1];
+        final regs = results[2];
+        final ticketWaitlist = results[3];
         final fundingWaitlisted =
             regs.where((r) => r['status'] == 'waitlist').length;
         if (mounted) {
@@ -4323,7 +4447,6 @@ class _LiveMgmtStatsState extends State<_LiveMgmtStats> {
             _scannedCount = scanned.length;
             _fundingWaitlistCount = fundingWaitlisted;
             _ticketWaitlistCount = ticketWaitlist.length;
-            _revenueCents = revenue;
             _loading = false;
           });
         }
@@ -4342,7 +4465,6 @@ class _LiveMgmtStatsState extends State<_LiveMgmtStats> {
       );
     }
 
-    final regCount = _event.registrationCount;
     final reservedCount = _event.totalReservedSpots;
     final soldCount = _event.ticketsSoldCount;
     final filledCount = reservedCount + soldCount; // capacity used = reserved + sold
@@ -4537,7 +4659,6 @@ class _LiveMgmtStatsState extends State<_LiveMgmtStats> {
     VoidCallback? onTap,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    // In dark mode, lighten near-black colors so they're visible
     final chipColor = isDark && _isNearBlack(color)
         ? AppTheme.accentColor
         : color;
@@ -4545,33 +4666,41 @@ class _LiveMgmtStatsState extends State<_LiveMgmtStats> {
     return Material(
       color: isDark
           ? AppTheme.cardOf(context)
-          : chipColor.withValues(alpha: 0.08),
+          : chipColor.withValues(alpha: 0.06),
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(14),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14),
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: chipColor.withValues(alpha: isDark ? 0.4 : 0.15),
+              color: chipColor.withValues(alpha: isDark ? 0.35 : 0.15),
               width: 1,
             ),
           ),
-          child: Column(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 22, color: isDark ? chipColor : chipColor),
-              const SizedBox(height: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: textColor,
+              Icon(icon, size: 20, color: chipColor),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: textColor,
+                  ),
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                textAlign: TextAlign.center,
               ),
+              if (onTap != null) ...[
+                const SizedBox(width: 4),
+                Icon(Icons.chevron_right_rounded, size: 16, color: textColor.withValues(alpha: 0.5)),
+              ],
             ],
           ),
         ),
@@ -5648,8 +5777,6 @@ class _FundingCardState extends State<_FundingCard> {
   int _totalPledgedCents = 0;
   int _backersCount = 0;
   int? _goalCents;
-  bool _goalMet = false;
-  bool _loading = true;
   bool _pledging = false;
   int _fundingCommissionPercent = 0;
   int _totalReservedSpots = 0;
@@ -5675,15 +5802,11 @@ class _FundingCardState extends State<_FundingCard> {
           _totalPledgedCents = data['total_pledged_cents'] ?? 0;
           _backersCount = data['backers_count'] ?? 0;
           _goalCents = data['goal_cents'];
-          _goalMet = data['goal_met'] ?? false;
           _fundingCommissionPercent = data['funding_commission_percent'] ?? 0;
           _totalReservedSpots = data['total_reserved_spots'] ?? 0;
-          _loading = false;
         });
       }
-    } catch (_) {
-      if (mounted) setState(() => _loading = false);
-    }
+    } catch (_) {}
   }
 
   // ── Trust score helpers ──
@@ -5889,7 +6012,7 @@ class _FundingCardState extends State<_FundingCard> {
                       color: Colors.red.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Text(previewError!, style: const TextStyle(color: Colors.red, fontSize: 12)),
+                    child: Text(previewError, style: const TextStyle(color: Colors.red, fontSize: 12)),
                   )
                 else if (loadingPreview)
                   const Center(child: CircularProgressIndicator())

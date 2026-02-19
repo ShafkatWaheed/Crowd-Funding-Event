@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
 import '../../widgets/app_toast.dart';
+import '../../widgets/shimmer_loaders.dart';
 import '../../models/ticket_strategy.dart';
 import '../../services/api_service.dart';
 
@@ -151,7 +152,12 @@ class _TicketStrategiesScreenState extends State<TicketStrategiesScreen> {
           // ── Content ──
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator())
+                ? Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: List.generate(3, (_) => const ShimmerListTile()),
+                    ),
+                  )
                 : _filtered.isEmpty
                     ? Center(
                         child: Column(
@@ -168,17 +174,21 @@ class _TicketStrategiesScreenState extends State<TicketStrategiesScreen> {
                                   fontSize: 16, color: AppTheme.textSecondaryOf(context)),
                             ),
                             if (_searchCtrl.text.isEmpty)
-                              const Padding(
-                                padding: EdgeInsets.only(top: 8),
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8),
                                 child: Text(
-                                    'Create a strategy with tiers to use in events'),
+                                    'Create a strategy with tiers to use in events',
+                                    style: TextStyle(color: AppTheme.textSecondaryOf(context))),
                               ),
                           ],
                         ),
                       )
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _filtered.length,
+                    : RefreshIndicator(
+                        onRefresh: _load,
+                        child: ListView.builder(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.all(16),
+                          itemCount: _filtered.length,
                         itemBuilder: (context, index) {
                           final s = _filtered[index];
                           return Card(
@@ -200,9 +210,10 @@ class _TicketStrategiesScreenState extends State<TicketStrategiesScreen> {
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: Text(s.name,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                           fontSize: 16,
-                                          fontWeight: FontWeight.w600)),
+                                          fontWeight: FontWeight.w600,
+                                          color: AppTheme.textPrimaryOf(context))),
                                 ),
                                 IconButton(
                                   onPressed: () => _delete(s.id),
@@ -231,8 +242,9 @@ class _TicketStrategiesScreenState extends State<TicketStrategiesScreen> {
                                           const SizedBox(width: 8),
                                           Expanded(
                                             child: Text(t.name,
-                                                style: const TextStyle(
-                                                    fontWeight: FontWeight.w500)),
+                                                style: TextStyle(
+                                                    fontWeight: FontWeight.w500,
+                                                    color: AppTheme.textPrimaryOf(context))),
                                           ),
                                           Text(t.priceFormatted,
                                               style: const TextStyle(
@@ -258,6 +270,7 @@ class _TicketStrategiesScreenState extends State<TicketStrategiesScreen> {
                     );
                   },
                 ),
+              ),
           ),
         ],
       ),
@@ -382,6 +395,7 @@ class _CreateTicketStrategyScreenState
                     final t = _tiers[i];
                     return Card(
                       margin: const EdgeInsets.only(bottom: 12),
+                      color: AppTheme.cardOf(context),
                       child: Padding(
                         padding: const EdgeInsets.all(12),
                         child: Column(
@@ -389,8 +403,9 @@ class _CreateTicketStrategyScreenState
                             Row(
                               children: [
                                 Text('Tier ${i + 1}',
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.w600)),
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        color: AppTheme.textPrimaryOf(context))),
                                 const Spacer(),
                                 if (_tiers.length > 1)
                                   IconButton(

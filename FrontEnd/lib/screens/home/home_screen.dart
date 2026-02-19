@@ -10,6 +10,7 @@ import '../../providers/event_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../services/api_service.dart';
 import '../../widgets/event_lifecycle_bar.dart';
+import '../../widgets/shimmer_loaders.dart';
 import '../../widgets/event_map_widget.dart';
 import '../../services/location_helper.dart';
 import '../legal/terms_screen.dart';
@@ -78,7 +79,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Near Me
   List<Event> _nearMeEvents = [];
-  bool _nearMeLoading = false;
   bool _nearMeAttempted = false;
 
   final List<String> _genres = [
@@ -134,15 +134,24 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Event> _myEvents = [];
   // ignore: unused_field
   bool _myEventsLoading = false;
+  bool _myEventsLoadingMore = false;
+  bool _myEventsHasMore = true;
   String _myEventsSearch = '';
   String? _myEventsGenre;
   String? _myEventsStatus;
+  static const int _myEventsPageSize = 20;
 
   // Sponsor bid events
   List<_SponsorBidEvent> _sponsorBidEvents = [];
   bool _sponsorBidEventsLoading = false;
   String _sponsorBidSearch = '';
   String? _sponsorBidStatus;
+
+  // Cache timestamps for tab data staleness checks
+  DateTime? _myEventsLoadedAt;
+  DateTime? _sponsorBidLoadedAt;
+  DateTime? _featuredLoadedAt;
+  static const Duration _tabCacheTtl = Duration(seconds: 60);
 
   @override
   void initState() {
@@ -168,19 +177,41 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadMyEvents() async {
     final auth = context.read<AuthProvider>();
     if (auth.user == null) return;
-    setState(() => _myEventsLoading = true);
+    setState(() { _myEventsLoading = true; _myEventsHasMore = true; });
     try {
       final api = context.read<ApiService>();
-      final data = await api.getMyEvents();
+      final data = await api.getMyEvents(offset: 0, limit: _myEventsPageSize);
       if (mounted) {
         setState(() {
           _myEvents = data.map((e) => Event.fromJson(e)).toList();
+          _myEventsHasMore = data.length >= _myEventsPageSize;
         });
       }
     } catch (e) {
       debugPrint('_loadMyEvents error: $e');
     }
-    if (mounted) setState(() => _myEventsLoading = false);
+    if (mounted) {
+      _myEventsLoadedAt = DateTime.now();
+      setState(() => _myEventsLoading = false);
+    }
+  }
+
+  Future<void> _loadMoreMyEvents() async {
+    if (_myEventsLoadingMore || !_myEventsHasMore) return;
+    setState(() => _myEventsLoadingMore = true);
+    try {
+      final api = context.read<ApiService>();
+      final data = await api.getMyEvents(offset: _myEvents.length, limit: _myEventsPageSize);
+      if (mounted) {
+        setState(() {
+          _myEvents.addAll(data.map((e) => Event.fromJson(e)));
+          _myEventsHasMore = data.length >= _myEventsPageSize;
+        });
+      }
+    } catch (e) {
+      debugPrint('_loadMoreMyEvents error: $e');
+    }
+    if (mounted) setState(() => _myEventsLoadingMore = false);
   }
 
   Future<void> _loadSponsorBidEvents() async {
@@ -207,7 +238,10 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (e) {
       debugPrint('_loadSponsorBidEvents error: $e');
     }
-    if (mounted) setState(() => _sponsorBidEventsLoading = false);
+    if (mounted) {
+      _sponsorBidLoadedAt = DateTime.now();
+      setState(() => _sponsorBidEventsLoading = false);
+    }
   }
 
   Future<void> _loadFeatured() async {
@@ -233,22 +267,40 @@ class _HomeScreenState extends State<HomeScreen> {
             .map((e) => Event.fromJson(e))
             .toList();
         _featuredLoading = false;
+        _featuredLoadedAt = DateTime.now();
       });
     } catch (_) {
       setState(() => _featuredLoading = false);
     }
   }
 
+  bool _isStale(DateTime? loadedAt) {
+    return loadedAt == null || DateTime.now().difference(loadedAt) > _tabCacheTtl;
+  }
+
+  void _refreshStaleTabData(int tabIndex) {
+    final user = context.read<AuthProvider>().user;
+    if (tabIndex == 0 && _isStale(_featuredLoadedAt)) {
+      _loadFeatured();
+    }
+    if (tabIndex == 2) {
+      if (user != null && user.isCustomer && _isStale(_myEventsLoadedAt)) {
+        _loadMyEvents();
+      }
+      if (user != null && user.isSponsor && _isStale(_sponsorBidLoadedAt)) {
+        _loadSponsorBidEvents();
+      }
+    }
+  }
+
   Future<void> _loadNearMe() async {
     if (_nearMeAttempted) return;
     setState(() {
-      _nearMeLoading = true;
       _nearMeAttempted = true;
     });
     try {
       final pos = await LocationHelper.getCurrentPosition();
       if (pos == null || !mounted) {
-        if (mounted) setState(() => _nearMeLoading = false);
         return;
       }
       final api = context.read<ApiService>();
@@ -260,7 +312,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (mounted) {
         // Convert map markers to full events by fetching them
         // For now we'll use the limited data and fetch full events
-        final ids = (data as List)
+        final ids = data
             .map((e) => e['id'] as int)
             .take(10)
             .toList();
@@ -275,7 +327,6 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       }
     } catch (_) {}
-    if (mounted) setState(() => _nearMeLoading = false);
   }
 
   @override
@@ -463,12 +514,7 @@ class _HomeScreenState extends State<HomeScreen> {
         const tabNames = ['home', 'explore', 'manage', 'profile'];
         final tab = tabNames[index];
         context.go(tab == 'home' ? '/' : '/?tab=$tab');
-        if (index == 2) {
-          final user = context.read<AuthProvider>().user;
-          if (user != null && user.isCustomer) {
-            _loadMyEvents();
-          }
-        }
+        _refreshStaleTabData(index);
       },
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
@@ -820,7 +866,16 @@ class _HomeScreenState extends State<HomeScreen> {
     final user = auth.user;
     final dateFmt = DateFormat('MMM d');
 
-    return CustomScrollView(
+    return NotificationListener<ScrollNotification>(
+      onNotification: (notification) {
+        if (notification is ScrollEndNotification &&
+            notification.metrics.pixels >= notification.metrics.maxScrollExtent * 0.8 &&
+            !events.isLoadingMore && events.hasMore && !events.isLoading) {
+          events.loadMoreEvents();
+        }
+        return false;
+      },
+      child: CustomScrollView(
       slivers: [
         // ── Search Header ──
         SliverToBoxAdapter(
@@ -1148,9 +1203,10 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           )
         else if (events.isLoading)
-          const SliverFillRemaining(
-            child: Center(
-                child: CircularProgressIndicator(color: AppTheme.primaryColor)),
+          SliverFillRemaining(
+            child: SingleChildScrollView(
+              child: ShimmerEventList(count: 4),
+            ),
           )
         else if (events.error != null)
           SliverFillRemaining(
@@ -1224,8 +1280,16 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
 
+        if (events.isLoadingMore)
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 20),
+              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            ),
+          ),
         const SliverToBoxAdapter(child: SizedBox(height: 100)),
       ],
+    ),
     );
   }
 
@@ -1724,22 +1788,38 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                 )
-              : RefreshIndicator(
-                  color: AppTheme.primaryColor,
-                  onRefresh: _loadMyEvents,
-                  child: ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-                    itemCount: filtered.length,
-                    itemBuilder: (context, index) {
-                      final event = filtered[index];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: _UberEventCard(
-                          event: event,
-                          onTap: () => context.push('/events/${event.id}'),
-                        ),
-                      );
-                    },
+              : NotificationListener<ScrollNotification>(
+                  onNotification: (notification) {
+                    if (notification is ScrollEndNotification &&
+                        notification.metrics.pixels >= notification.metrics.maxScrollExtent * 0.8 &&
+                        !_myEventsLoadingMore && _myEventsHasMore) {
+                      _loadMoreMyEvents();
+                    }
+                    return false;
+                  },
+                  child: RefreshIndicator(
+                    color: AppTheme.primaryColor,
+                    onRefresh: _loadMyEvents,
+                    child: ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+                      itemCount: filtered.length + (_myEventsLoadingMore ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        if (index >= filtered.length) {
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 20),
+                            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                          );
+                        }
+                        final event = filtered[index];
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _UberEventCard(
+                            event: event,
+                            onTap: () => context.push('/events/${event.id}'),
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ),
         ),
@@ -1889,7 +1969,9 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         Expanded(
           child: _sponsorBidEventsLoading
-              ? const Center(child: CircularProgressIndicator())
+              ? SingleChildScrollView(
+                  child: ShimmerEventList(count: 3),
+                )
               : filtered.isEmpty
                   ? Center(
                       child: Column(

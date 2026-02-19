@@ -2,8 +2,8 @@
 User model and role enum.
 """
 import enum
-from datetime import datetime
-from sqlalchemy import String, Enum, DateTime
+from datetime import date, datetime
+from sqlalchemy import Date, Integer, String, Text, Enum, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -25,6 +25,9 @@ class User(Base):
     display_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
     role: Mapped[UserRole] = mapped_column(Enum(UserRole), nullable=False, default=UserRole.customer)
+    address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    birthday: Mapped[date | None] = mapped_column(Date, nullable=True)
+    years_of_experience: Mapped[int | None] = mapped_column(Integer, nullable=True)
     terms_accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)

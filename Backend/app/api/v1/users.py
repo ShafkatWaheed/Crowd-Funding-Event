@@ -16,16 +16,23 @@ from app.services import ticket as ticket_service
 router = APIRouter()
 
 
+def _me_response(u) -> MeResponse:
+    return MeResponse(
+        id=u.id,
+        email=u.email,
+        display_name=u.display_name,
+        phone=u.phone,
+        role=u.role.value,
+        address=u.address,
+        birthday=u.birthday,
+        years_of_experience=u.years_of_experience,
+    )
+
+
 @router.get("", response_model=MeResponse)
 async def get_me(current_user: CurrentUser):
     """Current user profile."""
-    return MeResponse(
-        id=current_user.id,
-        email=current_user.email,
-        display_name=current_user.display_name,
-        phone=current_user.phone,
-        role=current_user.role.value,
-    )
+    return _me_response(current_user)
 
 
 @router.patch("", response_model=MeResponse)
@@ -39,15 +46,15 @@ async def update_me(
         current_user.display_name = body.display_name
     if body.phone is not None:
         current_user.phone = body.phone
+    if body.address is not None:
+        current_user.address = body.address
+    if body.birthday is not None:
+        current_user.birthday = body.birthday
+    if body.years_of_experience is not None:
+        current_user.years_of_experience = body.years_of_experience
     await db.flush()
     await db.refresh(current_user)
-    return MeResponse(
-        id=current_user.id,
-        email=current_user.email,
-        display_name=current_user.display_name,
-        phone=current_user.phone,
-        role=current_user.role.value,
-    )
+    return _me_response(current_user)
 
 
 @router.get("/pledges", response_model=list[MyPledgeItem])

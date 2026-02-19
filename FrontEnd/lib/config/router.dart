@@ -22,6 +22,7 @@ import '../screens/ticket_strategy/ticket_strategies_screen.dart';
 import '../screens/admin/admin_dashboard_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import '../screens/profile/my_tickets_screen.dart';
+import '../screens/profile/my_pledges_screen.dart';
 import '../screens/legal/terms_screen.dart';
 import '../screens/event/ticket_scanner_screen.dart';
 import '../screens/sponsor/sponsor_onboarding_screen.dart';
@@ -90,6 +91,11 @@ GoRouter createRouter(AuthProvider authProvider) {
           final eventId = eventIdStr != null ? int.tryParse(eventIdStr) : null;
           return MyTicketsScreen(filterEventId: eventId);
         },
+      ),
+
+      GoRoute(
+        path: '/my-pledges',
+        builder: (context, state) => const MyPledgesScreen(),
       ),
 
       // ─── Legal ───

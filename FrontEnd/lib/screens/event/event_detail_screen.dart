@@ -5843,7 +5843,7 @@ class _FundingCardState extends State<_FundingCard> {
                   Navigator.pop(ctx);
                   _showPledgeInvoice((amount * 100).toInt(), selectedSpots);
                 },
-                child: const Text('Continue to Invoice'),
+                child: Text(widget.isRegistered ? 'Continue to Invoice' : 'Continue to Donate'),
               ),
             ],
           );

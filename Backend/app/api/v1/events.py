@@ -774,6 +774,7 @@ async def get_pledge_receipt(
         net_to_organizer_cents=pledge.net_to_organizer_cents,
         funding_commission_percent=funding_pct,
         status=pledge.status.value,
+        is_guest=pledge.is_guest,
         created_at=pledge.created_at,
     )
 
@@ -878,6 +879,7 @@ async def get_my_registration(
     """Check if the current user is registered for this event. Returns status or null."""
     from sqlalchemy import select
     from app.models.registration import Registration
+    from app.models.registration import RegistrationStatus
     q = select(Registration).where(
         Registration.event_id == event_id,
         Registration.user_id == current_user.id,
@@ -885,7 +887,8 @@ async def get_my_registration(
     result = await db.execute(q)
     reg = result.scalar_one_or_none()
     if reg:
-        return {"registered": True, "status": reg.status.value}
+        is_active = reg.status in (RegistrationStatus.registered, RegistrationStatus.waitlist)
+        return {"registered": is_active, "status": reg.status.value}
     return {"registered": False, "status": None}
 
 

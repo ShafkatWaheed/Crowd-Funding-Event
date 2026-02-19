@@ -50,7 +50,9 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F3FF),
       appBar: AppBar(
-        title: const Text('Pledge Receipt'),
+        title: Text(_receipt != null && _receipt!['is_guest'] == true
+            ? 'Donation Receipt'
+            : 'Pledge Receipt'),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
@@ -84,6 +86,9 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
     final netToOrganizerCents = (r['net_to_organizer_cents'] ?? 0) as int;
     final commissionPct = (r['funding_commission_percent'] ?? 0) as int;
     final status = r['status'] ?? 'pledged';
+    final isGuest = r['is_guest'] == true;
+    final isDonation = isGuest;
+    final typeLabel = isDonation ? 'Donation' : 'Pledge';
     final createdAt = r['created_at'] != null
         ? DateTime.parse(r['created_at']).toLocal()
         : null;
@@ -121,10 +126,11 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
                   ),
                   child: Column(
                     children: [
-                      const Icon(Icons.volunteer_activism_rounded, size: 40, color: Colors.white),
+                      Icon(isDonation ? Icons.card_giftcard_rounded : Icons.volunteer_activism_rounded,
+                          size: 40, color: Colors.white),
                       const SizedBox(height: 10),
-                      const Text('Pledge Confirmed',
-                          style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                      Text('$typeLabel Confirmed',
+                          style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 4),
                       Text(receiptNumber,
                           style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12)),
@@ -144,11 +150,10 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
                           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                       const SizedBox(height: 20),
 
-                      // Pledge details
-                      _sectionLabel('PLEDGE DETAILS'),
+                      _sectionLabel(isDonation ? 'DONATION DETAILS' : 'PLEDGE DETAILS'),
                       const SizedBox(height: 8),
                       _detailRow('Amount', _formatCents(amountCents)),
-                      _detailRow('Status', status[0].toUpperCase() + status.substring(1)),
+                      _detailRow('Status', isDonation ? 'Donation' : (status[0].toUpperCase() + status.substring(1))),
                       if (reservedSpots > 0)
                         _detailRow('Reserved Spots', '$reservedSpots'),
                       if (createdAt != null)
@@ -158,7 +163,7 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
                       // Commission breakdown
                       _sectionLabel('FEE BREAKDOWN'),
                       const SizedBox(height: 8),
-                      _priceRow('Pledge Amount', _formatCents(amountCents)),
+                      _priceRow('$typeLabel Amount', _formatCents(amountCents)),
                       const SizedBox(height: 6),
                       _priceRow('Platform Fee ($commissionPct%)',
                           _formatCents(platformCutCents),
@@ -170,6 +175,30 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
                           isBold: true),
                       const SizedBox(height: 20),
 
+                      if (isDonation) ...[
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.amber.withValues(alpha: 0.2)),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.info_outline_rounded, size: 20, color: Colors.amber.shade700),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  'This is a guest donation and is non-refundable. No ticket spots are reserved.',
+                                  style: TextStyle(fontSize: 12, color: Colors.amber.shade700),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                       if (reservedSpots > 0) ...[
                         Container(
                           width: double.infinity,

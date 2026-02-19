@@ -66,6 +66,7 @@ async def get_my_pledges(
             reserved_spots=p.reserved_spots,
             receipt_number=p.receipt_number,
             status=p.status.value,
+            is_guest=p.is_guest,
             created_at=p.created_at,
         )
         for p in pledges
@@ -102,6 +103,7 @@ async def get_my_pledge_receipt(
         net_to_organizer_cents=pledge.net_to_organizer_cents,
         funding_commission_percent=funding_pct,
         status=pledge.status.value,
+        is_guest=pledge.is_guest,
         created_at=pledge.created_at,
     )
 

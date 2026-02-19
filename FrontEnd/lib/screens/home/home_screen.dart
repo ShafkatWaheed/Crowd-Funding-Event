@@ -8,7 +8,6 @@ import '../../models/event.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/event_provider.dart';
 import '../../services/api_service.dart';
-import '../../widgets/app_toast.dart';
 import '../../widgets/event_lifecycle_bar.dart';
 import '../../widgets/event_map_widget.dart';
 import '../../services/location_helper.dart';
@@ -328,7 +327,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (user != null && (user.isOrganizer || user.isAdmin))
                   _navItem(2, Icons.dashboard_rounded, Icons.dashboard_outlined, 'Manage')
                 else
-                  _navItem(2, Icons.bookmark_rounded, Icons.bookmark_outline, 'My Events'),
+                  _navItem(2, Icons.dashboard_rounded, Icons.dashboard_outlined, 'Manage'),
                 _navItem(3, Icons.person_rounded, Icons.person_outline, 'Profile'),
               ],
             ),
@@ -1343,6 +1342,39 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _customerQuickAction({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: color.withValues(alpha: 0.2)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 20, color: color),
+              const SizedBox(width: 8),
+              Text(label,
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: color)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildMyEventsTab() {
     final filtered = _myEvents.where((e) {
       if (_myEventsGenre != null && e.genre != _myEventsGenre) return false;
@@ -1357,7 +1389,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Column(
       children: [
-        // Header + Search + Genre chips — rounded bottom like Home tab
         Container(
           decoration: BoxDecoration(
             color: AppTheme.cardOf(context),
@@ -1373,7 +1404,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: Text('My Events',
+                    child: Text('Manage',
                         style: TextStyle(
                             fontSize: 28,
                             fontWeight: FontWeight.w800,
@@ -1398,7 +1429,25 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  _customerQuickAction(
+                    icon: Icons.confirmation_number_rounded,
+                    label: 'My Tickets',
+                    color: const Color(0xFF276EF1),
+                    onTap: () => context.push('/my-tickets'),
+                  ),
+                  const SizedBox(width: 10),
+                  _customerQuickAction(
+                    icon: Icons.volunteer_activism_rounded,
+                    label: 'My Pledges',
+                    color: Colors.deepPurple,
+                    onTap: () => context.push('/my-pledges'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
               TextField(
                 decoration: InputDecoration(
                   hintText: 'Search my events…',
@@ -1468,7 +1517,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           color: AppTheme.surfaceOf(context),
                           borderRadius: BorderRadius.circular(22),
                         ),
-                        child: Icon(Icons.bookmark_outline_rounded,
+                        child: Icon(Icons.event_busy_rounded,
                             size: 40, color: AppTheme.textSecondaryOf(context)),
                       ),
                       const SizedBox(height: 16),
@@ -1645,7 +1694,7 @@ class _HomeScreenState extends State<HomeScreen> {
 _profileTile(
                         icon: Icons.volunteer_activism_rounded,
                         label: 'My Pledges',
-                        onTap: () => AppToast.info(context, 'Coming soon'),
+                        onTap: () => context.push('/my-pledges'),
                       ),
                         Divider(height: 1, indent: 56, color: AppTheme.dividerOf(context)),
 _profileTile(

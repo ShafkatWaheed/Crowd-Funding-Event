@@ -68,6 +68,7 @@ class PledgeReceiptResponse(BaseModel):
     net_to_organizer_cents: int = 0
     funding_commission_percent: int = 0
     status: str
+    is_guest: bool = False
     created_at: datetime
 
 
@@ -80,6 +81,7 @@ class MyPledgeItem(BaseModel):
     reserved_spots: int = 0
     receipt_number: str | None = None
     status: str
+    is_guest: bool = False
     created_at: datetime
 
     model_config = {"from_attributes": True}

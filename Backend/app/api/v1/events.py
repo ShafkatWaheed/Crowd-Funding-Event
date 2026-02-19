@@ -1750,6 +1750,8 @@ async def approve_cancellation(
         event.cancellation_reason = reason
         from app.services import funding as funding_service
         await funding_service.refund_all_pledges_for_event(db, event_id=event.id)
+        from app.services import sponsor as sponsor_service
+        await sponsor_service.refund_all_sponsor_payments_for_event(db, event_id=event.id)
         await db.flush()
         # Send cancellation emails to all affected users
         bg.add_task(

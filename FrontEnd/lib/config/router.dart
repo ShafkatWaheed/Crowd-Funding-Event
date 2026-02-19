@@ -34,7 +34,6 @@ import '../screens/sponsor/sponsor_dashboard_screen.dart';
 GoRouter createRouter(AuthProvider authProvider) {
   return GoRouter(
     refreshListenable: authProvider,
-    initialLocation: '/login',
     redirect: (context, state) {
       final isAuthenticated = authProvider.isAuthenticated;
       final isLoading = authProvider.isLoading;
@@ -43,24 +42,34 @@ GoRouter createRouter(AuthProvider authProvider) {
       final isAuthRoute =
           currentPath == '/login' || currentPath == '/register';
 
-      // ── While auth is still loading, keep user on an auth route ──
-      // This prevents the home screen from flashing before login resolves.
-      if (isLoading) {
-        if (!isAuthRoute) return '/login';
-        return null; // already on login/register, stay there
-      }
+      // Splash screen is shown by the MaterialApp builder while loading;
+      // don't touch the URL so GoRouter preserves the browser path.
+      if (isLoading) return null;
 
-      // ── Auth resolved: not authenticated → force to login ──
+      // Not authenticated and not on an auth page → send to login,
+      // preserving the intended destination so we can restore it later.
       if (!isAuthenticated && !isAuthRoute) {
+        final intended = state.uri.toString();
+        if (intended.isNotEmpty && intended != '/') {
+          return '/login?redirect=${Uri.encodeComponent(intended)}';
+        }
         return '/login';
       }
 
-      // ── Auth resolved: authenticated but still on auth route → go home ──
+      // Authenticated but sitting on an auth page → leave.
+      // Restore saved destination if present; otherwise go home.
       if (isAuthenticated && isAuthRoute) {
+        final redirect = state.uri.queryParameters['redirect'];
+        if (redirect != null &&
+            redirect.isNotEmpty &&
+            redirect != '/login' &&
+            redirect != '/register') {
+          return Uri.decodeComponent(redirect);
+        }
         return '/';
       }
 
-      return null; // no redirect needed
+      return null;
     },
     routes: [
       // ─── Auth ───

@@ -9,7 +9,7 @@ from app.models.user import User, UserRole
 from app.models.event import Event
 from app.models.sponsor import (
     SponsorProfile, SponsorshipCategory, SponsorBid, BidStatus,
-    SponsorPayment, SponsorTicket,
+    SponsorPayment, PaymentStatus, SponsorTicket,
 )
 from app.schemas.sponsor import (
     SponsorProfileCreate, SponsorProfileUpdate,
@@ -379,6 +379,60 @@ async def _ensure_sponsor_ticket(
     await db.flush()
     await db.refresh(ticket)
     return ticket
+
+
+# ── Refund all sponsor payments for event (on cancellation) ──
+
+async def refund_all_sponsor_payments_for_event(db: AsyncSession, event_id: int) -> int:
+    """
+    Mark all completed sponsor payments for the event as refunded,
+    reset bids to 'pending', decrement filled_spots, and delete sponsor tickets.
+    Returns the number of payments refunded.
+    """
+    cats = await list_categories(db, event_id)
+    cat_ids = [c.id for c in cats]
+    if not cat_ids:
+        return 0
+
+    paid_bids_q = select(SponsorBid).where(
+        SponsorBid.category_id.in_(cat_ids),
+        SponsorBid.status == BidStatus.paid,
+    )
+    paid_bids = list((await db.execute(paid_bids_q)).scalars().all())
+
+    refunded_count = 0
+    for bid in paid_bids:
+        payment = (await db.execute(
+            select(SponsorPayment).where(SponsorPayment.bid_id == bid.id)
+        )).scalar_one_or_none()
+        if payment and payment.status == PaymentStatus.completed:
+            payment.status = PaymentStatus.refunded
+            refunded_count += 1
+
+        cat = next((c for c in cats if c.id == bid.category_id), None)
+        if cat and cat.filled_spots > 0:
+            cat.filled_spots -= 1
+
+        bid.status = BidStatus.rejected
+
+    accepted_bids_q = select(SponsorBid).where(
+        SponsorBid.category_id.in_(cat_ids),
+        SponsorBid.status == BidStatus.accepted,
+    )
+    accepted_bids = list((await db.execute(accepted_bids_q)).scalars().all())
+    for bid in accepted_bids:
+        cat = next((c for c in cats if c.id == bid.category_id), None)
+        if cat and cat.filled_spots > 0:
+            cat.filled_spots -= 1
+        bid.status = BidStatus.rejected
+
+    from sqlalchemy import delete as sa_delete
+    await db.execute(
+        sa_delete(SponsorTicket).where(SponsorTicket.event_id == event_id)
+    )
+
+    await db.flush()
+    return refunded_count
 
 
 # ── Sponsor Tickets ──

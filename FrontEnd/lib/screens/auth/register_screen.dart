@@ -344,7 +344,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       style: TextStyle(color: AppTheme.textSecondaryOf(context)),
                     ),
                     TextButton(
-                      onPressed: () => context.go('/login'),
+                      onPressed: () {
+                        final r = GoRouterState.of(context)
+                            .uri
+                            .queryParameters['redirect'];
+                        context.go(r != null && r.isNotEmpty
+                            ? '/login?redirect=${Uri.encodeComponent(r)}'
+                            : '/login');
+                      },
                       child: const Text('Sign In'),
                     ),
                   ],

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
@@ -129,6 +130,7 @@ class _SponsorshipCategoriesScreenState
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().user;
     final isSponsor = user?.isSponsor ?? false;
+    final isOrganizerOrAdmin = user != null && (user.isOrganizer || user.isAdmin);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Sponsorship Categories')),
@@ -190,6 +192,28 @@ class _SponsorshipCategoriesScreenState
                                       _showPlaceBidDialog(cat),
                                   icon: const Icon(Icons.gavel, size: 18),
                                   label: const Text('Place Bid'),
+                                ),
+                              ),
+                            ],
+                            if (isOrganizerOrAdmin) ...[
+                              const SizedBox(height: 12),
+                              SizedBox(
+                                width: double.infinity,
+                                child: OutlinedButton.icon(
+                                  onPressed: () => context.push(
+                                    '/events/${widget.eventId}/sponsorships/${cat.id}/bids',
+                                  ),
+                                  icon: const Icon(Icons.visibility_rounded, size: 18),
+                                  label: Text(
+                                    'View Bids (${cat.bidCount})',
+                                    style: const TextStyle(fontWeight: FontWeight.w600),
+                                  ),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Colors.teal,
+                                    side: const BorderSide(color: Colors.teal),
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10)),
+                                  ),
                                 ),
                               ),
                             ],

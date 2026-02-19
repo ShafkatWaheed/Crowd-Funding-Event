@@ -173,7 +173,14 @@ class _LoginScreenState extends State<LoginScreen> {
                       style: TextStyle(color: AppTheme.textSecondaryOf(context)),
                     ),
                     TextButton(
-                      onPressed: () => context.go('/register'),
+                      onPressed: () {
+                        final r = GoRouterState.of(context)
+                            .uri
+                            .queryParameters['redirect'];
+                        context.go(r != null && r.isNotEmpty
+                            ? '/register?redirect=${Uri.encodeComponent(r)}'
+                            : '/register');
+                      },
                       child: const Text('Sign Up'),
                     ),
                   ],

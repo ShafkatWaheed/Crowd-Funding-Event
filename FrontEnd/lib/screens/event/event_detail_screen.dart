@@ -688,11 +688,12 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                               if (event.status == EventStatus.completed)
                                 _infoBanner('This event has been completed.', Icons.check_circle, Colors.grey),
 
-                              // Sponsor: blocked from buying regular tickets
+                              // Sponsor: sponsorship categories access
                               if (user != null &&
                                   user.isSponsor &&
-                                  (event.status == EventStatus.selling_tickets ||
-                                      event.status == EventStatus.live)) ...[
+                                  (event.status == EventStatus.approved ||
+                                      event.status == EventStatus.waiting_event_date ||
+                                      event.status == EventStatus.selling_tickets)) ...[
                                 const SizedBox(height: 12),
                                 Container(
                                   width: double.infinity,
@@ -705,7 +706,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                   child: Column(
                                     children: [
                                       Text(
-                                        'As a sponsor, you access this event through sponsorship categories.',
+                                        'As a sponsor, you can bid on sponsorship categories for this event.',
                                         style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryOf(context)),
                                         textAlign: TextAlign.center,
                                       ),
@@ -715,7 +716,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                         child: ElevatedButton.icon(
                                           onPressed: () => context.push('/events/${widget.eventId}/sponsorships'),
                                           icon: const Icon(Icons.storefront_rounded, size: 18),
-                                          label: const Text('View Sponsorships'),
+                                          label: const Text('View Sponsorship Categories'),
                                           style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
                                         ),
                                       ),

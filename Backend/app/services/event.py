@@ -245,8 +245,7 @@ async def list_events(
         conditions.append(
             Event.status.notin_([
                 EventStatus.draft, EventStatus.pending_approval,
-                EventStatus.cancelled, EventStatus.waiting_event_date,
-                EventStatus.completed,
+                EventStatus.cancelled, EventStatus.completed,
             ])
         )
     if live is True:

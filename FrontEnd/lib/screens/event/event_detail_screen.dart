@@ -502,8 +502,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                               ),
                               const SizedBox(height: 20),
 
-                              // ── Getting There (Parking / Transport) ──
-                              if (event.hasTransportInfo) ...[
+                              // ── Getting There (Venue Address / Parking / Transport) ──
+                              if (event.venue != null || event.hasTransportInfo) ...[
                                 Container(
                                   width: double.infinity,
                                   padding: const EdgeInsets.all(18),
@@ -530,6 +530,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                         ],
                                       ),
                                       const SizedBox(height: 14),
+                                      if (event.venue != null) ...[
+                                        _modernInfoRow(Icons.place_rounded, 'Venue', event.venue!.name),
+                                        _modernInfoRow(Icons.map_outlined, 'Address', event.venue!.fullAddress),
+                                      ],
                                       if (event.parkingInfo != null && event.parkingInfo!.isNotEmpty)
                                         _modernInfoRow(Icons.local_parking_rounded, 'Parking', event.parkingInfo!),
                                       if (event.transitInfo != null && event.transitInfo!.isNotEmpty)

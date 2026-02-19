@@ -92,7 +92,7 @@ async def react_to_milestone(
     milestone_id: int,
     db: DbSession,
     reaction: str = Query(..., description="'like' or 'dislike'"),
-    current_user: User = Depends(require_role(UserRole.customer, UserRole.organizer, UserRole.admin)),
+    current_user: User = Depends(require_role(UserRole.customer, UserRole.organizer, UserRole.admin, UserRole.sponsor)),
 ):
     return await milestone_service.react_to_milestone(
         db, milestone_id, current_user.id, reaction
@@ -109,6 +109,6 @@ async def get_my_milestone_reaction(
     event_id: int,
     milestone_id: int,
     db: DbSession,
-    current_user: User = Depends(require_role(UserRole.customer, UserRole.organizer, UserRole.admin)),
+    current_user: User = Depends(require_role(UserRole.customer, UserRole.organizer, UserRole.admin, UserRole.sponsor)),
 ):
     return await milestone_service.get_my_reaction(db, milestone_id, current_user.id)

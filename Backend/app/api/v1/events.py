@@ -693,11 +693,11 @@ async def clone_event(
 async def get_pledge_preview(
     event_id: int,
     db: DbSession,
-    current_user: User = Depends(require_role(UserRole.customer)),
+    current_user: User = Depends(require_role(UserRole.customer, UserRole.sponsor)),
     amount_cents: int = Query(..., ge=1),
     reserved_spots: int = Query(0, ge=0),
 ):
-    """Preview invoice before confirming a pledge (customer)."""
+    """Preview invoice before confirming a pledge."""
     preview = await funding_service.pledge_preview(
         db,
         event_id=event_id,
@@ -713,9 +713,9 @@ async def pledge_event(
     event_id: int,
     body: PledgeBody,
     db: DbSession,
-    current_user: User = Depends(require_role(UserRole.customer)),
+    current_user: User = Depends(require_role(UserRole.customer, UserRole.sponsor)),
 ):
-    """Pledge to event (customer). Only allowed during approved (funding active) status."""
+    """Pledge/donate to event. Only allowed during approved (funding active) status."""
     event = await event_service.get_or_404(db, event_id)
     if event.status not in (EventStatus.approved,):
         from fastapi import HTTPException
@@ -748,9 +748,9 @@ async def get_pledge_receipt(
     event_id: int,
     pledge_id: int,
     db: DbSession,
-    current_user: User = Depends(require_role(UserRole.customer)),
+    current_user: User = Depends(require_role(UserRole.customer, UserRole.sponsor)),
 ):
-    """Get a pledge receipt (customer — must be own pledge)."""
+    """Get a pledge receipt (must be own pledge)."""
     from sqlalchemy import select as sel2
     from app.models.funding import Funding
     pledge = (await db.execute(
@@ -785,7 +785,7 @@ async def unpledge_event(
     event_id: int,
     db: DbSession,
     bg: BackgroundTasks,
-    current_user: User = Depends(require_role(UserRole.customer)),
+    current_user: User = Depends(require_role(UserRole.customer, UserRole.sponsor)),
 ):
     """Unpledge from event (customer). Guest pledges are non-refundable."""
     result = await funding_service.unpledge(
@@ -875,7 +875,7 @@ async def register_event(
 async def get_my_registration(
     event_id: int,
     db: DbSession,
-    current_user: User = Depends(require_role(UserRole.customer, UserRole.organizer, UserRole.admin)),
+    current_user: User = Depends(require_role(UserRole.customer, UserRole.organizer, UserRole.admin, UserRole.sponsor)),
 ):
     """Check if the current user is registered for this event. Returns status or null."""
     from sqlalchemy import select

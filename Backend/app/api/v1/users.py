@@ -60,9 +60,9 @@ async def update_me(
 @router.get("/pledges", response_model=list[MyPledgeItem])
 async def get_my_pledges(
     db: DbSession,
-    current_user: User = Depends(require_role(UserRole.customer)),
+    current_user: User = Depends(require_role(UserRole.customer, UserRole.sponsor)),
 ):
-    """List events the current user has pledged to (customer only)."""
+    """List events the current user has pledged to."""
     pledges = await funding_service.list_pledges_by_user(db, user_id=current_user.id)
     return [
         MyPledgeItem(
@@ -84,7 +84,7 @@ async def get_my_pledges(
 async def get_my_pledge_receipt(
     pledge_id: int,
     db: DbSession,
-    current_user: User = Depends(require_role(UserRole.customer)),
+    current_user: User = Depends(require_role(UserRole.customer, UserRole.sponsor)),
 ):
     """Get a pledge receipt for the current user."""
     from sqlalchemy import select

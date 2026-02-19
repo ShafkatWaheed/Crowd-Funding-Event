@@ -6,6 +6,9 @@ class AppUser {
   final String? displayName;
   final String? phone;
   final UserRole role;
+  final String? address;
+  final String? birthday;
+  final int? yearsOfExperience;
 
   AppUser({
     required this.id,
@@ -13,6 +16,9 @@ class AppUser {
     this.displayName,
     this.phone,
     required this.role,
+    this.address,
+    this.birthday,
+    this.yearsOfExperience,
   });
 
   factory AppUser.fromJson(Map<String, dynamic> json) {
@@ -25,6 +31,9 @@ class AppUser {
         (r) => r.name == json['role'],
         orElse: () => UserRole.customer,
       ),
+      address: json['address'],
+      birthday: json['birthday'],
+      yearsOfExperience: json['years_of_experience'],
     );
   }
 

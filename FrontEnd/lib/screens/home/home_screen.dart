@@ -1684,15 +1684,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ],
                   ),
-                  child: Column(
-                    children: [
-                      _profileTile(
-                        icon: Icons.person_outline_rounded,
-                        label: 'Edit Profile',
-                        onTap: () => context.push('/profile'),
-                      ),
-                      Divider(height: 1, indent: 56, color: AppTheme.dividerOf(context)),
-                    ],
+                  child: _profileTile(
+                    icon: Icons.person_outline_rounded,
+                    label: 'Edit Profile',
+                    onTap: () => context.push('/profile'),
                   ),
                 ),
 

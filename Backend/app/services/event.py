@@ -218,16 +218,21 @@ async def list_events(
     conditions = []
     q = select(Event)
     need_venue_join = city is not None
+    if search is not None and search.strip():
+        need_venue_join = True
     if need_venue_join:
-        q = q.join(Event.venue)
+        q = q.outerjoin(Event.venue)
+    if city is not None:
         conditions.append(Venue.city == city)
     if search is not None and search.strip():
         search_term = f"%{search.strip()}%"
-        # Text search on title and description (ILIKE; works on PostgreSQL and SQLite)
         conditions.append(
             or_(
                 Event.title.ilike(search_term),
                 (Event.description.isnot(None)) & (Event.description.ilike(search_term)),
+                Venue.name.ilike(search_term),
+                Venue.city.ilike(search_term),
+                Venue.address.ilike(search_term),
             )
         )
     if status is not None:
@@ -300,29 +305,52 @@ async def list_events_for_map(
     lng: float | None = None,
     radius_km: float | None = None,
     organizer_id: int | None = None,
+    search: str | None = None,
+    genre: str | None = None,
+    status: str | None = None,
 ) -> Sequence[Event]:
     """
     List events suitable for map markers: have lat/lng, not draft/pending/cancelled.
     Optional city (via venue), live filter, lat/lng/radius_km (approximate bbox),
-    and organizer_id to restrict to a specific organizer's events.
+    organizer_id, search, genre, and status filters.
     """
     conditions = [
         Event.lat.isnot(None),
         Event.lng.isnot(None),
     ]
     if organizer_id is not None:
-        # Organizer sees all their own events (including draft/pending)
         conditions.append(Event.organizer_id == organizer_id)
-    else:
+    if status is not None:
+        try:
+            status_enum = EventStatus(status)
+        except ValueError:
+            return []
+        conditions.append(Event.status == status_enum)
+    elif organizer_id is None:
         conditions.append(
             Event.status.not_in([
                 EventStatus.draft, EventStatus.pending_approval,
                 EventStatus.cancelled, EventStatus.completed,
             ]),
         )
+    need_venue_join = city is not None
+    if search is not None and search.strip():
+        search_term = f"%{search.strip()}%"
+        need_venue_join = True
+        conditions.append(
+            or_(
+                Event.title.ilike(search_term),
+                Venue.name.ilike(search_term),
+                Venue.city.ilike(search_term),
+                Venue.address.ilike(search_term),
+            )
+        )
+    if genre is not None:
+        conditions.append(Event.genre == genre)
     q = select(Event)
+    if need_venue_join:
+        q = q.outerjoin(Event.venue)
     if city is not None:
-        q = q.join(Event.venue)
         conditions.append(Venue.city == city)
     if live is True:
         now = datetime.now(timezone.utc)

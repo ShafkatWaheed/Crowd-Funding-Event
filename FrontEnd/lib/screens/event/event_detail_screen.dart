@@ -49,6 +49,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   // My reserved spots for this event (from pledges)
   int _myReservedSpots = 0;
 
+  // Revenue (organizer only)
+  int _revenueCents = 0;
+
   // Reaction state lives in _ReactionBar widget (self-contained)
 
   @override
@@ -60,6 +63,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       _checkRegistration();
       _loadMyTicketCount();
       _loadMyReservedSpots();
+      _loadRevenue();
     });
   }
 
@@ -127,6 +131,19 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           .where((p) => p['event_id'] == widget.eventId && p['status'] == 'pledged')
           .fold<int>(0, (sum, p) => sum + ((p['reserved_spots'] ?? 0) as int));
       if (mounted) setState(() => _myReservedSpots = spots);
+    } catch (_) {}
+  }
+
+  Future<void> _loadRevenue() async {
+    final auth = context.read<AuthProvider>();
+    final user = auth.user;
+    if (user == null || (!user.isOrganizer && !user.isAdmin)) return;
+    try {
+      final api = context.read<ApiService>();
+      final sales = await api.getTicketSales(widget.eventId);
+      final total = (sales as List).fold<int>(
+          0, (s, e) => s + ((e['amount_paid_cents'] ?? 0) as int));
+      if (mounted) setState(() => _revenueCents = total);
     } catch (_) {}
   }
 
@@ -244,6 +261,12 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                     ),
                                   // Trust badge
                                   _trustBadgePill(event),
+                                  if (_revenueCents > 0 && user != null && (user.isOrganizer || user.isAdmin))
+                                    _tagPill(
+                                      icon: Icons.paid_rounded,
+                                      label: '\$${(_revenueCents / 100).toStringAsFixed(0)} revenue',
+                                      color: Colors.teal,
+                                    ),
                                 ],
                               ),
                               const SizedBox(height: 16),
@@ -4330,25 +4353,11 @@ class _LiveMgmtStatsState extends State<_LiveMgmtStats> {
     if (_isEarlyPhase) {
       return Column(
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: _statChip(
-                  icon: Icons.people_rounded,
-                  label: '$regCount registered',
-                  color: AppTheme.accentColor,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _statChip(
-                  icon: Icons.hourglass_top_rounded,
-                  label: '$_fundingWaitlistCount fund waitlist',
-                  color: AppTheme.warningColor,
-                  onTap: () => context.push('/events/$_eventId/waitlist'),
-                ),
-              ),
-            ],
+          _statChip(
+            icon: Icons.hourglass_top_rounded,
+            label: '$_fundingWaitlistCount fund waitlist',
+            color: AppTheme.warningColor,
+            onTap: () => context.push('/events/$_eventId/waitlist'),
           ),
           const SizedBox(height: 8),
           _capacityBadge(filledCount, maxCap, isFull),
@@ -4384,26 +4393,11 @@ class _LiveMgmtStatsState extends State<_LiveMgmtStats> {
             ],
           ),
           const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: _statChip(
-                  icon: Icons.event_seat_rounded,
-                  label: '$_ticketWaitlistCount ticket waitlist',
-                  color: Colors.orange,
-                  onTap: () => context.push('/events/$_eventId/ticket-waitlist'),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _statChip(
-                  icon: Icons.attach_money_rounded,
-                  label: '\$${(_revenueCents / 100).toStringAsFixed(0)} revenue',
-                  color: Colors.teal,
-                  onTap: () => context.push('/events/$_eventId/ticket-sales'),
-                ),
-              ),
-            ],
+          _statChip(
+            icon: Icons.event_seat_rounded,
+            label: '$_ticketWaitlistCount ticket waitlist',
+            color: Colors.orange,
+            onTap: () => context.push('/events/$_eventId/ticket-waitlist'),
           ),
         ],
       );
@@ -4457,13 +4451,6 @@ class _LiveMgmtStatsState extends State<_LiveMgmtStats> {
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 8),
-          _statChip(
-            icon: Icons.attach_money_rounded,
-            label: '\$${(_revenueCents / 100).toStringAsFixed(0)} total revenue',
-            color: Colors.teal,
-            onTap: () => context.push('/events/$_eventId/ticket-sales'),
           ),
         ],
       );

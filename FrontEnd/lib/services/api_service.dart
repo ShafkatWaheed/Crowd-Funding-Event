@@ -716,6 +716,11 @@ class ApiService {
     return resp.data;
   }
 
+  Future<List<dynamic>> getSponsorBidEvents() async {
+    final resp = await dio.get('/me/sponsor-bid-events');
+    return resp.data;
+  }
+
   Future<Map<String, dynamic>> createSponsorProfile(
       Map<String, dynamic> data) async {
     final resp = await dio.post('/me/sponsor-profile', data: data);

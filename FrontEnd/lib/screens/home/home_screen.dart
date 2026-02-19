@@ -36,14 +36,15 @@ String _statusDisplayName(EventStatus s) {
 }
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final int initialTab;
+  const HomeScreen({super.key, this.initialTab = 0});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _navIndex = 0;
+  late int _navIndex;
   final _searchController = TextEditingController();
   String? _selectedStatus;
   String? _selectedRegType;
@@ -86,15 +87,30 @@ class _HomeScreenState extends State<HomeScreen> {
   String _myEventsSearch = '';
   String? _myEventsGenre;
 
+  // Sponsor bid events
+  List<_SponsorBidEvent> _sponsorBidEvents = [];
+  bool _sponsorBidEventsLoading = false;
+  String _sponsorBidSearch = '';
+
   @override
   void initState() {
     super.initState();
+    _navIndex = widget.initialTab;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _applyFilters();
       _loadFeatured();
       _loadMyEvents();
+      _loadSponsorBidEvents();
       _loadNearMe();
     });
+  }
+
+  @override
+  void didUpdateWidget(HomeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialTab != widget.initialTab) {
+      setState(() => _navIndex = widget.initialTab);
+    }
   }
 
   Future<void> _loadMyEvents() async {
@@ -113,6 +129,33 @@ class _HomeScreenState extends State<HomeScreen> {
       debugPrint('_loadMyEvents error: $e');
     }
     if (mounted) setState(() => _myEventsLoading = false);
+  }
+
+  Future<void> _loadSponsorBidEvents() async {
+    final auth = context.read<AuthProvider>();
+    if (auth.user == null || !auth.user!.isSponsor) return;
+    setState(() => _sponsorBidEventsLoading = true);
+    try {
+      final api = context.read<ApiService>();
+      final data = await api.getSponsorBidEvents();
+      if (mounted) {
+        setState(() {
+          _sponsorBidEvents = data.map((e) {
+            final summary = (e['bid_summary'] as Map<String, dynamic>?) ?? {};
+            return _SponsorBidEvent(
+              event: Event.fromJson(e),
+              pending: summary['pending'] ?? 0,
+              accepted: summary['accepted'] ?? 0,
+              rejected: summary['rejected'] ?? 0,
+              paid: summary['paid'] ?? 0,
+            );
+          }).toList();
+        });
+      }
+    } catch (e) {
+      debugPrint('_loadSponsorBidEvents error: $e');
+    }
+    if (mounted) setState(() => _sponsorBidEventsLoading = false);
   }
 
   Future<void> _loadFeatured() async {
@@ -302,6 +345,8 @@ class _HomeScreenState extends State<HomeScreen> {
           _buildExploreTab(),
           if (user != null && (user.isOrganizer || user.isAdmin))
             _buildManageTab()
+          else if (user != null && user.isSponsor)
+            _buildSponsorManageTab()
           else
             _buildMyEventsTab(),
           _buildProfileTab(),
@@ -357,8 +402,11 @@ class _HomeScreenState extends State<HomeScreen> {
     final isActive = _navIndex == index;
     return GestureDetector(
       onTap: () {
+        if (_navIndex == index) return;
         setState(() => _navIndex = index);
-        // Reload My Events when switching to that tab (index 2 for customers)
+        const tabNames = ['home', 'explore', 'manage', 'profile'];
+        final tab = tabNames[index];
+        context.go(tab == 'home' ? '/' : '/?tab=$tab');
         if (index == 2) {
           final user = context.read<AuthProvider>().user;
           if (user != null && user.isCustomer) {
@@ -1565,6 +1613,174 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // ════════════════════════════════════════════
+  // TAB 2b: SPONSOR MANAGE
+  // ════════════════════════════════════════════
+
+  Widget _buildSponsorManageTab() {
+    final filtered = _sponsorBidEvents.where((item) {
+      if (_sponsorBidSearch.isEmpty) return true;
+      final q = _sponsorBidSearch.toLowerCase();
+      return item.event.title.toLowerCase().contains(q) ||
+          (item.event.genre?.toLowerCase().contains(q) ?? false) ||
+          item.event.status.name.toLowerCase().contains(q);
+    }).toList();
+
+    return Column(
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: AppTheme.cardOf(context),
+            borderRadius: const BorderRadius.only(
+              bottomLeft: Radius.circular(28),
+              bottomRight: Radius.circular(28),
+            ),
+          ),
+          padding: const EdgeInsets.fromLTRB(24, 56, 24, 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text('Manage',
+                        style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.5,
+                            color: AppTheme.textPrimaryOf(context))),
+                  ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppTheme.surfaceOf(context),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '${_sponsorBidEvents.length} event${_sponsorBidEvents.length != 1 ? "s" : ""}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textSecondaryOf(context),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Events you have placed bids on',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppTheme.textSecondaryOf(context),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  _customerQuickAction(
+                    icon: Icons.confirmation_number_rounded,
+                    label: 'My Tickets',
+                    color: const Color(0xFF276EF1),
+                    onTap: () => context.push('/my-tickets'),
+                  ),
+                  const SizedBox(width: 10),
+                  _customerQuickAction(
+                    icon: Icons.volunteer_activism_rounded,
+                    label: 'My Pledges',
+                    color: Colors.deepPurple,
+                    onTap: () => context.push('/my-pledges'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                decoration: InputDecoration(
+                  hintText: 'Search bid events\u2026',
+                  prefixIcon: Icon(Icons.search,
+                      color: AppTheme.textSecondaryOf(context), size: 22),
+                  isDense: true,
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  filled: true,
+                  fillColor: AppTheme.inputFillOf(context),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+                onChanged: (v) => setState(() => _sponsorBidSearch = v),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: _sponsorBidEventsLoading
+              ? const Center(child: CircularProgressIndicator())
+              : filtered.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 80,
+                            height: 80,
+                            decoration: BoxDecoration(
+                              color: AppTheme.surfaceOf(context),
+                              borderRadius: BorderRadius.circular(22),
+                            ),
+                            child: Icon(Icons.gavel_rounded,
+                                size: 40,
+                                color: AppTheme.textSecondaryOf(context)),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            _sponsorBidEvents.isEmpty
+                                ? 'No bids yet'
+                                : 'No matches',
+                            style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.textPrimaryOf(context)),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            _sponsorBidEvents.isEmpty
+                                ? 'Events you bid on will appear here'
+                                : 'Try a different search term',
+                            style: TextStyle(
+                                color: AppTheme.textSecondaryOf(context),
+                                fontSize: 14),
+                          ),
+                        ],
+                      ),
+                    )
+                  : RefreshIndicator(
+                      color: AppTheme.primaryColor,
+                      onRefresh: _loadSponsorBidEvents,
+                      child: ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+                        itemCount: filtered.length,
+                        itemBuilder: (context, index) {
+                          final item = filtered[index];
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: _SponsorBidEventCard(
+                              item: item,
+                              onTap: () =>
+                                  context.push('/events/${item.event.id}'),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+        ),
+      ],
+    );
+  }
+
+  // ════════════════════════════════════════════
   // TAB 3: PROFILE
   // ════════════════════════════════════════════
 
@@ -1940,7 +2156,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const Spacer(),
                 TextButton(
-                  onPressed: () => setState(() => _navIndex = 1),
+                  onPressed: () {
+                    setState(() => _navIndex = 1);
+                    context.go('/?tab=explore');
+                  },
                   child: const Text('See all',
                       style: TextStyle(fontSize: 13)),
                 ),
@@ -2221,6 +2440,165 @@ class _StatusPill extends StatelessWidget {
           fontWeight: FontWeight.w700,
           letterSpacing: 0.5,
         ),
+      ),
+    );
+  }
+}
+
+class _SponsorBidEvent {
+  final Event event;
+  final int pending;
+  final int accepted;
+  final int rejected;
+  final int paid;
+
+  _SponsorBidEvent({
+    required this.event,
+    this.pending = 0,
+    this.accepted = 0,
+    this.rejected = 0,
+    this.paid = 0,
+  });
+
+  int get totalBids => pending + accepted + rejected + paid;
+}
+
+class _SponsorBidEventCard extends StatelessWidget {
+  final _SponsorBidEvent item;
+  final VoidCallback onTap;
+
+  const _SponsorBidEventCard({required this.item, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final e = item.event;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppTheme.cardOf(context),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.dividerOf(context)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFF1B1B2F), Color(0xFF162447)],
+                ),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  topRight: Radius.circular(16),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      e.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _StatusPill(status: e.status),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (e.startTime != null)
+                    _infoRow(context, Icons.schedule_rounded,
+                        DateFormat('EEE, MMM d \u2022 h:mm a').format(e.startTime!)),
+                  if (e.venue != null) ...[
+                    const SizedBox(height: 5),
+                    _infoRow(context, Icons.location_on_rounded,
+                        '${e.venue!.name}, ${e.venue!.city}'),
+                  ],
+                  const SizedBox(height: 14),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      if (item.accepted > 0)
+                        _bidChip('${item.accepted} Accepted',
+                            Colors.green.shade600, Icons.check_circle_rounded),
+                      if (item.paid > 0)
+                        _bidChip('${item.paid} Paid',
+                            Colors.blue.shade600, Icons.payment_rounded),
+                      if (item.pending > 0)
+                        _bidChip('${item.pending} Pending',
+                            Colors.orange.shade700, Icons.hourglass_top_rounded),
+                      if (item.rejected > 0)
+                        _bidChip('${item.rejected} Rejected',
+                            Colors.red.shade600, Icons.cancel_rounded),
+                      _bidChip('${item.totalBids} Total',
+                          AppTheme.textSecondaryOf(context), Icons.gavel_rounded),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _infoRow(BuildContext context, IconData icon, String text) {
+    return Row(
+      children: [
+        Icon(icon, size: 15, color: AppTheme.textSecondaryOf(context)),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 13,
+              color: AppTheme.textSecondaryOf(context),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _bidChip(String label, Color color, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+        ],
       ),
     );
   }

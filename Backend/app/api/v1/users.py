@@ -230,8 +230,21 @@ async def get_my_events(
     current_user: CurrentUser,
 ):
     """Events the current user is registered to (includes cancelled events so the user can see cancellation reasons)."""
+    from datetime import datetime, timezone
     events = await event_service.get_my_registered_events(db, user_id=current_user.id)
-    return [_event_to_response(e) for e in events]
+    event_ids = [e.id for e in events]
+    pledged = await funding_service.get_pledged_totals_for_events(db, event_ids=event_ids) if event_ids else {}
+    now = datetime.now(timezone.utc)
+    out = []
+    for e in events:
+        total_cents = pledged.get(e.id, 0)
+        days_left = None
+        if e.funding_end_at is not None:
+            end = e.funding_end_at if e.funding_end_at.tzinfo else e.funding_end_at.replace(tzinfo=timezone.utc)
+            delta = (end - now).days
+            days_left = max(0, delta) if delta > 0 else 0
+        out.append(_event_to_response(e, total_pledged_cents=total_cents, funding_days_left=days_left))
+    return out
 
 
 @router.get("/customers")

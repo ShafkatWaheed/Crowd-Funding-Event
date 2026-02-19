@@ -74,7 +74,7 @@ async def update_sponsor_profile(
 
 # ── Sponsorship Categories ──
 
-def _category_to_response(cat, bid_count: int = 0, bid_amounts: list[int] | None = None) -> dict:
+def _category_to_response(cat, bid_count: int = 0, bid_amounts: list[int] | None = None, my_bid_count: int = 0) -> dict:
     return {
         "id": cat.id,
         "event_id": cat.event_id,
@@ -87,12 +87,12 @@ def _category_to_response(cat, bid_count: int = 0, bid_amounts: list[int] | None
         "sort_order": cat.sort_order,
         "bid_count": bid_count,
         "bid_amounts": bid_amounts or [],
+        "my_bid_count": my_bid_count,
     }
 
 
 @router.get(
     "/events/{event_id}/sponsorships",
-    response_model=list[CategoryResponse],
     dependencies=[Depends(_feature_guard)],
 )
 async def list_categories(
@@ -106,7 +106,8 @@ async def list_categories(
     result = []
     for c in cats:
         count, amounts = await sponsor_svc.get_bid_stats(db, c.id)
-        result.append(_category_to_response(c, bid_count=count, bid_amounts=amounts))
+        my_count = await sponsor_svc.get_my_bid_count(db, c.id, current_user.id)
+        result.append(_category_to_response(c, bid_count=count, bid_amounts=amounts, my_bid_count=my_count))
     return result
 
 
@@ -313,6 +314,38 @@ async def pay_bid(
     await db.commit()
     await db.refresh(payment)
     return payment
+
+
+# ── Sponsor Bid Events ──
+
+@router.get(
+    "/me/sponsor-bid-events",
+    dependencies=[Depends(_feature_guard)],
+)
+async def list_sponsor_bid_events(db: DbSession, current_user: CurrentUser):
+    """Events the sponsor has placed bids on, with bid summary counts."""
+    from datetime import datetime, timezone
+    from app.api.v1.events import _event_to_response
+    from app.services import funding as funding_service
+    events = await sponsor_svc.get_sponsor_bid_events(db, current_user.id)
+    event_ids = [e.id for e in events]
+    pledged = await funding_service.get_pledged_totals_for_events(db, event_ids=event_ids) if event_ids else {}
+    now = datetime.now(timezone.utc)
+    result = []
+    for e in events:
+        total_cents = pledged.get(e.id, 0)
+        days_left = None
+        if e.funding_end_at is not None:
+            end = e.funding_end_at if e.funding_end_at.tzinfo else e.funding_end_at.replace(tzinfo=timezone.utc)
+            delta = (end - now).days
+            days_left = max(0, delta) if delta > 0 else 0
+        resp = _event_to_response(e, total_pledged_cents=total_cents, funding_days_left=days_left)
+        summary = await sponsor_svc.get_sponsor_bid_summary_for_event(db, e.id, current_user.id)
+        result.append({
+            **resp.model_dump(mode="json"),
+            "bid_summary": summary,
+        })
+    return result
 
 
 # ── Sponsor Tickets ──

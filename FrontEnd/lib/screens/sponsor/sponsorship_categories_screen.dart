@@ -69,7 +69,8 @@ class _SponsorshipCategoriesScreenState
             if (cat.bidCount > 0) ...[
               const SizedBox(height: 4),
               Text(
-                '${cat.bidCount} bid${cat.bidCount == 1 ? "" : "s"} placed',
+                '${cat.bidCount} bid${cat.bidCount == 1 ? "" : "s"} placed'
+                '${cat.myBidCount > 0 ? "  •  ${cat.myBidCount} by you" : ""}',
                 style: TextStyle(
                     fontSize: 12, color: AppTheme.textSecondaryOf(ctx)),
               ),
@@ -183,7 +184,7 @@ class _SponsorshipCategoriesScreenState
                                     '${cat.bidCount} bid${cat.bidCount == 1 ? "" : "s"}'),
                               ],
                             ),
-                            if (isSponsor && cat.availableSpots > 0) ...[
+                            if (isSponsor && cat.canPlaceMoreBids) ...[
                               const SizedBox(height: 12),
                               SizedBox(
                                 width: double.infinity,
@@ -191,7 +192,9 @@ class _SponsorshipCategoriesScreenState
                                   onPressed: () =>
                                       _showPlaceBidDialog(cat),
                                   icon: const Icon(Icons.gavel, size: 18),
-                                  label: const Text('Place Bid'),
+                                  label: Text(cat.myBidCount > 0
+                                      ? 'Place Another Bid (${cat.myBidCount}/${cat.totalSpots})'
+                                      : 'Place Bid'),
                                 ),
                               ),
                             ],

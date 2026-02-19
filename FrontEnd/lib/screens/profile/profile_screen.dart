@@ -28,8 +28,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late TextEditingController _birthdayCtrl;
   late TextEditingController _experienceCtrl;
 
+  // Sponsor profile controllers
+  late TextEditingController _companyNameCtrl;
+  late TextEditingController _contactNameCtrl;
+  late TextEditingController _professionCtrl;
+  late TextEditingController _logoUrlCtrl;
+  late TextEditingController _descriptionCtrl;
+  late TextEditingController _websiteUrlCtrl;
+
   DateTime? _selectedBirthday;
   bool _saving = false;
+  bool _loadingSponsorProfile = false;
+  bool _hasSponsorProfile = false;
 
   List<GeocodingResult> _addressSuggestions = [];
   bool _showAddressSuggestions = false;
@@ -46,6 +56,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _experienceCtrl = TextEditingController(
         text: user?.yearsOfExperience?.toString() ?? '');
 
+    _companyNameCtrl = TextEditingController();
+    _contactNameCtrl = TextEditingController();
+    _professionCtrl = TextEditingController();
+    _logoUrlCtrl = TextEditingController();
+    _descriptionCtrl = TextEditingController();
+    _websiteUrlCtrl = TextEditingController();
+
     if (user?.birthday != null) {
       try {
         _selectedBirthday = DateTime.parse(user!.birthday!);
@@ -57,6 +74,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } else {
       _birthdayCtrl = TextEditingController();
     }
+
+    if (user != null && user.isSponsor) {
+      _loadSponsorProfile();
+    }
+  }
+
+  Future<void> _loadSponsorProfile() async {
+    setState(() => _loadingSponsorProfile = true);
+    try {
+      final api = context.read<ApiService>();
+      final data = await api.getSponsorProfile();
+      if (mounted) {
+        setState(() {
+          _hasSponsorProfile = true;
+          _companyNameCtrl.text = data['company_name'] ?? '';
+          _contactNameCtrl.text = data['contact_name'] ?? '';
+          _professionCtrl.text = data['profession'] ?? '';
+          _logoUrlCtrl.text = data['logo_url'] ?? '';
+          _descriptionCtrl.text = data['description'] ?? '';
+          _websiteUrlCtrl.text = data['website_url'] ?? '';
+        });
+      }
+    } catch (_) {
+      // Profile doesn't exist yet
+    } finally {
+      if (mounted) setState(() => _loadingSponsorProfile = false);
+    }
   }
 
   @override
@@ -67,6 +111,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _addressCtrl.dispose();
     _birthdayCtrl.dispose();
     _experienceCtrl.dispose();
+    _companyNameCtrl.dispose();
+    _contactNameCtrl.dispose();
+    _professionCtrl.dispose();
+    _logoUrlCtrl.dispose();
+    _descriptionCtrl.dispose();
+    _websiteUrlCtrl.dispose();
     super.dispose();
   }
 
@@ -122,9 +172,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() => _saving = true);
     try {
       final api = context.read<ApiService>();
-      final data = <String, dynamic>{};
-
       final user = context.read<AuthProvider>().user!;
+
+      // --- User profile fields ---
+      final data = <String, dynamic>{};
       if (_nameCtrl.text.trim() != (user.displayName ?? '')) {
         data['display_name'] = _nameCtrl.text.trim();
       }
@@ -148,7 +199,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
         }
       }
 
-      if (data.isEmpty) {
+      bool userUpdated = false;
+      if (data.isNotEmpty) {
+        await api.updateMe(data);
+        userUpdated = true;
+      }
+
+      // --- Sponsor profile fields ---
+      bool sponsorUpdated = false;
+      if (user.isSponsor) {
+        final spData = <String, dynamic>{
+          'company_name': _companyNameCtrl.text.trim(),
+          'contact_name': _contactNameCtrl.text.trim(),
+          'profession': _professionCtrl.text.trim(),
+          'logo_url': _logoUrlCtrl.text.trim().isEmpty
+              ? null
+              : _logoUrlCtrl.text.trim(),
+          'description': _descriptionCtrl.text.trim().isEmpty
+              ? null
+              : _descriptionCtrl.text.trim(),
+          'website_url': _websiteUrlCtrl.text.trim().isEmpty
+              ? null
+              : _websiteUrlCtrl.text.trim(),
+        };
+
+        if (_hasSponsorProfile) {
+          await api.updateSponsorProfile(spData);
+        } else {
+          await api.createSponsorProfile(spData);
+          _hasSponsorProfile = true;
+        }
+        sponsorUpdated = true;
+      }
+
+      if (!userUpdated && !sponsorUpdated) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('No changes to save')),
@@ -157,7 +241,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return;
       }
 
-      await api.updateMe(data);
       await context.read<AuthProvider>().refreshUser();
 
       if (mounted) {
@@ -630,23 +713,96 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                         ],
 
-                        // Sponsor-specific: experience
+                        // Sponsor-specific fields
                         if (user.isSponsor) ...[
                           const SizedBox(height: 24),
-                          _sectionHeader('Professional Details'),
+                          _sectionHeader('Company Details'),
                           const SizedBox(height: 16),
-                          TextFormField(
-                            controller: _experienceCtrl,
-                            decoration: _fieldDecoration(
-                              label: 'Years of Experience',
-                              icon: Icons.work_outline_rounded,
-                              hint: 'e.g. 5',
+                          if (_loadingSponsorProfile)
+                            const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(24),
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            )
+                          else ...[
+                            TextFormField(
+                              controller: _companyNameCtrl,
+                              decoration: _fieldDecoration(
+                                label: 'Company Name',
+                                icon: Icons.business_rounded,
+                              ),
+                              validator: (v) => (v == null || v.trim().isEmpty)
+                                  ? 'Company name is required'
+                                  : null,
                             ),
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly
-                            ],
-                          ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _contactNameCtrl,
+                              decoration: _fieldDecoration(
+                                label: 'Contact Name',
+                                icon: Icons.person_outline_rounded,
+                              ),
+                              validator: (v) => (v == null || v.trim().isEmpty)
+                                  ? 'Contact name is required'
+                                  : null,
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _professionCtrl,
+                              decoration: _fieldDecoration(
+                                label: 'Profession / Industry',
+                                icon: Icons.work_outline_rounded,
+                              ),
+                              validator: (v) => (v == null || v.trim().isEmpty)
+                                  ? 'Profession is required'
+                                  : null,
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _logoUrlCtrl,
+                              decoration: _fieldDecoration(
+                                label: 'Logo URL',
+                                icon: Icons.image_outlined,
+                                hint: 'https://...',
+                              ),
+                              keyboardType: TextInputType.url,
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _descriptionCtrl,
+                              decoration: _fieldDecoration(
+                                label: 'Company Description',
+                                icon: Icons.description_outlined,
+                                hint: 'Tell us about your company...',
+                              ),
+                              maxLines: 3,
+                              minLines: 2,
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _websiteUrlCtrl,
+                              decoration: _fieldDecoration(
+                                label: 'Website URL',
+                                icon: Icons.language_rounded,
+                                hint: 'https://...',
+                              ),
+                              keyboardType: TextInputType.url,
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _experienceCtrl,
+                              decoration: _fieldDecoration(
+                                label: 'Years of Experience',
+                                icon: Icons.timeline_rounded,
+                                hint: 'e.g. 5',
+                              ),
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly
+                              ],
+                            ),
+                          ],
                         ],
 
                         const SizedBox(height: 32),

@@ -85,7 +85,14 @@ GoRouter createRouter(AuthProvider authProvider) {
       // ─── Home ───
       GoRoute(
         path: '/',
-        builder: (context, state) => const HomeScreen(),
+        pageBuilder: (context, state) {
+          final tab = state.uri.queryParameters['tab'];
+          final idx = {'explore': 1, 'manage': 2, 'profile': 3}[tab] ?? 0;
+          return NoTransitionPage(
+            key: const ValueKey('home'),
+            child: HomeScreen(initialTab: idx),
+          );
+        },
       ),
 
       // ─── Profile ───

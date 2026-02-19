@@ -46,6 +46,7 @@ class SponsorshipCategory {
   final int sortOrder;
   final int bidCount;
   final List<int> bidAmounts;
+  final int myBidCount;
 
   SponsorshipCategory({
     required this.id,
@@ -59,6 +60,7 @@ class SponsorshipCategory {
     this.sortOrder = 0,
     this.bidCount = 0,
     this.bidAmounts = const [],
+    this.myBidCount = 0,
   });
 
   factory SponsorshipCategory.fromJson(Map<String, dynamic> json) {
@@ -74,10 +76,12 @@ class SponsorshipCategory {
       sortOrder: json['sort_order'] ?? 0,
       bidCount: json['bid_count'] ?? 0,
       bidAmounts: (json['bid_amounts'] as List?)?.map((e) => e as int).toList() ?? [],
+      myBidCount: json['my_bid_count'] ?? 0,
     );
   }
 
   int get availableSpots => totalSpots - filledSpots;
+  bool get canPlaceMoreBids => myBidCount < totalSpots && availableSpots > 0;
   String get minBidDisplay => '\$${(minBidCents / 100).toStringAsFixed(2)}';
 }
 

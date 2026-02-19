@@ -144,6 +144,18 @@ async def get_bid_stats(db: AsyncSession, cat_id: int) -> tuple[int, list[int]]:
     return len(bids), [b.amount_cents for b in bids]
 
 
+async def get_my_bid_count(db: AsyncSession, cat_id: int, user_id: int) -> int:
+    """Count active bids the sponsor has on this category."""
+    active_statuses = [BidStatus.pending, BidStatus.accepted, BidStatus.paid]
+    q = select(SponsorBid).where(
+        SponsorBid.category_id == cat_id,
+        SponsorBid.sponsor_user_id == user_id,
+        SponsorBid.status.in_(active_statuses),
+    )
+    bids = list((await db.execute(q)).scalars().all())
+    return len(bids)
+
+
 # ── Bids ──
 
 async def _get_category(db: AsyncSession, cat_id: int) -> SponsorshipCategory:
@@ -171,14 +183,20 @@ async def place_bid(
     if cat.filled_spots >= cat.total_spots:
         raise HTTPException(status_code=400, detail="No spots available in this category")
 
-    existing = (await db.execute(
+    active_statuses = [BidStatus.pending, BidStatus.accepted, BidStatus.paid]
+    my_active_bids = (await db.execute(
         select(SponsorBid).where(
             SponsorBid.category_id == cat_id,
             SponsorBid.sponsor_user_id == user.id,
+            SponsorBid.status.in_(active_statuses),
         )
-    )).scalar_one_or_none()
-    if existing:
-        raise HTTPException(status_code=409, detail="You already have a bid on this category")
+    )).scalars().all()
+
+    if len(list(my_active_bids)) >= cat.total_spots:
+        raise HTTPException(
+            status_code=409,
+            detail=f"You already have {len(list(my_active_bids))} active bid(s) — max is {cat.total_spots} (total spots)",
+        )
 
     bid = SponsorBid(
         category_id=cat_id,
@@ -433,6 +451,51 @@ async def refund_all_sponsor_payments_for_event(db: AsyncSession, event_id: int)
 
     await db.flush()
     return refunded_count
+
+
+# ── Sponsor Bid Events ──
+
+async def get_sponsor_bid_events(db: AsyncSession, sponsor_user_id: int) -> list[Event]:
+    """Return distinct events where this sponsor has placed at least one active bid."""
+    from sqlalchemy import distinct
+    from sqlalchemy.orm import selectinload
+    active_statuses = [BidStatus.pending, BidStatus.accepted, BidStatus.paid]
+    event_ids_q = (
+        select(distinct(SponsorshipCategory.event_id))
+        .join(SponsorBid, SponsorBid.category_id == SponsorshipCategory.id)
+        .where(
+            SponsorBid.sponsor_user_id == sponsor_user_id,
+            SponsorBid.status.in_(active_statuses),
+        )
+    )
+    q = (
+        select(Event)
+        .options(selectinload(Event.venue), selectinload(Event.ticket_strategy))
+        .where(Event.id.in_(event_ids_q))
+        .order_by(Event.created_at.desc())
+    )
+    return list((await db.execute(q)).scalars().all())
+
+
+async def get_sponsor_bid_summary_for_event(
+    db: AsyncSession, event_id: int, sponsor_user_id: int
+) -> dict:
+    """Return bid counts by status for a sponsor on a given event."""
+    q = (
+        select(SponsorBid.status, SponsorBid.id)
+        .join(SponsorshipCategory, SponsorBid.category_id == SponsorshipCategory.id)
+        .where(
+            SponsorshipCategory.event_id == event_id,
+            SponsorBid.sponsor_user_id == sponsor_user_id,
+        )
+    )
+    rows = (await db.execute(q)).all()
+    counts = {"pending": 0, "accepted": 0, "rejected": 0, "paid": 0, "withdrawn": 0}
+    for row in rows:
+        status_val = row[0].value if hasattr(row[0], 'value') else str(row[0])
+        if status_val in counts:
+            counts[status_val] += 1
+    return counts
 
 
 # ── Sponsor Tickets ──

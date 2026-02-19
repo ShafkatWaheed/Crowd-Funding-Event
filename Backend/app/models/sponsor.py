@@ -72,10 +72,6 @@ class SponsorBid(Base):
     sponsor = relationship("User")
     payment = relationship("SponsorPayment", back_populates="bid", uselist=False)
 
-    __table_args__ = (
-        UniqueConstraint("category_id", "sponsor_user_id", name="uq_sponsor_bids_category_user"),
-    )
-
 
 class PaymentStatus(str, enum.Enum):
     pending = "pending"

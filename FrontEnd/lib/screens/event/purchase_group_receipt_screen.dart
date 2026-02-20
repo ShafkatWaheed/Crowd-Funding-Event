@@ -124,7 +124,6 @@ class _PurchaseGroupReceiptScreenState
     final venueName = r['venue_name'];
     final venueAddress = r['venue_address'];
     final attendeeName = r['attendee_name'] ?? 'Unknown';
-    final attendeeEmail = r['attendee_email'] ?? '';
     final tickets = (r['tickets'] as List? ?? []);
     final isFree = totalAmountPaid == 0;
     final dateFmt = DateFormat.yMMMd().add_jm();
@@ -263,8 +262,6 @@ class _PurchaseGroupReceiptScreenState
                       _sectionLabel('ATTENDEE'),
                       const SizedBox(height: 8),
                       _detailRow(context, 'Name', attendeeName),
-                      if (attendeeEmail.isNotEmpty)
-                        _detailRow(context, 'Email', attendeeEmail),
 
                       const SizedBox(height: 20),
 
@@ -432,7 +429,7 @@ class _PurchaseGroupReceiptScreenState
     final qrData = ticket['encrypted_qr_payload'] ?? jsonEncode({
       'receipt_number': receiptNumber,
       'event_id': widget.eventId,
-      'user_id': receipt['attendee_email'],
+      'user_id': receipt['user_id'],
       'sale_id': saleId,
       'ticket_code': ticketCode,
     });
@@ -538,13 +535,17 @@ class _PurchaseGroupReceiptScreenState
                     version: QrVersions.auto,
                     size: 140,
                     gapless: true,
-                    eyeStyle: const QrEyeStyle(
+                    eyeStyle: QrEyeStyle(
                       eyeShape: QrEyeShape.square,
-                      color: Colors.black,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white
+                          : Colors.black,
                     ),
-                    dataModuleStyle: const QrDataModuleStyle(
+                    dataModuleStyle: QrDataModuleStyle(
                       dataModuleShape: QrDataModuleShape.square,
-                      color: Colors.black,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white
+                          : Colors.black,
                     ),
                   ),
                 ),

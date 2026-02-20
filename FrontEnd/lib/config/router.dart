@@ -32,6 +32,8 @@ import '../screens/sponsor/sponsor_ticket_screen.dart';
 import '../screens/sponsor/sponsor_dashboard_screen.dart';
 import '../screens/sponsor/organizer_sponsors_screen.dart';
 import '../screens/sponsor/sponsor_events_for_organizer_screen.dart';
+import '../screens/bookmark/bookmarked_events_screen.dart';
+import '../screens/profile/organizer_profile_screen.dart';
 
 GoRouter createRouter(AuthProvider authProvider) {
   return GoRouter(
@@ -286,6 +288,21 @@ GoRouter createRouter(AuthProvider authProvider) {
           final catName = state.uri.queryParameters['name'];
           return BidManagementScreen(
               eventId: id, categoryId: catId, categoryName: catName);
+        },
+      ),
+
+      // ─── Bookmarks ───
+      GoRoute(
+        path: '/bookmarks',
+        builder: (context, state) => const BookmarkedEventsScreen(),
+      ),
+
+      // ─── Public Profiles ───
+      GoRoute(
+        path: '/users/:id/profile',
+        builder: (context, state) {
+          final id = int.parse(state.pathParameters['id']!);
+          return OrganizerProfileScreen(userId: id);
         },
       ),
 

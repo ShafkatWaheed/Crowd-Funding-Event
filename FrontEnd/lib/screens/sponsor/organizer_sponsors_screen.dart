@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
 import '../../widgets/shimmer_loaders.dart';
@@ -14,23 +15,50 @@ class OrganizerSponsorsScreen extends StatefulWidget {
 }
 
 class _OrganizerSponsorsScreenState extends State<OrganizerSponsorsScreen> {
-  final _api = ApiService();
+  static const _pageSize = 20;
+
+  final _scrollCtrl = ScrollController();
   List<Map<String, dynamic>> _sponsors = [];
   bool _loading = true;
+  bool _loadingMore = false;
+  bool _hasMore = true;
   String _search = '';
 
   @override
   void initState() {
     super.initState();
+    _scrollCtrl.addListener(_onScroll);
     _load();
   }
 
+  @override
+  void dispose() {
+    _scrollCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollCtrl.position.pixels >=
+            _scrollCtrl.position.maxScrollExtent * 0.8 &&
+        !_loadingMore &&
+        _hasMore &&
+        !_loading) {
+      _loadMore();
+    }
+  }
+
   Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _hasMore = true;
+    });
     try {
-      final data = await _api.getOrganizerSponsors();
+      final api = context.read<ApiService>();
+      final data = await api.getOrganizerSponsors(offset: 0, limit: _pageSize);
       if (!mounted) return;
       setState(() {
         _sponsors = data.cast<Map<String, dynamic>>();
+        _hasMore = data.length >= _pageSize;
         _loading = false;
       });
     } catch (e) {
@@ -39,6 +67,27 @@ class _OrganizerSponsorsScreenState extends State<OrganizerSponsorsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(ApiService.extractError(e))),
       );
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || !_hasMore) return;
+    setState(() => _loadingMore = true);
+    try {
+      final api = context.read<ApiService>();
+      final data = await api.getOrganizerSponsors(
+        offset: _sponsors.length,
+        limit: _pageSize,
+      );
+      if (mounted) {
+        setState(() {
+          _sponsors.addAll(data.cast<Map<String, dynamic>>());
+          _hasMore = data.length >= _pageSize;
+          _loadingMore = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingMore = false);
     }
   }
 
@@ -78,7 +127,8 @@ class _OrganizerSponsorsScreenState extends State<OrganizerSponsorsScreen> {
                     decoration: InputDecoration(
                       hintText: 'Search sponsors\u2026',
                       prefixIcon: Icon(Icons.search,
-                          color: AppTheme.textSecondaryOf(context), size: 22),
+                          color: AppTheme.textSecondaryOf(context),
+                          size: 22),
                       isDense: true,
                       contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 12),
@@ -132,18 +182,30 @@ class _OrganizerSponsorsScreenState extends State<OrganizerSponsorsScreen> {
                       : RefreshIndicator(
                           onRefresh: _load,
                           child: ListView.separated(
+                            controller: _scrollCtrl,
                             padding:
                                 const EdgeInsets.fromLTRB(16, 8, 16, 100),
-                            itemCount: filtered.length,
+                            itemCount:
+                                filtered.length + (_loadingMore ? 1 : 0),
                             separatorBuilder: (_, __) =>
                                 const SizedBox(height: 10),
                             itemBuilder: (context, i) {
+                              if (i >= filtered.length) {
+                                return const Padding(
+                                  padding:
+                                      EdgeInsets.symmetric(vertical: 20),
+                                  child: Center(
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2)),
+                                );
+                              }
                               final s = filtered[i];
                               return _SponsorCard(
                                 sponsor: s,
                                 onTap: () => context.push(
                                   '/manage/sponsors/${s['sponsor_user_id']}/events',
-                                  extra: s['company_name'] ?? 'Sponsor',
+                                  extra:
+                                      s['company_name'] ?? 'Sponsor',
                                 ),
                               );
                             },
@@ -227,7 +289,8 @@ class _SponsorCard extends StatelessWidget {
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      _chip(context, '$totalBids bid${totalBids == 1 ? '' : 's'}',
+                      _chip(context,
+                          '$totalBids bid${totalBids == 1 ? '' : 's'}',
                           AppTheme.accentColor),
                       const SizedBox(width: 8),
                       _chip(context, amount, AppTheme.secondaryColor),

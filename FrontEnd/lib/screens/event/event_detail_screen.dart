@@ -52,7 +52,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   // Revenue (organizer only)
   int _revenueCents = 0;
 
-  // Reaction state lives in _ReactionBar widget (self-contained)
+  // Bookmark state
+  bool _bookmarked = false;
 
   @override
   void initState() {
@@ -64,7 +65,25 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       _loadMyTicketCount();
       _loadMyReservedSpots();
       _loadRevenue();
+      _checkBookmark();
     });
+  }
+
+  Future<void> _checkBookmark() async {
+    try {
+      final api = context.read<ApiService>();
+      final res = await api.checkBookmarks([widget.eventId]);
+      final ids = (res['bookmarked_ids'] as List?)?.cast<int>() ?? [];
+      if (mounted) setState(() => _bookmarked = ids.contains(widget.eventId));
+    } catch (_) {}
+  }
+
+  Future<void> _toggleBookmark() async {
+    try {
+      final api = context.read<ApiService>();
+      final res = await api.toggleBookmark(widget.eventId);
+      if (mounted) setState(() => _bookmarked = res['bookmarked'] == true);
+    } catch (_) {}
   }
 
   void _refreshEvent() {
@@ -206,6 +225,24 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
+        actions: [
+          IconButton(
+            icon: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceOf(context),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                _bookmarked ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+                size: 18,
+                color: _bookmarked ? AppTheme.accentColor : null,
+              ),
+            ),
+            onPressed: _toggleBookmark,
+          ),
+          const SizedBox(width: 4),
+        ],
       ),
       body: eventProvider.isLoading
           ? const ShimmerDetailHeader()
@@ -272,8 +309,20 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                       label: '${event.registrationCount} joined',
                                       color: AppTheme.accentColor,
                                     ),
-                                  // Trust badge
-                                  _trustBadgePill(event),
+                                  // Organizer name + Trust badge (tappable)
+                                  if (event.organizerName != null && event.organizerName!.isNotEmpty)
+                                    GestureDetector(
+                                      onTap: () => _showOrganizerBottomSheet(event),
+                                      child: _tagPill(
+                                        icon: Icons.person_rounded,
+                                        label: event.organizerName!,
+                                        color: AppTheme.accentColor,
+                                      ),
+                                    ),
+                                  GestureDetector(
+                                    onTap: () => _showOrganizerBottomSheet(event),
+                                    child: _trustBadgePill(event),
+                                  ),
                                   if (_revenueCents > 0 && user != null && (user.isOrganizer || user.isAdmin))
                                     _tagPill(
                                       icon: Icons.paid_rounded,
@@ -1295,6 +1344,90 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           Text(label,
               style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color, letterSpacing: 0.2)),
         ],
+      ),
+    );
+  }
+
+  void _showOrganizerBottomSheet(Event event) {
+    final name = event.organizerName ?? 'Organizer';
+    final label = event.organizerTrustLabel;
+    final score = event.organizerTrustScore;
+    final completed = event.organizerCompletedEvents;
+    final published = event.organizerPublishedEvents;
+    final pct = (score * 100).toInt();
+
+    Color trustColor;
+    IconData trustIcon;
+    switch (label) {
+      case 'Excellent':
+        trustColor = const Color(0xFF05944F);
+        trustIcon = Icons.verified_rounded;
+      case 'Good':
+        trustColor = const Color(0xFF0077B6);
+        trustIcon = Icons.verified_outlined;
+      case 'Fair':
+        trustColor = Colors.orange;
+        trustIcon = Icons.shield_outlined;
+      default:
+        trustColor = Colors.grey;
+        trustIcon = Icons.person_outline;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      backgroundColor: AppTheme.cardOf(context),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(color: AppTheme.dividerOf(ctx), borderRadius: BorderRadius.circular(2)),
+            ),
+            const SizedBox(height: 20),
+            CircleAvatar(
+              radius: 30,
+              backgroundColor: AppTheme.accentColor.withValues(alpha: 0.15),
+              child: Text(
+                name.isNotEmpty ? name[0].toUpperCase() : '?',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: AppTheme.accentColor),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(name, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppTheme.textPrimaryOf(ctx))),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(trustIcon, size: 18, color: trustColor),
+                const SizedBox(width: 6),
+                Text('$label ($pct%)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: trustColor)),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text('$completed completed of $published published events',
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(ctx))),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  context.push('/users/${event.organizerId}/profile');
+                },
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                child: const Text('View Full Profile', style: TextStyle(fontWeight: FontWeight.w700)),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

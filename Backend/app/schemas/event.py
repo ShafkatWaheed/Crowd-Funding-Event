@@ -135,6 +135,7 @@ class OrganizerTrustInfo(BaseModel):
 class EventResponse(BaseModel):
     id: int
     organizer_id: int
+    organizer_name: str | None = None
     venue_id: int
     venue: EventVenueInfo
     title: str

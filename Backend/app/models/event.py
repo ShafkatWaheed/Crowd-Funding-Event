@@ -3,7 +3,7 @@ Event model: status, registration type, funding fields.
 """
 import enum
 from datetime import datetime
-from sqlalchemy import Boolean, String, Text, Integer, Float, DateTime, ForeignKey, Enum, UniqueConstraint, JSON
+from sqlalchemy import BigInteger, Boolean, String, Text, Integer, Float, DateTime, ForeignKey, Enum, UniqueConstraint, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -53,9 +53,9 @@ class Event(Base):
     end_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     lat: Mapped[float | None] = mapped_column(Float, nullable=True)
     lng: Mapped[float | None] = mapped_column(Float, nullable=True)
-    funding_goal_cents: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    funding_goal_cents: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     funding_end_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    min_pledge_cents: Mapped[int] = mapped_column(Integer, nullable=False)
+    min_pledge_cents: Mapped[int] = mapped_column(BigInteger, nullable=False)
     status: Mapped[EventStatus] = mapped_column(Enum(EventStatus), nullable=False, default=EventStatus.draft, index=True)
     registration_type: Mapped[RegistrationType] = mapped_column(Enum(RegistrationType), nullable=False, default=RegistrationType.open)
     max_capacity: Mapped[int] = mapped_column(Integer, nullable=False)

@@ -16,6 +16,7 @@ from app.models.escrow import FundEscrow, EscrowRelease, EscrowStatus
 from app.models.milestone import FundingMilestone, MilestoneReaction
 from app.models.schedule import EventScheduleItem
 from app.models.sponsor import SponsorProfile, SponsorshipCategory, SponsorBid, BidStatus, SponsorPayment, PaymentStatus, SponsorTicket
+from app.models.bookmark import Bookmark
 
 __all__ = [
     "User",
@@ -57,4 +58,5 @@ __all__ = [
     "SponsorPayment",
     "PaymentStatus",
     "SponsorTicket",
+    "Bookmark",
 ]

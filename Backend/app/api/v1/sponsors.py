@@ -1,7 +1,7 @@
 """
 Sponsor marketplace API endpoints.
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.dependencies import DbSession, CurrentUser, CurrentUserOptional, require_feature
 from app.models.user import UserRole
@@ -183,7 +183,7 @@ async def _bid_to_response(db, bid) -> dict:
         user = (await db.execute(
             select(User).where(User.id == bid.sponsor_user_id)
         )).scalar_one_or_none()
-        fallback_name = (user.display_name or user.email) if user else "Unknown"
+        fallback_name = user.display_name if user else "Unknown"
         profile_data = {
             "id": 0,
             "user_id": bid.sponsor_user_id,
@@ -367,11 +367,16 @@ async def list_sponsor_bid_events(db: DbSession, current_user: CurrentUser):
     "/me/organizer-sponsors",
     dependencies=[Depends(_feature_guard)],
 )
-async def list_organizer_sponsors(db: DbSession, current_user: CurrentUser):
+async def list_organizer_sponsors(
+    db: DbSession,
+    current_user: CurrentUser,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+):
     """Sponsors with active bids on organizer's events."""
     if current_user.role not in (UserRole.organizer, UserRole.admin):
         raise HTTPException(status_code=403, detail="Only organizers can view their sponsors")
-    return await sponsor_svc.get_organizer_sponsors(db, current_user.id)
+    return await sponsor_svc.get_organizer_sponsors(db, current_user.id, offset=offset, limit=limit)
 
 
 @router.get(
@@ -420,6 +425,7 @@ async def list_my_sponsor_tickets(db: DbSession, current_user: CurrentUser):
             "venue_name": venue.name if venue else None,
             "venue_address": venue.address if venue else None,
             "venue_city": venue.city if venue else None,
+            "scan_count": t.scan_count or 0,
         })
     return result
 

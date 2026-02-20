@@ -158,8 +158,8 @@ async def get_by_id(
     """Load event by id. Returns None if not found."""
     q = select(Event).where(Event.id == event_id)
     if load_venue:
-        q = q.options(selectinload(Event.venue), selectinload(Event.ticket_strategy))
-    if load_organizer:
+        q = q.options(selectinload(Event.venue), selectinload(Event.ticket_strategy), selectinload(Event.organizer))
+    elif load_organizer:
         q = q.options(selectinload(Event.organizer))
     result = await db.execute(q)
     event = result.scalar_one_or_none()
@@ -292,7 +292,7 @@ async def list_events(
         conditions.append(Event.community_rules == community_rules)
     if conditions:
         q = q.where(and_(*conditions))
-    q = q.options(selectinload(Event.venue), selectinload(Event.ticket_strategy)).order_by(Event.start_time.asc())
+    q = q.options(selectinload(Event.venue), selectinload(Event.ticket_strategy), selectinload(Event.organizer)).order_by(Event.start_time.asc())
     if offset:
         q = q.offset(offset)
     if limit is not None:
@@ -1001,7 +1001,7 @@ async def get_my_registered_events(
             Registration.user_id == user_id,
             Registration.status.in_([RegistrationStatus.registered, RegistrationStatus.waitlist]),
         )
-        .options(selectinload(Event.venue), selectinload(Event.ticket_strategy))
+        .options(selectinload(Event.venue), selectinload(Event.ticket_strategy), selectinload(Event.organizer))
         .order_by(Event.created_at.desc())
     )
     if offset:
@@ -1325,7 +1325,9 @@ async def record_customer_attendance(
     await db.flush()
 
 
-async def list_organizer_customers(db: AsyncSession, *, organizer_id: int) -> list[dict]:
+async def list_organizer_customers(
+    db: AsyncSession, *, organizer_id: int, offset: int = 0, limit: int = 20,
+) -> list[dict]:
     """List all unique customers who attended events organized by this organizer, with event count."""
     q = (
         select(
@@ -1338,6 +1340,8 @@ async def list_organizer_customers(db: AsyncSession, *, organizer_id: int) -> li
         .where(OrganizerCustomerHistory.organizer_id == organizer_id)
         .group_by(OrganizerCustomerHistory.customer_id, User.display_name)
         .order_by(func.count(OrganizerCustomerHistory.id).desc())
+        .offset(offset)
+        .limit(limit)
     )
     rows = (await db.execute(q)).all()
     return [

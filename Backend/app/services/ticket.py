@@ -379,7 +379,9 @@ async def get_ticket_receipt(
     return sale
 
 
-async def list_my_tickets(db: AsyncSession, *, user_id: int) -> Sequence[TicketSale]:
+async def list_my_tickets(
+    db: AsyncSession, *, user_id: int, offset: int = 0, limit: int = 20,
+) -> Sequence[TicketSale]:
     """List ticket sales for a user (purchased + waitlisted, with event, tier, user loaded)."""
     q = (
         select(TicketSale)
@@ -393,12 +395,16 @@ async def list_my_tickets(db: AsyncSession, *, user_id: int) -> Sequence[TicketS
             selectinload(TicketSale.user),
         )
         .order_by(TicketSale.created_at.desc())
+        .offset(offset)
+        .limit(limit)
     )
     res = await db.execute(q)
     return list(res.scalars().unique().all())
 
 
-async def list_event_ticket_sales(db: AsyncSession, *, event_id: int) -> Sequence[TicketSale]:
+async def list_event_ticket_sales(
+    db: AsyncSession, *, event_id: int, offset: int = 0, limit: int = 20,
+) -> Sequence[TicketSale]:
     """List all ticket sales for an event (organizer/admin). Includes scanned_at/scanned_by for scan list view."""
     await event_service.get_or_404(db, event_id)
     q = (
@@ -410,12 +416,16 @@ async def list_event_ticket_sales(db: AsyncSession, *, event_id: int) -> Sequenc
             selectinload(TicketSale.scanned_by),
         )
         .order_by(TicketSale.scanned_at.desc().nulls_last(), TicketSale.created_at.desc())
+        .offset(offset)
+        .limit(limit)
     )
     res = await db.execute(q)
     return list(res.scalars().unique().all())
 
 
-async def list_event_scanned_ticket_sales(db: AsyncSession, *, event_id: int) -> Sequence[TicketSale]:
+async def list_event_scanned_ticket_sales(
+    db: AsyncSession, *, event_id: int, offset: int = 0, limit: int = 20,
+) -> Sequence[TicketSale]:
     """List only scanned ticket sales for an event (organizer/admin). Same shape as list_event_ticket_sales."""
     await event_service.get_or_404(db, event_id)
     q = (
@@ -427,6 +437,8 @@ async def list_event_scanned_ticket_sales(db: AsyncSession, *, event_id: int) ->
             selectinload(TicketSale.scanned_by),
         )
         .order_by(TicketSale.scanned_at.desc(), TicketSale.created_at.desc())
+        .offset(offset)
+        .limit(limit)
     )
     res = await db.execute(q)
     return list(res.scalars().unique().all())
@@ -434,6 +446,7 @@ async def list_event_scanned_ticket_sales(db: AsyncSession, *, event_id: int) ->
 
 async def list_organizer_ticket_sales(
     db: AsyncSession, *, organizer_id: int, scanned_only: bool = False,
+    offset: int = 0, limit: int = 20,
 ) -> Sequence[TicketSale]:
     """List all ticket sales across all events owned by organizer_id. Single query, no N+1."""
     conditions = [Event.organizer_id == organizer_id]
@@ -450,6 +463,8 @@ async def list_organizer_ticket_sales(
             selectinload(TicketSale.scanned_by),
         )
         .order_by(TicketSale.created_at.desc())
+        .offset(offset)
+        .limit(limit)
     )
     res = await db.execute(q)
     return list(res.scalars().unique().all())

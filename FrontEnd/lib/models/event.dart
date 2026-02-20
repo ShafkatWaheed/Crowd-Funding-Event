@@ -17,6 +17,7 @@ enum RegistrationType { open, closed }
 class Event {
   final int id;
   final int organizerId;
+  final String? organizerName;
   final int venueId;
   final String title;
   final String? description;
@@ -67,6 +68,7 @@ class Event {
   Event({
     required this.id,
     required this.organizerId,
+    this.organizerName,
     required this.venueId,
     required this.title,
     this.description,
@@ -118,6 +120,7 @@ class Event {
     return Event(
       id: json['id'],
       organizerId: json['organizer_id'],
+      organizerName: json['organizer_name'],
       venueId: json['venue_id'],
       title: json['title'],
       description: json['description'],

@@ -398,6 +398,8 @@ async def list_pledges_by_user(
     db: AsyncSession,
     *,
     user_id: int,
+    offset: int = 0,
+    limit: int = 20,
 ) -> Sequence[Funding]:
     """List all pledges for a user (so they can see which events they've pledged to)."""
     q = (
@@ -405,6 +407,8 @@ async def list_pledges_by_user(
         .where(Funding.user_id == user_id)
         .options(selectinload(Funding.event))
         .order_by(Funding.created_at.desc())
+        .offset(offset)
+        .limit(limit)
     )
     result = await db.execute(q)
     return result.scalars().unique().all()

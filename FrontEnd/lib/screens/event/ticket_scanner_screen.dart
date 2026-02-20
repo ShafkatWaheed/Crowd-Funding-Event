@@ -35,6 +35,7 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
   String? _lastResult;
   bool _lastSuccess = false;
   bool _torchOn = false;
+  bool _sponsorMode = false;
 
   @override
   void dispose() {
@@ -50,7 +51,6 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
 
     final rawData = barcode.rawValue!;
 
-    // Avoid re-scanning the same code repeatedly
     if (rawData == _lastResult && _lastSuccess) return;
 
     setState(() => _isProcessing = true);
@@ -61,12 +61,7 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
       String? ticketCode;
       String? encryptedPayload;
 
-      // Try to detect the format:
-      // 1. If it starts with a base64-like string (no '{'), treat as encrypted payload
-      // 2. If it's valid JSON with ticket_code, extract it
-      // 3. Otherwise treat as raw ticket code
       if (rawData.trimLeft().startsWith('{')) {
-        // Legacy plaintext JSON QR code
         try {
           final json = jsonDecode(rawData) as Map<String, dynamic>;
           ticketCode = json['ticket_code'] as String?;
@@ -74,36 +69,14 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
           ticketCode = rawData;
         }
       } else {
-        // Encrypted payload (base64-encoded AES-256-GCM blob)
         encryptedPayload = rawData;
       }
 
-      final result = await api.scanTicket(
-        widget.eventId,
-        ticketCode: ticketCode,
-        encryptedPayload: encryptedPayload,
-      );
-
-      final alreadyScanned = result['already_scanned'] == true;
-      final ticket = result['ticket'] as Map<String, dynamic>?;
-      final ticketReceiptNum = ticket?['receipt_number'] ?? '';
-
-      if (mounted) {
-        setState(() {
-          _lastResult = rawData;
-          _lastSuccess = true;
-          if (!alreadyScanned) _scannedCount++;
-        });
-
-        _showScanResult(
-          success: !alreadyScanned,
-          title: alreadyScanned ? 'Already Scanned' : 'Ticket Verified',
-          subtitle: alreadyScanned
-              ? 'This ticket was already scanned'
-              : 'Entry confirmed',
-          receiptNumber: ticketReceiptNum,
-          alreadyScanned: alreadyScanned,
-        );
+      if (_sponsorMode) {
+        await _handleSponsorScan(api, rawData, encryptedPayload);
+      } else {
+        await _handleRegularScan(
+            api, rawData, ticketCode, encryptedPayload);
       }
     } catch (e) {
       if (mounted) {
@@ -120,9 +93,83 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
       }
     }
 
-    // Small delay before allowing next scan
     await Future.delayed(const Duration(milliseconds: 1500));
     if (mounted) setState(() => _isProcessing = false);
+  }
+
+  Future<void> _handleRegularScan(ApiService api, String rawData,
+      String? ticketCode, String? encryptedPayload) async {
+    final result = await api.scanTicket(
+      widget.eventId,
+      ticketCode: ticketCode,
+      encryptedPayload: encryptedPayload,
+    );
+
+    final alreadyScanned = result['already_scanned'] == true;
+    final ticket = result['ticket'] as Map<String, dynamic>?;
+    final ticketReceiptNum = ticket?['receipt_number'] ?? '';
+
+    if (mounted) {
+      setState(() {
+        _lastResult = rawData;
+        _lastSuccess = true;
+        if (!alreadyScanned) _scannedCount++;
+      });
+      _showScanResult(
+        success: !alreadyScanned,
+        title: alreadyScanned ? 'Already Scanned' : 'Ticket Verified',
+        subtitle: alreadyScanned
+            ? 'This ticket was already scanned'
+            : 'Entry confirmed',
+        receiptNumber: ticketReceiptNum,
+        alreadyScanned: alreadyScanned,
+      );
+    }
+  }
+
+  Future<void> _handleSponsorScan(
+      ApiService api, String rawData, String? encryptedPayload) async {
+    if (encryptedPayload == null) {
+      if (mounted) {
+        setState(() {
+          _lastResult = rawData;
+          _lastSuccess = false;
+        });
+        _showScanResult(
+          success: false,
+          title: 'Invalid QR',
+          subtitle: 'This does not look like a sponsor ticket',
+        );
+      }
+      return;
+    }
+
+    final result =
+        await api.scanSponsorTicket(widget.eventId, encryptedPayload);
+
+    final alreadyScanned = result['already_scanned'] == true;
+    final receiptNum = result['receipt_number'] ?? '';
+    final companyName = result['company_name'] ?? 'Sponsor';
+    final scanCount = result['scan_count'] ?? 0;
+    final catNames = (result['category_names'] as List?)
+            ?.map((e) => e.toString())
+            .toList() ??
+        [];
+
+    if (mounted) {
+      setState(() {
+        _lastResult = rawData;
+        _lastSuccess = true;
+        _scannedCount++;
+      });
+      _showSponsorScanResult(
+        alreadyScanned: alreadyScanned,
+        companyName: companyName,
+        receiptNumber: receiptNum,
+        scanCount: scanCount,
+        categoryNames: catNames,
+      );
+    }
   }
 
   void _showScanResult({
@@ -234,6 +281,182 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
         ),
       );
       },
+    );
+  }
+
+  void _showSponsorScanResult({
+    required bool alreadyScanned,
+    required String companyName,
+    required String receiptNumber,
+    required int scanCount,
+    required List<String> categoryNames,
+  }) {
+    final color = AppTheme.successColor;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isDismissible: true,
+      builder: (ctx) {
+        return Container(
+          margin: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: AppTheme.cardOf(ctx),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.15),
+                blurRadius: 20,
+                offset: const Offset(0, -4),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.storefront_rounded,
+                    color: AppTheme.successColor, size: 32),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Sponsor Verified',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.3,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                companyName,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textSecondaryOf(ctx),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceOf(ctx),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  children: [
+                    _infoRow(ctx, 'Receipt', receiptNumber),
+                    const SizedBox(height: 8),
+                    _infoRow(ctx, 'Entries', scanCount.toString()),
+                    if (categoryNames.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      _infoRow(ctx, 'Categories', categoryNames.join(', ')),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: color,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text('Continue Scanning',
+                      style: TextStyle(fontWeight: FontWeight.w700)),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _modeTab({
+    required String label,
+    required IconData icon,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: selected
+                ? Colors.white.withValues(alpha: 0.15)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon,
+                  size: 18,
+                  color: selected
+                      ? Colors.white
+                      : Colors.white.withValues(alpha: 0.4)),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  color: selected
+                      ? Colors.white
+                      : Colors.white.withValues(alpha: 0.4),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _infoRow(BuildContext ctx, String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            color: AppTheme.textSecondaryOf(ctx),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        Flexible(
+          child: Text(
+            value,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              fontFamily: 'monospace',
+              letterSpacing: 0.3,
+            ),
+            textAlign: TextAlign.end,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
     );
   }
 
@@ -353,88 +576,128 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
             ),
           ),
 
-          // Bottom info bar
+          // Bottom area: mode toggle + info bar
           Positioned(
             bottom: 0,
             left: 0,
             right: 0,
             child: SafeArea(
-              child: Container(
-                margin: const EdgeInsets.all(16),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                decoration: BoxDecoration(
-                  color: AppTheme.cardOf(context),
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.15),
-                      blurRadius: 20,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Row(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
+                    // Mode toggle
                     Container(
-                      width: 44,
-                      height: 44,
+                      padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
-                        color: _scannedCount > 0
-                            ? AppTheme.successColor.withValues(alpha: 0.1)
-                            : AppTheme.surfaceOf(context),
-                        borderRadius: BorderRadius.circular(12),
+                        color: Colors.black.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(14),
                       ),
-                      child: Icon(
-                        Icons.qr_code_scanner_rounded,
-                        color: _scannedCount > 0
-                            ? AppTheme.successColor
-                            : AppTheme.textSecondaryOf(context),
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
+                      child: Row(
                         children: [
-                          Text(
-                            _isProcessing
-                                ? 'Processing...'
-                                : 'Point camera at QR code',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: -0.2,
-                              color: AppTheme.textPrimaryOf(context),
-                            ),
+                          _modeTab(
+                            label: 'Customer',
+                            icon: Icons.person_rounded,
+                            selected: !_sponsorMode,
+                            onTap: () => setState(() {
+                              _sponsorMode = false;
+                              _lastResult = null;
+                            }),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            _scannedCount == 0
-                                ? 'Ready to scan'
-                                : '$_scannedCount ticket${_scannedCount == 1 ? '' : 's'} scanned this session',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: _scannedCount > 0
-                                  ? AppTheme.successColor
-                                  : AppTheme.textSecondaryOf(context),
-                              fontWeight: FontWeight.w500,
-                            ),
+                          _modeTab(
+                            label: 'Sponsor',
+                            icon: Icons.storefront_rounded,
+                            selected: _sponsorMode,
+                            onTap: () => setState(() {
+                              _sponsorMode = true;
+                              _lastResult = null;
+                            }),
                           ),
                         ],
                       ),
                     ),
-                    if (_isProcessing)
-                      const SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.5,
-                          color: AppTheme.primaryColor,
-                        ),
+                    const SizedBox(height: 10),
+                    // Info bar
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 16),
+                      decoration: BoxDecoration(
+                        color: AppTheme.cardOf(context),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.15),
+                            blurRadius: 20,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: _scannedCount > 0
+                                  ? AppTheme.successColor
+                                      .withValues(alpha: 0.1)
+                                  : AppTheme.surfaceOf(context),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              Icons.qr_code_scanner_rounded,
+                              color: _scannedCount > 0
+                                  ? AppTheme.successColor
+                                  : AppTheme.textSecondaryOf(context),
+                              size: 24,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  _isProcessing
+                                      ? 'Processing...'
+                                      : 'Point camera at QR code',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: -0.2,
+                                    color: AppTheme.textPrimaryOf(context),
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  _scannedCount == 0
+                                      ? 'Ready to scan'
+                                      : '$_scannedCount ticket${_scannedCount == 1 ? '' : 's'} scanned this session',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: _scannedCount > 0
+                                        ? AppTheme.successColor
+                                        : AppTheme.textSecondaryOf(context),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (_isProcessing)
+                            const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                color: AppTheme.primaryColor,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),

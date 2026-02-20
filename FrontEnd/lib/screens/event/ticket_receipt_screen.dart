@@ -108,7 +108,6 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
     final saleId = r['sale_id'];
     final userId = r['user_id'];
     final attendeeName = r['attendee_name'] ?? 'Unknown';
-    final attendeeEmail = r['attendee_email'] ?? '';
     final eventTitle = r['event_title'] ?? 'Unknown Event';
     final eventStartTime = r['event_start_time'] != null
         ? DateTime.parse(r['event_start_time']).toLocal()
@@ -286,8 +285,6 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
                       _sectionLabel('ATTENDEE'),
                       const SizedBox(height: 8),
                       _detailRow(context, 'Name', attendeeName),
-                      if (attendeeEmail.isNotEmpty)
-                        _detailRow(context, 'Email', attendeeEmail),
 
                       const SizedBox(height: 20),
 
@@ -334,13 +331,17 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
                                 version: QrVersions.auto,
                                 size: 160,
                                 gapless: true,
-                                eyeStyle: const QrEyeStyle(
+                                eyeStyle: QrEyeStyle(
                                   eyeShape: QrEyeShape.square,
-                                  color: Colors.black,
+                                  color: Theme.of(context).brightness == Brightness.dark
+                                      ? Colors.white
+                                      : Colors.black,
                                 ),
-                                dataModuleStyle: const QrDataModuleStyle(
+                                dataModuleStyle: QrDataModuleStyle(
                                   dataModuleShape: QrDataModuleShape.square,
-                                  color: Colors.black,
+                                  color: Theme.of(context).brightness == Brightness.dark
+                                      ? Colors.white
+                                      : Colors.black,
                                 ),
                               ),
                             ),

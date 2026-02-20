@@ -103,7 +103,6 @@ class TicketReceiptResponse(BaseModel):
     status: str
     # Attendee
     attendee_name: str | None = None
-    attendee_email: str | None = None
     # Event
     event_id: int
     event_title: str
@@ -175,7 +174,6 @@ class PurchaseGroupReceiptResponse(BaseModel):
     venue_address: str | None = None
     # Attendee
     attendee_name: str | None = None
-    attendee_email: str | None = None
     # Tier
     tier_name: str
     tier_price_cents: int

@@ -18,8 +18,13 @@ class MyPledgesScreen extends StatefulWidget {
 }
 
 class _MyPledgesScreenState extends State<MyPledgesScreen> {
+  static const _pageSize = 20;
+
+  final _scrollCtrl = ScrollController();
   List<Map<String, dynamic>> _pledges = [];
   bool _loading = true;
+  bool _loadingMore = false;
+  bool _hasMore = true;
   String? _error;
   String _search = '';
   String _filterStatus = 'all';
@@ -27,17 +32,35 @@ class _MyPledgesScreenState extends State<MyPledgesScreen> {
   @override
   void initState() {
     super.initState();
+    _scrollCtrl.addListener(_onScroll);
     _load();
   }
 
+  @override
+  void dispose() {
+    _scrollCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollCtrl.position.pixels >=
+            _scrollCtrl.position.maxScrollExtent * 0.8 &&
+        !_loadingMore &&
+        _hasMore &&
+        !_loading) {
+      _loadMore();
+    }
+  }
+
   Future<void> _load() async {
-    setState(() { _loading = true; _error = null; });
+    setState(() { _loading = true; _error = null; _hasMore = true; });
     try {
       final api = context.read<ApiService>();
-      final data = await api.getMyPledges();
+      final data = await api.getMyPledges(offset: 0, limit: _pageSize);
       if (mounted) {
         setState(() {
           _pledges = List<Map<String, dynamic>>.from(data);
+          _hasMore = data.length >= _pageSize;
           _loading = false;
         });
       }
@@ -48,6 +71,24 @@ class _MyPledgesScreenState extends State<MyPledgesScreen> {
           _loading = false;
         });
       }
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || !_hasMore) return;
+    setState(() => _loadingMore = true);
+    try {
+      final api = context.read<ApiService>();
+      final data = await api.getMyPledges(offset: _pledges.length, limit: _pageSize);
+      if (mounted) {
+        setState(() {
+          _pledges.addAll(List<Map<String, dynamic>>.from(data));
+          _hasMore = data.length >= _pageSize;
+          _loadingMore = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingMore = false);
     }
   }
 
@@ -131,6 +172,7 @@ class _MyPledgesScreenState extends State<MyPledgesScreen> {
       onRefresh: _load,
       color: AppTheme.primaryColor,
       child: CustomScrollView(
+        controller: _scrollCtrl,
         slivers: [
           SliverToBoxAdapter(
             child: Container(
@@ -263,6 +305,13 @@ class _MyPledgesScreenState extends State<MyPledgesScreen> {
                   },
                   childCount: grouped.length,
                 ),
+              ),
+            ),
+          if (_loadingMore)
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 20),
+                child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
               ),
             ),
         ],

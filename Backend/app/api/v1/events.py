@@ -110,9 +110,15 @@ def _event_to_response(
             completed_events=organizer_trust["completed_events"],
             published_events=organizer_trust["published_events"],
         )
+    org_name = None
+    from sqlalchemy import inspect as sa_inspect
+    state = sa_inspect(e)
+    if "organizer" in state.dict and e.organizer:
+        org_name = e.organizer.display_name
     return EventResponse(
         id=e.id,
         organizer_id=e.organizer_id,
+        organizer_name=org_name,
         venue_id=e.venue_id,
         venue=venue_info,
         title=e.title,
@@ -341,7 +347,7 @@ async def create_event(
 @router.get("/{event_id}", response_model=EventResponse)
 async def get_event(event_id: int, db: DbSession, current_user: CurrentUserOptional = None):
     """Event detail (public). Includes venue so everyone can see where the event is."""
-    event = await event_service.get_by_id(db, event_id, load_venue=True)
+    event = await event_service.get_by_id(db, event_id, load_venue=True, load_organizer=True)
     if not event:
         raise NotFoundError("Event", event_id)
     summary = await funding_service.get_summary(db, event_id=event_id)
@@ -1147,10 +1153,10 @@ def _ticket_sale_to_response(sale) -> TicketSaleResponse:
     """Build TicketSaleResponse from a TicketSale (with event, ticket_tier, user, scanned_by loaded as needed)."""
     scanned_by_name = None
     if getattr(sale, "scanned_by", None) and sale.scanned_by:
-        scanned_by_name = sale.scanned_by.display_name or sale.scanned_by.email
+        scanned_by_name = sale.scanned_by.display_name
     attendee_name = None
     if getattr(sale, "user", None) and sale.user:
-        attendee_name = sale.user.display_name or sale.user.email
+        attendee_name = sale.user.display_name
     return TicketSaleResponse(
         id=sale.id,
         event_id=sale.event_id,
@@ -1218,7 +1224,7 @@ async def get_ticket_receipt(
         from sqlalchemy import select as sel2
         organizer = (await db.execute(sel2(UserModel).where(UserModel.id == sale.event.organizer_id))).scalar_one_or_none()
         if organizer:
-            organizer_name = organizer.display_name or organizer.email
+            organizer_name = organizer.display_name
             organizer_email = organizer.email
             organizer_phone = organizer.phone
 
@@ -1228,8 +1234,7 @@ async def get_ticket_receipt(
         receipt_number=sale.receipt_number or f"RCP-{sale.event_id}-{sale.id}",
         ticket_code=sale.ticket_code,
         status=sale.status.value,
-        attendee_name=(sale.user.display_name or sale.user.email) if sale.user else None,
-        attendee_email=sale.user.email if sale.user else None,
+        attendee_name=sale.user.display_name if sale.user else None,
         event_id=sale.event_id,
         event_title=sale.event.title if sale.event else "Unknown Event",
         event_start_time=sale.event.start_time if sale.event else None,
@@ -1294,7 +1299,7 @@ async def get_purchase_group_receipt(
         from sqlalchemy import select as sel2
         organizer = (await db.execute(sel2(UserModel).where(UserModel.id == sale0.event.organizer_id))).scalar_one_or_none()
         if organizer:
-            organizer_name = organizer.display_name or organizer.email
+            organizer_name = organizer.display_name
             organizer_email = organizer.email
             organizer_phone = organizer.phone
 
@@ -1322,8 +1327,7 @@ async def get_purchase_group_receipt(
         organizer_phone=organizer_phone,
         venue_name=venue_name,
         venue_address=venue_address,
-        attendee_name=(sale0.user.display_name or sale0.user.email) if sale0.user else None,
-        attendee_email=sale0.user.email if sale0.user else None,
+        attendee_name=sale0.user.display_name if sale0.user else None,
         tier_name=sale0.ticket_tier.name if sale0.ticket_tier else "Unknown",
         tier_price_cents=sale0.ticket_tier.price_cents if sale0.ticket_tier else 0,
         quantity=len(sales),
@@ -1357,12 +1361,14 @@ async def list_event_ticket_sales(
     event_id: int,
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
 ):
     """List ticket sales for event (organizer/admin). Includes scanned_at and scanned_by for scan list view."""
     event = await event_service.get_or_404(db, event_id)
     if not await event_service.user_can_edit_event(db, event, current_user):
         raise ForbiddenError("You cannot view ticket sales for this event")
-    sales = await ticket_service.list_event_ticket_sales(db, event_id=event_id)
+    sales = await ticket_service.list_event_ticket_sales(db, event_id=event_id, offset=offset, limit=limit)
     return [_ticket_sale_to_response(s) for s in sales]
 
 
@@ -1371,12 +1377,14 @@ async def list_event_scanned_tickets(
     event_id: int,
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
 ):
     """List only scanned tickets for event (organizer/admin). Same response shape as ticket-sales."""
     event = await event_service.get_or_404(db, event_id)
     if not await event_service.user_can_edit_event(db, event, current_user):
         raise ForbiddenError("You cannot view scanned tickets for this event")
-    sales = await ticket_service.list_event_scanned_ticket_sales(db, event_id=event_id)
+    sales = await ticket_service.list_event_scanned_ticket_sales(db, event_id=event_id, offset=offset, limit=limit)
     return [_ticket_sale_to_response(s) for s in sales]
 
 

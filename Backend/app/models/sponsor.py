@@ -103,6 +103,7 @@ class SponsorTicket(Base):
     qr_data_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
     receipt_number: Mapped[str] = mapped_column(String(100), nullable=False)
     scanned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    scan_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 
     event = relationship("Event")

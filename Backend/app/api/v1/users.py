@@ -61,9 +61,11 @@ async def update_me(
 async def get_my_pledges(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.customer, UserRole.sponsor)),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
 ):
     """List events the current user has pledged to."""
-    pledges = await funding_service.list_pledges_by_user(db, user_id=current_user.id)
+    pledges = await funding_service.list_pledges_by_user(db, user_id=current_user.id, offset=offset, limit=limit)
     return [
         MyPledgeItem(
             id=p.id,
@@ -119,9 +121,11 @@ async def get_my_pledge_receipt(
 async def get_my_tickets(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.customer)),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
 ):
     """List tickets the current user has purchased (customer only). Includes ticket_code for QR and scanned_at (already scanned)."""
-    sales = await ticket_service.list_my_tickets(db, user_id=current_user.id)
+    sales = await ticket_service.list_my_tickets(db, user_id=current_user.id, offset=offset, limit=limit)
     return [
         TicketSaleResponse(
             id=s.id,
@@ -133,7 +137,7 @@ async def get_my_tickets(
             receipt_number=getattr(s, "receipt_number", None),
             tier_name=s.ticket_tier.name if s.ticket_tier else None,
             event_title=s.event.title if s.event else None,
-            attendee_display_name=(s.user.display_name or s.user.email) if s.user else None,
+            attendee_display_name=s.user.display_name if s.user else None,
             amount_paid_cents=s.amount_paid_cents,
             discount_applied_cents=s.discount_applied_cents,
             commission_cents=getattr(s, "commission_cents", 0) or 0,
@@ -178,7 +182,7 @@ async def get_my_ticket_receipt(
         from sqlalchemy import select as sel2
         organizer = (await db.execute(sel2(User).where(User.id == sale.event.organizer_id))).scalar_one_or_none()
         if organizer:
-            organizer_name = organizer.display_name or organizer.email
+            organizer_name = organizer.display_name
             organizer_email = organizer.email
             organizer_phone = organizer.phone
 
@@ -188,8 +192,7 @@ async def get_my_ticket_receipt(
         receipt_number=sale.receipt_number or f"RCP-{sale.event_id}-{sale.id}",
         ticket_code=sale.ticket_code,
         status=sale.status.value,
-        attendee_name=(sale.user.display_name or sale.user.email) if sale.user else None,
-        attendee_email=sale.user.email if sale.user else None,
+        attendee_name=sale.user.display_name if sale.user else None,
         event_id=sale.event_id,
         event_title=sale.event.title if sale.event else "Unknown Event",
         event_start_time=sale.event.start_time if sale.event else None,
@@ -216,10 +219,13 @@ async def get_my_organizer_ticket_sales(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
     scanned_only: bool = Query(False, description="If true, return only scanned tickets"),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
 ):
     """All ticket sales across every event the current user organizes. Single query."""
     sales = await ticket_service.list_organizer_ticket_sales(
         db, organizer_id=current_user.id, scanned_only=scanned_only,
+        offset=offset, limit=limit,
     )
     return [_ticket_sale_to_response(s) for s in sales]
 
@@ -253,6 +259,118 @@ async def get_my_events(
 async def list_my_customers(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
 ):
     """List all customers who attended events organized by the current user, with event counts."""
-    return await event_service.list_organizer_customers(db, organizer_id=current_user.id)
+    return await event_service.list_organizer_customers(db, organizer_id=current_user.id, offset=offset, limit=limit)
+
+
+# ── Bookmarks ──
+
+@router.post("/bookmarks/{event_id}")
+async def toggle_bookmark(
+    event_id: int,
+    db: DbSession,
+    current_user: CurrentUser,
+):
+    """Toggle bookmark on an event. Returns current bookmarked state."""
+    from sqlalchemy import select, delete
+    from app.models.bookmark import Bookmark
+
+    existing = (await db.execute(
+        select(Bookmark).where(Bookmark.user_id == current_user.id, Bookmark.event_id == event_id)
+    )).scalar_one_or_none()
+
+    if existing:
+        await db.execute(
+            delete(Bookmark).where(Bookmark.id == existing.id)
+        )
+        await db.flush()
+        return {"bookmarked": False}
+
+    await event_service.get_or_404(db, event_id)
+    db.add(Bookmark(user_id=current_user.id, event_id=event_id))
+    await db.flush()
+    return {"bookmarked": True}
+
+
+@router.get("/bookmarks/check")
+async def check_bookmarks(
+    db: DbSession,
+    current_user: CurrentUser,
+    event_ids: str = Query("", description="Comma-separated event IDs"),
+):
+    """Batch check which events are bookmarked by the current user."""
+    from sqlalchemy import select
+    from app.models.bookmark import Bookmark
+
+    if not event_ids.strip():
+        return {"bookmarked_ids": []}
+
+    ids = [int(x.strip()) for x in event_ids.split(",") if x.strip().isdigit()]
+    if not ids:
+        return {"bookmarked_ids": []}
+
+    result = await db.execute(
+        select(Bookmark.event_id).where(
+            Bookmark.user_id == current_user.id,
+            Bookmark.event_id.in_(ids),
+        )
+    )
+    return {"bookmarked_ids": list(result.scalars().all())}
+
+
+@router.get("/bookmarks", response_model=list[EventResponse])
+async def list_bookmarked_events(
+    db: DbSession,
+    current_user: CurrentUser,
+    search: str | None = Query(None, description="Search title/venue"),
+    status: str | None = Query(None, description="Filter by event status"),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+):
+    """List events bookmarked by the current user, with optional search/status filters."""
+    from datetime import datetime, timezone
+    from sqlalchemy import select
+    from sqlalchemy.orm import selectinload
+    from app.models.bookmark import Bookmark
+    from app.models.event import Event as EventModel
+
+    q = (
+        select(EventModel)
+        .join(Bookmark, Bookmark.event_id == EventModel.id)
+        .where(Bookmark.user_id == current_user.id)
+        .options(selectinload(EventModel.venue), selectinload(EventModel.organizer), selectinload(EventModel.ticket_strategy))
+        .order_by(Bookmark.created_at.desc())
+    )
+
+    if search and search.strip():
+        term = f"%{search.strip()}%"
+        from sqlalchemy import or_
+        from app.models.venue import Venue
+        q = q.outerjoin(Venue, EventModel.venue_id == Venue.id)
+        q = q.where(or_(
+            EventModel.title.ilike(term),
+            Venue.name.ilike(term),
+            Venue.city.ilike(term),
+        ))
+    if status:
+        q = q.where(EventModel.status == status)
+
+    q = q.offset(offset).limit(limit)
+    events = (await db.execute(q)).scalars().unique().all()
+
+    now = datetime.now(timezone.utc)
+    event_ids = [e.id for e in events]
+    pledged = await funding_service.get_pledged_totals_for_events(db, event_ids=event_ids) if event_ids else {}
+    out = []
+    for e in events:
+        total_cents = pledged.get(e.id, 0)
+        days_left = None
+        if e.funding_end_at is not None:
+            end = e.funding_end_at if e.funding_end_at.tzinfo else e.funding_end_at.replace(tzinfo=timezone.utc)
+            delta = (end - now).days
+            days_left = max(0, delta) if delta > 0 else 0
+        out.append(_event_to_response(e, total_pledged_cents=total_cents, funding_days_left=days_left))
+    return out

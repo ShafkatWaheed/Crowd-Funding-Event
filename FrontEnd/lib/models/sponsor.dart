@@ -199,6 +199,7 @@ class SponsorTicketModel {
   final String? venueName;
   final String? venueAddress;
   final String? venueCity;
+  final int scanCount;
 
   SponsorTicketModel({
     required this.id,
@@ -217,6 +218,7 @@ class SponsorTicketModel {
     this.venueName,
     this.venueAddress,
     this.venueCity,
+    this.scanCount = 0,
   });
 
   int get totalAmountCents =>
@@ -249,6 +251,7 @@ class SponsorTicketModel {
       venueName: json['venue_name'],
       venueAddress: json['venue_address'],
       venueCity: json['venue_city'],
+      scanCount: json['scan_count'] ?? 0,
     );
   }
 }

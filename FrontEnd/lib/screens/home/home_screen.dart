@@ -81,6 +81,37 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Event> _nearMeEvents = [];
   bool _nearMeAttempted = false;
 
+  // Bookmarks — batch-checked once per event list load
+  final Set<int> _bookmarkedIds = {};
+
+  Future<void> _batchCheckBookmarks(List<int> eventIds) async {
+    if (eventIds.isEmpty) return;
+    try {
+      final api = context.read<ApiService>();
+      final res = await api.checkBookmarks(eventIds);
+      final ids = (res['bookmarked_ids'] as List?)?.cast<int>() ?? [];
+      if (mounted) setState(() {
+        _bookmarkedIds.addAll(ids);
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _toggleBookmark(int eventId) async {
+    try {
+      final api = context.read<ApiService>();
+      final res = await api.toggleBookmark(eventId);
+      if (mounted) {
+        setState(() {
+          if (res['bookmarked'] == true) {
+            _bookmarkedIds.add(eventId);
+          } else {
+            _bookmarkedIds.remove(eventId);
+          }
+        });
+      }
+    } catch (_) {}
+  }
+
   final List<String> _genres = [
     'community', 'music', 'tech', 'sports', 'arts',
     'food', 'charity', 'education', 'business', 'other',
@@ -163,7 +194,15 @@ class _HomeScreenState extends State<HomeScreen> {
       _loadMyEvents();
       _loadSponsorBidEvents();
       _loadNearMe();
+      final ep = context.read<EventProvider>();
+      ep.addListener(_onEventsChanged);
     });
+  }
+
+  void _onEventsChanged() {
+    final ep = context.read<EventProvider>();
+    final ids = ep.events.map((e) => e.id).toList();
+    _batchCheckBookmarks(ids);
   }
 
   @override
@@ -182,10 +221,12 @@ class _HomeScreenState extends State<HomeScreen> {
       final api = context.read<ApiService>();
       final data = await api.getMyEvents(offset: 0, limit: _myEventsPageSize);
       if (mounted) {
+        final list = data.map((e) => Event.fromJson(e)).toList();
         setState(() {
-          _myEvents = data.map((e) => Event.fromJson(e)).toList();
+          _myEvents = list;
           _myEventsHasMore = data.length >= _myEventsPageSize;
         });
+        _batchCheckBookmarks(list.map((e) => e.id).toList());
       }
     } catch (e) {
       debugPrint('_loadMyEvents error: $e');
@@ -331,6 +372,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    context.read<EventProvider>().removeListener(_onEventsChanged);
     _searchController.dispose();
     _homeSearchCtrl.dispose();
     super.dispose();
@@ -355,9 +397,9 @@ class _HomeScreenState extends State<HomeScreen> {
         params['status'] = _homeStatus;
       }
       final data = await api.getEvents(params: params);
-      setState(() {
-        _homeSearchResults = data.map((e) => Event.fromJson(e)).toList();
-      });
+      final results = data.map((e) => Event.fromJson(e)).toList();
+      setState(() => _homeSearchResults = results);
+      _batchCheckBookmarks(results.map((e) => e.id).toList());
     } catch (_) {}
     setState(() => _homeSearching = false);
   }
@@ -821,6 +863,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       return _UberEventCard(
                         event: event,
                         onTap: () => context.push('/events/${event.id}'),
+                        isBookmarked: _bookmarkedIds.contains(event.id),
+                        onBookmarkToggle: () => _toggleBookmark(event.id),
                       );
                     },
                     childCount: _homeSearchResults.length,
@@ -1273,6 +1317,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   return _UberEventCard(
                     event: event,
                     onTap: () => context.push('/events/${event.id}'),
+                    isBookmarked: _bookmarkedIds.contains(event.id),
+                    onBookmarkToggle: () => _toggleBookmark(event.id),
                   );
                 },
                 childCount: events.events.length,
@@ -1488,17 +1534,32 @@ class _HomeScreenState extends State<HomeScreen> {
                       onTap: () => context.push('/manage/sponsors'),
                     ),
                     const SizedBox(width: 12),
-                    if (user != null && user.isAdmin)
+                    _quickActionCard(
+                      icon: Icons.bookmark_rounded,
+                      label: 'Bookmarks',
+                      color: const Color(0xFFFFC043),
+                      onTap: () => context.push('/bookmarks'),
+                    ),
+                  ],
+                ),
+                if (user != null && user.isAdmin) ...[
+                  const SizedBox(height: 12),
+                  // Row 4
+                  Row(
+                    children: [
                       _quickActionCard(
                         icon: Icons.admin_panel_settings_rounded,
                         label: 'Admin',
                         color: const Color(0xFF141414),
                         onTap: () => context.push('/admin'),
-                      )
-                    else
+                      ),
+                      const SizedBox(width: 12),
                       const Expanded(child: SizedBox()),
-                  ],
-                ),
+                      const SizedBox(width: 12),
+                      const Expanded(child: SizedBox()),
+                    ],
+                  ),
+                ],
 
               ],
             ),
@@ -1816,6 +1877,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: _UberEventCard(
                             event: event,
                             onTap: () => context.push('/events/${event.id}'),
+                            isBookmarked: _bookmarkedIds.contains(event.id),
+                            onBookmarkToggle: () => _toggleBookmark(event.id),
                           ),
                         );
                       },
@@ -2434,6 +2497,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: _UberEventCard(
                     event: event,
                     onTap: () => context.push('/events/${event.id}'),
+                    isBookmarked: _bookmarkedIds.contains(event.id),
+                    onBookmarkToggle: () => _toggleBookmark(event.id),
                   ),
                 );
               },
@@ -2452,11 +2517,19 @@ class _HomeScreenState extends State<HomeScreen> {
 class _UberEventCard extends StatelessWidget {
   final Event event;
   final VoidCallback onTap;
+  final bool isBookmarked;
+  final VoidCallback? onBookmarkToggle;
 
-  const _UberEventCard({required this.event, required this.onTap});
+  const _UberEventCard({
+    required this.event,
+    required this.onTap,
+    this.isBookmarked = false,
+    this.onBookmarkToggle,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final event = this.event;
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -2488,7 +2561,6 @@ class _UberEventCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Lifecycle bar
                   EventLifecycleBar(event: event, compact: true),
                   const SizedBox(height: 10),
                   Row(
@@ -2508,6 +2580,16 @@ class _UberEventCard extends StatelessWidget {
                       ),
                       const SizedBox(width: 8),
                       _StatusPill(status: event.status),
+                      const SizedBox(width: 6),
+                      if (onBookmarkToggle != null)
+                        GestureDetector(
+                          onTap: onBookmarkToggle,
+                          child: Icon(
+                            isBookmarked ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+                            color: Colors.white.withValues(alpha: 0.9),
+                            size: 22,
+                          ),
+                        ),
                     ],
                   ),
                 ],
@@ -2520,7 +2602,6 @@ class _UberEventCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Date
                   if (event.startTime != null) ...[
                     _iconRow(
                       context,
@@ -2530,7 +2611,6 @@ class _UberEventCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 5),
                   ],
-                  // Venue
                   if (event.venue != null)
                     _iconRow(
                       context,
@@ -2548,7 +2628,6 @@ class _UberEventCard extends StatelessWidget {
                     ),
                   ],
                   const SizedBox(height: 10),
-                  // Bottom stats row
                   Row(
                     children: [
                       if (event.registrationCount > 0)
@@ -2570,7 +2649,6 @@ class _UberEventCard extends StatelessWidget {
                         ),
                     ],
                   ),
-                  // Funding bar
                   if (event.fundingGoalCents != null &&
                       event.fundingGoalCents! > 0) ...[
                     const SizedBox(height: 6),

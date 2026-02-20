@@ -573,9 +573,11 @@ async def scan_sponsor_ticket(
         raise HTTPException(status_code=404, detail="Sponsor ticket not found")
 
     from datetime import datetime
+    already_scanned = ticket.scanned_at is not None
     if not ticket.scanned_at:
         ticket.scanned_at = datetime.utcnow()
-        await db.flush()
+    ticket.scan_count = (ticket.scan_count or 0) + 1
+    await db.flush()
 
     profile = await get_profile(db, ticket.sponsor_user_id)
     cats = await get_won_categories(db, event_id, ticket.sponsor_user_id)
@@ -588,13 +590,16 @@ async def scan_sponsor_ticket(
         "categories": cats,
         "category_names": [c["name"] for c in cats],
         "category_count": len(cats),
-        "already_scanned": ticket.scanned_at is not None,
+        "already_scanned": already_scanned,
+        "scan_count": ticket.scan_count,
     }
 
 
 # ── Organizer: sponsors funding my events ──
 
-async def get_organizer_sponsors(db: AsyncSession, organizer_id: int) -> list[dict]:
+async def get_organizer_sponsors(
+    db: AsyncSession, organizer_id: int, *, offset: int = 0, limit: int = 20,
+) -> list[dict]:
     """Distinct sponsors with active bids on any of this organizer's events."""
     from sqlalchemy import distinct, func
     from sqlalchemy.orm import selectinload
@@ -615,6 +620,8 @@ async def get_organizer_sponsors(db: AsyncSession, organizer_id: int) -> list[di
         )
         .group_by(SponsorBid.sponsor_user_id)
         .order_by(func.sum(SponsorBid.amount_cents).desc())
+        .offset(offset)
+        .limit(limit)
     )
     rows = (await db.execute(q)).all()
 
@@ -631,8 +638,8 @@ async def get_organizer_sponsors(db: AsyncSession, organizer_id: int) -> list[di
             contact = profile.contact_name
             logo = profile.logo_url
         else:
-            name = (user.display_name or user.email) if user else "Unknown"
-            contact = (user.display_name or "") if user else ""
+            name = user.display_name if user else "Unknown"
+            contact = user.display_name or "" if user else ""
             logo = None
 
         result.append({

@@ -20,41 +20,59 @@ class GlobalTicketSalesScreen extends StatefulWidget {
 }
 
 class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
+  static const _pageSize = 20;
+
   final _searchCtrl = TextEditingController();
+  final _scrollCtrl = ScrollController();
   List<Map<String, dynamic>> _all = [];
-  List<Map<String, dynamic>> _filtered = [];
   bool _loading = true;
+  bool _loadingMore = false;
+  bool _hasMore = true;
   String? _error;
 
   @override
   void initState() {
     super.initState();
+    _scrollCtrl.addListener(_onScroll);
     _load();
   }
 
   @override
   void dispose() {
+    _scrollCtrl.dispose();
     _searchCtrl.dispose();
     super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollCtrl.position.pixels >=
+            _scrollCtrl.position.maxScrollExtent * 0.8 &&
+        !_loadingMore &&
+        _hasMore &&
+        !_loading) {
+      _loadMore();
+    }
   }
 
   Future<void> _load() async {
     setState(() {
       _loading = true;
       _error = null;
+      _hasMore = true;
     });
     try {
       final api = context.read<ApiService>();
       final sales = await api.getOrganizerTicketSales(
         scannedOnly: widget.scannedOnly,
+        offset: 0,
+        limit: _pageSize,
       );
-      final combined = sales
-          .map((s) => Map<String, dynamic>.from(s))
-          .toList();
+      final combined =
+          sales.map((s) => Map<String, dynamic>.from(s)).toList();
 
       setState(() {
         _all = combined;
-        _applySearch();
+        _hasMore = sales.length >= _pageSize;
         _loading = false;
       });
     } catch (e) {
@@ -65,38 +83,62 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
     }
   }
 
-  void _applySearch() {
-    final q = _searchCtrl.text.trim().toLowerCase();
-    if (q.isEmpty) {
-      _filtered = List.from(_all);
-    } else {
-      _filtered = _all.where((s) {
-        final attendee =
-            (s['attendee_display_name'] ?? '').toString().toLowerCase();
-        final tier = (s['tier_name'] ?? '').toString().toLowerCase();
-        final code = (s['ticket_code'] ?? '').toString().toLowerCase();
-        final event = (s['event_title'] ?? '').toString().toLowerCase();
-        return attendee.contains(q) ||
-            tier.contains(q) ||
-            code.contains(q) ||
-            event.contains(q);
-      }).toList();
+  Future<void> _loadMore() async {
+    if (_loadingMore || !_hasMore) return;
+    setState(() => _loadingMore = true);
+    try {
+      final api = context.read<ApiService>();
+      final sales = await api.getOrganizerTicketSales(
+        scannedOnly: widget.scannedOnly,
+        offset: _all.length,
+        limit: _pageSize,
+      );
+      if (mounted) {
+        setState(() {
+          _all.addAll(
+              sales.map((s) => Map<String, dynamic>.from(s)));
+          _hasMore = sales.length >= _pageSize;
+          _loadingMore = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingMore = false);
     }
   }
 
+  List<Map<String, dynamic>> get _filtered {
+    final q = _searchCtrl.text.trim().toLowerCase();
+    if (q.isEmpty) return _all;
+    return _all.where((s) {
+      final attendee =
+          (s['attendee_display_name'] ?? '').toString().toLowerCase();
+      final tier = (s['tier_name'] ?? '').toString().toLowerCase();
+      final code = (s['ticket_code'] ?? '').toString().toLowerCase();
+      final event = (s['event_title'] ?? '').toString().toLowerCase();
+      return attendee.contains(q) ||
+          tier.contains(q) ||
+          code.contains(q) ||
+          event.contains(q);
+    }).toList();
+  }
+
   int get _totalRevenue =>
-      _all.fold<int>(0, (s, e) => s + ((e['amount_paid_cents'] ?? 0) as int));
+      _all.fold<int>(
+          0, (s, e) => s + ((e['amount_paid_cents'] ?? 0) as int));
 
   int get _totalCommission =>
-      _all.fold<int>(0, (s, e) => s + ((e['commission_cents'] ?? 0) as int));
+      _all.fold<int>(
+          0, (s, e) => s + ((e['commission_cents'] ?? 0) as int));
 
   int get _totalNetToOrganizer =>
-      _all.fold<int>(0, (s, e) => s + ((e['net_to_organizer_cents'] ?? 0) as int));
+      _all.fold<int>(
+          0, (s, e) => s + ((e['net_to_organizer_cents'] ?? 0) as int));
 
   @override
   Widget build(BuildContext context) {
     final title =
         widget.scannedOnly ? 'All Scanned Tickets' : 'All Ticket Sales';
+    final filtered = _filtered;
 
     return Scaffold(
       appBar: AppBar(
@@ -114,7 +156,6 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
       ),
       body: Column(
         children: [
-          // ── Search ──
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: TextField(
@@ -127,28 +168,28 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
                         icon: const Icon(Icons.clear, size: 18),
                         onPressed: () {
                           _searchCtrl.clear();
-                          setState(() => _applySearch());
+                          setState(() {});
                         },
                       )
                     : null,
                 filled: true,
                 fillColor: AppTheme.cardOf(context),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 12),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: AppTheme.dividerOf(context)),
+                  borderSide:
+                      BorderSide(color: AppTheme.dividerOf(context)),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: AppTheme.dividerOf(context)),
+                  borderSide:
+                      BorderSide(color: AppTheme.dividerOf(context)),
                 ),
               ),
-              onChanged: (_) => setState(() => _applySearch()),
+              onChanged: (_) => setState(() {}),
             ),
           ),
-
-          // ── Stats ──
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
@@ -179,7 +220,7 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
                 if (_searchCtrl.text.isNotEmpty) ...[
                   const SizedBox(width: 8),
                   _chip(
-                    '${_filtered.length} match${_filtered.length == 1 ? '' : 'es'}',
+                    '${filtered.length} match${filtered.length == 1 ? '' : 'es'}',
                     Icons.filter_list_rounded,
                     AppTheme.accentColor,
                   ),
@@ -194,27 +235,40 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
             ),
           ),
           const SizedBox(height: 4),
-
-          // ── List ──
           Expanded(
             child: _loading
                 ? Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
-                      children: List.generate(4, (_) => const ShimmerListTile()),
+                      children: List.generate(
+                          4, (_) => const ShimmerListTile()),
                     ),
                   )
                 : _error != null
                     ? _errorWidget()
-                    : _filtered.isEmpty
+                    : filtered.isEmpty
                         ? _emptyWidget()
                         : RefreshIndicator(
                             onRefresh: _load,
                             child: ListView.builder(
+                              controller: _scrollCtrl,
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 16, vertical: 4),
-                              itemCount: _filtered.length,
-                              itemBuilder: (_, i) => _card(_filtered[i]),
+                              itemCount: filtered.length +
+                                  (_loadingMore ? 1 : 0),
+                              itemBuilder: (_, i) {
+                                if (i >= filtered.length) {
+                                  return const Padding(
+                                    padding: EdgeInsets.symmetric(
+                                        vertical: 20),
+                                    child: Center(
+                                        child:
+                                            CircularProgressIndicator(
+                                                strokeWidth: 2)),
+                                  );
+                                }
+                                return _card(filtered[i]);
+                              },
                             ),
                           ),
           ),
@@ -255,115 +309,121 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
               )
           : null,
       child: Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: AppTheme.cardOf(context),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: isScanned
-              ? AppTheme.successColor.withValues(alpha: 0.25)
-              : AppTheme.dividerOf(context),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: AppTheme.cardOf(context),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isScanned
+                ? AppTheme.successColor.withValues(alpha: 0.25)
+                : AppTheme.dividerOf(context),
           ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: isScanned
-                    ? AppTheme.successColor.withValues(alpha: 0.1)
-                    : AppTheme.surfaceOf(context),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                isScanned
-                    ? Icons.check_circle_rounded
-                    : Icons.confirmation_number_rounded,
-                size: 20,
-                color: isScanned
-                    ? AppTheme.successColor
-                    : AppTheme.textSecondaryOf(context),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(attendee,
-                      style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14,
-                          color: AppTheme.textPrimaryOf(context))),
-                  const SizedBox(height: 2),
-                  Text(eventTitle,
-                      style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: AppTheme.accentColor)),
-                  Text('$tier  •  $code',
-                      style: TextStyle(
-                          fontSize: 11,
-                          color: AppTheme.textSecondaryOf(context))),
-                  if (createdAt.isNotEmpty)
-                    Text(createdAt,
-                        style: TextStyle(
-                            fontSize: 11,
-                            color: AppTheme.textSecondaryOf(context))),
-                  if (isScanned)
-                    Row(
-                      children: [
-                        Icon(Icons.qr_code_scanner,
-                            size: 12, color: AppTheme.successColor),
-                        const SizedBox(width: 3),
-                        Text(
-                          'Scanned${scannedBy != null ? ' by $scannedBy' : ''}',
-                          style: TextStyle(
-                              fontSize: 11, color: AppTheme.successColor),
-                        ),
-                      ],
-                    ),
-                ],
-              ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  amount == 0 ? 'FREE' : '\$${(amount / 100).toStringAsFixed(2)}',
-                  style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 14,
-                      color: amount == 0
-                          ? AppTheme.successColor
-                          : AppTheme.textPrimaryOf(context)),
-                ),
-                if (commission > 0) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    'Net \$${(netAmount / 100).toStringAsFixed(2)}',
-                    style: TextStyle(
-                        fontSize: 10,
-                        color: AppTheme.textSecondaryOf(context)),
-                  ),
-                ],
-              ],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: isScanned
+                      ? AppTheme.successColor.withValues(alpha: 0.1)
+                      : AppTheme.surfaceOf(context),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  isScanned
+                      ? Icons.check_circle_rounded
+                      : Icons.confirmation_number_rounded,
+                  size: 20,
+                  color: isScanned
+                      ? AppTheme.successColor
+                      : AppTheme.textSecondaryOf(context),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(attendee,
+                        style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                            color: AppTheme.textPrimaryOf(context))),
+                    const SizedBox(height: 2),
+                    Text(eventTitle,
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: AppTheme.accentColor)),
+                    Text('$tier  •  $code',
+                        style: TextStyle(
+                            fontSize: 11,
+                            color:
+                                AppTheme.textSecondaryOf(context))),
+                    if (createdAt.isNotEmpty)
+                      Text(createdAt,
+                          style: TextStyle(
+                              fontSize: 11,
+                              color:
+                                  AppTheme.textSecondaryOf(context))),
+                    if (isScanned)
+                      Row(
+                        children: [
+                          Icon(Icons.qr_code_scanner,
+                              size: 12,
+                              color: AppTheme.successColor),
+                          const SizedBox(width: 3),
+                          Text(
+                            'Scanned${scannedBy != null ? ' by $scannedBy' : ''}',
+                            style: TextStyle(
+                                fontSize: 11,
+                                color: AppTheme.successColor),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    amount == 0
+                        ? 'FREE'
+                        : '\$${(amount / 100).toStringAsFixed(2)}',
+                    style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                        color: amount == 0
+                            ? AppTheme.successColor
+                            : AppTheme.textPrimaryOf(context)),
+                  ),
+                  if (commission > 0) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      'Net \$${(netAmount / 100).toStringAsFixed(2)}',
+                      style: TextStyle(
+                          fontSize: 10,
+                          color: AppTheme.textSecondaryOf(context)),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
-    ),
     );
   }
 
@@ -391,7 +451,9 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
               style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: isDark ? AppTheme.textPrimaryOf(context) : color)),
+                  color: isDark
+                      ? AppTheme.textPrimaryOf(context)
+                      : color)),
         ],
       ),
     );
@@ -405,9 +467,11 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
                 size: 48, color: AppTheme.textSecondaryOf(context)),
             const SizedBox(height: 12),
             Text('Failed to load',
-                style: TextStyle(color: AppTheme.textSecondaryOf(context))),
+                style: TextStyle(
+                    color: AppTheme.textSecondaryOf(context))),
             const SizedBox(height: 8),
-            OutlinedButton(onPressed: _load, child: const Text('Retry')),
+            OutlinedButton(
+                onPressed: _load, child: const Text('Retry')),
           ],
         ),
       );
@@ -431,7 +495,8 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
                       ? 'No scanned tickets yet'
                       : 'No ticket sales yet',
               style: TextStyle(
-                  color: AppTheme.textSecondaryOf(context), fontSize: 15),
+                  color: AppTheme.textSecondaryOf(context),
+                  fontSize: 15),
             ),
           ],
         ),

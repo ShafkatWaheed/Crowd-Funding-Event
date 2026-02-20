@@ -231,6 +231,24 @@ class _SponsorTicketCard extends StatelessWidget {
                                     fontSize: 11,
                                     fontWeight: FontWeight.w600,
                                     color: AppTheme.successColor)),
+                            if (ticket.scanCount > 0) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.accentColor.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  '${ticket.scanCount} ${ticket.scanCount == 1 ? 'entry' : 'entries'}',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppTheme.accentColor,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                     ],
@@ -587,6 +605,8 @@ class _SponsorTicketReceiptPage extends StatelessWidget {
                 if (createdDt != null)
                   _detailRow(context, 'Issued',
                       DateFormat('MMM d, y \u2022 h:mm a').format(createdDt)),
+                if (ticket.scanCount > 0)
+                  _detailRow(context, 'Entries', '${ticket.scanCount}'),
                 _detailRow(
                     context,
                     'Status',

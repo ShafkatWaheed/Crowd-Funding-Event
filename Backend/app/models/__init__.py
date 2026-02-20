@@ -17,6 +17,7 @@ from app.models.milestone import FundingMilestone, MilestoneReaction
 from app.models.schedule import EventScheduleItem
 from app.models.sponsor import SponsorProfile, SponsorshipCategory, SponsorBid, BidStatus, SponsorPayment, PaymentStatus, SponsorTicket
 from app.models.bookmark import Bookmark
+from app.models.prerequisite import CategoryPrerequisite, BidPrerequisiteUpload, UploadStatus
 
 __all__ = [
     "User",
@@ -59,4 +60,7 @@ __all__ = [
     "PaymentStatus",
     "SponsorTicket",
     "Bookmark",
+    "CategoryPrerequisite",
+    "BidPrerequisiteUpload",
+    "UploadStatus",
 ]

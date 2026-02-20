@@ -2767,13 +2767,13 @@ Batch A (Foundation) — remaining:
           NotificationScreen
 
 Batch B (Profiles & Prerequisites):
-  [ ] 3. Feature 3 — Sponsor Info for Organizers  ~2 hours
+  [x] 3. Feature 3 — Sponsor Info for Organizers  ~2 hours
         - Backend: sponsor-public-profile endpoint in public_profiles.py
         - Frontend: SponsorProfileScreen, bottom sheet from bid management + organizer sponsors
-  [ ] 4. Feature 4 — Category Prerequisites  ~3 hours
+  [x] 4. Feature 4 — Category Prerequisites  ~3 hours
         - Backend: CategoryPrerequisite + BidPrerequisiteUpload models, migration, API endpoints
-          (create, list, upload, review), block bid acceptance if prereqs not met
-        - Frontend: Organizer prerequisite CRUD, sponsor upload UI, organizer review UI
+          (create, list, delete, upload, list-uploads, review), block bid acceptance if prereqs not met
+        - Frontend: Organizer prerequisite CRUD sheet, sponsor upload docs sheet, organizer review UI in bid cards
 
 Batch C (Social):
   [ ] 5. Feature 5 — Ratings  ~3 hours
@@ -2793,7 +2793,7 @@ Batch D (Structural):
 ### Remaining Migrations (to be applied in order)
 
 1. `ii60i0j1k2l3` — notifications
-2. `kk80k2l3m4n5` — prerequisites
+2. ~~`kk80k2l3m4n5` — prerequisites~~ (applied)
 3. `ll90l3m4n5o6` — ratings
 4. `mm00m4n5o6p7` — multi-role
 

@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../services/api_service.dart';
+import '../profile/sponsor_profile_screen.dart';
 
 class OrganizerSponsorsScreen extends StatefulWidget {
   const OrganizerSponsorsScreen({super.key});
@@ -207,6 +208,10 @@ class _OrganizerSponsorsScreenState extends State<OrganizerSponsorsScreen> {
                                   extra:
                                       s['company_name'] ?? 'Sponsor',
                                 ),
+                                onProfile: () => showSponsorProfileSheet(
+                                  context,
+                                  s['sponsor_user_id'] as int,
+                                ),
                               );
                             },
                           ),
@@ -221,8 +226,9 @@ class _OrganizerSponsorsScreenState extends State<OrganizerSponsorsScreen> {
 class _SponsorCard extends StatelessWidget {
   final Map<String, dynamic> sponsor;
   final VoidCallback onTap;
+  final VoidCallback? onProfile;
 
-  const _SponsorCard({required this.sponsor, required this.onTap});
+  const _SponsorCard({required this.sponsor, required this.onTap, this.onProfile});
 
   @override
   Widget build(BuildContext context) {
@@ -299,6 +305,20 @@ class _SponsorCard extends StatelessWidget {
                 ],
               ),
             ),
+            if (onProfile != null)
+              GestureDetector(
+                onTap: onProfile,
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: AppTheme.accentColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(Icons.person_rounded,
+                      color: AppTheme.accentColor, size: 18),
+                ),
+              ),
+            const SizedBox(width: 6),
             Icon(Icons.chevron_right_rounded,
                 color: AppTheme.textSecondaryOf(context), size: 24),
           ],

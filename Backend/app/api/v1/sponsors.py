@@ -1,7 +1,7 @@
 """
 Sponsor marketplace API endpoints.
 """
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, UploadFile, File
 
 from app.dependencies import DbSession, CurrentUser, CurrentUserOptional, require_feature
 from app.models.user import UserRole
@@ -446,6 +446,192 @@ async def scan_sponsor_ticket(
     result = await sponsor_svc.scan_sponsor_ticket(db, event_id, payload)
     await db.commit()
     return result
+
+
+# ── Category Prerequisites (Organizer creates) ──
+
+@router.post(
+    "/events/{event_id}/sponsorships/{cat_id}/prerequisites",
+    status_code=201,
+    dependencies=[Depends(_feature_guard)],
+)
+async def create_prerequisite(
+    event_id: int,
+    cat_id: int,
+    name: str = Form(...),
+    description: str | None = Form(None),
+    is_required: bool = Form(True),
+    db: DbSession = None,
+    current_user: CurrentUser = None,
+):
+    """Organizer adds a prerequisite to a sponsorship category."""
+    from app.models.prerequisite import CategoryPrerequisite
+    cat = await sponsor_svc._get_category(db, cat_id)
+    await sponsor_svc._require_organizer(db, cat.event_id, current_user)
+    prereq = CategoryPrerequisite(
+        category_id=cat_id, name=name, description=description, is_required=is_required,
+    )
+    db.add(prereq)
+    await db.flush()
+    await db.refresh(prereq)
+    return {"id": prereq.id, "name": prereq.name, "description": prereq.description, "is_required": prereq.is_required}
+
+
+@router.get(
+    "/events/{event_id}/sponsorships/{cat_id}/prerequisites",
+    dependencies=[Depends(_feature_guard)],
+)
+async def list_prerequisites(
+    event_id: int,
+    cat_id: int,
+    db: DbSession = None,
+    current_user: CurrentUser = None,
+):
+    """List prerequisites for a category."""
+    from sqlalchemy import select
+    from app.models.prerequisite import CategoryPrerequisite
+    q = select(CategoryPrerequisite).where(CategoryPrerequisite.category_id == cat_id)
+    items = (await db.execute(q)).scalars().all()
+    return [{"id": p.id, "name": p.name, "description": p.description, "is_required": p.is_required} for p in items]
+
+
+@router.delete(
+    "/events/{event_id}/sponsorships/{cat_id}/prerequisites/{prereq_id}",
+    status_code=204,
+    dependencies=[Depends(_feature_guard)],
+)
+async def delete_prerequisite(
+    event_id: int,
+    cat_id: int,
+    prereq_id: int,
+    db: DbSession = None,
+    current_user: CurrentUser = None,
+):
+    """Organizer deletes a prerequisite."""
+    from sqlalchemy import select
+    from app.models.prerequisite import CategoryPrerequisite
+    cat = await sponsor_svc._get_category(db, cat_id)
+    await sponsor_svc._require_organizer(db, cat.event_id, current_user)
+    prereq = (await db.execute(
+        select(CategoryPrerequisite).where(CategoryPrerequisite.id == prereq_id)
+    )).scalar_one_or_none()
+    if not prereq:
+        raise HTTPException(status_code=404, detail="Prerequisite not found")
+    await db.delete(prereq)
+    await db.flush()
+
+
+# ── Bid Prerequisite Uploads (Sponsor uploads) ──
+
+@router.post(
+    "/bids/{bid_id}/prerequisites/{prereq_id}/upload",
+    dependencies=[Depends(_feature_guard)],
+)
+async def upload_prerequisite_document(
+    bid_id: int,
+    prereq_id: int,
+    file: UploadFile = File(...),
+    db: DbSession = None,
+    current_user: CurrentUser = None,
+):
+    """Sponsor uploads a document for a prerequisite."""
+    from sqlalchemy import select
+    from app.models.prerequisite import BidPrerequisiteUpload
+    from app.models.sponsor import SponsorBid
+    bid = (await db.execute(select(SponsorBid).where(SponsorBid.id == bid_id))).scalar_one_or_none()
+    if not bid or bid.sponsor_user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not your bid")
+
+    import os, uuid
+    upload_dir = "static/uploads/prerequisites"
+    os.makedirs(upload_dir, exist_ok=True)
+    ext = os.path.splitext(file.filename)[1] if file.filename else ".pdf"
+    filename = f"{uuid.uuid4().hex}{ext}"
+    filepath = os.path.join(upload_dir, filename)
+    content = await file.read()
+    with open(filepath, "wb") as f:
+        f.write(content)
+
+    upload = BidPrerequisiteUpload(
+        bid_id=bid_id,
+        prerequisite_id=prereq_id,
+        file_url=f"/static/uploads/prerequisites/{filename}",
+    )
+    db.add(upload)
+    await db.flush()
+    await db.refresh(upload)
+    return {"id": upload.id, "file_url": upload.file_url, "status": upload.status.value}
+
+
+@router.get(
+    "/bids/{bid_id}/prerequisites",
+    dependencies=[Depends(_feature_guard)],
+)
+async def list_bid_prerequisite_uploads(
+    bid_id: int,
+    db: DbSession = None,
+    current_user: CurrentUser = None,
+):
+    """List all prerequisite uploads for a bid."""
+    from sqlalchemy import select
+    from app.models.prerequisite import BidPrerequisiteUpload
+    q = select(BidPrerequisiteUpload).where(BidPrerequisiteUpload.bid_id == bid_id)
+    items = (await db.execute(q)).scalars().all()
+    return [
+        {
+            "id": u.id,
+            "bid_id": u.bid_id,
+            "prerequisite_id": u.prerequisite_id,
+            "file_url": u.file_url,
+            "status": u.status.value,
+            "reviewed_at": u.reviewed_at.isoformat() if u.reviewed_at else None,
+            "reviewer_note": u.reviewer_note,
+        }
+        for u in items
+    ]
+
+
+# ── Review Uploads (Organizer) ──
+
+@router.patch(
+    "/bids/{bid_id}/prerequisites/{prereq_id}/review",
+    dependencies=[Depends(_feature_guard)],
+)
+async def review_prerequisite_upload(
+    bid_id: int,
+    prereq_id: int,
+    status: str = Form(...),
+    reviewer_note: str | None = Form(None),
+    db: DbSession = None,
+    current_user: CurrentUser = None,
+):
+    """Organizer approves or rejects an uploaded prerequisite document."""
+    from sqlalchemy import select
+    from app.models.prerequisite import BidPrerequisiteUpload, UploadStatus
+    from app.models.sponsor import SponsorBid
+    from datetime import datetime, timezone
+    bid = (await db.execute(select(SponsorBid).where(SponsorBid.id == bid_id))).scalar_one_or_none()
+    if not bid:
+        raise HTTPException(status_code=404, detail="Bid not found")
+    cat = await sponsor_svc._get_category(db, bid.category_id)
+    await sponsor_svc._require_organizer(db, cat.event_id, current_user)
+
+    upload = (await db.execute(
+        select(BidPrerequisiteUpload).where(
+            BidPrerequisiteUpload.bid_id == bid_id,
+            BidPrerequisiteUpload.prerequisite_id == prereq_id,
+        )
+    )).scalar_one_or_none()
+    if not upload:
+        raise HTTPException(status_code=404, detail="Upload not found")
+
+    upload.status = UploadStatus(status)
+    upload.reviewed_at = datetime.now(timezone.utc)
+    upload.reviewer_note = reviewer_note
+    await db.flush()
+    await db.refresh(upload)
+
+    return {"id": upload.id, "status": upload.status.value, "reviewer_note": upload.reviewer_note}
 
 
 # ── Public Sponsor Carousel ──

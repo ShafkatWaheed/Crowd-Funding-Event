@@ -892,10 +892,67 @@ class ApiService {
     return resp.data as List;
   }
 
+  // ── Prerequisites ──
+
+  Future<Map<String, dynamic>> createPrerequisite(
+      int eventId, int catId, {required String name, String? description, bool isRequired = true}) async {
+    final formData = FormData.fromMap({
+      'name': name,
+      if (description != null) 'description': description,
+      'is_required': isRequired,
+    });
+    final resp = await dio.post(
+        '/events/$eventId/sponsorships/$catId/prerequisites',
+        data: formData);
+    return resp.data;
+  }
+
+  Future<List<dynamic>> listPrerequisites(int eventId, int catId) async {
+    final resp = await dio.get('/events/$eventId/sponsorships/$catId/prerequisites');
+    return resp.data as List;
+  }
+
+  Future<void> deletePrerequisite(int eventId, int catId, int prereqId) async {
+    await dio.delete('/events/$eventId/sponsorships/$catId/prerequisites/$prereqId');
+  }
+
+  Future<Map<String, dynamic>> uploadPrerequisiteDocument(
+      int bidId, int prereqId, String filePath, String fileName) async {
+    final formData = FormData.fromMap({
+      'file': await MultipartFile.fromFile(filePath, filename: fileName),
+    });
+    final resp = await dio.post(
+        '/bids/$bidId/prerequisites/$prereqId/upload',
+        data: formData);
+    return resp.data;
+  }
+
+  Future<List<dynamic>> listBidPrerequisiteUploads(int bidId) async {
+    final resp = await dio.get('/bids/$bidId/prerequisites');
+    return resp.data as List;
+  }
+
+  Future<Map<String, dynamic>> reviewPrerequisiteUpload(
+      int bidId, int prereqId, {required String status, String? reviewerNote}) async {
+    final formData = FormData.fromMap({
+      'status': status,
+      if (reviewerNote != null) 'reviewer_note': reviewerNote,
+    });
+    final resp = await dio.patch(
+        '/bids/$bidId/prerequisites/$prereqId/review',
+        data: formData);
+    return resp.data;
+  }
+
   // ── Public Profiles ──
 
   Future<Map<String, dynamic>> getPublicProfile(int userId) async {
     final resp = await dio.get('/users/$userId/public-profile');
+    return resp.data;
+  }
+
+  Future<Map<String, dynamic>> getSponsorPublicProfile(int userId) async {
+    final resp = await dio.get('/users/$userId/sponsor-public-profile');
     return resp.data;
   }
 

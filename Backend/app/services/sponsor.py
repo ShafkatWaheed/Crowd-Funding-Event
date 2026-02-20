@@ -282,6 +282,28 @@ async def accept_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorBid:
     if cat.filled_spots >= cat.total_spots:
         raise HTTPException(status_code=400, detail="No spots available — category is full")
 
+    from app.models.prerequisite import CategoryPrerequisite, BidPrerequisiteUpload, UploadStatus
+    required_prereqs = (await db.execute(
+        select(CategoryPrerequisite).where(
+            CategoryPrerequisite.category_id == bid.category_id,
+            CategoryPrerequisite.is_required == True,
+        )
+    )).scalars().all()
+
+    for prereq in required_prereqs:
+        upload = (await db.execute(
+            select(BidPrerequisiteUpload).where(
+                BidPrerequisiteUpload.bid_id == bid.id,
+                BidPrerequisiteUpload.prerequisite_id == prereq.id,
+                BidPrerequisiteUpload.status == UploadStatus.approved,
+            )
+        )).scalar_one_or_none()
+        if not upload:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Required document '{prereq.name}' has not been approved yet",
+            )
+
     bid.status = BidStatus.accepted
     cat.filled_spots += 1
     await db.flush()

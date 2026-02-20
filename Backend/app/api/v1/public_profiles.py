@@ -62,6 +62,63 @@ async def get_public_profile(
     return profile
 
 
+@router.get("/{user_id}/sponsor-public-profile")
+async def get_sponsor_public_profile(
+    user_id: int,
+    db: DbSession,
+    current_user: CurrentUser,
+):
+    """Public sponsor profile with bid statistics. No email/phone."""
+    from app.core.exceptions import NotFoundError
+    from app.models.sponsor import SponsorProfile, SponsorBid, BidStatus, SponsorshipCategory
+
+    user = (await db.execute(
+        select(User).where(User.id == user_id)
+    )).scalar_one_or_none()
+    if not user:
+        raise NotFoundError("User", user_id)
+
+    profile = (await db.execute(
+        select(SponsorProfile).where(SponsorProfile.user_id == user_id)
+    )).scalar_one_or_none()
+
+    total_bids = (await db.execute(
+        select(func.count()).select_from(SponsorBid).where(SponsorBid.sponsor_user_id == user_id)
+    )).scalar_one()
+
+    accepted_bids = (await db.execute(
+        select(func.count()).select_from(SponsorBid).where(
+            SponsorBid.sponsor_user_id == user_id,
+            SponsorBid.status.in_([BidStatus.accepted, BidStatus.paid]),
+        )
+    )).scalar_one()
+
+    events_sponsored = (await db.execute(
+        select(func.count(func.distinct(SponsorshipCategory.event_id)))
+        .select_from(SponsorBid)
+        .join(SponsorshipCategory, SponsorBid.category_id == SponsorshipCategory.id)
+        .where(
+            SponsorBid.sponsor_user_id == user_id,
+            SponsorBid.status.in_([BidStatus.accepted, BidStatus.paid]),
+        )
+    )).scalar_one()
+
+    return {
+        "id": user_id,
+        "display_name": user.display_name,
+        "company_name": profile.company_name if profile else None,
+        "contact_name": profile.contact_name if profile else None,
+        "profession": profile.profession if profile else None,
+        "logo_url": profile.logo_url if profile else None,
+        "description": profile.description if profile else None,
+        "website_url": profile.website_url if profile else None,
+        "member_since": user.created_at.isoformat() if user.created_at else None,
+        "total_bids": total_bids,
+        "accepted_bids": accepted_bids,
+        "events_sponsored": events_sponsored,
+    }
+
+
 @router.get("/{user_id}/public-events")
 async def get_public_events(
     user_id: int,

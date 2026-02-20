@@ -34,6 +34,7 @@ import '../screens/sponsor/organizer_sponsors_screen.dart';
 import '../screens/sponsor/sponsor_events_for_organizer_screen.dart';
 import '../screens/bookmark/bookmarked_events_screen.dart';
 import '../screens/profile/organizer_profile_screen.dart';
+import '../screens/profile/sponsor_profile_screen.dart';
 
 GoRouter createRouter(AuthProvider authProvider) {
   return GoRouter(
@@ -303,6 +304,13 @@ GoRouter createRouter(AuthProvider authProvider) {
         builder: (context, state) {
           final id = int.parse(state.pathParameters['id']!);
           return OrganizerProfileScreen(userId: id);
+        },
+      ),
+      GoRoute(
+        path: '/users/:id/sponsor-profile',
+        builder: (context, state) {
+          final id = int.parse(state.pathParameters['id']!);
+          return SponsorProfileScreen(userId: id);
         },
       ),
 

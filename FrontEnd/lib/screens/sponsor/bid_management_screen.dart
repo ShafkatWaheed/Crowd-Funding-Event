@@ -6,6 +6,7 @@ import '../../models/sponsor.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/shimmer_loaders.dart';
+import '../profile/sponsor_profile_screen.dart';
 
 class BidManagementScreen extends StatefulWidget {
   final int eventId;
@@ -220,11 +221,14 @@ class _BidManagementScreenState extends State<BidManagementScreen> {
                               final bid = filtered[index];
                               return _BidCard(
                                 bid: bid,
+                                eventId: widget.eventId,
+                                categoryId: widget.categoryId,
                                 statusColor: _statusColor(bid.status),
                                 onAccept:
                                     bid.isPending ? () => _accept(bid) : null,
                                 onReject:
                                     bid.isPending ? () => _reject(bid) : null,
+                                onReload: _load,
                               );
                             },
                           ),
@@ -236,22 +240,83 @@ class _BidManagementScreenState extends State<BidManagementScreen> {
   }
 }
 
-class _BidCard extends StatelessWidget {
+class _BidCard extends StatefulWidget {
   final SponsorBid bid;
+  final int eventId;
+  final int categoryId;
   final Color statusColor;
   final VoidCallback? onAccept;
   final VoidCallback? onReject;
+  final VoidCallback? onReload;
 
   const _BidCard({
     required this.bid,
+    required this.eventId,
+    required this.categoryId,
     required this.statusColor,
     this.onAccept,
     this.onReject,
+    this.onReload,
   });
 
   @override
+  State<_BidCard> createState() => _BidCardState();
+}
+
+class _BidCardState extends State<_BidCard> {
+  bool _docsExpanded = false;
+  List<Map<String, dynamic>>? _uploads;
+  List<Map<String, dynamic>>? _prereqs;
+  bool _loadingDocs = false;
+
+  Future<void> _loadDocs() async {
+    if (_loadingDocs) return;
+    setState(() => _loadingDocs = true);
+    try {
+      final api = context.read<ApiService>();
+      final uploads = await api.listBidPrerequisiteUploads(widget.bid.id);
+      final prereqs = await api.listPrerequisites(widget.eventId, widget.categoryId);
+      if (mounted) {
+        setState(() {
+          _uploads = uploads.cast<Map<String, dynamic>>();
+          _prereqs = prereqs.cast<Map<String, dynamic>>();
+          _loadingDocs = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _loadingDocs = false);
+    }
+  }
+
+  void _toggleDocs() {
+    setState(() => _docsExpanded = !_docsExpanded);
+    if (_docsExpanded && _uploads == null) _loadDocs();
+  }
+
+  Future<void> _reviewUpload(int prereqId, String newStatus) async {
+    try {
+      final api = context.read<ApiService>();
+      await api.reviewPrerequisiteUpload(widget.bid.id, prereqId, status: newStatus);
+      if (mounted) AppToast.success(context, 'Document $newStatus');
+      _loadDocs();
+    } catch (e) {
+      if (mounted) AppToast.error(context, ApiService.extractError(e));
+    }
+  }
+
+  Color _uploadStatusColor(String status) {
+    switch (status) {
+      case 'approved': return AppTheme.successColor;
+      case 'rejected': return AppTheme.errorColor;
+      default: return AppTheme.warningColor;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final bid = widget.bid;
     final profile = bid.sponsorProfile;
+    final statusColor = widget.statusColor;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -260,37 +325,47 @@ class _BidCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                CircleAvatar(
-                  radius: 18,
-                  backgroundColor:
-                      AppTheme.accentColor.withValues(alpha: 0.1),
-                  child: Text(
-                    profile?.companyName.substring(0, 1).toUpperCase() ?? '?',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                const SizedBox(width: 10),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        profile?.companyName ?? 'Unknown Sponsor',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.textPrimaryOf(context),
+                  child: GestureDetector(
+                    onTap: () => showSponsorProfileSheet(context, bid.sponsorUserId),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 18,
+                          backgroundColor:
+                              AppTheme.accentColor.withValues(alpha: 0.1),
+                          child: Text(
+                            profile?.companyName.substring(0, 1).toUpperCase() ?? '?',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
                         ),
-                      ),
-                      if (profile?.profession != null)
-                        Text(
-                          profile!.profession,
-                          style: TextStyle(
-                              fontSize: 12,
-                              color: AppTheme.textSecondaryOf(context)),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                profile?.companyName ?? 'Unknown Sponsor',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.accentColor,
+                                ),
+                              ),
+                              if (profile?.profession != null)
+                                Text(
+                                  profile!.profession,
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: AppTheme.textSecondaryOf(context)),
+                                ),
+                            ],
+                          ),
                         ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
+                const SizedBox(width: 8),
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -342,14 +417,158 @@ class _BidCard extends StatelessWidget {
                 ),
               ),
             ],
-            if (onAccept != null || onReject != null) ...[
+            const SizedBox(height: 8),
+            InkWell(
+              onTap: _toggleDocs,
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Icon(Icons.checklist_rounded, size: 16, color: Colors.deepPurple),
+                    const SizedBox(width: 6),
+                    Text('Prerequisites',
+                        style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.deepPurple)),
+                    const Spacer(),
+                    Icon(
+                      _docsExpanded ? Icons.expand_less : Icons.expand_more,
+                      size: 20,
+                      color: AppTheme.textSecondaryOf(context),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (_docsExpanded) ...[
+              if (_loadingDocs)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))),
+                )
+              else if (_prereqs != null && _prereqs!.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text('No requirements for this category.',
+                      style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context))),
+                )
+              else if (_prereqs != null)
+                ..._prereqs!.map((prereq) {
+                  final upload = _uploads?.firstWhere(
+                    (u) => u['prerequisite_id'] == prereq['id'],
+                    orElse: () => <String, dynamic>{},
+                  );
+                  final hasUpload = upload != null && upload.isNotEmpty;
+                  final uploadStatus = hasUpload ? (upload['status'] ?? 'pending') : null;
+                  final isRequired = prereq['is_required'] == true;
+
+                  return Container(
+                    margin: const EdgeInsets.only(top: 6),
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.surfaceOf(context),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppTheme.dividerOf(context)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              isRequired ? Icons.star_rounded : Icons.star_border_rounded,
+                              size: 14,
+                              color: isRequired ? Colors.deepPurple : AppTheme.textSecondaryOf(context),
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                prereq['name'] ?? '',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.textPrimaryOf(context),
+                                ),
+                              ),
+                            ),
+                            if (hasUpload)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: _uploadStatusColor(uploadStatus!).withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  uploadStatus.toUpperCase(),
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: _uploadStatusColor(uploadStatus),
+                                  ),
+                                ),
+                              )
+                            else
+                              Text('Not uploaded',
+                                  style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context))),
+                          ],
+                        ),
+                        if (hasUpload && uploadStatus == 'pending') ...[
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: SizedBox(
+                                  height: 30,
+                                  child: OutlinedButton(
+                                    onPressed: () => _reviewUpload(prereq['id'], 'rejected'),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: AppTheme.errorColor,
+                                      side: const BorderSide(color: AppTheme.errorColor),
+                                      padding: EdgeInsets.zero,
+                                      textStyle: const TextStyle(fontSize: 12),
+                                    ),
+                                    child: const Text('Reject'),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: SizedBox(
+                                  height: 30,
+                                  child: ElevatedButton(
+                                    onPressed: () => _reviewUpload(prereq['id'], 'approved'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppTheme.successColor,
+                                      padding: EdgeInsets.zero,
+                                      textStyle: const TextStyle(fontSize: 12),
+                                    ),
+                                    child: const Text('Approve'),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                        if (hasUpload && upload['reviewer_note'] != null && (upload['reviewer_note'] as String).isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text('Note: ${upload['reviewer_note']}',
+                              style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: AppTheme.textSecondaryOf(context))),
+                        ],
+                      ],
+                    ),
+                  );
+                }),
+            ],
+            if (widget.onAccept != null || widget.onReject != null) ...[
               const SizedBox(height: 12),
               Row(
                 children: [
-                  if (onReject != null)
+                  if (widget.onReject != null)
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: onReject,
+                        onPressed: widget.onReject,
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppTheme.errorColor,
                           side: const BorderSide(color: AppTheme.errorColor),
@@ -357,12 +576,12 @@ class _BidCard extends StatelessWidget {
                         child: const Text('Reject'),
                       ),
                     ),
-                  if (onAccept != null && onReject != null)
+                  if (widget.onAccept != null && widget.onReject != null)
                     const SizedBox(width: 12),
-                  if (onAccept != null)
+                  if (widget.onAccept != null)
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: onAccept,
+                        onPressed: widget.onAccept,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppTheme.successColor,
                         ),

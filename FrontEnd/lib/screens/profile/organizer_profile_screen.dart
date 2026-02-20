@@ -9,6 +9,7 @@ import '../../services/api_service.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/event_lifecycle_bar.dart';
+import '../../widgets/star_rating.dart';
 
 class OrganizerProfileScreen extends StatefulWidget {
   final int userId;
@@ -23,6 +24,7 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
 
   final _scrollCtrl = ScrollController();
   Map<String, dynamic>? _profile;
+  Map<String, dynamic>? _ratingsSummary;
   List<Event> _events = [];
   bool _loadingProfile = true;
   bool _loadingEvents = true;
@@ -36,6 +38,7 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadProfile();
       _loadEvents();
+      _loadRatings();
     });
   }
 
@@ -103,8 +106,16 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
     }
   }
 
+  Future<void> _loadRatings() async {
+    try {
+      final api = context.read<ApiService>();
+      final data = await api.getUserRatingsSummary(widget.userId);
+      if (mounted) setState(() => _ratingsSummary = data);
+    } catch (_) {}
+  }
+
   Future<void> _refreshAll() async {
-    await Future.wait([_loadProfile(), _loadEvents()]);
+    await Future.wait([_loadProfile(), _loadEvents(), _loadRatings()]);
   }
 
   @override
@@ -134,6 +145,10 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
                   const SizedBox(height: 24),
                   if (trust != null) ...[
                     _buildTrustSection(trust),
+                    const SizedBox(height: 24),
+                  ],
+                  if (_ratingsSummary != null && (_ratingsSummary!['count'] as int? ?? 0) > 0) ...[
+                    _buildRatingsSection(),
                     const SizedBox(height: 24),
                   ],
                   _buildEventsSection(),
@@ -302,6 +317,78 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
               minHeight: 6,
               backgroundColor: AppTheme.dividerOf(context),
               valueColor: AlwaysStoppedAnimation(trustColor),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRatingsSection() {
+    final s = _ratingsSummary!;
+    final avgStars = s['avg_stars'] as double?;
+    final count = s['count'] as int? ?? 0;
+    final topReviews = (s['top_reviews'] as List?) ?? [];
+    final worstReviews = (s['worst_reviews'] as List?) ?? [];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.cardOf(context),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.dividerOf(context)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.reviews_rounded, size: 16, color: Colors.amber),
+              const SizedBox(width: 8),
+              Text('Reviews',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textSecondaryOf(context), letterSpacing: 0.3)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          StarRatingDisplay(avgStars: avgStars, count: count, size: 20),
+          if (topReviews.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Text('Top Reviews',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondaryOf(context))),
+            const SizedBox(height: 6),
+            ...topReviews.take(5).map((r) => _reviewTile(r)),
+          ],
+          if (worstReviews.isNotEmpty && (worstReviews.first['stars'] as int? ?? 5) < 4) ...[
+            const SizedBox(height: 14),
+            Text('Critical Reviews',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondaryOf(context))),
+            const SizedBox(height: 6),
+            ...worstReviews.take(5).map((r) => _reviewTile(r)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _reviewTile(dynamic r) {
+    final stars = r['stars'] as int? ?? 0;
+    final name = r['rater_name'] ?? 'Anonymous';
+    final desc = r['description'] as String? ?? '';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          StarRating(rating: stars, size: 12),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (desc.isNotEmpty)
+                  Text(desc, style: TextStyle(fontSize: 12, color: AppTheme.textPrimaryOf(context)), maxLines: 2, overflow: TextOverflow.ellipsis),
+                Text('— $name', style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryOf(context))),
+              ],
             ),
           ),
         ],

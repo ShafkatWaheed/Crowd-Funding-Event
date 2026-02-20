@@ -944,6 +944,40 @@ class ApiService {
     return resp.data;
   }
 
+  // ── Ratings ──
+
+  Future<Map<String, dynamic>> createRating(int eventId, {
+    required String direction,
+    int? ratedUserId,
+    required int stars,
+    String? description,
+  }) async {
+    final resp = await dio.post('/events/$eventId/ratings', data: {
+      'direction': direction,
+      if (ratedUserId != null) 'rated_user_id': ratedUserId,
+      'stars': stars,
+      if (description != null && description.isNotEmpty) 'description': description,
+    });
+    return resp.data;
+  }
+
+  Future<Map<String, dynamic>> getEventRatingsSummary(int eventId) async {
+    final resp = await dio.get('/events/$eventId/ratings/summary');
+    return resp.data;
+  }
+
+  Future<List<dynamic>> getEventRatings(int eventId, {String? direction}) async {
+    final params = <String, dynamic>{};
+    if (direction != null) params['direction'] = direction;
+    final resp = await dio.get('/events/$eventId/ratings', queryParameters: params);
+    return resp.data as List;
+  }
+
+  Future<Map<String, dynamic>> getUserRatingsSummary(int userId) async {
+    final resp = await dio.get('/users/$userId/ratings-received');
+    return resp.data;
+  }
+
   // ── Public Profiles ──
 
   Future<Map<String, dynamic>> getPublicProfile(int userId) async {

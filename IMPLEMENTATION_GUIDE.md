@@ -2776,12 +2776,12 @@ Batch B (Profiles & Prerequisites):
         - Frontend: Organizer prerequisite CRUD sheet, sponsor upload docs sheet, organizer review UI in bid cards
 
 Batch C (Social):
-  [ ] 5. Feature 5 — Ratings  ~3 hours
+  [x] 5. Feature 5 — Ratings  ~3 hours
         - Backend: Rating model, migration, ratings.py router (create, event summary,
-          full list, user summary)
+          full list, user summary), registered in router.py
         - Frontend: Reviews section on completed events (aggregate + top 5 best/worst),
-          star picker + description form, reviews on organizer/sponsor profiles,
-          StarRating widget
+          star picker + description form, all-reviews sheet for organizers,
+          reviews on organizer/sponsor profiles, StarRating + StarRatingDisplay widgets
 
 Batch D (Structural):
   [ ] 7. Feature 7 — Multi-Role  ~3 hours
@@ -2794,7 +2794,7 @@ Batch D (Structural):
 
 1. `ii60i0j1k2l3` — notifications
 2. ~~`kk80k2l3m4n5` — prerequisites~~ (applied)
-3. `ll90l3m4n5o6` — ratings
+3. ~~`ll90l3m4n5o6` — ratings~~ (applied)
 4. `mm00m4n5o6p7` — multi-role
 
 Note: Bookmarks and scan_count migrations are already applied.

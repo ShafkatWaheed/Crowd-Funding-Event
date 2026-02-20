@@ -7,6 +7,7 @@ import '../../config/theme.dart';
 import '../../services/api_service.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../widgets/app_toast.dart';
+import '../../widgets/star_rating.dart';
 
 class SponsorProfileScreen extends StatefulWidget {
   final int userId;
@@ -18,12 +19,16 @@ class SponsorProfileScreen extends StatefulWidget {
 
 class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
   Map<String, dynamic>? _profile;
+  Map<String, dynamic>? _ratingsSummary;
   bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _load();
+      _loadRatings();
+    });
   }
 
   Future<void> _load() async {
@@ -39,6 +44,14 @@ class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
     }
   }
 
+  Future<void> _loadRatings() async {
+    try {
+      final api = context.read<ApiService>();
+      final data = await api.getUserRatingsSummary(widget.userId);
+      if (mounted) setState(() => _ratingsSummary = data);
+    } catch (_) {}
+  }
+
   @override
   Widget build(BuildContext context) {
     final companyName = _profile?['company_name'] ?? _profile?['display_name'] ?? 'Sponsor';
@@ -46,7 +59,7 @@ class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(_loading ? 'Sponsor Profile' : companyName)),
       body: RefreshIndicator(
-        onRefresh: _load,
+        onRefresh: () async { await _load(); await _loadRatings(); },
         child: _loading
             ? Padding(
                 padding: const EdgeInsets.all(16),
@@ -64,6 +77,10 @@ class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
                           (_profile!['description'] as String).isNotEmpty) ...[
                         const SizedBox(height: 20),
                         _buildDescription(),
+                      ],
+                      if (_ratingsSummary != null && (_ratingsSummary!['count'] as int? ?? 0) > 0) ...[
+                        const SizedBox(height: 20),
+                        _buildRatingsSection(),
                       ],
                     ],
                   ),
@@ -305,6 +322,78 @@ class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
                 fontSize: 14,
                 height: 1.5,
                 color: AppTheme.textPrimaryOf(context)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRatingsSection() {
+    final s = _ratingsSummary!;
+    final avgStars = s['avg_stars'] as double?;
+    final count = s['count'] as int? ?? 0;
+    final topReviews = (s['top_reviews'] as List?) ?? [];
+    final worstReviews = (s['worst_reviews'] as List?) ?? [];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.cardOf(context),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.dividerOf(context)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.reviews_rounded, size: 16, color: Colors.amber),
+              const SizedBox(width: 8),
+              Text('Reviews',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textSecondaryOf(context), letterSpacing: 0.3)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          StarRatingDisplay(avgStars: avgStars, count: count, size: 20),
+          if (topReviews.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Text('Top Reviews',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondaryOf(context))),
+            const SizedBox(height: 6),
+            ...topReviews.take(5).map((r) => _reviewTile(r)),
+          ],
+          if (worstReviews.isNotEmpty && (worstReviews.first['stars'] as int? ?? 5) < 4) ...[
+            const SizedBox(height: 14),
+            Text('Critical Reviews',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondaryOf(context))),
+            const SizedBox(height: 6),
+            ...worstReviews.take(5).map((r) => _reviewTile(r)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _reviewTile(dynamic r) {
+    final stars = r['stars'] as int? ?? 0;
+    final name = r['rater_name'] ?? 'Anonymous';
+    final desc = r['description'] as String? ?? '';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          StarRating(rating: stars, size: 12),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (desc.isNotEmpty)
+                  Text(desc, style: TextStyle(fontSize: 12, color: AppTheme.textPrimaryOf(context)), maxLines: 2, overflow: TextOverflow.ellipsis),
+                Text('— $name', style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryOf(context))),
+              ],
+            ),
           ),
         ],
       ),

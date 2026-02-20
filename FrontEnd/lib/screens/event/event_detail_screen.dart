@@ -18,6 +18,7 @@ import '../../providers/event_provider.dart';
 import '../../widgets/event_lifecycle_bar.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../widgets/app_toast.dart';
+import '../../widgets/star_rating.dart';
 import '../../services/api_service.dart';
 import 'ticket_receipt_screen.dart';
 import 'purchase_group_receipt_screen.dart';
@@ -1164,6 +1165,13 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
                               // ──────── Sponsor Carousel (public) ────────
                               _SponsorCarousel(eventId: widget.eventId),
+
+                              // ──────── Reviews (completed events) ────────
+                              if (event.status == EventStatus.completed)
+                                _ReviewsSection(
+                                  eventId: widget.eventId,
+                                  organizerId: event.organizerId,
+                                ),
 
                               // ──────── Event Feed / Posts (self-contained) ────────
                               const SizedBox(height: 32),
@@ -7436,6 +7444,400 @@ class _SponsorCarouselState extends State<_SponsorCarousel> {
           ),
         ),
       ],
+    );
+  }
+}
+
+
+// ═══════════════════════════════════════════
+//  Reviews Section (completed events)
+// ═══════════════════════════════════════════
+
+class _ReviewsSection extends StatefulWidget {
+  final int eventId;
+  final int organizerId;
+  const _ReviewsSection({required this.eventId, required this.organizerId});
+
+  @override
+  State<_ReviewsSection> createState() => _ReviewsSectionState();
+}
+
+class _ReviewsSectionState extends State<_ReviewsSection> {
+  Map<String, dynamic>? _summary;
+  bool _loading = true;
+  int _selectedStars = 0;
+  final _descCtrl = TextEditingController();
+  bool _submitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _descCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    try {
+      final api = context.read<ApiService>();
+      final data = await api.getEventRatingsSummary(widget.eventId);
+      if (mounted) setState(() { _summary = data; _loading = false; });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _submit() async {
+    if (_selectedStars == 0 || _submitting) return;
+    setState(() => _submitting = true);
+    try {
+      final api = context.read<ApiService>();
+      await api.createRating(
+        widget.eventId,
+        direction: 'customer_to_event',
+        stars: _selectedStars,
+        description: _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
+      );
+      if (mounted) {
+        AppToast.success(context, 'Rating submitted!');
+        _descCtrl.clear();
+        _selectedStars = 0;
+        _load();
+      }
+    } catch (e) {
+      if (mounted) AppToast.error(context, ApiService.extractError(e));
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 16),
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      );
+    }
+    if (_summary == null) return const SizedBox.shrink();
+
+    final avgStars = _summary!['avg_stars'] as double?;
+    final count = _summary!['count'] as int? ?? 0;
+    final topReviews = (_summary!['top_reviews'] as List?) ?? [];
+    final worstReviews = (_summary!['worst_reviews'] as List?) ?? [];
+    final myRating = _summary!['my_rating'];
+    final user = context.watch<AuthProvider>().user;
+    final isCustomer = user != null && user.isCustomer;
+    final isOrganizer = user != null && (user.isOrganizer || user.isAdmin);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 24, 0, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                Icon(Icons.reviews_rounded, size: 18, color: Colors.amber),
+                const SizedBox(width: 8),
+                Text('Reviews',
+                    style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textPrimaryOf(context))),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppTheme.cardOf(context),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppTheme.dividerOf(context)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  StarRatingDisplay(avgStars: avgStars, count: count, size: 22),
+                  if (count == 0)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text('No reviews yet. Be the first to rate!',
+                          style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryOf(context))),
+                    ),
+
+                  if (topReviews.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Text('Top Reviews',
+                        style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.textSecondaryOf(context))),
+                    const SizedBox(height: 8),
+                    ...topReviews.take(5).map((r) => _reviewCard(r)),
+                  ],
+
+                  if (worstReviews.isNotEmpty && worstReviews.first['stars'] < 4) ...[
+                    const SizedBox(height: 16),
+                    Text('Critical Reviews',
+                        style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.textSecondaryOf(context))),
+                    const SizedBox(height: 8),
+                    ...worstReviews.take(5).map((r) => _reviewCard(r)),
+                  ],
+
+                  if (isCustomer && myRating == null) ...[
+                    const Divider(height: 28),
+                    Text('Rate this event',
+                        style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.textPrimaryOf(context))),
+                    const SizedBox(height: 8),
+                    StarRating(
+                      rating: _selectedStars,
+                      onChanged: (v) => setState(() => _selectedStars = v),
+                      size: 36,
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _descCtrl,
+                      decoration: InputDecoration(
+                        hintText: 'Write your review (optional)...',
+                        filled: true,
+                        fillColor: AppTheme.inputFillOf(context),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      ),
+                      maxLines: 3,
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _selectedStars > 0 && !_submitting ? _submit : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.amber.shade700,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: _submitting
+                            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            : const Text('Submit Rating', style: TextStyle(fontWeight: FontWeight.w700)),
+                      ),
+                    ),
+                  ],
+
+                  if (isCustomer && myRating != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: Row(
+                        children: [
+                          Icon(Icons.check_circle_rounded, size: 16, color: AppTheme.successColor),
+                          const SizedBox(width: 6),
+                          Text('You rated ${myRating['stars']} star${myRating['stars'] == 1 ? '' : 's'}',
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.successColor)),
+                        ],
+                      ),
+                    ),
+
+                  if (isOrganizer) ...[
+                    const Divider(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () => _showAllReviews(context),
+                        icon: const Icon(Icons.list_alt_rounded, size: 18),
+                        label: const Text('View All Reviews', style: TextStyle(fontWeight: FontWeight.w600)),
+                        style: OutlinedButton.styleFrom(
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _reviewCard(dynamic r) {
+    final stars = r['stars'] as int? ?? 0;
+    final name = r['rater_name'] ?? 'Anonymous';
+    final desc = r['description'] as String? ?? '';
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          StarRating(rating: stars, size: 14),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (desc.isNotEmpty)
+                  Text(desc,
+                      style: TextStyle(fontSize: 13, color: AppTheme.textPrimaryOf(context)),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis),
+                Text('— $name',
+                    style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context))),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAllReviews(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      backgroundColor: AppTheme.cardOf(context),
+      builder: (ctx) => _AllReviewsSheet(eventId: widget.eventId),
+    );
+  }
+}
+
+
+class _AllReviewsSheet extends StatefulWidget {
+  final int eventId;
+  const _AllReviewsSheet({required this.eventId});
+
+  @override
+  State<_AllReviewsSheet> createState() => _AllReviewsSheetState();
+}
+
+class _AllReviewsSheetState extends State<_AllReviewsSheet> {
+  List<Map<String, dynamic>> _reviews = [];
+  bool _loading = true;
+  String? _directionFilter;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final api = context.read<ApiService>();
+      final data = await api.getEventRatings(widget.eventId, direction: _directionFilter);
+      if (mounted) setState(() { _reviews = data.cast<Map<String, dynamic>>(); _loading = false; });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  static const _directions = [
+    ('All', null),
+    ('Event', 'customer_to_event'),
+    ('Organizer', 'customer_to_organizer'),
+    ('Sponsor', 'organizer_to_sponsor'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.7,
+      minChildSize: 0.4,
+      maxChildSize: 0.9,
+      builder: (ctx, scrollCtrl) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+        child: Column(
+          children: [
+            Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(color: AppTheme.dividerOf(context), borderRadius: BorderRadius.circular(2)),
+            ),
+            const SizedBox(height: 14),
+            Text('All Reviews', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.textPrimaryOf(context))),
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 34,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: _directions.map((d) {
+                  final isActive = _directionFilter == d.$2;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      label: Text(d.$1),
+                      selected: isActive,
+                      onSelected: (_) {
+                        setState(() { _directionFilter = d.$2; _loading = true; });
+                        _load();
+                      },
+                      selectedColor: Colors.amber,
+                      labelStyle: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: isActive ? Colors.white : AppTheme.textPrimaryOf(context),
+                      ),
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Expanded(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+                  : _reviews.isEmpty
+                      ? Center(child: Text('No reviews found.', style: TextStyle(color: AppTheme.textSecondaryOf(context))))
+                      : ListView.separated(
+                          controller: scrollCtrl,
+                          itemCount: _reviews.length,
+                          separatorBuilder: (_, __) => const Divider(height: 1),
+                          itemBuilder: (ctx, i) {
+                            final r = _reviews[i];
+                            final stars = r['stars'] as int? ?? 0;
+                            return ListTile(
+                              dense: true,
+                              leading: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  StarRating(rating: stars, size: 12),
+                                ],
+                              ),
+                              title: Text(r['description'] ?? '',
+                                  style: TextStyle(fontSize: 13, color: AppTheme.textPrimaryOf(context)),
+                                  maxLines: 2, overflow: TextOverflow.ellipsis),
+                              subtitle: Text('${r['rater_name']} · ${r['direction']?.toString().replaceAll('_', ' ') ?? ''}',
+                                  style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context))),
+                            );
+                          },
+                        ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

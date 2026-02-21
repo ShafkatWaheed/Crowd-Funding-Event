@@ -1002,4 +1002,52 @@ class ApiService {
     final resp = await dio.post('/events/$eventId/sponsorships/$catId/bids/$bidId/refund');
     return resp.data;
   }
+
+  // ── Sponsor Category Templates ──
+
+  Future<List<dynamic>> getSponsorCategoryTemplates() async {
+    final resp = await dio.get('/me/sponsor-category-templates');
+    return resp.data as List;
+  }
+
+  Future<Map<String, dynamic>> createSponsorCategoryTemplate(Map<String, dynamic> data) async {
+    final resp = await dio.post('/me/sponsor-category-templates', data: data);
+    return resp.data;
+  }
+
+  Future<Map<String, dynamic>> updateSponsorCategoryTemplate(int id, Map<String, dynamic> data) async {
+    final resp = await dio.patch('/me/sponsor-category-templates/$id', data: data);
+    return resp.data;
+  }
+
+  Future<void> deleteSponsorCategoryTemplate(int id) async {
+    await dio.delete('/me/sponsor-category-templates/$id');
+  }
+
+  Future<Map<String, dynamic>> copyTemplateToEvent(int eventId, int templateId) async {
+    final resp = await dio.post('/events/$eventId/sponsorships/from-template/$templateId');
+    return resp.data;
+  }
+
+  Future<List<dynamic>> listTemplatePrerequisites(int templateId) async {
+    final resp = await dio.get('/me/sponsor-category-templates/$templateId/prerequisites');
+    return resp.data as List;
+  }
+
+  Future<Map<String, dynamic>> createTemplatePrerequisite(
+      int templateId, {required String name, String? description, bool isRequired = true}) async {
+    final formData = FormData.fromMap({
+      'name': name,
+      if (description != null) 'description': description,
+      'is_required': isRequired,
+    });
+    final resp = await dio.post(
+        '/me/sponsor-category-templates/$templateId/prerequisites',
+        data: formData);
+    return resp.data;
+  }
+
+  Future<void> deleteTemplatePrerequisite(int templateId, int prereqId) async {
+    await dio.delete('/me/sponsor-category-templates/$templateId/prerequisites/$prereqId');
+  }
 }

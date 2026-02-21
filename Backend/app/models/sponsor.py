@@ -3,7 +3,7 @@ Sponsor marketplace models: profiles, categories, bids, payments, tickets.
 """
 import enum
 from datetime import datetime
-from sqlalchemy import String, Text, Integer, DateTime, ForeignKey, Index, Enum, UniqueConstraint
+from sqlalchemy import Boolean, String, Text, Integer, DateTime, ForeignKey, Index, Enum, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -30,7 +30,9 @@ class SponsorshipCategory(Base):
     __tablename__ = "sponsorship_categories"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    event_id: Mapped[int] = mapped_column(ForeignKey("events.id"), nullable=False)
+    event_id: Mapped[int | None] = mapped_column(ForeignKey("events.id"), nullable=True)
+    organizer_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    is_template: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
@@ -41,6 +43,7 @@ class SponsorshipCategory(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 
     event = relationship("Event", back_populates="sponsorship_categories")
+    organizer = relationship("User", foreign_keys=[organizer_id])
     bids = relationship("SponsorBid", back_populates="category", cascade="all, delete-orphan")
 
     __table_args__ = (

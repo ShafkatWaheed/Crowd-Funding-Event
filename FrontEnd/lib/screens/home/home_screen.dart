@@ -1555,6 +1555,17 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(width: 12),
                     _quickActionCard(
+                      icon: Icons.category_rounded,
+                      label: 'Categories',
+                      color: const Color(0xFF6A1B9A),
+                      onTap: () => context.push('/sponsor-category-templates'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    _quickActionCard(
                       icon: Icons.bookmark_rounded,
                       label: 'Bookmarks',
                       color: const Color(0xFFFFC043),
@@ -2278,6 +2289,12 @@ class _HomeScreenState extends State<HomeScreen> {
                             icon: Icons.confirmation_number_rounded,
                             label: 'Ticket Strategies',
                             onTap: () => context.push('/ticket-strategies'),
+                          ),
+                          Divider(height: 1, indent: 56, color: AppTheme.dividerOf(context)),
+                          _profileTile(
+                            icon: Icons.category_rounded,
+                            label: 'Sponsor Categories',
+                            onTap: () => context.push('/sponsor-category-templates'),
                           ),
                           Divider(height: 1, indent: 56, color: AppTheme.dividerOf(context)),
                         ],

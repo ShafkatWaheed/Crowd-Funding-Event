@@ -31,6 +31,7 @@ import '../screens/sponsor/bid_management_screen.dart';
 import '../screens/sponsor/sponsor_ticket_screen.dart';
 import '../screens/sponsor/sponsor_dashboard_screen.dart';
 import '../screens/sponsor/organizer_sponsors_screen.dart';
+import '../screens/sponsor/sponsor_category_templates_screen.dart';
 import '../screens/sponsor/sponsor_events_for_organizer_screen.dart';
 import '../screens/bookmark/bookmarked_events_screen.dart';
 import '../screens/profile/organizer_profile_screen.dart';
@@ -244,6 +245,12 @@ GoRouter createRouter(AuthProvider authProvider) {
       GoRoute(
         path: '/ticket-strategies',
         builder: (context, state) => const TicketStrategiesScreen(),
+      ),
+
+      // ─── Sponsor Category Templates ───
+      GoRoute(
+        path: '/sponsor-category-templates',
+        builder: (context, state) => const SponsorCategoryTemplatesScreen(),
       ),
 
       // ─── Organizer: Sponsors ───

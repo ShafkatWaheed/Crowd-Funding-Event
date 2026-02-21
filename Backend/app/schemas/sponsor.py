@@ -61,7 +61,9 @@ class CategoryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    event_id: int
+    event_id: int | None = None
+    organizer_id: int | None = None
+    is_template: bool = False
     name: str
     description: str | None = None
     image_url: str | None = None

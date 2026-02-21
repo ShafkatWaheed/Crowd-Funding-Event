@@ -121,9 +121,11 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   bool _hasSchedule = false;
   final List<_ScheduleDayInput> _scheduleDays = [];
 
-  // Sponsorship Categories
+  // Sponsorship Categories (template-based)
   bool _showSponsorshipSection = false;
-  final List<_SponsorCategoryInput> _sponsorCategories = [];
+  List<Map<String, dynamic>> _sponsorTemplates = [];
+  final Set<int> _selectedTemplateIds = {};
+  bool _loadingTemplates = false;
 
   // Event Images
   final List<XFile> _pickedImages = [];
@@ -136,6 +138,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     _loadVenues();
     _loadStrategies();
     _loadDiscounts();
+    _loadSponsorTemplates();
   }
 
   @override
@@ -195,6 +198,17 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       if (mounted) setState(() { _discountStrategies = data.cast<Map<String, dynamic>>(); _discountsLoading = false; });
     } catch (e) {
       if (mounted) setState(() { _discountsError = 'Failed to load discounts'; _discountsLoading = false; });
+    }
+  }
+
+  Future<void> _loadSponsorTemplates() async {
+    setState(() => _loadingTemplates = true);
+    try {
+      final api = context.read<ApiService>();
+      final data = await api.getSponsorCategoryTemplates();
+      if (mounted) setState(() { _sponsorTemplates = data.cast<Map<String, dynamic>>(); _loadingTemplates = false; });
+    } catch (_) {
+      if (mounted) setState(() => _loadingTemplates = false);
     }
   }
 
@@ -775,21 +789,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         }
       }
 
-      for (final sc in _sponsorCategories) {
-        final name = sc.nameCtrl.text.trim();
-        if (name.isEmpty) continue;
-        final spotsText = sc.spotsCtrl.text.trim();
-        final minBidText = sc.minBidCtrl.text.trim();
-        if (spotsText.isEmpty || minBidText.isEmpty) continue;
+      for (final templateId in _selectedTemplateIds) {
         try {
-          await api.createSponsorshipCategory(eventId, {
-            'name': name,
-            if (sc.descCtrl.text.trim().isNotEmpty)
-              'description': sc.descCtrl.text.trim(),
-            'total_spots': int.parse(spotsText),
-            'min_bid_cents': (double.parse(minBidText) * 100).round(),
-            'sort_order': _sponsorCategories.indexOf(sc),
-          });
+          await api.copyTemplateToEvent(eventId, templateId);
         } catch (_) {}
       }
 
@@ -3184,7 +3186,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                           color:
                               AppTheme.textPrimaryOf(context))),
                 ),
-                if (_sponsorCategories.isNotEmpty)
+                if (_selectedTemplateIds.isNotEmpty)
                   Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 8, vertical: 2),
@@ -3194,7 +3196,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
-                        '${_sponsorCategories.length}',
+                        '${_selectedTemplateIds.length}',
                         style: const TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
@@ -3225,24 +3227,111 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                for (int i = 0;
-                    i < _sponsorCategories.length;
-                    i++) ...[
-                  _buildSponsorCategoryCard(i),
-                  if (i < _sponsorCategories.length - 1)
-                    const SizedBox(height: 10),
-                ],
-                const SizedBox(height: 10),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () => setState(() =>
-                        _sponsorCategories
-                            .add(_SponsorCategoryInput())),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Add Category'),
+                if (_loadingTemplates)
+                  const Center(child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ))
+                else if (_sponsorTemplates.isEmpty)
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        children: [
+                          Text('No sponsor categories yet',
+                              style: TextStyle(color: AppTheme.textSecondaryOf(context))),
+                          const SizedBox(height: 8),
+                          OutlinedButton.icon(
+                            onPressed: () => context.push('/sponsor-category-templates'),
+                            icon: const Icon(Icons.add, size: 18),
+                            label: const Text('Create Categories'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else ...[
+                  Text('Select categories to attach:',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimaryOf(context))),
+                  const SizedBox(height: 8),
+                  ..._sponsorTemplates.map((t) {
+                    final id = t['id'] as int;
+                    final selected = _selectedTemplateIds.contains(id);
+                    final minBid = t['min_bid_cents'] ?? 0;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: () => setState(() {
+                          if (selected) {
+                            _selectedTemplateIds.remove(id);
+                          } else {
+                            _selectedTemplateIds.add(id);
+                          }
+                          _markDirty();
+                        }),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: selected
+                                ? Colors.teal.withValues(alpha: 0.08)
+                                : AppTheme.surfaceOf(context),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: selected
+                                  ? Colors.teal.withValues(alpha: 0.4)
+                                  : AppTheme.dividerOf(context),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                selected ? Icons.check_circle_rounded : Icons.circle_outlined,
+                                size: 20,
+                                color: selected ? Colors.teal : AppTheme.textSecondaryOf(context),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(t['name'] ?? '',
+                                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13,
+                                            color: AppTheme.textPrimaryOf(context))),
+                                    if (t['description'] != null && (t['description'] as String).isNotEmpty)
+                                      Text(t['description'],
+                                          maxLines: 1, overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(fontSize: 11,
+                                              color: AppTheme.textSecondaryOf(context))),
+                                  ],
+                                ),
+                              ),
+                              Text('${t['total_spots'] ?? 0} spots',
+                                  style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context))),
+                              const SizedBox(width: 8),
+                              Text('\$${(minBid / 100).toStringAsFixed(0)} min',
+                                  style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context))),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                  const SizedBox(height: 6),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: () async {
+                        await context.push('/sponsor-category-templates');
+                        _loadSponsorTemplates();
+                      },
+                      icon: const Icon(Icons.settings, size: 16),
+                      label: const Text('Manage Templates'),
+                      style: TextButton.styleFrom(foregroundColor: Colors.teal),
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
@@ -3354,9 +3443,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                     'Capacity': _capacityCtrl.text.isNotEmpty
                         ? _capacityCtrl.text
                         : 'Not set',
-                    'Sponsors': _sponsorCategories.isEmpty
+                    'Sponsors': _selectedTemplateIds.isEmpty
                         ? 'None'
-                        : '${_sponsorCategories.length} categories',
+                        : '${_selectedTemplateIds.length} categories',
                   },
                 ),
                 const SizedBox(height: 8),
@@ -3693,85 +3782,6 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     );
   }
 
-  Widget _buildSponsorCategoryCard(int index) {
-    final sc = _sponsorCategories[index];
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.teal.withValues(alpha: 0.03),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-            color: Colors.teal.withValues(alpha: 0.15)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text('Category ${index + 1}',
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13)),
-              const Spacer(),
-              IconButton(
-                icon: const Icon(Icons.close, size: 18),
-                onPressed: () => setState(
-                    () => _sponsorCategories.removeAt(index)),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          TextFormField(
-            controller: sc.nameCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Category Name *',
-              hintText: 'e.g. Gold Sponsor, Food Stall',
-              isDense: true,
-            ),
-          ),
-          const SizedBox(height: 8),
-          TextFormField(
-            controller: sc.descCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Description',
-              isDense: true,
-            ),
-            maxLines: 2,
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: TextFormField(
-                  controller: sc.spotsCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Total Spots *',
-                    isDense: true,
-                  ),
-                  keyboardType: TextInputType.number,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextFormField(
-                  controller: sc.minBidCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Min Bid (\$) *',
-                    isDense: true,
-                  ),
-                  keyboardType:
-                      const TextInputType.numberWithOptions(
-                          decimal: true),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _StrategyTierInput {
@@ -3799,13 +3809,6 @@ class _ScheduleSlotInput {
   _ScheduleSlotInput()
       : startTime = const TimeOfDay(hour: 9, minute: 0),
         endTime = const TimeOfDay(hour: 10, minute: 0);
-}
-
-class _SponsorCategoryInput {
-  final nameCtrl = TextEditingController();
-  final descCtrl = TextEditingController();
-  final spotsCtrl = TextEditingController(text: '1');
-  final minBidCtrl = TextEditingController(text: '100.00');
 }
 
 class _SearchableDropdown<T> extends StatefulWidget {

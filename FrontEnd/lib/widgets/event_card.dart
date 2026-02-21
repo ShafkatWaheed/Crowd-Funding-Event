@@ -58,11 +58,13 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
                 ? AppShadow.soft(isDark)
                 : AppShadow.card(isDark),
           ),
+          clipBehavior: Clip.antiAlias,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
               _buildHeader(context, event, isDark),
-              _buildBody(context, event),
+              Flexible(child: _buildBody(context, event)),
               if (event.maxCapacity > 0)
                 _buildCapacityBar(context),
             ],
@@ -148,75 +150,79 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
             ),
           ],
 
-          if (_attendeeCount > 0 || event.likeCount > 0) ...[
-            AppSpacing.vMd,
-            Row(
-              children: [
-                if (_attendeeCount > 0)
-                  _StatChip(
-                    icon: Icons.group_rounded,
-                    value: event.maxCapacity > 0
-                        ? '$_attendeeCount / ${event.maxCapacity}'
-                        : '$_attendeeCount going',
-                  ),
-                if (event.likeCount > 0)
-                  _StatChip(
-                    icon: Icons.favorite_rounded,
-                    value: '${event.likeCount}',
-                  ),
-              ],
-            ),
-          ],
+          AppSpacing.vMd,
+          Row(
+            children: [
+              _StatChip(
+                icon: Icons.favorite_rounded,
+                value: '${event.likeCount}',
+              ),
+              if (_attendeeCount > 0)
+                _StatChip(
+                  icon: Icons.group_rounded,
+                  value: event.maxCapacity > 0
+                      ? '$_attendeeCount / ${event.maxCapacity}'
+                      : '$_attendeeCount going',
+                ),
+            ],
+          ),
 
           if (event.fundingGoalCents != null &&
               event.fundingGoalCents! > 0) ...[
             AppSpacing.vMd,
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  '${event.totalPledgedFormatted} raised',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.successColor,
-                    fontSize: 14,
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: AppRadius.sm,
+                    child: LinearProgressIndicator(
+                      value: event.fundingProgress.clamp(0.0, 1.0),
+                      minHeight: 5,
+                      backgroundColor: AppTheme.dividerOf(context),
+                      valueColor: AlwaysStoppedAnimation(
+                        event.fundingProgress >= 1.0
+                            ? AppTheme.successColor
+                            : AppTheme.accentColor,
+                      ),
+                    ),
                   ),
                 ),
+                AppSpacing.hSm,
                 Text(
-                  'Goal: ${event.fundingGoalFormatted}',
+                  '${(event.fundingProgress * 100).clamp(0, 999).toStringAsFixed(0)}% raised',
                   style: TextStyle(
-                    color: AppTheme.textSecondaryOf(context),
-                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                    color: event.fundingProgress >= 1.0
+                        ? AppTheme.successColor
+                        : AppTheme.accentColor,
                   ),
                 ),
+                if (event.fundingEndAt != null) ...[
+                  AppSpacing.hSm,
+                  Text(
+                    '·',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textSecondaryOf(context),
+                    ),
+                  ),
+                  AppSpacing.hSm,
+                  Text(
+                    event.fundingHasTimeLeft
+                        ? event.fundingTimeLeftFormatted
+                        : 'Ended',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                      color: event.fundingHasTimeLeft
+                          ? AppTheme.textSecondaryOf(context)
+                          : AppTheme.errorColor,
+                    ),
+                  ),
+                ],
               ],
             ),
-            const SizedBox(height: 6),
-            ClipRRect(
-              borderRadius: AppRadius.sm,
-              child: LinearProgressIndicator(
-                value: event.fundingProgress.clamp(0.0, 1.0),
-                minHeight: 5,
-                backgroundColor: AppTheme.dividerOf(context),
-                valueColor: AlwaysStoppedAnimation(
-                  event.fundingProgress >= 1.0
-                      ? AppTheme.successColor
-                      : AppTheme.accentColor,
-                ),
-              ),
-            ),
-            if (event.fundingEndAt != null) ...[
-              AppSpacing.vXs,
-              Text(
-                event.fundingTimeLeftFormatted,
-                style: TextStyle(
-                  color: event.fundingHasTimeLeft
-                      ? AppTheme.textSecondaryOf(context)
-                      : AppTheme.errorColor,
-                  fontSize: 12,
-                ),
-              ),
-            ],
           ],
         ],
       ),

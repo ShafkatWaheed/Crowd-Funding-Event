@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../../config/design_tokens.dart';
 import '../../config/theme.dart';
 import '../../models/event.dart';
 import '../../providers/auth_provider.dart';
@@ -11,7 +13,11 @@ import '../../providers/notification_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../notification/notification_screen.dart';
 import '../../services/api_service.dart';
-import '../../widgets/event_lifecycle_bar.dart';
+import '../../widgets/animated_list_item.dart';
+import '../../widgets/empty_state.dart';
+import '../../widgets/error_state.dart';
+import '../../widgets/event_card.dart';
+import '../../widgets/section_header.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../widgets/event_map_widget.dart';
 import '../../services/location_helper.dart';
@@ -486,6 +492,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final user = auth.user;
+    final isDark = AppTheme.isDark(context);
 
     return Scaffold(
       backgroundColor: AppTheme.surfaceOf(context),
@@ -506,17 +513,14 @@ class _HomeScreenState extends State<HomeScreen> {
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: AppTheme.cardOf(context),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
-              blurRadius: 20,
-              offset: const Offset(0, -4),
-            ),
-          ],
+          boxShadow: AppShadow.bottomBar(isDark),
         ),
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: AppSpacing.sm,
+            ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
@@ -543,7 +547,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     }
                   },
                   backgroundColor: AppTheme.accentColor,
-                  child: const Icon(Icons.add, color: Colors.white, size: 28),
+                  child: const Icon(Icons.add, color: Colors.white, size: AppIconSize.xl),
                 )
               : null,
     );
@@ -562,12 +566,16 @@ class _HomeScreenState extends State<HomeScreen> {
       },
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        duration: AppDuration.normal,
+        curve: AppCurve.standard,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.sm,
+        ),
         decoration: isActive
             ? BoxDecoration(
                 color: AppTheme.accentColor.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: AppRadius.md,
               )
             : null,
         child: Column(
@@ -575,7 +583,7 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Icon(
               isActive ? activeIcon : icon,
-              size: 24,
+              size: AppIconSize.lg,
               color: isActive ? AppTheme.accentColor : AppTheme.textSecondaryOf(context),
             ),
             const SizedBox(height: 2),
@@ -600,6 +608,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildHomeTab() {
     final auth = context.watch<AuthProvider>();
     final user = auth.user;
+    final isDark = AppTheme.isDark(context);
 
     return RefreshIndicator(
       color: AppTheme.primaryColor,
@@ -608,17 +617,19 @@ class _HomeScreenState extends State<HomeScreen> {
       },
       child: CustomScrollView(
         slivers: [
-          // ── Hero Header ──
           SliverToBoxAdapter(
             child: Container(
               decoration: BoxDecoration(
                 color: AppTheme.cardOf(context),
                 borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(28),
-                  bottomRight: Radius.circular(28),
+                  bottomLeft: Radius.circular(AppRadius.xxlValue),
+                  bottomRight: Radius.circular(AppRadius.xxlValue),
                 ),
+                boxShadow: AppShadow.soft(isDark),
               ),
-              padding: const EdgeInsets.fromLTRB(24, 56, 24, 28),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.xxl, 56, AppSpacing.xxl, AppSpacing.xxl,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -628,8 +639,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         width: 48,
                         height: 48,
                         decoration: BoxDecoration(
-                          color: AppTheme.primaryColor,
-                          borderRadius: BorderRadius.circular(14),
+                          gradient: AppTheme.primaryGradient,
+                          borderRadius: AppRadius.md,
                         ),
                         child: Center(
                           child: Text(
@@ -644,7 +655,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 14),
+                      AppSpacing.hLg,
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -681,7 +692,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               height: 44,
                               decoration: BoxDecoration(
                                 color: AppTheme.surfaceOf(context),
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: AppRadius.md,
                               ),
                               child: Badge(
                                 isLabelVisible: notifProv.unreadCount > 0,
@@ -698,35 +709,36 @@ class _HomeScreenState extends State<HomeScreen> {
                         },
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 24),
-                  // Search bar
+                  )
+                      .animate()
+                      .fadeIn(duration: AppDuration.normal, curve: AppCurve.enter)
+                      .slideX(begin: -0.05, end: 0, duration: AppDuration.normal, curve: AppCurve.enter),
+                  AppSpacing.vXxl,
                   TextField(
                     controller: _homeSearchCtrl,
                     decoration: InputDecoration(
                       hintText: 'Search events, venues, genres...',
                       prefixIcon: Icon(Icons.search,
-                          color: AppTheme.textSecondaryOf(context), size: 22),
+                          color: AppTheme.textSecondaryOf(context), size: AppIconSize.md),
                       suffixIcon: _homeSearchCtrl.text.isNotEmpty
                           ? IconButton(
-                              icon: const Icon(Icons.clear, size: 20),
+                              icon: const Icon(Icons.clear, size: AppIconSize.md),
                               onPressed: _clearHomeSearch,
                             )
                           : null,
                       filled: true,
                       fillColor: AppTheme.inputFillOf(context),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: AppRadius.md,
                         borderSide: BorderSide.none,
                       ),
                       contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 14),
+                          horizontal: AppSpacing.lg, vertical: 14),
                     ),
                     onChanged: (_) => setState(() {}),
                     onSubmitted: (_) => _homeSearch(),
                   ),
-                  const SizedBox(height: 20),
-                  // Genre chips
+                  AppSpacing.vXl,
                   SizedBox(
                     height: 38,
                     child: ListView(
@@ -734,7 +746,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       children: _genres.map((g) {
                         final isActive = _homeGenre == g;
                         return Padding(
-                          padding: const EdgeInsets.only(right: 8),
+                          padding: const EdgeInsets.only(right: AppSpacing.sm),
                           child: ChoiceChip(
                             label: Text(g[0].toUpperCase() + g.substring(1)),
                             selected: isActive,
@@ -761,8 +773,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       }).toList(),
                     ),
                   ),
-                  const SizedBox(height: 10),
-                  // Status chips
+                  AppSpacing.vSm,
                   SizedBox(
                     height: 38,
                     child: ListView(
@@ -770,7 +781,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       children: _visibleStatuses.map((s) {
                         final isActive = _homeStatus == s.name;
                         return Padding(
-                          padding: const EdgeInsets.only(right: 8),
+                          padding: const EdgeInsets.only(right: AppSpacing.sm),
                           child: ChoiceChip(
                             label: Text(_statusDisplayName(s)),
                             selected: isActive,
@@ -802,17 +813,17 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
 
-          // ── Search results OR featured sections ──
           if (_isHomeFiltered) ...[
-            // Active filter banner
             SliverToBoxAdapter(
                 child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.xxl, AppSpacing.xl, AppSpacing.xxl, AppSpacing.sm,
+                ),
                 child: Row(
                   children: [
                     Icon(Icons.filter_list_rounded,
-                        size: 18, color: AppTheme.textSecondaryOf(context)),
-                    const SizedBox(width: 8),
+                        size: AppIconSize.sm, color: AppTheme.textSecondaryOf(context)),
+                    AppSpacing.hSm,
                     Expanded(
                       child: Text(
                         [
@@ -842,49 +853,40 @@ class _HomeScreenState extends State<HomeScreen> {
             if (_homeSearching)
               const SliverToBoxAdapter(
                 child: Padding(
-                  padding: EdgeInsets.all(40),
+                  padding: EdgeInsets.all(AppSpacing.huge),
                   child: Center(child: CircularProgressIndicator()),
                 ),
               )
             else if (_homeSearchResults.isEmpty)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.all(40),
-                  child: Center(
-                    child: Column(
-                      children: [
-                        Icon(Icons.search_off_rounded,
-                            size: 48, color: AppTheme.textSecondaryOf(context)),
-                        const SizedBox(height: 12),
-                        Text('No events found',
-                            style: TextStyle(
-                                color: AppTheme.textSecondaryOf(context),
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600)),
-                      ],
-                    ),
-                  ),
+              const SliverToBoxAdapter(
+                child: EmptyState(
+                  icon: Icons.search_off_rounded,
+                  title: 'No events found',
+                  subtitle: 'Try a different search or filter',
                 ),
               )
             else
               SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
                 sliver: SliverGrid(
                   gridDelegate:
                       const SliverGridDelegateWithMaxCrossAxisExtent(
                     maxCrossAxisExtent: 400,
-                    mainAxisExtent: 230,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
+                    mainAxisExtent: 320,
+                    crossAxisSpacing: AppSpacing.md,
+                    mainAxisSpacing: AppSpacing.md,
                   ),
                   delegate: SliverChildBuilderDelegate(
                     (context, i) {
                       final event = _homeSearchResults[i];
-                      return _UberEventCard(
-                        event: event,
-                        onTap: () => context.push('/events/${event.id}'),
-                        isBookmarked: _bookmarkedIds.contains(event.id),
-                        onBookmarkToggle: () => _toggleBookmark(event.id),
+                      return AnimatedListItem(
+                        index: i,
+                        child: EventCard(
+                          event: event,
+                          onTap: () => context.push('/events/${event.id}'),
+                          isBookmarked: _bookmarkedIds.contains(event.id),
+                          onBookmarkToggle: () => _toggleBookmark(event.id),
+                        ),
                       );
                     },
                     childCount: _homeSearchResults.length,
@@ -892,25 +894,23 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
           ] else ...[
-            // ── Near Me ──
             if (_nearMeEvents.isNotEmpty)
               _buildFeaturedSection(
-                  'Near Me', Icons.near_me_rounded, _nearMeEvents),
+                  'Near Me', Icons.near_me_rounded, _nearMeEvents, 0),
 
-            // ── Featured ──
             if (!_featuredLoading) ...[
               if (_trending.isNotEmpty)
                 _buildFeaturedSection('Trending Now',
-                    Icons.local_fire_department_rounded, _trending),
+                    Icons.local_fire_department_rounded, _trending, 1),
               if (_comingSoon.isNotEmpty)
                 _buildFeaturedSection(
-                    'Coming Soon', Icons.upcoming_rounded, _comingSoon),
+                    'Coming Soon', Icons.upcoming_rounded, _comingSoon, 2),
               if (_popular.isNotEmpty)
                 _buildFeaturedSection(
-                    'Most Popular', Icons.star_rounded, _popular),
+                    'Most Popular', Icons.star_rounded, _popular, 3),
               if (_communityEvents.isNotEmpty)
                 _buildFeaturedSection(
-                    'Community Events', Icons.groups_rounded, _communityEvents),
+                    'Community Events', Icons.groups_rounded, _communityEvents, 4),
             ],
           ],
 
@@ -928,6 +928,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final auth = context.watch<AuthProvider>();
     final events = context.watch<EventProvider>();
     final user = auth.user;
+    final isDark = AppTheme.isDark(context);
     final dateFmt = DateFormat('MMM d');
 
     return NotificationListener<ScrollNotification>(
@@ -941,17 +942,19 @@ class _HomeScreenState extends State<HomeScreen> {
       },
       child: CustomScrollView(
       slivers: [
-        // ── Search Header ──
         SliverToBoxAdapter(
           child: Container(
             decoration: BoxDecoration(
               color: AppTheme.cardOf(context),
               borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(28),
-                bottomRight: Radius.circular(28),
+                bottomLeft: Radius.circular(AppRadius.xxlValue),
+                bottomRight: Radius.circular(AppRadius.xxlValue),
               ),
+              boxShadow: AppShadow.soft(isDark),
             ),
-            padding: const EdgeInsets.fromLTRB(20, 56, 20, 10),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.xl, 56, AppSpacing.xl, AppSpacing.sm,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -972,17 +975,17 @@ class _HomeScreenState extends State<HomeScreen> {
                     if (user != null && user.isOrganizer)
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 5),
+                            horizontal: AppSpacing.sm, vertical: 5),
                         decoration: BoxDecoration(
                           color: AppTheme.accentColor.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: AppRadius.pill,
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.person_rounded,
-                                size: 14, color: AppTheme.accentColor),
-                            const SizedBox(width: 4),
+                                size: AppIconSize.sm, color: AppTheme.accentColor),
+                            AppSpacing.hXs,
                             Text('Organizer View',
                                 style: TextStyle(
                                     fontSize: 11,
@@ -993,7 +996,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                AppSpacing.vMd,
                 TextField(
                   controller: _searchController,
                   decoration: InputDecoration(
@@ -1002,7 +1005,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         Icon(Icons.search, color: AppTheme.textSecondaryOf(context)),
                     suffixIcon: _searchController.text.isNotEmpty
                         ? IconButton(
-                            icon: const Icon(Icons.clear, size: 20),
+                            icon: const Icon(Icons.clear, size: AppIconSize.md),
                             onPressed: () {
                               _searchController.clear();
                               _applyFilters();
@@ -1012,15 +1015,15 @@ class _HomeScreenState extends State<HomeScreen> {
                     filled: true,
                     fillColor: AppTheme.inputFillOf(context),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: AppRadius.md,
                       borderSide: BorderSide.none,
                     ),
                     contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 14),
+                        horizontal: AppSpacing.lg, vertical: 14),
                   ),
                   onSubmitted: (_) => _applyFilters(),
                 ),
-                const SizedBox(height: 10),
+                AppSpacing.vSm,
                 Row(
                   children: [
                     Expanded(
@@ -1031,7 +1034,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           children: _visibleStatuses.map((s) {
                             final isActive = _selectedStatus == s.name;
                             return Padding(
-                              padding: const EdgeInsets.only(right: 8),
+                              padding: const EdgeInsets.only(right: AppSpacing.sm),
                               child: ChoiceChip(
                                 label: Text(_statusDisplayName(s)),
                                 selected: isActive,
@@ -1061,7 +1064,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    AppSpacing.hSm,
                     Container(
                       height: 34,
                       width: 34,
@@ -1069,7 +1072,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         color: _showAdvanced
                             ? AppTheme.primaryColor
                             : AppTheme.surfaceOf(context),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: AppRadius.sm,
                       ),
                       child: IconButton(
                         padding: EdgeInsets.zero,
@@ -1078,7 +1081,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           color: _showAdvanced
                               ? Colors.white
                               : AppTheme.textSecondaryOf(context),
-                          size: 16,
+                          size: AppIconSize.sm,
                         ),
                         onPressed: () =>
                             setState(() => _showAdvanced = !_showAdvanced),
@@ -1092,7 +1095,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         style: ElevatedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(horizontal: 14),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: AppRadius.sm,
                           ),
                         ),
                         child: const Text('Go', style: TextStyle(fontSize: 13)),
@@ -1100,9 +1103,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ],
                 ),
-                // Advanced filters
                 if (_showAdvanced) ...[
-                  const SizedBox(height: 12),
+                  AppSpacing.vMd,
                   Row(
                     children: [
                       Expanded(
@@ -1114,11 +1116,11 @@ class _HomeScreenState extends State<HomeScreen> {
                             filled: true,
                             fillColor: AppTheme.inputFillOf(context),
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: AppRadius.sm,
                               borderSide: BorderSide.none,
                             ),
                             contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 8),
+                                horizontal: AppSpacing.md, vertical: AppSpacing.sm),
                           ),
                           items: const [
                             DropdownMenuItem(value: null, child: Text('Any')),
@@ -1133,7 +1135,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           },
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      AppSpacing.hSm,
                       Expanded(
                         child: DropdownButtonFormField<String>(
                           value: _selectedGenre,
@@ -1143,11 +1145,11 @@ class _HomeScreenState extends State<HomeScreen> {
                             filled: true,
                             fillColor: AppTheme.inputFillOf(context),
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: AppRadius.sm,
                               borderSide: BorderSide.none,
                             ),
                             contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 8),
+                                horizontal: AppSpacing.md, vertical: AppSpacing.sm),
                           ),
                           items: [
                             const DropdownMenuItem(
@@ -1166,7 +1168,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  AppSpacing.vSm,
                   Row(
                     children: [
                       Expanded(
@@ -1177,7 +1179,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           onTap: () => _pickDate(true),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      AppSpacing.hSm,
                       Expanded(
                         child: _dateChip(
                           label: _dateTo != null
@@ -1188,7 +1190,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  AppSpacing.vSm,
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
@@ -1202,10 +1204,11 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
 
-        // ── Results header with Map/List toggle ──
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 10, 20, 6),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.xl, AppSpacing.sm, AppSpacing.xl, 6,
+            ),
             child: Row(
               children: [
                 Expanded(
@@ -1224,11 +1227,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                   ),
                 ),
-                // Map / List toggle pill
                 Container(
                   decoration: BoxDecoration(
                     color: AppTheme.primaryColor,
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: AppRadius.pill,
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -1253,11 +1255,10 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
 
-        // ── Map View or Event Grid ──
         if (_showMapView)
           SliverFillRemaining(
             child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              borderRadius: AppRadius.topLg,
               child: EventMapWidget(
                 organizerId: user != null && user.isOrganizer ? user.id : null,
                 search: _searchController.text.isNotEmpty ? _searchController.text : null,
@@ -1274,71 +1275,42 @@ class _HomeScreenState extends State<HomeScreen> {
           )
         else if (events.error != null)
           SliverFillRemaining(
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.error_outline,
-                      size: 48, color: AppTheme.textSecondaryOf(context)),
-                  const SizedBox(height: 12),
-                  Text(events.error!,
-                      style: TextStyle(color: AppTheme.textSecondaryOf(context))),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () => events.loadEvents(),
-                    child: const Text('Retry'),
-                  ),
-                ],
-              ),
+            child: ErrorState(
+              message: events.error!,
+              onRetry: () => events.loadEvents(),
             ),
           )
         else if (events.events.isEmpty)
-          SliverFillRemaining(
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      color: AppTheme.surfaceOf(context),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Icon(Icons.event_busy_rounded,
-                        size: 40, color: AppTheme.textSecondaryOf(context)),
-                  ),
-                  const SizedBox(height: 16),
-                  Text('No events found',
-                      style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.textPrimaryOf(context))),
-                  const SizedBox(height: 4),
-                  Text('Try adjusting your filters',
-                      style: TextStyle(color: AppTheme.textSecondaryOf(context))),
-                ],
-              ),
+          const SliverFillRemaining(
+            child: EmptyState(
+              icon: Icons.event_busy_rounded,
+              title: 'No events found',
+              subtitle: 'Try adjusting your filters',
             ),
           )
         else
           SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.lg, vertical: AppSpacing.xs,
+            ),
             sliver: SliverGrid(
               gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
                 maxCrossAxisExtent: 340,
-                mainAxisExtent: 240,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
+                mainAxisExtent: 320,
+                crossAxisSpacing: AppSpacing.md,
+                mainAxisSpacing: AppSpacing.md,
               ),
               delegate: SliverChildBuilderDelegate(
                 (context, index) {
                   final event = events.events[index];
-                  return _UberEventCard(
-                    event: event,
-                    onTap: () => context.push('/events/${event.id}'),
-                    isBookmarked: _bookmarkedIds.contains(event.id),
-                    onBookmarkToggle: () => _toggleBookmark(event.id),
+                  return AnimatedListItem(
+                    index: index,
+                    child: EventCard(
+                      event: event,
+                      onTap: () => context.push('/events/${event.id}'),
+                      isBookmarked: _bookmarkedIds.contains(event.id),
+                      onBookmarkToggle: () => _toggleBookmark(event.id),
+                    ),
                   );
                 },
                 childCount: events.events.length,
@@ -1349,7 +1321,7 @@ class _HomeScreenState extends State<HomeScreen> {
         if (events.isLoadingMore)
           const SliverToBoxAdapter(
             child: Padding(
-              padding: EdgeInsets.symmetric(vertical: 20),
+              padding: EdgeInsets.symmetric(vertical: AppSpacing.xl),
               child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
             ),
           ),
@@ -1368,20 +1340,23 @@ class _HomeScreenState extends State<HomeScreen> {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        duration: AppDuration.normal,
+        curve: AppCurve.standard,
+        padding: const EdgeInsets.symmetric(
+          horizontal: 14, vertical: AppSpacing.sm,
+        ),
         decoration: BoxDecoration(
           color: isActive
               ? Colors.white
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: AppRadius.pill,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               icon,
-              size: 16,
+              size: AppIconSize.sm,
               color: isActive ? AppTheme.primaryColor : Colors.white60,
             ),
             const SizedBox(width: 5),
@@ -1403,16 +1378,18 @@ class _HomeScreenState extends State<HomeScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 14, vertical: AppSpacing.sm,
+        ),
         decoration: BoxDecoration(
           color: AppTheme.surfaceOf(context),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: AppRadius.sm,
         ),
         child: Row(
           children: [
             Icon(Icons.calendar_today_rounded,
-                size: 16, color: AppTheme.textSecondaryOf(context)),
-            const SizedBox(width: 8),
+                size: AppIconSize.sm, color: AppTheme.textSecondaryOf(context)),
+            AppSpacing.hSm,
             Text(label,
                 style: TextStyle(
                     fontSize: 13, color: AppTheme.textSecondaryOf(context))),
@@ -1428,19 +1405,22 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildManageTab() {
     final user = context.watch<AuthProvider>().user;
+    final isDark = AppTheme.isDark(context);
     return CustomScrollView(
       slivers: [
-        // ── Header ──
         SliverToBoxAdapter(
           child: Container(
             decoration: BoxDecoration(
               color: AppTheme.cardOf(context),
               borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(28),
-                bottomRight: Radius.circular(28),
+                bottomLeft: Radius.circular(AppRadius.xxlValue),
+                bottomRight: Radius.circular(AppRadius.xxlValue),
               ),
+              boxShadow: AppShadow.soft(isDark),
             ),
-            padding: const EdgeInsets.fromLTRB(24, 56, 24, 28),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.xxl, 56, AppSpacing.xxl, AppSpacing.xxl,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1450,7 +1430,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.5,
                         color: AppTheme.textPrimaryOf(context))),
-                const SizedBox(height: 8),
+                AppSpacing.vSm,
                 Text(
                   'Tools & shortcuts for your events',
                   style: TextStyle(
@@ -1464,10 +1444,11 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
 
-        // ── Quick Actions Grid ──
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.xl, AppSpacing.xxl, AppSpacing.xl, 0,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1477,118 +1458,129 @@ class _HomeScreenState extends State<HomeScreen> {
                         fontWeight: FontWeight.w600,
                         color: AppTheme.textSecondaryOf(context),
                         letterSpacing: 0.5)),
-                const SizedBox(height: 14),
-                // Row 1
-                Row(
-                  children: [
-                    _quickActionCard(
-                      icon: Icons.add_circle_rounded,
-                      label: 'Create Event',
-                      color: AppTheme.accentColor,
-                      onTap: () async {
-                        final created =
-                            await context.push<bool>('/events/create');
-                        if (created == true && mounted) {
-                          _applyFilters();
-                          _loadFeatured();
-                        }
-                      },
-                    ),
-                    const SizedBox(width: 12),
-                    _quickActionCard(
-                      icon: Icons.location_city_rounded,
-                      label: 'Venues',
-                      color: const Color(0xFF276EF1),
-                      onTap: () => context.push('/venues'),
-                    ),
-                    const SizedBox(width: 12),
-                    _quickActionCard(
-                      icon: Icons.confirmation_number_rounded,
-                      label: 'Ticket Tiers',
-                      color: const Color(0xFF00838F),
-                      onTap: () => context.push('/ticket-strategies'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                // Row 2
-                Row(
-                  children: [
-                    _quickActionCard(
-                      icon: Icons.receipt_long_rounded,
-                      label: 'All Sales',
-                      color: const Color(0xFF05944F),
-                      onTap: () => context.push('/manage/ticket-sales'),
-                    ),
-                    const SizedBox(width: 12),
-                    _quickActionCard(
-                      icon: Icons.qr_code_scanner_rounded,
-                      label: 'Scanned',
-                      color: const Color(0xFF7356BF),
-                      onTap: () => context.push('/manage/scanned-tickets'),
-                    ),
-                    const SizedBox(width: 12),
-                    _quickActionCard(
-                      icon: Icons.hourglass_top_rounded,
-                      label: 'Waitlist',
-                      color: const Color(0xFFE65100),
-                      onTap: () => context.push('/manage/waitlist'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                // Row 3
-                Row(
-                  children: [
-                    _quickActionCard(
-                      icon: Icons.discount_rounded,
-                      label: 'Discounts',
-                      color: const Color(0xFFE11900),
-                      onTap: () => context.push('/manage/discounts'),
-                    ),
-                    const SizedBox(width: 12),
-                    _quickActionCard(
-                      icon: Icons.handshake_rounded,
-                      label: 'Sponsors',
-                      color: const Color(0xFF0D3B66),
-                      onTap: () => context.push('/manage/sponsors'),
-                    ),
-                    const SizedBox(width: 12),
-                    _quickActionCard(
-                      icon: Icons.category_rounded,
-                      label: 'Sponsorships',
-                      color: const Color(0xFF6A1B9A),
-                      onTap: () => context.push('/sponsor-category-templates'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    _quickActionCard(
-                      icon: Icons.bookmark_rounded,
-                      label: 'Bookmarks',
-                      color: const Color(0xFFFFC043),
-                      onTap: () => context.push('/bookmarks'),
-                    ),
-                  ],
-                ),
-                if (user != null && user.isAdmin) ...[
-                  const SizedBox(height: 12),
-                  // Row 4
-                  Row(
+                AppSpacing.vLg,
+                AnimatedListItem(
+                  index: 0,
+                  child: Row(
                     children: [
                       _quickActionCard(
-                        icon: Icons.admin_panel_settings_rounded,
-                        label: 'Admin',
-                        color: const Color(0xFF141414),
-                        onTap: () => context.push('/admin'),
+                        icon: Icons.add_circle_rounded,
+                        label: 'Create Event',
+                        color: AppTheme.accentColor,
+                        onTap: () async {
+                          final created =
+                              await context.push<bool>('/events/create');
+                          if (created == true && mounted) {
+                            _applyFilters();
+                            _loadFeatured();
+                          }
+                        },
                       ),
-                      const SizedBox(width: 12),
-                      const Expanded(child: SizedBox()),
-                      const SizedBox(width: 12),
-                      const Expanded(child: SizedBox()),
+                      AppSpacing.hMd,
+                      _quickActionCard(
+                        icon: Icons.location_city_rounded,
+                        label: 'Venues',
+                        color: const Color(0xFF276EF1),
+                        onTap: () => context.push('/venues'),
+                      ),
+                      AppSpacing.hMd,
+                      _quickActionCard(
+                        icon: Icons.confirmation_number_rounded,
+                        label: 'Ticket Tiers',
+                        color: const Color(0xFF00838F),
+                        onTap: () => context.push('/ticket-strategies'),
+                      ),
                     ],
+                  ),
+                ),
+                AppSpacing.vMd,
+                AnimatedListItem(
+                  index: 1,
+                  child: Row(
+                    children: [
+                      _quickActionCard(
+                        icon: Icons.receipt_long_rounded,
+                        label: 'All Sales',
+                        color: const Color(0xFF05944F),
+                        onTap: () => context.push('/manage/ticket-sales'),
+                      ),
+                      AppSpacing.hMd,
+                      _quickActionCard(
+                        icon: Icons.qr_code_scanner_rounded,
+                        label: 'Scanned',
+                        color: const Color(0xFF7356BF),
+                        onTap: () => context.push('/manage/scanned-tickets'),
+                      ),
+                      AppSpacing.hMd,
+                      _quickActionCard(
+                        icon: Icons.hourglass_top_rounded,
+                        label: 'Waitlist',
+                        color: const Color(0xFFE65100),
+                        onTap: () => context.push('/manage/waitlist'),
+                      ),
+                    ],
+                  ),
+                ),
+                AppSpacing.vMd,
+                AnimatedListItem(
+                  index: 2,
+                  child: Row(
+                    children: [
+                      _quickActionCard(
+                        icon: Icons.discount_rounded,
+                        label: 'Discounts',
+                        color: const Color(0xFFE11900),
+                        onTap: () => context.push('/manage/discounts'),
+                      ),
+                      AppSpacing.hMd,
+                      _quickActionCard(
+                        icon: Icons.handshake_rounded,
+                        label: 'Sponsors',
+                        color: const Color(0xFF0D3B66),
+                        onTap: () => context.push('/manage/sponsors'),
+                      ),
+                      AppSpacing.hMd,
+                      _quickActionCard(
+                        icon: Icons.category_rounded,
+                        label: 'Sponsorships',
+                        color: const Color(0xFF6A1B9A),
+                        onTap: () => context.push('/sponsor-category-templates'),
+                      ),
+                    ],
+                  ),
+                ),
+                AppSpacing.vMd,
+                AnimatedListItem(
+                  index: 3,
+                  child: Row(
+                    children: [
+                      _quickActionCard(
+                        icon: Icons.bookmark_rounded,
+                        label: 'Bookmarks',
+                        color: const Color(0xFFFFC043),
+                        onTap: () => context.push('/bookmarks'),
+                      ),
+                    ],
+                  ),
+                ),
+                if (user != null && user.isAdmin) ...[
+                  AppSpacing.vMd,
+                  AnimatedListItem(
+                    index: 4,
+                    child: Row(
+                      children: [
+                        _quickActionCard(
+                          icon: Icons.admin_panel_settings_rounded,
+                          label: 'Admin',
+                          color: const Color(0xFF141414),
+                          onTap: () => context.push('/admin'),
+                        ),
+                        AppSpacing.hMd,
+                        const Expanded(child: SizedBox()),
+                        AppSpacing.hMd,
+                        const Expanded(child: SizedBox()),
+                      ],
+                    ),
                   ),
                 ],
 
@@ -1607,21 +1599,16 @@ class _HomeScreenState extends State<HomeScreen> {
     required VoidCallback onTap,
     Color color = AppTheme.primaryColor,
   }) {
+    final isDark = AppTheme.isDark(context);
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 20),
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
           decoration: BoxDecoration(
             color: AppTheme.cardOf(context),
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 12,
-                offset: const Offset(0, 2),
-              ),
-            ],
+            borderRadius: AppRadius.lg,
+            boxShadow: AppShadow.card(isDark),
           ),
           child: Column(
             children: [
@@ -1630,11 +1617,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 height: 44,
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(13),
+                  borderRadius: AppRadius.md,
                 ),
-                child: Icon(icon, size: 24, color: color),
+                child: Icon(icon, size: AppIconSize.lg, color: color),
               ),
-              const SizedBox(height: 10),
+              AppSpacing.vSm,
               Text(label,
                   style: TextStyle(
                       fontSize: 12,
@@ -1661,14 +1648,14 @@ class _HomeScreenState extends State<HomeScreen> {
           padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: AppRadius.md,
             border: Border.all(color: color.withValues(alpha: 0.2)),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 20, color: color),
-              const SizedBox(width: 8),
+              Icon(icon, size: AppIconSize.md, color: color),
+              AppSpacing.hSm,
               Text(label,
                   style: TextStyle(
                       fontSize: 13,
@@ -1682,6 +1669,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildMyEventsTab() {
+    final isDark = AppTheme.isDark(context);
     final filtered = _myEvents.where((e) {
       if (_myEventsGenre != null && e.genre != _myEventsGenre) return false;
       if (_myEventsStatus != null && e.status.name != _myEventsStatus) return false;
@@ -1700,11 +1688,14 @@ class _HomeScreenState extends State<HomeScreen> {
           decoration: BoxDecoration(
             color: AppTheme.cardOf(context),
             borderRadius: const BorderRadius.only(
-              bottomLeft: Radius.circular(28),
-              bottomRight: Radius.circular(28),
+              bottomLeft: Radius.circular(AppRadius.xxlValue),
+              bottomRight: Radius.circular(AppRadius.xxlValue),
             ),
+            boxShadow: AppShadow.soft(isDark),
           ),
-          padding: const EdgeInsets.fromLTRB(24, 56, 24, 20),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.xxl, 56, AppSpacing.xxl, AppSpacing.xl,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1719,11 +1710,12 @@ class _HomeScreenState extends State<HomeScreen> {
                             color: AppTheme.textPrimaryOf(context))),
                   ),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md, vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: AppTheme.surfaceOf(context),
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: AppRadius.pill,
                     ),
                     child: Text(
                       '${_myEvents.length} event${_myEvents.length != 1 ? 's' : ''}',
@@ -1736,7 +1728,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 14),
+              AppSpacing.vLg,
               Row(
                 children: [
                   _customerQuickAction(
@@ -1745,7 +1737,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     color: const Color(0xFF276EF1),
                     onTap: () => context.push('/my-tickets'),
                   ),
-                  const SizedBox(width: 10),
+                  AppSpacing.hSm,
                   _customerQuickAction(
                     icon: Icons.volunteer_activism_rounded,
                     label: 'My Pledges',
@@ -1754,25 +1746,25 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 14),
+              AppSpacing.vLg,
               TextField(
                 decoration: InputDecoration(
-                  hintText: 'Search my events…',
+                  hintText: 'Search my events\u2026',
                   prefixIcon: Icon(Icons.search,
-                      color: AppTheme.textSecondaryOf(context), size: 22),
+                      color: AppTheme.textSecondaryOf(context), size: AppIconSize.md),
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 14),
+                      horizontal: AppSpacing.lg, vertical: 14),
                   filled: true,
                   fillColor: AppTheme.inputFillOf(context),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: AppRadius.md,
                     borderSide: BorderSide.none,
                   ),
                 ),
                 onChanged: (v) => setState(() => _myEventsSearch = v),
               ),
-              const SizedBox(height: 14),
+              AppSpacing.vLg,
               SizedBox(
                 height: 38,
                 child: ListView(
@@ -1780,7 +1772,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: _genres.map((g) {
                     final isActive = _myEventsGenre == g;
                     return Padding(
-                      padding: const EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.only(right: AppSpacing.sm),
                       child: ChoiceChip(
                         label: Text(g[0].toUpperCase() + g.substring(1)),
                         selected: isActive,
@@ -1807,7 +1799,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   }).toList(),
                 ),
               ),
-              const SizedBox(height: 10),
+              AppSpacing.vSm,
               SizedBox(
                 height: 38,
                 child: ListView(
@@ -1815,7 +1807,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: _manageVisibleStatuses.map((s) {
                     final isActive = _myEventsStatus == s.name;
                     return Padding(
-                      padding: const EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.only(right: AppSpacing.sm),
                       child: ChoiceChip(
                         label: Text(_statusDisplayName(s)),
                         selected: isActive,
@@ -1844,41 +1836,14 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
-        // List or empty state
         Expanded(
           child: filtered.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 80,
-                        height: 80,
-                        decoration: BoxDecoration(
-                          color: AppTheme.surfaceOf(context),
-                          borderRadius: BorderRadius.circular(22),
-                        ),
-                        child: Icon(Icons.event_busy_rounded,
-                            size: 40, color: AppTheme.textSecondaryOf(context)),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        _myEvents.isEmpty ? 'No events yet' : 'No matches',
-                        style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.textPrimaryOf(context)),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        _myEvents.isEmpty
-                            ? 'Events you register for will appear here'
-                            : 'Try a different search term',
-                        style: TextStyle(
-                            color: AppTheme.textSecondaryOf(context), fontSize: 14),
-                      ),
-                    ],
-                  ),
+              ? EmptyState(
+                  icon: Icons.event_busy_rounded,
+                  title: _myEvents.isEmpty ? 'No events yet' : 'No matches',
+                  subtitle: _myEvents.isEmpty
+                      ? 'Events you register for will appear here'
+                      : 'Try a different search term',
                 )
               : NotificationListener<ScrollNotification>(
                   onNotification: (notification) {
@@ -1893,23 +1858,28 @@ class _HomeScreenState extends State<HomeScreen> {
                     color: AppTheme.primaryColor,
                     onRefresh: _loadMyEvents,
                     child: ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, 100,
+                      ),
                       itemCount: filtered.length + (_myEventsLoadingMore ? 1 : 0),
                       itemBuilder: (context, index) {
                         if (index >= filtered.length) {
                           return const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 20),
+                            padding: EdgeInsets.symmetric(vertical: AppSpacing.xl),
                             child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
                           );
                         }
                         final event = filtered[index];
                         return Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: _UberEventCard(
-                            event: event,
-                            onTap: () => context.push('/events/${event.id}'),
-                            isBookmarked: _bookmarkedIds.contains(event.id),
-                            onBookmarkToggle: () => _toggleBookmark(event.id),
+                          padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                          child: AnimatedListItem(
+                            index: index,
+                            child: EventCard(
+                              event: event,
+                              onTap: () => context.push('/events/${event.id}'),
+                              isBookmarked: _bookmarkedIds.contains(event.id),
+                              onBookmarkToggle: () => _toggleBookmark(event.id),
+                            ),
                           ),
                         );
                       },
@@ -1926,6 +1896,7 @@ class _HomeScreenState extends State<HomeScreen> {
   // ════════════════════════════════════════════
 
   Widget _buildSponsorManageTab() {
+    final isDark = AppTheme.isDark(context);
     final filtered = _sponsorBidEvents.where((item) {
       if (_sponsorBidStatus != null && item.event.status.name != _sponsorBidStatus) return false;
       if (_sponsorBidSearch.isNotEmpty) {
@@ -1943,11 +1914,14 @@ class _HomeScreenState extends State<HomeScreen> {
           decoration: BoxDecoration(
             color: AppTheme.cardOf(context),
             borderRadius: const BorderRadius.only(
-              bottomLeft: Radius.circular(28),
-              bottomRight: Radius.circular(28),
+              bottomLeft: Radius.circular(AppRadius.xxlValue),
+              bottomRight: Radius.circular(AppRadius.xxlValue),
             ),
+            boxShadow: AppShadow.soft(isDark),
           ),
-          padding: const EdgeInsets.fromLTRB(24, 56, 24, 20),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.xxl, 56, AppSpacing.xxl, AppSpacing.xl,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1962,11 +1936,12 @@ class _HomeScreenState extends State<HomeScreen> {
                             color: AppTheme.textPrimaryOf(context))),
                   ),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md, vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: AppTheme.surfaceOf(context),
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: AppRadius.pill,
                     ),
                     child: Text(
                       '${_sponsorBidEvents.length} event${_sponsorBidEvents.length != 1 ? "s" : ""}',
@@ -1979,7 +1954,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              AppSpacing.vSm,
               Text(
                 'Events you have placed bids on',
                 style: TextStyle(
@@ -1988,7 +1963,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              const SizedBox(height: 14),
+              AppSpacing.vLg,
               Row(
                 children: [
                   _customerQuickAction(
@@ -1997,7 +1972,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     color: const Color(0xFF0D3B66),
                     onTap: () => context.push('/sponsor/tickets'),
                   ),
-                  const SizedBox(width: 10),
+                  AppSpacing.hSm,
                   _customerQuickAction(
                     icon: Icons.volunteer_activism_rounded,
                     label: 'My Pledges',
@@ -2006,25 +1981,26 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 14),
+              AppSpacing.vLg,
               TextField(
                 decoration: InputDecoration(
                   hintText: 'Search bid events\u2026',
                   prefixIcon: Icon(Icons.search,
-                      color: AppTheme.textSecondaryOf(context), size: 22),
+                      color: AppTheme.textSecondaryOf(context), size: AppIconSize.md),
                   isDense: true,
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.lg, vertical: 14,
+                  ),
                   filled: true,
                   fillColor: AppTheme.inputFillOf(context),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: AppRadius.md,
                     borderSide: BorderSide.none,
                   ),
                 ),
                 onChanged: (v) => setState(() => _sponsorBidSearch = v),
               ),
-              const SizedBox(height: 10),
+              AppSpacing.vSm,
               SizedBox(
                 height: 38,
                 child: ListView(
@@ -2032,7 +2008,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: _manageVisibleStatuses.map((s) {
                     final isActive = _sponsorBidStatus == s.name;
                     return Padding(
-                      padding: const EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.only(right: AppSpacing.sm),
                       child: ChoiceChip(
                         label: Text(_statusDisplayName(s)),
                         selected: isActive,
@@ -2067,57 +2043,34 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: ShimmerEventList(count: 3),
                 )
               : filtered.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 80,
-                            height: 80,
-                            decoration: BoxDecoration(
-                              color: AppTheme.surfaceOf(context),
-                              borderRadius: BorderRadius.circular(22),
-                            ),
-                            child: Icon(Icons.gavel_rounded,
-                                size: 40,
-                                color: AppTheme.textSecondaryOf(context)),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            _sponsorBidEvents.isEmpty
-                                ? 'No bids yet'
-                                : 'No matches',
-                            style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w700,
-                                color: AppTheme.textPrimaryOf(context)),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            _sponsorBidEvents.isEmpty
-                                ? 'Events you bid on will appear here'
-                                : 'Try a different search term',
-                            style: TextStyle(
-                                color: AppTheme.textSecondaryOf(context),
-                                fontSize: 14),
-                          ),
-                        ],
-                      ),
+                  ? EmptyState(
+                      icon: Icons.gavel_rounded,
+                      title: _sponsorBidEvents.isEmpty
+                          ? 'No bids yet'
+                          : 'No matches',
+                      subtitle: _sponsorBidEvents.isEmpty
+                          ? 'Events you bid on will appear here'
+                          : 'Try a different search term',
                     )
                   : RefreshIndicator(
                       color: AppTheme.primaryColor,
                       onRefresh: _loadSponsorBidEvents,
                       child: ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, 100,
+                        ),
                         itemCount: filtered.length,
                         itemBuilder: (context, index) {
                           final item = filtered[index];
                           return Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: _SponsorBidEventCard(
-                              item: item,
-                              onTap: () =>
-                                  context.push('/events/${item.event.id}'),
+                            padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                            child: AnimatedListItem(
+                              index: index,
+                              child: _SponsorBidEventCard(
+                                item: item,
+                                onTap: () =>
+                                    context.push('/events/${item.event.id}'),
+                              ),
                             ),
                           );
                         },
@@ -2135,24 +2088,37 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildProfileTab() {
     final auth = context.watch<AuthProvider>();
     final user = auth.user;
+    final isDark = AppTheme.isDark(context);
 
     if (user == null) {
       return const Center(child: Text('Not signed in'));
     }
 
+    Widget sectionCard(Widget child) => Container(
+      decoration: BoxDecoration(
+        color: AppTheme.cardOf(context),
+        borderRadius: AppRadius.lg,
+        boxShadow: AppShadow.card(isDark),
+      ),
+      child: child,
+    );
+
+    int animIdx = 0;
+
     return CustomScrollView(
       slivers: [
-        // ── Profile Header ──
         SliverToBoxAdapter(
           child: Container(
-            decoration: const BoxDecoration(
-              color: AppTheme.primaryColor,
-              borderRadius: BorderRadius.only(
-                bottomLeft: Radius.circular(32),
-                bottomRight: Radius.circular(32),
+            decoration: BoxDecoration(
+              gradient: AppTheme.primaryGradient,
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(AppRadius.xxlValue + 8),
+                bottomRight: Radius.circular(AppRadius.xxlValue + 8),
               ),
             ),
-            padding: const EdgeInsets.fromLTRB(24, 60, 24, 32),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.xxl, 60, AppSpacing.xxl, AppSpacing.xxxl,
+            ),
             child: Column(
               children: [
                 Container(
@@ -2160,7 +2126,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   height: 80,
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(22),
+                    borderRadius: AppRadius.xl,
                   ),
                   child: Center(
                     child: Text(
@@ -2173,7 +2139,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                AppSpacing.vLg,
                 Text(
                   user.displayLabel,
                   style: const TextStyle(
@@ -2197,13 +2163,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                 ],
-                const SizedBox(height: 12),
+                AppSpacing.vMd,
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.lg, vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: AppRadius.pill,
                     border: Border.all(
                         color: Colors.white.withValues(alpha: 0.25)),
                   ),
@@ -2222,251 +2189,235 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
 
-        // ── Menu Items ──
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.xl, AppSpacing.xxl, AppSpacing.xl, 0,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Account',
-                    style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textSecondaryOf(context),
-                        letterSpacing: 0.5)),
-                const SizedBox(height: 12),
-                Container(
-                  decoration: BoxDecoration(
-                    color: AppTheme.cardOf(context),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.04),
-                        blurRadius: 12,
-                        offset: const Offset(0, 2),
+                AnimatedListItem(
+                  index: animIdx++,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Account',
+                          style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.textSecondaryOf(context),
+                              letterSpacing: 0.5)),
+                      AppSpacing.vMd,
+                      sectionCard(
+                        _profileTile(
+                          icon: Icons.person_outline_rounded,
+                          label: 'Edit Profile',
+                          onTap: () => context.push('/profile'),
+                        ),
                       ),
                     ],
-                  ),
-                  child: _profileTile(
-                    icon: Icons.person_outline_rounded,
-                    label: 'Edit Profile',
-                    onTap: () => context.push('/profile'),
                   ),
                 ),
 
                 if (user.isOrganizer) ...[
-                  const SizedBox(height: 24),
-                  Text('Public Profile',
-                      style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.textSecondaryOf(context),
-                          letterSpacing: 0.5)),
-                  const SizedBox(height: 12),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: AppTheme.cardOf(context),
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.04),
-                          blurRadius: 12,
-                          offset: const Offset(0, 2),
+                  AppSpacing.vXxl,
+                  AnimatedListItem(
+                    index: animIdx++,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Public Profile',
+                            style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.textSecondaryOf(context),
+                                letterSpacing: 0.5)),
+                        AppSpacing.vMd,
+                        sectionCard(
+                          _profileTile(
+                            icon: Icons.visibility_rounded,
+                            label: 'View Organizer Profile',
+                            onTap: () => context.push('/users/${user.id}/profile'),
+                          ),
                         ),
                       ],
-                    ),
-                    child: _profileTile(
-                      icon: Icons.visibility_rounded,
-                      label: 'View Organizer Profile',
-                      onTap: () => context.push('/users/${user.id}/profile'),
                     ),
                   ),
                 ],
 
                 if (user.isSponsor) ...[
-                  const SizedBox(height: 24),
-                  Text('Public Profile',
-                      style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.textSecondaryOf(context),
-                          letterSpacing: 0.5)),
-                  const SizedBox(height: 12),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: AppTheme.cardOf(context),
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.04),
-                          blurRadius: 12,
-                          offset: const Offset(0, 2),
+                  AppSpacing.vXxl,
+                  AnimatedListItem(
+                    index: animIdx++,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Public Profile',
+                            style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.textSecondaryOf(context),
+                                letterSpacing: 0.5)),
+                        AppSpacing.vMd,
+                        sectionCard(
+                          _profileTile(
+                            icon: Icons.visibility_rounded,
+                            label: 'View Sponsor Profile',
+                            onTap: () => context.push('/users/${user.id}/sponsor-profile'),
+                          ),
                         ),
                       ],
-                    ),
-                    child: _profileTile(
-                      icon: Icons.visibility_rounded,
-                      label: 'View Sponsor Profile',
-                      onTap: () => context.push('/users/${user.id}/sponsor-profile'),
                     ),
                   ),
                 ],
 
                 if (user.isAdmin) ...[
-                  const SizedBox(height: 24),
-                  Text('Administration',
-                      style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.textSecondaryOf(context),
-                          letterSpacing: 0.5)),
-                  const SizedBox(height: 12),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: AppTheme.cardOf(context),
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.04),
-                          blurRadius: 12,
-                          offset: const Offset(0, 2),
+                  AppSpacing.vXxl,
+                  AnimatedListItem(
+                    index: animIdx++,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Administration',
+                            style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.textSecondaryOf(context),
+                                letterSpacing: 0.5)),
+                        AppSpacing.vMd,
+                        sectionCard(
+                          _profileTile(
+                            icon: Icons.admin_panel_settings_rounded,
+                            label: 'Admin Dashboard',
+                            onTap: () => context.push('/admin'),
+                          ),
                         ),
                       ],
-                    ),
-                    child: _profileTile(
-                      icon: Icons.admin_panel_settings_rounded,
-                      label: 'Admin Dashboard',
-                      onTap: () => context.push('/admin'),
                     ),
                   ),
                 ],
 
                 if (user.isCustomer) ...[
-                  const SizedBox(height: 24),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: AppTheme.cardOf(context),
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.04),
-                          blurRadius: 12,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: _profileTile(
-                      icon: Icons.storefront_rounded,
-                      label: 'Become a Sponsor',
-                      onTap: () => context.push('/sponsor/onboarding'),
+                  AppSpacing.vXxl,
+                  AnimatedListItem(
+                    index: animIdx++,
+                    child: sectionCard(
+                      _profileTile(
+                        icon: Icons.storefront_rounded,
+                        label: 'Become a Sponsor',
+                        onTap: () => context.push('/sponsor/onboarding'),
+                      ),
                     ),
                   ),
                 ],
 
-                const SizedBox(height: 24),
-                Text('Preferences',
-                    style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textSecondaryOf(context),
-                        letterSpacing: 0.5)),
-                const SizedBox(height: 12),
-                Container(
-                  decoration: BoxDecoration(
-                    color: AppTheme.cardOf(context),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.04),
-                        blurRadius: 12,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
+                AppSpacing.vXxl,
+                AnimatedListItem(
+                  index: animIdx++,
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Builder(builder: (ctx) {
-                        final themeProv = ctx.watch<ThemeProvider>();
-                        return InkWell(
-                          onTap: () => themeProv.toggle(),
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 36,
-                                  height: 36,
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.surfaceOf(ctx),
-                                    borderRadius: BorderRadius.circular(10),
+                      Text('Preferences',
+                          style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.textSecondaryOf(context),
+                              letterSpacing: 0.5)),
+                      AppSpacing.vMd,
+                      sectionCard(
+                        Column(
+                          children: [
+                            Builder(builder: (ctx) {
+                              final themeProv = ctx.watch<ThemeProvider>();
+                              return InkWell(
+                                onTap: () => themeProv.toggle(),
+                                borderRadius: BorderRadius.vertical(
+                                  top: Radius.circular(AppRadius.lgValue),
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: AppSpacing.lg, vertical: 14,
                                   ),
-                                  child: Icon(
-                                    themeProv.isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
-                                    size: 20,
-                                    color: AppTheme.textPrimaryOf(ctx),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 36,
+                                        height: 36,
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.surfaceOf(ctx),
+                                          borderRadius: AppRadius.sm,
+                                        ),
+                                        child: Icon(
+                                          themeProv.isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+                                          size: AppIconSize.md,
+                                          color: AppTheme.textPrimaryOf(ctx),
+                                        ),
+                                      ),
+                                      AppSpacing.hLg,
+                                      Expanded(
+                                        child: Text('Dark Mode',
+                                            style: TextStyle(
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.w500,
+                                                color: AppTheme.textPrimaryOf(ctx))),
+                                      ),
+                                      Switch.adaptive(
+                                        value: themeProv.isDark,
+                                        activeColor: AppTheme.accentColor,
+                                        onChanged: (_) => themeProv.toggle(),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                const SizedBox(width: 14),
-                                Expanded(
-                                  child: Text('Dark Mode',
-                                      style: TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w500,
-                                          color: AppTheme.textPrimaryOf(ctx))),
-                                ),
-                                Switch.adaptive(
-                                  value: themeProv.isDark,
-                                  activeColor: AppTheme.accentColor,
-                                  onChanged: (_) => themeProv.toggle(),
-                                ),
-                              ],
+                              );
+                            }),
+                            Divider(height: 1, indent: 56, color: AppTheme.dividerOf(context)),
+                            _profileTile(
+                              icon: Icons.description_outlined,
+                              label: 'Terms & Conditions',
+                              onTap: () {
+                                final role = user.isOrganizer ? 'organizer' : 'customer';
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => TermsScreen(role: role),
+                                  ),
+                                );
+                              },
                             ),
-                          ),
-                        );
-                      }),
-                      Divider(height: 1, indent: 56, color: AppTheme.dividerOf(context)),
-                      _profileTile(
-                        icon: Icons.description_outlined,
-                        label: 'Terms & Conditions',
-                        onTap: () {
-                          final role = user.isOrganizer ? 'organizer' : 'customer';
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => TermsScreen(role: role),
-                            ),
-                          );
-                        },
+                          ],
+                        ),
                       ),
                     ],
                   ),
                 ),
 
-                const SizedBox(height: 32),
+                AppSpacing.vXxxl,
 
-                // Sign out button
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: OutlinedButton.icon(
-                    onPressed: () async {
-                      await auth.signOut();
-                      if (context.mounted) {
-                        context.go('/login');
-                      }
-                    },
-                    icon:
-                        const Icon(Icons.logout_rounded, color: AppTheme.errorColor),
-                    label: const Text('Sign Out',
-                        style: TextStyle(
-                            color: AppTheme.errorColor,
-                            fontWeight: FontWeight.w600)),
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(
-                          color: AppTheme.errorColor.withValues(alpha: 0.3)),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14)),
+                AnimatedListItem(
+                  index: animIdx++,
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        await auth.signOut();
+                        if (context.mounted) {
+                          context.go('/login');
+                        }
+                      },
+                      icon:
+                          const Icon(Icons.logout_rounded, color: AppTheme.errorColor),
+                      label: const Text('Sign Out',
+                          style: TextStyle(
+                              color: AppTheme.errorColor,
+                              fontWeight: FontWeight.w600)),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(
+                            color: AppTheme.errorColor.withValues(alpha: 0.3)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: AppRadius.md),
+                      ),
                     ),
                   ),
                 ),
@@ -2486,9 +2437,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: AppRadius.md,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg, vertical: 14,
+        ),
         child: Row(
           children: [
             Container(
@@ -2496,11 +2449,11 @@ class _HomeScreenState extends State<HomeScreen> {
               height: 36,
               decoration: BoxDecoration(
                 color: AppTheme.surfaceOf(context),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: AppRadius.sm,
               ),
-              child: Icon(icon, size: 20, color: AppTheme.textPrimaryOf(context)),
+              child: Icon(icon, size: AppIconSize.md, color: AppTheme.textPrimaryOf(context)),
             ),
-            const SizedBox(width: 14),
+            AppSpacing.hLg,
             Expanded(
               child: Text(label,
                   style: TextStyle(
@@ -2509,338 +2462,55 @@ class _HomeScreenState extends State<HomeScreen> {
                       color: AppTheme.textPrimaryOf(context))),
             ),
             Icon(Icons.chevron_right_rounded,
-                size: 22, color: AppTheme.textSecondaryOf(context)),
+                size: AppIconSize.md, color: AppTheme.textSecondaryOf(context)),
           ],
         ),
       ),
     );
   }
-
-  // ════════════════════════════════════════════
-  // Featured Section
-  // ════════════════════════════════════════════
 
   SliverToBoxAdapter _buildFeaturedSection(
-      String title, IconData icon, List<Event> items) {
+      String title, IconData icon, List<Event> items, int sectionIndex) {
     return SliverToBoxAdapter(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
-            child: Row(
-              children: [
-                Icon(icon, size: 22, color: AppTheme.primaryColor),
-                const SizedBox(width: 10),
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.3,
-                    color: AppTheme.textPrimaryOf(context),
-                  ),
-                ),
-                const Spacer(),
-                TextButton(
-                  onPressed: () {
-                    setState(() => _navIndex = 1);
-                    context.go('/?tab=explore');
-                  },
-                  child: const Text('See all',
-                      style: TextStyle(fontSize: 13)),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(
-            height: 230,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: items.length,
-              itemBuilder: (context, index) {
-                final event = items[index];
-                return Container(
-                  width: 280,
-                  margin: const EdgeInsets.only(right: 12),
-                  child: _UberEventCard(
-                    event: event,
-                    onTap: () => context.push('/events/${event.id}'),
-                    isBookmarked: _bookmarkedIds.contains(event.id),
-                    onBookmarkToggle: () => _toggleBookmark(event.id),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ═══════════════════════════════════════════════════════
-// Uber-inspired Event Card
-// ═══════════════════════════════════════════════════════
-
-class _UberEventCard extends StatelessWidget {
-  final Event event;
-  final VoidCallback onTap;
-  final bool isBookmarked;
-  final VoidCallback? onBookmarkToggle;
-
-  const _UberEventCard({
-    required this.event,
-    required this.onTap,
-    this.isBookmarked = false,
-    this.onBookmarkToggle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final event = this.event;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppTheme.cardOf(context),
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 16,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
+      child: AnimatedListItem(
+        index: sectionIndex,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Top: gradient header with status ──
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-              decoration: BoxDecoration(
-                gradient: _headerGradient(event.status),
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(18),
-                  topRight: Radius.circular(18),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  EventLifecycleBar(event: event, compact: true),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          event.title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 16,
-                            color: Colors.white,
-                            letterSpacing: -0.3,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      _StatusPill(status: event.status),
-                      const SizedBox(width: 6),
-                      if (onBookmarkToggle != null)
-                        GestureDetector(
-                          onTap: onBookmarkToggle,
-                          child: Icon(
-                            isBookmarked ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
-                            color: Colors.white.withValues(alpha: 0.9),
-                            size: 22,
-                          ),
-                        ),
-                    ],
-                  ),
-                ],
+            Padding(
+              padding: const EdgeInsets.only(top: AppSpacing.xxl, bottom: AppSpacing.md),
+              child: SectionHeader(
+                title: title,
+                icon: icon,
+                actionLabel: 'See all',
+                onAction: () {
+                  setState(() => _navIndex = 1);
+                  context.go('/?tab=explore');
+                },
               ),
             ),
-
-            // ── Body ──
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (event.startTime != null) ...[
-                    _iconRow(
-                      context,
-                      Icons.schedule_rounded,
-                      DateFormat('EEE, MMM d \u2022 h:mm a')
-                          .format(event.startTime!),
+            SizedBox(
+              height: 320,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                itemCount: items.length,
+                itemBuilder: (context, index) {
+                  final event = items[index];
+                  return Container(
+                    width: 280,
+                    margin: const EdgeInsets.only(right: AppSpacing.md),
+                    child: EventCard(
+                      event: event,
+                      onTap: () => context.push('/events/${event.id}'),
+                      isBookmarked: _bookmarkedIds.contains(event.id),
+                      onBookmarkToggle: () => _toggleBookmark(event.id),
                     ),
-                    const SizedBox(height: 5),
-                  ],
-                  if (event.venue != null)
-                    _iconRow(
-                      context,
-                      Icons.location_on_rounded,
-                      '${event.venue!.name}, ${event.venue!.city}',
-                    ),
-                  if (event.genre != null && event.genre!.isNotEmpty) ...[
-                    const SizedBox(height: 5),
-                    _iconRow(
-                      context,
-                      Icons.label_rounded,
-                      event.genre![0].toUpperCase() +
-                          event.genre!.substring(1),
-                      color: AppTheme.accentColor,
-                    ),
-                  ],
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      if (event.registrationCount > 0)
-                        _statChip(context, Icons.group_rounded,
-                            '${event.registrationCount}'),
-                      if (event.likeCount > 0)
-                        _statChip(context,
-                            Icons.favorite_rounded, '${event.likeCount}'),
-                      const Spacer(),
-                      if (event.fundingGoalCents != null &&
-                          event.fundingGoalCents! > 0)
-                        Text(
-                          event.totalPledgedFormatted,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.successColor,
-                          ),
-                        ),
-                    ],
-                  ),
-                  if (event.fundingGoalCents != null &&
-                      event.fundingGoalCents! > 0) ...[
-                    const SizedBox(height: 6),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: event.fundingProgress.clamp(0.0, 1.0),
-                        minHeight: 4,
-                        backgroundColor: AppTheme.dividerOf(context),
-                        valueColor: AlwaysStoppedAnimation(
-                          event.fundingProgress >= 1.0
-                              ? AppTheme.successColor
-                              : AppTheme.accentColor,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
+                  );
+                },
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _iconRow(BuildContext context, IconData icon, String text, {Color? color}) {
-    return Row(
-      children: [
-        Icon(icon, size: 15, color: color ?? AppTheme.textSecondaryOf(context)),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Text(
-            text,
-            style: TextStyle(
-                fontSize: 12.5,
-                color: color ?? AppTheme.textSecondaryOf(context),
-                fontWeight: FontWeight.w500),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _statChip(BuildContext context, IconData icon, String value) {
-    return Container(
-      margin: const EdgeInsets.only(right: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceOf(context),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: AppTheme.textSecondaryOf(context)),
-          const SizedBox(width: 4),
-          Text(value,
-              style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.textPrimaryOf(context))),
-        ],
-      ),
-    );
-  }
-
-  LinearGradient _headerGradient(EventStatus status) {
-    return switch (status) {
-      EventStatus.live => const LinearGradient(
-          colors: [Color(0xFF05944F), Color(0xFF0A7544)]),
-      EventStatus.selling_tickets => const LinearGradient(
-          colors: [Color(0xFF00838F), Color(0xFF00695C)]),
-      EventStatus.waiting_event_date => const LinearGradient(
-          colors: [Color(0xFFE65100), Color(0xFFBF360C)]),
-      EventStatus.completed => const LinearGradient(
-          colors: [Color(0xFF424242), Color(0xFF212121)]),
-      EventStatus.cancelled => const LinearGradient(
-          colors: [Color(0xFF8B0000), Color(0xFF5D0000)]),
-      EventStatus.draft => const LinearGradient(
-          colors: [Color(0xFF757575), Color(0xFF545454)]),
-      EventStatus.pending_approval => const LinearGradient(
-          colors: [Color(0xFFE65100), Color(0xFFBF360C)]),
-      _ => const LinearGradient(
-          colors: [Color(0xFF141414), Color(0xFF2C2C2C)]),
-    };
-  }
-}
-
-class _StatusPill extends StatelessWidget {
-  final EventStatus status;
-  const _StatusPill({required this.status});
-
-  @override
-  Widget build(BuildContext context) {
-    final label = switch (status) {
-      EventStatus.draft => 'Draft',
-      EventStatus.pending_approval => 'Under Review',
-      EventStatus.approved => 'Funding',
-      EventStatus.selling_tickets => 'Tickets',
-      EventStatus.waiting_event_date => 'Awaiting',
-      EventStatus.live => 'LIVE',
-      EventStatus.completed => 'Done',
-      EventStatus.cancelled => 'Cancelled',
-    };
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.5,
         ),
       ),
     );
@@ -2873,29 +2543,29 @@ class _SponsorBidEventCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
     final e = item.event;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
           color: AppTheme.cardOf(context),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppTheme.dividerOf(context)),
+          borderRadius: AppRadius.lg,
+          boxShadow: AppShadow.card(isDark),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg, 14, AppSpacing.lg, AppSpacing.md,
+              ),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
                   colors: [Color(0xFF1B1B2F), Color(0xFF162447)],
                 ),
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  topRight: Radius.circular(16),
-                ),
+                borderRadius: AppRadius.topLg,
               ),
               child: Row(
                 children: [
@@ -2911,13 +2581,33 @@ class _SponsorBidEventCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  _StatusPill(status: e.status),
+                  AppSpacing.hSm,
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm, vertical: AppSpacing.xs,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: AppRadius.pill,
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+                    ),
+                    child: Text(
+                      _statusDisplayName(e.status),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg, AppSpacing.md, AppSpacing.lg, AppSpacing.lg,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -2929,10 +2619,10 @@ class _SponsorBidEventCard extends StatelessWidget {
                     _infoRow(context, Icons.location_on_rounded,
                         '${e.venue!.name}, ${e.venue!.city}'),
                   ],
-                  const SizedBox(height: 14),
+                  AppSpacing.vLg,
                   Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
+                    spacing: AppSpacing.sm,
+                    runSpacing: AppSpacing.sm,
                     children: [
                       if (item.accepted > 0)
                         _bidChip('${item.accepted} Accepted',
@@ -2981,17 +2671,19 @@ class _SponsorBidEventCard extends StatelessWidget {
 
   Widget _bidChip(String label, Color color, IconData icon) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm, vertical: 5,
+      ),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: AppRadius.pill,
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 13, color: color),
-          const SizedBox(width: 4),
+          Icon(icon, size: AppIconSize.sm - 3, color: color),
+          AppSpacing.hXs,
           Text(
             label,
             style: TextStyle(

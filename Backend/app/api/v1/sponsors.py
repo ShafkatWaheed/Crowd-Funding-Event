@@ -19,6 +19,8 @@ from app.schemas.sponsor import (
     SponsorTicketResponse,
 )
 from app.services import sponsor as sponsor_svc
+from app.services import notification_service as notif_svc
+from app.models.notification import NotificationType
 
 router = APIRouter()
 
@@ -216,6 +218,19 @@ async def place_bid(
     current_user: CurrentUser,
 ):
     bid = await sponsor_svc.place_bid(db, cat_id, current_user, data)
+    # Notify event organizer
+    from sqlalchemy import select as sel
+    from app.models.sponsor import SponsorshipCategory
+    from app.models.event import Event
+    cat = (await db.execute(sel(SponsorshipCategory).where(SponsorshipCategory.id == cat_id))).scalar_one()
+    event = (await db.execute(sel(Event).where(Event.id == cat.event_id))).scalar_one()
+    await notif_svc.create_notification(
+        db, user_id=event.organizer_id,
+        type=NotificationType.bid_received,
+        title="New Sponsor Bid",
+        message=f"A new bid of ${data.amount_cents / 100:.2f} was placed on '{cat.name}'.",
+        data={"event_id": cat.event_id, "category_id": cat_id, "bid_id": bid.id},
+    )
     await db.commit()
     await db.refresh(bid)
     return await _bid_to_response(db, bid)
@@ -286,6 +301,13 @@ async def accept_bid(
     current_user: CurrentUser,
 ):
     bid = await sponsor_svc.accept_bid(db, bid_id, current_user)
+    await notif_svc.create_notification(
+        db, user_id=bid.sponsor_user_id,
+        type=NotificationType.bid_accepted,
+        title="Bid Accepted",
+        message="Your sponsorship bid has been accepted!",
+        data={"event_id": event_id, "category_id": cat_id, "bid_id": bid.id},
+    )
     await db.commit()
     await db.refresh(bid)
     return await _bid_to_response(db, bid)
@@ -304,6 +326,13 @@ async def reject_bid(
     current_user: CurrentUser,
 ):
     bid = await sponsor_svc.reject_bid(db, bid_id, current_user)
+    await notif_svc.create_notification(
+        db, user_id=bid.sponsor_user_id,
+        type=NotificationType.bid_rejected,
+        title="Bid Rejected",
+        message="Your sponsorship bid was not accepted.",
+        data={"event_id": event_id, "category_id": cat_id, "bid_id": bid.id},
+    )
     await db.commit()
     await db.refresh(bid)
     return await _bid_to_response(db, bid)

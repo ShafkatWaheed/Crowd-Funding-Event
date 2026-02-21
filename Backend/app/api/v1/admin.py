@@ -8,6 +8,8 @@ from app.models.user import User, UserRole
 from app.schemas import AdminEventItem, AdminStats, AdminUserItem, ApproveBody, PlatformSettingItem, PlatformSettingUpdate
 from app.services import admin as admin_service
 from app.services import platform_settings as settings_service
+from app.services import notification_service as notif_svc
+from app.models.notification import NotificationType
 
 router = APIRouter()
 
@@ -61,6 +63,22 @@ async def approve_event(
     event = await admin_service.approve_or_reject_event(
         db, event_id=event_id, approved=body.approved
     )
+    if body.approved:
+        await notif_svc.create_notification(
+            db, user_id=event.organizer_id,
+            type=NotificationType.event_approved,
+            title="Event Approved",
+            message=f'Your event "{event.title}" has been approved.',
+            data={"event_id": event.id},
+        )
+    else:
+        await notif_svc.create_notification(
+            db, user_id=event.organizer_id,
+            type=NotificationType.event_rejected,
+            title="Event Rejected",
+            message=f'Your event "{event.title}" was not approved.',
+            data={"event_id": event.id},
+        )
     return {"ok": True, "event_id": event.id, "status": event.status.value}
 
 

@@ -151,6 +151,16 @@ async def approve_waitlist(
     reg.status = RegistrationStatus.registered
     await db.flush()
     await db.refresh(reg)
+
+    from app.services import notification_service as notif_svc
+    from app.models.notification import NotificationType
+    await notif_svc.create_notification(
+        db, user_id=reg.user_id,
+        type=NotificationType.waitlist_approved,
+        title="Waitlist Approved",
+        message="Your registration has been approved!",
+        data={"event_id": reg.event_id},
+    )
     return reg
 
 
@@ -166,6 +176,16 @@ async def reject_waitlist(
     reg.status = RegistrationStatus.cancelled
     await db.flush()
     await db.refresh(reg)
+
+    from app.services import notification_service as notif_svc
+    from app.models.notification import NotificationType
+    await notif_svc.create_notification(
+        db, user_id=reg.user_id,
+        type=NotificationType.waitlist_rejected,
+        title="Waitlist Rejected",
+        message="Your registration request was not approved.",
+        data={"event_id": reg.event_id},
+    )
     return reg
 
 

@@ -60,6 +60,15 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   int _refundDeadlineDays = 7;
   bool _publish = true;
   bool _isLoading = false;
+  bool _isDirty = false;
+  final Set<int> _stepsWithErrors = {};
+
+  bool _venuesLoading = true;
+  bool _strategiesLoading = true;
+  bool _discountsLoading = true;
+  String? _venuesError;
+  String? _strategiesError;
+  String? _discountsError;
 
   final List<String> _genres = [
     'community', 'music', 'tech', 'sports', 'arts',
@@ -157,28 +166,71 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   }
 
   Future<void> _loadVenues() async {
+    setState(() { _venuesLoading = true; _venuesError = null; });
     try {
       final api = context.read<ApiService>();
       final data = await api.getVenues();
-      setState(() => _venues = data.map((v) => Venue.fromJson(v)).toList());
-    } catch (_) {}
+      if (mounted) setState(() { _venues = data.map((v) => Venue.fromJson(v)).toList(); _venuesLoading = false; });
+    } catch (e) {
+      if (mounted) setState(() { _venuesError = 'Failed to load venues'; _venuesLoading = false; });
+    }
   }
 
   Future<void> _loadStrategies() async {
+    setState(() { _strategiesLoading = true; _strategiesError = null; });
     try {
       final api = context.read<ApiService>();
       final data = await api.getTicketStrategies();
-      setState(() =>
-          _strategies = data.map((d) => TicketStrategy.fromJson(d)).toList());
-    } catch (_) {}
+      if (mounted) setState(() { _strategies = data.map((d) => TicketStrategy.fromJson(d)).toList(); _strategiesLoading = false; });
+    } catch (e) {
+      if (mounted) setState(() { _strategiesError = 'Failed to load strategies'; _strategiesLoading = false; });
+    }
   }
 
   Future<void> _loadDiscounts() async {
+    setState(() { _discountsLoading = true; _discountsError = null; });
     try {
       final api = context.read<ApiService>();
       final data = await api.getDiscountStrategies();
-      setState(() => _discountStrategies = data.cast<Map<String, dynamic>>());
-    } catch (_) {}
+      if (mounted) setState(() { _discountStrategies = data.cast<Map<String, dynamic>>(); _discountsLoading = false; });
+    } catch (e) {
+      if (mounted) setState(() { _discountsError = 'Failed to load discounts'; _discountsLoading = false; });
+    }
+  }
+
+  void _markDirty() {
+    if (!_isDirty) setState(() => _isDirty = true);
+  }
+
+  bool get _hasAnyInput =>
+      _titleCtrl.text.trim().isNotEmpty ||
+      _descCtrl.text.trim().isNotEmpty ||
+      _genre != null ||
+      _pickedImages.isNotEmpty ||
+      _fundingEndAt != null ||
+      _startTime != null ||
+      _endTime != null ||
+      _selectedVenueId != null ||
+      _selectedStrategyId != null;
+
+  Future<bool> _confirmDiscard() async {
+    if (!_isDirty && !_hasAnyInput) return true;
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Discard changes?'),
+        content: const Text('You have unsaved changes. Are you sure you want to leave?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Keep Editing')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: AppTheme.errorColor),
+            child: const Text('Discard'),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
   }
 
   Future<void> _pickImages({bool singleMode = false}) async {
@@ -280,11 +332,21 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     final dt =
         await _pickDateTimeGeneric(initial: isStart ? _startTime : _endTime);
     if (dt == null) return;
+    _markDirty();
     setState(() {
       if (isStart) {
         _startTime = dt;
+        if (_endTime != null && !_endTime!.isAfter(dt)) {
+          AppToast.error(context, 'End time must be after start time');
+        }
       } else {
         _endTime = dt;
+        if (_startTime != null && !dt.isAfter(_startTime!)) {
+          AppToast.error(context, 'End time must be after start time');
+        }
+      }
+      if (_fundingEndAt != null && _startTime != null && !_startTime!.isAfter(_fundingEndAt!)) {
+        AppToast.error(context, 'Start time should be after funding deadline');
       }
     });
   }
@@ -292,7 +354,13 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   Future<void> _pickFundingDeadline() async {
     final dt = await _pickDateTimeGeneric(initial: _fundingEndAt);
     if (dt == null) return;
-    setState(() => _fundingEndAt = dt);
+    _markDirty();
+    setState(() {
+      _fundingEndAt = dt;
+      if (_startTime != null && !_startTime!.isAfter(dt)) {
+        AppToast.error(context, 'Event start should be after funding deadline');
+      }
+    });
   }
 
   Future<void> _createVenueInline() async {
@@ -466,9 +534,10 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
   void _nextStep() {
     if (!_validateCurrentStep()) return;
-    if (_currentStep < _stepLabels.length - 1) {
-      setState(() => _currentStep++);
-    }
+    setState(() {
+      _stepsWithErrors.remove(_currentStep);
+      if (_currentStep < _stepLabels.length - 1) _currentStep++;
+    });
   }
 
   void _prevStep() {
@@ -476,60 +545,83 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   }
 
   bool _validateCurrentStep() {
+    bool fail(String msg) {
+      AppToast.error(context, msg);
+      setState(() => _stepsWithErrors.add(_currentStep));
+      return false;
+    }
+    bool pass() {
+      setState(() => _stepsWithErrors.remove(_currentStep));
+      return true;
+    }
+
     final formState = _formKeys[_currentStep].currentState;
-    if (formState != null && !formState.validate()) return false;
+    if (formState != null && !formState.validate()) return fail('Please fix the highlighted fields');
+
     switch (_currentStep) {
       case 0:
-        if (_titleCtrl.text.trim().isEmpty) {
-          AppToast.error(context, 'Event title is required');
-          return false;
-        }
-        if (_genre == null) {
-          AppToast.error(context, 'Please select a genre');
-          return false;
-        }
-        return true;
+        if (_titleCtrl.text.trim().isEmpty) return fail('Event title is required');
+        if (_genre == null) return fail('Please select a genre');
+        return pass();
       case 1:
-        return true;
+        return pass();
       case 2:
-        if (_fundingEndAt == null &&
-            (_startTime == null || _endTime == null)) {
-          AppToast.error(context,
-              'Set both start & end dates, or go back and set a funding deadline');
-          return false;
+        if (_fundingEndAt == null && (_startTime == null || _endTime == null)) {
+          return fail('Set both start & end dates, or go back and set a funding deadline');
         }
-        if (_startTime != null && _endTime == null) {
-          AppToast.error(
-              context, 'End time is required when start time is set');
-          return false;
+        if (_startTime != null && _endTime == null) return fail('End time is required when start time is set');
+        if (_startTime != null && _endTime != null && !_endTime!.isAfter(_startTime!)) {
+          return fail('End time must be after start time');
         }
-        if (_startTime != null &&
-            _fundingEndAt != null &&
-            !_startTime!.isAfter(_fundingEndAt!)) {
-          AppToast.error(
-              context, 'Event start must be after funding deadline');
-          return false;
+        if (_startTime != null && _fundingEndAt != null && !_startTime!.isAfter(_fundingEndAt!)) {
+          return fail('Event start must be after funding deadline');
         }
-        return true;
+        return pass();
       case 3:
-        if (_selectedVenueId == null) {
-          AppToast.error(context, 'Please select a venue');
-          return false;
+        if (_selectedVenueId == null) return fail('Please select a venue');
+        if (_capacityCtrl.text.trim().isEmpty || int.tryParse(_capacityCtrl.text.trim()) == null) {
+          return fail('Please enter a valid max capacity');
         }
-        if (_capacityCtrl.text.trim().isEmpty ||
-            int.tryParse(_capacityCtrl.text.trim()) == null) {
-          AppToast.error(context, 'Please enter a valid max capacity');
-          return false;
-        }
-        return true;
+        return pass();
       case 4:
-        return true;
+        return pass();
     }
-    return true;
+    return pass();
   }
 
   String _fmtDt(DateTime dt) =>
       '${dt.month}/${dt.day}/${dt.year} ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
+
+  Widget _buildLoadingChip(String label) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+          const SizedBox(width: 8),
+          Text(label, style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context))),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorRetry(String message, VoidCallback onRetry) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Icon(Icons.error_outline, size: 16, color: AppTheme.errorColor),
+          const SizedBox(width: 6),
+          Expanded(child: Text(message, style: TextStyle(fontSize: 12, color: AppTheme.errorColor))),
+          TextButton(
+            onPressed: onRetry,
+            style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8), minimumSize: Size.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+            child: const Text('Retry', style: TextStyle(fontSize: 12)),
+          ),
+        ],
+      ),
+    );
+  }
 
   Future<void> _submit() async {
     if (_fundingEndAt == null &&
@@ -727,11 +819,14 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.close),
-          onPressed: () {
-            if (Navigator.of(context).canPop()) {
-              context.pop();
-            } else {
-              context.go('/');
+          onPressed: () async {
+            if (await _confirmDiscard()) {
+              if (!context.mounted) return;
+              if (Navigator.of(context).canPop()) {
+                context.pop();
+              } else {
+                context.go('/');
+              }
             }
           },
         ),
@@ -782,38 +877,64 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
           final step = i ~/ 2;
           final isCompleted = step < _currentStep;
           final isCurrent = step == _currentStep;
+          final hasError = _stepsWithErrors.contains(step);
           return GestureDetector(
             onTap: () => _goToStep(step),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
-                  width: isCurrent ? 32 : 26,
-                  height: isCurrent ? 32 : 26,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: isCompleted || isCurrent
-                        ? AppTheme.accentColor
-                        : AppTheme.surfaceOf(context),
-                    border: Border.all(
-                      color: isCompleted || isCurrent
-                          ? AppTheme.accentColor
-                          : AppTheme.dividerOf(context),
-                      width: isCurrent ? 2.5 : 1.5,
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 250),
+                      width: isCurrent ? 32 : 26,
+                      height: isCurrent ? 32 : 26,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: hasError
+                            ? AppTheme.errorColor
+                            : isCompleted || isCurrent
+                                ? AppTheme.accentColor
+                                : AppTheme.surfaceOf(context),
+                        border: Border.all(
+                          color: hasError
+                              ? AppTheme.errorColor
+                              : isCompleted || isCurrent
+                                  ? AppTheme.accentColor
+                                  : AppTheme.dividerOf(context),
+                          width: isCurrent ? 2.5 : 1.5,
+                        ),
+                      ),
+                      child: Center(
+                        child: hasError
+                            ? const Icon(Icons.priority_high, size: 14, color: Colors.white)
+                            : isCompleted
+                                ? const Icon(Icons.check, size: 14, color: Colors.white)
+                                : Icon(
+                                    _stepIcons[step],
+                                    size: isCurrent ? 16 : 13,
+                                    color: isCurrent
+                                        ? Colors.white
+                                        : AppTheme.textSecondaryOf(context),
+                                  ),
+                      ),
                     ),
-                  ),
-                  child: Center(
-                    child: isCompleted
-                        ? const Icon(Icons.check, size: 14, color: Colors.white)
-                        : Icon(
-                            _stepIcons[step],
-                            size: isCurrent ? 16 : 13,
-                            color: isCurrent
-                                ? Colors.white
-                                : AppTheme.textSecondaryOf(context),
+                    if (hasError)
+                      Positioned(
+                        top: -2,
+                        right: -2,
+                        child: Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            color: AppTheme.errorColor,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: AppTheme.cardOf(context), width: 1.5),
                           ),
-                  ),
+                        ),
+                      ),
+                  ],
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -822,11 +943,13 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                     fontSize: 9,
                     fontWeight:
                         isCurrent ? FontWeight.w700 : FontWeight.w500,
-                    color: isCurrent
-                        ? AppTheme.accentColor
-                        : isCompleted
-                            ? AppTheme.textPrimaryOf(context)
-                            : AppTheme.textSecondaryOf(context),
+                    color: hasError
+                        ? AppTheme.errorColor
+                        : isCurrent
+                            ? AppTheme.accentColor
+                            : isCompleted
+                                ? AppTheme.textPrimaryOf(context)
+                                : AppTheme.textSecondaryOf(context),
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -903,7 +1026,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                       onPressed: _nextStep,
                       icon: const Icon(Icons.arrow_forward_rounded,
                           size: 18),
-                      label: const Text('Next'),
+                      label: Text(_currentStep < _stepLabels.length - 1
+                          ? 'Next: ${_stepLabels[_currentStep + 1]}'
+                          : 'Next'),
                       style: ElevatedButton.styleFrom(
                         padding:
                             const EdgeInsets.symmetric(vertical: 14),
@@ -939,13 +1064,20 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                       const InputDecoration(labelText: 'Event Title *'),
                   validator: (v) =>
                       v == null || v.trim().isEmpty ? 'Required' : null,
+                  onChanged: (_) => _markDirty(),
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _descCtrl,
-                  decoration:
-                      const InputDecoration(labelText: 'Description'),
+                  decoration: InputDecoration(
+                    labelText: 'Description',
+                    counterText: '${_descCtrl.text.length} / 2000',
+                    counterStyle: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context)),
+                  ),
                   maxLines: 3,
+                  maxLength: 2000,
+                  buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
+                  onChanged: (_) { _markDirty(); setState(() {}); },
                 ),
                 const SizedBox(height: 20),
                 Container(
@@ -1669,6 +1801,26 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                             color: AppTheme.textSecondaryOf(context),
                             fontStyle: FontStyle.italic),
                       ),
+                      if (_startTime != null && _endTime != null && !_endTime!.isAfter(_startTime!))
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Row(children: [
+                            Icon(Icons.error_outline, size: 14, color: AppTheme.errorColor),
+                            const SizedBox(width: 4),
+                            Text('End time must be after start time',
+                                style: TextStyle(fontSize: 11, color: AppTheme.errorColor, fontWeight: FontWeight.w600)),
+                          ]),
+                        ),
+                      if (_startTime != null && _fundingEndAt != null && !_startTime!.isAfter(_fundingEndAt!))
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Row(children: [
+                            Icon(Icons.error_outline, size: 14, color: AppTheme.errorColor),
+                            const SizedBox(width: 4),
+                            Text('Start time should be after funding deadline',
+                                style: TextStyle(fontSize: 11, color: AppTheme.errorColor, fontWeight: FontWeight.w600)),
+                          ]),
+                        ),
                     ],
                   ),
                 ),
@@ -1747,9 +1899,13 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
             ],
           ),
           const SizedBox(height: 10),
+          if (_strategiesLoading)
+            _buildLoadingChip('Loading strategies…')
+          else if (_strategiesError != null)
+            _buildErrorRetry(_strategiesError!, _loadStrategies),
           _SearchableDropdown<TicketStrategy>(
             label: 'Ticket Strategy',
-            hint: 'Search strategies…',
+            hint: _strategiesLoading ? 'Loading…' : 'Search strategies…',
             items: _strategies,
             selectedItem: _strategies
                 .where((s) => s.id == _selectedStrategyId)
@@ -1848,6 +2004,10 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                       color: AppTheme.textPrimaryOf(context))),
             ],
           ),
+          if (_discountsLoading)
+            _buildLoadingChip('Loading discounts…')
+          else if (_discountsError != null)
+            _buildErrorRetry(_discountsError!, _loadDiscounts),
           const SizedBox(height: 8),
           if (_selectedDiscounts.isNotEmpty) ...[
             ..._selectedDiscounts.entries.map((entry) {
@@ -2484,9 +2644,13 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w700)),
                 const SizedBox(height: 20),
+                if (_venuesLoading)
+                  _buildLoadingChip('Loading venues…')
+                else if (_venuesError != null)
+                  _buildErrorRetry(_venuesError!, _loadVenues),
                 _SearchableDropdown<Venue>(
                   label: 'Venue *',
-                  hint: 'Search venues…',
+                  hint: _venuesLoading ? 'Loading…' : 'Search venues…',
                   items: _venues,
                   selectedItem: _venues
                       .where((v) => v.id == _selectedVenueId)

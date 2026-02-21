@@ -2755,34 +2755,58 @@ Batch A (Foundation) — ALL DONE:
         - Ticket scanner screen handles both customer and sponsor tickets with mode toggle
 ```
 
-### REMAINING (not yet implemented)
+### IMPLEMENTED
 
 ```
-Batch A (Foundation) — remaining:
-  [ ] 1. Feature 1 — Notifications (model + service + API + integration + frontend)  ~4 hours
-        - Backend: Notification model, migration, notification_service.py, notifications.py router
-        - Backend integration: Wire create_notification calls into events.py, sponsors.py,
-          registration.py, admin.py (all trigger points from Section 1.7)
-        - Frontend: NotificationProvider, register in main.dart, notification bell in AppBar,
-          NotificationScreen
+Batch A (Foundation):
+  [x] 1. Feature 1 — Notifications (model + service + API + integration + frontend)
+        - Backend: Notification model (23 types incl. event_updated), migration mm00m4n5o6p7,
+          notification_service.py (create, bulk, list, unread_count, mark_read, mark_all_read),
+          notifications.py router (4 endpoints under /me/notifications)
+        - Backend integration: 13 trigger points wired into:
+          * events.py: register_event (confirmed + waitlisted + organizer notified on waitlist),
+            update_event (bulk notify registrants on approved/live event changes),
+            cancel_event (bulk notify all registrants + pledgers),
+            publish_event, pledge_event, unregister_event (refund),
+            purchase_ticket, approve/reject_waitlisted_ticket
+          * sponsors.py: place_bid (notify organizer), accept_bid, reject_bid (notify sponsor)
+          * registration.py: approve_waitlist, reject_waitlist
+          * admin.py: approve_event, reject_event (notify organizer)
+        - Frontend: NotificationProvider (30s polling), registered in main.dart with
+          auth-based start/stop, notification bell with badge in home_screen.dart,
+          NotificationScreen with per-type icons/colors, shimmer loading, pull-to-refresh,
+          mark-all-read, tap-to-navigate
 
 Batch B (Profiles & Prerequisites):
-  [x] 3. Feature 3 — Sponsor Info for Organizers  ~2 hours
+  [x] 3. Feature 3 — Sponsor Info for Organizers
         - Backend: sponsor-public-profile endpoint in public_profiles.py
         - Frontend: SponsorProfileScreen, bottom sheet from bid management + organizer sponsors
-  [x] 4. Feature 4 — Category Prerequisites  ~3 hours
+  [x] 4. Feature 4 — Category Prerequisites
         - Backend: CategoryPrerequisite + BidPrerequisiteUpload models, migration, API endpoints
           (create, list, delete, upload, list-uploads, review), block bid acceptance if prereqs not met
         - Frontend: Organizer prerequisite CRUD sheet, sponsor upload docs sheet, organizer review UI in bid cards
 
 Batch C (Social):
-  [x] 5. Feature 5 — Ratings  ~3 hours
+  [x] 5. Feature 5 — Ratings
         - Backend: Rating model, migration, ratings.py router (create, event summary,
           full list, user summary), registered in router.py
         - Frontend: Reviews section on completed events (aggregate + top 5 best/worst),
           star picker + description form, all-reviews sheet for organizers,
           reviews on organizer/sponsor profiles, StarRating + StarRatingDisplay widgets
 
+UI/UX Improvements (Event Creation Wizard):
+  [x] Multi-step wizard redesign of create_event_screen.dart (5-step wizard with IndexedStack)
+  [x] Unsaved changes confirmation dialog on close/back
+  [x] Step error indicators (red circle + badge on steps with validation failures)
+  [x] Loading/error states with retry for venue, strategy, and discount data fetches
+  [x] Real-time date validation with inline conflict warnings
+  [x] Description field character count (X / 2000)
+  [x] Next button shows upcoming step name ("Next: Funding", etc.)
+```
+
+### REMAINING (not yet implemented)
+
+```
 Batch D (Structural):
   [ ] 7. Feature 7 — Multi-Role  ~3 hours
         - Backend: roles JSON column on User, migration, add-role + switch-role endpoints,
@@ -2792,12 +2816,13 @@ Batch D (Structural):
 
 ### Remaining Migrations (to be applied in order)
 
-1. `ii60i0j1k2l3` — notifications
+1. ~~`ii60i0j1k2l3` — bookmarks~~ (applied)
 2. ~~`kk80k2l3m4n5` — prerequisites~~ (applied)
 3. ~~`ll90l3m4n5o6` — ratings~~ (applied)
-4. `mm00m4n5o6p7` — multi-role
+4. ~~`mm00m4n5o6p7` — notifications~~ (applied)
+5. `nn10n5o6p7q8` — multi-role
 
-Note: Bookmarks and scan_count migrations are already applied.
+Note: Bookmarks, scan_count, prerequisites, ratings, and notifications migrations are all applied.
 
 ---
 

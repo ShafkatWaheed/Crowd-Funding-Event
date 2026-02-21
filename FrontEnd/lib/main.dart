@@ -12,6 +12,7 @@ import 'services/api_service.dart';
 import 'providers/auth_provider.dart';
 import 'providers/event_provider.dart';
 import 'providers/theme_provider.dart';
+import 'providers/notification_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -46,6 +47,7 @@ class CrowdFundApp extends StatelessWidget {
         Provider<ApiService>.value(value: apiService),
         ChangeNotifierProvider(create: (_) => AuthProvider(apiService)),
         ChangeNotifierProvider(create: (_) => EventProvider(apiService)),
+        ChangeNotifierProvider(create: (_) => NotificationProvider(apiService)),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
       ],
       child: const _AppShell(),
@@ -73,6 +75,13 @@ class _AppShellState extends State<_AppShell> {
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
     final themeProvider = context.watch<ThemeProvider>();
+
+    final notifProvider = context.read<NotificationProvider>();
+    if (authProvider.isAuthenticated) {
+      notifProvider.startPolling();
+    } else {
+      notifProvider.stopPolling();
+    }
 
     _router ??= createRouter(authProvider);
 

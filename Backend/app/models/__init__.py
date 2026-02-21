@@ -19,6 +19,7 @@ from app.models.sponsor import SponsorProfile, SponsorshipCategory, SponsorBid, 
 from app.models.bookmark import Bookmark
 from app.models.prerequisite import CategoryPrerequisite, BidPrerequisiteUpload, UploadStatus
 from app.models.rating import Rating, RatingDirection
+from app.models.notification import Notification, NotificationType
 
 __all__ = [
     "User",
@@ -66,4 +67,6 @@ __all__ = [
     "UploadStatus",
     "Rating",
     "RatingDirection",
+    "Notification",
+    "NotificationType",
 ]

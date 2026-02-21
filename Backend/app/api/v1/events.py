@@ -57,6 +57,8 @@ from app.services import registration as registration_service
 from app.services import ticket as ticket_service
 from app.services import discount_strategy as ds_service
 from app.services import email_notifications as email_notify
+from app.services import notification_service as notif_svc
+from app.models.notification import NotificationType
 from app.services.ticket_crypto import encrypt_ticket_qr, decrypt_ticket_qr
 # DiscountStrategyResponse no longer needed — endpoint returns raw dicts
 
@@ -494,6 +496,25 @@ async def update_event(
         updated.status = EventStatus.pending_approval
         await db.flush()
 
+    # Notify registered users when an approved/live event is updated
+    if event.status in (EventStatus.approved, EventStatus.waiting_event_date,
+                        EventStatus.selling_tickets, EventStatus.live):
+        from sqlalchemy import select as sel
+        from app.models.registration import Registration, RegistrationStatus
+        reg_q = sel(Registration.user_id).where(
+            Registration.event_id == event.id,
+            Registration.status.in_([RegistrationStatus.registered, RegistrationStatus.waitlist]),
+        )
+        reg_ids = [r for r in (await db.execute(reg_q)).scalars().all()]
+        if reg_ids:
+            await notif_svc.create_bulk_notifications(
+                db, user_ids=reg_ids,
+                type=NotificationType.event_updated,
+                title="Event Updated",
+                message=f'"{event.title}" has been updated. Check the latest details.',
+                data={"event_id": event.id},
+            )
+
     updated = await event_service.get_by_id(db, updated.id, load_venue=True)
     return _event_to_response(updated)
 
@@ -517,6 +538,29 @@ async def cancel_event(
         event_id=event.id, event_title=event.title or f"Event #{event.id}",
         reason=body.reason, event_date=event.start_time,
     )
+    # In-app notification to all registrants + pledgers
+    from sqlalchemy import select as sel
+    from app.models.registration import Registration, RegistrationStatus
+    from app.models.funding import Funding, FundingStatus
+    affected_q = sel(Registration.user_id).where(
+        Registration.event_id == event.id,
+        Registration.status.in_([RegistrationStatus.registered, RegistrationStatus.waitlist]),
+    )
+    affected_ids = [r for r in (await db.execute(affected_q)).scalars().all()]
+    pledger_q = sel(Funding.user_id).where(
+        Funding.event_id == event.id,
+        Funding.status.in_([FundingStatus.pledged, FundingStatus.refunded]),
+    )
+    pledger_ids = [r for r in (await db.execute(pledger_q)).scalars().all()]
+    all_ids = list(set(affected_ids + pledger_ids))
+    if all_ids:
+        await notif_svc.create_bulk_notifications(
+            db, user_ids=all_ids,
+            type=NotificationType.event_cancelled,
+            title="Event Cancelled",
+            message=f'"{event.title}" has been cancelled. {body.reason or ""}',
+            data={"event_id": event.id},
+        )
     event = await event_service.get_by_id(db, event.id, load_venue=True)
     return _event_to_response(event)
 
@@ -682,6 +726,13 @@ async def publish_event(
 ):
     """Publish a draft event (draft → approved). No admin approval needed."""
     event = await event_service.publish_event(db, event_id=event_id, user=current_user)
+    await notif_svc.create_notification(
+        db, user_id=current_user.id,
+        type=NotificationType.event_approved,
+        title="Event Published",
+        message=f'Your event "{event.title}" is now live.',
+        data={"event_id": event.id},
+    )
     event = await event_service.get_by_id(db, event.id, load_venue=True)
     return _event_to_response(event)
 
@@ -736,6 +787,13 @@ async def pledge_event(
         user=current_user,
         amount_cents=body.amount_cents,
         reserved_spots=body.reserved_spots,
+    )
+    await notif_svc.create_notification(
+        db, user_id=current_user.id,
+        type=NotificationType.pledge_confirmed,
+        title="Pledge Confirmed",
+        message=f"Your pledge of ${body.amount_cents / 100:.2f} has been recorded.",
+        data={"event_id": event_id, "pledge_id": pledge.id},
     )
     await db.commit()
     return PledgeResponse(
@@ -872,6 +930,30 @@ async def register_event(
 ):
     """Register for event (open: first-come; closed: request). Check capacity."""
     reg = await registration_service.register(db, event_id=event_id, user=current_user)
+    if reg.status.value == "registered":
+        await notif_svc.create_notification(
+            db, user_id=current_user.id,
+            type=NotificationType.registration_confirmed,
+            title="Registration Confirmed",
+            message="You are registered for the event.",
+            data={"event_id": event_id},
+        )
+    elif reg.status.value == "waitlist":
+        await notif_svc.create_notification(
+            db, user_id=current_user.id,
+            type=NotificationType.registration_waitlisted,
+            title="Added to Waitlist",
+            message="You have been added to the waitlist.",
+            data={"event_id": event_id},
+        )
+        event = await event_service.get_or_404(db, event_id)
+        await notif_svc.create_notification(
+            db, user_id=event.organizer_id,
+            type=NotificationType.registration_waitlisted,
+            title="New Waitlist Entry",
+            message=f"{current_user.display_name or current_user.email} joined the waitlist for your event.",
+            data={"event_id": event_id, "user_id": current_user.id},
+        )
     return RegistrationResponse(
         id=reg.id,
         event_id=reg.event_id,
@@ -931,6 +1013,13 @@ async def unregister_event(
             user_name=current_user.display_name or "",
             event_title=event.title or f"Event #{event_id}",
             refunded_cents=result["refunded_cents"],
+        )
+        await notif_svc.create_notification(
+            db, user_id=current_user.id,
+            type=NotificationType.refund_issued,
+            title="Refund Issued",
+            message=f"Your pledge of ${result['refunded_cents'] / 100:.2f} has been refunded.",
+            data={"event_id": event_id},
         )
     return UnregisterResponse(
         refunded_cents=result["refunded_cents"],
@@ -1108,6 +1197,13 @@ async def purchase_ticket(
             event_date=event.start_time if event else None,
             discount_cents=first.discount_applied_cents,
             commission_cents=getattr(first, "commission_cents", 0) or 0,
+        )
+        await notif_svc.create_notification(
+            db, user_id=current_user.id,
+            type=NotificationType.ticket_purchased,
+            title="Ticket Purchased",
+            message=f"You purchased {len(sales)} ticket(s) for \"{event.title if event else 'the event'}\".",
+            data={"event_id": event_id},
         )
     return [_ticket_sale_to_response(s) for s in sales]
 
@@ -1413,6 +1509,13 @@ async def approve_waitlisted_ticket(
     sale = await ticket_service.approve_waitlisted_ticket(
         db, event_id=event_id, ticket_sale_id=ticket_id, user=current_user,
     )
+    await notif_svc.create_notification(
+        db, user_id=sale.user_id,
+        type=NotificationType.ticket_waitlist_approved,
+        title="Ticket Approved",
+        message="Your waitlisted ticket has been approved!",
+        data={"event_id": event_id},
+    )
     return _ticket_sale_to_response(sale)
 
 
@@ -1440,6 +1543,14 @@ async def reject_waitlisted_ticket(
             event_title=event.title if event else f"Event #{event_id}",
             tier_name=tier.name if tier else "General",
             amount_cents=sale.amount_paid_cents,
+        )
+    if sale.user_id:
+        await notif_svc.create_notification(
+            db, user_id=sale.user_id,
+            type=NotificationType.ticket_waitlist_rejected,
+            title="Ticket Rejected",
+            message="Your waitlisted ticket was not approved.",
+            data={"event_id": event_id},
         )
     return _ticket_sale_to_response(sale)
 

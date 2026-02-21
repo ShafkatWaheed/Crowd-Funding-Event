@@ -7,7 +7,9 @@ import '../../config/theme.dart';
 import '../../models/event.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/event_provider.dart';
+import '../../providers/notification_provider.dart';
 import '../../providers/theme_provider.dart';
+import '../notification/notification_screen.dart';
 import '../../services/api_service.dart';
 import '../../widgets/event_lifecycle_bar.dart';
 import '../../widgets/shimmer_loaders.dart';
@@ -666,16 +668,34 @@ class _HomeScreenState extends State<HomeScreen> {
                           ],
                         ),
                       ),
-                      // Notification bell (placeholder)
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: AppTheme.surfaceOf(context),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(Icons.notifications_outlined,
-                            color: AppTheme.textPrimaryOf(context)),
+                      Consumer<NotificationProvider>(
+                        builder: (ctx, notifProv, _) {
+                          return GestureDetector(
+                            onTap: () {
+                              Navigator.push(context, MaterialPageRoute(
+                                builder: (_) => const NotificationScreen(),
+                              ));
+                            },
+                            child: Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: AppTheme.surfaceOf(context),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Badge(
+                                isLabelVisible: notifProv.unreadCount > 0,
+                                label: Text(
+                                  notifProv.unreadCount > 99 ? '99+' : '${notifProv.unreadCount}',
+                                  style: const TextStyle(fontSize: 10, color: Colors.white),
+                                ),
+                                backgroundColor: AppTheme.errorColor,
+                                child: Icon(Icons.notifications_outlined,
+                                    color: AppTheme.textPrimaryOf(context)),
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),

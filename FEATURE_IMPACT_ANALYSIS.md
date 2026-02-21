@@ -326,17 +326,17 @@ Legend: **[NEW]** = new file created, **[MOD]** = existing file modified, **[DEP
 
 ## Impact Summary Table
 
-| Feature | New Files | Modified Files | New DB Tables | Modified DB Tables | Endpoints Added | Endpoints Modified | Risk Level |
-|---------|-----------|---------------|---------------|-------------------|-----------------|-------------------|------------|
-| 0. Privacy | 0 | 5 | 0 | 0 | 0 | 3 | LOW |
-| 1. Notifications | 5 | 8-13 | 1 | 0 | 4 | 14+ | MED-HIGH |
-| 2. Organizer Profile | 2 | 4 | 0 | 0 | 2 | 0 | LOW |
-| 3. Sponsor Info | 1 | 4 | 0 | 0 | 1 | 0 | LOW |
-| 4. Prerequisites | 2 | 6 | 2 | 0 | 4 | 1 | MEDIUM |
-| 5. Ratings | 4 | 7 | 1 | 0 | 3 | 0 | LOW-MED |
-| 6. Bookmarks | 2 | 5 | 1 | 0 | 2 | 0 | LOW |
-| 7. Multi-Role | 1 | 12+ | 0 | 1 (users) | 2 | 1 (dependencies.py) | **HIGH** |
-| Scan Count | 1 | 3 | 0 | 1 (sponsor_tickets) | 0 | 1 | LOW |
+| Feature | Status | New Files | Modified Files | New DB Tables | Endpoints Added | Endpoints Modified | Risk Level |
+|---------|--------|-----------|---------------|---------------|-----------------|-------------------|------------|
+| 0. Privacy | DONE | 0 | 5 | 0 | 0 | 3 | LOW |
+| 1. Notifications | DONE | 5 | 8 | 1 | 4 | 13 | MED-HIGH |
+| 2. Organizer Profile | DONE | 2 | 4 | 0 | 2 | 0 | LOW |
+| 3. Sponsor Info | DONE | 1 | 4 | 0 | 1 | 0 | LOW |
+| 4. Prerequisites | DONE | 2 | 6 | 2 | 4 | 1 | MEDIUM |
+| 5. Ratings | DONE | 4 | 7 | 1 | 3 | 0 | LOW-MED |
+| 6. Bookmarks | DONE | 2 | 5 | 1 | 2 | 0 | LOW |
+| 7. Multi-Role | **TODO** | 1 | 12+ | 0 | 2 | 1 (dependencies.py) | **HIGH** |
+| Scan Count | DONE | 1 | 3 | 0 | 0 | 1 | LOW |
 
 ---
 
@@ -368,27 +368,32 @@ Files sorted by how many features touch them:
 
 ---
 
-## Recommended Implementation Order (Risk-Aware)
+## Implementation Status
 
 ```
-BATCH A — Low risk, high value, no dependencies:
-  Step 0: Privacy rules                      (5 files, LOW risk)
-  Step 1: Feature 6 — Bookmarks              (7 files, LOW risk)
-  Step 2: Feature 2 — Organizer Profile      (6 files, LOW risk)
-  Step 3: Scan Count addendum                (4 files, LOW risk)
+DONE — BATCH A (Low risk, foundation):
+  [x] Step 0: Privacy rules                      (5 files, LOW risk)
+  [x] Step 1: Feature 6 — Bookmarks              (7 files, LOW risk)
+  [x] Step 2: Feature 2 — Organizer Profile      (6 files, LOW risk)
+  [x] Step 3: Scan Count addendum                (4 files, LOW risk)
 
-BATCH B — Medium risk, foundation for later features:
-  Step 4: Feature 1 — Notifications          (13+ files, MED-HIGH risk)
-           -> Test all 14+ integration points before proceeding
+DONE — BATCH B (Profiles & Prerequisites):
+  [x] Step 4: Feature 3 — Sponsor Info           (5 files, LOW risk)
+  [x] Step 5: Feature 4 — Prerequisites          (8 files, MED risk)
 
-BATCH C — Medium risk, depends on B:
-  Step 5: Feature 3 — Sponsor Info           (5 files, LOW risk, depends on F2)
-  Step 6: Feature 4 — Prerequisites          (8 files, MED risk, depends on F1)
+DONE — BATCH C (Social):
+  [x] Step 6: Feature 5 — Ratings                (11 files, LOW-MED risk)
 
-BATCH D — Medium risk, depends on B+C:
-  Step 7: Feature 5 — Ratings                (11 files, LOW-MED risk, depends on F1, F2, F3)
+DONE — BATCH D (Notifications):
+  [x] Step 7: Feature 1 — Notifications          (13+ files, MED-HIGH risk)
+           -> 13 integration points wired, migration applied, frontend complete
 
-BATCH E — High risk, do last:
-  Step 8: Feature 7 — Multi-Role             (13+ files, HIGH risk)
+DONE — UI/UX Improvements:
+  [x] Event creation wizard redesign (5-step multi-step form)
+  [x] Unsaved changes dialog, step error indicators, loading states,
+      real-time date validation, character count, contextual Next button
+
+REMAINING — BATCH E (High risk, do last):
+  [ ] Step 8: Feature 7 — Multi-Role             (13+ files, HIGH risk)
            -> Full regression test of all role-gated endpoints
 ```

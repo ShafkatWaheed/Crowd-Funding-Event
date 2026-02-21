@@ -184,6 +184,10 @@ class _SponsorshipCategoriesScreenState
                                     '${cat.bidCount} bid${cat.bidCount == 1 ? "" : "s"}'),
                               ],
                             ),
+                            if (cat.bidAmounts.length >= 2) ...[
+                              const SizedBox(height: 12),
+                              _BidLeaderboard(bidAmounts: cat.bidAmounts),
+                            ],
                             if (isSponsor && cat.canPlaceMoreBids) ...[
                               const SizedBox(height: 12),
                               SizedBox(
@@ -950,6 +954,120 @@ class _MyBidActionsState extends State<_MyBidActions> {
 }
 
 
+class _BidLeaderboard extends StatelessWidget {
+  final List<int> bidAmounts;
+
+  const _BidLeaderboard({required this.bidAmounts});
+
+  @override
+  Widget build(BuildContext context) {
+    final sorted = List<int>.from(bidAmounts)..sort((a, b) => b.compareTo(a));
+    final top = sorted.take(5).toList();
+    final maxAmount = top.first;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceOf(context),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.dividerOf(context)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.emoji_events_rounded, size: 16, color: Color(0xFFD4A017)),
+              const SizedBox(width: 6),
+              Text(
+                'Top Bids',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.textSecondaryOf(context),
+                  letterSpacing: 0.3,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${bidAmounts.length} total',
+                style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryOf(context)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ...List.generate(top.length, (i) {
+            final cents = top[i];
+            final amount = '\$${(cents / 100).toStringAsFixed(2)}';
+            final fraction = maxAmount > 0 ? cents / maxAmount : 0.0;
+
+            final (IconData? icon, Color color) = switch (i) {
+              0 => (Icons.emoji_events_rounded, const Color(0xFFD4A017)),
+              1 => (Icons.emoji_events_rounded, const Color(0xFF9E9E9E)),
+              2 => (Icons.emoji_events_rounded, const Color(0xFFCD7F32)),
+              _ => (null, AppTheme.textSecondaryOf(context)),
+            };
+
+            return Padding(
+              padding: EdgeInsets.only(bottom: i < top.length - 1 ? 6 : 0),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 24,
+                    child: icon != null
+                        ? Icon(icon, size: 16, color: color)
+                        : Text(
+                            '#${i + 1}',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: color,
+                            ),
+                          ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    amount,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: i == 0 ? FontWeight.w800 : FontWeight.w600,
+                      color: i == 0
+                          ? AppTheme.textPrimaryOf(context)
+                          : AppTheme.textSecondaryOf(context),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(3),
+                      child: LinearProgressIndicator(
+                        value: fraction,
+                        minHeight: 6,
+                        backgroundColor: AppTheme.dividerOf(context),
+                        valueColor: AlwaysStoppedAnimation(
+                          i == 0
+                              ? const Color(0xFFD4A017)
+                              : i == 1
+                                  ? const Color(0xFF9E9E9E)
+                                  : i == 2
+                                      ? const Color(0xFFCD7F32)
+                                      : AppTheme.accentColor.withValues(alpha: 0.4),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+
 class _CategoryRequirements extends StatefulWidget {
   final int eventId;
   final int categoryId;
@@ -973,6 +1091,8 @@ class _CategoryRequirementsState extends State<_CategoryRequirements> {
   List<Map<String, dynamic>> _prereqs = [];
   Map<int, Map<String, dynamic>> _uploads = {};
   final Map<int, bool> _uploading = {};
+
+  bool get _hasBid => widget.myBids.isNotEmpty;
 
   Future<void> _loadData() async {
     if (_prereqs.isNotEmpty) return;
@@ -1113,7 +1233,24 @@ class _CategoryRequirementsState extends State<_CategoryRequirements> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
                 child: Column(
-                  children: _prereqs.map((p) {
+                  children: [
+                    if (!_hasBid)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          children: [
+                            Icon(Icons.info_outline_rounded, size: 14, color: AppTheme.warningColor),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'Place a bid first to upload documents.',
+                                style: TextStyle(fontSize: 11, color: AppTheme.warningColor, fontWeight: FontWeight.w500),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ..._prereqs.map((p) {
                     final prereqId = p['id'] as int;
                     final name = p['name'] as String? ?? '';
                     final desc = p['description'] as String? ?? '';
@@ -1179,31 +1316,52 @@ class _CategoryRequirementsState extends State<_CategoryRequirements> {
                               ],
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          SizedBox(
-                            height: 28,
-                            child: isUploading
-                                ? const Padding(
-                                    padding: EdgeInsets.all(4),
-                                    child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 1.5)),
-                                  )
-                                : InkWell(
-                                    onTap: () => _uploadFile(prereqId),
-                                    borderRadius: BorderRadius.circular(6),
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                                      child: Icon(
-                                        hasUpload ? Icons.sync_rounded : Icons.upload_file_rounded,
-                                        size: 18,
-                                        color: Colors.deepPurple,
+                          if (_hasBid) ...[
+                            const SizedBox(width: 8),
+                            SizedBox(
+                              height: 30,
+                              child: isUploading
+                                  ? const Padding(
+                                      padding: EdgeInsets.all(4),
+                                      child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 1.5)),
+                                    )
+                                  : Material(
+                                      color: Colors.deepPurple.withValues(alpha: 0.08),
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: InkWell(
+                                        onTap: () => _uploadFile(prereqId),
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                hasUpload ? Icons.sync_rounded : Icons.upload_file_rounded,
+                                                size: 16,
+                                                color: Colors.deepPurple,
+                                              ),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                hasUpload ? 'Replace' : 'Upload',
+                                                style: const TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Colors.deepPurple,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
                                       ),
                                     ),
-                                  ),
-                          ),
+                            ),
+                          ],
                         ],
                       ),
                     );
-                  }).toList(),
+                  }),
+                  ],
                 ),
               ),
           ],

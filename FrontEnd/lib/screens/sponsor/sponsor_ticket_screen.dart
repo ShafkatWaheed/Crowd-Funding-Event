@@ -258,9 +258,18 @@ class _SponsorTicketCard extends StatelessWidget {
                     spacing: 6,
                     runSpacing: 6,
                     children: ticket.categories.map((cat) {
-                      final isPaid = cat.status == 'paid';
-                      final color =
-                          isPaid ? AppTheme.successColor : AppTheme.warningColor;
+                      final isRefunded = cat.isRefunded;
+                      final isPaid = cat.isPaid;
+                      final color = isRefunded
+                          ? AppTheme.errorColor
+                          : isPaid
+                              ? AppTheme.successColor
+                              : AppTheme.warningColor;
+                      final icon = isRefunded
+                          ? Icons.undo_rounded
+                          : isPaid
+                              ? Icons.check_circle_rounded
+                              : Icons.hourglass_top_rounded;
                       return Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 5),
@@ -273,16 +282,12 @@ class _SponsorTicketCard extends StatelessWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(
-                              isPaid
-                                  ? Icons.check_circle_rounded
-                                  : Icons.hourglass_top_rounded,
-                              size: 13,
-                              color: color,
-                            ),
+                            Icon(icon, size: 13, color: color),
                             const SizedBox(width: 4),
                             Text(
-                              '${cat.name} \u2022 ${cat.amountDisplay}',
+                              isRefunded
+                                  ? '${cat.name} \u2022 Refunded'
+                                  : '${cat.name} \u2022 ${cat.amountDisplay}',
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
@@ -498,8 +503,23 @@ class _SponsorTicketReceiptPage extends StatelessWidget {
               icon: Icons.workspace_premium_rounded,
               children: [
                 ...ticket.categories.map((cat) {
-                  final isPaid = cat.status == 'paid';
-                  final statusColor = isPaid ? AppTheme.successColor : AppTheme.warningColor;
+                  final isRefunded = cat.isRefunded;
+                  final isPaid = cat.isPaid;
+                  final statusColor = isRefunded
+                      ? AppTheme.errorColor
+                      : isPaid
+                          ? AppTheme.successColor
+                          : AppTheme.warningColor;
+                  final statusIcon = isRefunded
+                      ? Icons.undo_rounded
+                      : isPaid
+                          ? Icons.check_circle_rounded
+                          : Icons.hourglass_top_rounded;
+                  final statusLabel = isRefunded
+                      ? 'Refunded'
+                      : isPaid
+                          ? 'Paid'
+                          : 'Accepted — Pending Payment';
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 10),
                     child: Container(
@@ -517,13 +537,7 @@ class _SponsorTicketReceiptPage extends StatelessWidget {
                         children: [
                           Row(
                             children: [
-                              Icon(
-                                isPaid
-                                    ? Icons.check_circle_rounded
-                                    : Icons.hourglass_top_rounded,
-                                size: 20,
-                                color: statusColor,
-                              ),
+                              Icon(statusIcon, size: 20, color: statusColor),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Column(
@@ -534,12 +548,17 @@ class _SponsorTicketReceiptPage extends StatelessWidget {
                                       style: TextStyle(
                                         fontWeight: FontWeight.w700,
                                         fontSize: 14,
-                                        color: AppTheme.textPrimaryOf(context),
+                                        color: isRefunded
+                                            ? AppTheme.textSecondaryOf(context)
+                                            : AppTheme.textPrimaryOf(context),
+                                        decoration: isRefunded
+                                            ? TextDecoration.lineThrough
+                                            : null,
                                       ),
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
-                                      isPaid ? 'Paid' : 'Accepted — Pending Payment',
+                                      statusLabel,
                                       style: TextStyle(
                                         fontSize: 12,
                                         color: statusColor,
@@ -550,16 +569,44 @@ class _SponsorTicketReceiptPage extends StatelessWidget {
                                 ),
                               ),
                               Text(
-                                cat.amountDisplay,
+                                isRefunded ? '-${cat.amountDisplay}' : cat.amountDisplay,
                                 style: TextStyle(
                                   fontWeight: FontWeight.w800,
                                   fontSize: 16,
-                                  color: AppTheme.textPrimaryOf(context),
+                                  color: isRefunded
+                                      ? AppTheme.errorColor
+                                      : AppTheme.textPrimaryOf(context),
+                                  decoration: isRefunded
+                                      ? TextDecoration.lineThrough
+                                      : null,
                                 ),
                               ),
                             ],
                           ),
-                          if (cat.prerequisites.isNotEmpty) ...[
+                          if (cat.paymentReceiptNumber != null) ...[
+                            const SizedBox(height: 6),
+                            Padding(
+                              padding: const EdgeInsets.only(left: 30),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.receipt_long_rounded, size: 12,
+                                      color: AppTheme.textSecondaryOf(context)),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
+                                      cat.paymentReceiptNumber!,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: AppTheme.textSecondaryOf(context),
+                                        fontFamily: 'monospace',
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                          if (cat.prerequisites.isNotEmpty && !isRefunded) ...[
                             const SizedBox(height: 10),
                             Padding(
                               padding: const EdgeInsets.only(left: 30),
@@ -642,11 +689,59 @@ class _SponsorTicketReceiptPage extends StatelessWidget {
                 }),
                 Divider(height: 1, color: AppTheme.dividerOf(context)),
                 const SizedBox(height: 10),
+                if (ticket.hasRefunds) ...[
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Subtotal',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textSecondaryOf(context),
+                        ),
+                      ),
+                      Text(
+                        ticket.totalAmountDisplay,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textSecondaryOf(context),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Refunded',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.errorColor,
+                        ),
+                      ),
+                      Text(
+                        '-${ticket.refundedTotalDisplay}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.errorColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Divider(height: 1, color: AppTheme.dividerOf(context)),
+                  const SizedBox(height: 6),
+                ],
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Total',
+                      ticket.hasRefunds ? 'Net Total' : 'Total',
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
@@ -654,7 +749,9 @@ class _SponsorTicketReceiptPage extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      ticket.totalAmountDisplay,
+                      ticket.hasRefunds
+                          ? ticket.activeTotalDisplay
+                          : ticket.totalAmountDisplay,
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
@@ -666,6 +763,114 @@ class _SponsorTicketReceiptPage extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
+
+            // ── Payment History ──
+            if (ticket.categories.any((c) => c.paymentReceiptNumber != null))
+              ...[
+                _section(
+                  context,
+                  title: 'Payment History',
+                  icon: Icons.receipt_long_rounded,
+                  children: [
+                    ...ticket.categories
+                        .where((c) => c.paymentReceiptNumber != null)
+                        .map((cat) {
+                      DateTime? payDt;
+                      if (cat.paymentCreatedAt != null) {
+                        try { payDt = DateTime.parse(cat.paymentCreatedAt!); } catch (_) {}
+                      }
+                      final isRefund = cat.isRefunded;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: (isRefund ? AppTheme.errorColor : AppTheme.successColor)
+                                .withValues(alpha: 0.06),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: (isRefund ? AppTheme.errorColor : AppTheme.successColor)
+                                  .withValues(alpha: 0.15),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    isRefund ? Icons.undo_rounded : Icons.payment_rounded,
+                                    size: 18,
+                                    color: isRefund ? AppTheme.errorColor : AppTheme.successColor,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      isRefund ? 'Refund — ${cat.name}' : 'Payment — ${cat.name}',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 13,
+                                        color: AppTheme.textPrimaryOf(context),
+                                      ),
+                                    ),
+                                  ),
+                                  Text(
+                                    isRefund ? '-${cat.amountDisplay}' : cat.amountDisplay,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 14,
+                                      color: isRefund ? AppTheme.errorColor : AppTheme.successColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Row(
+                                children: [
+                                  const SizedBox(width: 26),
+                                  Icon(Icons.tag_rounded, size: 11,
+                                      color: AppTheme.textSecondaryOf(context)),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
+                                      cat.paymentReceiptNumber!,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: AppTheme.textSecondaryOf(context),
+                                        fontFamily: 'monospace',
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              if (payDt != null) ...[
+                                const SizedBox(height: 2),
+                                Row(
+                                  children: [
+                                    const SizedBox(width: 26),
+                                    Icon(Icons.access_time_rounded, size: 11,
+                                        color: AppTheme.textSecondaryOf(context)),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      DateFormat('MMM d, y \u2022 h:mm a').format(payDt),
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: AppTheme.textSecondaryOf(context),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+                const SizedBox(height: 16),
+              ],
 
             // ── Ticket Info ──
             _section(

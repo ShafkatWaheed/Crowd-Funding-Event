@@ -126,6 +126,9 @@ class SponsorTicketCategoryInfo(BaseModel):
     amount_cents: int
     status: str
     prerequisites: list[SponsorTicketPrereqInfo] = []
+    payment_receipt_number: str | None = None
+    payment_status: str | None = None
+    payment_created_at: str | None = None
 
 
 class SponsorTicketResponse(BaseModel):

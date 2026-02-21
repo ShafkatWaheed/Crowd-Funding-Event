@@ -195,16 +195,25 @@ class SponsorTicketCategory {
   final int amountCents;
   final String status;
   final List<SponsorTicketPrereq> prerequisites;
+  final String? paymentReceiptNumber;
+  final String? paymentStatus;
+  final String? paymentCreatedAt;
 
   SponsorTicketCategory({
     required this.name,
     required this.amountCents,
     required this.status,
     this.prerequisites = const [],
+    this.paymentReceiptNumber,
+    this.paymentStatus,
+    this.paymentCreatedAt,
   });
 
   String get amountDisplay =>
       '\$${(amountCents / 100).toStringAsFixed(2)}';
+
+  bool get isRefunded => status == 'refunded';
+  bool get isPaid => status == 'paid';
 
   factory SponsorTicketCategory.fromJson(Map<String, dynamic> json) {
     return SponsorTicketCategory(
@@ -215,6 +224,9 @@ class SponsorTicketCategory {
               ?.map((p) => SponsorTicketPrereq.fromJson(p as Map<String, dynamic>))
               .toList() ??
           [],
+      paymentReceiptNumber: json['payment_receipt_number'],
+      paymentStatus: json['payment_status'],
+      paymentCreatedAt: json['payment_created_at'],
     );
   }
 }
@@ -261,8 +273,22 @@ class SponsorTicketModel {
   int get totalAmountCents =>
       categories.fold(0, (sum, c) => sum + c.amountCents);
 
+  int get activeTotalCents =>
+      categories.where((c) => !c.isRefunded).fold(0, (sum, c) => sum + c.amountCents);
+
+  int get refundedTotalCents =>
+      categories.where((c) => c.isRefunded).fold(0, (sum, c) => sum + c.amountCents);
+
+  bool get hasRefunds => categories.any((c) => c.isRefunded);
+
   String get totalAmountDisplay =>
       '\$${(totalAmountCents / 100).toStringAsFixed(2)}';
+
+  String get activeTotalDisplay =>
+      '\$${(activeTotalCents / 100).toStringAsFixed(2)}';
+
+  String get refundedTotalDisplay =>
+      '\$${(refundedTotalCents / 100).toStringAsFixed(2)}';
 
   factory SponsorTicketModel.fromJson(Map<String, dynamic> json) {
     return SponsorTicketModel(

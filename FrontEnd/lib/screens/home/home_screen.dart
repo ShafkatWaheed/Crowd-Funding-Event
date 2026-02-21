@@ -2255,9 +2255,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
 
-                if (user.isOrganizer || user.isAdmin) ...[
+                if (user.isOrganizer) ...[
                   const SizedBox(height: 24),
-                  Text('Management',
+                  Text('Public Profile',
                       style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
@@ -2276,35 +2276,68 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ],
                     ),
-                    child: Column(
-                      children: [
-                        if (user.isOrganizer) ...[
-                          _profileTile(
-                            icon: Icons.location_city_rounded,
-                            label: 'My Venues',
-                            onTap: () => context.push('/venues'),
-                          ),
-                          Divider(height: 1, indent: 56, color: AppTheme.dividerOf(context)),
-                          _profileTile(
-                            icon: Icons.confirmation_number_rounded,
-                            label: 'Ticket Strategies',
-                            onTap: () => context.push('/ticket-strategies'),
-                          ),
-                          Divider(height: 1, indent: 56, color: AppTheme.dividerOf(context)),
-                          _profileTile(
-                            icon: Icons.category_rounded,
-                            label: 'Sponsor Categories',
-                            onTap: () => context.push('/sponsor-category-templates'),
-                          ),
-                          Divider(height: 1, indent: 56, color: AppTheme.dividerOf(context)),
-                        ],
-                        if (user.isAdmin)
-                          _profileTile(
-                            icon: Icons.admin_panel_settings_rounded,
-                            label: 'Admin Dashboard',
-                            onTap: () => context.push('/admin'),
-                          ),
+                    child: _profileTile(
+                      icon: Icons.visibility_rounded,
+                      label: 'View Organizer Profile',
+                      onTap: () => context.push('/users/${user.id}/profile'),
+                    ),
+                  ),
+                ],
+
+                if (user.isSponsor) ...[
+                  const SizedBox(height: 24),
+                  Text('Public Profile',
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textSecondaryOf(context),
+                          letterSpacing: 0.5)),
+                  const SizedBox(height: 12),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppTheme.cardOf(context),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.04),
+                          blurRadius: 12,
+                          offset: const Offset(0, 2),
+                        ),
                       ],
+                    ),
+                    child: _profileTile(
+                      icon: Icons.visibility_rounded,
+                      label: 'View Sponsor Profile',
+                      onTap: () => context.push('/users/${user.id}/sponsor-profile'),
+                    ),
+                  ),
+                ],
+
+                if (user.isAdmin) ...[
+                  const SizedBox(height: 24),
+                  Text('Administration',
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textSecondaryOf(context),
+                          letterSpacing: 0.5)),
+                  const SizedBox(height: 12),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppTheme.cardOf(context),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.04),
+                          blurRadius: 12,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: _profileTile(
+                      icon: Icons.admin_panel_settings_rounded,
+                      label: 'Admin Dashboard',
+                      onTap: () => context.push('/admin'),
                     ),
                   ),
                 ],

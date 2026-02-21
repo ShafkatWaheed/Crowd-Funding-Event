@@ -591,10 +591,10 @@ async def refund_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorPaymen
     if cat.filled_spots > 0:
         cat.filled_spots -= 1
 
-    other_paid = (await db.execute(
+    other_active = (await db.execute(
         select(func.count()).select_from(SponsorBid).where(
             SponsorBid.sponsor_user_id == bid.sponsor_user_id,
-            SponsorBid.status == BidStatus.paid,
+            SponsorBid.status.in_([BidStatus.accepted, BidStatus.paid]),
             SponsorBid.id != bid.id,
             SponsorBid.category_id.in_(
                 select(SponsorshipCategory.id).where(SponsorshipCategory.event_id == cat.event_id)
@@ -602,7 +602,19 @@ async def refund_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorPaymen
         )
     )).scalar_one()
 
-    if other_paid == 0:
+    refunded_with_payment = (await db.execute(
+        select(func.count()).select_from(SponsorBid)
+        .join(SponsorPayment, SponsorPayment.bid_id == SponsorBid.id)
+        .where(
+            SponsorBid.sponsor_user_id == bid.sponsor_user_id,
+            SponsorPayment.status == PaymentStatus.refunded,
+            SponsorBid.category_id.in_(
+                select(SponsorshipCategory.id).where(SponsorshipCategory.event_id == cat.event_id)
+            ),
+        )
+    )).scalar_one()
+
+    if other_active == 0 and refunded_with_payment == 0:
         from sqlalchemy import delete as sa_delete
         await db.execute(
             sa_delete(SponsorTicket).where(
@@ -744,7 +756,7 @@ async def list_sponsor_tickets(
 async def get_won_categories(
     db: AsyncSession, event_id: int, sponsor_user_id: int
 ) -> list[dict]:
-    """Return category info where sponsor has accepted or paid bids for this event."""
+    """Return category info where sponsor has accepted, paid, or refunded bids."""
     from app.models.prerequisite import CategoryPrerequisite, BidPrerequisiteUpload
     q = (
         select(
@@ -758,12 +770,24 @@ async def get_won_categories(
         .where(
             SponsorshipCategory.event_id == event_id,
             SponsorBid.sponsor_user_id == sponsor_user_id,
-            SponsorBid.status.in_([BidStatus.accepted, BidStatus.paid]),
+            SponsorBid.status.in_([BidStatus.accepted, BidStatus.paid, BidStatus.rejected]),
         )
     )
     rows = (await db.execute(q)).all()
-    results = []
+
+    # Filter rejected bids to only those that have a refunded payment
+    filtered = []
     for r in rows:
+        if r.status == BidStatus.rejected:
+            payment = (await db.execute(
+                select(SponsorPayment).where(SponsorPayment.bid_id == r.bid_id)
+            )).scalar_one_or_none()
+            if not payment or payment.status != PaymentStatus.refunded:
+                continue
+        filtered.append(r)
+
+    results = []
+    for r in filtered:
         prereqs_q = select(CategoryPrerequisite).where(
             CategoryPrerequisite.category_id == r.id,
         )
@@ -782,11 +806,23 @@ async def get_won_categories(
                 "is_required": p.is_required,
                 "upload_status": upload.status.value if upload else None,
             })
+
+        payment = (await db.execute(
+            select(SponsorPayment).where(SponsorPayment.bid_id == r.bid_id)
+        )).scalar_one_or_none()
+
+        cat_status = r.status.value
+        if r.status == BidStatus.rejected and payment and payment.status == PaymentStatus.refunded:
+            cat_status = "refunded"
+
         results.append({
             "name": r.name,
             "amount_cents": r.amount_cents,
-            "status": r.status.value,
+            "status": cat_status,
             "prerequisites": prereq_list,
+            "payment_receipt_number": payment.receipt_number if payment else None,
+            "payment_status": payment.status.value if payment else None,
+            "payment_created_at": payment.created_at.isoformat() if payment and payment.created_at else None,
         })
     return results
 

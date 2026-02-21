@@ -4,11 +4,15 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../../config/design_tokens.dart';
 import '../../config/theme.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../models/ticket.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_toast.dart';
+import '../../widgets/animated_list_item.dart';
+import '../../widgets/empty_state.dart';
+import '../../widgets/error_state.dart';
 import '../event/ticket_receipt_screen.dart';
 
 /// Screen for customers to view all their purchased tickets, grouped by event.
@@ -152,33 +156,14 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
       ),
       body: _loading
           ? SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+              padding: AppSpacing.paddingLg,
               child: Column(
                 children: List.generate(4, (_) => const ShimmerListTile()),
               ),
             )
           : _error != null
-              ? _buildError()
+              ? ErrorState(message: _error!, onRetry: _load)
               : _buildContent(),
-    );
-  }
-
-  Widget _buildError() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.error_outline, size: 48, color: AppTheme.textSecondaryOf(context)),
-            const SizedBox(height: 12),
-            Text(_error!, textAlign: TextAlign.center,
-                style: TextStyle(color: AppTheme.textSecondaryOf(context))),
-            const SizedBox(height: 16),
-            OutlinedButton(onPressed: _load, child: const Text('Retry')),
-          ],
-        ),
-      ),
     );
   }
 
@@ -200,7 +185,12 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
           SliverToBoxAdapter(
             child: Container(
               color: AppTheme.cardOf(context),
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.xl,
+                AppSpacing.sm,
+                AppSpacing.xl,
+                AppSpacing.lg,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -212,7 +202,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                         '${statsTickets.length}',
                         'Total',
                       ),
-                      const SizedBox(width: 10),
+                      AppSpacing.hMd,
                       _statChip(
                         Icons.check_circle_rounded,
                         '$purchasedCount',
@@ -220,7 +210,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                         color: AppTheme.successColor,
                       ),
                       if (waitlistedCount > 0) ...[
-                        const SizedBox(width: 10),
+                        AppSpacing.hMd,
                         _statChip(
                           Icons.hourglass_top_rounded,
                           '$waitlistedCount',
@@ -229,7 +219,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                         ),
                       ],
                       if (scannedCount > 0) ...[
-                        const SizedBox(width: 10),
+                        AppSpacing.hMd,
                         _statChip(
                           Icons.qr_code_scanner_rounded,
                           '$scannedCount',
@@ -239,26 +229,27 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                       ],
                     ],
                   ),
-                  const SizedBox(height: 14),
+                  AppSpacing.vMd,
 
                   // Search bar
                   TextField(
                     decoration: InputDecoration(
                       hintText: 'Search by event, tier, code...',
-                      prefixIcon: Icon(Icons.search, size: 20,
+                      prefixIcon: Icon(Icons.search, size: AppIconSize.md,
                           color: AppTheme.textSecondaryOf(context)),
                       isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                      contentPadding: const EdgeInsets.symmetric(
+                          vertical: AppSpacing.sm + 2),
                       filled: true,
                       fillColor: AppTheme.inputFillOf(context),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: AppRadius.md,
                         borderSide: BorderSide.none,
                       ),
                     ),
                     onChanged: (v) => setState(() => _search = v),
                   ),
-                  const SizedBox(height: 12),
+                  AppSpacing.vMd,
 
                   // Filter chips
                   SingleChildScrollView(
@@ -266,11 +257,11 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                     child: Row(
                       children: [
                         _filterChip('All', 'all'),
-                        const SizedBox(width: 8),
+                        AppSpacing.hSm,
                         _filterChip('Purchased', 'purchased'),
-                        const SizedBox(width: 8),
+                        AppSpacing.hSm,
                         _filterChip('Waitlisted', 'waitlisted'),
-                        const SizedBox(width: 8),
+                        AppSpacing.hSm,
                         _filterChip('Cancelled', 'cancelled'),
                       ],
                     ),
@@ -283,41 +274,26 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
           // ── Grouped Ticket List ──
           if (grouped.isEmpty)
             SliverFillRemaining(
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        color: AppTheme.cardOf(context),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Icon(Icons.confirmation_number_outlined,
-                          size: 40, color: AppTheme.textSecondaryOf(context)),
+              child: _tickets.isEmpty
+                  ? EmptyState(
+                      icon: Icons.confirmation_number_outlined,
+                      title: 'No tickets yet',
+                      subtitle: 'Tickets you purchase will appear here',
+                    )
+                  : EmptyState(
+                      icon: Icons.search_off_rounded,
+                      title: 'No matches',
+                      subtitle: 'Try a different search or filter',
                     ),
-                    const SizedBox(height: 16),
-                    Text(
-                      _tickets.isEmpty ? 'No tickets yet' : 'No matches',
-                      style: TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.w600,
-                          color: AppTheme.textPrimaryOf(context)),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _tickets.isEmpty
-                          ? 'Tickets you purchase will appear here'
-                          : 'Try a different search or filter',
-                      style: TextStyle(color: AppTheme.textSecondaryOf(context)),
-                    ),
-                  ],
-                ),
-              ),
             )
           else
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                AppSpacing.md,
+                AppSpacing.lg,
+                100,
+              ),
               sliver: SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
@@ -325,13 +301,16 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                     final tickets = grouped[eventId]!;
                     final eventTitle = tickets.first.eventTitle ?? 'Event #$eventId';
                     final scannedInGroup = tickets.where((t) => t.isScanned).length;
-                    return _EventTicketGroup(
-                      eventId: eventId,
-                      eventTitle: eventTitle,
-                      tickets: tickets,
-                      scannedCount: scannedInGroup,
-                      onTicketTap: _openReceipt,
-                      onEventTap: () => context.push('/events/$eventId'),
+                    return AnimatedListItem(
+                      index: index,
+                      child: _EventTicketGroup(
+                        eventId: eventId,
+                        eventTitle: eventTitle,
+                        tickets: tickets,
+                        scannedCount: scannedInGroup,
+                        onTicketTap: _openReceipt,
+                        onEventTap: () => context.push('/events/$eventId'),
+                      ),
                     );
                   },
                   childCount: grouped.length,
@@ -341,7 +320,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
           if (_loadingMore)
             const SliverToBoxAdapter(
               child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 20),
+                padding: EdgeInsets.symmetric(vertical: AppSpacing.xl),
                 child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
               ),
             ),
@@ -364,16 +343,17 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
   Widget _statChip(IconData icon, String value, String label, {Color? color}) {
     final c = color ?? AppTheme.textPrimaryOf(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md + 2, vertical: AppSpacing.sm),
       decoration: BoxDecoration(
         color: c.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadius.md,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 18, color: c),
-          const SizedBox(width: 8),
+          AppSpacing.hSm,
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -440,7 +420,7 @@ class _EventTicketGroup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.only(bottom: AppSpacing.xl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -449,25 +429,27 @@ class _EventTicketGroup extends StatelessWidget {
             onTap: onEventTap,
             child: Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md + 2, vertical: AppSpacing.sm + 2),
               decoration: BoxDecoration(
                 color: AppTheme.primaryColor.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: AppRadius.md,
                 border: Border.all(
                     color: AppTheme.primaryColor.withValues(alpha: 0.12)),
               ),
               child: Row(
                 children: [
                   Container(
-                    width: 36, height: 36,
+                    width: 36,
+                    height: 36,
                     decoration: BoxDecoration(
                       color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: AppRadius.sm,
                     ),
                     child: const Icon(Icons.event_rounded,
                         size: 18, color: AppTheme.primaryColor),
                   ),
-                  const SizedBox(width: 10),
+                  AppSpacing.hMd,
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -476,28 +458,30 @@ class _EventTicketGroup extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                                fontWeight: FontWeight.w700, fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14,
                                 color: AppTheme.textPrimaryOf(context))),
-                        const SizedBox(height: 2),
+                        AppSpacing.vXs,
                         Text(
                           '${tickets.length} ticket${tickets.length == 1 ? '' : 's'}'
                           '${scannedCount > 0 ? ' \u2022 $scannedCount scanned' : ''}',
                           style: TextStyle(
-                              fontSize: 12, color: AppTheme.textSecondaryOf(context)),
+                              fontSize: 12,
+                              color: AppTheme.textSecondaryOf(context)),
                         ),
                       ],
                     ),
                   ),
                   Icon(Icons.chevron_right_rounded,
-                      color: AppTheme.textSecondaryOf(context), size: 20),
+                      color: AppTheme.textSecondaryOf(context), size: AppIconSize.md),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 8),
+          AppSpacing.vSm,
           // Ticket cards
           ...tickets.map((ticket) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.only(bottom: AppSpacing.sm + 2),
                 child: _TicketCard(
                   ticket: ticket,
                   onTap: () => onTicketTap(ticket),
@@ -524,33 +508,30 @@ class _TicketCard extends StatelessWidget {
     final dateFmt = DateFormat('MMM d, yyyy \u2022 h:mm a');
     final isFree = ticket.amountPaidCents == 0;
     final statusColor = _statusColor(context, ticket.status);
+    final isDark = AppTheme.isDark(context);
 
     return GestureDetector(
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
           color: AppTheme.cardOf(context),
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 12,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          borderRadius: AppRadius.lg,
+          boxShadow: AppShadow.card(isDark),
         ),
         child: Column(
           children: [
             // ── Header with event title + status ──
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                AppSpacing.md + 2,
+                AppSpacing.lg,
+                AppSpacing.md,
+              ),
               decoration: BoxDecoration(
                 color: AppTheme.primaryColor,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  topRight: Radius.circular(16),
-                ),
+                borderRadius: AppRadius.topLg,
               ),
               child: Row(
                 children: [
@@ -560,12 +541,12 @@ class _TicketCard extends StatelessWidget {
                     height: 36,
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: AppRadius.sm,
                     ),
                     child: const Icon(Icons.confirmation_number_rounded,
                         color: Colors.white, size: 20),
                   ),
-                  const SizedBox(width: 12),
+                  AppSpacing.hMd,
                   // Event title
                   Expanded(
                     child: Column(
@@ -582,7 +563,7 @@ class _TicketCard extends StatelessWidget {
                           ),
                         ),
                         if (ticket.tierName != null) ...[
-                          const SizedBox(height: 2),
+                          AppSpacing.vXs,
                           Text(
                             ticket.tierName!,
                             style: TextStyle(
@@ -598,10 +579,10 @@ class _TicketCard extends StatelessWidget {
                   // Status badge
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 4),
+                        horizontal: AppSpacing.sm + 2, vertical: AppSpacing.xs),
                     decoration: BoxDecoration(
                       color: statusColor.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: AppRadius.pill,
                       border: Border.all(
                           color: statusColor.withValues(alpha: 0.4)),
                     ),
@@ -630,7 +611,7 @@ class _TicketCard extends StatelessWidget {
 
             // ── Body ──
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: AppSpacing.paddingLg,
               child: Column(
                 children: [
                   // Info rows
@@ -639,21 +620,21 @@ class _TicketCard extends StatelessWidget {
                     'Receipt',
                     ticket.receiptNumber ?? '—',
                   ),
-                  const SizedBox(height: 8),
+                  AppSpacing.vSm,
                   _infoRow(
                     Icons.qr_code_rounded,
                     'Code',
                     ticket.ticketCode,
                     copyable: true,
                   ),
-                  const SizedBox(height: 8),
+                  AppSpacing.vSm,
                   _infoRow(
                     Icons.calendar_today_rounded,
                     'Purchased',
                     dateFmt.format(ticket.createdAt.toLocal()),
                   ),
                   if (ticket.isScanned) ...[
-                    const SizedBox(height: 8),
+                    AppSpacing.vSm,
                     _infoRow(
                       Icons.verified_rounded,
                       'Scanned',
@@ -662,7 +643,7 @@ class _TicketCard extends StatelessWidget {
                     ),
                   ],
 
-                  const SizedBox(height: 12),
+                  AppSpacing.vMd,
 
                   // ── Price + View Receipt button ──
                   Row(
@@ -670,12 +651,13 @@ class _TicketCard extends StatelessWidget {
                       // Price
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
+                            horizontal: AppSpacing.md,
+                            vertical: AppSpacing.sm - 2),
                         decoration: BoxDecoration(
                           color: isFree
                               ? AppTheme.successColor.withValues(alpha: 0.1)
                               : AppTheme.accentColor.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: AppRadius.sm,
                         ),
                         child: Text(
                           isFree ? 'FREE' : ticket.amountPaidFormatted,
@@ -689,20 +671,21 @@ class _TicketCard extends StatelessWidget {
                         ),
                       ),
                       if (ticket.discountAppliedCents > 0) ...[
-                        const SizedBox(width: 8),
+                        AppSpacing.hSm,
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
+                              horizontal: AppSpacing.sm,
+                              vertical: AppSpacing.xs),
                           decoration: BoxDecoration(
                             color: AppTheme.successColor.withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: AppRadius.sm,
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(Icons.local_offer_rounded,
                                   size: 12, color: AppTheme.successColor),
-                              const SizedBox(width: 4),
+                              AppSpacing.hXs,
                               Text(
                                 '-\$${(ticket.discountAppliedCents / 100).toStringAsFixed(2)}',
                                 style: TextStyle(
@@ -719,16 +702,17 @@ class _TicketCard extends StatelessWidget {
                       // View Receipt button
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 8),
+                            horizontal: AppSpacing.md + 2,
+                            vertical: AppSpacing.sm),
                         decoration: BoxDecoration(
                           color: AppTheme.primaryColor,
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: AppRadius.sm,
                         ),
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.receipt_long_rounded,
-                                size: 16, color: Colors.white),
+                                size: AppIconSize.sm, color: Colors.white),
                             SizedBox(width: 6),
                             Text(
                               'View Receipt',
@@ -757,8 +741,8 @@ class _TicketCard extends StatelessWidget {
     return Builder(builder: (context) {
       return Row(
         children: [
-          Icon(icon, size: 16, color: AppTheme.textSecondaryOf(context)),
-          const SizedBox(width: 8),
+          Icon(icon, size: AppIconSize.sm, color: AppTheme.textSecondaryOf(context)),
+          AppSpacing.hSm,
           SizedBox(
             width: 72,
             child: Text(
@@ -788,7 +772,8 @@ class _TicketCard extends StatelessWidget {
                 Clipboard.setData(ClipboardData(text: value));
                 AppToast.info(context, 'Copied to clipboard');
               },
-              child: Icon(Icons.copy_rounded, size: 14, color: AppTheme.textSecondaryOf(context)),
+              child: Icon(Icons.copy_rounded,
+                  size: 14, color: AppTheme.textSecondaryOf(context)),
             ),
         ],
       );

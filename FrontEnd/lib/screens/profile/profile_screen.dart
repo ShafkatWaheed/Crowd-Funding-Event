@@ -3,11 +3,13 @@ import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
+import '../../config/design_tokens.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
@@ -29,7 +31,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late TextEditingController _birthdayCtrl;
   late TextEditingController _experienceCtrl;
 
-  // Sponsor profile controllers
   late TextEditingController _companyNameCtrl;
   late TextEditingController _contactNameCtrl;
   late TextEditingController _professionCtrl;
@@ -94,7 +95,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (user.birthday != null) {
           try {
             _selectedBirthday = DateTime.parse(user.birthday!);
-            _birthdayCtrl.text = DateFormat('MMM dd, yyyy').format(_selectedBirthday!);
+            _birthdayCtrl.text =
+                DateFormat('MMM dd, yyyy').format(_selectedBirthday!);
           } catch (_) {}
         }
       });
@@ -120,9 +122,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _websiteUrlCtrl.text = data['website_url'] ?? '';
         });
       }
-    } catch (_) {
-      // Profile doesn't exist yet
-    } finally {
+    } catch (_) {}
+    finally {
       if (mounted) setState(() => _loadingSponsorProfile = false);
     }
   }
@@ -198,7 +199,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final api = context.read<ApiService>();
       final user = context.read<AuthProvider>().user!;
 
-      // --- User profile fields ---
       final data = <String, dynamic>{};
       if (_nameCtrl.text.trim() != (user.displayName ?? '')) {
         data['display_name'] = _nameCtrl.text.trim();
@@ -229,7 +229,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         userUpdated = true;
       }
 
-      // --- Sponsor profile fields ---
       bool sponsorUpdated = false;
       if (user.isSponsor) {
         final spData = <String, dynamic>{
@@ -307,7 +306,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           title: Row(
             children: [
               Icon(Icons.lock_outline_rounded, color: AppTheme.accentColor),
-              const SizedBox(width: 10),
+              AppSpacing.hSm,
               Text('Change Password',
                   style: TextStyle(color: AppTheme.textPrimaryOf(ctx))),
             ],
@@ -327,7 +326,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       filled: true,
                       fillColor: AppTheme.inputFillOf(ctx),
                       border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: AppRadius.md,
                           borderSide: BorderSide.none),
                       suffixIcon: IconButton(
                         icon: Icon(obscureCurrent
@@ -340,7 +339,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     validator: (v) =>
                         (v == null || v.isEmpty) ? 'Required' : null,
                   ),
-                  const SizedBox(height: 16),
+                  AppSpacing.vLg,
                   TextFormField(
                     controller: newPwCtrl,
                     obscureText: obscureNew,
@@ -349,7 +348,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       filled: true,
                       fillColor: AppTheme.inputFillOf(ctx),
                       border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: AppRadius.md,
                           borderSide: BorderSide.none),
                       suffixIcon: IconButton(
                         icon: Icon(obscureNew
@@ -365,7 +364,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 16),
+                  AppSpacing.vLg,
                   TextFormField(
                     controller: confirmPwCtrl,
                     obscureText: obscureConfirm,
@@ -374,7 +373,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       filled: true,
                       fillColor: AppTheme.inputFillOf(ctx),
                       border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: AppRadius.md,
                           borderSide: BorderSide.none),
                       suffixIcon: IconButton(
                         icon: Icon(obscureConfirm
@@ -456,8 +455,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.accentColor,
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(borderRadius: AppRadius.md),
               ),
               child: loading
                   ? const SizedBox(
@@ -487,26 +485,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return InputDecoration(
       labelText: label,
       hintText: hint,
-      prefixIcon: Icon(icon, size: 20),
+      prefixIcon: Icon(icon, size: AppIconSize.md),
       suffixIcon: suffix,
       filled: true,
       fillColor: readOnly
           ? AppTheme.surfaceOf(context).withValues(alpha: 0.5)
           : AppTheme.inputFillOf(context),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadius.md,
         borderSide: BorderSide.none,
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadius.md,
         borderSide: BorderSide(
             color: AppTheme.dividerOf(context), width: 1),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadius.md,
         borderSide: const BorderSide(color: AppTheme.accentColor, width: 1.5),
       ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: 14),
     );
   }
 
@@ -514,6 +513,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final user = auth.user;
+    final isDark = AppTheme.isDark(context);
 
     return Scaffold(
       appBar: AppBar(
@@ -535,386 +535,520 @@ class _ProfileScreenState extends State<ProfileScreen> {
               onRefresh: _refreshProfile,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(24),
+                padding: AppSpacing.paddingXxl,
                 child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 500),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Avatar & role badge
-                        Center(
-                          child: Column(
-                            children: [
-                              CircleAvatar(
-                                radius: 48,
-                                backgroundColor: AppTheme.accentColor,
-                                child: Text(
-                                  user.initial,
-                                  style: const TextStyle(
-                                      fontSize: 36, color: Colors.white),
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              Chip(
-                                label: Text(
-                                  user.role.name.toUpperCase(),
-                                  style: TextStyle(
-                                    color: AppTheme.textPrimaryOf(context),
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 12,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 500),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // ── Profile header card ──
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(AppSpacing.xxl),
+                            decoration: BoxDecoration(
+                              gradient: AppTheme.primaryGradient,
+                              borderRadius: AppRadius.xl,
+                              boxShadow: AppShadow.elevated(isDark),
+                            ),
+                            child: Column(
+                              children: [
+                                CircleAvatar(
+                                  radius: 44,
+                                  backgroundColor:
+                                      Colors.white.withValues(alpha: 0.2),
+                                  child: Text(
+                                    user.initial,
+                                    style: const TextStyle(
+                                        fontSize: 32,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white),
                                   ),
                                 ),
-                                backgroundColor: AppTheme.accentColor
-                                    .withValues(alpha: 0.15),
-                                side: BorderSide.none,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 32),
-
-                        // Basic info section
-                        _sectionHeader('Personal Information'),
-                        const SizedBox(height: 16),
-
-                        TextFormField(
-                          controller: _nameCtrl,
-                          decoration: _fieldDecoration(
-                            label: 'Full Name',
-                            icon: Icons.person_outline_rounded,
-                          ),
-                          validator: (v) => (v == null || v.trim().isEmpty)
-                              ? 'Name is required'
-                              : null,
-                        ),
-                        const SizedBox(height: 16),
-
-                        TextFormField(
-                          initialValue: user.email,
-                          readOnly: true,
-                          decoration: _fieldDecoration(
-                            label: 'Email',
-                            icon: Icons.email_outlined,
-                            readOnly: true,
-                            suffix: Icon(Icons.lock_outline,
-                                size: 18,
-                                color: AppTheme.textSecondaryOf(context)),
-                          ),
-                          style: TextStyle(
-                              color: AppTheme.textSecondaryOf(context)),
-                        ),
-                        const SizedBox(height: 16),
-
-                        TextFormField(
-                          controller: _phoneCtrl,
-                          decoration: _fieldDecoration(
-                            label: 'Phone Number',
-                            icon: Icons.phone_outlined,
-                            hint: '+1 (555) 000-0000',
-                          ),
-                          keyboardType: TextInputType.phone,
-                        ),
-                        const SizedBox(height: 16),
-
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            TextFormField(
-                              controller: _addressCtrl,
-                              decoration: _fieldDecoration(
-                                label: 'Address',
-                                icon: Icons.location_on_outlined,
-                                hint: 'Start typing to search...',
-                                suffix: _geocoding
-                                    ? const Padding(
-                                        padding: EdgeInsets.all(12),
-                                        child: SizedBox(
-                                          width: 18,
-                                          height: 18,
-                                          child: CircularProgressIndicator(
-                                              strokeWidth: 2),
-                                        ),
-                                      )
-                                    : (_addressCtrl.text.trim().isNotEmpty
-                                        ? Icon(Icons.check_circle,
-                                            color: AppTheme.successColor, size: 20)
-                                        : null),
-                              ),
-                              onChanged: _onAddressChanged,
-                            ),
-                            if (_showAddressSuggestions &&
-                                _addressSuggestions.isNotEmpty)
-                              Container(
-                                constraints:
-                                    const BoxConstraints(maxHeight: 200),
-                                margin: const EdgeInsets.only(top: 4),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.cardOf(context),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                      color: AppTheme.dividerOf(context)),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black
-                                          .withValues(alpha: 0.08),
-                                      blurRadius: 12,
-                                      offset: const Offset(0, 4),
+                                AppSpacing.vMd,
+                                Text(
+                                  user.displayName ?? 'User',
+                                  style: const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                AppSpacing.vXs,
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: AppSpacing.md,
+                                      vertical: AppSpacing.xs),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.2),
+                                    borderRadius: AppRadius.pill,
+                                  ),
+                                  child: Text(
+                                    user.role.name.toUpperCase(),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 11,
+                                      letterSpacing: 1,
                                     ),
-                                  ],
+                                  ),
                                 ),
-                                child: ListView.separated(
-                                  shrinkWrap: true,
-                                  padding: EdgeInsets.zero,
-                                  itemCount: _addressSuggestions.length,
-                                  separatorBuilder: (_, __) => Divider(
-                                      height: 1,
-                                      color: AppTheme.dividerOf(context)),
-                                  itemBuilder: (context, index) {
-                                    final s = _addressSuggestions[index];
-                                    return ListTile(
-                                      dense: true,
-                                      leading: Icon(
-                                          Icons.location_on_outlined,
-                                          size: 20,
-                                          color: AppTheme.textSecondaryOf(
-                                              context)),
-                                      title: Text(
-                                        s.fullAddress,
-                                        style: TextStyle(
-                                            fontSize: 13,
-                                            color:
-                                                AppTheme.textPrimaryOf(
-                                                    context)),
-                                      ),
-                                      onTap: () =>
-                                          _selectAddressSuggestion(s),
-                                    );
-                                  },
+                                AppSpacing.vSm,
+                                Text(
+                                  user.email,
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.7),
+                                    fontSize: 13,
+                                  ),
                                 ),
-                              ),
-                          ],
-                        ),
-
-                        // Customer-specific: birthday
-                        if (user.isCustomer) ...[
-                          const SizedBox(height: 24),
-                          _sectionHeader('Additional Details'),
-                          const SizedBox(height: 16),
-                          TextFormField(
-                            controller: _birthdayCtrl,
-                            readOnly: true,
-                            onTap: _pickBirthday,
-                            decoration: _fieldDecoration(
-                              label: 'Birthday',
-                              icon: Icons.cake_outlined,
-                              hint: 'Select your birthday',
-                              suffix: IconButton(
-                                icon: const Icon(
-                                    Icons.calendar_today_outlined,
-                                    size: 20),
-                                onPressed: _pickBirthday,
-                              ),
-                            ),
-                          ),
-                        ],
-
-                        // Organizer-specific: experience
-                        if (user.isOrganizer) ...[
-                          const SizedBox(height: 24),
-                          _sectionHeader('Professional Details'),
-                          const SizedBox(height: 16),
-                          TextFormField(
-                            controller: _experienceCtrl,
-                            decoration: _fieldDecoration(
-                              label: 'Years of Experience',
-                              icon: Icons.work_outline_rounded,
-                              hint: 'e.g. 5',
-                            ),
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly
-                            ],
-                          ),
-                        ],
-
-                        // Sponsor-specific fields
-                        if (user.isSponsor) ...[
-                          const SizedBox(height: 24),
-                          _sectionHeader('Company Details'),
-                          const SizedBox(height: 16),
-                          if (_loadingSponsorProfile)
-                            const ShimmerProfileSection()
-                          else ...[
-                            TextFormField(
-                              controller: _companyNameCtrl,
-                              decoration: _fieldDecoration(
-                                label: 'Company Name',
-                                icon: Icons.business_rounded,
-                              ),
-                              validator: (v) => (v == null || v.trim().isEmpty)
-                                  ? 'Company name is required'
-                                  : null,
-                            ),
-                            const SizedBox(height: 16),
-                            TextFormField(
-                              controller: _contactNameCtrl,
-                              decoration: _fieldDecoration(
-                                label: 'Contact Name',
-                                icon: Icons.person_outline_rounded,
-                              ),
-                              validator: (v) => (v == null || v.trim().isEmpty)
-                                  ? 'Contact name is required'
-                                  : null,
-                            ),
-                            const SizedBox(height: 16),
-                            TextFormField(
-                              controller: _professionCtrl,
-                              decoration: _fieldDecoration(
-                                label: 'Profession / Industry',
-                                icon: Icons.work_outline_rounded,
-                              ),
-                              validator: (v) => (v == null || v.trim().isEmpty)
-                                  ? 'Profession is required'
-                                  : null,
-                            ),
-                            const SizedBox(height: 16),
-                            TextFormField(
-                              controller: _logoUrlCtrl,
-                              decoration: _fieldDecoration(
-                                label: 'Logo URL',
-                                icon: Icons.image_outlined,
-                                hint: 'https://...',
-                              ),
-                              keyboardType: TextInputType.url,
-                            ),
-                            const SizedBox(height: 16),
-                            TextFormField(
-                              controller: _descriptionCtrl,
-                              decoration: _fieldDecoration(
-                                label: 'Company Description',
-                                icon: Icons.description_outlined,
-                                hint: 'Tell us about your company...',
-                              ),
-                              maxLines: 3,
-                              minLines: 2,
-                            ),
-                            const SizedBox(height: 16),
-                            TextFormField(
-                              controller: _websiteUrlCtrl,
-                              decoration: _fieldDecoration(
-                                label: 'Website URL',
-                                icon: Icons.language_rounded,
-                                hint: 'https://...',
-                              ),
-                              keyboardType: TextInputType.url,
-                            ),
-                            const SizedBox(height: 16),
-                            TextFormField(
-                              controller: _experienceCtrl,
-                              decoration: _fieldDecoration(
-                                label: 'Years of Experience',
-                                icon: Icons.timeline_rounded,
-                                hint: 'e.g. 5',
-                              ),
-                              keyboardType: TextInputType.number,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.digitsOnly
                               ],
                             ),
-                          ],
-                        ],
+                          )
+                              .animate()
+                              .fadeIn(duration: 500.ms)
+                              .slideY(begin: 0.1, end: 0, duration: 500.ms, curve: AppCurve.enter),
 
-                        const SizedBox(height: 32),
+                          const SizedBox(height: 28),
 
-                        // Save button
-                        SizedBox(
-                          width: double.infinity,
-                          height: 52,
-                          child: ElevatedButton.icon(
-                            onPressed: _saving ? null : _saveProfile,
-                            icon: _saving
-                                ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 2, color: Colors.white))
-                                : const Icon(Icons.check_rounded, size: 20),
-                            label: Text(_saving ? 'Saving...' : 'Save Changes',
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 16)),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.accentColor,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14)),
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(height: 24),
-
-                        // Security section
-                        _sectionHeader('Security'),
-                        const SizedBox(height: 16),
-                        Container(
-                          decoration: BoxDecoration(
-                            color: AppTheme.cardOf(context),
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                                color: AppTheme.dividerOf(context)),
-                          ),
-                          child: ListTile(
-                            leading: Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: Colors.orange.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(10),
+                          // ── Personal Information ──
+                          _SectionCard(
+                            title: 'Personal Information',
+                            icon: Icons.person_outline_rounded,
+                            delay: 100,
+                            children: [
+                              TextFormField(
+                                controller: _nameCtrl,
+                                decoration: _fieldDecoration(
+                                  label: 'Full Name',
+                                  icon: Icons.person_outline_rounded,
+                                ),
+                                validator: (v) =>
+                                    (v == null || v.trim().isEmpty)
+                                        ? 'Name is required'
+                                        : null,
                               ),
-                              child: const Icon(Icons.lock_outline_rounded,
-                                  size: 20, color: Colors.orange),
-                            ),
-                            title: Text('Change Password',
+                              AppSpacing.vLg,
+                              TextFormField(
+                                initialValue: user.email,
+                                readOnly: true,
+                                decoration: _fieldDecoration(
+                                  label: 'Email',
+                                  icon: Icons.email_outlined,
+                                  readOnly: true,
+                                  suffix: Icon(Icons.lock_outline,
+                                      size: 18,
+                                      color:
+                                          AppTheme.textSecondaryOf(context)),
+                                ),
                                 style: TextStyle(
-                                    fontWeight: FontWeight.w500,
-                                    color: AppTheme.textPrimaryOf(context))),
-                            subtitle: Text('Update your account password',
-                                style: TextStyle(
-                                    fontSize: 12,
                                     color:
-                                        AppTheme.textSecondaryOf(context))),
-                            trailing: Icon(Icons.chevron_right_rounded,
-                                color: AppTheme.textSecondaryOf(context)),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14)),
-                            onTap: _changePassword,
+                                        AppTheme.textSecondaryOf(context)),
+                              ),
+                              AppSpacing.vLg,
+                              TextFormField(
+                                controller: _phoneCtrl,
+                                decoration: _fieldDecoration(
+                                  label: 'Phone Number',
+                                  icon: Icons.phone_outlined,
+                                  hint: '+1 (555) 000-0000',
+                                ),
+                                keyboardType: TextInputType.phone,
+                              ),
+                              AppSpacing.vLg,
+                              Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.stretch,
+                                children: [
+                                  TextFormField(
+                                    controller: _addressCtrl,
+                                    decoration: _fieldDecoration(
+                                      label: 'Address',
+                                      icon: Icons.location_on_outlined,
+                                      hint: 'Start typing to search...',
+                                      suffix: _geocoding
+                                          ? const Padding(
+                                              padding: EdgeInsets.all(12),
+                                              child: SizedBox(
+                                                width: 18,
+                                                height: 18,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                        strokeWidth: 2),
+                                              ),
+                                            )
+                                          : (_addressCtrl.text
+                                                  .trim()
+                                                  .isNotEmpty
+                                              ? Icon(Icons.check_circle,
+                                                  color:
+                                                      AppTheme.successColor,
+                                                  size: 20)
+                                              : null),
+                                    ),
+                                    onChanged: _onAddressChanged,
+                                  ),
+                                  if (_showAddressSuggestions &&
+                                      _addressSuggestions.isNotEmpty)
+                                    Container(
+                                      constraints: const BoxConstraints(
+                                          maxHeight: 200),
+                                      margin:
+                                          const EdgeInsets.only(top: 4),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.cardOf(context),
+                                        borderRadius: AppRadius.md,
+                                        border: Border.all(
+                                            color: AppTheme.dividerOf(
+                                                context)),
+                                        boxShadow:
+                                            AppShadow.card(isDark),
+                                      ),
+                                      child: ListView.separated(
+                                        shrinkWrap: true,
+                                        padding: EdgeInsets.zero,
+                                        itemCount:
+                                            _addressSuggestions.length,
+                                        separatorBuilder: (_, __) =>
+                                            Divider(
+                                                height: 1,
+                                                color:
+                                                    AppTheme.dividerOf(
+                                                        context)),
+                                        itemBuilder: (context, index) {
+                                          final s =
+                                              _addressSuggestions[index];
+                                          return ListTile(
+                                            dense: true,
+                                            leading: Icon(
+                                                Icons
+                                                    .location_on_outlined,
+                                                size: 20,
+                                                color: AppTheme
+                                                    .textSecondaryOf(
+                                                        context)),
+                                            title: Text(
+                                              s.fullAddress,
+                                              style: TextStyle(
+                                                  fontSize: 13,
+                                                  color: AppTheme
+                                                      .textPrimaryOf(
+                                                          context)),
+                                            ),
+                                            onTap: () =>
+                                                _selectAddressSuggestion(
+                                                    s),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ],
                           ),
-                        ),
 
-                        const SizedBox(height: 40),
-                      ],
+                          // ── Customer: birthday ──
+                          if (user.isCustomer)
+                            _SectionCard(
+                              title: 'Additional Details',
+                              icon: Icons.info_outline_rounded,
+                              delay: 200,
+                              children: [
+                                TextFormField(
+                                  controller: _birthdayCtrl,
+                                  readOnly: true,
+                                  onTap: _pickBirthday,
+                                  decoration: _fieldDecoration(
+                                    label: 'Birthday',
+                                    icon: Icons.cake_outlined,
+                                    hint: 'Select your birthday',
+                                    suffix: IconButton(
+                                      icon: const Icon(
+                                          Icons.calendar_today_outlined,
+                                          size: 20),
+                                      onPressed: _pickBirthday,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+
+                          // ── Organizer: experience ──
+                          if (user.isOrganizer)
+                            _SectionCard(
+                              title: 'Professional Details',
+                              icon: Icons.work_outline_rounded,
+                              delay: 200,
+                              children: [
+                                TextFormField(
+                                  controller: _experienceCtrl,
+                                  decoration: _fieldDecoration(
+                                    label: 'Years of Experience',
+                                    icon: Icons.work_outline_rounded,
+                                    hint: 'e.g. 5',
+                                  ),
+                                  keyboardType: TextInputType.number,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly
+                                  ],
+                                ),
+                              ],
+                            ),
+
+                          // ── Sponsor fields ──
+                          if (user.isSponsor)
+                            _SectionCard(
+                              title: 'Company Details',
+                              icon: Icons.business_rounded,
+                              delay: 200,
+                              children: _loadingSponsorProfile
+                                  ? [const ShimmerProfileSection()]
+                                  : [
+                                      TextFormField(
+                                        controller: _companyNameCtrl,
+                                        decoration: _fieldDecoration(
+                                          label: 'Company Name',
+                                          icon: Icons.business_rounded,
+                                        ),
+                                        validator: (v) =>
+                                            (v == null || v.trim().isEmpty)
+                                                ? 'Company name is required'
+                                                : null,
+                                      ),
+                                      AppSpacing.vLg,
+                                      TextFormField(
+                                        controller: _contactNameCtrl,
+                                        decoration: _fieldDecoration(
+                                          label: 'Contact Name',
+                                          icon:
+                                              Icons.person_outline_rounded,
+                                        ),
+                                        validator: (v) =>
+                                            (v == null || v.trim().isEmpty)
+                                                ? 'Contact name is required'
+                                                : null,
+                                      ),
+                                      AppSpacing.vLg,
+                                      TextFormField(
+                                        controller: _professionCtrl,
+                                        decoration: _fieldDecoration(
+                                          label: 'Profession / Industry',
+                                          icon: Icons.work_outline_rounded,
+                                        ),
+                                        validator: (v) =>
+                                            (v == null || v.trim().isEmpty)
+                                                ? 'Profession is required'
+                                                : null,
+                                      ),
+                                      AppSpacing.vLg,
+                                      TextFormField(
+                                        controller: _logoUrlCtrl,
+                                        decoration: _fieldDecoration(
+                                          label: 'Logo URL',
+                                          icon: Icons.image_outlined,
+                                          hint: 'https://...',
+                                        ),
+                                        keyboardType: TextInputType.url,
+                                      ),
+                                      AppSpacing.vLg,
+                                      TextFormField(
+                                        controller: _descriptionCtrl,
+                                        decoration: _fieldDecoration(
+                                          label: 'Company Description',
+                                          icon: Icons.description_outlined,
+                                          hint:
+                                              'Tell us about your company...',
+                                        ),
+                                        maxLines: 3,
+                                        minLines: 2,
+                                      ),
+                                      AppSpacing.vLg,
+                                      TextFormField(
+                                        controller: _websiteUrlCtrl,
+                                        decoration: _fieldDecoration(
+                                          label: 'Website URL',
+                                          icon: Icons.language_rounded,
+                                          hint: 'https://...',
+                                        ),
+                                        keyboardType: TextInputType.url,
+                                      ),
+                                      AppSpacing.vLg,
+                                      TextFormField(
+                                        controller: _experienceCtrl,
+                                        decoration: _fieldDecoration(
+                                          label: 'Years of Experience',
+                                          icon: Icons.timeline_rounded,
+                                          hint: 'e.g. 5',
+                                        ),
+                                        keyboardType: TextInputType.number,
+                                        inputFormatters: [
+                                          FilteringTextInputFormatter
+                                              .digitsOnly
+                                        ],
+                                      ),
+                                    ],
+                            ),
+
+                          const SizedBox(height: 28),
+
+                          // ── Save button ──
+                          SizedBox(
+                            width: double.infinity,
+                            height: 52,
+                            child: ElevatedButton.icon(
+                              onPressed: _saving ? null : _saveProfile,
+                              icon: _saving
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white))
+                                  : const Icon(Icons.check_rounded,
+                                      size: 20),
+                              label: Text(
+                                  _saving ? 'Saving...' : 'Save Changes',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 16)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.accentColor,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: AppRadius.md),
+                              ),
+                            ),
+                          )
+                              .animate(delay: 300.ms)
+                              .fadeIn(duration: 400.ms)
+                              .slideY(begin: 0.1, end: 0, duration: 400.ms, curve: AppCurve.enter),
+
+                          AppSpacing.vXxl,
+
+                          // ── Security section ──
+                          _SectionCard(
+                            title: 'Security',
+                            icon: Icons.shield_outlined,
+                            delay: 350,
+                            children: [
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: AppTheme.cardOf(context),
+                                  borderRadius: AppRadius.md,
+                                  border: Border.all(
+                                      color:
+                                          AppTheme.dividerOf(context)),
+                                ),
+                                child: ListTile(
+                                  leading: Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.warningSurfaceOf(
+                                          context),
+                                      borderRadius: AppRadius.md,
+                                    ),
+                                    child: const Icon(
+                                        Icons.lock_outline_rounded,
+                                        size: 20,
+                                        color: Colors.orange),
+                                  ),
+                                  title: Text('Change Password',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.w500,
+                                          color:
+                                              AppTheme.textPrimaryOf(
+                                                  context))),
+                                  subtitle: Text(
+                                      'Update your account password',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          color:
+                                              AppTheme.textSecondaryOf(
+                                                  context))),
+                                  trailing: Icon(
+                                      Icons.chevron_right_rounded,
+                                      color:
+                                          AppTheme.textSecondaryOf(
+                                              context)),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: AppRadius.md),
+                                  onTap: _changePassword,
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 40),
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
     );
   }
+}
 
-  Widget _sectionHeader(String title) {
-    return Text(
-      title,
-      style: TextStyle(
-        fontSize: 14,
-        fontWeight: FontWeight.w700,
-        color: AppTheme.textSecondaryOf(context),
-        letterSpacing: 0.5,
+class _SectionCard extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final List<Widget> children;
+  final int delay;
+
+  const _SectionCard({
+    required this.title,
+    required this.icon,
+    required this.children,
+    this.delay = 0,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.xl),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(AppSpacing.xl),
+        decoration: BoxDecoration(
+          color: AppTheme.cardOf(context),
+          borderRadius: AppRadius.lg,
+          boxShadow: AppShadow.soft(isDark),
+          border: Border.all(
+            color: AppTheme.dividerOf(context).withValues(alpha: 0.5),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon,
+                    size: AppIconSize.md,
+                    color: AppTheme.accentColor),
+                AppSpacing.hSm,
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.textSecondaryOf(context),
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
+            AppSpacing.vLg,
+            ...children,
+          ],
+        ),
       ),
-    );
+    )
+        .animate(delay: Duration(milliseconds: delay))
+        .fadeIn(duration: 400.ms)
+        .slideY(begin: 0.08, end: 0, duration: 400.ms, curve: AppCurve.enter);
   }
 }

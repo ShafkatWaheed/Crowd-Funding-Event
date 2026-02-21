@@ -599,6 +599,13 @@ async def scan_ticket(
     return sale, already_scanned
 
 
+async def _tier_has_sales(db: AsyncSession, tier_id: int) -> bool:
+    result = await db.execute(
+        select(func.count()).select_from(TicketSale).where(TicketSale.ticket_tier_id == tier_id)
+    )
+    return (result.scalar() or 0) > 0
+
+
 async def create_tier(
     db: AsyncSession,
     *,
@@ -612,6 +619,9 @@ async def create_tier(
     event = await event_service.get_or_404(db, event_id)
     if not await _can_manage_event_tickets(db, user, event):
         raise ForbiddenError("Only the event organizer or admin can manage ticket tiers")
+    from app.models.event import EventStatus
+    if event.status in (EventStatus.selling_tickets, EventStatus.live, EventStatus.completed):
+        raise ConflictError("Cannot add tiers while tickets are on sale or the event is live/completed")
     if price_cents < 0:
         raise ConflictError("price_cents must be >= 0")
     tier = TicketTier(
@@ -640,6 +650,9 @@ async def update_tier(
     event = await event_service.get_or_404(db, tier.event_id)
     if not await _can_manage_event_tickets(db, user, event):
         raise ForbiddenError("Only the event organizer or admin can manage ticket tiers")
+    if price_cents is not None and price_cents != tier.price_cents:
+        if await _tier_has_sales(db, tier.id):
+            raise ConflictError("Cannot change price after tickets have been sold for this tier")
     if name is not None:
         tier.name = name
     if description is not None:

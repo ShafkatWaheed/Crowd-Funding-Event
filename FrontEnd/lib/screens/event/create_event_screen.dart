@@ -95,6 +95,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   // Ticket strategy
   List<TicketStrategy> _strategies = [];
   int? _selectedStrategyId;
+  List<_EditableTier> _localTiers = [];
   bool _showStrategyForm = false;
   bool _creatingStrategy = false;
   final _strategyNameCtrl = TextEditingController();
@@ -124,7 +125,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   // Sponsorship Categories (template-based)
   bool _showSponsorshipSection = false;
   List<Map<String, dynamic>> _sponsorTemplates = [];
-  final Set<int> _selectedTemplateIds = {};
+  List<_EditableSponsorCategory> _localCategories = [];
   bool _loadingTemplates = false;
 
   // Event Images
@@ -426,6 +427,12 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     if (_strategyTiers.length > 1) setState(() => _strategyTiers.removeAt(i));
   }
 
+  void _addLocalTier() => setState(() => _localTiers.add(_EditableTier()));
+
+  void _removeLocalTier(int i) {
+    if (_localTiers.length > 1) setState(() => _localTiers.removeAt(i));
+  }
+
   Future<void> _createStrategyInline() async {
     if (_strategyNameCtrl.text.trim().isEmpty) {
       AppToast.error(context, 'Please enter a strategy name');
@@ -458,8 +465,16 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       });
       await _loadStrategies();
       final newId = resp['id'] as int?;
+      final newStrategy = _strategies.where((s) => s.id == newId).firstOrNull;
       setState(() {
         _selectedStrategyId = newId;
+        _localTiers = (newStrategy?.tiers ?? []).map((t) {
+          final lt = _EditableTier();
+          lt.nameCtrl.text = t.name;
+          lt.priceCtrl.text = (t.priceCents / 100).toStringAsFixed(2);
+          lt.descCtrl.text = t.description ?? '';
+          return lt;
+        }).toList();
         _showStrategyForm = false;
         _strategyNameCtrl.clear();
         _strategyTiers.clear();
@@ -746,6 +761,23 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         } catch (_) {}
       }
 
+      if (_localTiers.isNotEmpty) {
+        for (int i = 0; i < _localTiers.length; i++) {
+          final t = _localTiers[i];
+          final name = t.nameCtrl.text.trim();
+          if (name.isEmpty) continue;
+          try {
+            await api.createTicketTier(eventId, {
+              'name': name,
+              'price_cents': ((double.tryParse(t.priceCtrl.text) ?? 0) * 100).toInt(),
+              'display_order': i,
+              if (t.descCtrl.text.trim().isNotEmpty)
+                'description': t.descCtrl.text.trim(),
+            });
+          } catch (_) {}
+        }
+      }
+
       for (final ms in _milestones) {
         final title = ms.titleCtrl.text.trim();
         if (title.isEmpty) continue;
@@ -789,9 +821,23 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         }
       }
 
-      for (final templateId in _selectedTemplateIds) {
+      for (final cat in _localCategories) {
+        final name = cat.nameCtrl.text.trim();
+        if (name.isEmpty) continue;
         try {
-          await api.copyTemplateToEvent(eventId, templateId);
+          final catResp = await api.createSponsorshipCategory(eventId, {
+            'name': name,
+            'description': cat.descCtrl.text.trim(),
+            'total_spots': int.tryParse(cat.spotsCtrl.text) ?? 1,
+            'min_bid_cents': ((double.tryParse(cat.minBidCtrl.text) ?? 0) * 100).round(),
+          });
+          final catId = catResp['id'] as int;
+          for (final p in cat.prereqs) {
+            try {
+              await api.createPrerequisite(eventId, catId,
+                  name: p.name, description: p.description, isRequired: p.isRequired);
+            } catch (_) {}
+          }
         } catch (_) {}
       }
 
@@ -1916,8 +1962,16 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
             itemSubtitle: (s) => s.tiersSummary,
             filter: (s, q) =>
                 s.name.toLowerCase().contains(q.toLowerCase()),
-            onSelected: (s) =>
-                setState(() => _selectedStrategyId = s?.id),
+            onSelected: (s) => setState(() {
+              _selectedStrategyId = s?.id;
+              _localTiers = (s?.tiers ?? []).map((t) {
+                final lt = _EditableTier();
+                lt.nameCtrl.text = t.name;
+                lt.priceCtrl.text = (t.priceCents / 100).toStringAsFixed(2);
+                lt.descCtrl.text = t.description ?? '';
+                return lt;
+              }).toList();
+            }),
             validator: (_) {
               if (_fundingEndAt == null &&
                   _startTime != null &&
@@ -1927,9 +1981,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
               return null;
             },
           ),
-          if (_selectedStrategyId != null) ...[
+          if (_selectedStrategyId != null && _localTiers.isNotEmpty) ...[
             const SizedBox(height: 8),
-            _buildSelectedStrategyPreview(),
+            _buildEditableTiersPreview(),
           ],
           const SizedBox(height: 8),
           GestureDetector(
@@ -3148,6 +3202,203 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     );
   }
 
+  Future<void> _toggleSponsorTemplate(Map<String, dynamic> t) async {
+    final id = t['id'] as int;
+    final idx = _localCategories.indexWhere((c) => c.templateId == id);
+    if (idx >= 0) {
+      setState(() {
+        _localCategories.removeAt(idx);
+        _markDirty();
+      });
+      return;
+    }
+    final cat = _EditableSponsorCategory(templateId: id, expanded: true);
+    cat.nameCtrl.text = t['name'] ?? '';
+    cat.descCtrl.text = (t['description'] as String?) ?? '';
+    cat.spotsCtrl.text = '${t['total_spots'] ?? 1}';
+    final minBid = t['min_bid_cents'] ?? 0;
+    cat.minBidCtrl.text = (minBid / 100).toStringAsFixed(2);
+    try {
+      final prereqs = await Provider.of<ApiService>(context, listen: false)
+          .listTemplatePrerequisites(id);
+      for (final p in prereqs) {
+        cat.prereqs.add(_LocalPrerequisite(
+          name: (p['name'] as String?) ?? '',
+          description: (p['description'] as String?) ?? '',
+          isRequired: p['is_required'] as bool? ?? true,
+        ));
+      }
+    } catch (_) {}
+    if (!mounted) return;
+    setState(() {
+      _localCategories.add(cat);
+      _markDirty();
+    });
+  }
+
+  Widget _buildPrereqSection(_EditableSponsorCategory cat) {
+    final nameCtrl = TextEditingController();
+    final descCtrl = TextEditingController();
+    bool isRequired = true;
+
+    return StatefulBuilder(
+      builder: (context, setLocal) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.checklist_rounded, size: 16, color: Colors.teal),
+                const SizedBox(width: 6),
+                Text('Prerequisites',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+                        color: AppTheme.textPrimaryOf(context))),
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: Colors.teal.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text('${cat.prereqs.length}',
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.teal)),
+                ),
+              ],
+            ),
+            if (cat.prereqs.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              ...cat.prereqs.asMap().entries.map((entry) {
+                final i = entry.key;
+                final p = entry.value;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Icon(Icons.arrow_right_rounded, size: 18,
+                                color: AppTheme.textSecondaryOf(context)),
+                            Flexible(
+                              child: Text(p.name,
+                                  style: TextStyle(fontSize: 12,
+                                      color: AppTheme.textPrimaryOf(context))),
+                            ),
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: p.isRequired
+                                    ? Colors.red.withValues(alpha: 0.1)
+                                    : Colors.grey.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                p.isRequired ? 'Required' : 'Optional',
+                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600,
+                                    color: p.isRequired ? Colors.red : Colors.grey),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      InkWell(
+                        onTap: () {
+                          setState(() => cat.prereqs.removeAt(i));
+                          setLocal(() {});
+                        },
+                        child: const Padding(
+                          padding: EdgeInsets.all(4),
+                          child: Icon(Icons.close, size: 16, color: Colors.red),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ],
+            const SizedBox(height: 8),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: TextField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Prerequisite name',
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    ),
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  flex: 3,
+                  child: TextField(
+                    controller: descCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Description (optional)',
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    ),
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                InkWell(
+                  onTap: () => setLocal(() => isRequired = !isRequired),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isRequired ? Icons.check_box : Icons.check_box_outline_blank,
+                          size: 18,
+                          color: isRequired ? Colors.teal : Colors.grey,
+                        ),
+                        const SizedBox(width: 2),
+                        Text('Req', style: TextStyle(fontSize: 10,
+                            color: AppTheme.textSecondaryOf(context))),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                InkWell(
+                  onTap: () {
+                    final name = nameCtrl.text.trim();
+                    if (name.isEmpty) return;
+                    setState(() {
+                      cat.prereqs.add(_LocalPrerequisite(
+                        name: name,
+                        description: descCtrl.text.trim(),
+                        isRequired: isRequired,
+                      ));
+                    });
+                    nameCtrl.clear();
+                    descCtrl.clear();
+                    setLocal(() {});
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.teal,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Icon(Icons.add, size: 16, color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildSponsorshipSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -3186,7 +3437,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                           color:
                               AppTheme.textPrimaryOf(context))),
                 ),
-                if (_selectedTemplateIds.isNotEmpty)
+                if (_localCategories.isNotEmpty)
                   Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 8, vertical: 2),
@@ -3196,7 +3447,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
-                        '${_selectedTemplateIds.length}',
+                        '${_localCategories.length}',
                         style: const TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
@@ -3242,7 +3493,10 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                               style: TextStyle(color: AppTheme.textSecondaryOf(context))),
                           const SizedBox(height: 8),
                           OutlinedButton.icon(
-                            onPressed: () => context.push('/sponsor-category-templates'),
+                            onPressed: () async {
+                              await context.push('/sponsor-category-templates');
+                              _loadSponsorTemplates();
+                            },
                             icon: const Icon(Icons.add, size: 18),
                             label: const Text('Create Categories'),
                           ),
@@ -3254,67 +3508,114 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                   Text('Select categories to attach:',
                       style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
                           color: AppTheme.textPrimaryOf(context))),
+                  const SizedBox(height: 4),
+                  Text('Tap to select, then customize fields for this event.',
+                      style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context), fontStyle: FontStyle.italic)),
                   const SizedBox(height: 8),
                   ..._sponsorTemplates.map((t) {
                     final id = t['id'] as int;
-                    final selected = _selectedTemplateIds.contains(id);
-                    final minBid = t['min_bid_cents'] ?? 0;
+                    final localCat = _localCategories.where((c) => c.templateId == id).firstOrNull;
+                    final selected = localCat != null;
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 6),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(10),
-                        onTap: () => setState(() {
-                          if (selected) {
-                            _selectedTemplateIds.remove(id);
-                          } else {
-                            _selectedTemplateIds.add(id);
-                          }
-                          _markDirty();
-                        }),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: selected
-                                ? Colors.teal.withValues(alpha: 0.08)
-                                : AppTheme.surfaceOf(context),
+                      child: Column(
+                        children: [
+                          InkWell(
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: selected
-                                  ? Colors.teal.withValues(alpha: 0.4)
-                                  : AppTheme.dividerOf(context),
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                selected ? Icons.check_circle_rounded : Icons.circle_outlined,
-                                size: 20,
-                                color: selected ? Colors.teal : AppTheme.textSecondaryOf(context),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(t['name'] ?? '',
-                                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13,
-                                            color: AppTheme.textPrimaryOf(context))),
-                                    if (t['description'] != null && (t['description'] as String).isNotEmpty)
-                                      Text(t['description'],
-                                          maxLines: 1, overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(fontSize: 11,
-                                              color: AppTheme.textSecondaryOf(context))),
-                                  ],
+                            onTap: () => _toggleSponsorTemplate(t),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: selected
+                                    ? Colors.teal.withValues(alpha: 0.08)
+                                    : AppTheme.surfaceOf(context),
+                                borderRadius: BorderRadius.only(
+                                  topLeft: const Radius.circular(10),
+                                  topRight: const Radius.circular(10),
+                                  bottomLeft: Radius.circular(selected && localCat.expanded ? 0 : 10),
+                                  bottomRight: Radius.circular(selected && localCat.expanded ? 0 : 10),
+                                ),
+                                border: Border.all(
+                                  color: selected
+                                      ? Colors.teal.withValues(alpha: 0.4)
+                                      : AppTheme.dividerOf(context),
                                 ),
                               ),
-                              Text('${t['total_spots'] ?? 0} spots',
-                                  style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context))),
-                              const SizedBox(width: 8),
-                              Text('\$${(minBid / 100).toStringAsFixed(0)} min',
-                                  style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context))),
-                            ],
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    selected ? Icons.check_circle_rounded : Icons.circle_outlined,
+                                    size: 20,
+                                    color: selected ? Colors.teal : AppTheme.textSecondaryOf(context),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(t['name'] ?? '',
+                                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13,
+                                            color: AppTheme.textPrimaryOf(context))),
+                                  ),
+                                  if (selected)
+                                    IconButton(
+                                      onPressed: () => setState(() => localCat.expanded = !localCat.expanded),
+                                      icon: Icon(localCat.expanded ? Icons.expand_less : Icons.expand_more, size: 20),
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                      color: Colors.teal,
+                                    ),
+                                ],
+                              ),
+                            ),
                           ),
-                        ),
+                          if (selected && localCat.expanded)
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.teal.withValues(alpha: 0.03),
+                                borderRadius: const BorderRadius.only(
+                                  bottomLeft: Radius.circular(10),
+                                  bottomRight: Radius.circular(10),
+                                ),
+                                border: Border.all(color: Colors.teal.withValues(alpha: 0.4)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  TextFormField(
+                                    controller: localCat.nameCtrl,
+                                    decoration: const InputDecoration(labelText: 'Category Name', isDense: true),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  TextFormField(
+                                    controller: localCat.descCtrl,
+                                    decoration: const InputDecoration(labelText: 'Description (optional)', isDense: true),
+                                    maxLines: 2,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: TextFormField(
+                                          controller: localCat.spotsCtrl,
+                                          decoration: const InputDecoration(labelText: 'Total Spots', isDense: true),
+                                          keyboardType: TextInputType.number,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: TextFormField(
+                                          controller: localCat.minBidCtrl,
+                                          decoration: const InputDecoration(labelText: 'Min Bid (\$)', prefixText: '\$ ', isDense: true),
+                                          keyboardType: TextInputType.number,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  _buildPrereqSection(localCat),
+                                ],
+                              ),
+                            ),
+                        ],
                       ),
                     );
                   }),
@@ -3428,6 +3729,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                             : 'Closed (Waitlist)',
                     'Ticket Strategy':
                         strategyName ?? 'Not set',
+                    'Tiers': _localTiers.isEmpty
+                        ? 'None'
+                        : '${_localTiers.length} tiers',
                     'Discounts': _selectedDiscounts.isEmpty
                         ? 'None'
                         : '${_selectedDiscounts.length} selected',
@@ -3443,9 +3747,13 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                     'Capacity': _capacityCtrl.text.isNotEmpty
                         ? _capacityCtrl.text
                         : 'Not set',
-                    'Sponsors': _selectedTemplateIds.isEmpty
+                    'Sponsors': _localCategories.isEmpty
                         ? 'None'
-                        : '${_selectedTemplateIds.length} categories',
+                        : () {
+                            final totalPrereqs = _localCategories.fold<int>(0, (s, c) => s + c.prereqs.length);
+                            final base = '${_localCategories.length} categories';
+                            return totalPrereqs > 0 ? '$base, $totalPrereqs prereqs' : base;
+                          }(),
                   },
                 ),
                 const SizedBox(height: 8),
@@ -3563,64 +3871,97 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     );
   }
 
-  Widget _buildSelectedStrategyPreview() {
-    final s = _strategies
-        .where((s) => s.id == _selectedStrategyId)
-        .firstOrNull;
-    if (s == null) return const SizedBox.shrink();
+  Widget _buildEditableTiersPreview() {
+    if (_localTiers.isEmpty) return const SizedBox.shrink();
     return Card(
       margin: const EdgeInsets.only(top: 4),
       child: Padding(
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.all(12),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            ...s.tiers.map((t) => Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
+            Row(
+              children: [
+                Icon(Icons.tune, size: 14, color: AppTheme.textSecondaryOf(context)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Customize tiers for this event',
+                    style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context), fontStyle: FontStyle.italic),
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: _addLocalTier,
+                  icon: const Icon(Icons.add, size: 14),
+                  label: const Text('Add', style: TextStyle(fontSize: 11)),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            ...List.generate(_localTiers.length, (i) {
+              final t = _localTiers[i];
+              return Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
                   child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Row(
                         children: [
-                          Container(
-                            width: 7,
-                            height: 7,
-                            decoration: BoxDecoration(
-                              color: AppTheme.accentColor,
-                              shape: BoxShape.circle,
+                          Text('Tier ${i + 1}',
+                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                          const Spacer(),
+                          if (_localTiers.length > 1)
+                            IconButton(
+                              onPressed: () => _removeLocalTier(i),
+                              icon: const Icon(Icons.close, size: 16, color: AppTheme.errorColor),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Expanded(
+                            flex: 3,
+                            child: TextFormField(
+                              controller: t.nameCtrl,
+                              decoration: const InputDecoration(labelText: 'Name', hintText: 'e.g. Platinum', isDense: true),
                             ),
                           ),
                           const SizedBox(width: 8),
                           Expanded(
-                              child: Text(t.name,
-                                  style: const TextStyle(
-                                      fontWeight:
-                                          FontWeight.w500))),
-                          Text(t.priceFormatted,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTheme
-                                      .successColor)),
+                            flex: 2,
+                            child: TextFormField(
+                              controller: t.priceCtrl,
+                              decoration: const InputDecoration(labelText: 'Price (\$)', prefixText: '\$ ', isDense: true),
+                              keyboardType: TextInputType.number,
+                            ),
+                          ),
                         ],
                       ),
-                      if (t.description != null &&
-                          t.description!.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(
-                              left: 15, top: 2),
-                          child: Text(t.description!,
-                              style: TextStyle(
-                                  fontSize: 11,
-                                  color: AppTheme
-                                      .textSecondaryOf(
-                                          context),
-                                  fontStyle:
-                                      FontStyle.italic)),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: t.descCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Description (optional)',
+                          hintText: 'e.g. Front row seating, backstage access',
+                          isDense: true,
                         ),
+                        maxLines: 2,
+                      ),
                     ],
                   ),
-                )),
+                ),
+              );
+            }),
           ],
         ),
       ),
@@ -3788,6 +4129,31 @@ class _StrategyTierInput {
   final nameCtrl = TextEditingController();
   final descCtrl = TextEditingController();
   final priceCtrl = TextEditingController();
+}
+
+class _EditableTier {
+  final nameCtrl = TextEditingController();
+  final priceCtrl = TextEditingController();
+  final descCtrl = TextEditingController();
+}
+
+class _LocalPrerequisite {
+  String name;
+  String description;
+  bool isRequired;
+  _LocalPrerequisite({required this.name, this.description = '', this.isRequired = true});
+}
+
+class _EditableSponsorCategory {
+  final int templateId;
+  final nameCtrl = TextEditingController();
+  final descCtrl = TextEditingController();
+  final spotsCtrl = TextEditingController();
+  final minBidCtrl = TextEditingController();
+  bool expanded;
+  List<_LocalPrerequisite> prereqs;
+  _EditableSponsorCategory({required this.templateId, this.expanded = false})
+      : prereqs = [];
 }
 
 class _MilestoneInput {

@@ -40,6 +40,14 @@ class _EditSponsorCategory {
   _EditSponsorCategory({this.id});
 }
 
+class _EditTier {
+  int? id;
+  final nameCtrl = TextEditingController();
+  final priceCtrl = TextEditingController(text: '0.00');
+  final descCtrl = TextEditingController();
+  _EditTier({this.id});
+}
+
 class EditEventScreen extends StatefulWidget {
   final int eventId;
   const EditEventScreen({super.key, required this.eventId});
@@ -91,10 +99,16 @@ class _EditEventScreenState extends State<EditEventScreen> {
   bool _hasSchedule = false;
   List<_EditScheduleItem> _scheduleItems = [];
 
+  // Ticket Tiers (live CRUD)
+  bool _showTierSection = false;
+  List<_EditTier> _tiers = [];
+  bool _tiersLoaded = false;
+
   // Sponsorship Categories (live CRUD)
   bool _showSponsorshipSection = false;
   List<_EditSponsorCategory> _sponsorCategories = [];
   bool _sponsorCategoriesLoaded = false;
+  List<Map<String, dynamic>> _sponsorTemplates = [];
 
   final List<String> _genres = [
     'community', 'music', 'tech', 'sports', 'arts',
@@ -166,6 +180,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
       });
       _loadMilestones();
       _loadSchedule();
+      _loadTiers();
       _loadSponsorCategories();
     } catch (e) {
       if (mounted) {
@@ -327,13 +342,34 @@ class _EditEventScreenState extends State<EditEventScreen> {
         children: [
           Row(
             children: [
-              Text(
-                  sc.id != null
-                      ? 'Category #${sc.id}'
-                      : 'New Category',
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w600, fontSize: 13)),
-              const Spacer(),
+              Expanded(
+                child: Text(
+                  sc.id != null ? 'Category #${sc.id}' : 'New Category',
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                ),
+              ),
+              if (sc.id != null)
+                InkWell(
+                  onTap: () => _showPrerequisiteSheet(sc),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.checklist_rounded, size: 14, color: Colors.orange[800]),
+                        const SizedBox(width: 4),
+                        Text('Prerequisites', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.orange[800])),
+                      ],
+                    ),
+                  ),
+                ),
+              const SizedBox(width: 6),
               IconButton(
                 icon: Icon(Icons.save, size: 18, color: Colors.teal[700]),
                 onPressed: () => _saveSponsorCategory(sc),
@@ -343,8 +379,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
               ),
               const SizedBox(width: 8),
               IconButton(
-                icon: const Icon(Icons.delete_outline,
-                    size: 18, color: AppTheme.errorColor),
+                icon: const Icon(Icons.delete_outline, size: 18, color: AppTheme.errorColor),
                 onPressed: () => _deleteSponsorCategory(index),
                 tooltip: 'Delete',
                 padding: EdgeInsets.zero,
@@ -396,6 +431,281 @@ class _EditEventScreenState extends State<EditEventScreen> {
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showPrerequisiteSheet(_EditSponsorCategory sc) async {
+    if (sc.id == null) return;
+    final api = context.read<ApiService>();
+    List<Map<String, dynamic>> prereqs = [];
+    try {
+      final data = await api.listPrerequisites(widget.eventId, sc.id!);
+      prereqs = data.cast<Map<String, dynamic>>();
+    } catch (_) {}
+    if (!mounted) return;
+
+    final nameCtrl = TextEditingController();
+    final descCtrl = TextEditingController();
+    bool isRequired = true;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setSheetState) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.55,
+          maxChildSize: 0.85,
+          minChildSize: 0.3,
+          expand: false,
+          builder: (_, scrollCtrl) => Padding(
+            padding: EdgeInsets.only(left: 16, right: 16, top: 16, bottom: MediaQuery.of(ctx).viewInsets.bottom + 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('Prerequisites for "${sc.nameCtrl.text}"',
+                    style: Theme.of(ctx).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: prereqs.isEmpty
+                      ? Center(child: Text('No prerequisites yet', style: TextStyle(color: AppTheme.textSecondaryOf(ctx))))
+                      : ListView.builder(
+                          controller: scrollCtrl,
+                          itemCount: prereqs.length,
+                          itemBuilder: (_, i) {
+                            final p = prereqs[i];
+                            return ListTile(
+                              dense: true,
+                              leading: Icon(
+                                p['is_required'] == true ? Icons.check_circle : Icons.radio_button_unchecked,
+                                size: 18,
+                                color: p['is_required'] == true ? Colors.orange : AppTheme.textSecondaryOf(ctx),
+                              ),
+                              title: Text(p['name'] ?? '', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                              subtitle: p['description'] != null && (p['description'] as String).isNotEmpty
+                                  ? Text(p['description'], style: const TextStyle(fontSize: 11))
+                                  : null,
+                              trailing: IconButton(
+                                icon: const Icon(Icons.delete_outline, size: 18, color: AppTheme.errorColor),
+                                onPressed: () async {
+                                  try {
+                                    await api.deletePrerequisite(widget.eventId, sc.id!, p['id']);
+                                    setSheetState(() => prereqs.removeAt(i));
+                                  } catch (e) {
+                                    if (ctx.mounted) AppToast.fromError(ctx, e, fallback: 'Failed to delete');
+                                  }
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                ),
+                const Divider(),
+                Text('Add Prerequisite', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textPrimaryOf(ctx))),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(labelText: 'Name *', isDense: true, hintText: 'e.g. Business License'),
+                ),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: descCtrl,
+                  decoration: const InputDecoration(labelText: 'Description', isDense: true),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Checkbox(
+                      value: isRequired,
+                      onChanged: (v) => setSheetState(() => isRequired = v ?? true),
+                      activeColor: Colors.orange,
+                    ),
+                    const Text('Required', style: TextStyle(fontSize: 13)),
+                    const Spacer(),
+                    ElevatedButton.icon(
+                      onPressed: () async {
+                        final name = nameCtrl.text.trim();
+                        if (name.isEmpty) return;
+                        try {
+                          final resp = await api.createPrerequisite(
+                            widget.eventId, sc.id!,
+                            name: name,
+                            description: descCtrl.text.trim().isEmpty ? null : descCtrl.text.trim(),
+                            isRequired: isRequired,
+                          );
+                          setSheetState(() {
+                            prereqs.add(resp);
+                            nameCtrl.clear();
+                            descCtrl.clear();
+                            isRequired = true;
+                          });
+                        } catch (e) {
+                          if (ctx.mounted) AppToast.fromError(ctx, e, fallback: 'Failed to add');
+                        }
+                      },
+                      icon: const Icon(Icons.add, size: 16),
+                      label: const Text('Add'),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, foregroundColor: Colors.white),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      }),
+    );
+  }
+
+  // ── Ticket Tiers (live CRUD) ──
+
+  Future<void> _loadTiers() async {
+    try {
+      final api = context.read<ApiService>();
+      final list = await api.getTicketTiers(widget.eventId);
+      if (mounted) {
+        setState(() {
+          _tiers = list.map((j) {
+            final t = _EditTier(id: j['id']);
+            t.nameCtrl.text = j['name'] ?? '';
+            t.priceCtrl.text = ((j['price_cents'] ?? 0) / 100).toStringAsFixed(2);
+            t.descCtrl.text = j['description'] ?? '';
+            return t;
+          }).toList();
+          _tiersLoaded = true;
+          if (_tiers.isNotEmpty) _showTierSection = true;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _tiersLoaded = true);
+    }
+  }
+
+  Future<void> _saveTier(_EditTier t) async {
+    final name = t.nameCtrl.text.trim();
+    if (name.isEmpty) return;
+    final priceCents = ((double.tryParse(t.priceCtrl.text.trim()) ?? 0) * 100).toInt();
+    final api = context.read<ApiService>();
+    try {
+      if (t.id != null) {
+        await api.updateTicketTier(widget.eventId, t.id!, {
+          'name': name,
+          'price_cents': priceCents,
+          if (t.descCtrl.text.trim().isNotEmpty) 'description': t.descCtrl.text.trim(),
+        });
+        if (mounted) AppToast.success(context, 'Tier updated');
+      } else {
+        final resp = await api.createTicketTier(widget.eventId, {
+          'name': name,
+          'price_cents': priceCents,
+          'display_order': _tiers.indexOf(t),
+          if (t.descCtrl.text.trim().isNotEmpty) 'description': t.descCtrl.text.trim(),
+        });
+        t.id = resp['id'] as int;
+        if (mounted) AppToast.success(context, 'Tier created');
+      }
+    } catch (e) {
+      if (mounted) {
+        AppToast.fromError(context, e, fallback: 'Failed to save tier');
+      }
+    }
+  }
+
+  Future<void> _deleteTier(int idx) async {
+    final t = _tiers[idx];
+    if (t.id != null) {
+      try {
+        final api = context.read<ApiService>();
+        await api.deleteTicketTier(widget.eventId, t.id!);
+      } catch (e) {
+        if (mounted) {
+          AppToast.fromError(context, e, fallback: 'Failed to delete tier');
+        }
+        return;
+      }
+    }
+    setState(() => _tiers.removeAt(idx));
+  }
+
+  Widget _buildEditTierCard(int index) {
+    final t = _tiers[index];
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.blue.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.blue.withValues(alpha: 0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                t.id != null ? 'Tier #${t.id}' : 'New Tier',
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+              ),
+              const Spacer(),
+              IconButton(
+                icon: Icon(Icons.save, size: 18, color: Colors.blue[700]),
+                onPressed: () => _saveTier(t),
+                tooltip: 'Save',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(Icons.delete_outline, size: 18, color: AppTheme.errorColor),
+                onPressed: () => _deleteTier(index),
+                tooltip: 'Delete',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: TextFormField(
+                  controller: t.nameCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Tier Name *',
+                    hintText: 'e.g. VIP, General',
+                    isDense: true,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: TextFormField(
+                  controller: t.priceCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Price (\$) *',
+                    prefixText: '\$ ',
+                    isDense: true,
+                  ),
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: t.descCtrl,
+            decoration: const InputDecoration(
+              labelText: 'Description',
+              hintText: 'What this tier includes',
+              isDense: true,
+            ),
+            maxLines: 2,
           ),
         ],
       ),
@@ -478,6 +788,92 @@ class _EditEventScreenState extends State<EditEventScreen> {
       }
     }
     setState(() => _sponsorCategories.removeAt(idx));
+  }
+
+  Future<void> _showTemplatePicker() async {
+    final api = context.read<ApiService>();
+    try {
+      final data = await api.getSponsorCategoryTemplates();
+      _sponsorTemplates = data.cast<Map<String, dynamic>>();
+    } catch (_) {
+      if (mounted) AppToast.error(context, 'Failed to load templates');
+      return;
+    }
+    if (!mounted) return;
+    final selected = await showModalBottomSheet<List<int>>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        final chosen = <int>{};
+        return StatefulBuilder(builder: (ctx, setSheetState) {
+          return DraggableScrollableSheet(
+            initialChildSize: 0.5,
+            maxChildSize: 0.85,
+            minChildSize: 0.3,
+            expand: false,
+            builder: (_, scrollCtrl) => Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text('Copy from Template',
+                      style: Theme.of(ctx).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text('Select templates to copy as new categories',
+                      style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(ctx))),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: _sponsorTemplates.isEmpty
+                        ? Center(child: Text('No templates available', style: TextStyle(color: AppTheme.textSecondaryOf(ctx))))
+                        : ListView.builder(
+                            controller: scrollCtrl,
+                            itemCount: _sponsorTemplates.length,
+                            itemBuilder: (_, i) {
+                              final t = _sponsorTemplates[i];
+                              final id = t['id'] as int;
+                              final isChosen = chosen.contains(id);
+                              return CheckboxListTile(
+                                value: isChosen,
+                                onChanged: (v) => setSheetState(() {
+                                  if (v == true) chosen.add(id); else chosen.remove(id);
+                                }),
+                                title: Text(t['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                                subtitle: Text(
+                                  '${t['total_spots'] ?? 0} spots · \$${((t['min_bid_cents'] ?? 0) / 100).toStringAsFixed(0)} min bid',
+                                  style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(ctx)),
+                                ),
+                                dense: true,
+                                activeColor: Colors.teal,
+                              );
+                            },
+                          ),
+                  ),
+                  const SizedBox(height: 8),
+                  ElevatedButton(
+                    onPressed: chosen.isEmpty ? null : () => Navigator.pop(ctx, chosen.toList()),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.teal, foregroundColor: Colors.white),
+                    child: Text('Add ${chosen.length} categor${chosen.length == 1 ? 'y' : 'ies'}'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        });
+      },
+    );
+    if (selected == null || selected.isEmpty) return;
+    for (final templateId in selected) {
+      final t = _sponsorTemplates.firstWhere((t) => t['id'] == templateId);
+      final sc = _EditSponsorCategory();
+      sc.nameCtrl.text = t['name'] ?? '';
+      sc.descCtrl.text = (t['description'] as String?) ?? '';
+      sc.spotsCtrl.text = '${t['total_spots'] ?? 1}';
+      sc.minBidCtrl.text = ((t['min_bid_cents'] ?? 0) / 100).toStringAsFixed(2);
+      setState(() => _sponsorCategories.add(sc));
+    }
   }
 
   Future<void> _submit() async {
@@ -1110,47 +1506,81 @@ class _EditEventScreenState extends State<EditEventScreen> {
                               filter: (s, q) => s.name.toLowerCase().contains(q.toLowerCase()),
                               onSelected: (s) => setState(() => _selectedStrategyId = s?.id),
                             ),
-                            if (_selectedStrategyId != null) ...[
-                              const SizedBox(height: 6),
-                              Builder(builder: (context) {
-                                final s = _strategies.where((s) => s.id == _selectedStrategyId).firstOrNull;
-                                if (s == null) return const SizedBox.shrink();
-                                return Card(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(10),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        ...s.tiers.map((t) => Padding(
-                                          padding: const EdgeInsets.only(bottom: 4),
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Row(
-                                                children: [
-                                                  Container(width: 7, height: 7,
-                                                    decoration: BoxDecoration(color: AppTheme.primaryColor, shape: BoxShape.circle)),
-                                                  const SizedBox(width: 8),
-                                                  Expanded(child: Text(t.name, style: const TextStyle(fontWeight: FontWeight.w500))),
-                                                  Text(t.priceFormatted,
-                                                      style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.successColor)),
-                                                ],
-                                              ),
-                                              if (t.description != null && t.description!.isNotEmpty)
-                                                Padding(
-                                                  padding: const EdgeInsets.only(left: 15, top: 2),
-                                                  child: Text(t.description!,
-                                                      style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context), fontStyle: FontStyle.italic)),
-                                                ),
-                                            ],
-                                          ),
-                                        )),
-                                      ],
-                                    ),
+                            const SizedBox(height: 16),
+
+                            // ─── Ticket Tiers (collapsible, live CRUD) ───
+                            GestureDetector(
+                              onTap: () => setState(() => _showTierSection = !_showTierSection),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: _showTierSection
+                                      ? Colors.blue.withValues(alpha: 0.08)
+                                      : AppTheme.surfaceOf(context),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: _showTierSection
+                                        ? Colors.blue.withValues(alpha: 0.3)
+                                        : AppTheme.dividerOf(context),
                                   ),
-                                );
-                              }),
-                            ],
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.layers_rounded, size: 18,
+                                        color: _showTierSection ? Colors.blue : AppTheme.textSecondaryOf(context)),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text('Ticket Tiers',
+                                          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14,
+                                              color: AppTheme.textPrimaryOf(context))),
+                                    ),
+                                    if (_tiers.isNotEmpty)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.blue.withValues(alpha: 0.12),
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                        child: Text('${_tiers.length}',
+                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blue)),
+                                      ),
+                                    const SizedBox(width: 4),
+                                    Icon(_showTierSection ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                                        color: AppTheme.textSecondaryOf(context)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            AnimatedCrossFade(
+                              firstChild: const SizedBox.shrink(),
+                              secondChild: Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    if (!_tiersLoaded)
+                                      const Center(child: Padding(
+                                        padding: EdgeInsets.all(16),
+                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                      ))
+                                    else ...[
+                                      ...List.generate(_tiers.length, (i) => Padding(
+                                        padding: const EdgeInsets.only(bottom: 8),
+                                        child: _buildEditTierCard(i),
+                                      )),
+                                      OutlinedButton.icon(
+                                        onPressed: () => setState(() => _tiers.add(_EditTier())),
+                                        icon: const Icon(Icons.add, size: 18),
+                                        label: const Text('Add Tier'),
+                                        style: OutlinedButton.styleFrom(foregroundColor: Colors.blue),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              crossFadeState: _showTierSection ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+                              duration: const Duration(milliseconds: 250),
+                            ),
                             const SizedBox(height: 16),
 
                             // ─── Funding Milestones (collapsible, live CRUD) ───
@@ -1507,18 +1937,25 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                           const SizedBox(height: 10),
                                       ],
                                       const SizedBox(height: 10),
-                                      SizedBox(
-                                        width: double.infinity,
-                                        child: OutlinedButton.icon(
-                                          onPressed: () {
-                                            setState(() {
-                                              _sponsorCategories.add(
-                                                  _EditSponsorCategory());
-                                            });
-                                          },
-                                          icon: const Icon(Icons.add, size: 18),
-                                          label: const Text('Add Category'),
-                                        ),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: OutlinedButton.icon(
+                                              onPressed: () => setState(() => _sponsorCategories.add(_EditSponsorCategory())),
+                                              icon: const Icon(Icons.add, size: 18),
+                                              label: const Text('Add Category'),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: OutlinedButton.icon(
+                                              onPressed: _showTemplatePicker,
+                                              icon: const Icon(Icons.copy_rounded, size: 18),
+                                              label: const Text('From Template'),
+                                              style: OutlinedButton.styleFrom(foregroundColor: Colors.teal),
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ],

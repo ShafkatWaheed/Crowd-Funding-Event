@@ -87,6 +87,20 @@ async def list_categories(db: AsyncSession, event_id: int) -> list[SponsorshipCa
     return list((await db.execute(q)).scalars().all())
 
 
+async def get_prereq_counts(db: AsyncSession, category_ids: list[int]) -> dict[int, int]:
+    """Return {category_id: prerequisite_count} for the given IDs."""
+    if not category_ids:
+        return {}
+    from app.models.prerequisite import CategoryPrerequisite
+    q = (
+        select(CategoryPrerequisite.category_id, func.count(CategoryPrerequisite.id))
+        .where(CategoryPrerequisite.category_id.in_(category_ids))
+        .group_by(CategoryPrerequisite.category_id)
+    )
+    rows = (await db.execute(q)).all()
+    return {cat_id: cnt for cat_id, cnt in rows}
+
+
 async def create_category(
     db: AsyncSession, event_id: int, user: User, data: CategoryCreate
 ) -> SponsorshipCategory:
@@ -409,6 +423,7 @@ async def accept_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorBid:
         raise HTTPException(status_code=400, detail="No spots available — category is full")
 
     from app.models.prerequisite import CategoryPrerequisite, BidPrerequisiteUpload, UploadStatus
+    from datetime import datetime, timezone
     required_prereqs = (await db.execute(
         select(CategoryPrerequisite).where(
             CategoryPrerequisite.category_id == bid.category_id,
@@ -421,14 +436,11 @@ async def accept_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorBid:
             select(BidPrerequisiteUpload).where(
                 BidPrerequisiteUpload.bid_id == bid.id,
                 BidPrerequisiteUpload.prerequisite_id == prereq.id,
-                BidPrerequisiteUpload.status == UploadStatus.approved,
             )
         )).scalar_one_or_none()
-        if not upload:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Required document '{prereq.name}' has not been approved yet",
-            )
+        if upload and upload.status == UploadStatus.pending:
+            upload.status = UploadStatus.approved
+            upload.reviewed_at = datetime.now(timezone.utc)
 
     bid.status = BidStatus.accepted
     cat.filled_spots += 1
@@ -733,9 +745,12 @@ async def get_won_categories(
     db: AsyncSession, event_id: int, sponsor_user_id: int
 ) -> list[dict]:
     """Return category info where sponsor has accepted or paid bids for this event."""
+    from app.models.prerequisite import CategoryPrerequisite, BidPrerequisiteUpload
     q = (
         select(
+            SponsorshipCategory.id,
             SponsorshipCategory.name,
+            SponsorBid.id.label("bid_id"),
             SponsorBid.amount_cents,
             SponsorBid.status,
         )
@@ -747,10 +762,33 @@ async def get_won_categories(
         )
     )
     rows = (await db.execute(q)).all()
-    return [
-        {"name": r.name, "amount_cents": r.amount_cents, "status": r.status.value}
-        for r in rows
-    ]
+    results = []
+    for r in rows:
+        prereqs_q = select(CategoryPrerequisite).where(
+            CategoryPrerequisite.category_id == r.id,
+        )
+        prereqs = (await db.execute(prereqs_q)).scalars().all()
+        prereq_list = []
+        for p in prereqs:
+            upload = (await db.execute(
+                select(BidPrerequisiteUpload).where(
+                    BidPrerequisiteUpload.bid_id == r.bid_id,
+                    BidPrerequisiteUpload.prerequisite_id == p.id,
+                )
+            )).scalar_one_or_none()
+            prereq_list.append({
+                "id": p.id,
+                "name": p.name,
+                "is_required": p.is_required,
+                "upload_status": upload.status.value if upload else None,
+            })
+        results.append({
+            "name": r.name,
+            "amount_cents": r.amount_cents,
+            "status": r.status.value,
+            "prerequisites": prereq_list,
+        })
+    return results
 
 
 async def scan_sponsor_ticket(

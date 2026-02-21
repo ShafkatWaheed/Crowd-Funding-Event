@@ -357,7 +357,7 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
                     _infoRow(ctx, 'Entries', scanCount.toString()),
                     if (categoryNames.isNotEmpty) ...[
                       const SizedBox(height: 8),
-                      _infoRow(ctx, 'Categories', categoryNames.join(', ')),
+                      _infoRow(ctx, 'Sponsorships', categoryNames.join(', ')),
                     ],
                   ],
                 ),

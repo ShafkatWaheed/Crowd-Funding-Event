@@ -790,7 +790,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                   child: Column(
                                     children: [
                                       Text(
-                                        'As a sponsor, you can bid on sponsorship categories for this event.',
+                                        'As a sponsor, you can bid on sponsorships for this event.',
                                         style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryOf(context)),
                                         textAlign: TextAlign.center,
                                       ),
@@ -800,7 +800,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                         child: ElevatedButton.icon(
                                           onPressed: () => context.push('/events/${widget.eventId}/sponsorships'),
                                           icon: const Icon(Icons.storefront_rounded, size: 18),
-                                          label: const Text('View Sponsorship Categories'),
+                                          label: const Text('View Sponsorships'),
                                           style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
                                         ),
                                       ),

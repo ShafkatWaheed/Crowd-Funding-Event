@@ -344,7 +344,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
             children: [
               Expanded(
                 child: Text(
-                  sc.id != null ? 'Category #${sc.id}' : 'New Category',
+                  sc.id != null ? 'Sponsorship #${sc.id}' : 'New Sponsorship',
                   style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                 ),
               ),
@@ -391,7 +391,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
           TextFormField(
             controller: sc.nameCtrl,
             decoration: const InputDecoration(
-              labelText: 'Category Name *',
+              labelText: 'Sponsorship Name *',
               hintText: 'e.g. Gold Sponsor, Food Stall',
               isDense: true,
             ),
@@ -753,7 +753,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
           'total_spots': spots,
           'min_bid_cents': minBid,
         });
-        if (mounted) AppToast.success(context, 'Category updated');
+        if (mounted) AppToast.success(context, 'Sponsorship updated');
       } else {
         final resp = await api.createSponsorshipCategory(widget.eventId, {
           'name': name,
@@ -764,11 +764,11 @@ class _EditEventScreenState extends State<EditEventScreen> {
           'sort_order': _sponsorCategories.indexOf(sc),
         });
         sc.id = resp['id'] as int;
-        if (mounted) AppToast.success(context, 'Category created');
+        if (mounted) AppToast.success(context, 'Sponsorship created');
       }
     } catch (e) {
       if (mounted) {
-        AppToast.fromError(context, e, fallback: 'Failed to save category');
+        AppToast.fromError(context, e, fallback: 'Failed to save sponsorship');
       }
     }
   }
@@ -782,7 +782,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
       } catch (e) {
         if (mounted) {
           AppToast.fromError(context, e,
-              fallback: 'Failed to delete category');
+              fallback: 'Failed to delete sponsorship');
         }
         return;
       }
@@ -822,7 +822,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                   Text('Copy from Template',
                       style: Theme.of(ctx).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 4),
-                  Text('Select templates to copy as new categories',
+                  Text('Select templates to copy as new sponsorships',
                       style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(ctx))),
                   const SizedBox(height: 12),
                   Expanded(
@@ -855,7 +855,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                   ElevatedButton(
                     onPressed: chosen.isEmpty ? null : () => Navigator.pop(ctx, chosen.toList()),
                     style: ElevatedButton.styleFrom(backgroundColor: Colors.teal, foregroundColor: Colors.white),
-                    child: Text('Add ${chosen.length} categor${chosen.length == 1 ? 'y' : 'ies'}'),
+                    child: Text('Add ${chosen.length} sponsorship${chosen.length == 1 ? '' : 's'}'),
                   ),
                 ],
               ),
@@ -1870,7 +1870,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
-                                        'Sponsorship Categories (Optional)',
+                                        'Sponsorships (Optional)',
                                         style: TextStyle(
                                           fontWeight: FontWeight.w600,
                                           fontSize: 13,
@@ -1943,7 +1943,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                             child: OutlinedButton.icon(
                                               onPressed: () => setState(() => _sponsorCategories.add(_EditSponsorCategory())),
                                               icon: const Icon(Icons.add, size: 18),
-                                              label: const Text('Add Category'),
+                                              label: const Text('Add Sponsorship'),
                                             ),
                                           ),
                                           const SizedBox(width: 8),

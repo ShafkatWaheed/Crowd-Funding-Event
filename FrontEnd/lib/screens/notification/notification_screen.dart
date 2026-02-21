@@ -61,6 +61,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
         return Icons.handshake;
       case 'bid_rejected':
         return Icons.cancel;
+      case 'sponsor_payment_received':
+        return Icons.payment;
+      case 'sponsor_refunded':
+        return Icons.currency_exchange;
       case 'sponsor_ticket_generated':
         return Icons.badge;
       case 'new_rating_received':
@@ -75,6 +79,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
     if (type.contains('approved') || type.contains('confirmed') || type.contains('accepted')) {
       return AppTheme.successColor;
     }
+    if (type == 'sponsor_payment_received') return AppTheme.successColor;
+    if (type == 'sponsor_refunded') return AppTheme.warningColor;
     if (type.contains('waitlist')) return AppTheme.warningColor;
     if (type.contains('bid')) return AppTheme.accentColor;
     return AppTheme.textSecondary;

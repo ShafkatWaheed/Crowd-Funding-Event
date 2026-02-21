@@ -254,7 +254,7 @@ async def delete_template_prerequisite(
 
 # ── Sponsorship Categories ──
 
-def _category_to_response(cat, bid_count: int = 0, bid_amounts: list[int] | None = None, my_bid_count: int = 0, my_bids: list[dict] | None = None) -> dict:
+def _category_to_response(cat, bid_count: int = 0, bid_amounts: list[int] | None = None, my_bid_count: int = 0, my_bids: list[dict] | None = None, prereq_count: int = 0) -> dict:
     return {
         "id": cat.id,
         "event_id": cat.event_id,
@@ -269,6 +269,7 @@ def _category_to_response(cat, bid_count: int = 0, bid_amounts: list[int] | None
         "bid_amounts": bid_amounts or [],
         "my_bid_count": my_bid_count,
         "my_bids": my_bids or [],
+        "prereq_count": prereq_count,
     }
 
 
@@ -284,12 +285,17 @@ async def list_categories(
     if current_user.role not in (UserRole.sponsor, UserRole.organizer, UserRole.admin):
         raise HTTPException(status_code=403, detail="Sponsorship categories are not visible to customers")
     cats = await sponsor_svc.list_categories(db, event_id)
+    prereq_counts = await sponsor_svc.get_prereq_counts(db, [c.id for c in cats])
     result = []
     for c in cats:
         count, amounts = await sponsor_svc.get_bid_stats(db, c.id)
         my_count = await sponsor_svc.get_my_bid_count(db, c.id, current_user.id)
         my_bids = await sponsor_svc.get_my_bids(db, c.id, current_user.id)
-        result.append(_category_to_response(c, bid_count=count, bid_amounts=amounts, my_bid_count=my_count, my_bids=my_bids))
+        result.append(_category_to_response(
+            c, bid_count=count, bid_amounts=amounts,
+            my_bid_count=my_count, my_bids=my_bids,
+            prereq_count=prereq_counts.get(c.id, 0),
+        ))
     return result
 
 
@@ -548,6 +554,21 @@ async def pay_bid(
     current_user: CurrentUser,
 ):
     payment = await sponsor_svc.pay_bid(db, bid_id, current_user)
+
+    from sqlalchemy import select as sa_select
+    from app.models.event import Event
+    event_obj = (await db.execute(
+        sa_select(Event).where(Event.id == event_id)
+    )).scalar_one_or_none()
+    if event_obj:
+        await notif_svc.create_notification(
+            db, user_id=event_obj.organizer_id,
+            type=NotificationType.sponsor_payment_received,
+            title="Sponsor Payment Received",
+            message=f"A sponsor has paid ${payment.amount_cents / 100:.2f} for their sponsorship.",
+            data={"event_id": event_id, "category_id": cat_id, "bid_id": bid_id, "payment_id": payment.id},
+        )
+
     await db.commit()
     await db.refresh(payment)
     return payment
@@ -579,10 +600,23 @@ async def refund_bid(
     if sponsor_user_id:
         await notif_svc.create_notification(
             db, user_id=sponsor_user_id,
-            type=NotificationType.bid_rejected,
+            type=NotificationType.sponsor_refunded,
             title="Sponsorship Refunded",
-            message="Your sponsorship payment has been refunded by the organizer.",
-            data={"event_id": event_id, "category_id": cat_id, "bid_id": bid_id},
+            message=f"Your sponsorship payment of ${payment.amount_cents / 100:.2f} has been refunded by the organizer.",
+            data={"event_id": event_id, "category_id": cat_id, "bid_id": bid_id, "payment_id": payment.id},
+        )
+
+    from app.models.event import Event
+    event_obj = (await db.execute(
+        sa_select(Event).where(Event.id == event_id)
+    )).scalar_one_or_none()
+    if event_obj:
+        await notif_svc.create_notification(
+            db, user_id=event_obj.organizer_id,
+            type=NotificationType.sponsor_refunded,
+            title="Sponsorship Refund Processed",
+            message=f"Refund of ${payment.amount_cents / 100:.2f} has been processed for bid #{bid_id}.",
+            data={"event_id": event_id, "category_id": cat_id, "bid_id": bid_id, "payment_id": payment.id},
         )
 
     await db.commit()
@@ -815,6 +849,75 @@ async def upload_prerequisite_document(
 
     upload = BidPrerequisiteUpload(
         bid_id=bid_id,
+        prerequisite_id=prereq_id,
+        file_url=f"/static/uploads/prerequisites/{filename}",
+    )
+    db.add(upload)
+    await db.flush()
+    await db.refresh(upload)
+    return {"id": upload.id, "file_url": upload.file_url, "status": upload.status.value}
+
+
+@router.post(
+    "/events/{event_id}/sponsorships/{cat_id}/upload-prerequisite/{prereq_id}",
+    dependencies=[Depends(_feature_guard)],
+)
+async def upload_category_prerequisite(
+    event_id: int,
+    cat_id: int,
+    prereq_id: int,
+    file: UploadFile = File(...),
+    db: DbSession = None,
+    current_user: CurrentUser = None,
+):
+    """Sponsor uploads a document for a category prerequisite, linked to their latest active bid."""
+    from sqlalchemy import select
+    from app.models.prerequisite import CategoryPrerequisite, BidPrerequisiteUpload
+    from app.models.sponsor import SponsorBid, BidStatus
+
+    prereq = (await db.execute(
+        select(CategoryPrerequisite).where(
+            CategoryPrerequisite.id == prereq_id,
+            CategoryPrerequisite.category_id == cat_id,
+        )
+    )).scalar_one_or_none()
+    if not prereq:
+        raise HTTPException(status_code=404, detail="Prerequisite not found")
+
+    bid = (await db.execute(
+        select(SponsorBid)
+        .where(
+            SponsorBid.category_id == cat_id,
+            SponsorBid.sponsor_user_id == current_user.id,
+            SponsorBid.status.notin_([BidStatus.rejected]),
+        )
+        .order_by(SponsorBid.created_at.desc())
+    )).scalars().first()
+    if not bid:
+        raise HTTPException(status_code=400, detail="You have no active bid for this category")
+
+    existing = (await db.execute(
+        select(BidPrerequisiteUpload).where(
+            BidPrerequisiteUpload.bid_id == bid.id,
+            BidPrerequisiteUpload.prerequisite_id == prereq_id,
+        )
+    )).scalar_one_or_none()
+    if existing:
+        await db.delete(existing)
+        await db.flush()
+
+    import os, uuid
+    upload_dir = "static/uploads/prerequisites"
+    os.makedirs(upload_dir, exist_ok=True)
+    ext = os.path.splitext(file.filename)[1] if file.filename else ".pdf"
+    filename = f"{uuid.uuid4().hex}{ext}"
+    filepath = os.path.join(upload_dir, filename)
+    content = await file.read()
+    with open(filepath, "wb") as f:
+        f.write(content)
+
+    upload = BidPrerequisiteUpload(
+        bid_id=bid.id,
         prerequisite_id=prereq_id,
         file_url=f"/static/uploads/prerequisites/{filename}",
     )

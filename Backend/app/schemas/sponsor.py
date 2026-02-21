@@ -115,10 +115,17 @@ class PaymentResponse(BaseModel):
 
 # ── Sponsor Tickets ──
 
+class SponsorTicketPrereqInfo(BaseModel):
+    id: int
+    name: str
+    is_required: bool
+    upload_status: str | None = None
+
 class SponsorTicketCategoryInfo(BaseModel):
     name: str
     amount_cents: int
     status: str
+    prerequisites: list[SponsorTicketPrereqInfo] = []
 
 
 class SponsorTicketResponse(BaseModel):

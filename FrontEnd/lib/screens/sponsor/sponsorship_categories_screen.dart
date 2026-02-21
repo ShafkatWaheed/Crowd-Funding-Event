@@ -50,78 +50,24 @@ class _SponsorshipCategoriesScreenState
   }
 
   Future<void> _showPlaceBidDialog(SponsorshipCategory cat) async {
-    final amountCtrl = TextEditingController(
-      text: (cat.minBidCents / 100).toStringAsFixed(2),
-    );
-    final proposalCtrl = TextEditingController();
-
-    final confirmed = await showDialog<bool>(
+    final result = await showDialog<_BidDialogResult>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Bid on "${cat.name}"'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Min bid: ${cat.minBidDisplay}  •  '
-              '${cat.availableSpots} spot${cat.availableSpots == 1 ? "" : "s"} left',
-              style: TextStyle(
-                  fontSize: 13, color: AppTheme.textSecondaryOf(ctx)),
-            ),
-            if (cat.bidCount > 0) ...[
-              const SizedBox(height: 4),
-              Text(
-                '${cat.bidCount} bid${cat.bidCount == 1 ? "" : "s"} placed'
-                '${cat.myBidCount > 0 ? "  •  ${cat.myBidCount} by you" : ""}',
-                style: TextStyle(
-                    fontSize: 12, color: AppTheme.textSecondaryOf(ctx)),
-              ),
-            ],
-            const SizedBox(height: 16),
-            TextField(
-              controller: amountCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Bid Amount (\$)',
-                prefixText: '\$ ',
-              ),
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: proposalCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Proposal (optional)',
-                hintText: 'Why you want to sponsor...',
-              ),
-              maxLines: 3,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Place Bid'),
-          ),
-        ],
+      builder: (ctx) => _PlaceBidDialog(
+        eventId: widget.eventId,
+        category: cat,
       ),
     );
 
-    if (confirmed != true || !mounted) return;
+    if (result == null || !mounted) return;
 
-    final amount =
-        ((double.tryParse(amountCtrl.text) ?? 0) * 100).round();
     try {
       final api = context.read<ApiService>();
       await api.placeBid(widget.eventId, cat.id, {
-        'amount_cents': amount,
-        if (proposalCtrl.text.trim().isNotEmpty)
-          'proposal_text': proposalCtrl.text.trim(),
+        'amount_cents': result.amountCents,
+        if (result.proposalText != null)
+          'proposal_text': result.proposalText,
       });
+
       if (mounted) AppToast.success(context, 'Bid placed!');
       _load();
     } catch (e) {
@@ -168,7 +114,7 @@ class _SponsorshipCategoriesScreenState
     final isOrganizerOrAdmin = user != null && (user.isOrganizer || user.isAdmin);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Sponsorship Categories')),
+      appBar: AppBar(title: const Text('Sponsorships')),
       body: _loading
           ? Padding(
               padding: const EdgeInsets.all(16),
@@ -186,7 +132,7 @@ class _SponsorshipCategoriesScreenState
                         constraints: BoxConstraints(minHeight: constraints.maxHeight),
                         child: Center(
                           child: Text(
-                            'No sponsorship categories yet.',
+                            'No sponsorships yet.',
                             style: TextStyle(
                                 color: AppTheme.textSecondaryOf(context)),
                           ),
@@ -261,22 +207,13 @@ class _SponsorshipCategoriesScreenState
                                 onDone: _load,
                               )),
                             ],
-                            if (isSponsor && cat.myBidCount > 0) ...[
-                              const SizedBox(height: 8),
-                              SizedBox(
-                                width: double.infinity,
-                                child: OutlinedButton.icon(
-                                  onPressed: () => _showUploadDocsSheet(cat),
-                                  icon: const Icon(Icons.upload_file_rounded, size: 18),
-                                  label: const Text('Upload Documents',
-                                      style: TextStyle(fontWeight: FontWeight.w600)),
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: Colors.deepPurple,
-                                    side: const BorderSide(color: Colors.deepPurple),
-                                    shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(10)),
-                                  ),
-                                ),
+                            if (isSponsor && cat.prereqCount > 0) ...[
+                              const SizedBox(height: 10),
+                              _CategoryRequirements(
+                                eventId: widget.eventId,
+                                categoryId: cat.id,
+                                categoryName: cat.name,
+                                myBids: cat.myBids,
                               ),
                             ],
                             if (isOrganizerOrAdmin) ...[
@@ -1007,6 +944,439 @@ class _MyBidActionsState extends State<_MyBidActions> {
               ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+
+class _CategoryRequirements extends StatefulWidget {
+  final int eventId;
+  final int categoryId;
+  final String categoryName;
+  final List<Map<String, dynamic>> myBids;
+
+  const _CategoryRequirements({
+    required this.eventId,
+    required this.categoryId,
+    required this.categoryName,
+    required this.myBids,
+  });
+
+  @override
+  State<_CategoryRequirements> createState() => _CategoryRequirementsState();
+}
+
+class _CategoryRequirementsState extends State<_CategoryRequirements> {
+  bool _expanded = false;
+  bool _loading = false;
+  List<Map<String, dynamic>> _prereqs = [];
+  Map<int, Map<String, dynamic>> _uploads = {};
+  final Map<int, bool> _uploading = {};
+
+  Future<void> _loadData() async {
+    if (_prereqs.isNotEmpty) return;
+    setState(() => _loading = true);
+    try {
+      final api = context.read<ApiService>();
+      final prereqs = await api.listPrerequisites(widget.eventId, widget.categoryId);
+
+      Map<int, Map<String, dynamic>> uploads = {};
+      if (widget.myBids.isNotEmpty) {
+        final latestBidId = widget.myBids.first['id'] as int;
+        final bidUploads = await api.listBidPrerequisiteUploads(latestBidId);
+        for (final u in bidUploads.cast<Map<String, dynamic>>()) {
+          uploads[u['prerequisite_id'] as int] = u;
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _prereqs = prereqs.cast<Map<String, dynamic>>();
+          _uploads = uploads;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        AppToast.error(context, ApiService.extractError(e));
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  Future<void> _uploadFile(int prereqId) async {
+    final result = await FilePicker.platform.pickFiles(withData: true);
+    if (result == null || result.files.isEmpty) return;
+    final file = result.files.first;
+    if (file.bytes == null && file.path == null) return;
+
+    setState(() => _uploading[prereqId] = true);
+    try {
+      final api = context.read<ApiService>();
+      final resp = await api.uploadCategoryPrerequisite(
+        widget.eventId, widget.categoryId, prereqId,
+        filePath: file.path,
+        fileName: file.name,
+        fileBytes: file.bytes,
+      );
+      if (mounted) {
+        setState(() {
+          _uploads[prereqId] = {
+            'id': resp['id'],
+            'file_url': resp['file_url'],
+            'status': resp['status'],
+            'prerequisite_id': prereqId,
+          };
+          _uploading[prereqId] = false;
+        });
+        AppToast.success(context, 'Document uploaded');
+      }
+    } catch (e) {
+      if (mounted) {
+        AppToast.error(context, ApiService.extractError(e));
+        setState(() => _uploading[prereqId] = false);
+      }
+    }
+  }
+
+  Color _statusColor(String status) {
+    switch (status) {
+      case 'approved': return AppTheme.successColor;
+      case 'rejected': return AppTheme.errorColor;
+      default: return AppTheme.warningColor;
+    }
+  }
+
+  String _statusLabel(String status) {
+    switch (status) {
+      case 'approved': return 'Approved';
+      case 'rejected': return 'Rejected';
+      default: return 'Pending';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceOf(context),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.dividerOf(context)),
+      ),
+      child: Column(
+        children: [
+          InkWell(
+            onTap: () {
+              setState(() => _expanded = !_expanded);
+              if (_expanded) _loadData();
+            },
+            borderRadius: BorderRadius.circular(10),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: [
+                  const Icon(Icons.checklist_rounded, size: 18, color: Colors.deepPurple),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Requirements',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textPrimaryOf(context),
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    _expanded ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+                    size: 20,
+                    color: AppTheme.textSecondaryOf(context),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_expanded) ...[
+            Divider(height: 1, color: AppTheme.dividerOf(context)),
+            if (_loading)
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: Center(child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))),
+              )
+            else if (_prereqs.isEmpty)
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text('No requirements.', style: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 13)),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+                child: Column(
+                  children: _prereqs.map((p) {
+                    final prereqId = p['id'] as int;
+                    final name = p['name'] as String? ?? '';
+                    final desc = p['description'] as String? ?? '';
+                    final upload = _uploads[prereqId];
+                    final hasUpload = upload != null;
+                    final isUploading = _uploading[prereqId] == true;
+                    final status = upload?['status'] ?? 'pending';
+
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Icon(
+                              hasUpload ? Icons.check_circle_rounded : Icons.radio_button_unchecked,
+                              size: 16,
+                              color: hasUpload ? _statusColor(status) : AppTheme.textSecondaryOf(context),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  name,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppTheme.textPrimaryOf(context),
+                                  ),
+                                ),
+                                if (desc.isNotEmpty)
+                                  Text(desc, style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context))),
+                                if (hasUpload)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 3),
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.attach_file_rounded, size: 12, color: _statusColor(status)),
+                                        const SizedBox(width: 3),
+                                        Text(
+                                          'File attached',
+                                          style: TextStyle(fontSize: 11, color: _statusColor(status), fontWeight: FontWeight.w500),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                          decoration: BoxDecoration(
+                                            color: _statusColor(status).withValues(alpha: 0.1),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Text(
+                                            _statusLabel(status),
+                                            style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: _statusColor(status)),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          SizedBox(
+                            height: 28,
+                            child: isUploading
+                                ? const Padding(
+                                    padding: EdgeInsets.all(4),
+                                    child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 1.5)),
+                                  )
+                                : InkWell(
+                                    onTap: () => _uploadFile(prereqId),
+                                    borderRadius: BorderRadius.circular(6),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                                      child: Icon(
+                                        hasUpload ? Icons.sync_rounded : Icons.upload_file_rounded,
+                                        size: 18,
+                                        color: Colors.deepPurple,
+                                      ),
+                                    ),
+                                  ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+
+class _BidDialogResult {
+  final int amountCents;
+  final String? proposalText;
+
+  _BidDialogResult({
+    required this.amountCents,
+    this.proposalText,
+  });
+}
+
+
+class _PlaceBidDialog extends StatefulWidget {
+  final int eventId;
+  final SponsorshipCategory category;
+
+  const _PlaceBidDialog({
+    required this.eventId,
+    required this.category,
+  });
+
+  @override
+  State<_PlaceBidDialog> createState() => _PlaceBidDialogState();
+}
+
+class _PlaceBidDialogState extends State<_PlaceBidDialog> {
+  late final TextEditingController _amountCtrl;
+  late final TextEditingController _proposalCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _amountCtrl = TextEditingController(
+      text: (widget.category.minBidCents / 100).toStringAsFixed(2),
+    );
+    _proposalCtrl = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _amountCtrl.dispose();
+    _proposalCtrl.dispose();
+    super.dispose();
+  }
+
+  bool get _canSubmit {
+    final amount = double.tryParse(_amountCtrl.text) ?? 0;
+    return amount > 0;
+  }
+
+  void _submit() {
+    final amount = ((double.tryParse(_amountCtrl.text) ?? 0) * 100).round();
+    final proposal = _proposalCtrl.text.trim();
+    Navigator.pop(
+      context,
+      _BidDialogResult(
+        amountCents: amount,
+        proposalText: proposal.isNotEmpty ? proposal : null,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cat = widget.category;
+
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.8,
+          maxWidth: 480,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Bid on "${cat.name}"',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.textPrimaryOf(context),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Min bid: ${cat.minBidDisplay}  •  '
+                    '${cat.availableSpots} spot${cat.availableSpots == 1 ? "" : "s"} left',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.textSecondaryOf(context),
+                    ),
+                  ),
+                  if (cat.bidCount > 0) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      '${cat.bidCount} bid${cat.bidCount == 1 ? "" : "s"} placed'
+                      '${cat.myBidCount > 0 ? "  •  ${cat.myBidCount} by you" : ""}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textSecondaryOf(context),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: _amountCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Bid Amount (\$)',
+                        prefixText: '\$ ',
+                      ),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _proposalCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Proposal (optional)',
+                        hintText: 'Why you want to sponsor...',
+                      ),
+                      maxLines: 3,
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: _canSubmit ? _submit : null,
+                    child: const Text('Place Bid'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

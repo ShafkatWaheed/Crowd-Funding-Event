@@ -32,7 +32,6 @@ import '../screens/sponsor/sponsor_ticket_screen.dart';
 import '../screens/sponsor/sponsor_dashboard_screen.dart';
 import '../screens/sponsor/organizer_sponsors_screen.dart';
 import '../screens/sponsor/sponsor_category_templates_screen.dart';
-import '../screens/sponsor/sponsor_events_for_organizer_screen.dart';
 import '../screens/bookmark/bookmarked_events_screen.dart';
 import '../screens/profile/organizer_profile_screen.dart';
 import '../screens/profile/sponsor_profile_screen.dart';
@@ -258,15 +257,6 @@ GoRouter createRouter(AuthProvider authProvider) {
         path: '/manage/sponsors',
         builder: (context, state) => const OrganizerSponsorsScreen(),
       ),
-      GoRoute(
-        path: '/manage/sponsors/:sponsorId/events',
-        builder: (context, state) {
-          final id = int.parse(state.pathParameters['sponsorId']!);
-          final name = state.extra as String? ?? 'Sponsor';
-          return SponsorEventsForOrganizerScreen(
-              sponsorUserId: id, sponsorName: name);
-        },
-      ),
 
       // ─── Sponsor ───
       GoRoute(
@@ -317,7 +307,12 @@ GoRouter createRouter(AuthProvider authProvider) {
         path: '/users/:id/sponsor-profile',
         builder: (context, state) {
           final id = int.parse(state.pathParameters['id']!);
-          return SponsorProfileScreen(userId: id);
+          final extra = state.extra as Map<String, dynamic>? ?? {};
+          final isOrganizerView = extra['isOrganizerView'] == true;
+          return SponsorProfileScreen(
+            userId: id,
+            isOrganizerView: isOrganizerView,
+          );
         },
       ),
 

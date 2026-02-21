@@ -1556,7 +1556,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(width: 12),
                     _quickActionCard(
                       icon: Icons.category_rounded,
-                      label: 'Categories',
+                      label: 'Sponsorships',
                       color: const Color(0xFF6A1B9A),
                       onTap: () => context.push('/sponsor-category-templates'),
                     ),

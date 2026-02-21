@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -11,7 +12,12 @@ import '../../widgets/star_rating.dart';
 
 class SponsorProfileScreen extends StatefulWidget {
   final int userId;
-  const SponsorProfileScreen({super.key, required this.userId});
+  final bool isOrganizerView;
+  const SponsorProfileScreen({
+    super.key,
+    required this.userId,
+    this.isOrganizerView = false,
+  });
 
   @override
   State<SponsorProfileScreen> createState() => _SponsorProfileScreenState();
@@ -22,12 +28,16 @@ class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
   Map<String, dynamic>? _ratingsSummary;
   bool _loading = true;
 
+  List<Map<String, dynamic>> _events = [];
+  bool _loadingEvents = true;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _load();
       _loadRatings();
+      if (widget.isOrganizerView) _loadEvents();
     });
   }
 
@@ -52,6 +62,27 @@ class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
     } catch (_) {}
   }
 
+  Future<void> _loadEvents() async {
+    try {
+      final api = context.read<ApiService>();
+      final data = await api.getSponsorEventsForOrganizer(widget.userId);
+      if (mounted) {
+        setState(() {
+          _events = data.cast<Map<String, dynamic>>();
+          _loadingEvents = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingEvents = false);
+    }
+  }
+
+  Future<void> _refresh() async {
+    await _load();
+    await _loadRatings();
+    if (widget.isOrganizerView) await _loadEvents();
+  }
+
   @override
   Widget build(BuildContext context) {
     final companyName = _profile?['company_name'] ?? _profile?['display_name'] ?? 'Sponsor';
@@ -59,7 +90,7 @@ class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(_loading ? 'Sponsor Profile' : companyName)),
       body: RefreshIndicator(
-        onRefresh: () async { await _load(); await _loadRatings(); },
+        onRefresh: _refresh,
         child: _loading
             ? Padding(
                 padding: const EdgeInsets.all(16),
@@ -81,6 +112,10 @@ class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
                       if (_ratingsSummary != null && (_ratingsSummary!['count'] as int? ?? 0) > 0) ...[
                         const SizedBox(height: 20),
                         _buildRatingsSection(),
+                      ],
+                      if (widget.isOrganizerView) ...[
+                        const SizedBox(height: 20),
+                        _buildEventsSection(),
                       ],
                     ],
                   ),
@@ -400,6 +435,71 @@ class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
     );
   }
 
+  Widget _buildEventsSection() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.cardOf(context),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.dividerOf(context)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.event_rounded,
+                  size: 16, color: AppTheme.textSecondaryOf(context)),
+              const SizedBox(width: 8),
+              Text('Sponsored Events',
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.textSecondaryOf(context),
+                      letterSpacing: 0.3)),
+              const SizedBox(width: 8),
+              if (!_loadingEvents)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: AppTheme.accentColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text('${_events.length}',
+                      style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.accentColor)),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (_loadingEvents)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 20),
+              child: Center(child: SizedBox(
+                width: 24, height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )),
+            )
+          else if (_events.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Center(
+                child: Text('No sponsored events yet.',
+                    style: TextStyle(color: AppTheme.textSecondaryOf(context))),
+              ),
+            )
+          else
+            ..._events.map((e) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _SponsorEventCard(event: e),
+            )),
+        ],
+      ),
+    );
+  }
+
   Future<void> _openUrl(String url) async {
     final uri = Uri.parse(url.startsWith('http') ? url : 'https://$url');
     if (await canLaunchUrl(uri)) {
@@ -408,9 +508,240 @@ class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
   }
 }
 
+
+class _SponsorEventCard extends StatelessWidget {
+  final Map<String, dynamic> event;
+
+  const _SponsorEventCard({required this.event});
+
+  @override
+  Widget build(BuildContext context) {
+    final title = event['title'] ?? 'Untitled';
+    final status = event['status'] ?? '';
+    final venueName = event['venue_name'];
+    final venueCity = event['venue_city'];
+    final startTime = event['start_time'];
+    final totalCents = event['total_amount_cents'] ?? 0;
+    final amount = '\$${(totalCents / 100).toStringAsFixed(2)}';
+    final bids = (event['bids'] as List?) ?? [];
+    final summary = event['bid_summary'] as Map<String, dynamic>? ?? {};
+    final pending = summary['pending'] ?? 0;
+    final accepted = summary['accepted'] ?? 0;
+    final rejected = summary['rejected'] ?? 0;
+    final paid = summary['paid'] ?? 0;
+
+    String dateStr = '';
+    if (startTime != null) {
+      try {
+        final dt = DateTime.parse(startTime);
+        dateStr = DateFormat('MMM d, yyyy').format(dt);
+      } catch (_) {}
+    }
+
+    return GestureDetector(
+      onTap: () => context.push('/events/${event['event_id']}'),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppTheme.surfaceOf(context),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppTheme.dividerOf(context)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(title,
+                      style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.textPrimaryOf(context))),
+                ),
+                _statusBadge(context, status),
+              ],
+            ),
+            const SizedBox(height: 6),
+            if (dateStr.isNotEmpty || venueName != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  children: [
+                    if (dateStr.isNotEmpty) ...[
+                      Icon(Icons.calendar_today_rounded,
+                          size: 13,
+                          color: AppTheme.textSecondaryOf(context)),
+                      const SizedBox(width: 4),
+                      Text(dateStr,
+                          style: TextStyle(
+                              fontSize: 11,
+                              color: AppTheme.textSecondaryOf(context))),
+                    ],
+                    if (dateStr.isNotEmpty && venueName != null)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        child: Text('\u2022',
+                            style: TextStyle(
+                                color: AppTheme.textSecondaryOf(context),
+                                fontSize: 9)),
+                      ),
+                    if (venueName != null) ...[
+                      Icon(Icons.location_on_rounded,
+                          size: 13,
+                          color: AppTheme.textSecondaryOf(context)),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          venueCity != null
+                              ? '$venueName, $venueCity'
+                              : venueName,
+                          style: TextStyle(
+                              fontSize: 11,
+                              color: AppTheme.textSecondaryOf(context)),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            Divider(color: AppTheme.dividerOf(context), height: 12),
+            Row(
+              children: [
+                Text('Total: ',
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textSecondaryOf(context))),
+                Text(amount,
+                    style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.secondaryColor)),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: [
+                if (pending > 0)
+                  _summaryChip(context, '$pending Under Review', Colors.orange),
+                if (accepted > 0)
+                  _summaryChip(
+                      context, '$accepted Accepted', AppTheme.accentColor),
+                if (paid > 0)
+                  _summaryChip(
+                      context, '$paid Paid', AppTheme.secondaryColor),
+                if (rejected > 0)
+                  _summaryChip(
+                      context, '$rejected Rejected', AppTheme.errorColor),
+              ],
+            ),
+            if (bids.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              ...bids.map((b) {
+                final cat = b['category'] ?? '';
+                final cents = b['amount_cents'] ?? 0;
+                final bidStatus = b['status'] ?? '';
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 3),
+                  child: Row(
+                    children: [
+                      Icon(Icons.circle,
+                          size: 5, color: _bidStatusColor(context, bidStatus)),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(cat,
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.textPrimaryOf(context))),
+                      ),
+                      Text(
+                        '\$${(cents / 100).toStringAsFixed(2)}',
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.textPrimaryOf(context)),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                          bidStatus == 'pending'
+                              ? 'under review'
+                              : bidStatus,
+                          style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: _bidStatusColor(context, bidStatus))),
+                    ],
+                  ),
+                );
+              }),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _statusBadge(BuildContext context, String status) {
+    final color = switch (status) {
+      'approved' => AppTheme.secondaryColor,
+      'live' => const Color(0xFFE11900),
+      'selling_tickets' => AppTheme.accentColor,
+      'waiting_event_date' => Colors.orange,
+      'completed' => AppTheme.textSecondaryOf(context),
+      'cancelled' => AppTheme.errorColor,
+      _ => AppTheme.textSecondaryOf(context),
+    };
+    final label = switch (status) {
+      'approved' => 'Funding',
+      'live' => 'Live',
+      'selling_tickets' => 'Selling Tickets',
+      'waiting_event_date' => 'Awaiting Date',
+      'completed' => 'Completed',
+      'cancelled' => 'Cancelled',
+      _ => status,
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(label,
+          style:
+              TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color)),
+    );
+  }
+
+  Widget _summaryChip(BuildContext context, String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(text,
+          style:
+              TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color)),
+    );
+  }
+
+  Color _bidStatusColor(BuildContext context, String status) {
+    return switch (status) {
+      'pending' => Colors.orange,
+      'accepted' => AppTheme.accentColor,
+      'paid' => AppTheme.secondaryColor,
+      'rejected' => AppTheme.errorColor,
+      _ => AppTheme.textSecondaryOf(context),
+    };
+  }
+}
+
+
 /// Quick-view bottom sheet for sponsor profile.
-/// Call this from any screen to show a sponsor preview with "View Full Profile" button.
-void showSponsorProfileSheet(BuildContext context, int sponsorUserId) {
+void showSponsorProfileSheet(BuildContext context, int sponsorUserId, {bool isOrganizerView = false}) {
   final api = context.read<ApiService>();
   showModalBottomSheet(
     context: context,
@@ -521,7 +852,10 @@ void showSponsorProfileSheet(BuildContext context, int sponsorUserId) {
                     onPressed: () {
                       Navigator.pop(ctx);
                       Navigator.of(context).push(MaterialPageRoute(
-                        builder: (_) => SponsorProfileScreen(userId: sponsorUserId),
+                        builder: (_) => SponsorProfileScreen(
+                          userId: sponsorUserId,
+                          isOrganizerView: isOrganizerView,
+                        ),
                       ));
                     },
                     style: ElevatedButton.styleFrom(

@@ -41,6 +41,8 @@ class NotificationType(str, enum.Enum):
     bid_received = "bid_received"
     bid_accepted = "bid_accepted"
     bid_rejected = "bid_rejected"
+    sponsor_payment_received = "sponsor_payment_received"
+    sponsor_refunded = "sponsor_refunded"
     sponsor_ticket_generated = "sponsor_ticket_generated"
 
     # Social (used by Feature 5)

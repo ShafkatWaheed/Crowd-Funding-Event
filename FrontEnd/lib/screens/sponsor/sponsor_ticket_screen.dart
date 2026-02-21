@@ -499,70 +499,142 @@ class _SponsorTicketReceiptPage extends StatelessWidget {
               children: [
                 ...ticket.categories.map((cat) {
                   final isPaid = cat.status == 'paid';
+                  final statusColor = isPaid ? AppTheme.successColor : AppTheme.warningColor;
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 10),
                     child: Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: (isPaid
-                                ? AppTheme.successColor
-                                : AppTheme.warningColor)
-                            .withValues(alpha: 0.06),
+                        color: statusColor.withValues(alpha: 0.06),
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
-                          color: (isPaid
-                                  ? AppTheme.successColor
-                                  : AppTheme.warningColor)
-                              .withValues(alpha: 0.2),
+                          color: statusColor.withValues(alpha: 0.2),
                         ),
                       ),
-                      child: Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(
-                            isPaid
-                                ? Icons.check_circle_rounded
-                                : Icons.hourglass_top_rounded,
-                            size: 20,
-                            color: isPaid
-                                ? AppTheme.successColor
-                                : AppTheme.warningColor,
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  cat.name,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 14,
-                                    color: AppTheme.textPrimaryOf(context),
-                                  ),
+                          Row(
+                            children: [
+                              Icon(
+                                isPaid
+                                    ? Icons.check_circle_rounded
+                                    : Icons.hourglass_top_rounded,
+                                size: 20,
+                                color: statusColor,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      cat.name,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 14,
+                                        color: AppTheme.textPrimaryOf(context),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      isPaid ? 'Paid' : 'Accepted — Pending Payment',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: statusColor,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  isPaid ? 'Paid' : 'Accepted — Pending Payment',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: isPaid
-                                        ? AppTheme.successColor
-                                        : AppTheme.warningColor,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                              ),
+                              Text(
+                                cat.amountDisplay,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 16,
+                                  color: AppTheme.textPrimaryOf(context),
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
-                          Text(
-                            cat.amountDisplay,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 16,
-                              color: AppTheme.textPrimaryOf(context),
+                          if (cat.prerequisites.isNotEmpty) ...[
+                            const SizedBox(height: 10),
+                            Padding(
+                              padding: const EdgeInsets.only(left: 30),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Requirements',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppTheme.textSecondaryOf(context),
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  ...cat.prerequisites.map((prereq) {
+                                    final uploaded = prereq.isUploaded;
+                                    final uploadColor = uploaded
+                                        ? (prereq.uploadStatus == 'approved'
+                                            ? AppTheme.successColor
+                                            : prereq.uploadStatus == 'rejected'
+                                                ? AppTheme.errorColor
+                                                : AppTheme.warningColor)
+                                        : AppTheme.textSecondaryOf(context);
+                                    final uploadLabel = uploaded
+                                        ? (prereq.uploadStatus == 'approved'
+                                            ? 'Approved'
+                                            : prereq.uploadStatus == 'rejected'
+                                                ? 'Rejected'
+                                                : 'Pending')
+                                        : 'Not uploaded';
+                                    return Padding(
+                                      padding: const EdgeInsets.only(bottom: 4),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            uploaded ? Icons.check_circle_outline_rounded : Icons.radio_button_unchecked_rounded,
+                                            size: 14,
+                                            color: uploadColor,
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Expanded(
+                                            child: Text(
+                                              prereq.name,
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w500,
+                                                color: AppTheme.textPrimaryOf(context),
+                                              ),
+                                            ),
+                                          ),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                            decoration: BoxDecoration(
+                                              color: uploadColor.withValues(alpha: 0.1),
+                                              borderRadius: BorderRadius.circular(4),
+                                            ),
+                                            child: Text(
+                                              uploadLabel,
+                                              style: TextStyle(
+                                                fontSize: 9,
+                                                fontWeight: FontWeight.w600,
+                                                color: uploadColor,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }),
+                                ],
+                              ),
                             ),
-                          ),
+                          ],
                         ],
                       ),
                     ),

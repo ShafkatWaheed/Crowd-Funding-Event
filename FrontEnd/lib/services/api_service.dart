@@ -932,6 +932,24 @@ class ApiService {
     return resp.data as List;
   }
 
+  Future<Map<String, dynamic>> uploadCategoryPrerequisite(
+      int eventId, int catId, int prereqId,
+      {String? filePath, String? fileName, List<int>? fileBytes}) async {
+    late final MultipartFile multipart;
+    if (fileBytes != null) {
+      multipart = MultipartFile.fromBytes(fileBytes, filename: fileName ?? 'document');
+    } else if (filePath != null) {
+      multipart = await MultipartFile.fromFile(filePath, filename: fileName);
+    } else {
+      throw ArgumentError('Either filePath or fileBytes must be provided');
+    }
+    final formData = FormData.fromMap({'file': multipart});
+    final resp = await dio.post(
+        '/events/$eventId/sponsorships/$catId/upload-prerequisite/$prereqId',
+        data: formData);
+    return resp.data;
+  }
+
   Future<Map<String, dynamic>> reviewPrerequisiteUpload(
       int bidId, int prereqId, {required String status, String? reviewerNote}) async {
     final formData = FormData.fromMap({

@@ -48,6 +48,7 @@ class SponsorshipCategory {
   final List<int> bidAmounts;
   final int myBidCount;
   final List<Map<String, dynamic>> myBids;
+  final int prereqCount;
 
   SponsorshipCategory({
     required this.id,
@@ -63,6 +64,7 @@ class SponsorshipCategory {
     this.bidAmounts = const [],
     this.myBidCount = 0,
     this.myBids = const [],
+    this.prereqCount = 0,
   });
 
   factory SponsorshipCategory.fromJson(Map<String, dynamic> json) {
@@ -80,6 +82,7 @@ class SponsorshipCategory {
       bidAmounts: (json['bid_amounts'] as List?)?.map((e) => e as int).toList() ?? [],
       myBidCount: json['my_bid_count'] ?? 0,
       myBids: (json['my_bids'] as List?)?.map((e) => Map<String, dynamic>.from(e)).toList() ?? [],
+      prereqCount: json['prereq_count'] ?? 0,
     );
   }
 
@@ -162,15 +165,42 @@ class SponsorPayment {
 }
 
 
+class SponsorTicketPrereq {
+  final int id;
+  final String name;
+  final bool isRequired;
+  final String? uploadStatus;
+
+  SponsorTicketPrereq({
+    required this.id,
+    required this.name,
+    required this.isRequired,
+    this.uploadStatus,
+  });
+
+  bool get isUploaded => uploadStatus != null;
+
+  factory SponsorTicketPrereq.fromJson(Map<String, dynamic> json) {
+    return SponsorTicketPrereq(
+      id: json['id'] ?? 0,
+      name: json['name'] ?? '',
+      isRequired: json['is_required'] ?? false,
+      uploadStatus: json['upload_status'],
+    );
+  }
+}
+
 class SponsorTicketCategory {
   final String name;
   final int amountCents;
   final String status;
+  final List<SponsorTicketPrereq> prerequisites;
 
   SponsorTicketCategory({
     required this.name,
     required this.amountCents,
     required this.status,
+    this.prerequisites = const [],
   });
 
   String get amountDisplay =>
@@ -181,6 +211,10 @@ class SponsorTicketCategory {
       name: json['name'] ?? '',
       amountCents: json['amount_cents'] ?? 0,
       status: json['status'] ?? '',
+      prerequisites: (json['prerequisites'] as List<dynamic>?)
+              ?.map((p) => SponsorTicketPrereq.fromJson(p as Map<String, dynamic>))
+              .toList() ??
+          [],
     );
   }
 }

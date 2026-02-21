@@ -3430,7 +3430,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                      'Sponsorship Categories (Optional)',
+                      'Sponsorships (Optional)',
                       style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 13,
@@ -3489,7 +3489,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                       padding: const EdgeInsets.all(16),
                       child: Column(
                         children: [
-                          Text('No sponsor categories yet',
+                          Text('No sponsorships yet',
                               style: TextStyle(color: AppTheme.textSecondaryOf(context))),
                           const SizedBox(height: 8),
                           OutlinedButton.icon(
@@ -3498,14 +3498,14 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                               _loadSponsorTemplates();
                             },
                             icon: const Icon(Icons.add, size: 18),
-                            label: const Text('Create Categories'),
+                            label: const Text('Create Sponsorships'),
                           ),
                         ],
                       ),
                     ),
                   )
                 else ...[
-                  Text('Select categories to attach:',
+                  Text('Select sponsorships to attach:',
                       style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
                           color: AppTheme.textPrimaryOf(context))),
                   const SizedBox(height: 4),
@@ -3582,7 +3582,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                 children: [
                                   TextFormField(
                                     controller: localCat.nameCtrl,
-                                    decoration: const InputDecoration(labelText: 'Category Name', isDense: true),
+                                    decoration: const InputDecoration(labelText: 'Sponsorship Name', isDense: true),
                                   ),
                                   const SizedBox(height: 8),
                                   TextFormField(
@@ -3751,7 +3751,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                         ? 'None'
                         : () {
                             final totalPrereqs = _localCategories.fold<int>(0, (s, c) => s + c.prereqs.length);
-                            final base = '${_localCategories.length} categories';
+                            final base = '${_localCategories.length} sponsorship${_localCategories.length == 1 ? '' : 's'}';
                             return totalPrereqs > 0 ? '$base, $totalPrereqs prereqs' : base;
                           }(),
                   },

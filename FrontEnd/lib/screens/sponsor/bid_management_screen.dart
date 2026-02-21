@@ -358,7 +358,12 @@ class _BidCardState extends State<_BidCard> {
               children: [
                 Expanded(
                   child: GestureDetector(
-                    onTap: () => showSponsorProfileSheet(context, bid.sponsorUserId),
+                    onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => SponsorProfileScreen(
+                        userId: bid.sponsorUserId,
+                        isOrganizerView: true,
+                      ),
+                    )),
                     child: Row(
                       children: [
                         CircleAvatar(

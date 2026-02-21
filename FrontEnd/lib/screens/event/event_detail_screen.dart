@@ -4288,26 +4288,52 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
               );
             }
             final tiers = snapshot.data ?? [];
+            final canModify = event.status != EventStatus.selling_tickets &&
+                event.status != EventStatus.live &&
+                event.status != EventStatus.completed;
             if (tiers.isEmpty) {
-              return Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: AppTheme.cardOf(context),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppTheme.dividerOf(context)),
-                ),
-                child: Column(
-                  children: [
-                    Icon(Icons.layers_clear_rounded, size: 32, color: AppTheme.textSecondaryOf(context)),
-                    const SizedBox(height: 8),
-                    Text('No tiers configured',
-                        style: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 14)),
+              return Column(
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: AppTheme.cardOf(context),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppTheme.dividerOf(context)),
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(Icons.layers_clear_rounded, size: 32, color: AppTheme.textSecondaryOf(context)),
+                        const SizedBox(height: 8),
+                        Text('No tiers configured',
+                            style: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 14)),
+                      ],
+                    ),
+                  ),
+                  if (canModify) ...[
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () => _showAddTierDialog(event.id),
+                        icon: const Icon(Icons.add_rounded, size: 18),
+                        label: const Text('Add Tier'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.deepPurple,
+                          side: BorderSide(color: Colors.deepPurple.withValues(alpha: 0.4)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
                   ],
-                ),
+                ],
               );
             }
-            return Container(
+            return Column(
+              children: [
+                Container(
               decoration: BoxDecoration(
                 color: AppTheme.cardOf(context),
                 borderRadius: BorderRadius.circular(16),
@@ -4328,8 +4354,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                   final desc = tier['description'] ?? '';
                   final priceCents = tier['price_cents'] ?? 0;
                   final price = '\$${(priceCents / 100).toStringAsFixed(2)}';
-                  final canDelete = event.status != EventStatus.selling_tickets &&
-                      event.status != EventStatus.live;
                   final isLast = i == tiers.length - 1;
                   return Column(
                     children: [
@@ -4382,7 +4406,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                               onPressed: () => _showEditTierDialog(
                                   event.id, tierId, name, desc, priceCents),
                             ),
-                            if (canDelete)
+                            if (canModify)
                               IconButton(
                                 icon: Icon(Icons.delete_outline_rounded,
                                     size: 20, color: AppTheme.errorColor),
@@ -4399,6 +4423,25 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                   );
                 }).toList(),
               ),
+            ),
+                if (canModify) ...[
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () => _showAddTierDialog(event.id),
+                      icon: const Icon(Icons.add_rounded, size: 18),
+                      label: const Text('Add Tier'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.deepPurple,
+                        side: BorderSide(color: Colors.deepPurple.withValues(alpha: 0.4)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             );
           },
         ),
@@ -4469,6 +4512,70 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     if (saved == true && mounted) {
       setState(() {});
       AppToast.success(context, 'Tier updated!');
+    }
+  }
+
+  Future<void> _showAddTierDialog(int eventId) async {
+    final nameCtrl = TextEditingController();
+    final descCtrl = TextEditingController();
+    final priceCtrl = TextEditingController(text: '0.00');
+
+    final created = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Add Tier'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameCtrl,
+              decoration: const InputDecoration(labelText: 'Tier Name'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: descCtrl,
+              decoration: const InputDecoration(labelText: 'Description'),
+              maxLines: 2,
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: priceCtrl,
+              decoration: const InputDecoration(
+                  labelText: 'Price', prefixText: '\$ '),
+              keyboardType: TextInputType.number,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              final price = double.tryParse(priceCtrl.text);
+              if (nameCtrl.text.trim().isEmpty || price == null) return;
+              try {
+                final api = context.read<ApiService>();
+                await api.createTicketTier(eventId, {
+                  'name': nameCtrl.text.trim(),
+                  'description': descCtrl.text.trim(),
+                  'price_cents': (price * 100).toInt(),
+                });
+                if (ctx.mounted) Navigator.pop(ctx, true);
+              } catch (e) {
+                if (ctx.mounted) {
+                  AppToast.fromError(ctx, e, fallback: 'Failed to create tier');
+                }
+              }
+            },
+            child: const Text('Create'),
+          ),
+        ],
+      ),
+    );
+    if (created == true && mounted) {
+      setState(() {});
+      AppToast.success(context, 'Tier created!');
     }
   }
 
@@ -7343,6 +7450,13 @@ class _SponsorCarouselState extends State<_SponsorCarousel> {
     }
   }
 
+  void _navigateToSponsorProfile(Map<String, dynamic> sponsor) {
+    final userId = sponsor['sponsor_user_id'];
+    if (userId != null) {
+      context.push('/users/$userId/sponsor-profile');
+    }
+  }
+
   void _showSponsorSheet(Map<String, dynamic> sponsor) {
     showModalBottomSheet(
       context: context,
@@ -7410,33 +7524,51 @@ class _SponsorCarouselState extends State<_SponsorCarousel> {
         ),
         const SizedBox(height: 10),
         SizedBox(
-          height: 56,
+          height: 72,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: _sponsors.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            separatorBuilder: (_, __) => const SizedBox(width: 14),
             itemBuilder: (context, index) {
               final s = _sponsors[index];
+              final name = s['company_name'] as String? ?? 'Sponsor';
               return GestureDetector(
-                onTap: () => _showSponsorSheet(s),
-                child: Tooltip(
-                  message: s['company_name'] ?? '',
-                  child: CircleAvatar(
-                    radius: 26,
-                    backgroundColor:
-                        AppTheme.accentColor.withValues(alpha: 0.08),
-                    backgroundImage: s['logo_url'] != null
-                        ? NetworkImage(s['logo_url'])
-                        : null,
-                    child: s['logo_url'] == null
-                        ? Text(
-                            (s['company_name'] as String? ?? '?')
-                                .substring(0, 1)
-                                .toUpperCase(),
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 18),
-                          )
-                        : null,
+                onTap: () => _navigateToSponsorProfile(s),
+                child: SizedBox(
+                  width: 64,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircleAvatar(
+                        radius: 24,
+                        backgroundColor:
+                            AppTheme.accentColor.withValues(alpha: 0.12),
+                        backgroundImage: s['logo_url'] != null
+                            ? NetworkImage(s['logo_url'])
+                            : null,
+                        child: s['logo_url'] == null
+                            ? Text(
+                                name.substring(0, 1).toUpperCase(),
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                    color: AppTheme.accentColor),
+                              )
+                            : null,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        name,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimaryOf(context),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                   ),
                 ),
               );

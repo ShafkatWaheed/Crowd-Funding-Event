@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
+import '../../models/event.dart';
 import '../../models/sponsor.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
@@ -23,6 +24,7 @@ class _SponsorshipCategoriesScreenState
     extends State<SponsorshipCategoriesScreen> {
   List<SponsorshipCategory> _categories = [];
   bool _loading = true;
+  EventStatus? _eventStatus;
 
   @override
   void initState() {
@@ -33,11 +35,21 @@ class _SponsorshipCategoriesScreenState
   Future<void> _load() async {
     try {
       final api = context.read<ApiService>();
-      final data = await api.getSponsorshipCategories(widget.eventId);
+      final results = await Future.wait([
+        api.getSponsorshipCategories(widget.eventId),
+        api.getEvent(widget.eventId),
+      ]);
+      final data = results[0] as List;
+      final eventData = results[1] as Map<String, dynamic>;
+      final statusStr = eventData['status'] as String? ?? 'draft';
       if (mounted) {
         setState(() {
           _categories =
-              data.map((j) => SponsorshipCategory.fromJson(j)).toList();
+              data.map((j) => SponsorshipCategory.fromJson(j as Map<String, dynamic>)).toList();
+          _eventStatus = EventStatus.values.firstWhere(
+            (e) => e.name == statusStr,
+            orElse: () => EventStatus.draft,
+          );
           _loading = false;
         });
       }
@@ -92,6 +104,9 @@ class _SponsorshipCategoriesScreenState
   }
 
   Future<void> _showPrerequisitesSheet(SponsorshipCategory cat) async {
+    final locked = _eventStatus == EventStatus.live ||
+        _eventStatus == EventStatus.completed ||
+        _eventStatus == EventStatus.cancelled;
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -103,8 +118,82 @@ class _SponsorshipCategoriesScreenState
         eventId: widget.eventId,
         categoryId: cat.id,
         categoryName: cat.name,
+        readOnly: locked,
       ),
     );
+  }
+
+  Future<void> _showAddSponsorshipDialog() async {
+    final nameCtrl = TextEditingController();
+    final descCtrl = TextEditingController();
+    final spotsCtrl = TextEditingController(text: '1');
+    final minBidCtrl = TextEditingController(text: '100.00');
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Add Sponsorship'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(labelText: 'Sponsorship Name *'),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: descCtrl,
+                decoration: const InputDecoration(labelText: 'Description'),
+                maxLines: 2,
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: spotsCtrl,
+                decoration: const InputDecoration(labelText: 'Total Spots *'),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: minBidCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Minimum Bid (\$) *',
+                  hintText: '100.00',
+                ),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Create')),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+    final name = nameCtrl.text.trim();
+    final spots = int.tryParse(spotsCtrl.text.trim());
+    final minBid = double.tryParse(minBidCtrl.text.trim());
+    if (name.isEmpty || spots == null || spots < 1 || minBid == null || minBid <= 0) {
+      if (mounted) AppToast.error(context, 'Please fill in all required fields correctly.');
+      return;
+    }
+
+    try {
+      final api = context.read<ApiService>();
+      await api.createSponsorshipCategory(widget.eventId, {
+        'name': name,
+        'description': descCtrl.text.trim(),
+        'total_spots': spots,
+        'min_bid_cents': (minBid * 100).round(),
+      });
+      if (mounted) AppToast.success(context, 'Sponsorship created');
+      _load();
+    } catch (e) {
+      if (mounted) AppToast.error(context, ApiService.extractError(e));
+    }
   }
 
   @override
@@ -112,9 +201,23 @@ class _SponsorshipCategoriesScreenState
     final user = context.watch<AuthProvider>().user;
     final isSponsor = user?.isSponsor ?? false;
     final isOrganizerOrAdmin = user != null && (user.isOrganizer || user.isAdmin);
+    final canCreate = isOrganizerOrAdmin &&
+        _eventStatus != null &&
+        _eventStatus != EventStatus.live &&
+        _eventStatus != EventStatus.completed &&
+        _eventStatus != EventStatus.cancelled;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Sponsorships')),
+      floatingActionButton: canCreate
+          ? FloatingActionButton.extended(
+              onPressed: _showAddSponsorshipDialog,
+              icon: const Icon(Icons.add),
+              label: const Text('Add Sponsorship'),
+              backgroundColor: Colors.deepPurple,
+              foregroundColor: Colors.white,
+            )
+          : null,
       body: _loading
           ? Padding(
               padding: const EdgeInsets.all(16),
@@ -287,11 +390,13 @@ class _PrerequisiteSheet extends StatefulWidget {
   final int eventId;
   final int categoryId;
   final String categoryName;
+  final bool readOnly;
 
   const _PrerequisiteSheet({
     required this.eventId,
     required this.categoryId,
     required this.categoryName,
+    this.readOnly = false,
   });
 
   @override
@@ -325,6 +430,7 @@ class _PrerequisiteSheetState extends State<_PrerequisiteSheet> {
     final nameCtrl = TextEditingController();
     final descCtrl = TextEditingController();
     bool isRequired = true;
+    bool requiresDocument = false;
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -352,6 +458,13 @@ class _PrerequisiteSheetState extends State<_PrerequisiteSheet> {
                 dense: true,
                 contentPadding: EdgeInsets.zero,
               ),
+              CheckboxListTile(
+                value: requiresDocument,
+                onChanged: (v) => setInner(() => requiresDocument = v ?? false),
+                title: const Text('Requires document upload'),
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+              ),
             ],
           ),
           actions: [
@@ -372,6 +485,7 @@ class _PrerequisiteSheetState extends State<_PrerequisiteSheet> {
         name: nameCtrl.text.trim(),
         description: descCtrl.text.trim().isEmpty ? null : descCtrl.text.trim(),
         isRequired: isRequired,
+        requiresDocument: requiresDocument,
       );
       if (mounted) AppToast.success(context, 'Requirement added');
       _load();
@@ -422,11 +536,12 @@ class _PrerequisiteSheetState extends State<_PrerequisiteSheet> {
                     ),
                   ),
                 ),
-                IconButton(
-                  onPressed: _add,
-                  icon: Icon(Icons.add_circle_rounded, color: Colors.deepPurple),
-                  tooltip: 'Add requirement',
-                ),
+                if (!widget.readOnly)
+                  IconButton(
+                    onPressed: _add,
+                    icon: Icon(Icons.add_circle_rounded, color: Colors.deepPurple),
+                    tooltip: 'Add requirement',
+                  ),
               ],
             ),
             const SizedBox(height: 8),
@@ -482,23 +597,41 @@ class _PrerequisiteSheetState extends State<_PrerequisiteSheet> {
                                               color: AppTheme.textSecondaryOf(context),
                                             ),
                                           ),
-                                        Text(
-                                          required_ ? 'Required' : 'Optional',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w600,
-                                            color: required_ ? Colors.deepPurple : AppTheme.textSecondaryOf(context),
-                                          ),
+                                        Row(
+                                          children: [
+                                            Text(
+                                              required_ ? 'Required' : 'Optional',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w600,
+                                                color: required_ ? Colors.deepPurple : AppTheme.textSecondaryOf(context),
+                                              ),
+                                            ),
+                                            if (p['requires_document'] == true) ...[
+                                              const SizedBox(width: 8),
+                                              Icon(Icons.upload_file_rounded, size: 13, color: Colors.deepPurple),
+                                              const SizedBox(width: 2),
+                                              Text(
+                                                'Doc required',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Colors.deepPurple,
+                                                ),
+                                              ),
+                                            ],
+                                          ],
                                         ),
                                       ],
                                     ),
                                   ),
-                                  IconButton(
-                                    onPressed: () => _delete(p['id']),
-                                    icon: Icon(Icons.delete_outline_rounded,
-                                        color: AppTheme.errorColor, size: 20),
-                                    tooltip: 'Remove',
-                                  ),
+                                  if (!widget.readOnly)
+                                    IconButton(
+                                      onPressed: () => _delete(p['id']),
+                                      icon: Icon(Icons.delete_outline_rounded,
+                                          color: AppTheme.errorColor, size: 20),
+                                      tooltip: 'Remove',
+                                    ),
                                 ],
                               ),
                             );
@@ -1234,7 +1367,7 @@ class _CategoryRequirementsState extends State<_CategoryRequirements> {
                 padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
                 child: Column(
                   children: [
-                    if (!_hasBid)
+                    if (!_hasBid && _prereqs.any((p) => p['requires_document'] == true))
                       Padding(
                         padding: const EdgeInsets.only(bottom: 8),
                         child: Row(
@@ -1254,6 +1387,7 @@ class _CategoryRequirementsState extends State<_CategoryRequirements> {
                     final prereqId = p['id'] as int;
                     final name = p['name'] as String? ?? '';
                     final desc = p['description'] as String? ?? '';
+                    final requiresDoc = p['requires_document'] == true;
                     final upload = _uploads[prereqId];
                     final hasUpload = upload != null;
                     final isUploading = _uploading[prereqId] == true;
@@ -1316,7 +1450,7 @@ class _CategoryRequirementsState extends State<_CategoryRequirements> {
                               ],
                             ),
                           ),
-                          if (_hasBid) ...[
+                          if (_hasBid && requiresDoc) ...[
                             const SizedBox(width: 8),
                             SizedBox(
                               height: 30,

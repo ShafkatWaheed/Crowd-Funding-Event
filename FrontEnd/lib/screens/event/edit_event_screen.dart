@@ -31,13 +31,22 @@ class _EditScheduleItem {
         endTime = const TimeOfDay(hour: 10, minute: 0);
 }
 
+class _EditLocalPrereq {
+  String name;
+  String description;
+  bool isRequired;
+  bool requiresDocument;
+  _EditLocalPrereq({required this.name, this.description = '', this.isRequired = true, this.requiresDocument = false});
+}
+
 class _EditSponsorCategory {
   int? id;
   final nameCtrl = TextEditingController();
   final descCtrl = TextEditingController();
   final spotsCtrl = TextEditingController(text: '1');
   final minBidCtrl = TextEditingController(text: '100.00');
-  _EditSponsorCategory({this.id});
+  List<_EditLocalPrereq> prereqs;
+  _EditSponsorCategory({this.id}) : prereqs = [];
 }
 
 class _EditTier {
@@ -432,8 +441,212 @@ class _EditEventScreenState extends State<EditEventScreen> {
               ),
             ],
           ),
+          if (sc.id == null || sc.prereqs.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _buildEditPrereqSection(sc),
+          ],
         ],
       ),
+    );
+  }
+
+  Widget _buildEditPrereqSection(_EditSponsorCategory sc) {
+    final nameCtrl = TextEditingController();
+    final descCtrl = TextEditingController();
+    bool isRequired = true;
+    bool requiresDocument = false;
+
+    return StatefulBuilder(
+      builder: (context, setLocal) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.checklist_rounded, size: 16, color: Colors.teal),
+                const SizedBox(width: 6),
+                Text('Prerequisites',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+                        color: AppTheme.textPrimaryOf(context))),
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: Colors.teal.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text('${sc.prereqs.length}',
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.teal)),
+                ),
+              ],
+            ),
+            if (sc.prereqs.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              ...sc.prereqs.asMap().entries.map((entry) {
+                final i = entry.key;
+                final p = entry.value;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Icon(Icons.arrow_right_rounded, size: 18,
+                                color: AppTheme.textSecondaryOf(context)),
+                            Flexible(
+                              child: Text(p.name,
+                                  style: TextStyle(fontSize: 12,
+                                      color: AppTheme.textPrimaryOf(context))),
+                            ),
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: p.isRequired
+                                    ? Colors.red.withValues(alpha: 0.1)
+                                    : Colors.grey.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                p.isRequired ? 'Required' : 'Optional',
+                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600,
+                                    color: p.isRequired ? Colors.red : Colors.grey),
+                              ),
+                            ),
+                            if (p.requiresDocument) ...[
+                              const SizedBox(width: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: Colors.deepPurple.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Text(
+                                  'Doc',
+                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600,
+                                      color: Colors.deepPurple),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      InkWell(
+                        onTap: () {
+                          setState(() => sc.prereqs.removeAt(i));
+                          setLocal(() {});
+                        },
+                        child: const Padding(
+                          padding: EdgeInsets.all(4),
+                          child: Icon(Icons.close, size: 16, color: Colors.red),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ],
+            const SizedBox(height: 8),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: TextField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Prerequisite name',
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    ),
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  flex: 3,
+                  child: TextField(
+                    controller: descCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Description (optional)',
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    ),
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                InkWell(
+                  onTap: () => setLocal(() => isRequired = !isRequired),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isRequired ? Icons.check_box : Icons.check_box_outline_blank,
+                          size: 18,
+                          color: isRequired ? Colors.teal : Colors.grey,
+                        ),
+                        const SizedBox(width: 2),
+                        Text('Req', style: TextStyle(fontSize: 10,
+                            color: AppTheme.textSecondaryOf(context))),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                InkWell(
+                  onTap: () => setLocal(() => requiresDocument = !requiresDocument),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          requiresDocument ? Icons.check_box : Icons.check_box_outline_blank,
+                          size: 18,
+                          color: requiresDocument ? Colors.deepPurple : Colors.grey,
+                        ),
+                        const SizedBox(width: 2),
+                        Text('Doc', style: TextStyle(fontSize: 10,
+                            color: AppTheme.textSecondaryOf(context))),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                InkWell(
+                  onTap: () {
+                    final name = nameCtrl.text.trim();
+                    if (name.isEmpty) return;
+                    setState(() {
+                      sc.prereqs.add(_EditLocalPrereq(
+                        name: name,
+                        description: descCtrl.text.trim(),
+                        isRequired: isRequired,
+                        requiresDocument: requiresDocument,
+                      ));
+                    });
+                    nameCtrl.clear();
+                    descCtrl.clear();
+                    setLocal(() {});
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.teal,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Icon(Icons.add, size: 16, color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -450,6 +663,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
     final nameCtrl = TextEditingController();
     final descCtrl = TextEditingController();
     bool isRequired = true;
+    bool requiresDocument = false;
 
     await showModalBottomSheet(
       context: context,
@@ -526,6 +740,13 @@ class _EditEventScreenState extends State<EditEventScreen> {
                       activeColor: Colors.orange,
                     ),
                     const Text('Required', style: TextStyle(fontSize: 13)),
+                    const SizedBox(width: 8),
+                    Checkbox(
+                      value: requiresDocument,
+                      onChanged: (v) => setSheetState(() => requiresDocument = v ?? false),
+                      activeColor: Colors.deepPurple,
+                    ),
+                    const Text('Doc', style: TextStyle(fontSize: 13)),
                     const Spacer(),
                     ElevatedButton.icon(
                       onPressed: () async {
@@ -537,12 +758,14 @@ class _EditEventScreenState extends State<EditEventScreen> {
                             name: name,
                             description: descCtrl.text.trim().isEmpty ? null : descCtrl.text.trim(),
                             isRequired: isRequired,
+                            requiresDocument: requiresDocument,
                           );
                           setSheetState(() {
                             prereqs.add(resp);
                             nameCtrl.clear();
                             descCtrl.clear();
                             isRequired = true;
+                            requiresDocument = false;
                           });
                         } catch (e) {
                           if (ctx.mounted) AppToast.fromError(ctx, e, fallback: 'Failed to add');
@@ -765,6 +988,15 @@ class _EditEventScreenState extends State<EditEventScreen> {
         });
         sc.id = resp['id'] as int;
         if (mounted) AppToast.success(context, 'Sponsorship created');
+      }
+      if (sc.id != null && sc.prereqs.isNotEmpty) {
+        for (final p in sc.prereqs) {
+          try {
+            await api.createPrerequisite(widget.eventId, sc.id!,
+                name: p.name, description: p.description, isRequired: p.isRequired, requiresDocument: p.requiresDocument);
+          } catch (_) {}
+        }
+        setState(() => sc.prereqs.clear());
       }
     } catch (e) {
       if (mounted) {

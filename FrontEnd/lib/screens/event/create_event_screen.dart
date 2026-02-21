@@ -556,7 +556,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   }
 
   void _goToStep(int step) {
-    if (step >= 0 && step < _stepLabels.length) {
+    if (step >= 0 && step < _stepLabels.length && step <= _currentStep) {
       setState(() => _currentStep = step);
     }
   }
@@ -835,7 +835,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
           for (final p in cat.prereqs) {
             try {
               await api.createPrerequisite(eventId, catId,
-                  name: p.name, description: p.description, isRequired: p.isRequired);
+                  name: p.name, description: p.description, isRequired: p.isRequired, requiresDocument: p.requiresDocument);
             } catch (_) {}
           }
         } catch (_) {}
@@ -926,9 +926,12 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
           final isCompleted = step < _currentStep;
           final isCurrent = step == _currentStep;
           final hasError = _stepsWithErrors.contains(step);
+          final canTap = step < _currentStep;
           return GestureDetector(
-            onTap: () => _goToStep(step),
-            child: Column(
+            onTap: canTap ? () => _goToStep(step) : null,
+            child: Opacity(
+              opacity: step > _currentStep ? 0.45 : 1.0,
+              child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Stack(
@@ -1004,6 +1007,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                 ),
               ],
             ),
+            ),
           );
         }),
       ),
@@ -1014,17 +1018,22 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     final isLast = _currentStep == _stepLabels.length - 1;
     final isFirst = _currentStep == 0;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       decoration: BoxDecoration(
         color: AppTheme.cardOf(context),
-        border:
-            Border(top: BorderSide(color: AppTheme.dividerOf(context))),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
+          ),
+        ],
       ),
       child: SafeArea(
         top: false,
         child: Row(
           children: [
-            if (!isFirst)
+            if (!isFirst) ...[
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: _prevStep,
@@ -1035,14 +1044,14 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     side: BorderSide(
                         color: AppTheme.dividerOf(context)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
-              )
-            else
-              const Spacer(),
-            const SizedBox(width: 12),
+              ),
+              const SizedBox(width: 12),
+            ],
             Expanded(
-              flex: isFirst ? 2 : 1,
               child: isLast
                   ? ElevatedButton.icon(
                       onPressed: _isLoading ? null : _submit,
@@ -1068,6 +1077,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                             ? AppTheme.accentColor
                             : AppTheme.textSecondaryOf(context),
                         foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        elevation: 0,
                       ),
                     )
                   : ElevatedButton.icon(
@@ -1082,6 +1094,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                             const EdgeInsets.symmetric(vertical: 14),
                         backgroundColor: AppTheme.accentColor,
                         foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        elevation: 0,
                       ),
                     ),
             ),
@@ -1102,14 +1117,64 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('Tell us about your event',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700)),
-                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        AppTheme.accentColor.withValues(alpha: 0.08),
+                        AppTheme.accentColor.withValues(alpha: 0.02),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: AppTheme.accentColor.withValues(alpha: 0.12),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: AppTheme.accentColor.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(Icons.celebration_rounded,
+                            size: 24, color: AppTheme.accentColor),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Tell us about your event',
+                                style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppTheme.textPrimaryOf(context),
+                                    letterSpacing: -0.3)),
+                            const SizedBox(height: 2),
+                            Text('Start with the basics — you can always edit later.',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppTheme.textSecondaryOf(context))),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
                 TextFormField(
                   controller: _titleCtrl,
-                  decoration:
-                      const InputDecoration(labelText: 'Event Title *'),
+                  decoration: const InputDecoration(
+                    labelText: 'Event Title *',
+                    prefixIcon: Icon(Icons.title_rounded, size: 20),
+                    hintText: 'Give your event a catchy name',
+                  ),
                   validator: (v) =>
                       v == null || v.trim().isEmpty ? 'Required' : null,
                   onChanged: (_) => _markDirty(),
@@ -1119,6 +1184,11 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                   controller: _descCtrl,
                   decoration: InputDecoration(
                     labelText: 'Description',
+                    prefixIcon: const Padding(
+                      padding: EdgeInsets.only(bottom: 40),
+                      child: Icon(Icons.notes_rounded, size: 20),
+                    ),
+                    hintText: 'What makes your event special?',
                     counterText: '${_descCtrl.text.length} / 2000',
                     counterStyle: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context)),
                   ),
@@ -1129,10 +1199,10 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                 ),
                 const SizedBox(height: 20),
                 Container(
-                  padding: const EdgeInsets.all(14),
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: AppTheme.cardOf(context),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                     border:
                         Border.all(color: AppTheme.dividerOf(context)),
                   ),
@@ -1141,25 +1211,44 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.photo_library_rounded,
-                              size: 20, color: AppTheme.accentColor),
-                          const SizedBox(width: 8),
+                          Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: AppTheme.accentColor.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(Icons.photo_library_rounded,
+                                size: 18, color: AppTheme.accentColor),
+                          ),
+                          const SizedBox(width: 10),
                           Expanded(
                             child: Text('Event Images',
                                 style: TextStyle(
-                                    fontWeight: FontWeight.w600,
+                                    fontWeight: FontWeight.w700,
                                     fontSize: 14,
                                     color: AppTheme.textPrimaryOf(
                                         context))),
                           ),
-                          Text('${_pickedImages.length} selected',
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  color: AppTheme.textSecondaryOf(
-                                      context))),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: _pickedImages.isNotEmpty
+                                  ? AppTheme.accentColor.withValues(alpha: 0.1)
+                                  : AppTheme.surfaceOf(context),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text('${_pickedImages.length} selected',
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: _pickedImages.isNotEmpty
+                                        ? AppTheme.accentColor
+                                        : AppTheme.textSecondaryOf(context))),
+                          ),
                         ],
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 12),
                       if (_pickedImages.isNotEmpty) ...[
                         SizedBox(
                           height: 120,
@@ -1174,7 +1263,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                 children: [
                                   ClipRRect(
                                     borderRadius:
-                                        BorderRadius.circular(10),
+                                        BorderRadius.circular(12),
                                     child: bytes != null
                                         ? Image.memory(bytes,
                                             width: 120,
@@ -1236,7 +1325,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                             },
                           ),
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 12),
                       ],
                       Row(
                         children: [
@@ -1255,6 +1344,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                         .withValues(alpha: 0.4)),
                                 padding: const EdgeInsets.symmetric(
                                     vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10)),
                               ),
                             ),
                           ),
@@ -1275,6 +1366,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                         AppTheme.dividerOf(context)),
                                 padding: const EdgeInsets.symmetric(
                                     vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10)),
                               ),
                             ),
                           ),
@@ -1282,7 +1375,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                       ),
                       if (_pickedImages.isEmpty)
                         Padding(
-                          padding: const EdgeInsets.only(top: 6),
+                          padding: const EdgeInsets.only(top: 8),
                           child: Text(
                             'Add photos to make your event stand out. The first image will be the cover.',
                             style: TextStyle(
@@ -1298,7 +1391,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                 DropdownButtonFormField<String>(
                   value: _genre,
                   decoration: const InputDecoration(
-                      labelText: 'Genre / Category *'),
+                    labelText: 'Genre / Category *',
+                    prefixIcon: Icon(Icons.category_rounded, size: 20),
+                  ),
                   items: _genres
                       .map((g) => DropdownMenuItem(
                           value: g,
@@ -1328,24 +1423,66 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('Funding Settings',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700)),
-                const SizedBox(height: 6),
-                Text(
-                  'Set a funding deadline to run a crowdfunding phase before your event. If skipped, start & end dates become required in the next step.',
-                  style: TextStyle(
-                      fontSize: 12,
-                      color: AppTheme.textSecondaryOf(context)),
-                ),
-                const SizedBox(height: 20),
                 Container(
-                  padding: const EdgeInsets.all(14),
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.teal.withValues(alpha: 0.08),
+                        Colors.teal.withValues(alpha: 0.02),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Colors.teal.withValues(alpha: 0.12),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: Colors.teal.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.attach_money_rounded,
+                            size: 24, color: Colors.teal),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Funding Settings',
+                                style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppTheme.textPrimaryOf(context),
+                                    letterSpacing: -0.3)),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Set a funding deadline to run a crowdfunding phase. If skipped, dates become required next.',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.textSecondaryOf(context)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Container(
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: _fundingEndAt != null
                         ? AppTheme.successColor.withValues(alpha: 0.06)
                         : AppTheme.cardOf(context),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                     border: Border.all(
                       color: _fundingEndAt != null
                           ? AppTheme.successColor.withValues(alpha: 0.25)
@@ -1357,26 +1494,37 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.timer,
-                              size: 18,
-                              color: _fundingEndAt != null
-                                  ? Colors.teal
-                                  : AppTheme.textSecondaryOf(context)),
-                          const SizedBox(width: 8),
+                          Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: (_fundingEndAt != null
+                                      ? Colors.teal
+                                      : AppTheme.textSecondaryOf(context))
+                                  .withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(Icons.timer_rounded,
+                                size: 18,
+                                color: _fundingEndAt != null
+                                    ? Colors.teal
+                                    : AppTheme.textSecondaryOf(context)),
+                          ),
+                          const SizedBox(width: 10),
                           Text('Funding Deadline',
                               style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 14,
                                   color: AppTheme.textPrimaryOf(context))),
                         ],
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 12),
                       Row(
                         children: [
                           Expanded(
                             child: OutlinedButton.icon(
                               onPressed: _pickFundingDeadline,
-                              icon: Icon(Icons.timer,
+                              icon: Icon(Icons.calendar_month_rounded,
                                   size: 18,
                                   color: _fundingEndAt != null
                                       ? Colors.teal
@@ -1390,6 +1538,11 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                       ? AppTheme.textPrimaryOf(context)
                                       : AppTheme.textSecondaryOf(context),
                                 ),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10)),
                               ),
                             ),
                           ),
@@ -1409,51 +1562,99 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                   ),
                 ),
                 if (_fundingEndAt != null) ...[
-                  const SizedBox(height: 16),
-                  Builder(builder: (context) {
-                    final fundDuration =
-                        _fundingEndAt!.difference(DateTime.now()).inDays;
-                    final maxDays =
-                        (fundDuration * 0.2).ceil().clamp(1, 365);
-                    if (_refundDeadlineDays > maxDays) {
-                      _refundDeadlineDays = maxDays;
-                    }
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Refund Deadline: $_refundDeadlineDays day${_refundDeadlineDays == 1 ? '' : 's'} before funding ends',
-                          style: const TextStyle(
-                              fontSize: 14, fontWeight: FontWeight.w600),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Max $maxDays days (20% of funding duration). Customers can get a refund if they unregister before this cutoff.',
-                          style: TextStyle(
-                              fontSize: 12,
-                              color: AppTheme.textSecondaryOf(context)),
-                        ),
-                        const SizedBox(height: 8),
-                        Slider(
-                          value: _refundDeadlineDays
-                              .toDouble()
-                              .clamp(0, maxDays.toDouble()),
-                          min: 0,
-                          max: maxDays.toDouble(),
-                          divisions: maxDays > 0 ? maxDays : 1,
-                          label: '$_refundDeadlineDays days',
-                          activeColor: AppTheme.accentColor,
-                          onChanged: (v) => setState(
-                              () => _refundDeadlineDays = v.round()),
-                        ),
-                      ],
-                    );
-                  }),
+                  const SizedBox(height: 20),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppTheme.cardOf(context),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppTheme.dividerOf(context)),
+                    ),
+                    child: Builder(builder: (context) {
+                      final fundDuration =
+                          _fundingEndAt!.difference(DateTime.now()).inDays;
+                      final maxDays =
+                          (fundDuration * 0.2).ceil().clamp(1, 365);
+                      if (_refundDeadlineDays > maxDays) {
+                        _refundDeadlineDays = maxDays;
+                      }
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  color: AppTheme.warningColor.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(Icons.shield_rounded,
+                                    size: 18, color: AppTheme.warningColor),
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                'Refund Deadline',
+                                style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppTheme.textPrimaryOf(context)),
+                              ),
+                              const Spacer(),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.warningColor.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  '$_refundDeadlineDays day${_refundDeadlineDays == 1 ? '' : 's'}',
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppTheme.warningColor),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Max $maxDays days (20% of funding duration). Customers can refund if they unregister before this cutoff.',
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.textSecondaryOf(context)),
+                          ),
+                          const SizedBox(height: 8),
+                          SliderTheme(
+                            data: SliderTheme.of(context).copyWith(
+                              trackHeight: 4,
+                              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+                              overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
+                            ),
+                            child: Slider(
+                              value: _refundDeadlineDays
+                                  .toDouble()
+                                  .clamp(0, maxDays.toDouble()),
+                              min: 0,
+                              max: maxDays.toDouble(),
+                              divisions: maxDays > 0 ? maxDays : 1,
+                              label: '$_refundDeadlineDays days',
+                              activeColor: AppTheme.accentColor,
+                              onChanged: (v) => setState(
+                                  () => _refundDeadlineDays = v.round()),
+                            ),
+                          ),
+                        ],
+                      );
+                    }),
+                  ),
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _fundingGoalCtrl,
                     decoration: const InputDecoration(
                         labelText: 'Funding Goal (\$)',
+                        prefixIcon: Icon(Icons.flag_rounded, size: 20),
                         prefixText: '\$ '),
                     keyboardType: TextInputType.number,
                   ),
@@ -1462,6 +1663,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                     controller: _minPledgeCtrl,
                     decoration: const InputDecoration(
                         labelText: 'Minimum Pledge (\$)',
+                        prefixIcon: Icon(Icons.savings_rounded, size: 20),
                         prefixText: '\$ '),
                     keyboardType: TextInputType.number,
                   ),
@@ -1470,6 +1672,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                     controller: _maxReservedSpotsCtrl,
                     decoration: const InputDecoration(
                       labelText: 'Max Reserved Spots Per User',
+                      prefixIcon: Icon(Icons.event_seat_rounded, size: 20),
                       helperText:
                           'How many ticket spots each pledger can reserve (0 = disabled)',
                     ),
@@ -1701,6 +1904,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   Widget _buildStep3DatesTickets() {
     final needsDates = _fundingEndAt == null;
     final hasDates = _startTime != null && _endTime != null;
+    final statusColor = (needsDates && !hasDates)
+        ? AppTheme.warningColor
+        : AppTheme.successColor;
     return Form(
       key: _formKeys[2],
       child: SingleChildScrollView(
@@ -1711,21 +1917,64 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('Dates & Tickets',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700)),
-                const SizedBox(height: 20),
                 Container(
-                  padding: const EdgeInsets.all(14),
+                  padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: (needsDates && !hasDates)
-                        ? AppTheme.warningColor.withValues(alpha: 0.08)
-                        : AppTheme.successColor.withValues(alpha: 0.06),
-                    borderRadius: BorderRadius.circular(12),
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.indigo.withValues(alpha: 0.08),
+                        Colors.indigo.withValues(alpha: 0.02),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: (needsDates && !hasDates)
-                          ? AppTheme.warningColor.withValues(alpha: 0.3)
-                          : AppTheme.successColor.withValues(alpha: 0.25),
+                      color: Colors.indigo.withValues(alpha: 0.12),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: Colors.indigo.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.event_rounded,
+                            size: 24, color: Colors.indigo),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Dates & Tickets',
+                                style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppTheme.textPrimaryOf(context),
+                                    letterSpacing: -0.3)),
+                            const SizedBox(height: 2),
+                            Text('Schedule your event and configure ticketing.',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppTheme.textSecondaryOf(context))),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: statusColor.withValues(alpha: 0.25),
                     ),
                   ),
                   child: Column(
@@ -1733,16 +1982,22 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                     children: [
                       Row(
                         children: [
-                          Icon(
-                            (needsDates && !hasDates)
-                                ? Icons.warning_amber_rounded
-                                : Icons.check_circle_outline,
-                            size: 18,
-                            color: (needsDates && !hasDates)
-                                ? AppTheme.warningColor
-                                : AppTheme.successColor,
+                          Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: statusColor.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              (needsDates && !hasDates)
+                                  ? Icons.warning_amber_rounded
+                                  : Icons.check_circle_outline_rounded,
+                              size: 18,
+                              color: statusColor,
+                            ),
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 10),
                           Expanded(
                             child: Text(
                               needsDates
@@ -1753,25 +2008,25 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                 fontSize: 13,
                                 color: (needsDates && !hasDates)
                                     ? AppTheme.textPrimaryOf(context)
-                                    : AppTheme.successColor,
+                                    : statusColor,
                               ),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 16),
                       Text('Event Date',
                           style: TextStyle(
-                              fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.w700,
                               fontSize: 13,
                               color: AppTheme.textSecondaryOf(context))),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 8),
                       Row(
                         children: [
                           Expanded(
                             child: OutlinedButton.icon(
                               onPressed: () => _pickDateTime(true),
-                              icon: Icon(Icons.calendar_today,
+                              icon: Icon(Icons.play_circle_outline_rounded,
                                   size: 18,
                                   color: _startTime != null
                                       ? AppTheme.primaryOf(context)
@@ -1785,6 +2040,11 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                       ? AppTheme.textPrimaryOf(context)
                                       : AppTheme.textSecondaryOf(context),
                                 ),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10)),
                               ),
                             ),
                           ),
@@ -1800,13 +2060,13 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                           ],
                         ],
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 8),
                       Row(
                         children: [
                           Expanded(
                             child: OutlinedButton.icon(
                               onPressed: () => _pickDateTime(false),
-                              icon: Icon(Icons.calendar_today,
+                              icon: Icon(Icons.stop_circle_outlined,
                                   size: 18,
                                   color: _endTime != null
                                       ? AppTheme.primaryOf(context)
@@ -1820,6 +2080,11 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                       ? AppTheme.textPrimaryOf(context)
                                       : AppTheme.textSecondaryOf(context),
                                 ),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10)),
                               ),
                             ),
                           ),
@@ -1835,7 +2100,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                           ],
                         ],
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 8),
                       Text(
                         _startTime != null && _fundingEndAt != null
                             ? 'Funding runs until deadline, then tickets go on sale.'
@@ -1876,7 +2141,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                 DropdownButtonFormField<String>(
                   value: _registrationType,
                   decoration: const InputDecoration(
-                      labelText: 'Registration Type'),
+                    labelText: 'Registration Type',
+                    prefixIcon: Icon(Icons.how_to_reg_rounded, size: 20),
+                  ),
                   items: const [
                     DropdownMenuItem(
                         value: 'open', child: Text('Open')),
@@ -2696,10 +2963,57 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('Location & Sponsors',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700)),
-                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.deepOrange.withValues(alpha: 0.08),
+                        Colors.deepOrange.withValues(alpha: 0.02),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Colors.deepOrange.withValues(alpha: 0.12),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: Colors.deepOrange.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.location_on_rounded,
+                            size: 24, color: Colors.deepOrange),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Location & Sponsors',
+                                style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppTheme.textPrimaryOf(context),
+                                    letterSpacing: -0.3)),
+                            const SizedBox(height: 2),
+                            Text('Pick a venue and set up sponsorship tiers.',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppTheme.textSecondaryOf(context))),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
                 if (_venuesLoading)
                   _buildLoadingChip('Loading venues…')
                 else if (_venuesError != null)
@@ -2769,13 +3083,15 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                           TextFormField(
                             controller: _venueNameCtrl,
                             decoration: const InputDecoration(
-                                labelText: 'Venue Name'),
+                                labelText: 'Venue Name',
+                                prefixIcon: Icon(Icons.business_rounded, size: 20)),
                           ),
                           const SizedBox(height: 10),
                           TextFormField(
                             controller: _venueAddressCtrl,
                             decoration: InputDecoration(
                               labelText: 'Address',
+                              prefixIcon: const Icon(Icons.place_rounded, size: 20),
                               suffixIcon: _venueGeocoding
                                   ? const Padding(
                                       padding:
@@ -2895,7 +3211,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                   decoration:
                                       const InputDecoration(
                                           labelText:
-                                              'City'),
+                                              'City',
+                                          prefixIcon: Icon(Icons.location_city_rounded, size: 20)),
                                 ),
                               ),
                               const SizedBox(width: 10),
@@ -2906,7 +3223,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                   decoration:
                                       const InputDecoration(
                                           labelText:
-                                              'Province'),
+                                              'Province',
+                                          prefixIcon: Icon(Icons.map_rounded, size: 20)),
                                 ),
                               ),
                             ],
@@ -2918,7 +3236,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                             decoration:
                                 const InputDecoration(
                                     labelText:
-                                        'Max Capacity'),
+                                        'Max Capacity',
+                                    prefixIcon: Icon(Icons.groups_rounded, size: 20)),
                             keyboardType:
                                 TextInputType.number,
                           ),
@@ -3226,6 +3545,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
           name: (p['name'] as String?) ?? '',
           description: (p['description'] as String?) ?? '',
           isRequired: p['is_required'] as bool? ?? true,
+          requiresDocument: p['requires_document'] as bool? ?? false,
         ));
       }
     } catch (_) {}
@@ -3240,6 +3560,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     final nameCtrl = TextEditingController();
     final descCtrl = TextEditingController();
     bool isRequired = true;
+    bool requiresDocument = false;
 
     return StatefulBuilder(
       builder: (context, setLocal) {
@@ -3299,6 +3620,21 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                     color: p.isRequired ? Colors.red : Colors.grey),
                               ),
                             ),
+                            if (p.requiresDocument) ...[
+                              const SizedBox(width: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: Colors.deepPurple.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Text(
+                                  'Doc',
+                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600,
+                                      color: Colors.deepPurple),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -3368,6 +3704,26 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                 ),
                 const SizedBox(width: 4),
                 InkWell(
+                  onTap: () => setLocal(() => requiresDocument = !requiresDocument),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          requiresDocument ? Icons.check_box : Icons.check_box_outline_blank,
+                          size: 18,
+                          color: requiresDocument ? Colors.deepPurple : Colors.grey,
+                        ),
+                        const SizedBox(width: 2),
+                        Text('Doc', style: TextStyle(fontSize: 10,
+                            color: AppTheme.textSecondaryOf(context))),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                InkWell(
                   onTap: () {
                     final name = nameCtrl.text.trim();
                     if (name.isEmpty) return;
@@ -3376,6 +3732,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                         name: name,
                         description: descCtrl.text.trim(),
                         isRequired: isRequired,
+                        requiresDocument: requiresDocument,
                       ));
                     });
                     nameCtrl.clear();
@@ -3396,6 +3753,86 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
           ],
         );
       },
+    );
+  }
+
+  Widget _buildDirectSponsorCard(_EditableSponsorCategory cat) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.teal.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.teal.withValues(alpha: 0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text('New Sponsorship',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete_outline, size: 18, color: AppTheme.errorColor),
+                onPressed: () => setState(() {
+                  _localCategories.remove(cat);
+                  _markDirty();
+                }),
+                tooltip: 'Remove',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: cat.nameCtrl,
+            decoration: const InputDecoration(
+              labelText: 'Sponsorship Name *',
+              hintText: 'e.g. Gold Sponsor, Food Stall',
+              isDense: true,
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: cat.descCtrl,
+            decoration: const InputDecoration(
+              labelText: 'Description',
+              isDense: true,
+            ),
+            maxLines: 2,
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: cat.spotsCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Total Spots *',
+                    isDense: true,
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextFormField(
+                  controller: cat.minBidCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Min Bid (\$) *',
+                    isDense: true,
+                  ),
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _buildPrereqSection(cat),
+        ],
+      ),
     );
   }
 
@@ -3483,7 +3920,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                     padding: EdgeInsets.all(16),
                     child: CircularProgressIndicator(strokeWidth: 2),
                   ))
-                else if (_sponsorTemplates.isEmpty)
+                else if (_sponsorTemplates.isEmpty && _localCategories.where((c) => c.templateId == null).isEmpty)
                   Center(
                     child: Padding(
                       padding: const EdgeInsets.all(16),
@@ -3491,18 +3928,82 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                         children: [
                           Text('No sponsorships yet',
                               style: TextStyle(color: AppTheme.textSecondaryOf(context))),
-                          const SizedBox(height: 8),
-                          OutlinedButton.icon(
-                            onPressed: () async {
-                              await context.push('/sponsor-category-templates');
-                              _loadSponsorTemplates();
-                            },
-                            icon: const Icon(Icons.add, size: 18),
-                            label: const Text('Create Sponsorships'),
+                          const SizedBox(height: 12),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              OutlinedButton.icon(
+                                onPressed: () {
+                                  final cat = _EditableSponsorCategory(expanded: true);
+                                  cat.spotsCtrl.text = '1';
+                                  cat.minBidCtrl.text = '100.00';
+                                  setState(() {
+                                    _localCategories.add(cat);
+                                    _markDirty();
+                                  });
+                                },
+                                icon: const Icon(Icons.add, size: 18),
+                                label: const Text('Add Sponsorship'),
+                              ),
+                              const SizedBox(width: 8),
+                              OutlinedButton.icon(
+                                onPressed: () async {
+                                  await context.push('/sponsor-category-templates');
+                                  _loadSponsorTemplates();
+                                },
+                                icon: const Icon(Icons.copy_rounded, size: 18),
+                                label: const Text('From Template'),
+                                style: OutlinedButton.styleFrom(foregroundColor: Colors.teal),
+                              ),
+                            ],
                           ),
                         ],
                       ),
                     ),
+                  )
+                else if (_sponsorTemplates.isEmpty && _localCategories.where((c) => c.templateId == null).isNotEmpty)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ..._localCategories.where((c) => c.templateId == null).map((cat) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: _buildDirectSponsorCard(cat),
+                        );
+                      }),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () {
+                                final cat = _EditableSponsorCategory(expanded: true);
+                                cat.spotsCtrl.text = '1';
+                                cat.minBidCtrl.text = '100.00';
+                                setState(() {
+                                  _localCategories.add(cat);
+                                  _markDirty();
+                                });
+                              },
+                              icon: const Icon(Icons.add, size: 18),
+                              label: const Text('Add Sponsorship'),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextButton.icon(
+                              onPressed: () async {
+                                await context.push('/sponsor-category-templates');
+                                _loadSponsorTemplates();
+                              },
+                              icon: const Icon(Icons.settings, size: 16),
+                              label: const Text('Manage Templates'),
+                              style: TextButton.styleFrom(foregroundColor: Colors.teal),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   )
                 else ...[
                   Text('Select sponsorships to attach:',
@@ -3619,18 +4120,44 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                       ),
                     );
                   }),
+                  ..._localCategories.where((c) => c.templateId == null).toList().asMap().entries.map((entry) {
+                    final cat = entry.value;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: _buildDirectSponsorCard(cat),
+                    );
+                  }),
                   const SizedBox(height: 6),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton.icon(
-                      onPressed: () async {
-                        await context.push('/sponsor-category-templates');
-                        _loadSponsorTemplates();
-                      },
-                      icon: const Icon(Icons.settings, size: 16),
-                      label: const Text('Manage Templates'),
-                      style: TextButton.styleFrom(foregroundColor: Colors.teal),
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            final cat = _EditableSponsorCategory(expanded: true);
+                            cat.spotsCtrl.text = '1';
+                            cat.minBidCtrl.text = '100.00';
+                            setState(() {
+                              _localCategories.add(cat);
+                              _markDirty();
+                            });
+                          },
+                          icon: const Icon(Icons.add, size: 18),
+                          label: const Text('Add Sponsorship'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextButton.icon(
+                          onPressed: () async {
+                            await context.push('/sponsor-category-templates');
+                            _loadSponsorTemplates();
+                          },
+                          icon: const Icon(Icons.settings, size: 16),
+                          label: const Text('Manage Templates'),
+                          style: TextButton.styleFrom(foregroundColor: Colors.teal),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ],
@@ -3665,19 +4192,57 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('Review & Publish',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w700)),
-                const SizedBox(height: 6),
-                Text(
-                  'Review your event details. Tap any section to edit.',
-                  style: TextStyle(
-                      fontSize: 12,
-                      color: AppTheme.textSecondaryOf(context)),
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        AppTheme.successColor.withValues(alpha: 0.08),
+                        AppTheme.successColor.withValues(alpha: 0.02),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: AppTheme.successColor.withValues(alpha: 0.12),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: AppTheme.successColor.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(Icons.check_circle_rounded,
+                            size: 24, color: AppTheme.successColor),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Review & Publish',
+                                style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppTheme.textPrimaryOf(context),
+                                    letterSpacing: -0.3)),
+                            const SizedBox(height: 2),
+                            Text('Review your event details. Tap any section to edit.',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppTheme.textSecondaryOf(context))),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
                 _reviewCard(
                   step: 0,
                   icon: Icons.edit_note_rounded,
@@ -4141,18 +4706,19 @@ class _LocalPrerequisite {
   String name;
   String description;
   bool isRequired;
-  _LocalPrerequisite({required this.name, this.description = '', this.isRequired = true});
+  bool requiresDocument;
+  _LocalPrerequisite({required this.name, this.description = '', this.isRequired = true, this.requiresDocument = false});
 }
 
 class _EditableSponsorCategory {
-  final int templateId;
+  final int? templateId;
   final nameCtrl = TextEditingController();
   final descCtrl = TextEditingController();
   final spotsCtrl = TextEditingController();
   final minBidCtrl = TextEditingController();
   bool expanded;
   List<_LocalPrerequisite> prereqs;
-  _EditableSponsorCategory({required this.templateId, this.expanded = false})
+  _EditableSponsorCategory({this.templateId, this.expanded = false})
       : prereqs = [];
 }
 

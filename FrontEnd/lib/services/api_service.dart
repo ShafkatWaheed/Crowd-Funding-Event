@@ -895,11 +895,12 @@ class ApiService {
   // ── Prerequisites ──
 
   Future<Map<String, dynamic>> createPrerequisite(
-      int eventId, int catId, {required String name, String? description, bool isRequired = true}) async {
+      int eventId, int catId, {required String name, String? description, bool isRequired = true, bool requiresDocument = false}) async {
     final formData = FormData.fromMap({
       'name': name,
       if (description != null) 'description': description,
       'is_required': isRequired,
+      'requires_document': requiresDocument,
     });
     final resp = await dio.post(
         '/events/$eventId/sponsorships/$catId/prerequisites',

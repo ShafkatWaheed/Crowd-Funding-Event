@@ -184,7 +184,7 @@ async def list_template_prerequisites(
     from app.models.prerequisite import CategoryPrerequisite
     q = select(CategoryPrerequisite).where(CategoryPrerequisite.category_id == template_id)
     items = (await db.execute(q)).scalars().all()
-    return [{"id": p.id, "name": p.name, "description": p.description, "is_required": p.is_required} for p in items]
+    return [{"id": p.id, "name": p.name, "description": p.description, "is_required": p.is_required, "requires_document": p.requires_document} for p in items]
 
 
 @router.post(
@@ -756,6 +756,7 @@ async def create_prerequisite(
     name: str = Form(...),
     description: str | None = Form(None),
     is_required: bool = Form(True),
+    requires_document: bool = Form(False),
     db: DbSession = None,
     current_user: CurrentUser = None,
 ):
@@ -764,12 +765,13 @@ async def create_prerequisite(
     cat = await sponsor_svc._get_category(db, cat_id)
     await sponsor_svc._require_organizer(db, cat.event_id, current_user)
     prereq = CategoryPrerequisite(
-        category_id=cat_id, name=name, description=description, is_required=is_required,
+        category_id=cat_id, name=name, description=description,
+        is_required=is_required, requires_document=requires_document,
     )
     db.add(prereq)
     await db.flush()
     await db.refresh(prereq)
-    return {"id": prereq.id, "name": prereq.name, "description": prereq.description, "is_required": prereq.is_required}
+    return {"id": prereq.id, "name": prereq.name, "description": prereq.description, "is_required": prereq.is_required, "requires_document": prereq.requires_document}
 
 
 @router.get(
@@ -787,7 +789,7 @@ async def list_prerequisites(
     from app.models.prerequisite import CategoryPrerequisite
     q = select(CategoryPrerequisite).where(CategoryPrerequisite.category_id == cat_id)
     items = (await db.execute(q)).scalars().all()
-    return [{"id": p.id, "name": p.name, "description": p.description, "is_required": p.is_required} for p in items]
+    return [{"id": p.id, "name": p.name, "description": p.description, "is_required": p.is_required, "requires_document": p.requires_document} for p in items]
 
 
 @router.delete(

@@ -804,6 +804,7 @@ async def get_won_categories(
                 "id": p.id,
                 "name": p.name,
                 "is_required": p.is_required,
+                "requires_document": p.requires_document,
                 "upload_status": upload.status.value if upload else None,
             })
 
@@ -997,10 +998,9 @@ async def get_sponsor_events_for_organizer(
 
 async def get_paid_sponsors(db: AsyncSession, event_id: int) -> list[dict]:
     """Return company_name + logo_url for sponsors with paid bids on this event."""
-    from sqlalchemy import distinct
     q = (
         select(
-            distinct(SponsorBid.sponsor_user_id),
+            SponsorBid.sponsor_user_id,
             SponsorProfile.company_name,
             SponsorProfile.logo_url,
             SponsorProfile.website_url,
@@ -1011,10 +1011,17 @@ async def get_paid_sponsors(db: AsyncSession, event_id: int) -> list[dict]:
             SponsorshipCategory.event_id == event_id,
             SponsorBid.status == BidStatus.paid,
         )
+        .group_by(
+            SponsorBid.sponsor_user_id,
+            SponsorProfile.company_name,
+            SponsorProfile.logo_url,
+            SponsorProfile.website_url,
+        )
     )
     rows = (await db.execute(q)).all()
     return [
         {
+            "sponsor_user_id": r.sponsor_user_id,
             "company_name": r.company_name,
             "logo_url": r.logo_url,
             "website_url": r.website_url,

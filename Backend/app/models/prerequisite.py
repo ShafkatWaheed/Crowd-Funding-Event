@@ -21,6 +21,7 @@ class CategoryPrerequisite(Base):
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_required: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    requires_document: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     category = relationship("SponsorshipCategory")
     uploads = relationship("BidPrerequisiteUpload", back_populates="prerequisite")

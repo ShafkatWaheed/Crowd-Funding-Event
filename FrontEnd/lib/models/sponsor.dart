@@ -47,6 +47,7 @@ class SponsorshipCategory {
   final int bidCount;
   final List<int> bidAmounts;
   final int myBidCount;
+  final List<Map<String, dynamic>> myBids;
 
   SponsorshipCategory({
     required this.id,
@@ -61,6 +62,7 @@ class SponsorshipCategory {
     this.bidCount = 0,
     this.bidAmounts = const [],
     this.myBidCount = 0,
+    this.myBids = const [],
   });
 
   factory SponsorshipCategory.fromJson(Map<String, dynamic> json) {
@@ -77,6 +79,7 @@ class SponsorshipCategory {
       bidCount: json['bid_count'] ?? 0,
       bidAmounts: (json['bid_amounts'] as List?)?.map((e) => e as int).toList() ?? [],
       myBidCount: json['my_bid_count'] ?? 0,
+      myBids: (json['my_bids'] as List?)?.map((e) => Map<String, dynamic>.from(e)).toList() ?? [],
     );
   }
 

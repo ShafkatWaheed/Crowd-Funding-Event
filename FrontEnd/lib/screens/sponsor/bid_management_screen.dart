@@ -94,6 +94,33 @@ class _BidManagementScreenState extends State<BidManagementScreen> {
     }
   }
 
+  Future<void> _refund(SponsorBid bid) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Refund Sponsorship?'),
+        content: Text('Refund ${bid.amountDisplay} to the sponsor? This will revoke their sponsorship.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorColor),
+            child: const Text('Refund'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      final api = context.read<ApiService>();
+      await api.refundBid(widget.eventId, widget.categoryId, bid.id);
+      if (mounted) AppToast.success(context, 'Bid refunded');
+      _load();
+    } catch (e) {
+      if (mounted) AppToast.error(context, ApiService.extractError(e));
+    }
+  }
+
   Color _statusColor(String status) {
     switch (status) {
       case 'accepted':
@@ -228,6 +255,8 @@ class _BidManagementScreenState extends State<BidManagementScreen> {
                                     bid.isPending ? () => _accept(bid) : null,
                                 onReject:
                                     bid.isPending ? () => _reject(bid) : null,
+                                onRefund:
+                                    bid.isPaid ? () => _refund(bid) : null,
                                 onReload: _load,
                               );
                             },
@@ -247,6 +276,7 @@ class _BidCard extends StatefulWidget {
   final Color statusColor;
   final VoidCallback? onAccept;
   final VoidCallback? onReject;
+  final VoidCallback? onRefund;
   final VoidCallback? onReload;
 
   const _BidCard({
@@ -256,6 +286,7 @@ class _BidCard extends StatefulWidget {
     required this.statusColor,
     this.onAccept,
     this.onReject,
+    this.onRefund,
     this.onReload,
   });
 
@@ -589,6 +620,22 @@ class _BidCardState extends State<_BidCard> {
                       ),
                     ),
                 ],
+              ),
+            ],
+            if (widget.onRefund != null) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: widget.onRefund,
+                  icon: const Icon(Icons.undo_rounded, size: 18),
+                  label: const Text('Refund Sponsor'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.deepOrange,
+                    side: const BorderSide(color: Colors.deepOrange),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
               ),
             ],
           ],

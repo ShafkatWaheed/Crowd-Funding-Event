@@ -252,6 +252,15 @@ class _SponsorshipCategoriesScreenState
                                 ),
                               ),
                             ],
+                            if (isSponsor && cat.myBids.isNotEmpty) ...[
+                              const SizedBox(height: 10),
+                              ...cat.myBids.map((b) => _MyBidActions(
+                                bid: b,
+                                eventId: widget.eventId,
+                                categoryId: cat.id,
+                                onDone: _load,
+                              )),
+                            ],
                             if (isSponsor && cat.myBidCount > 0) ...[
                               const SizedBox(height: 8),
                               SizedBox(
@@ -840,6 +849,164 @@ class _SponsorUploadSheetState extends State<_SponsorUploadSheet> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+
+class _MyBidActions extends StatefulWidget {
+  final Map<String, dynamic> bid;
+  final int eventId;
+  final int categoryId;
+  final VoidCallback onDone;
+
+  const _MyBidActions({
+    required this.bid,
+    required this.eventId,
+    required this.categoryId,
+    required this.onDone,
+  });
+
+  @override
+  State<_MyBidActions> createState() => _MyBidActionsState();
+}
+
+class _MyBidActionsState extends State<_MyBidActions> {
+  bool _busy = false;
+
+  String get _status => widget.bid['status'] ?? '';
+  int get _bidId => widget.bid['id'];
+  int get _amountCents => widget.bid['amount_cents'] ?? 0;
+  String get _amountDisplay => '\$${(_amountCents / 100).toStringAsFixed(2)}';
+
+  Future<void> _withdraw() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Withdraw Bid?'),
+        content: Text('Withdraw your $_amountDisplay bid? This cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorColor),
+            child: const Text('Withdraw'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      final api = context.read<ApiService>();
+      await api.withdrawBid(widget.eventId, widget.categoryId, _bidId);
+      if (mounted) AppToast.success(context, 'Bid withdrawn');
+      widget.onDone();
+    } catch (e) {
+      if (mounted) AppToast.error(context, ApiService.extractError(e));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _pay() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Pay for Sponsorship'),
+        content: Text('Confirm payment of $_amountDisplay for this sponsorship?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Pay Now'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      final api = context.read<ApiService>();
+      await api.payBid(widget.eventId, widget.categoryId, _bidId);
+      if (mounted) AppToast.success(context, 'Payment successful!');
+      widget.onDone();
+    } catch (e) {
+      if (mounted) AppToast.error(context, ApiService.extractError(e));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Color get _statusColor => switch (_status) {
+    'accepted' => AppTheme.successColor,
+    'rejected' => AppTheme.errorColor,
+    'paid' => AppTheme.accentColor,
+    _ => AppTheme.warningColor,
+  };
+
+  String get _statusLabel => switch (_status) {
+    'pending' => 'Under Review',
+    'accepted' => 'Accepted',
+    'paid' => 'Paid',
+    'rejected' => 'Rejected',
+    _ => _status,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: _statusColor.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: _statusColor.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(_amountDisplay, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppTheme.textPrimaryOf(context))),
+                const SizedBox(height: 2),
+                Text(_statusLabel, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _statusColor)),
+              ],
+            ),
+          ),
+          if (_busy)
+            const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+          else ...[
+            if (_status == 'pending')
+              SizedBox(
+                height: 32,
+                child: OutlinedButton(
+                  onPressed: _withdraw,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.errorColor,
+                    side: const BorderSide(color: AppTheme.errorColor),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                  child: const Text('Withdraw'),
+                ),
+              ),
+            if (_status == 'accepted')
+              SizedBox(
+                height: 32,
+                child: ElevatedButton(
+                  onPressed: _pay,
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                  child: const Text('Pay Now'),
+                ),
+              ),
+          ],
+        ],
       ),
     );
   }

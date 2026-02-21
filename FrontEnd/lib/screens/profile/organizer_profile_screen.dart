@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -8,7 +10,6 @@ import '../../models/event.dart';
 import '../../services/api_service.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../widgets/app_toast.dart';
-import '../../widgets/event_lifecycle_bar.dart';
 import '../../widgets/star_rating.dart';
 
 class OrganizerProfileScreen extends StatefulWidget {
@@ -23,6 +24,8 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
   static const _pageSize = 20;
 
   final _scrollCtrl = ScrollController();
+  final _searchCtrl = TextEditingController();
+  Timer? _debounce;
   Map<String, dynamic>? _profile;
   Map<String, dynamic>? _ratingsSummary;
   List<Event> _events = [];
@@ -30,6 +33,8 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
   bool _loadingEvents = true;
   bool _loadingMoreEvents = false;
   bool _hasMoreEvents = true;
+  String? _statusFilter;
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -45,6 +50,8 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
   @override
   void dispose() {
     _scrollCtrl.dispose();
+    _searchCtrl.dispose();
+    _debounce?.cancel();
     super.dispose();
   }
 
@@ -75,7 +82,13 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
     setState(() { _loadingEvents = true; _hasMoreEvents = true; });
     try {
       final api = context.read<ApiService>();
-      final data = await api.getPublicEvents(widget.userId, offset: 0, limit: _pageSize);
+      final data = await api.getPublicEvents(
+        widget.userId,
+        offset: 0,
+        limit: _pageSize,
+        search: _searchQuery.isEmpty ? null : _searchQuery,
+        status: _statusFilter,
+      );
       if (mounted) {
         setState(() {
           _events = data.map((j) => Event.fromJson(j)).toList();
@@ -93,7 +106,13 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
     setState(() => _loadingMoreEvents = true);
     try {
       final api = context.read<ApiService>();
-      final data = await api.getPublicEvents(widget.userId, offset: _events.length, limit: _pageSize);
+      final data = await api.getPublicEvents(
+        widget.userId,
+        offset: _events.length,
+        limit: _pageSize,
+        search: _searchQuery.isEmpty ? null : _searchQuery,
+        status: _statusFilter,
+      );
       if (mounted) {
         setState(() {
           _events.addAll(data.map((j) => Event.fromJson(j)));
@@ -104,6 +123,22 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
     } catch (_) {
       if (mounted) setState(() => _loadingMoreEvents = false);
     }
+  }
+
+  void _onSearchChanged(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 400), () {
+      if (_searchQuery != value) {
+        _searchQuery = value;
+        _loadEvents();
+      }
+    });
+  }
+
+  void _onStatusFilterChanged(String? status) {
+    if (_statusFilter == status) return;
+    setState(() => _statusFilter = status);
+    _loadEvents();
   }
 
   Future<void> _loadRatings() async {
@@ -145,6 +180,10 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
                   const SizedBox(height: 24),
                   if (trust != null) ...[
                     _buildTrustSection(trust),
+                    const SizedBox(height: 24),
+                  ],
+                  if (_profile?['event_metrics'] != null) ...[
+                    _buildEventMetrics(_profile!['event_metrics'] as Map<String, dynamic>),
                     const SizedBox(height: 24),
                   ],
                   if (_ratingsSummary != null && (_ratingsSummary!['count'] as int? ?? 0) > 0) ...[
@@ -324,6 +363,61 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
     );
   }
 
+  Widget _buildEventMetrics(Map<String, dynamic> metrics) {
+    final items = <_MetricItem>[
+      _MetricItem('Completed', metrics['completed'] ?? 0, const Color(0xFF7356BF), Icons.check_circle_rounded),
+      _MetricItem('Cancelled', metrics['cancelled'] ?? 0, const Color(0xFF8B0000), Icons.cancel_rounded),
+      _MetricItem('Live', metrics['live'] ?? 0, const Color(0xFF05944F), Icons.play_circle_rounded),
+      _MetricItem('Funding', metrics['approved'] ?? 0, const Color(0xFF276EF1), Icons.monetization_on_rounded),
+      _MetricItem('Selling', metrics['selling_tickets'] ?? 0, const Color(0xFF00838F), Icons.confirmation_num_rounded),
+      _MetricItem('Total', metrics['total'] ?? 0, AppTheme.textSecondaryOf(context), Icons.bar_chart_rounded),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.cardOf(context),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.dividerOf(context)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.insights_rounded, size: 16, color: AppTheme.textSecondaryOf(context)),
+              const SizedBox(width: 8),
+              Text('Event Metrics',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textSecondaryOf(context), letterSpacing: 0.3)),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: items.map((m) => Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: m.color.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(m.icon, size: 16, color: m.color),
+                  const SizedBox(width: 6),
+                  Text('${m.count}', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: m.color)),
+                  const SizedBox(width: 4),
+                  Text(m.label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: m.color)),
+                ],
+              ),
+            )).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildRatingsSection() {
     final s = _ratingsSummary!;
     final avgStars = s['avg_stars'] as double?;
@@ -396,6 +490,15 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
     );
   }
 
+  static const _statusFilters = <(String, String?)>[
+    ('All', null),
+    ('Funding', 'approved'),
+    ('Selling', 'selling_tickets'),
+    ('Live', 'live'),
+    ('Completed', 'completed'),
+    ('Cancelled', 'cancelled'),
+  ];
+
   Widget _buildEventsSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -404,8 +507,61 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
           children: [
             Icon(Icons.event_rounded, size: 16, color: AppTheme.textSecondaryOf(context)),
             const SizedBox(width: 8),
-            Text('Public Events', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textSecondaryOf(context), letterSpacing: 0.3)),
+            Text('Events', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textSecondaryOf(context), letterSpacing: 0.3)),
           ],
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _searchCtrl,
+          onChanged: _onSearchChanged,
+          decoration: InputDecoration(
+            hintText: 'Search events...',
+            prefixIcon: const Icon(Icons.search_rounded, size: 20),
+            suffixIcon: _searchCtrl.text.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear_rounded, size: 18),
+                    onPressed: () {
+                      _searchCtrl.clear();
+                      _searchQuery = '';
+                      _loadEvents();
+                    },
+                  )
+                : null,
+            filled: true,
+            fillColor: AppTheme.inputFillOf(context),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            isDense: true,
+          ),
+          style: TextStyle(fontSize: 14, color: AppTheme.textPrimaryOf(context)),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 34,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _statusFilters.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (ctx, i) {
+              final f = _statusFilters[i];
+              final active = _statusFilter == f.$2;
+              return ChoiceChip(
+                label: Text(f.$1),
+                selected: active,
+                onSelected: (_) => _onStatusFilterChanged(active ? null : f.$2),
+                selectedColor: AppTheme.accentColor,
+                labelStyle: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: active ? Colors.white : AppTheme.textSecondaryOf(context),
+                ),
+                backgroundColor: AppTheme.surfaceOf(context),
+                side: BorderSide.none,
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                visualDensity: VisualDensity.compact,
+              );
+            },
+          ),
         ),
         const SizedBox(height: 12),
         if (_loadingEvents)
@@ -418,7 +574,10 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
                 children: [
                   Icon(Icons.event_busy_rounded, size: 40, color: AppTheme.textSecondaryOf(context)),
                   const SizedBox(height: 8),
-                  Text('No public events yet', style: TextStyle(color: AppTheme.textSecondaryOf(context))),
+                  Text(
+                    _searchQuery.isNotEmpty || _statusFilter != null ? 'No matching events' : 'No public events yet',
+                    style: TextStyle(color: AppTheme.textSecondaryOf(context)),
+                  ),
                 ],
               ),
             ),
@@ -529,4 +688,12 @@ class _ProfileEventCard extends StatelessWidget {
       _ => s.name,
     };
   }
+}
+
+class _MetricItem {
+  final String label;
+  final int count;
+  final Color color;
+  final IconData icon;
+  const _MetricItem(this.label, this.count, this.color, this.icon);
 }

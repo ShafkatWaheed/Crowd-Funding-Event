@@ -990,8 +990,16 @@ class ApiService {
     return resp.data;
   }
 
-  Future<List<dynamic>> getPublicEvents(int userId, {int offset = 0, int limit = 20}) async {
-    final resp = await dio.get('/users/$userId/public-events', queryParameters: {'offset': offset, 'limit': limit});
+  Future<List<dynamic>> getPublicEvents(int userId, {int offset = 0, int limit = 20, String? search, String? status}) async {
+    final params = <String, dynamic>{'offset': offset, 'limit': limit};
+    if (search != null && search.isNotEmpty) params['search'] = search;
+    if (status != null && status.isNotEmpty) params['status'] = status;
+    final resp = await dio.get('/users/$userId/public-events', queryParameters: params);
     return resp.data as List;
+  }
+
+  Future<Map<String, dynamic>> refundBid(int eventId, int catId, int bidId) async {
+    final resp = await dio.post('/events/$eventId/sponsorships/$catId/bids/$bidId/refund');
+    return resp.data;
   }
 }

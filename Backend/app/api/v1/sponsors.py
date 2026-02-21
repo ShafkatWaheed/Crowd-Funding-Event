@@ -76,7 +76,7 @@ async def update_sponsor_profile(
 
 # ── Sponsorship Categories ──
 
-def _category_to_response(cat, bid_count: int = 0, bid_amounts: list[int] | None = None, my_bid_count: int = 0) -> dict:
+def _category_to_response(cat, bid_count: int = 0, bid_amounts: list[int] | None = None, my_bid_count: int = 0, my_bids: list[dict] | None = None) -> dict:
     return {
         "id": cat.id,
         "event_id": cat.event_id,
@@ -90,6 +90,7 @@ def _category_to_response(cat, bid_count: int = 0, bid_amounts: list[int] | None
         "bid_count": bid_count,
         "bid_amounts": bid_amounts or [],
         "my_bid_count": my_bid_count,
+        "my_bids": my_bids or [],
     }
 
 
@@ -109,7 +110,8 @@ async def list_categories(
     for c in cats:
         count, amounts = await sponsor_svc.get_bid_stats(db, c.id)
         my_count = await sponsor_svc.get_my_bid_count(db, c.id, current_user.id)
-        result.append(_category_to_response(c, bid_count=count, bid_amounts=amounts, my_bid_count=my_count))
+        my_bids = await sponsor_svc.get_my_bids(db, c.id, current_user.id)
+        result.append(_category_to_response(c, bid_count=count, bid_amounts=amounts, my_bid_count=my_count, my_bids=my_bids))
     return result
 
 
@@ -268,6 +270,21 @@ async def withdraw_bid(
     current_user: CurrentUser,
 ):
     bid = await sponsor_svc.withdraw_bid(db, bid_id, current_user)
+
+    from sqlalchemy import select as sa_select
+    from app.models.event import Event
+    event_obj = (await db.execute(
+        sa_select(Event).where(Event.id == event_id)
+    )).scalar_one_or_none()
+    if event_obj:
+        await notif_svc.create_notification(
+            db, user_id=event_obj.organizer_id,
+            type=NotificationType.bid_rejected,
+            title="Bid Withdrawn",
+            message=f"A sponsor has withdrawn their bid.",
+            data={"event_id": event_id, "category_id": cat_id, "bid_id": bid_id},
+        )
+
     await db.commit()
     await db.refresh(bid)
     return await _bid_to_response(db, bid)
@@ -353,6 +370,43 @@ async def pay_bid(
     current_user: CurrentUser,
 ):
     payment = await sponsor_svc.pay_bid(db, bid_id, current_user)
+    await db.commit()
+    await db.refresh(payment)
+    return payment
+
+
+@router.post(
+    "/events/{event_id}/sponsorships/{cat_id}/bids/{bid_id}/refund",
+    response_model=PaymentResponse,
+    dependencies=[Depends(_feature_guard)],
+)
+async def refund_bid(
+    event_id: int,
+    cat_id: int,
+    bid_id: int,
+    db: DbSession,
+    current_user: CurrentUser,
+):
+    """Organizer refunds a paid bid."""
+    from sqlalchemy import select as sa_select
+    from app.models.sponsor import SponsorBid
+
+    bid_obj = (await db.execute(
+        sa_select(SponsorBid).where(SponsorBid.id == bid_id)
+    )).scalar_one_or_none()
+    sponsor_user_id = bid_obj.sponsor_user_id if bid_obj else None
+
+    payment = await sponsor_svc.refund_bid(db, bid_id, current_user)
+
+    if sponsor_user_id:
+        await notif_svc.create_notification(
+            db, user_id=sponsor_user_id,
+            type=NotificationType.bid_rejected,
+            title="Sponsorship Refunded",
+            message="Your sponsorship payment has been refunded by the organizer.",
+            data={"event_id": event_id, "category_id": cat_id, "bid_id": bid_id},
+        )
+
     await db.commit()
     await db.refresh(payment)
     return payment

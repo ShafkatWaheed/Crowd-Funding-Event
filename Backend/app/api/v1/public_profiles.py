@@ -59,6 +59,17 @@ async def get_public_profile(
         pass
 
     profile["sponsor_profile"] = sponsor_profile
+
+    metrics_q = (
+        select(Event.status, func.count())
+        .where(Event.organizer_id == user_id)
+        .group_by(Event.status)
+    )
+    rows = (await db.execute(metrics_q)).all()
+    event_metrics = {r[0].value: r[1] for r in rows}
+    event_metrics["total"] = sum(event_metrics.values())
+    profile["event_metrics"] = event_metrics
+
     return profile
 
 
@@ -126,6 +137,8 @@ async def get_public_events(
     current_user: CurrentUser,
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
+    search: str | None = Query(None),
+    status: str | None = Query(None),
 ):
     """List public (non-draft) events organized by this user."""
     visible_statuses = [
@@ -134,15 +147,29 @@ async def get_public_events(
         EventStatus.waiting_event_date,
         EventStatus.live,
         EventStatus.completed,
+        EventStatus.cancelled,
     ]
-    events = (await db.execute(
-        select(Event)
-        .where(Event.organizer_id == user_id, Event.status.in_(visible_statuses))
-        .options(selectinload(Event.venue), selectinload(Event.organizer), selectinload(Event.ticket_strategy))
+
+    q = select(Event).where(Event.organizer_id == user_id)
+
+    if status:
+        try:
+            q = q.where(Event.status == EventStatus(status))
+        except ValueError:
+            pass
+    else:
+        q = q.where(Event.status.in_(visible_statuses))
+
+    if search:
+        q = q.where(Event.title.ilike(f"%{search}%"))
+
+    q = (
+        q.options(selectinload(Event.venue), selectinload(Event.organizer), selectinload(Event.ticket_strategy))
         .order_by(Event.created_at.desc())
         .offset(offset)
         .limit(limit)
-    )).scalars().unique().all()
+    )
+    events = (await db.execute(q)).scalars().unique().all()
 
     from app.api.v1.events import _event_to_response
     return [_event_to_response(e) for e in events]

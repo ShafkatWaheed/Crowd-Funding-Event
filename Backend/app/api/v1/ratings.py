@@ -101,7 +101,7 @@ async def get_event_ratings_summary(event_id: int, db: DbSession, current_user: 
         base.order_by(Rating.stars.asc(), Rating.created_at.desc()).limit(5)
     )).scalars().all()
 
-    my_rating = (await db.execute(
+    my_event_rating = (await db.execute(
         select(Rating).where(
             Rating.rater_user_id == current_user.id,
             Rating.event_id == event_id,
@@ -109,12 +109,24 @@ async def get_event_ratings_summary(event_id: int, db: DbSession, current_user: 
         )
     )).scalar_one_or_none()
 
+    my_organizer_rating = (await db.execute(
+        select(Rating).where(
+            Rating.rater_user_id == current_user.id,
+            Rating.event_id == event_id,
+            Rating.direction == RatingDirection.customer_to_organizer,
+        )
+    )).scalar_one_or_none()
+
+    def _my(r: Rating | None) -> dict | None:
+        return {"id": r.id, "stars": r.stars, "description": r.description} if r else None
+
     return {
         "avg_stars": round(float(agg.avg_stars), 1) if agg.avg_stars else None,
         "count": agg.count,
         "top_reviews": [_fmt_rating(r) for r in best],
         "worst_reviews": [_fmt_rating(r) for r in worst],
-        "my_rating": {"id": my_rating.id, "stars": my_rating.stars, "description": my_rating.description} if my_rating else None,
+        "my_rating": _my(my_event_rating),
+        "my_organizer_rating": _my(my_organizer_rating),
     }
 
 

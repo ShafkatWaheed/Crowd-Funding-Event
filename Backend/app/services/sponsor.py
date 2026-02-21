@@ -2,7 +2,7 @@
 Sponsor marketplace service: profiles, categories, bids, payments, tickets.
 """
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User, UserRole
@@ -154,6 +154,20 @@ async def get_my_bid_count(db: AsyncSession, cat_id: int, user_id: int) -> int:
     )
     bids = list((await db.execute(q)).scalars().all())
     return len(bids)
+
+
+async def get_my_bids(db: AsyncSession, cat_id: int, user_id: int) -> list[dict]:
+    """Return the sponsor's own bids for a category (all statuses except withdrawn)."""
+    q = select(SponsorBid).where(
+        SponsorBid.category_id == cat_id,
+        SponsorBid.sponsor_user_id == user_id,
+        SponsorBid.status != BidStatus.withdrawn,
+    ).order_by(SponsorBid.id.desc())
+    bids = list((await db.execute(q)).scalars().all())
+    return [
+        {"id": b.id, "amount_cents": b.amount_cents, "status": b.status.value}
+        for b in bids
+    ]
 
 
 # ── Bids ──
@@ -422,6 +436,60 @@ async def _ensure_sponsor_ticket(
     await db.flush()
     await db.refresh(ticket)
     return ticket
+
+
+# ── Refund individual bid (organizer action) ──
+
+async def refund_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorPayment:
+    """Organizer refunds a paid bid. Reverses payment, bid, filled_spots, and ticket if needed."""
+    bid = (await db.execute(
+        select(SponsorBid).where(SponsorBid.id == bid_id)
+    )).scalar_one_or_none()
+    if not bid:
+        raise HTTPException(status_code=404, detail="Bid not found")
+
+    cat = await _get_category(db, bid.category_id)
+    await _require_organizer(db, cat.event_id, user)
+
+    if bid.status != BidStatus.paid:
+        raise HTTPException(status_code=400, detail="Can only refund paid bids")
+
+    payment = (await db.execute(
+        select(SponsorPayment).where(SponsorPayment.bid_id == bid_id)
+    )).scalar_one_or_none()
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    if payment.status != PaymentStatus.completed:
+        raise HTTPException(status_code=400, detail="Payment already refunded")
+
+    payment.status = PaymentStatus.refunded
+    bid.status = BidStatus.rejected
+    if cat.filled_spots > 0:
+        cat.filled_spots -= 1
+
+    other_paid = (await db.execute(
+        select(func.count()).select_from(SponsorBid).where(
+            SponsorBid.sponsor_user_id == bid.sponsor_user_id,
+            SponsorBid.status == BidStatus.paid,
+            SponsorBid.id != bid.id,
+            SponsorBid.category_id.in_(
+                select(SponsorshipCategory.id).where(SponsorshipCategory.event_id == cat.event_id)
+            ),
+        )
+    )).scalar_one()
+
+    if other_paid == 0:
+        from sqlalchemy import delete as sa_delete
+        await db.execute(
+            sa_delete(SponsorTicket).where(
+                SponsorTicket.event_id == cat.event_id,
+                SponsorTicket.sponsor_user_id == bid.sponsor_user_id,
+            )
+        )
+
+    await db.flush()
+    await db.refresh(payment)
+    return payment
 
 
 # ── Refund all sponsor payments for event (on cancellation) ──

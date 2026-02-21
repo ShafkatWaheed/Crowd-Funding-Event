@@ -7468,6 +7468,9 @@ class _ReviewsSectionState extends State<_ReviewsSection> {
   int _selectedStars = 0;
   final _descCtrl = TextEditingController();
   bool _submitting = false;
+  int _selectedOrgStars = 0;
+  final _orgDescCtrl = TextEditingController();
+  bool _submittingOrg = false;
 
   @override
   void initState() {
@@ -7478,6 +7481,7 @@ class _ReviewsSectionState extends State<_ReviewsSection> {
   @override
   void dispose() {
     _descCtrl.dispose();
+    _orgDescCtrl.dispose();
     super.dispose();
   }
 
@@ -7515,6 +7519,31 @@ class _ReviewsSectionState extends State<_ReviewsSection> {
     }
   }
 
+  Future<void> _submitOrgRating() async {
+    if (_selectedOrgStars == 0 || _submittingOrg) return;
+    setState(() => _submittingOrg = true);
+    try {
+      final api = context.read<ApiService>();
+      await api.createRating(
+        widget.eventId,
+        direction: 'customer_to_organizer',
+        ratedUserId: widget.organizerId,
+        stars: _selectedOrgStars,
+        description: _orgDescCtrl.text.trim().isEmpty ? null : _orgDescCtrl.text.trim(),
+      );
+      if (mounted) {
+        AppToast.success(context, 'Organizer rating submitted!');
+        _orgDescCtrl.clear();
+        _selectedOrgStars = 0;
+        _load();
+      }
+    } catch (e) {
+      if (mounted) AppToast.error(context, ApiService.extractError(e));
+    } finally {
+      if (mounted) setState(() => _submittingOrg = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -7530,6 +7559,7 @@ class _ReviewsSectionState extends State<_ReviewsSection> {
     final topReviews = (_summary!['top_reviews'] as List?) ?? [];
     final worstReviews = (_summary!['worst_reviews'] as List?) ?? [];
     final myRating = _summary!['my_rating'];
+    final myOrgRating = _summary!['my_organizer_rating'];
     final user = context.watch<AuthProvider>().user;
     final isCustomer = user != null && user.isCustomer;
     final isOrganizer = user != null && (user.isOrganizer || user.isAdmin);
@@ -7649,7 +7679,65 @@ class _ReviewsSectionState extends State<_ReviewsSection> {
                         children: [
                           Icon(Icons.check_circle_rounded, size: 16, color: AppTheme.successColor),
                           const SizedBox(width: 6),
-                          Text('You rated ${myRating['stars']} star${myRating['stars'] == 1 ? '' : 's'}',
+                          Text('Event: ${myRating['stars']} star${myRating['stars'] == 1 ? '' : 's'}',
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.successColor)),
+                        ],
+                      ),
+                    ),
+
+                  if (isCustomer && myOrgRating == null) ...[
+                    const Divider(height: 28),
+                    Text('Rate the organizer',
+                        style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.textPrimaryOf(context))),
+                    const SizedBox(height: 8),
+                    StarRating(
+                      rating: _selectedOrgStars,
+                      onChanged: (v) => setState(() => _selectedOrgStars = v),
+                      size: 36,
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _orgDescCtrl,
+                      decoration: InputDecoration(
+                        hintText: 'How was the organizer? (optional)...',
+                        filled: true,
+                        fillColor: AppTheme.inputFillOf(context),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      ),
+                      maxLines: 3,
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _selectedOrgStars > 0 && !_submittingOrg ? _submitOrgRating : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue.shade700,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: _submittingOrg
+                            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            : const Text('Submit Organizer Rating', style: TextStyle(fontWeight: FontWeight.w700)),
+                      ),
+                    ),
+                  ],
+
+                  if (isCustomer && myOrgRating != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Row(
+                        children: [
+                          Icon(Icons.check_circle_rounded, size: 16, color: AppTheme.successColor),
+                          const SizedBox(width: 6),
+                          Text('Organizer: ${myOrgRating['stars']} star${myOrgRating['stars'] == 1 ? '' : 's'}',
                               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.successColor)),
                         ],
                       ),

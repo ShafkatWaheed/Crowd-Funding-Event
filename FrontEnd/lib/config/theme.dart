@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'design_tokens.dart';
 
 class AppTheme {
   // ─── Shared brand colours (constant, mode-agnostic) ───
@@ -8,6 +9,43 @@ class AppTheme {
   static const Color errorColor = Color(0xFFE11900);         // Uber red
   static const Color successColor = Color(0xFF05944F);       // Green
   static const Color warningColor = Color(0xFFFFC043);       // Uber amber
+
+  // ─── Gradient accents ───
+  static const LinearGradient primaryGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF276EF1), Color(0xFF5B8DEF)],
+  );
+
+  static const LinearGradient successGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF05944F), Color(0xFF34D399)],
+  );
+
+  static const LinearGradient warmGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFE11900), Color(0xFFFF6B4A)],
+  );
+
+  static const LinearGradient darkGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF1A1A2E), Color(0xFF16213E)],
+  );
+
+  // ─── Tinted surface colours (light mode) ───
+  static const Color accentSurface  = Color(0xFFF0F4FF);  // blue tint
+  static const Color successSurface = Color(0xFFECFDF3);   // green tint
+  static const Color warningSurface = Color(0xFFFFF8E1);   // amber tint
+  static const Color errorSurface   = Color(0xFFFFF0EE);   // red tint
+
+  // ─── Tinted surface colours (dark mode) ───
+  static const Color _dkAccentSurface  = Color(0xFF1A2340);
+  static const Color _dkSuccessSurface = Color(0xFF0D2818);
+  static const Color _dkWarningSurface = Color(0xFF2A2210);
+  static const Color _dkErrorSurface   = Color(0xFF2A1210);
 
   // ─── Light palette ───
   static const Color primaryColor = Color(0xFF000000);       // Uber black
@@ -30,7 +68,6 @@ class AppTheme {
   static const Color _dkInputFill = Color(0xFF252525);
 
   // ─── Context-aware helpers ───
-  // Use these inside build() methods so colours adapt automatically.
   static Color primaryOf(BuildContext context) =>
       Theme.of(context).brightness == Brightness.dark ? _dkPrimary : primaryColor;
 
@@ -54,6 +91,21 @@ class AppTheme {
 
   static Color inputFillOf(BuildContext context) =>
       Theme.of(context).brightness == Brightness.dark ? _dkInputFill : Colors.white;
+
+  static Color accentSurfaceOf(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark ? _dkAccentSurface : accentSurface;
+
+  static Color successSurfaceOf(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark ? _dkSuccessSurface : successSurface;
+
+  static Color warningSurfaceOf(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark ? _dkWarningSurface : warningSurface;
+
+  static Color errorSurfaceOf(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark ? _dkErrorSurface : errorSurface;
+
+  static bool isDark(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark;
 
   // ──────────────────────── LIGHT THEME ────────────────────────
   static ThemeData get lightTheme {
@@ -87,7 +139,7 @@ class AppTheme {
       dialogTheme: DialogTheme(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.xl),
       ),
       bottomSheetTheme: const BottomSheetThemeData(
         backgroundColor: Colors.white,
@@ -128,7 +180,7 @@ class AppTheme {
       dialogTheme: DialogTheme(
         backgroundColor: _dkCard,
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.xl),
       ),
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: _dkCard,
@@ -137,21 +189,25 @@ class AppTheme {
     );
   }
 
-  // ─── Shared builders (avoid duplication) ───
+  // ─── Shared builders ───
 
   static TextTheme _textTheme(ThemeData base, Color primary, Color secondary) {
     return GoogleFonts.interTextTheme(base.textTheme).copyWith(
-      displayLarge: GoogleFonts.inter(fontSize: 32, fontWeight: FontWeight.w800, color: primary, letterSpacing: -1),
-      displayMedium: GoogleFonts.inter(fontSize: 28, fontWeight: FontWeight.w800, color: primary, letterSpacing: -0.5),
-      headlineLarge: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w700, color: primary),
-      headlineMedium: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w700, color: primary),
+      displayLarge: GoogleFonts.inter(fontSize: 32, fontWeight: FontWeight.w800, color: primary, letterSpacing: -1, height: 1.15),
+      displayMedium: GoogleFonts.inter(fontSize: 28, fontWeight: FontWeight.w800, color: primary, letterSpacing: -0.5, height: 1.2),
+      displaySmall: GoogleFonts.inter(fontSize: 40, fontWeight: FontWeight.w900, color: primary, letterSpacing: -1.5, height: 1.1),
+      headlineLarge: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w700, color: primary, height: 1.25),
+      headlineMedium: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w700, color: primary, height: 1.3),
+      headlineSmall: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w700, color: primary, height: 1.3),
       titleLarge: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w700, color: primary),
       titleMedium: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600, color: primary),
       titleSmall: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: primary),
-      bodyLarge: GoogleFonts.inter(fontSize: 16, color: primary),
-      bodyMedium: GoogleFonts.inter(fontSize: 14, color: primary),
-      bodySmall: GoogleFonts.inter(fontSize: 12, color: secondary),
+      bodyLarge: GoogleFonts.inter(fontSize: 16, color: primary, height: 1.5),
+      bodyMedium: GoogleFonts.inter(fontSize: 14, color: primary, height: 1.5),
+      bodySmall: GoogleFonts.inter(fontSize: 12, color: secondary, height: 1.4),
       labelLarge: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: primary),
+      labelMedium: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: primary, letterSpacing: 0.5),
+      labelSmall: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: secondary, letterSpacing: 1.0),
     );
   }
 
@@ -163,7 +219,7 @@ class AppTheme {
       backgroundColor: bg,
       surfaceTintColor: Colors.transparent,
       titleTextStyle: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w800, color: fg, letterSpacing: -0.5),
-      iconTheme: IconThemeData(color: fg, size: 22),
+      iconTheme: IconThemeData(color: fg, size: AppIconSize.lg),
     );
   }
 
@@ -172,7 +228,7 @@ class AppTheme {
       elevation: 0,
       color: color,
       surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: AppRadius.lg),
       margin: EdgeInsets.zero,
     );
   }
@@ -181,10 +237,10 @@ class AppTheme {
     return InputDecorationTheme(
       filled: true,
       fillColor: fill,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: border)),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: border)),
-      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: focus, width: 2)),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      border: OutlineInputBorder(borderRadius: AppRadius.md, borderSide: BorderSide(color: border)),
+      enabledBorder: OutlineInputBorder(borderRadius: AppRadius.md, borderSide: BorderSide(color: border)),
+      focusedBorder: OutlineInputBorder(borderRadius: AppRadius.md, borderSide: BorderSide(color: focus, width: 2)),
+      contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: 14),
       hintStyle: GoogleFonts.inter(color: hint, fontSize: 14),
       labelStyle: GoogleFonts.inter(color: hint, fontSize: 14),
     );
@@ -194,10 +250,10 @@ class AppTheme {
     return ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
         backgroundColor: bg,
-        foregroundColor: bg == accentColor ? Colors.white : Colors.white,
+        foregroundColor: Colors.white,
         elevation: 0,
-        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: AppSpacing.lg),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.md),
         textStyle: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600),
       ),
     );
@@ -208,8 +264,8 @@ class AppTheme {
       style: OutlinedButton.styleFrom(
         foregroundColor: fg,
         side: BorderSide(color: border),
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xxl, vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.md),
         textStyle: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600),
       ),
     );
@@ -229,7 +285,7 @@ class AppTheme {
       backgroundColor: bg,
       foregroundColor: Colors.white,
       elevation: 4,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(16))),
+      shape: RoundedRectangleBorder(borderRadius: AppRadius.lg),
     );
   }
 
@@ -251,9 +307,9 @@ class AppTheme {
       selectedColor: selected,
       secondarySelectedColor: selected,
       labelStyle: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      shape: RoundedRectangleBorder(borderRadius: AppRadius.pill),
       side: BorderSide.none,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 6),
     );
   }
 }

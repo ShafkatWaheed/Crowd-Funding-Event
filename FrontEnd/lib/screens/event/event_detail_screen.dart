@@ -5,7 +5,10 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:flutter_animate/flutter_animate.dart';
+
 import '../../config/theme.dart';
+import '../../config/design_tokens.dart';
 import '../../models/event.dart';
 import '../../models/milestone.dart';
 import '../../models/schedule.dart';
@@ -15,7 +18,11 @@ import '../../models/venue.dart';
 import '../../models/ticket_strategy.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/event_provider.dart';
+import '../../widgets/animated_list_item.dart';
+import '../../widgets/empty_state.dart';
+import '../../widgets/error_state.dart';
 import '../../widgets/event_lifecycle_bar.dart';
+import '../../widgets/section_header.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/star_rating.dart';
@@ -201,18 +208,19 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     final auth = context.watch<AuthProvider>();
     final event = eventProvider.selectedEvent;
     final user = auth.user;
+    final isDark = AppTheme.isDark(context);
     final dateFormat = DateFormat('MMM dd, yyyy h:mm a');
 
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
           icon: Container(
-            padding: const EdgeInsets.all(6),
+            padding: const EdgeInsets.all(AppSpacing.xs),
             decoration: BoxDecoration(
               color: AppTheme.surfaceOf(context),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.close, size: 18),
+            child: const Icon(Icons.close, size: AppIconSize.sm),
           ),
           onPressed: () {
             if (Navigator.of(context).canPop()) {
@@ -229,49 +237,39 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
         actions: [
           IconButton(
             icon: Container(
-              padding: const EdgeInsets.all(6),
+              padding: const EdgeInsets.all(AppSpacing.xs),
               decoration: BoxDecoration(
                 color: AppTheme.surfaceOf(context),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 _bookmarked ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
-                size: 18,
+                size: AppIconSize.sm,
                 color: _bookmarked ? AppTheme.accentColor : null,
               ),
             ),
             onPressed: _toggleBookmark,
           ),
-          const SizedBox(width: 4),
+          AppSpacing.hXs,
         ],
       ),
       body: eventProvider.isLoading
           ? const ShimmerDetailHeader()
           : eventProvider.error != null
-              ? Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.error_outline,
-                          size: 48, color: Colors.grey[400]),
-                      const SizedBox(height: 8),
-                      Text(eventProvider.error!),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: () =>
-                            eventProvider.loadEvent(widget.eventId),
-                        child: const Text('Retry'),
-                      ),
-                    ],
-                  ),
+              ? ErrorState(
+                  message: eventProvider.error!,
+                  onRetry: () => eventProvider.loadEvent(widget.eventId),
                 )
               : event == null
-                  ? const Center(child: Text('Event not found'))
+                  ? const EmptyState(
+                      icon: Icons.event_busy_rounded,
+                      title: 'Event not found',
+                    )
                   : RefreshIndicator(
                       onRefresh: _refreshAll,
                       child: SingleChildScrollView(
                         physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.all(20),
+                        padding: AppSpacing.paddingXl,
                         child: Center(
                           child: ConstrainedBox(
                           constraints: const BoxConstraints(maxWidth: 700),
@@ -288,13 +286,13 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                   height: 1.15,
                                   color: AppTheme.textPrimaryOf(context),
                                 ),
-                              ),
-                              const SizedBox(height: 12),
+                              ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1, duration: 400.ms, curve: AppCurve.enter),
+                              AppSpacing.vMd,
 
                               // Status pill + Genre + Registration count
                               Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
+                                spacing: AppSpacing.sm,
+                                runSpacing: AppSpacing.sm,
                                 crossAxisAlignment: WrapCrossAlignment.center,
                                 children: [
                                   _statusPill(event.status),
@@ -331,16 +329,16 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                       color: Colors.teal,
                                     ),
                                 ],
-                              ),
-                              const SizedBox(height: 16),
+                              ).animate().fadeIn(duration: 300.ms, delay: 100.ms).slideX(begin: -0.05, duration: 300.ms),
+                              AppSpacing.vLg,
 
                               // Lifecycle progress bar
                               EventLifecycleBar(event: event),
-                              const SizedBox(height: 16),
+                              AppSpacing.vLg,
 
                               // ── Quick Action Bar (Register, Share, Calendar) ──
                               _buildQuickActionBar(context, event, user),
-                              const SizedBox(height: 20),
+                              AppSpacing.vXl,
 
                               // Like / Dislike — self-contained widget
                               _ReactionBar(
@@ -349,24 +347,23 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                 initialDislikeCount: event.dislikeCount,
                                 isAdmin: user?.isAdmin ?? false,
                               ),
-                              const SizedBox(height: 20),
+                              AppSpacing.vXl,
 
                               // Image gallery
                               if (_images.isNotEmpty) ...[
                                 _sectionTitle(context, 'Photos', icon: Icons.photo_library_rounded, iconColor: Colors.amber.shade700),
-                                const SizedBox(height: 8),
+                                AppSpacing.vSm,
                                 SizedBox(
                                   height: 180,
                                   child: ListView.separated(
                                     scrollDirection: Axis.horizontal,
                                     itemCount: _images.length,
                                     separatorBuilder: (_, __) =>
-                                        const SizedBox(width: 10),
+                                        AppSpacing.hSm,
                                     itemBuilder: (ctx, i) {
                                       final img = _images[i];
                                       return ClipRRect(
-                                        borderRadius:
-                                            BorderRadius.circular(12),
+                                        borderRadius: AppRadius.md,
                                         child: Stack(
                                           children: [
                                             Image.network(
@@ -435,7 +432,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                                     ),
                                                     child: const Icon(
                                                         Icons.close,
-                                                        size: 16,
+                                                        size: AppIconSize.sm,
                                                         color: Colors.white),
                                                   ),
                                                 ),
@@ -449,47 +446,49 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                 // Add image button for organizer
                                 if (user != null &&
                                     (user.isOrganizer || user.isAdmin)) ...[
-                                  const SizedBox(height: 8),
+                                  AppSpacing.vSm,
                                   _addImageButton(context),
                                 ],
-                                const SizedBox(height: 24),
+                                AppSpacing.vXxl,
                               ] else if (user != null &&
                                   (user.isOrganizer || user.isAdmin)) ...[
                                 _sectionTitle(context, 'Photos', icon: Icons.photo_library_rounded, iconColor: Colors.amber.shade700),
-                                const SizedBox(height: 8),
+                                AppSpacing.vSm,
                                 _addImageButton(context),
-                                const SizedBox(height: 24),
+                                AppSpacing.vXxl,
                               ],
 
                               // ── Description ──
                               if (event.description != null &&
                                   event.description!.isNotEmpty) ...[
-                                Container(
+                                AnimatedListItem(
+                                  index: 0,
+                                  child: Container(
                                   width: double.infinity,
-                                  padding: const EdgeInsets.all(16),
+                                  padding: AppSpacing.paddingLg,
                                   decoration: BoxDecoration(
                                     color: AppTheme.cardOf(context),
-                                    borderRadius: BorderRadius.circular(14),
-                                    border: Border.all(color: AppTheme.dividerOf(context)),
+                                    borderRadius: AppRadius.lg,
+                                    boxShadow: AppShadow.card(isDark),
                                   ),
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Row(
                                         children: [
-                                          Icon(Icons.article_rounded, size: 18, color: Colors.grey[500]),
-                                          const SizedBox(width: 8),
+                                          Icon(Icons.article_rounded, size: AppIconSize.sm, color: AppTheme.textSecondaryOf(context)),
+                                          AppSpacing.hSm,
                                           Text('About',
                                             style: TextStyle(
                                               fontSize: 13,
                                               fontWeight: FontWeight.w700,
-                                              color: Colors.grey[500],
+                                              color: AppTheme.textSecondaryOf(context),
                                               letterSpacing: 0.5,
                                             ),
                                           ),
                                         ],
                                       ),
-                                      const SizedBox(height: 10),
+                                      AppSpacing.vSm,
                                       Text(
                                         event.description!,
                                         style: TextStyle(
@@ -501,58 +500,70 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                     ],
                                   ),
                                 ),
-                                const SizedBox(height: 20),
+                                ),
+                                AppSpacing.vXl,
                               ],
 
                               // ── Funding Card (self-contained) ──
                               if (event.fundingGoalCents != null &&
                                   event.fundingGoalCents! > 0) ...[
-                                _FundingCard(
-                                  eventId: widget.eventId,
-                                  event: event,
-                                  isRegistered: _isRegistered,
+                                AnimatedListItem(
+                                  index: 1,
+                                  child: _FundingCard(
+                                    eventId: widget.eventId,
+                                    event: event,
+                                    isRegistered: _isRegistered,
+                                  ),
                                 ),
-                                const SizedBox(height: 24),
-                                _MilestoneTimeline(
-                                  eventId: widget.eventId,
-                                  event: event,
+                                AppSpacing.vXxl,
+                                AnimatedListItem(
+                                  index: 2,
+                                  child: _MilestoneTimeline(
+                                    eventId: widget.eventId,
+                                    event: event,
+                                  ),
                                 ),
-                                const SizedBox(height: 24),
+                                AppSpacing.vXxl,
                               ],
 
                               // ── Event Schedule (self-contained) ──
-                              _EventSchedule(
-                                eventId: widget.eventId,
-                                event: event,
+                              AnimatedListItem(
+                                index: 3,
+                                child: _EventSchedule(
+                                  eventId: widget.eventId,
+                                  event: event,
+                                ),
                               ),
 
                               // ── Event Details Grid ──
-                              Container(
+                              AnimatedListItem(
+                                index: 4,
+                                child: Container(
                                 width: double.infinity,
-                                padding: const EdgeInsets.all(16),
+                                padding: AppSpacing.paddingLg,
                                 decoration: BoxDecoration(
                                   color: AppTheme.cardOf(context),
-                                  borderRadius: BorderRadius.circular(14),
-                                  border: Border.all(color: AppTheme.dividerOf(context)),
+                                  borderRadius: AppRadius.lg,
+                                  boxShadow: AppShadow.card(isDark),
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Row(
                                       children: [
-                                        Icon(Icons.info_outline_rounded, size: 18, color: Colors.grey[500]),
-                                        const SizedBox(width: 8),
+                                        Icon(Icons.info_outline_rounded, size: AppIconSize.sm, color: AppTheme.textSecondaryOf(context)),
+                                        AppSpacing.hSm,
                                         Text('Details',
                                           style: TextStyle(
                                             fontSize: 13,
                                             fontWeight: FontWeight.w700,
-                                            color: Colors.grey[500],
+                                            color: AppTheme.textSecondaryOf(context),
                                             letterSpacing: 0.5,
                                           ),
                                         ),
                                       ],
                                     ),
-                                    const SizedBox(height: 14),
+                                    AppSpacing.vMd,
                                     if (event.startTime != null)
                                       _modernInfoRow(Icons.event_rounded, 'Starts', dateFormat.format(event.startTime!)),
                                     if (event.endTime != null)
@@ -586,36 +597,39 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                   ],
                                 ),
                               ),
-                              const SizedBox(height: 20),
+                              ),
+                              AppSpacing.vXl,
 
                               // ── Getting There (Venue Address / Parking / Transport) ──
                               if (event.venue != null || event.hasTransportInfo) ...[
-                                Container(
+                                AnimatedListItem(
+                                  index: 5,
+                                  child: Container(
                                   width: double.infinity,
-                                  padding: const EdgeInsets.all(18),
+                                  padding: AppSpacing.paddingLg,
                                   decoration: BoxDecoration(
                                     color: AppTheme.cardOf(context),
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(color: AppTheme.dividerOf(context)),
+                                    borderRadius: AppRadius.lg,
+                                    boxShadow: AppShadow.card(isDark),
                                   ),
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Row(
                                         children: [
-                                          Icon(Icons.directions_rounded, size: 16, color: Colors.grey[500]),
-                                          const SizedBox(width: 8),
+                                          Icon(Icons.directions_rounded, size: AppIconSize.sm, color: AppTheme.textSecondaryOf(context)),
+                                          AppSpacing.hSm,
                                           Text('Getting There',
                                             style: TextStyle(
                                               fontSize: 13,
                                               fontWeight: FontWeight.w700,
-                                              color: Colors.grey[500],
+                                              color: AppTheme.textSecondaryOf(context),
                                               letterSpacing: 0.5,
                                             ),
                                           ),
                                         ],
                                       ),
-                                      const SizedBox(height: 14),
+                                      AppSpacing.vMd,
                                       if (event.venue != null) ...[
                                         _modernInfoRow(Icons.place_rounded, 'Venue', event.venue!.name),
                                         _modernInfoRow(Icons.map_outlined, 'Address', event.venue!.fullAddress),
@@ -629,7 +643,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                       if (event.accessibilityInfo != null && event.accessibilityInfo!.isNotEmpty)
                                         _modernInfoRow(Icons.accessible_rounded, 'Accessibility', event.accessibilityInfo!),
                                       if (event.directionsUrl != null) ...[
-                                        const SizedBox(height: 12),
+                                        AppSpacing.vMd,
                                         SizedBox(
                                           width: double.infinity,
                                           child: OutlinedButton.icon(
@@ -639,12 +653,12 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                                 await launchUrl(uri, mode: LaunchMode.externalApplication);
                                               }
                                             },
-                                            icon: const Icon(Icons.navigation_rounded, size: 16),
+                                            icon: const Icon(Icons.navigation_rounded, size: AppIconSize.sm),
                                             label: const Text('Get Directions'),
                                             style: OutlinedButton.styleFrom(
                                               foregroundColor: AppTheme.primaryOf(context),
                                               side: BorderSide(color: AppTheme.primaryOf(context).withOpacity(0.4)),
-                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                              shape: RoundedRectangleBorder(borderRadius: AppRadius.md),
                                               padding: const EdgeInsets.symmetric(vertical: 10),
                                             ),
                                           ),
@@ -653,38 +667,38 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                     ],
                                   ),
                                 ),
-                                const SizedBox(height: 20),
+                                ),
+                                AppSpacing.vXl,
                               ],
 
                               // Pending cancellation banner
                               if (event.pendingCancellation != null) ...[
                                 Container(
                                   width: double.infinity,
-                                  padding: const EdgeInsets.all(14),
+                                  padding: AppSpacing.paddingLg,
                                   decoration: BoxDecoration(
-                                    color: Colors.orange.shade50,
-                                    borderRadius: BorderRadius.circular(14),
-                                    border: Border.all(color: Colors.orange.shade200),
+                                    color: AppTheme.warningSurfaceOf(context),
+                                    borderRadius: AppRadius.lg,
                                   ),
                                   child: Row(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Container(
-                                        padding: const EdgeInsets.all(6),
+                                        padding: const EdgeInsets.all(AppSpacing.xs),
                                         decoration: BoxDecoration(
-                                          color: Colors.orange.shade100,
-                                          borderRadius: BorderRadius.circular(8),
+                                          color: AppTheme.warningColor.withValues(alpha: 0.15),
+                                          borderRadius: AppRadius.sm,
                                         ),
-                                        child: Icon(Icons.hourglass_top_rounded, color: Colors.orange.shade800, size: 18),
+                                        child: Icon(Icons.hourglass_top_rounded, color: Colors.orange.shade800, size: AppIconSize.sm),
                                       ),
-                                      const SizedBox(width: 12),
+                                      AppSpacing.hMd,
                                       Expanded(
                                         child: Column(
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
                                             Text('Cancellation Pending Admin Approval',
                                               style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.orange.shade800)),
-                                            const SizedBox(height: 4),
+                                            AppSpacing.vXs,
                                             Text(
                                               event.pendingCancellation!['pledge_percent'] != null
                                                   ? '${event.pendingCancellation!['pledge_percent']}% funded — admin must approve cancellation'
@@ -692,7 +706,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                               style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryOf(context)),
                                             ),
                                             if (event.pendingCancellation!['reason'] != null) ...[
-                                              const SizedBox(height: 4),
+                                              AppSpacing.vXs,
                                               Text('Reason: ${event.pendingCancellation!['reason']}',
                                                 style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context), fontStyle: FontStyle.italic)),
                                             ],
@@ -702,7 +716,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                     ],
                                   ),
                                 ),
-                                const SizedBox(height: 20),
+                                AppSpacing.vXl,
                               ],
 
                               // Cancellation reason banner
@@ -711,31 +725,30 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                   event.cancellationReason!.isNotEmpty) ...[
                                 Container(
                                   width: double.infinity,
-                                  padding: const EdgeInsets.all(14),
+                                  padding: AppSpacing.paddingLg,
                                   decoration: BoxDecoration(
-                                    color: AppTheme.errorColor.withValues(alpha: 0.06),
-                                    borderRadius: BorderRadius.circular(14),
-                                    border: Border.all(color: AppTheme.errorColor.withValues(alpha: 0.2)),
+                                    color: AppTheme.errorSurfaceOf(context),
+                                    borderRadius: AppRadius.lg,
                                   ),
                                   child: Row(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Container(
-                                        padding: const EdgeInsets.all(6),
+                                        padding: const EdgeInsets.all(AppSpacing.xs),
                                         decoration: BoxDecoration(
                                           color: AppTheme.errorColor.withValues(alpha: 0.12),
-                                          borderRadius: BorderRadius.circular(8),
+                                          borderRadius: AppRadius.sm,
                                         ),
-                                        child: const Icon(Icons.cancel_rounded, color: AppTheme.errorColor, size: 18),
+                                        child: const Icon(Icons.cancel_rounded, color: AppTheme.errorColor, size: AppIconSize.sm),
                                       ),
-                                      const SizedBox(width: 12),
+                                      AppSpacing.hMd,
                                       Expanded(
                                         child: Column(
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
                                             const Text('Cancellation Reason',
                                               style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppTheme.errorColor)),
-                                            const SizedBox(height: 4),
+                                            AppSpacing.vXs,
                                             Text(event.cancellationReason!,
                                               style: TextStyle(fontSize: 14, color: AppTheme.textSecondaryOf(context), height: 1.4)),
                                           ],
@@ -744,17 +757,17 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                     ],
                                   ),
                                 ),
-                                const SizedBox(height: 20),
+                                AppSpacing.vXl,
                               ],
 
                               // ─── Ticket Tiers Section (customer view only) ───
                               if (event.ticketStrategyId != null &&
                                   (user == null || (!user.isOrganizer && !user.isAdmin))) ...[
-                                const SizedBox(height: 16),
+                                AppSpacing.vLg,
                                 _sectionTitle(context, 'Ticket Tiers', icon: Icons.confirmation_number_rounded, iconColor: Colors.deepPurple),
-                                const SizedBox(height: 10),
+                                AppSpacing.vSm,
                                 _buildTicketTiersSection(event),
-                                const SizedBox(height: 16),
+                                AppSpacing.vLg,
                               ],
 
                               // Your Discounts (customer view only)
@@ -778,14 +791,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                   (event.status == EventStatus.approved ||
                                       event.status == EventStatus.waiting_event_date ||
                                       event.status == EventStatus.selling_tickets)) ...[
-                                const SizedBox(height: 12),
+                                AppSpacing.vMd,
                                 Container(
                                   width: double.infinity,
-                                  padding: const EdgeInsets.all(14),
+                                  padding: AppSpacing.paddingLg,
                                   decoration: BoxDecoration(
                                     color: Colors.teal.withValues(alpha: 0.06),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: Colors.teal.withValues(alpha: 0.2)),
+                                    borderRadius: AppRadius.lg,
+                                    boxShadow: AppShadow.soft(isDark),
                                   ),
                                   child: Column(
                                     children: [
@@ -794,12 +807,12 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                         style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryOf(context)),
                                         textAlign: TextAlign.center,
                                       ),
-                                      const SizedBox(height: 8),
+                                      AppSpacing.vSm,
                                       SizedBox(
                                         width: double.infinity,
                                         child: ElevatedButton.icon(
                                           onPressed: () => context.push('/events/${widget.eventId}/sponsorships'),
-                                          icon: const Icon(Icons.storefront_rounded, size: 18),
+                                          icon: const Icon(Icons.storefront_rounded, size: AppIconSize.sm),
                                           label: const Text('View Sponsorships'),
                                           style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
                                         ),
@@ -807,7 +820,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                     ],
                                   ),
                                 ),
-                                const SizedBox(height: 16),
+                                AppSpacing.vLg,
                               ],
 
                               // Buy tickets (always visible for customers during selling/live)
@@ -815,21 +828,21 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                   user.isCustomer &&
                                   (event.status == EventStatus.selling_tickets ||
                                       event.status == EventStatus.live)) ...[
-                                const SizedBox(height: 12),
+                                AppSpacing.vMd,
                                 // Waiting approval banner (shown alongside Buy Tickets)
                                 if (_regStatus == 'waitlisted') ...[
                                   Container(
                                     width: double.infinity,
-                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
                                     decoration: BoxDecoration(
-                                      color: AppTheme.warningColor.withValues(alpha: 0.1),
-                                      borderRadius: BorderRadius.circular(12),
+                                      color: AppTheme.warningSurfaceOf(context),
+                                      borderRadius: AppRadius.md,
                                       border: Border.all(color: AppTheme.warningColor.withValues(alpha: 0.3)),
                                     ),
                                     child: Row(
                                       children: [
-                                        Icon(Icons.hourglass_top_rounded, size: 18, color: AppTheme.warningColor),
-                                        const SizedBox(width: 10),
+                                        Icon(Icons.hourglass_top_rounded, size: AppIconSize.sm, color: AppTheme.warningColor),
+                                        AppSpacing.hSm,
                                         Expanded(
                                           child: Text(
                                             'Your registration is waiting for approval. Once approved, you can buy tickets.',
@@ -839,12 +852,12 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                       ],
                                     ),
                                   ),
-                                  const SizedBox(height: 8),
+                                  AppSpacing.vSm,
                                 ],
                                 // Show user's tickets for this event
                                 if (_myTicketCount > 0) ...[
                                   _buildYourTicketsSection(),
-                                  const SizedBox(height: 8),
+                                  AppSpacing.vSm,
                                 ],
                                 SizedBox(
                                   width: double.infinity,
@@ -868,20 +881,20 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                       backgroundColor: Colors.teal,
                                       foregroundColor: Colors.white,
                                       shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(12)),
+                                          borderRadius: AppRadius.md),
                                       elevation: 0,
                                     ),
                                   ),
                                 ),
-                                const SizedBox(height: 16),
+                                AppSpacing.vLg,
                               ],
 
                               // ──────── Organizer Actions (modern, status-aware) ────────
                               if (user != null &&
                                   (user.isOrganizer || user.isAdmin)) ...[
-                                const SizedBox(height: 28),
+                                AppSpacing.vXxl,
                                 _sectionTitle(context, 'Organizer Actions', icon: Icons.admin_panel_settings_rounded, iconColor: AppTheme.accentColor),
-                                const SizedBox(height: 14),
+                                AppSpacing.vMd,
 
                                 // ── Primary Action Card (status-specific) ──
                                 // Draft → Publish
@@ -947,13 +960,13 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
                                 // ── Setup Grid (waiting_event_date only) ──
                                 if (event.status == EventStatus.waiting_event_date) ...[
-                                  const SizedBox(height: 16),
+                                  AppSpacing.vLg,
                                   GridView.count(
                                     crossAxisCount: 2,
                                     shrinkWrap: true,
                                     physics: const NeverScrollableScrollPhysics(),
-                                    mainAxisSpacing: 12,
-                                    crossAxisSpacing: 12,
+                                    mainAxisSpacing: AppSpacing.md,
+                                    crossAxisSpacing: AppSpacing.md,
                                     childAspectRatio: 1.45,
                                     children: [
                                       _setupTile(
@@ -994,22 +1007,16 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                   ),
                                 ],
 
-                                const SizedBox(height: 10),
+                                AppSpacing.vMd,
 
                                 // ── Secondary Actions (menu tiles) ──
                                 ClipRRect(
-                                  borderRadius: BorderRadius.circular(16),
+                                  borderRadius: AppRadius.lg,
                                   child: Container(
                                     decoration: BoxDecoration(
                                       color: AppTheme.cardOf(context),
-                                      borderRadius: BorderRadius.circular(16),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withValues(alpha: 0.04),
-                                          blurRadius: 12,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ],
+                                      borderRadius: AppRadius.lg,
+                                      boxShadow: AppShadow.card(isDark),
                                     ),
                                     child: Column(
                                       children: [
@@ -1151,9 +1158,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                               // ──────── Management shortcuts (organizer) ────────
                               if (user != null &&
                                   (user.isOrganizer || user.isAdmin)) ...[
-                                const SizedBox(height: 28),
+                                AppSpacing.vXxl,
                                 _sectionTitle(context, 'Management', icon: Icons.dashboard_rounded, iconColor: Colors.indigo),
-                                const SizedBox(height: 14),
+                                AppSpacing.vMd,
                                 _buildMgmtButtons(event),
                               ],
 
@@ -1174,7 +1181,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                 ),
 
                               // ──────── Event Feed / Posts (self-contained) ────────
-                              const SizedBox(height: 32),
+                              AppSpacing.vXxxl,
                               _EventFeed(
                                 eventId: widget.eventId,
                                 postsEnabled: event.postsEnabled,
@@ -1196,7 +1203,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   Widget _addImageButton(BuildContext context) {
     return OutlinedButton.icon(
       onPressed: () => _showAddImageDialog(context),
-      icon: const Icon(Icons.add_photo_alternate, size: 18),
+      icon: const Icon(Icons.add_photo_alternate, size: AppIconSize.sm),
       label: const Text('Add Image URL'),
     );
   }
@@ -1219,7 +1226,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 hintText: 'https://...',
               ),
             ),
-            const SizedBox(height: 12),
+            AppSpacing.vMd,
             TextField(
               controller: captionCtrl,
               decoration: const InputDecoration(
@@ -1277,25 +1284,25 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
   Widget _modernInfoRow(IconData icon, String label, String value, {Color? valueColor}) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: AppSpacing.md),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(7),
             decoration: BoxDecoration(
               color: AppTheme.surfaceOf(context),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: AppRadius.sm,
             ),
-            child: Icon(icon, size: 16, color: Colors.grey[600]),
+            child: Icon(icon, size: AppIconSize.sm, color: AppTheme.textSecondaryOf(context)),
           ),
-          const SizedBox(width: 12),
+          AppSpacing.hMd,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(label,
                     style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
-                        color: Colors.grey[400], letterSpacing: 0.3)),
+                        color: AppTheme.textSecondaryOf(context), letterSpacing: 0.3)),
                 const SizedBox(height: 2),
                 Text(value,
                     style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600,
@@ -1316,7 +1323,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: AppRadius.pill,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1342,7 +1349,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: AppRadius.pill,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1383,20 +1390,20 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      shape: RoundedRectangleBorder(
+        borderRadius: AppRadius.topXxl,
       ),
       backgroundColor: AppTheme.cardOf(context),
       builder: (ctx) => Padding(
-        padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+        padding: const EdgeInsets.fromLTRB(AppSpacing.xxl, AppSpacing.lg, AppSpacing.xxl, AppSpacing.xxxl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               width: 40, height: 4,
-              decoration: BoxDecoration(color: AppTheme.dividerOf(ctx), borderRadius: BorderRadius.circular(2)),
+              decoration: BoxDecoration(color: AppTheme.dividerOf(ctx), borderRadius: AppRadius.sm),
             ),
-            const SizedBox(height: 20),
+            AppSpacing.vXl,
             CircleAvatar(
               radius: 30,
               backgroundColor: AppTheme.accentColor.withValues(alpha: 0.15),
@@ -1405,21 +1412,21 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: AppTheme.accentColor),
               ),
             ),
-            const SizedBox(height: 12),
+            AppSpacing.vMd,
             Text(name, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppTheme.textPrimaryOf(ctx))),
-            const SizedBox(height: 8),
+            AppSpacing.vSm,
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(trustIcon, size: 18, color: trustColor),
-                const SizedBox(width: 6),
+                Icon(trustIcon, size: AppIconSize.sm, color: trustColor),
+                AppSpacing.hSm,
                 Text('$label ($pct%)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: trustColor)),
               ],
             ),
-            const SizedBox(height: 4),
+            AppSpacing.vXs,
             Text('$completed completed of $published published events',
                 style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(ctx))),
-            const SizedBox(height: 20),
+            AppSpacing.vXl,
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -1428,8 +1435,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                   context.push('/users/${event.organizerId}/profile');
                 },
                 style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+                  shape: RoundedRectangleBorder(borderRadius: AppRadius.lg),
                 ),
                 child: const Text('View Full Profile', style: TextStyle(fontWeight: FontWeight.w700)),
               ),
@@ -1472,7 +1479,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: AppRadius.pill,
           border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
         ),
         child: Row(
@@ -1516,14 +1523,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       children: [
         if (icon != null) ...[
           Container(
-            padding: const EdgeInsets.all(6),
+            padding: const EdgeInsets.all(AppSpacing.xs),
             decoration: BoxDecoration(
               color: (iconColor ?? AppTheme.primaryColor).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: AppRadius.sm,
             ),
-            child: Icon(icon, size: 16, color: iconColor ?? AppTheme.primaryColor),
+            child: Icon(icon, size: AppIconSize.sm, color: iconColor ?? AppTheme.primaryColor),
           ),
-          const SizedBox(width: 10),
+          AppSpacing.hSm,
         ],
         Expanded(
           child: Text(
@@ -1545,11 +1552,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     final isCustomer = user != null && user.isCustomer;
 
     return Container(
-      padding: const EdgeInsets.all(4),
+      padding: const EdgeInsets.all(AppSpacing.xs),
       decoration: BoxDecoration(
         color: AppTheme.surfaceOf(context),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.dividerOf(context)),
+        borderRadius: AppRadius.lg,
       ),
       child: Row(
         children: [
@@ -1576,7 +1582,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
             ),
 
           // Spacer between register and utility actions
-          if (isCustomer && event.canUnregister) const SizedBox(width: 6),
+          if (isCustomer && event.canUnregister) AppSpacing.hXs,
 
           // ── Share ──
           Expanded(
@@ -1589,7 +1595,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
               onTap: () => _shareEvent(context, event),
             ),
           ),
-          const SizedBox(width: 6),
+          AppSpacing.hXs,
 
           // ── Calendar ──
           Expanded(
@@ -1617,20 +1623,20 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   }) {
     return Material(
       color: filled ? color : Colors.transparent,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: AppRadius.md,
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadius.md,
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: AppSpacing.sm),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icon,
-                  size: 18,
+                  size: AppIconSize.sm,
                   color: filled ? Colors.white : color),
-              const SizedBox(width: 6),
+              AppSpacing.hXs,
               Flexible(
                 child: Text(
                   label,
@@ -1667,12 +1673,13 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasError || !snapshot.hasData) {
-          return const Text('Could not load ticket tiers');
+          return Text('Could not load ticket tiers',
+              style: TextStyle(color: AppTheme.textSecondaryOf(context)));
         }
         final tiers = snapshot.data!.data as List;
         if (tiers.isEmpty) {
           return Text('No tiers configured yet',
-              style: TextStyle(color: Colors.grey[500]));
+              style: TextStyle(color: AppTheme.textSecondaryOf(context)));
         }
         return Column(
           children: tiers.map((t) {
@@ -1684,18 +1691,18 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
             final basePrice = isFree ? null : (priceCents / 100).toStringAsFixed(2);
 
             return Card(
-              margin: const EdgeInsets.only(bottom: 8),
+              margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+              shape: RoundedRectangleBorder(borderRadius: AppRadius.md),
               child: Padding(
-                padding: const EdgeInsets.all(12),
+                padding: AppSpacing.paddingMd,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Tier name + base price
                     Row(
                       children: [
                         const Icon(Icons.confirmation_number,
-                            size: 18, color: Colors.teal),
-                        const SizedBox(width: 10),
+                            size: AppIconSize.sm, color: Colors.teal),
+                        AppSpacing.hSm,
                         Expanded(
                           child: Text(name,
                               style: const TextStyle(
@@ -1706,7 +1713,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                             decoration: BoxDecoration(
                               color: Colors.green.shade50,
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: AppRadius.pill,
                               border: Border.all(color: Colors.green.shade300),
                             ),
                             child: Text('FREE',
@@ -1728,7 +1735,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                         child: Text(desc,
                             style: TextStyle(
                                 fontSize: 12,
-                                color: Colors.grey[600],
+                                color: AppTheme.textSecondaryOf(context),
                                 fontStyle: FontStyle.italic)),
                       ),
                     // Discount breakdown for logged-in customers
@@ -1801,23 +1808,23 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
                   return Card(
                     child: InkWell(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: AppRadius.md,
                       onTap: () {
                         Navigator.of(ctx).pop();
                         _showInvoiceDialog(event, t, preview);
                       },
                       child: Padding(
-                        padding: const EdgeInsets.all(14),
+                        padding: AppSpacing.paddingMd,
                         child: Row(
                           children: [
-                            const Icon(Icons.confirmation_number, color: Colors.teal, size: 28),
-                            const SizedBox(width: 14),
+                            const Icon(Icons.confirmation_number, color: Colors.teal, size: AppIconSize.xl),
+                            AppSpacing.hMd,
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-                                  const SizedBox(height: 4),
+                                  AppSpacing.vXs,
                                   if (isFree)
                                     Row(
                                       children: [
@@ -1825,15 +1832,15 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                           Text('\$$basePrice',
                                               style: TextStyle(
                                                   fontSize: 12,
-                                                  color: Colors.grey[500],
+                                                  color: AppTheme.textSecondaryOf(context),
                                                   decoration: TextDecoration.lineThrough)),
-                                          const SizedBox(width: 6),
+                                          AppSpacing.hSm,
                                         ],
                                         Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                           decoration: BoxDecoration(
                                             color: Colors.green.shade50,
-                                            borderRadius: BorderRadius.circular(10),
+                                            borderRadius: AppRadius.sm,
                                             border: Border.all(color: Colors.green.shade300),
                                           ),
                                           child: Text('FREE',
@@ -1850,14 +1857,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                         Text('\$$basePrice',
                                             style: TextStyle(
                                                 fontSize: 12,
-                                                color: Colors.grey[500],
+                                                color: AppTheme.textSecondaryOf(context),
                                                 decoration: TextDecoration.lineThrough)),
-                                        const SizedBox(width: 6),
+                                        AppSpacing.hSm,
                                         Text('\$$finalPrice',
                                             style: const TextStyle(
                                                 fontWeight: FontWeight.w700,
                                                 color: Colors.teal)),
-                                        const SizedBox(width: 4),
+                                        AppSpacing.hXs,
                                         Text('(-\$${(totalDiscount / 100).toStringAsFixed(2)})',
                                             style: TextStyle(fontSize: 11, color: Colors.green.shade700)),
                                       ],
@@ -1866,11 +1873,11 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                     Text('\$$basePrice', style: const TextStyle(fontWeight: FontWeight.w600)),
                                   if (desc != null && desc.isNotEmpty)
                                     Padding(
-                                      padding: const EdgeInsets.only(top: 4),
+                                      padding: const EdgeInsets.only(top: AppSpacing.xs),
                                       child: Text(desc,
                                           style: TextStyle(
                                               fontSize: 12,
-                                              color: Colors.grey[600],
+                                              color: AppTheme.textSecondaryOf(context),
                                               fontStyle: FontStyle.italic)),
                                     ),
                                 ],
@@ -1930,7 +1937,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           final spotsUsed = _myReservedSpots > 0 ? (_myReservedSpots < quantity ? _myReservedSpots : quantity) : 0;
 
           return AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            shape: RoundedRectangleBorder(borderRadius: AppRadius.xl),
             contentPadding: EdgeInsets.zero,
             content: SingleChildScrollView(
               child: Column(
@@ -1939,24 +1946,21 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                   // Header
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(20),
+                    padding: AppSpacing.paddingXl,
                     decoration: BoxDecoration(
                       color: Colors.teal,
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(20),
-                        topRight: Radius.circular(20),
-                      ),
+                      borderRadius: AppRadius.topXl,
                     ),
                     child: Column(
                       children: [
-                        const Icon(Icons.receipt_long_rounded, color: Colors.white, size: 32),
-                        const SizedBox(height: 8),
+                        const Icon(Icons.receipt_long_rounded, color: Colors.white, size: AppIconSize.xxl),
+                        AppSpacing.vSm,
                         const Text('Invoice',
                             style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 20,
                                 fontWeight: FontWeight.w800)),
-                        const SizedBox(height: 4),
+                        AppSpacing.vXs,
                         Text(event.title,
                             textAlign: TextAlign.center,
                             style: TextStyle(
@@ -1968,7 +1972,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
                   // Invoice body
                   Padding(
-                    padding: const EdgeInsets.all(20),
+                    padding: AppSpacing.paddingXl,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -1976,8 +1980,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                         Row(
                           children: [
                             const Icon(Icons.confirmation_number_rounded,
-                                size: 18, color: Colors.teal),
-                            const SizedBox(width: 8),
+                                size: AppIconSize.sm, color: Colors.teal),
+                            AppSpacing.hSm,
                             Expanded(
                               child: Text(tierName,
                                   style: const TextStyle(
@@ -1987,19 +1991,19 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                         ),
 
                         // Quantity selector
-                        const SizedBox(height: 14),
+                        AppSpacing.vMd,
                         Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
                           decoration: BoxDecoration(
-                            color: AppTheme.surfaceOf(context),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppTheme.dividerOf(context)),
+                            color: AppTheme.surfaceOf(ctx),
+                            borderRadius: AppRadius.md,
+                            border: Border.all(color: AppTheme.dividerOf(ctx)),
                           ),
                           child: Row(
                             children: [
-                              Icon(Icons.people_rounded, size: 18, color: Colors.teal[600]),
-                              const SizedBox(width: 10),
+                              Icon(Icons.people_rounded, size: AppIconSize.sm, color: Colors.teal[600]),
+                              AppSpacing.hSm,
                               const Text('Quantity',
                                   style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                               const Spacer(),
@@ -2011,11 +2015,11 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                 child: Container(
                                   width: 32, height: 32,
                                   decoration: BoxDecoration(
-                                    color: quantity > 1 ? Colors.teal : Colors.grey[200],
-                                    borderRadius: BorderRadius.circular(8),
+                                    color: quantity > 1 ? Colors.teal : AppTheme.dividerOf(ctx),
+                                    borderRadius: AppRadius.sm,
                                   ),
-                                  child: Icon(Icons.remove, size: 18,
-                                      color: quantity > 1 ? Colors.white : Colors.grey[400]),
+                                  child: Icon(Icons.remove, size: AppIconSize.sm,
+                                      color: quantity > 1 ? Colors.white : AppTheme.textSecondaryOf(ctx)),
                                 ),
                               ),
                               SizedBox(
@@ -2033,11 +2037,11 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                 child: Container(
                                   width: 32, height: 32,
                                   decoration: BoxDecoration(
-                                    color: quantity < 10 ? Colors.teal : Colors.grey[200],
-                                    borderRadius: BorderRadius.circular(8),
+                                    color: quantity < 10 ? Colors.teal : AppTheme.dividerOf(ctx),
+                                    borderRadius: AppRadius.sm,
                                   ),
-                                  child: Icon(Icons.add, size: 18,
-                                      color: quantity < 10 ? Colors.white : Colors.grey[400]),
+                                  child: Icon(Icons.add, size: AppIconSize.sm,
+                                      color: quantity < 10 ? Colors.white : AppTheme.textSecondaryOf(ctx)),
                                 ),
                               ),
                             ],
@@ -2051,12 +2055,12 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             decoration: BoxDecoration(
                               color: Colors.teal.withValues(alpha: 0.06),
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: AppRadius.sm,
                             ),
                             child: Row(
                               children: [
                                 Icon(Icons.info_outline_rounded, size: 15, color: Colors.teal[600]),
-                                const SizedBox(width: 8),
+                                AppSpacing.hSm,
                                 Expanded(
                                   child: Text(
                                     'You already have $_myTicketCount ticket${_myTicketCount == 1 ? '' : 's'} for this event',
@@ -2068,18 +2072,18 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                           ),
                         ],
                         if (_myReservedSpots > 0) ...[
-                          const SizedBox(height: 8),
+                          AppSpacing.vSm,
                           Container(
                             width: double.infinity,
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
                             decoration: BoxDecoration(
                               color: Colors.deepPurple.withValues(alpha: 0.06),
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: AppRadius.sm,
                             ),
                             child: Row(
                               children: [
-                                Icon(Icons.event_seat_rounded, size: 15, color: Colors.deepPurple[600]),
-                                const SizedBox(width: 8),
+                                Icon(Icons.event_seat_rounded, size: AppIconSize.sm, color: Colors.deepPurple[600]),
+                                AppSpacing.hSm,
                                 Expanded(
                                   child: Text(
                                     'Using $spotsUsed of your $_myReservedSpots reserved spot${_myReservedSpots == 1 ? '' : 's'} from pledging',
@@ -2090,61 +2094,61 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                             ),
                           ),
                         ],
-                        const SizedBox(height: 16),
+                        AppSpacing.vLg,
 
                         // Price breakdown
                         Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.all(16),
+                          padding: AppSpacing.paddingLg,
                           decoration: BoxDecoration(
-                            color: AppTheme.surfaceOf(context),
-                            borderRadius: BorderRadius.circular(14),
+                            color: AppTheme.surfaceOf(ctx),
+                            borderRadius: AppRadius.lg,
                           ),
                           child: Column(
                             children: [
                               _invoiceRow('Ticket Price', fmtCents(baseCents)),
                               if (commonDisc > 0) ...[
-                                const SizedBox(height: 8),
+                                AppSpacing.vSm,
                                 _invoiceRow('Common Discount',
                                     '- ${fmtCents(commonDisc)}',
                                     valueColor: AppTheme.successColor),
                               ],
                               if (selectiveDisc > 0) ...[
-                                const SizedBox(height: 8),
+                                AppSpacing.vSm,
                                 _invoiceRow('Selective Discount',
                                     '- ${fmtCents(selectiveDisc)}',
                                     valueColor: AppTheme.successColor),
                               ],
                               if (pledgeDisc > 0) ...[
-                                const SizedBox(height: 8),
+                                AppSpacing.vSm,
                                 _invoiceRow('Pledge Discount',
                                     '- ${fmtCents(pledgeDisc)}',
                                     valueColor: AppTheme.successColor),
                               ],
                               if (eventDisc > 0) ...[
-                                const SizedBox(height: 8),
+                                AppSpacing.vSm,
                                 _invoiceRow('Event Discount',
                                     '- ${fmtCents(eventDisc)}',
                                     valueColor: AppTheme.successColor),
                               ],
                               if (commissionPerTicket > 0) ...[
-                                const SizedBox(height: 8),
+                                AppSpacing.vSm,
                                 _invoiceRow('Platform Fee',
                                     fmtCents(commissionPerTicket),
-                                    valueColor: Colors.grey[500]!),
+                                    valueColor: AppTheme.textSecondaryOf(ctx)),
                               ],
                               if (quantity > 1) ...[
-                                const SizedBox(height: 8),
-                                Container(height: 1, color: AppTheme.dividerOf(context)),
-                                const SizedBox(height: 8),
+                                AppSpacing.vSm,
+                                Container(height: 1, color: AppTheme.dividerOf(ctx)),
+                                AppSpacing.vSm,
                                 _invoiceRow('Per Ticket',
                                     isFree ? 'FREE' : fmtCents(finalCentsPerTicket)),
-                                const SizedBox(height: 4),
+                                AppSpacing.vXs,
                                 _invoiceRow('x Quantity', '$quantity'),
                               ],
-                              const SizedBox(height: 10),
-                              Container(height: 1, color: AppTheme.dividerOf(context)),
-                              const SizedBox(height: 10),
+                              AppSpacing.vMd,
+                              Container(height: 1, color: AppTheme.dividerOf(ctx)),
+                              AppSpacing.vMd,
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
@@ -2166,17 +2170,17 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                 ],
                               ),
                               if (totalDiscount > 0) ...[
-                                const SizedBox(height: 6),
+                                AppSpacing.vSm,
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.end,
                                   children: [
                                     Container(
                                       padding: const EdgeInsets.symmetric(
-                                          horizontal: 8, vertical: 3),
+                                          horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
                                       decoration: BoxDecoration(
                                         color: AppTheme.successColor
                                             .withValues(alpha: 0.1),
-                                        borderRadius: BorderRadius.circular(8),
+                                        borderRadius: AppRadius.sm,
                                       ),
                                       child: Text(
                                         'You save ${fmtCents(totalDiscount)}',
@@ -2191,13 +2195,13 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                 ),
                               ],
                               if (totalCommission > 0) ...[
-                                const SizedBox(height: 6),
+                                AppSpacing.vSm,
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.end,
                                   children: [
                                     Text(
                                       'Includes ${fmtCents(totalCommission)} platform fee',
-                                      style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                                      style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(ctx)),
                                     ),
                                   ],
                                 ),
@@ -2206,7 +2210,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                           ),
                         ),
 
-                        const SizedBox(height: 20),
+                        AppSpacing.vXl,
 
                         // Buy button
                         SizedBox(
@@ -2228,12 +2232,12 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                               backgroundColor: isFree ? Colors.green : Colors.teal,
                               foregroundColor: Colors.white,
                               shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14)),
+                                  borderRadius: AppRadius.lg),
                               elevation: 0,
                             ),
                           ),
                         ),
-                        const SizedBox(height: 8),
+                        AppSpacing.vSm,
                         // Back to tiers
                         SizedBox(
                           width: double.infinity,
@@ -2347,18 +2351,16 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       width: double.infinity,
       decoration: BoxDecoration(
         color: Colors.teal.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.teal.withValues(alpha: 0.15)),
+        borderRadius: AppRadius.lg,
       ),
       child: Column(
         children: [
-          // Header
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 12, 8),
+            padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.md, AppSpacing.sm),
             child: Row(
               children: [
-                const Icon(Icons.confirmation_number_rounded, size: 18, color: Colors.teal),
-                const SizedBox(width: 10),
+                const Icon(Icons.confirmation_number_rounded, size: AppIconSize.sm, color: Colors.teal),
+                AppSpacing.hSm,
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -2408,11 +2410,11 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
               ),
               child: Container(
                 width: double.infinity,
-                margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                margin: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
                 decoration: BoxDecoration(
                   color: AppTheme.cardOf(context),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: AppRadius.sm,
                   border: isScanned
                       ? Border.all(color: AppTheme.successColor.withValues(alpha: 0.25))
                       : null,
@@ -2421,10 +2423,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                   children: [
                     Icon(
                       isScanned ? Icons.check_circle_rounded : Icons.qr_code_rounded,
-                      size: 16,
-                      color: isScanned ? AppTheme.successColor : Colors.grey[400],
+                      size: AppIconSize.sm,
+                      color: isScanned ? AppTheme.successColor : AppTheme.textSecondaryOf(context),
                     ),
-                    const SizedBox(width: 8),
+                    AppSpacing.hSm,
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2436,17 +2438,17 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                             overflow: TextOverflow.ellipsis,
                           ),
                           Text(createdAt,
-                              style: TextStyle(fontSize: 10, color: Colors.grey[500])),
+                              style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryOf(context))),
                         ],
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: 2),
                       decoration: BoxDecoration(
                         color: status == 'purchased'
                             ? AppTheme.successColor.withValues(alpha: 0.1)
                             : AppTheme.warningColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: AppRadius.sm,
                       ),
                       child: Text(
                         status.toUpperCase(),
@@ -2457,8 +2459,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 4),
-                    Icon(Icons.chevron_right_rounded, size: 16, color: Colors.grey[400]),
+                    AppSpacing.hXs,
+                    Icon(Icons.chevron_right_rounded, size: AppIconSize.sm, color: AppTheme.textSecondaryOf(context)),
                   ],
                 ),
               ),
@@ -2466,13 +2468,13 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           }),
           if (_myTicketCount > 3)
             Padding(
-              padding: const EdgeInsets.only(bottom: 8, top: 2),
+              padding: const EdgeInsets.only(bottom: AppSpacing.sm, top: 2),
               child: Text(
                 '+${_myTicketCount - 3} more ticket${_myTicketCount - 3 == 1 ? '' : 's'}',
-                style: TextStyle(fontSize: 11, color: Colors.grey[500], fontWeight: FontWeight.w500),
+                style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context), fontWeight: FontWeight.w500),
               ),
             ),
-          const SizedBox(height: 4),
+          AppSpacing.vXs,
         ],
       ),
     );
@@ -2480,17 +2482,16 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
   Widget _infoBanner(String text, IconData icon, Color color) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: AppSpacing.md),
+      padding: AppSpacing.paddingMd,
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        borderRadius: AppRadius.md,
       ),
       child: Row(
         children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(width: 10),
+          Icon(icon, color: color, size: AppIconSize.md),
+          AppSpacing.hSm,
           Expanded(
             child: Text(text,
                 style: TextStyle(
@@ -2649,7 +2650,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           children: [
             Text('Current capacity: ${event.maxCapacity}',
                 style: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 13)),
-            const SizedBox(height: 12),
+            AppSpacing.vMd,
             TextField(
               controller: controller,
               keyboardType: TextInputType.number,
@@ -2839,7 +2840,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           children: [
             const Text(
                 'All registered users will be notified. Please provide a reason:'),
-            const SizedBox(height: 12),
+            AppSpacing.vMd,
             TextField(
               controller: reasonCtrl,
               maxLines: 3,
@@ -2894,7 +2895,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 'This event is actively selling tickets. '
                 'Your cancellation request will be sent to an admin for review.\n\n'
                 'Please provide a reason:'),
-            const SizedBox(height: 12),
+            AppSpacing.vMd,
             TextField(
               controller: reasonCtrl,
               maxLines: 3,
@@ -2979,7 +2980,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       children: [
         // Live stats
         _LiveMgmtStats(event: event),
-        const SizedBox(height: 16),
+        AppSpacing.vLg,
 
         // Scan QR button (prominent, for selling/live events)
         if (event.status == EventStatus.selling_tickets ||
@@ -2991,20 +2992,18 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
               onPressed: () => context.push(
                 '/events/${event.id}/scan?title=${Uri.encodeComponent(event.title)}',
               ),
-              icon: const Icon(Icons.qr_code_scanner_rounded, size: 22),
+              icon: const Icon(Icons.qr_code_scanner_rounded, size: AppIconSize.lg),
               label: const Text('Scan Tickets',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.successColor,
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: AppRadius.lg),
                 elevation: 0,
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          AppSpacing.vLg,
         ],
 
         // Quick links grid
@@ -3018,7 +3017,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 onTap: () => context.push('/events/${event.id}/co-organizers'),
               ),
             ),
-            const SizedBox(width: 12),
+            AppSpacing.hMd,
             Expanded(
               child: _mgmtActionCard(
                 icon: Icons.storefront_rounded,
@@ -3029,14 +3028,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
             ),
           ],
         ),
-        const SizedBox(height: 14),
+        AppSpacing.vMd,
 
         // Inline discount attach/detach
         _EventDiscountDropdown(eventId: event.id),
 
         // Pending extension banner
         if (event.pendingExtension != null) ...[
-          const SizedBox(height: 14),
+          AppSpacing.vMd,
           _buildPendingExtensionBanner(event),
         ],
       ],
@@ -3057,14 +3056,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     bool buttonEnabled = true,
   }) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: AppSpacing.paddingLg,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [color, color.withValues(alpha: 0.8)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: AppRadius.xl,
         boxShadow: [
           BoxShadow(
             color: color.withValues(alpha: 0.3),
@@ -3079,28 +3078,28 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(10),
+                padding: AppSpacing.paddingMd,
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: AppRadius.md,
                 ),
-                child: Icon(icon, color: Colors.white, size: 24),
+                child: Icon(icon, color: Colors.white, size: AppIconSize.lg),
               ),
               const Spacer(),
             ],
           ),
-          const SizedBox(height: 14),
+          AppSpacing.vMd,
           Text(title,
               style: const TextStyle(
                   color: Colors.white,
                   fontSize: 17,
                   fontWeight: FontWeight.w800)),
-          const SizedBox(height: 4),
+          AppSpacing.vXs,
           Text(subtitle,
               style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.85),
                   fontSize: 13)),
-          const SizedBox(height: 16),
+          AppSpacing.vLg,
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
@@ -3111,8 +3110,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 disabledBackgroundColor: Colors.white.withValues(alpha: 0.5),
                 disabledForegroundColor: color.withValues(alpha: 0.4),
                 padding: const EdgeInsets.symmetric(vertical: 13),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(borderRadius: AppRadius.md),
                 elevation: 0,
               ),
               child: Text(buttonLabel,
@@ -3136,23 +3134,17 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: AppSpacing.paddingMd,
         decoration: BoxDecoration(
           color: AppTheme.cardOf(context),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: AppRadius.lg,
           border: Border.all(
             color: isSet
                 ? color.withValues(alpha: 0.3)
-                : Colors.grey.withValues(alpha: 0.2),
+                : AppTheme.dividerOf(context),
             width: 1.5,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          boxShadow: AppShadow.soft(AppTheme.isDark(context)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -3161,19 +3153,19 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(6),
+                  padding: const EdgeInsets.all(AppSpacing.xs),
                   decoration: BoxDecoration(
                     color: color.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: AppRadius.sm,
                   ),
-                  child: Icon(icon, size: 18, color: color),
+                  child: Icon(icon, size: AppIconSize.sm, color: color),
                 ),
                 const Spacer(),
                 if (isSet)
-                  Icon(Icons.check_circle, size: 16, color: color),
+                  Icon(Icons.check_circle, size: AppIconSize.sm, color: color),
               ],
             ),
-            const SizedBox(height: 8),
+            AppSpacing.vSm,
             Text(label,
                 style: TextStyle(
                     fontSize: 12,
@@ -3206,21 +3198,21 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
         InkWell(
           onTap: onTap,
           borderRadius: isLast
-              ? const BorderRadius.vertical(bottom: Radius.circular(16))
+              ? const BorderRadius.vertical(bottom: Radius.circular(AppRadius.lgValue))
               : BorderRadius.zero,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: 15),
             child: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(9),
                   decoration: BoxDecoration(
                     color: iconColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: AppRadius.md,
                   ),
-                  child: Icon(icon, size: 20, color: iconColor),
+                  child: Icon(icon, size: AppIconSize.md, color: iconColor),
                 ),
-                const SizedBox(width: 14),
+                AppSpacing.hMd,
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -3246,7 +3238,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(width: 8),
+                AppSpacing.hSm,
                 Icon(Icons.chevron_right_rounded,
                     size: 20, color: AppTheme.textSecondaryOf(context)),
               ],
@@ -3266,18 +3258,18 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     required VoidCallback onTap,
     String? subtitle,
   }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final dark = AppTheme.isDark(context);
     return Material(
-      color: isDark ? AppTheme.cardOf(context) : color.withValues(alpha: 0.06),
-      borderRadius: BorderRadius.circular(14),
+      color: dark ? AppTheme.cardOf(context) : color.withValues(alpha: 0.06),
+      borderRadius: AppRadius.lg,
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: AppRadius.lg,
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+          padding: AppSpacing.paddingLg,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: color.withValues(alpha: isDark ? 0.3 : 0.15)),
+            borderRadius: AppRadius.lg,
+            border: Border.all(color: color.withValues(alpha: dark ? 0.3 : 0.15)),
           ),
           child: Row(
             children: [
@@ -3285,11 +3277,11 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 padding: const EdgeInsets.all(9),
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: AppRadius.md,
                 ),
-                child: Icon(icon, size: 20, color: color),
+                child: Icon(icon, size: AppIconSize.md, color: color),
               ),
-              const SizedBox(width: 14),
+              AppSpacing.hMd,
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -3323,19 +3315,18 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     final ext = event.pendingExtension!;
     final user = context.read<AuthProvider>().user;
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: AppSpacing.paddingLg,
       decoration: BoxDecoration(
-        color: AppTheme.warningColor.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.warningColor.withOpacity(0.3)),
+        color: AppTheme.warningSurfaceOf(context),
+        borderRadius: AppRadius.md,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.schedule_rounded, size: 18, color: AppTheme.warningColor),
-              const SizedBox(width: 8),
+              Icon(Icons.schedule_rounded, size: AppIconSize.sm, color: AppTheme.warningColor),
+              AppSpacing.hSm,
               Expanded(
                 child: Text(
                   'Extension Pending Admin Approval',
@@ -3363,7 +3354,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                     style: FilledButton.styleFrom(backgroundColor: AppTheme.successColor),
                   ),
                 ),
-                const SizedBox(width: 8),
+                AppSpacing.hSm,
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: () => _decideExtension(event.id, 'reject'),
@@ -3425,8 +3416,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      shape: RoundedRectangleBorder(
+        borderRadius: AppRadius.topXl,
       ),
       builder: (ctx) {
         return StatefulBuilder(builder: (ctx, setSheetState) {
@@ -3449,23 +3440,23 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
             builder: (_, scrollCtrl) {
               return Padding(
                 padding: EdgeInsets.only(
-                  left: 20, right: 20, top: 16,
-                  bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+                  left: AppSpacing.xl, right: AppSpacing.xl, top: AppSpacing.lg,
+                  bottom: MediaQuery.of(ctx).viewInsets.bottom + AppSpacing.lg,
                 ),
                 child: Column(
                   children: [
                     Container(
                       width: 36, height: 4,
                       decoration: BoxDecoration(
-                        color: Colors.grey[600],
-                        borderRadius: BorderRadius.circular(2),
+                        color: AppTheme.dividerOf(ctx),
+                        borderRadius: AppRadius.sm,
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    AppSpacing.vLg,
                     Row(
                       children: [
                         Icon(Icons.calendar_month_rounded, color: AppTheme.accentColor),
-                        const SizedBox(width: 10),
+                        AppSpacing.hSm,
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -3491,7 +3482,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    AppSpacing.vMd,
                     Expanded(
                       child: loading
                           ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
@@ -3502,14 +3493,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                               : ListView.separated(
                                   controller: scrollCtrl,
                                   itemCount: items.length,
-                                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                                  separatorBuilder: (_, __) => AppSpacing.vSm,
                                   itemBuilder: (_, i) {
                                     final item = items[i];
                                     return Container(
-                                      padding: const EdgeInsets.all(14),
+                                      padding: AppSpacing.paddingMd,
                                       decoration: BoxDecoration(
                                         color: AppTheme.inputFillOf(ctx),
-                                        borderRadius: BorderRadius.circular(12),
+                                        borderRadius: AppRadius.md,
                                         border: Border.all(color: AppTheme.dividerOf(ctx)),
                                       ),
                                       child: Row(
@@ -3521,14 +3512,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                                 Text(item['title'] ?? '',
                                                     style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14,
                                                         color: AppTheme.textPrimaryOf(ctx))),
-                                                const SizedBox(height: 4),
+                                                AppSpacing.vXs,
                                                 Text(
                                                   '${item['date'] ?? ''} • ${item['start_time'] ?? ''} – ${item['end_time'] ?? ''}',
-                                                  style: TextStyle(fontSize: 12, color: Colors.blue[300]),
+                                                  style: TextStyle(fontSize: 12, color: AppTheme.accentColor),
                                                 ),
                                                 if (item['description'] != null && (item['description'] as String).isNotEmpty)
                                                   Padding(
-                                                    padding: const EdgeInsets.only(top: 4),
+                                                    padding: EdgeInsets.only(top: AppSpacing.xs),
                                                     child: Text(item['description'],
                                                         style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(ctx))),
                                                   ),
@@ -3543,7 +3534,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                             }),
                                           ),
                                           IconButton(
-                                            icon: Icon(Icons.delete_rounded, size: 18, color: AppTheme.errorColor),
+                                            icon: Icon(Icons.delete_rounded, size: AppIconSize.sm, color: AppTheme.errorColor),
                                             onPressed: () async {
                                               try {
                                                 await api.deleteScheduleItem(event.id, item['id']);
@@ -3614,11 +3605,11 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                   if (eventStart != null)
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.all(10),
-                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: AppSpacing.paddingMd,
+                      margin: EdgeInsets.only(bottom: AppSpacing.md),
                       decoration: BoxDecoration(
                         color: AppTheme.accentColor.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: AppRadius.sm,
                       ),
                       child: Text(
                         'Event window: ${DateFormat('MMM d').format(firstDate)}'
@@ -3631,18 +3622,18 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                     controller: titleCtrl,
                     decoration: const InputDecoration(labelText: 'Title'),
                   ),
-                  const SizedBox(height: 12),
+                  AppSpacing.vMd,
                   TextField(
                     controller: descCtrl,
                     decoration: const InputDecoration(labelText: 'Description (optional)'),
                     maxLines: 2,
                   ),
-                  const SizedBox(height: 12),
+                  AppSpacing.vMd,
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: Icon(Icons.calendar_today, color: AppTheme.accentColor),
                     title: Text(fmtDate(date),
-                        style: TextStyle(color: date != null ? AppTheme.textPrimaryOf(ctx) : Colors.grey)),
+                        style: TextStyle(color: date != null ? AppTheme.textPrimaryOf(ctx) : AppTheme.textSecondaryOf(ctx))),
                     onTap: () async {
                       final picked = await showDatePicker(
                         context: ctx,
@@ -3658,7 +3649,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                       Expanded(
                         child: ListTile(
                           contentPadding: EdgeInsets.zero,
-                          leading: Icon(Icons.play_arrow_rounded, size: 20, color: Colors.teal),
+                          leading: Icon(Icons.play_arrow_rounded, size: AppIconSize.md, color: Colors.teal),
                           title: Text(fmtTime(startTime), style: const TextStyle(fontSize: 14)),
                           subtitle: const Text('Start', style: TextStyle(fontSize: 11)),
                           onTap: () async {
@@ -3670,7 +3661,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                       Expanded(
                         child: ListTile(
                           contentPadding: EdgeInsets.zero,
-                          leading: Icon(Icons.stop_rounded, size: 20, color: Colors.redAccent),
+                          leading: Icon(Icons.stop_rounded, size: AppIconSize.md, color: Colors.redAccent),
                           title: Text(fmtTime(endTime), style: const TextStyle(fontSize: 14)),
                           subtitle: const Text('End', style: TextStyle(fontSize: 11)),
                           onTap: () async {
@@ -3733,8 +3724,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      shape: RoundedRectangleBorder(
+        borderRadius: AppRadius.topXl,
       ),
       builder: (ctx) {
         return StatefulBuilder(builder: (ctx, setSheetState) {
@@ -3757,29 +3748,29 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
             builder: (_, scrollCtrl) {
               return Padding(
                 padding: EdgeInsets.only(
-                  left: 20, right: 20, top: 16,
-                  bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+                  left: AppSpacing.xl, right: AppSpacing.xl, top: AppSpacing.lg,
+                  bottom: MediaQuery.of(ctx).viewInsets.bottom + AppSpacing.lg,
                 ),
                 child: Column(
                   children: [
                     Container(
                       width: 36, height: 4,
                       decoration: BoxDecoration(
-                        color: Colors.grey[600],
-                        borderRadius: BorderRadius.circular(2),
+                        color: AppTheme.dividerOf(ctx),
+                        borderRadius: AppRadius.sm,
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    AppSpacing.vLg,
                     Row(
                       children: [
                         Icon(Icons.flag_rounded, color: Colors.orange),
-                        const SizedBox(width: 10),
+                        AppSpacing.hSm,
                         Text('Manage Milestones',
                             style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700,
                                 color: AppTheme.textPrimaryOf(ctx))),
                         const Spacer(),
                         IconButton(
-                          icon: Icon(Icons.add_circle_rounded, color: Colors.orange, size: 28),
+                          icon: Icon(Icons.add_circle_rounded, color: Colors.orange, size: AppIconSize.xl),
                           onPressed: () => _showMilestoneEditor(ctx, api, event.id, null, (newItem) {
                             setSheetState(() => items.add(newItem));
                             _refreshEvent();
@@ -3787,7 +3778,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    AppSpacing.vMd,
                     Expanded(
                       child: loading
                           ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
@@ -3798,14 +3789,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                               : ListView.separated(
                                   controller: scrollCtrl,
                                   itemCount: items.length,
-                                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                                  separatorBuilder: (_, __) => AppSpacing.vSm,
                                   itemBuilder: (_, i) {
                                     final item = items[i];
                                     return Container(
-                                      padding: const EdgeInsets.all(14),
+                                      padding: AppSpacing.paddingMd,
                                       decoration: BoxDecoration(
                                         color: AppTheme.inputFillOf(ctx),
-                                        borderRadius: BorderRadius.circular(12),
+                                        borderRadius: AppRadius.md,
                                         border: Border.all(color: AppTheme.dividerOf(ctx)),
                                       ),
                                       child: Row(
@@ -3814,14 +3805,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                             width: 42, height: 42,
                                             decoration: BoxDecoration(
                                               color: Colors.orange.withValues(alpha: 0.15),
-                                              borderRadius: BorderRadius.circular(10),
+                                              borderRadius: AppRadius.sm,
                                             ),
                                             child: Center(
                                               child: Text('${item['unlock_percent'] ?? 0}%',
                                                   style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Colors.orange[400])),
                                             ),
                                           ),
-                                          const SizedBox(width: 12),
+                                          AppSpacing.hMd,
                                           Expanded(
                                             child: Column(
                                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -3831,7 +3822,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                                         color: AppTheme.textPrimaryOf(ctx))),
                                                 if (item['benefit'] != null && (item['benefit'] as String).isNotEmpty)
                                                   Padding(
-                                                    padding: const EdgeInsets.only(top: 2),
+                                                    padding: EdgeInsets.only(top: AppSpacing.xs),
                                                     child: Text(item['benefit'],
                                                         style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(ctx))),
                                                   ),
@@ -3839,14 +3830,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                             ),
                                           ),
                                           IconButton(
-                                            icon: Icon(Icons.edit_rounded, size: 18, color: AppTheme.accentColor),
+                                            icon: Icon(Icons.edit_rounded, size: AppIconSize.sm, color: AppTheme.accentColor),
                                             onPressed: () => _showMilestoneEditor(ctx, api, event.id, item, (updated) {
                                               setSheetState(() => items[i] = updated);
                                               _refreshEvent();
                                             }),
                                           ),
                                           IconButton(
-                                            icon: Icon(Icons.delete_rounded, size: 18, color: AppTheme.errorColor),
+                                            icon: Icon(Icons.delete_rounded, size: AppIconSize.sm, color: AppTheme.errorColor),
                                             onPressed: () async {
                                               try {
                                                 await api.deleteMilestone(event.id, item['id']);
@@ -3895,17 +3886,17 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                     controller: titleCtrl,
                     decoration: const InputDecoration(labelText: 'Title'),
                   ),
-                  const SizedBox(height: 12),
+                  AppSpacing.vMd,
                   TextField(
                     controller: benefitCtrl,
                     decoration: const InputDecoration(labelText: 'Benefit / what unlocks'),
                     maxLines: 2,
                   ),
-                  const SizedBox(height: 16),
+                  AppSpacing.vLg,
                   Row(
                     children: [
                       Text('Unlock at:', style: TextStyle(color: AppTheme.textSecondaryOf(ctx))),
-                      const SizedBox(width: 8),
+                      AppSpacing.hSm,
                       Text('$unlockPercent%',
                           style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: Colors.orange[400])),
                     ],
@@ -3978,15 +3969,15 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  padding: AppSpacing.paddingMd,
                   decoration: BoxDecoration(
                     color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: AppRadius.sm,
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.info_outline, size: 16, color: Colors.blue.shade700),
-                      const SizedBox(width: 8),
+                      Icon(Icons.info_outline, size: AppIconSize.sm, color: Colors.blue.shade700),
+                      AppSpacing.hSm,
                       Expanded(
                         child: Text(
                           'This will send a request to admin for approval.',
@@ -3996,7 +3987,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
+                AppSpacing.vLg,
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.calendar_today),
@@ -4006,7 +3997,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                         : 'Pick new funding deadline',
                     style: TextStyle(
                       fontSize: 14,
-                      color: pickedDeadline != null ? AppTheme.textPrimaryOf(ctx) : Colors.grey,
+                      color: pickedDeadline != null ? AppTheme.textPrimaryOf(ctx) : AppTheme.textSecondaryOf(ctx),
                     ),
                   ),
                   trailing: const Icon(Icons.edit_calendar),
@@ -4032,7 +4023,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                     }
                   },
                 ),
-                const SizedBox(height: 12),
+                AppSpacing.vMd,
                 TextField(
                   controller: goalCtrl,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -4108,15 +4099,15 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(10),
+                      padding: AppSpacing.paddingMd,
                       decoration: BoxDecoration(
                         color: Colors.green.shade50,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: AppRadius.sm,
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.check_circle_outline, size: 16, color: Colors.green.shade700),
-                          const SizedBox(width: 8),
+                          Icon(Icons.check_circle_outline, size: AppIconSize.sm, color: Colors.green.shade700),
+                          AppSpacing.hSm,
                           Expanded(
                             child: Text(
                               'This applies immediately — no admin approval needed.',
@@ -4126,7 +4117,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    AppSpacing.vLg,
                     // ── Start time ──
                     ListTile(
                       contentPadding: EdgeInsets.zero,
@@ -4137,7 +4128,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                             : 'Pick start time',
                         style: TextStyle(
                           fontSize: 14,
-                          color: pickedStart != null ? AppTheme.textPrimaryOf(ctx) : Colors.grey,
+                          color: pickedStart != null ? AppTheme.textPrimaryOf(ctx) : AppTheme.textSecondaryOf(ctx),
                         ),
                       ),
                       subtitle: const Text('Event start', style: TextStyle(fontSize: 11)),
@@ -4174,7 +4165,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                             : 'Pick end time',
                         style: TextStyle(
                           fontSize: 14,
-                          color: pickedEnd != null ? AppTheme.textPrimaryOf(ctx) : Colors.grey,
+                          color: pickedEnd != null ? AppTheme.textPrimaryOf(ctx) : AppTheme.textSecondaryOf(ctx),
                         ),
                       ),
                       subtitle: const Text('Event end', style: TextStyle(fontSize: 11)),
@@ -4202,17 +4193,17 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                         }
                       },
                     ),
-                    const SizedBox(height: 8),
+                    AppSpacing.vSm,
                     Container(
-                      padding: const EdgeInsets.all(10),
+                      padding: AppSpacing.paddingMd,
                       decoration: BoxDecoration(
                         color: Colors.blue.shade50,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: AppRadius.sm,
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.info_outline, size: 16, color: Colors.blue.shade700),
-                          const SizedBox(width: 8),
+                          Icon(Icons.info_outline, size: AppIconSize.sm, color: Colors.blue.shade700),
+                          AppSpacing.hSm,
                           Expanded(
                             child: Text(
                               'After setting dates, you can start selling tickets from the organizer actions.',
@@ -4296,33 +4287,33 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 children: [
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(20),
+                    padding: AppSpacing.paddingXl,
                     decoration: BoxDecoration(
                       color: AppTheme.cardOf(context),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: AppTheme.dividerOf(context)),
+                      borderRadius: AppRadius.lg,
+                      boxShadow: AppShadow.soft(AppTheme.isDark(context)),
                     ),
                     child: Column(
                       children: [
-                        Icon(Icons.layers_clear_rounded, size: 32, color: AppTheme.textSecondaryOf(context)),
-                        const SizedBox(height: 8),
+                        Icon(Icons.layers_clear_rounded, size: AppIconSize.xxl, color: AppTheme.textSecondaryOf(context)),
+                        AppSpacing.vSm,
                         Text('No tiers configured',
                             style: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 14)),
                       ],
                     ),
                   ),
                   if (canModify) ...[
-                    const SizedBox(height: 12),
+                    AppSpacing.vMd,
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
                         onPressed: () => _showAddTierDialog(event.id),
-                        icon: const Icon(Icons.add_rounded, size: 18),
+                        icon: const Icon(Icons.add_rounded, size: AppIconSize.sm),
                         label: const Text('Add Tier'),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.deepPurple,
                           side: BorderSide(color: Colors.deepPurple.withValues(alpha: 0.4)),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(borderRadius: AppRadius.md),
                           padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
                       ),
@@ -4336,14 +4327,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 Container(
               decoration: BoxDecoration(
                 color: AppTheme.cardOf(context),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
-                    blurRadius: 12,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+                borderRadius: AppRadius.lg,
+                boxShadow: AppShadow.card(AppTheme.isDark(context)),
               ),
               child: Column(
                 children: tiers.asMap().entries.map((entry) {
@@ -4358,18 +4343,18 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                   return Column(
                     children: [
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
                         child: Row(
                           children: [
                             Container(
                               padding: const EdgeInsets.all(9),
                               decoration: BoxDecoration(
                                 color: Colors.deepPurple.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(10),
+                                borderRadius: AppRadius.md,
                               ),
-                              child: const Icon(Icons.confirmation_number_rounded, size: 20, color: Colors.deepPurple),
+                              child: const Icon(Icons.confirmation_number_rounded, size: AppIconSize.md, color: Colors.deepPurple),
                             ),
-                            const SizedBox(width: 14),
+                            AppSpacing.hMd,
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -4425,17 +4410,17 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
               ),
             ),
                 if (canModify) ...[
-                  const SizedBox(height: 12),
+                  AppSpacing.vMd,
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
                       onPressed: () => _showAddTierDialog(event.id),
-                      icon: const Icon(Icons.add_rounded, size: 18),
+                      icon: const Icon(Icons.add_rounded, size: AppIconSize.sm),
                       label: const Text('Add Tier'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.deepPurple,
                         side: BorderSide(color: Colors.deepPurple.withValues(alpha: 0.4)),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(borderRadius: AppRadius.md),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
                     ),
@@ -4467,13 +4452,13 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
               controller: nameCtrl,
               decoration: const InputDecoration(labelText: 'Tier Name'),
             ),
-            const SizedBox(height: 8),
+            AppSpacing.vSm,
             TextField(
               controller: descCtrl,
               decoration: const InputDecoration(labelText: 'Description'),
               maxLines: 2,
             ),
-            const SizedBox(height: 8),
+            AppSpacing.vSm,
             TextField(
               controller: priceCtrl,
               decoration: const InputDecoration(
@@ -4531,13 +4516,13 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
               controller: nameCtrl,
               decoration: const InputDecoration(labelText: 'Tier Name'),
             ),
-            const SizedBox(height: 8),
+            AppSpacing.vSm,
             TextField(
               controller: descCtrl,
               decoration: const InputDecoration(labelText: 'Description'),
               maxLines: 2,
             ),
-            const SizedBox(height: 8),
+            AppSpacing.vSm,
             TextField(
               controller: priceCtrl,
               decoration: const InputDecoration(
@@ -4751,7 +4736,7 @@ class _LiveMgmtStatsState extends State<_LiveMgmtStats> {
                   onTap: () => context.push('/events/$_eventId/ticket-sales'),
                 ),
               ),
-              const SizedBox(width: 8),
+              AppSpacing.hSm,
               Expanded(
                 child: _statChip(
                   icon: Icons.qr_code_scanner_rounded,
@@ -4789,7 +4774,7 @@ class _LiveMgmtStatsState extends State<_LiveMgmtStats> {
                   onTap: () => context.push('/events/$_eventId/ticket-sales'),
                 ),
               ),
-              const SizedBox(width: 8),
+              AppSpacing.hSm,
               Expanded(
                 child: _statChip(
                   icon: Icons.qr_code_scanner_rounded,
@@ -4811,7 +4796,7 @@ class _LiveMgmtStatsState extends State<_LiveMgmtStats> {
                   onTap: () => context.push('/events/$_eventId/waitlist'),
                 ),
               ),
-              const SizedBox(width: 8),
+              AppSpacing.hSm,
               Expanded(
                 child: _statChip(
                   icon: Icons.event_seat_rounded,
@@ -4860,7 +4845,7 @@ class _LiveMgmtStatsState extends State<_LiveMgmtStats> {
             size: 18,
             color: textColor,
           ),
-          const SizedBox(width: 8),
+          AppSpacing.hSm,
           Text(
             label,
             style: TextStyle(
@@ -4932,7 +4917,7 @@ class _LiveMgmtStatsState extends State<_LiveMgmtStats> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(icon, size: 20, color: chipColor),
-              const SizedBox(width: 8),
+              AppSpacing.hSm,
               Flexible(
                 child: Text(
                   label,
@@ -5043,14 +5028,14 @@ class _EventDiscountDropdownState extends State<_EventDiscountDropdown> {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.white10),
       ),
-      padding: const EdgeInsets.all(14),
+      padding: AppSpacing.paddingMd,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               const Icon(Icons.discount_rounded, color: Colors.deepPurple, size: 20),
-              const SizedBox(width: 8),
+              AppSpacing.hSm,
               const Text('Discounts', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15)),
               const Spacer(),
               if (_loading)
@@ -5129,7 +5114,7 @@ class _EventDiscountDropdownState extends State<_EventDiscountDropdown> {
               filled: true,
               fillColor: Colors.white.withOpacity(0.06),
               contentPadding: const EdgeInsets.symmetric(vertical: 10),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+              border: OutlineInputBorder(borderRadius: AppRadius.sm, borderSide: BorderSide.none),
             ),
             onChanged: (v) => setState(() => _search = v.toLowerCase()),
           ),
@@ -5297,12 +5282,12 @@ class _TicketPriceBreakdownState extends State<_TicketPriceBreakdown> {
     final finalPrice = _preview!['final_price_cents'] ?? 0;
 
     return Padding(
-      padding: const EdgeInsets.only(left: 28, top: 8),
+      padding: const EdgeInsets.only(left: 28, top: AppSpacing.sm),
       child: Container(
-        padding: const EdgeInsets.all(10),
+        padding: AppSpacing.paddingSm,
         decoration: BoxDecoration(
           color: Colors.teal.shade50,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: AppRadius.sm,
           border: Border.all(color: Colors.teal.shade200),
         ),
         child: Column(
@@ -5403,18 +5388,18 @@ class _CustomerDiscountsSectionState extends State<_CustomerDiscountsSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 20),
+        AppSpacing.vXl,
         Row(
           children: [
-            Icon(Icons.local_offer_rounded, size: 20, color: Colors.deepPurple),
-            const SizedBox(width: 8),
+            Icon(Icons.local_offer_rounded, size: AppIconSize.md, color: Colors.deepPurple),
+            AppSpacing.hSm,
             Expanded(
               child: Text('Your Discounts',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
             ),
             TextButton.icon(
               onPressed: () => context.push('/events/${widget.eventId}/discounts'),
-              icon: const Icon(Icons.search, size: 16),
+              icon: const Icon(Icons.search, size: AppIconSize.sm),
               label: const Text('Browse', style: TextStyle(fontSize: 12)),
               style: TextButton.styleFrom(
                 foregroundColor: Colors.deepPurple,
@@ -5424,18 +5409,18 @@ class _CustomerDiscountsSectionState extends State<_CustomerDiscountsSection> {
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        AppSpacing.vSm,
         if (_discounts.isEmpty)
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
             decoration: BoxDecoration(
               color: Colors.deepPurple.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: AppRadius.md,
             ),
             child: Row(
               children: [
-                Icon(Icons.info_outline, size: 16, color: Colors.grey[500]),
-                const SizedBox(width: 10),
+                Icon(Icons.info_outline, size: AppIconSize.sm, color: AppTheme.textSecondaryOf(context)),
+                AppSpacing.hSm,
                 Expanded(
                   child: Text(
                     'No discounts applied yet. Tap Browse to see available discounts you can claim.',
@@ -5447,16 +5432,16 @@ class _CustomerDiscountsSectionState extends State<_CustomerDiscountsSection> {
           )
         else
           ..._discounts.map((d) => Container(
-                margin: const EdgeInsets.only(bottom: 6),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                margin: const EdgeInsets.only(bottom: AppSpacing.xs),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
                 decoration: BoxDecoration(
                   color: Colors.deepPurple.withOpacity(0.06),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: AppRadius.md,
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.discount_rounded, size: 16, color: Colors.deepPurple),
-                    const SizedBox(width: 10),
+                    const Icon(Icons.discount_rounded, size: AppIconSize.sm, color: Colors.deepPurple),
+                    AppSpacing.hSm,
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -5557,18 +5542,18 @@ class _ReactionBarState extends State<_ReactionBar> {
       // Admin: read-only counters (both like + dislike visible)
       return Row(
         children: [
-          Icon(Icons.thumb_up, size: 18, color: AppTheme.accentColor),
-          const SizedBox(width: 6),
+          Icon(Icons.thumb_up, size: AppIconSize.sm, color: AppTheme.accentColor),
+          AppSpacing.hSm,
           Text(
             '$_likeCount like${_likeCount == 1 ? '' : 's'}',
             style: TextStyle(fontWeight: FontWeight.w600, color: AppTheme.textSecondaryOf(context)),
           ),
-          const SizedBox(width: 20),
-          Icon(Icons.thumb_down, size: 18, color: Colors.grey[500]),
-          const SizedBox(width: 6),
+          AppSpacing.hXl,
+          Icon(Icons.thumb_down, size: AppIconSize.sm, color: AppTheme.textSecondaryOf(context)),
+          AppSpacing.hSm,
           Text(
             '$_dislikeCount dislike${_dislikeCount == 1 ? '' : 's'}',
-            style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey[500]),
+            style: TextStyle(fontWeight: FontWeight.w600, color: AppTheme.textSecondaryOf(context)),
           ),
         ],
       );
@@ -5582,27 +5567,27 @@ class _ReactionBarState extends State<_ReactionBar> {
           color: _myReaction == 'like'
               ? AppTheme.accentColor.withValues(alpha: 0.1)
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: AppRadius.xl,
           child: InkWell(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: AppRadius.xl,
             onTap: _reacting ? null : () => _react('like'),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: AppSpacing.paddingMd,
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
                     _myReaction == 'like' ? Icons.thumb_up : Icons.thumb_up_outlined,
-                    size: 20,
-                    color: _myReaction == 'like' ? AppTheme.accentColor : Colors.grey[600],
+                    size: AppIconSize.md,
+                    color: _myReaction == 'like' ? AppTheme.accentColor : AppTheme.textSecondaryOf(context),
                   ),
-                  const SizedBox(width: 6),
+                  AppSpacing.hSm,
                   Text(
                     '$_likeCount',
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 14,
-                      color: _myReaction == 'like' ? AppTheme.accentColor : Colors.grey[700],
+                      color: _myReaction == 'like' ? AppTheme.accentColor : AppTheme.textSecondaryOf(context),
                     ),
                   ),
                 ],
@@ -5610,25 +5595,25 @@ class _ReactionBarState extends State<_ReactionBar> {
             ),
           ),
         ),
-        const SizedBox(width: 8),
+        AppSpacing.hSm,
         // Dislike button
         Material(
           color: _myReaction == 'dislike'
               ? AppTheme.errorColor.withValues(alpha: 0.1)
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: AppRadius.xl,
           child: InkWell(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: AppRadius.xl,
             onTap: _reacting ? null : () => _react('dislike'),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: AppSpacing.paddingMd,
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
                     _myReaction == 'dislike' ? Icons.thumb_down : Icons.thumb_down_outlined,
-                    size: 20,
-                    color: _myReaction == 'dislike' ? AppTheme.errorColor : Colors.grey[600],
+                    size: AppIconSize.md,
+                    color: _myReaction == 'dislike' ? AppTheme.errorColor : AppTheme.textSecondaryOf(context),
                   ),
                 ],
               ),
@@ -5747,7 +5732,7 @@ class _MilestoneTimelineState extends State<_MilestoneTimeline> {
     if (!_featureEnabled) return const SizedBox.shrink();
     if (_loading) {
       return Container(
-        padding: const EdgeInsets.all(20),
+        padding: AppSpacing.paddingXl,
         child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
       );
     }
@@ -5760,10 +5745,10 @@ class _MilestoneTimelineState extends State<_MilestoneTimeline> {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: AppSpacing.paddingLg,
       decoration: BoxDecoration(
         color: AppTheme.cardOf(context),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: AppRadius.lg,
         border: Border.all(color: AppTheme.dividerOf(context)),
       ),
       child: Column(
@@ -5773,20 +5758,20 @@ class _MilestoneTimelineState extends State<_MilestoneTimeline> {
           Row(
             children: [
               Icon(Icons.emoji_events_rounded,
-                  size: 18, color: Colors.amber[700]),
-              const SizedBox(width: 8),
+                  size: AppIconSize.sm, color: Colors.amber[700]),
+              AppSpacing.hSm,
               Text(
                 'Funding Milestones',
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
-                  color: Colors.grey[500],
+                  color: AppTheme.textSecondaryOf(context),
                   letterSpacing: 0.5,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          AppSpacing.vLg,
 
           // Timeline
           ..._milestones.asMap().entries.map((entry) {
@@ -5817,16 +5802,16 @@ class _MilestoneTimelineState extends State<_MilestoneTimeline> {
                             border: Border.all(
                               color: isUnlocked
                                   ? AppTheme.accentColor
-                                  : Colors.grey[400]!,
+                                  : AppTheme.textSecondaryOf(context),
                               width: 2,
                             ),
                           ),
                           child: Center(
                             child: isUnlocked
-                                ? const Icon(Icons.check_rounded,
-                                    size: 16, color: Colors.white)
+                                ? Icon(Icons.check_rounded,
+                                    size: AppIconSize.sm, color: Colors.white)
                                 : Icon(Icons.lock_rounded,
-                                    size: 14, color: Colors.grey[500]),
+                                    size: AppIconSize.sm, color: AppTheme.textSecondaryOf(context)),
                           ),
                         ),
                         // Connecting line
@@ -5843,18 +5828,18 @@ class _MilestoneTimelineState extends State<_MilestoneTimeline> {
                     ),
                   ),
 
-                  const SizedBox(width: 8),
+                  AppSpacing.hSm,
 
                   // Milestone card
                   Expanded(
                     child: Container(
-                      margin: EdgeInsets.only(bottom: isLast ? 0 : 16),
-                      padding: const EdgeInsets.all(12),
+                      margin: EdgeInsets.only(bottom: isLast ? 0 : AppSpacing.lg),
+                      padding: AppSpacing.paddingMd,
                       decoration: BoxDecoration(
                         color: isUnlocked
                             ? AppTheme.accentColor.withValues(alpha: 0.06)
                             : AppTheme.surfaceOf(context),
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: AppRadius.md,
                         border: Border.all(
                           color: isUnlocked
                               ? AppTheme.accentColor.withValues(alpha: 0.3)
@@ -5879,13 +5864,13 @@ class _MilestoneTimelineState extends State<_MilestoneTimeline> {
                               ),
                               const Spacer(),
                               Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 3),
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
                                 decoration: BoxDecoration(
                                   color: isUnlocked
                                       ? Colors.green.withValues(alpha: 0.12)
-                                      : Colors.grey.withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(6),
+                                      : AppTheme.textSecondaryOf(context).withValues(alpha: 0.12),
+                                  borderRadius: AppRadius.sm,
                                 ),
                                 child: Text(
                                   isUnlocked ? 'UNLOCKED' : 'LOCKED',
@@ -5894,14 +5879,14 @@ class _MilestoneTimelineState extends State<_MilestoneTimeline> {
                                     fontWeight: FontWeight.w700,
                                     color: isUnlocked
                                         ? Colors.green[700]
-                                        : Colors.grey[600],
+                                        : AppTheme.textSecondaryOf(context),
                                     letterSpacing: 0.5,
                                   ),
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 6),
+                          AppSpacing.vSm,
 
                           // Title
                           Text(
@@ -5916,7 +5901,7 @@ class _MilestoneTimelineState extends State<_MilestoneTimeline> {
                           // Benefit description
                           if (ms.benefitDescription != null &&
                               ms.benefitDescription!.isNotEmpty) ...[
-                            const SizedBox(height: 4),
+                            AppSpacing.vXs,
                             Text(
                               ms.benefitDescription!,
                               style: TextStyle(
@@ -5926,7 +5911,7 @@ class _MilestoneTimelineState extends State<_MilestoneTimeline> {
                             ),
                           ],
 
-                          const SizedBox(height: 10),
+                          AppSpacing.vMd,
 
                           // Like/dislike row
                           Row(
@@ -5940,7 +5925,7 @@ class _MilestoneTimelineState extends State<_MilestoneTimeline> {
                                 activeColor: AppTheme.accentColor,
                                 onTap: () => _react(ms.id, 'like'),
                               ),
-                              const SizedBox(width: 8),
+                              AppSpacing.hSm,
                               _milestoneReactionBtn(
                                 icon: myReaction == 'dislike'
                                     ? Icons.thumb_down
@@ -5976,9 +5961,9 @@ class _MilestoneTimelineState extends State<_MilestoneTimeline> {
       color: isActive
           ? activeColor.withValues(alpha: 0.1)
           : Colors.transparent,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: AppRadius.lg,
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: AppRadius.lg,
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -5986,15 +5971,15 @@ class _MilestoneTimelineState extends State<_MilestoneTimeline> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icon,
-                  size: 16,
-                  color: isActive ? activeColor : Colors.grey[500]),
-              const SizedBox(width: 4),
+                  size: AppIconSize.sm,
+                  color: isActive ? activeColor : AppTheme.textSecondaryOf(context)),
+              AppSpacing.hXs,
               Text(
                 '$count',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color: isActive ? activeColor : Colors.grey[600],
+                  color: isActive ? activeColor : AppTheme.textSecondaryOf(context),
                 ),
               ),
             ],
@@ -6113,17 +6098,17 @@ class _FundingCardState extends State<_FundingCard> {
                 children: [
                   if (!widget.isRegistered)
                     Container(
-                      padding: const EdgeInsets.all(10),
-                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: AppSpacing.paddingMd,
+                      margin: EdgeInsets.only(bottom: AppSpacing.md),
                       decoration: BoxDecoration(
                         color: AppTheme.warningColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: AppRadius.sm,
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.info_outline,
-                              size: 18, color: AppTheme.warningColor),
-                          const SizedBox(width: 8),
+                          Icon(Icons.info_outline,
+                              size: AppIconSize.sm, color: AppTheme.warningColor),
+                          AppSpacing.hSm,
                           Expanded(
                             child: Text(
                               'You are not registered. Your pledge will be a guest pledge (non-refundable) and you cannot reserve spots.',
@@ -6145,18 +6130,18 @@ class _FundingCardState extends State<_FundingCard> {
                     ),
                   ),
                   if (maxPerUser > 0 && widget.isRegistered) ...[
-                    const SizedBox(height: 16),
+                    AppSpacing.vLg,
                     Text('Reserve Ticket Spots',
                         style: TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 14,
                             color: AppTheme.textPrimaryOf(context))),
-                    const SizedBox(height: 4),
+                    AppSpacing.vXs,
                     Text(
                       'Each spot costs min \$$minPledgeDollars. Up to $maxPerUser per user.',
                       style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context)),
                     ),
-                    const SizedBox(height: 8),
+                    AppSpacing.vSm,
                     Row(
                       children: [
                         IconButton(
@@ -6164,7 +6149,7 @@ class _FundingCardState extends State<_FundingCard> {
                               ? () => setDialogState(() => selectedSpots--)
                               : null,
                           icon: const Icon(Icons.remove_circle_outline),
-                          iconSize: 28,
+                          iconSize: AppIconSize.xl,
                         ),
                         Text('$selectedSpots',
                             style: const TextStyle(
@@ -6174,9 +6159,9 @@ class _FundingCardState extends State<_FundingCard> {
                               ? () => setDialogState(() => selectedSpots++)
                               : null,
                           icon: const Icon(Icons.add_circle_outline),
-                          iconSize: 28,
+                          iconSize: AppIconSize.xl,
                         ),
-                        const SizedBox(width: 8),
+                        AppSpacing.hSm,
                         Text('spot(s)',
                             style: TextStyle(
                                 fontSize: 13, color: AppTheme.textSecondaryOf(context))),
@@ -6184,10 +6169,10 @@ class _FundingCardState extends State<_FundingCard> {
                     ),
                     if (_totalReservedSpots > 0)
                       Padding(
-                        padding: const EdgeInsets.only(top: 4),
+                        padding: EdgeInsets.only(top: AppSpacing.xs),
                         child: Text(
                           '$_totalReservedSpots spot(s) already reserved for this event',
-                          style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                          style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context)),
                         ),
                       ),
                   ],
@@ -6243,8 +6228,8 @@ class _FundingCardState extends State<_FundingCard> {
         return AlertDialog(
           title: Row(
             children: [
-              const Icon(Icons.receipt_long, size: 22, color: Colors.deepPurple),
-              const SizedBox(width: 8),
+              Icon(Icons.receipt_long, size: AppIconSize.lg, color: Colors.deepPurple),
+              AppSpacing.hSm,
               const Text('Pledge Invoice'),
             ],
           ),
@@ -6255,10 +6240,10 @@ class _FundingCardState extends State<_FundingCard> {
               children: [
                 if (previewError != null)
                   Container(
-                    padding: const EdgeInsets.all(10),
+                    padding: AppSpacing.paddingMd,
                     decoration: BoxDecoration(
                       color: Colors.red.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: AppRadius.sm,
                     ),
                     child: Text(previewError, style: const TextStyle(color: Colors.red, fontSize: 12)),
                   )
@@ -6281,15 +6266,15 @@ class _FundingCardState extends State<_FundingCard> {
                   if (reservedSpots > 0) ...[
                     const Divider(height: 20),
                     Container(
-                      padding: const EdgeInsets.all(10),
+                      padding: AppSpacing.paddingMd,
                       decoration: BoxDecoration(
                         color: Colors.teal.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: AppRadius.sm,
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.event_seat, size: 16, color: Colors.teal),
-                          const SizedBox(width: 8),
+                          Icon(Icons.event_seat, size: AppIconSize.sm, color: Colors.teal),
+                          AppSpacing.hSm,
                           Expanded(
                             child: Text(
                               '$reservedSpots spot(s) will be reserved for your future ticket purchase.',
@@ -6330,19 +6315,19 @@ class _FundingCardState extends State<_FundingCard> {
 
   Widget _invoiceRow(String label, String value, {bool subtle = false}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: EdgeInsets.symmetric(vertical: AppSpacing.xs),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label,
               style: TextStyle(
                   fontSize: 13,
-                  color: subtle ? Colors.grey[500] : AppTheme.textSecondaryOf(context))),
+                  color: AppTheme.textSecondaryOf(context))),
           Text(value,
               style: TextStyle(
                   fontSize: 13,
                   fontWeight: subtle ? FontWeight.normal : FontWeight.w600,
-                  color: subtle ? Colors.grey[500] : AppTheme.textPrimaryOf(context))),
+                  color: subtle ? AppTheme.textSecondaryOf(context) : AppTheme.textPrimaryOf(context))),
         ],
       ),
     );
@@ -6426,6 +6411,7 @@ class _FundingCardState extends State<_FundingCard> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
     final fundingTimeLeft = event.fundingTimeLeftFormatted;
     final hasTimeLeft = event.fundingHasTimeLeft;
     final user = context.watch<AuthProvider>().user;
@@ -6436,24 +6422,18 @@ class _FundingCardState extends State<_FundingCard> {
       width: double.infinity,
       decoration: BoxDecoration(
         color: AppTheme.cardOf(context),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        borderRadius: AppRadius.lg,
+        boxShadow: AppShadow.card(isDark),
       ),
-      padding: const EdgeInsets.all(16),
+      padding: AppSpacing.paddingLg,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Title row
           Row(
             children: [
-              const Icon(Icons.attach_money, size: 20, color: AppTheme.accentColor),
-              const SizedBox(width: 8),
+              Icon(Icons.attach_money, size: AppIconSize.md, color: AppTheme.accentColor),
+              AppSpacing.hSm,
               const Text('Funding',
                   style: TextStyle(
                       fontSize: 16,
@@ -6463,12 +6443,12 @@ class _FundingCardState extends State<_FundingCard> {
               if (event.fundingEndAt != null)
                 Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
                   decoration: BoxDecoration(
                     color: hasTimeLeft
                         ? AppTheme.accentColor.withValues(alpha: 0.12)
                         : AppTheme.textSecondaryOf(context).withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: AppRadius.xl,
                   ),
                   child: Text(
                     fundingTimeLeft,
@@ -6483,7 +6463,7 @@ class _FundingCardState extends State<_FundingCard> {
                 ),
             ],
           ),
-          const SizedBox(height: 14),
+          AppSpacing.vMd,
 
           // Raised / Goal
           Row(
@@ -6500,9 +6480,9 @@ class _FundingCardState extends State<_FundingCard> {
                       : AppTheme.textPrimaryOf(context),
                 ),
               ),
-              const SizedBox(width: 6),
+              AppSpacing.hSm,
               Padding(
-                padding: const EdgeInsets.only(bottom: 4),
+                padding: EdgeInsets.only(bottom: AppSpacing.xs),
                 child: Text(
                   'of $_goalFormatted',
                   style: TextStyle(
@@ -6514,7 +6494,7 @@ class _FundingCardState extends State<_FundingCard> {
               ),
               const Spacer(),
               Padding(
-                padding: const EdgeInsets.only(bottom: 4),
+                padding: EdgeInsets.only(bottom: AppSpacing.xs),
                 child: Text(
                   '${(_progress * 100).clamp(0, 999).toStringAsFixed(1)}%',
                   style: TextStyle(
@@ -6528,11 +6508,11 @@ class _FundingCardState extends State<_FundingCard> {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          AppSpacing.vSm,
 
           // Progress bar
           ClipRRect(
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: AppRadius.sm,
             child: LinearProgressIndicator(
               value: _progress.clamp(0.0, 1.0),
               minHeight: 10,
@@ -6546,21 +6526,21 @@ class _FundingCardState extends State<_FundingCard> {
           ),
           if (_fundingCommissionPercent > 0)
             Padding(
-              padding: const EdgeInsets.only(top: 6),
+              padding: EdgeInsets.only(top: AppSpacing.xs),
               child: Text(
                 'Platform fee: $_fundingCommissionPercent% of pledges',
-                style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context)),
               ),
             ),
-          const SizedBox(height: 12),
+          AppSpacing.vMd,
 
           // Deadline + Min pledge row
           Row(
             children: [
               if (event.fundingEndAt != null) ...[
                 Icon(Icons.timer_outlined,
-                    size: 14, color: AppTheme.textSecondaryOf(context)),
-                const SizedBox(width: 4),
+                    size: AppIconSize.sm, color: AppTheme.textSecondaryOf(context)),
+                AppSpacing.hXs,
                 Text(
                   'Deadline: ${DateFormat('MMM d, y – h:mm a').format(event.fundingEndAt!.toLocal())}',
                   style: TextStyle(
@@ -6572,8 +6552,8 @@ class _FundingCardState extends State<_FundingCard> {
               const Spacer(),
               if (event.minPledgeCents > 0) ...[
                 Icon(Icons.arrow_downward,
-                    size: 14, color: AppTheme.textSecondaryOf(context)),
-                const SizedBox(width: 4),
+                    size: AppIconSize.sm, color: AppTheme.textSecondaryOf(context)),
+                AppSpacing.hXs,
                 Text(
                   'Min: \$${(event.minPledgeCents / 100).toStringAsFixed(2)}',
                   style: TextStyle(
@@ -6587,10 +6567,10 @@ class _FundingCardState extends State<_FundingCard> {
 
           // Backers count + reserved spots
           if (_backersCount > 0 || _totalReservedSpots > 0) ...[
-            const SizedBox(height: 8),
+            AppSpacing.vSm,
             Wrap(
-              spacing: 12,
-              runSpacing: 4,
+              spacing: AppSpacing.md,
+              runSpacing: AppSpacing.xs,
               children: [
                 if (_backersCount > 0)
                   Row(
@@ -6611,8 +6591,8 @@ class _FundingCardState extends State<_FundingCard> {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.event_seat, size: 14, color: Colors.teal),
-                      const SizedBox(width: 4),
+                      Icon(Icons.event_seat, size: AppIconSize.sm, color: Colors.teal),
+                      AppSpacing.hXs,
                       Text(
                         '$_totalReservedSpots spot${_totalReservedSpots == 1 ? '' : 's'} reserved',
                         style: const TextStyle(
@@ -6628,13 +6608,13 @@ class _FundingCardState extends State<_FundingCard> {
 
           // Escrow + Organizer Trust indicator
           Padding(
-            padding: const EdgeInsets.only(top: 10),
+            padding: EdgeInsets.only(top: AppSpacing.sm),
             child: Container(
-              padding: const EdgeInsets.all(10),
+              padding: AppSpacing.paddingMd,
               decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.blue.shade100),
+                color: AppTheme.accentSurfaceOf(context),
+                borderRadius: AppRadius.sm,
+                border: Border.all(color: AppTheme.accentColor.withValues(alpha: 0.3)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -6642,35 +6622,35 @@ class _FundingCardState extends State<_FundingCard> {
                   // Escrow line
                   Row(
                     children: [
-                      Icon(Icons.shield_outlined, size: 14, color: Colors.blue.shade700),
-                      const SizedBox(width: 6),
+                      Icon(Icons.shield_outlined, size: AppIconSize.sm, color: AppTheme.accentColor),
+                      AppSpacing.hSm,
                       Expanded(
                         child: Text(
                           'Pledges held in platform escrow until event milestones are met',
-                          style: TextStyle(fontSize: 11, color: Colors.blue.shade700),
+                          style: TextStyle(fontSize: 11, color: AppTheme.accentColor),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 6),
+                  AppSpacing.vSm,
                   // Trust score line
                   Row(
                     children: [
                       Icon(
                         _trustIcon(event.organizerTrustLabel),
-                        size: 14,
+                        size: AppIconSize.sm,
                         color: _trustColor(event.organizerTrustLabel),
                       ),
-                      const SizedBox(width: 6),
+                      AppSpacing.hSm,
                       Text(
                         'Organizer Trust: ',
-                        style: TextStyle(fontSize: 11, color: Colors.blue.shade700),
+                        style: TextStyle(fontSize: 11, color: AppTheme.accentColor),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                        padding: EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
                         decoration: BoxDecoration(
                           color: _trustColor(event.organizerTrustLabel).withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: AppRadius.sm,
                         ),
                         child: Text(
                           '${event.organizerTrustLabel} (${(event.organizerTrustScore * 100).toInt()}%)',
@@ -6681,10 +6661,10 @@ class _FundingCardState extends State<_FundingCard> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 6),
+                      AppSpacing.hSm,
                       Text(
                         '${event.organizerCompletedEvents}/${event.organizerPublishedEvents} events',
-                        style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                        style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryOf(context)),
                       ),
                     ],
                   ),
@@ -6695,9 +6675,9 @@ class _FundingCardState extends State<_FundingCard> {
 
           // Pledge / Unpledge buttons
           if (canPledge) ...[
-            const SizedBox(height: 14),
+            AppSpacing.vMd,
             const Divider(height: 1),
-            const SizedBox(height: 12),
+            AppSpacing.vMd,
             Row(
               children: [
                 Expanded(
@@ -6705,28 +6685,28 @@ class _FundingCardState extends State<_FundingCard> {
                     height: 40,
                     child: ElevatedButton.icon(
                       onPressed: _pledging ? null : _showPledgeDialog,
-                      icon: Icon(widget.isRegistered ? Icons.volunteer_activism : Icons.card_giftcard_rounded, size: 18),
+                      icon: Icon(widget.isRegistered ? Icons.volunteer_activism : Icons.card_giftcard_rounded, size: AppIconSize.md),
                       label: Text(widget.isRegistered ? 'Pledge' : 'Donate',
                           style: const TextStyle(fontWeight: FontWeight.w700)),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.accentColor,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
+                            borderRadius: AppRadius.md),
                         elevation: 0,
                       ),
                     ),
                   ),
                 ),
                 if (widget.isRegistered) ...[
-                  const SizedBox(width: 10),
+                  AppSpacing.hMd,
                   Expanded(
                     child: SizedBox(
                       height: 40,
                       child: OutlinedButton.icon(
                         onPressed: _pledging ? null : _unpledge,
-                        icon: const Icon(Icons.money_off,
-                            size: 18, color: AppTheme.warningColor),
+                        icon: Icon(Icons.money_off,
+                            size: AppIconSize.md, color: AppTheme.warningColor),
                         label: const Text('Unpledge',
                             style: TextStyle(
                                 fontWeight: FontWeight.w700,
@@ -6734,7 +6714,7 @@ class _FundingCardState extends State<_FundingCard> {
                         style: OutlinedButton.styleFrom(
                           side: const BorderSide(color: AppTheme.warningColor),
                           shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10)),
+                              borderRadius: AppRadius.md),
                         ),
                       ),
                     ),
@@ -6808,7 +6788,7 @@ class _EventFeedState extends State<_EventFeed> {
           content: Row(
             children: [
               const Icon(Icons.info_outline, color: AppTheme.warningColor),
-              const SizedBox(width: 12),
+              AppSpacing.hMd,
               const Expanded(
                 child: Text(
                   'Please register for this event before posting in the feed.',
@@ -6844,7 +6824,7 @@ class _EventFeedState extends State<_EventFeed> {
               content: Row(
                 children: [
                   const Icon(Icons.info_outline, color: AppTheme.warningColor),
-                  const SizedBox(width: 12),
+                  AppSpacing.hMd,
                   const Expanded(
                     child: Text(
                       'Please register for this event before posting in the feed.',
@@ -6900,8 +6880,8 @@ class _EventFeedState extends State<_EventFeed> {
         Row(
           children: [
             Icon(Icons.forum_rounded,
-                size: 18, color: AppTheme.textPrimaryOf(context)),
-            const SizedBox(width: 8),
+                size: AppIconSize.sm, color: AppTheme.textPrimaryOf(context)),
+            AppSpacing.hSm,
             const Text(
               'Event Feed',
               style: TextStyle(
@@ -6910,7 +6890,7 @@ class _EventFeedState extends State<_EventFeed> {
                 letterSpacing: -0.3,
               ),
             ),
-            const SizedBox(width: 8),
+            AppSpacing.hSm,
             if (!widget.postsEnabled)
               Chip(
                 label:
@@ -6922,27 +6902,27 @@ class _EventFeedState extends State<_EventFeed> {
             // Refresh button
             Material(
               color: Colors.transparent,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: AppRadius.xl,
               child: InkWell(
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: AppRadius.xl,
                 onTap: _loading ? null : _loadPosts,
                 child: Padding(
-                  padding: const EdgeInsets.all(6),
+                  padding: AppSpacing.paddingSm,
                   child: _loading
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
+                      ? SizedBox(
+                          width: AppIconSize.sm,
+                          height: AppIconSize.sm,
                           child:
-                              CircularProgressIndicator(strokeWidth: 2),
+                              const CircularProgressIndicator(strokeWidth: 2),
                         )
                       : Icon(Icons.refresh_rounded,
-                          size: 20, color: AppTheme.textSecondaryOf(context)),
+                          size: AppIconSize.md, color: AppTheme.textSecondaryOf(context)),
                 ),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        AppSpacing.vMd,
 
         // Post input
         if (widget.postsEnabled && user != null) ...[
@@ -6954,22 +6934,22 @@ class _EventFeedState extends State<_EventFeed> {
                   decoration: InputDecoration(
                     hintText: 'Write something...',
                     border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 10),
+                        borderRadius: AppRadius.md),
+                    contentPadding: EdgeInsets.symmetric(
+                        horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
                   ),
                   maxLines: 2,
                   minLines: 1,
                 ),
               ),
-              const SizedBox(width: 8),
+              AppSpacing.hSm,
               IconButton.filled(
                 onPressed: _posting ? null : _submitPost,
                 icon: _posting
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
+                    ? SizedBox(
+                        width: AppIconSize.sm,
+                        height: AppIconSize.sm,
+                        child: const CircularProgressIndicator(
                             strokeWidth: 2, color: Colors.white))
                     : const Icon(Icons.send),
                 style: IconButton.styleFrom(
@@ -6978,31 +6958,27 @@ class _EventFeedState extends State<_EventFeed> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          AppSpacing.vLg,
         ],
 
         // Content
         if (!widget.postsEnabled)
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text('Posts are disabled for this event.',
-                  style: TextStyle(color: Colors.grey[500])),
-            ),
+          EmptyState(
+            icon: Icons.forum_outlined,
+            title: 'Posts are disabled',
+            subtitle: 'Posts are disabled for this event.',
           )
         else if (_loading && _posts.isEmpty)
-          const Center(
+          Center(
               child: Padding(
-            padding: EdgeInsets.all(24),
-            child: CircularProgressIndicator(strokeWidth: 2),
+            padding: AppSpacing.paddingXxl,
+            child: const CircularProgressIndicator(strokeWidth: 2),
           ))
         else if (_posts.isEmpty)
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text('No posts yet. Be the first to share!',
-                  style: TextStyle(color: Colors.grey[500])),
-            ),
+          EmptyState(
+            icon: Icons.chat_bubble_outline,
+            title: 'No posts yet',
+            subtitle: 'Be the first to share!',
           )
         else
           ListView.separated(
@@ -7038,13 +7014,13 @@ class _EventFeedState extends State<_EventFeed> {
                     Text(
                       _timeAgo(post.createdAt),
                       style: TextStyle(
-                          fontSize: 11, color: Colors.grey[500]),
+                          fontSize: 11, color: AppTheme.textSecondaryOf(context)),
                     ),
                     if (isAuthor || isAdmin || isOrg) ...[
-                      const SizedBox(width: 4),
+                      AppSpacing.hXs,
                       IconButton(
-                        icon: const Icon(Icons.delete_outline,
-                            size: 18),
+                        icon: Icon(Icons.delete_outline,
+                            size: AppIconSize.sm),
                         onPressed: () => _deletePost(post.id),
                         tooltip: 'Delete post',
                       ),
@@ -7148,7 +7124,7 @@ class _EventScheduleState extends State<_EventSchedule> {
     if (!_featureEnabled) return const SizedBox.shrink();
     if (_loading) {
       return Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(AppSpacing.xl),
         child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
       );
     }
@@ -7161,13 +7137,13 @@ class _EventScheduleState extends State<_EventSchedule> {
     }
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(16),
+        padding: AppSpacing.paddingLg,
         decoration: BoxDecoration(
           color: AppTheme.cardOf(context),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: AppRadius.md,
           border: Border.all(color: AppTheme.dividerOf(context)),
         ),
         child: Column(
@@ -7176,31 +7152,31 @@ class _EventScheduleState extends State<_EventSchedule> {
             // Header
             Row(
               children: [
-                Icon(Icons.calendar_month_rounded, size: 18, color: Colors.blue[600]),
-                const SizedBox(width: 8),
+                Icon(Icons.calendar_month_rounded, size: AppIconSize.sm, color: Colors.blue[600]),
+                AppSpacing.hSm,
                 Text(
                   'Event Schedule',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    color: Colors.grey[500],
+                    color: AppTheme.textSecondaryOf(context),
                     letterSpacing: 0.5,
                   ),
                 ),
                 const Spacer(),
                 Material(
                   color: Colors.blue.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: AppRadius.sm,
                   child: InkWell(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: AppRadius.sm,
                     onTap: _downloadExcel,
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.download_rounded, size: 14, color: Colors.blue[600]),
-                          const SizedBox(width: 4),
+                          Icon(Icons.download_rounded, size: AppIconSize.sm, color: Colors.blue[600]),
+                          AppSpacing.hXs,
                           Text('Excel',
                             style: TextStyle(
                               fontSize: 11,
@@ -7215,26 +7191,26 @@ class _EventScheduleState extends State<_EventSchedule> {
                 ),
               ],
             ),
-            const SizedBox(height: 14),
+            AppSpacing.vMd,
 
             // Date tab pills
             SizedBox(
-              height: 36,
+              height: AppSpacing.xxxl,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: _days.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                separatorBuilder: (_, __) => AppSpacing.hSm,
                 itemBuilder: (context, idx) {
                   final isSelected = idx == _selectedIdx;
                   return GestureDetector(
                     onTap: () => setState(() => _selectedIdx = idx),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
                       decoration: BoxDecoration(
                         color: isSelected
                             ? Colors.blue.withValues(alpha: 0.12)
                             : AppTheme.surfaceOf(context),
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: AppRadius.xl,
                         border: Border.all(
                           color: isSelected
                               ? Colors.blue.withValues(alpha: 0.4)
@@ -7258,7 +7234,7 @@ class _EventScheduleState extends State<_EventSchedule> {
                 },
               ),
             ),
-            const SizedBox(height: 16),
+            AppSpacing.vLg,
 
             // Vertical timeline for selected date
             ...selectedDay.items.asMap().entries.map((entry) {
@@ -7272,12 +7248,12 @@ class _EventScheduleState extends State<_EventSchedule> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     SizedBox(
-                      width: 36,
+                      width: AppSpacing.xxxl,
                       child: Column(
                         children: [
                           Container(
-                            width: 24,
-                            height: 24,
+                            width: AppSpacing.xxl,
+                            height: AppSpacing.xxl,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               color: isOverlap ? Colors.amber[700] : Colors.blue[600],
@@ -7285,7 +7261,7 @@ class _EventScheduleState extends State<_EventSchedule> {
                             child: Center(
                               child: Icon(
                                 isOverlap ? Icons.warning_rounded : Icons.schedule_rounded,
-                                size: 13,
+                                size: AppIconSize.sm,
                                 color: Colors.white,
                               ),
                             ),
@@ -7302,16 +7278,16 @@ class _EventScheduleState extends State<_EventSchedule> {
                         ],
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    AppSpacing.hSm,
                     Expanded(
                       child: Container(
-                        margin: EdgeInsets.only(bottom: isLast ? 0 : 14),
-                        padding: const EdgeInsets.all(14),
+                        margin: EdgeInsets.only(bottom: isLast ? 0 : AppSpacing.md),
+                        padding: AppSpacing.paddingMd,
                         decoration: BoxDecoration(
                           color: Theme.of(context).brightness == Brightness.dark
                               ? const Color(0xFF2A2A2A)
                               : Colors.white,
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: AppRadius.sm,
                           border: Border.all(
                             color: isOverlap
                                 ? Colors.amber.withValues(alpha: 0.5)
@@ -7325,12 +7301,12 @@ class _EventScheduleState extends State<_EventSchedule> {
                             Row(
                               children: [
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
                                   decoration: BoxDecoration(
                                     color: isOverlap
                                         ? Colors.amber.withValues(alpha: 0.15)
                                         : Colors.blue.withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(6),
+                                    borderRadius: AppRadius.sm,
                                   ),
                                   child: Text(
                                     '${_formatTime24to12(item.startTime)} – ${_formatTime24to12(item.endTime)}',
@@ -7344,12 +7320,12 @@ class _EventScheduleState extends State<_EventSchedule> {
                                   ),
                                 ),
                                 if (isOverlap) ...[
-                                  const SizedBox(width: 8),
+                                  AppSpacing.hSm,
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
                                     decoration: BoxDecoration(
                                       color: Colors.amber.withValues(alpha: 0.15),
-                                      borderRadius: BorderRadius.circular(4),
+                                      borderRadius: AppRadius.sm,
                                     ),
                                     child: Text('Overlaps',
                                       style: TextStyle(
@@ -7362,7 +7338,7 @@ class _EventScheduleState extends State<_EventSchedule> {
                                 ],
                               ],
                             ),
-                            const SizedBox(height: 8),
+                            AppSpacing.vSm,
                             Text(
                               item.title,
                               style: TextStyle(
@@ -7374,14 +7350,12 @@ class _EventScheduleState extends State<_EventSchedule> {
                               ),
                             ),
                             if (item.description != null && item.description!.isNotEmpty) ...[
-                              const SizedBox(height: 4),
+                              AppSpacing.vXs,
                               Text(
                                 item.description!,
                                 style: TextStyle(
                                   fontSize: 13,
-                                  color: Theme.of(context).brightness == Brightness.dark
-                                      ? Colors.grey[400]
-                                      : Colors.grey[700],
+                                  color: AppTheme.textSecondaryOf(context),
                                 ),
                               ),
                             ],
@@ -7394,7 +7368,7 @@ class _EventScheduleState extends State<_EventSchedule> {
               );
             }),
 
-            const SizedBox(height: 14),
+            AppSpacing.vMd,
             Center(
               child: Text(
                 '$totalSessions session${totalSessions == 1 ? '' : 's'} across ${_days.length} day${_days.length == 1 ? '' : 's'}',
@@ -7461,12 +7435,12 @@ class _SponsorCarouselState extends State<_SponsorCarousel> {
     showModalBottomSheet(
       context: context,
       builder: (ctx) => Padding(
-        padding: const EdgeInsets.all(24),
+        padding: AppSpacing.paddingXxl,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             CircleAvatar(
-              radius: 32,
+              radius: AppSpacing.xxxl,
               backgroundColor: AppTheme.accentColor.withValues(alpha: 0.1),
               backgroundImage: sponsor['logo_url'] != null
                   ? NetworkImage(sponsor['logo_url'])
@@ -7481,7 +7455,7 @@ class _SponsorCarouselState extends State<_SponsorCarousel> {
                     )
                   : null,
             ),
-            const SizedBox(height: 12),
+            AppSpacing.vMd,
             Text(
               sponsor['company_name'] ?? 'Sponsor',
               style:
@@ -7489,14 +7463,14 @@ class _SponsorCarouselState extends State<_SponsorCarousel> {
             ),
             if (sponsor['website_url'] != null &&
                 (sponsor['website_url'] as String).isNotEmpty) ...[
-              const SizedBox(height: 6),
+              AppSpacing.vSm,
               Text(
                 sponsor['website_url'],
                 style: TextStyle(
                     color: AppTheme.accentColor, fontSize: 13),
               ),
             ],
-            const SizedBox(height: 16),
+            AppSpacing.vLg,
           ],
         ),
       ),
@@ -7512,7 +7486,7 @@ class _SponsorCarouselState extends State<_SponsorCarousel> {
       children: [
         const SizedBox(height: 24),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4),
+          padding: EdgeInsets.symmetric(horizontal: AppSpacing.xs),
           child: Text(
             'Sponsored by',
             style: TextStyle(
@@ -7522,13 +7496,13 @@ class _SponsorCarouselState extends State<_SponsorCarousel> {
             ),
           ),
         ),
-        const SizedBox(height: 10),
+        AppSpacing.vMd,
         SizedBox(
           height: 72,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: _sponsors.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 14),
+            separatorBuilder: (_, __) => AppSpacing.hMd,
             itemBuilder: (context, index) {
               final s = _sponsors[index];
               final name = s['company_name'] as String? ?? 'Sponsor';
@@ -7540,7 +7514,7 @@ class _SponsorCarouselState extends State<_SponsorCarousel> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       CircleAvatar(
-                        radius: 24,
+                        radius: AppSpacing.xxl,
                         backgroundColor:
                             AppTheme.accentColor.withValues(alpha: 0.12),
                         backgroundImage: s['logo_url'] != null
@@ -7556,7 +7530,7 @@ class _SponsorCarouselState extends State<_SponsorCarousel> {
                               )
                             : null,
                       ),
-                      const SizedBox(height: 4),
+                      AppSpacing.vXs,
                       Text(
                         name,
                         style: TextStyle(
@@ -7679,9 +7653,9 @@ class _ReviewsSectionState extends State<_ReviewsSection> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 16),
-        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      return Padding(
+        padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+        child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
       );
     }
     if (_summary == null) return const SizedBox.shrink();
@@ -7697,16 +7671,16 @@ class _ReviewsSectionState extends State<_ReviewsSection> {
     final isOrganizer = user != null && (user.isOrganizer || user.isAdmin);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(0, 24, 0, 0),
+      padding: const EdgeInsets.fromLTRB(0, 0, 0, 0).copyWith(top: AppSpacing.xxl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            padding: EdgeInsets.symmetric(horizontal: AppSpacing.xl),
             child: Row(
               children: [
-                Icon(Icons.reviews_rounded, size: 18, color: Colors.amber),
-                const SizedBox(width: 8),
+                Icon(Icons.reviews_rounded, size: AppIconSize.sm, color: Colors.amber),
+                AppSpacing.hSm,
                 Text('Reviews',
                     style: TextStyle(
                         fontSize: 16,
@@ -7715,15 +7689,15 @@ class _ReviewsSectionState extends State<_ReviewsSection> {
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          AppSpacing.vMd,
 
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            padding: EdgeInsets.symmetric(horizontal: AppSpacing.xl),
             child: Container(
-              padding: const EdgeInsets.all(16),
+              padding: AppSpacing.paddingLg,
               decoration: BoxDecoration(
                 color: AppTheme.cardOf(context),
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: AppRadius.lg,
                 border: Border.all(color: AppTheme.dividerOf(context)),
               ),
               child: Column(
@@ -7732,47 +7706,50 @@ class _ReviewsSectionState extends State<_ReviewsSection> {
                   StarRatingDisplay(avgStars: avgStars, count: count, size: 22),
                   if (count == 0)
                     Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text('No reviews yet. Be the first to rate!',
-                          style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryOf(context))),
+                      padding: EdgeInsets.only(top: AppSpacing.sm),
+                      child: EmptyState(
+                        icon: Icons.reviews_outlined,
+                        title: 'No reviews yet',
+                        subtitle: 'Be the first to rate!',
+                      ),
                     ),
 
                   if (topReviews.isNotEmpty) ...[
-                    const SizedBox(height: 16),
+                    AppSpacing.vLg,
                     Text('Top Reviews',
                         style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
                             color: AppTheme.textSecondaryOf(context))),
-                    const SizedBox(height: 8),
+                    AppSpacing.vSm,
                     ...topReviews.take(5).map((r) => _reviewCard(r)),
                   ],
 
                   if (worstReviews.isNotEmpty && worstReviews.first['stars'] < 4) ...[
-                    const SizedBox(height: 16),
+                    AppSpacing.vLg,
                     Text('Critical Reviews',
                         style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
                             color: AppTheme.textSecondaryOf(context))),
-                    const SizedBox(height: 8),
+                    AppSpacing.vSm,
                     ...worstReviews.take(5).map((r) => _reviewCard(r)),
                   ],
 
                   if (isCustomer && myRating == null) ...[
-                    const Divider(height: 28),
+                    Divider(height: AppSpacing.xxl),
                     Text('Rate this event',
                         style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                             color: AppTheme.textPrimaryOf(context))),
-                    const SizedBox(height: 8),
+                    AppSpacing.vSm,
                     StarRating(
                       rating: _selectedStars,
                       onChanged: (v) => setState(() => _selectedStars = v),
                       size: 36,
                     ),
-                    const SizedBox(height: 10),
+                    AppSpacing.vMd,
                     TextField(
                       controller: _descCtrl,
                       decoration: InputDecoration(
@@ -7780,14 +7757,14 @@ class _ReviewsSectionState extends State<_ReviewsSection> {
                         filled: true,
                         fillColor: AppTheme.inputFillOf(context),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: AppRadius.md,
                           borderSide: BorderSide.none,
                         ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        contentPadding: EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
                       ),
                       maxLines: 3,
                     ),
-                    const SizedBox(height: 10),
+                    AppSpacing.vMd,
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
@@ -7795,10 +7772,10 @@ class _ReviewsSectionState extends State<_ReviewsSection> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.amber.shade700,
                           foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(borderRadius: AppRadius.md),
                         ),
                         child: _submitting
-                            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            ? SizedBox(width: AppIconSize.md, height: AppIconSize.md, child: const CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                             : const Text('Submit Rating', style: TextStyle(fontWeight: FontWeight.w700)),
                       ),
                     ),
@@ -7806,11 +7783,11 @@ class _ReviewsSectionState extends State<_ReviewsSection> {
 
                   if (isCustomer && myRating != null)
                     Padding(
-                      padding: const EdgeInsets.only(top: 12),
+                      padding: EdgeInsets.only(top: AppSpacing.md),
                       child: Row(
                         children: [
-                          Icon(Icons.check_circle_rounded, size: 16, color: AppTheme.successColor),
-                          const SizedBox(width: 6),
+                          Icon(Icons.check_circle_rounded, size: AppIconSize.sm, color: AppTheme.successColor),
+                          AppSpacing.hSm,
                           Text('Event: ${myRating['stars']} star${myRating['stars'] == 1 ? '' : 's'}',
                               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.successColor)),
                         ],
@@ -7818,19 +7795,19 @@ class _ReviewsSectionState extends State<_ReviewsSection> {
                     ),
 
                   if (isCustomer && myOrgRating == null) ...[
-                    const Divider(height: 28),
+                    Divider(height: AppSpacing.xxl),
                     Text('Rate the organizer',
                         style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                             color: AppTheme.textPrimaryOf(context))),
-                    const SizedBox(height: 8),
+                    AppSpacing.vSm,
                     StarRating(
                       rating: _selectedOrgStars,
                       onChanged: (v) => setState(() => _selectedOrgStars = v),
                       size: 36,
                     ),
-                    const SizedBox(height: 10),
+                    AppSpacing.vMd,
                     TextField(
                       controller: _orgDescCtrl,
                       decoration: InputDecoration(
@@ -7838,14 +7815,14 @@ class _ReviewsSectionState extends State<_ReviewsSection> {
                         filled: true,
                         fillColor: AppTheme.inputFillOf(context),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: AppRadius.md,
                           borderSide: BorderSide.none,
                         ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        contentPadding: EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
                       ),
                       maxLines: 3,
                     ),
-                    const SizedBox(height: 10),
+                    AppSpacing.vMd,
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
@@ -7853,10 +7830,10 @@ class _ReviewsSectionState extends State<_ReviewsSection> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.blue.shade700,
                           foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(borderRadius: AppRadius.md),
                         ),
                         child: _submittingOrg
-                            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            ? SizedBox(width: AppIconSize.md, height: AppIconSize.md, child: const CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                             : const Text('Submit Organizer Rating', style: TextStyle(fontWeight: FontWeight.w700)),
                       ),
                     ),
@@ -7864,11 +7841,11 @@ class _ReviewsSectionState extends State<_ReviewsSection> {
 
                   if (isCustomer && myOrgRating != null)
                     Padding(
-                      padding: const EdgeInsets.only(top: 8),
+                      padding: EdgeInsets.only(top: AppSpacing.sm),
                       child: Row(
                         children: [
-                          Icon(Icons.check_circle_rounded, size: 16, color: AppTheme.successColor),
-                          const SizedBox(width: 6),
+                          Icon(Icons.check_circle_rounded, size: AppIconSize.sm, color: AppTheme.successColor),
+                          AppSpacing.hSm,
                           Text('Organizer: ${myOrgRating['stars']} star${myOrgRating['stars'] == 1 ? '' : 's'}',
                               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.successColor)),
                         ],
@@ -7876,15 +7853,15 @@ class _ReviewsSectionState extends State<_ReviewsSection> {
                     ),
 
                   if (isOrganizer) ...[
-                    const Divider(height: 24),
+                    Divider(height: AppSpacing.xxl),
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
                         onPressed: () => _showAllReviews(context),
-                        icon: const Icon(Icons.list_alt_rounded, size: 18),
+                        icon: Icon(Icons.list_alt_rounded, size: AppIconSize.sm),
                         label: const Text('View All Reviews', style: TextStyle(fontWeight: FontWeight.w600)),
                         style: OutlinedButton.styleFrom(
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(borderRadius: AppRadius.sm),
                         ),
                       ),
                     ),
@@ -7904,12 +7881,12 @@ class _ReviewsSectionState extends State<_ReviewsSection> {
     final desc = r['description'] as String? ?? '';
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: EdgeInsets.only(bottom: AppSpacing.sm),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           StarRating(rating: stars, size: 14),
-          const SizedBox(width: 8),
+          AppSpacing.hSm,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -7933,8 +7910,8 @@ class _ReviewsSectionState extends State<_ReviewsSection> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      shape: RoundedRectangleBorder(
+        borderRadius: AppRadius.topXl,
       ),
       backgroundColor: AppTheme.cardOf(context),
       builder: (ctx) => _AllReviewsSheet(eventId: widget.eventId),
@@ -7987,16 +7964,16 @@ class _AllReviewsSheetState extends State<_AllReviewsSheet> {
       minChildSize: 0.4,
       maxChildSize: 0.9,
       builder: (ctx, scrollCtrl) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+        padding: EdgeInsets.fromLTRB(AppSpacing.xl, AppSpacing.md, AppSpacing.xl, AppSpacing.xl),
         child: Column(
           children: [
             Container(
               width: 40, height: 4,
-              decoration: BoxDecoration(color: AppTheme.dividerOf(context), borderRadius: BorderRadius.circular(2)),
+              decoration: BoxDecoration(color: AppTheme.dividerOf(context), borderRadius: AppRadius.sm),
             ),
-            const SizedBox(height: 14),
+            AppSpacing.vLg,
             Text('All Reviews', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.textPrimaryOf(context))),
-            const SizedBox(height: 10),
+            AppSpacing.vMd,
             SizedBox(
               height: 34,
               child: ListView(
@@ -8004,7 +7981,7 @@ class _AllReviewsSheetState extends State<_AllReviewsSheet> {
                 children: _directions.map((d) {
                   final isActive = _directionFilter == d.$2;
                   return Padding(
-                    padding: const EdgeInsets.only(right: 8),
+                    padding: EdgeInsets.only(right: AppSpacing.sm),
                     child: ChoiceChip(
                       label: Text(d.$1),
                       selected: isActive,
@@ -8025,12 +8002,12 @@ class _AllReviewsSheetState extends State<_AllReviewsSheet> {
                 }).toList(),
               ),
             ),
-            const SizedBox(height: 10),
+            AppSpacing.vMd,
             Expanded(
               child: _loading
                   ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
                   : _reviews.isEmpty
-                      ? Center(child: Text('No reviews found.', style: TextStyle(color: AppTheme.textSecondaryOf(context))))
+                      ? EmptyState(icon: Icons.reviews_outlined, title: 'No reviews found')
                       : ListView.separated(
                           controller: scrollCtrl,
                           itemCount: _reviews.length,
@@ -8043,7 +8020,7 @@ class _AllReviewsSheetState extends State<_AllReviewsSheet> {
                               leading: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  StarRating(rating: stars, size: 12),
+                                  StarRating(rating: stars, size: AppIconSize.sm),
                                 ],
                               ),
                               title: Text(r['description'] ?? '',
@@ -8061,3 +8038,4 @@ class _AllReviewsSheetState extends State<_AllReviewsSheet> {
     );
   }
 }
+

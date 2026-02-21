@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
 import '../../config/design_tokens.dart';
+import '../../widgets/press_feedback.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
@@ -399,8 +400,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Text('Cancel',
                   style: TextStyle(color: AppTheme.textSecondaryOf(ctx))),
             ),
-            ElevatedButton(
-              onPressed: loading
+            PressFeedback(
+              child: ElevatedButton(
+                onPressed: loading
                   ? null
                   : () async {
                       if (!pwFormKey.currentState!.validate()) return;
@@ -452,18 +454,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         }
                       }
                     },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.accentColor,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: AppRadius.md),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.accentColor,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: AppRadius.md),
+                ),
+                child: loading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white))
+                    : const Text('Update Password'),
               ),
-              child: loading
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white))
-                  : const Text('Update Password'),
             ),
           ],
         ),
@@ -896,8 +899,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           SizedBox(
                             width: double.infinity,
                             height: 52,
-                            child: ElevatedButton.icon(
-                              onPressed: _saving ? null : _saveProfile,
+                            child: PressFeedback(
+                              child: ElevatedButton.icon(
+                                onPressed: _saving ? null : _saveProfile,
                               icon: _saving
                                   ? const SizedBox(
                                       width: 20,
@@ -912,11 +916,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   style: const TextStyle(
                                       fontWeight: FontWeight.w600,
                                       fontSize: 16)),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.accentColor,
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: AppRadius.md),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.accentColor,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: AppRadius.md),
+                                ),
                               ),
                             ),
                           )

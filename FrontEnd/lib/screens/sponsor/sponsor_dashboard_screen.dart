@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../config/api_config.dart';
 import '../../config/theme.dart';
 import '../../models/sponsor.dart';
 import '../../services/api_service.dart';
@@ -182,7 +183,7 @@ class _SponsorDashboardScreenState extends State<SponsorDashboardScreen> {
               radius: 28,
               backgroundColor: AppTheme.accentColor.withValues(alpha: 0.1),
               backgroundImage:
-                  p.logoUrl != null ? NetworkImage(p.logoUrl!) : null,
+                  p.logoUrl != null ? NetworkImage(ApiConfig.imageUrl(p.logoUrl!)) : null,
               child: p.logoUrl == null
                   ? Text(
                       p.companyName.substring(0, 1).toUpperCase(),

@@ -178,6 +178,7 @@ class EventResponse(BaseModel):
     accessibility_info: str | None = None
     has_schedule: bool = False
     directions_url: str | None = None  # computed from venue address
+    first_image_url: str | None = None
     created_at: datetime
     updated_at: datetime
 

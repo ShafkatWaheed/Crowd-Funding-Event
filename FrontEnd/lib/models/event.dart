@@ -62,6 +62,7 @@ class Event {
   final String? accessibilityInfo;
   final bool hasSchedule;
   final String? directionsUrl;
+  final String? firstImageUrl;
   final Venue? venue;
   final DateTime createdAt;
 
@@ -112,6 +113,7 @@ class Event {
     this.accessibilityInfo,
     this.hasSchedule = false,
     this.directionsUrl,
+    this.firstImageUrl,
     this.venue,
     required this.createdAt,
   });
@@ -178,6 +180,7 @@ class Event {
       accessibilityInfo: json['accessibility_info'],
       hasSchedule: json['has_schedule'] ?? false,
       directionsUrl: json['directions_url'],
+      firstImageUrl: json['first_image_url'],
       venue: json['venue'] != null ? Venue.fromJson(json['venue']) : null,
       createdAt: DateTime.parse(json['created_at']),
     );

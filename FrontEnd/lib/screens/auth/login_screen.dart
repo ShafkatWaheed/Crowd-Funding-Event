@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../config/design_tokens.dart';
 import '../../providers/auth_provider.dart';
+import '../../widgets/press_feedback.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -199,32 +200,34 @@ class _LoginScreenState extends State<LoginScreen> {
                             AppSpacing.vLg,
                           ],
 
-                          SizedBox(
-                            width: double.infinity,
-                            height: 52,
-                            child: ElevatedButton(
-                              onPressed: auth.isLoading ? null : _handleLogin,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.accentColor,
-                                foregroundColor: Colors.white,
-                                disabledBackgroundColor:
-                                    AppTheme.accentColor.withValues(alpha: 0.5),
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: AppRadius.md),
+                          PressFeedback(
+                            child: SizedBox(
+                              width: double.infinity,
+                              height: 52,
+                              child: ElevatedButton(
+                                onPressed: auth.isLoading ? null : _handleLogin,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.accentColor,
+                                  foregroundColor: Colors.white,
+                                  disabledBackgroundColor:
+                                      AppTheme.accentColor.withValues(alpha: 0.5),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: AppRadius.md),
+                                ),
+                                child: auth.isLoading
+                                    ? const SizedBox(
+                                        height: 20,
+                                        width: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : const Text('Sign In',
+                                        style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600)),
                               ),
-                              child: auth.isLoading
-                                  ? const SizedBox(
-                                      height: 20,
-                                      width: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                  : const Text('Sign In',
-                                      style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w600)),
                             ),
                           ),
                         ],

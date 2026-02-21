@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../config/api_config.dart';
 import '../../config/theme.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../services/api_service.dart';
@@ -259,7 +260,7 @@ class _SponsorCard extends StatelessWidget {
               child: logo != null && logo.toString().isNotEmpty
                   ? ClipRRect(
                       borderRadius: BorderRadius.circular(14),
-                      child: Image.network(logo, fit: BoxFit.cover,
+                      child: Image.network(ApiConfig.imageUrl(logo), fit: BoxFit.cover,
                           errorBuilder: (_, __, ___) => Icon(
                               Icons.business_rounded,
                               color: AppTheme.accentColor,

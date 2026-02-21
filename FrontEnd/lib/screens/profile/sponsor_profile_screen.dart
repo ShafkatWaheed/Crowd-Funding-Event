@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../config/api_config.dart';
 import '../../config/theme.dart';
 import '../../services/api_service.dart';
 import '../../widgets/shimmer_loaders.dart';
@@ -158,7 +159,7 @@ class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
             radius: 40,
             backgroundColor: AppTheme.accentColor.withValues(alpha: 0.15),
             backgroundImage: logoUrl != null && logoUrl.toString().isNotEmpty
-                ? NetworkImage(logoUrl)
+                ? NetworkImage(ApiConfig.imageUrl(logoUrl))
                 : null,
             child: logoUrl == null || logoUrl.toString().isEmpty
                 ? Text(initial,
@@ -795,7 +796,7 @@ void showSponsorProfileSheet(BuildContext context, int sponsorUserId, {bool isOr
                   radius: 32,
                   backgroundColor: AppTheme.accentColor.withValues(alpha: 0.15),
                   backgroundImage: logoUrl != null && logoUrl.toString().isNotEmpty
-                      ? NetworkImage(logoUrl)
+                      ? NetworkImage(ApiConfig.imageUrl(logoUrl))
                       : null,
                   child: logoUrl == null || logoUrl.toString().isEmpty
                       ? Text(initial,

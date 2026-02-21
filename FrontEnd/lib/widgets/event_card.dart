@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../config/api_config.dart';
 import '../config/theme.dart';
 import '../config/design_tokens.dart';
 import '../models/event.dart';
@@ -75,48 +76,71 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
   }
 
   Widget _buildHeader(BuildContext context, Event event, bool isDark) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.lg, 14, AppSpacing.lg, AppSpacing.md,
-      ),
-      decoration: BoxDecoration(
-        gradient: _statusGradient(event.status),
-        borderRadius: AppRadius.topLg,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          EventLifecycleBar(event: event, compact: true),
-          AppSpacing.vSm,
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  event.title,
-                  style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                    letterSpacing: -0.3,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
+    final url = widget.imageUrl;
+    final hasImage = url != null && url.isNotEmpty;
+
+    return Stack(
+      children: [
+        if (hasImage)
+          Positioned.fill(
+            child: Image.network(
+              ApiConfig.imageUrl(url),
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                decoration: BoxDecoration(gradient: _statusGradient(event.status)),
               ),
-              AppSpacing.hSm,
-              _FrostedStatusBadge(status: event.status),
-              if (widget.onBookmarkToggle != null) ...[
-                const SizedBox(width: 6),
-                _BookmarkButton(
-                  isBookmarked: widget.isBookmarked,
-                  onTap: widget.onBookmarkToggle!,
-                ),
-              ],
+            ),
+          ),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg, 14, AppSpacing.lg, AppSpacing.md,
+          ),
+          decoration: BoxDecoration(
+            gradient: hasImage
+                ? const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.black38, Colors.black54],
+                  )
+                : _statusGradient(event.status),
+            borderRadius: AppRadius.topLg,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              EventLifecycleBar(event: event, compact: true),
+              AppSpacing.vSm,
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      event.title,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                        letterSpacing: -0.3,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  AppSpacing.hSm,
+                  _FrostedStatusBadge(status: event.status),
+                  if (widget.onBookmarkToggle != null) ...[
+                    const SizedBox(width: 6),
+                    _BookmarkButton(
+                      isBookmarked: widget.isBookmarked,
+                      onTap: widget.onBookmarkToggle!,
+                    ),
+                  ],
+                ],
+              ),
             ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 

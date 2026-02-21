@@ -35,6 +35,7 @@ import '../screens/sponsor/sponsor_category_templates_screen.dart';
 import '../screens/bookmark/bookmarked_events_screen.dart';
 import '../screens/profile/organizer_profile_screen.dart';
 import '../screens/profile/sponsor_profile_screen.dart';
+import 'page_transitions.dart';
 
 GoRouter createRouter(AuthProvider authProvider) {
   return GoRouter(
@@ -47,12 +48,8 @@ GoRouter createRouter(AuthProvider authProvider) {
       final isAuthRoute =
           currentPath == '/login' || currentPath == '/register';
 
-      // Splash screen is shown by the MaterialApp builder while loading;
-      // don't touch the URL so GoRouter preserves the browser path.
       if (isLoading) return null;
 
-      // Not authenticated and not on an auth page → send to login,
-      // preserving the intended destination so we can restore it later.
       if (!isAuthenticated && !isAuthRoute) {
         final intended = state.uri.toString();
         if (intended.isNotEmpty && intended != '/') {
@@ -61,8 +58,6 @@ GoRouter createRouter(AuthProvider authProvider) {
         return '/login';
       }
 
-      // Authenticated but sitting on an auth page → leave.
-      // Restore saved destination if present; otherwise go home.
       if (isAuthenticated && isAuthRoute) {
         final redirect = state.uri.queryParameters['redirect'];
         if (redirect != null &&
@@ -77,17 +72,19 @@ GoRouter createRouter(AuthProvider authProvider) {
       return null;
     },
     routes: [
-      // ─── Auth ───
+      // ─── Auth (fade-through) ───
       GoRoute(
         path: '/login',
-        builder: (context, state) => const LoginScreen(),
+        pageBuilder: (context, state) =>
+            fadeThroughPage(child: const LoginScreen()),
       ),
       GoRoute(
         path: '/register',
-        builder: (context, state) => const RegisterScreen(),
+        pageBuilder: (context, state) =>
+            fadeThroughPage(child: const RegisterScreen()),
       ),
 
-      // ─── Home ───
+      // ─── Home (no transition — tab switching) ───
       GoRoute(
         path: '/',
         pageBuilder: (context, state) {
@@ -100,226 +97,250 @@ GoRouter createRouter(AuthProvider authProvider) {
         },
       ),
 
-      // ─── Profile ───
+      // ─── Profile (fade-through) ───
       GoRoute(
         path: '/profile',
-        builder: (context, state) => const ProfileScreen(),
+        pageBuilder: (context, state) =>
+            fadeThroughPage(child: const ProfileScreen()),
       ),
       GoRoute(
         path: '/my-tickets',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final eventIdStr = state.uri.queryParameters['eventId'];
           final eventId = eventIdStr != null ? int.tryParse(eventIdStr) : null;
-          return MyTicketsScreen(filterEventId: eventId);
+          return fadeThroughPage(child: MyTicketsScreen(filterEventId: eventId));
         },
       ),
-
       GoRoute(
         path: '/my-pledges',
-        builder: (context, state) => const MyPledgesScreen(),
+        pageBuilder: (context, state) =>
+            fadeThroughPage(child: const MyPledgesScreen()),
       ),
 
-      // ─── Legal ───
+      // ─── Legal (fade-through) ───
       GoRoute(
         path: '/terms',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final role = state.uri.queryParameters['role'] ?? 'customer';
-          return TermsScreen(role: role);
+          return fadeThroughPage(child: TermsScreen(role: role));
         },
       ),
 
       // ─── Events ───
       GoRoute(
         path: '/events/create',
-        builder: (context, state) => const CreateEventScreen(),
+        pageBuilder: (context, state) =>
+            sharedAxisPage(child: const CreateEventScreen()),
       ),
       GoRoute(
         path: '/events/:id',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final id = int.parse(state.pathParameters['id']!);
-          return EventDetailScreen(eventId: id);
+          return fadeScalePage(child: EventDetailScreen(eventId: id));
         },
       ),
       GoRoute(
         path: '/events/:id/edit',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final id = int.parse(state.pathParameters['id']!);
-          return EditEventScreen(eventId: id);
+          return sharedAxisPage(child: EditEventScreen(eventId: id));
         },
       ),
       GoRoute(
         path: '/events/:id/waitlist',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final id = int.parse(state.pathParameters['id']!);
-          return WaitlistScreen(eventId: id);
+          return sharedAxisPage(child: WaitlistScreen(eventId: id));
         },
       ),
       GoRoute(
         path: '/events/:id/ticket-waitlist',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final id = int.parse(state.pathParameters['id']!);
-          return WaitlistScreen(eventId: id, initialTicketView: true);
+          return sharedAxisPage(
+              child: WaitlistScreen(eventId: id, initialTicketView: true));
         },
       ),
       GoRoute(
         path: '/events/:id/ticket-sales',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final id = int.parse(state.pathParameters['id']!);
-          return TicketSalesScreen(eventId: id);
+          return sharedAxisPage(child: TicketSalesScreen(eventId: id));
         },
       ),
       GoRoute(
         path: '/events/:id/scanned-tickets',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final id = int.parse(state.pathParameters['id']!);
-          return TicketSalesScreen(eventId: id, scannedOnly: true);
+          return sharedAxisPage(
+              child: TicketSalesScreen(eventId: id, scannedOnly: true));
         },
       ),
       GoRoute(
         path: '/events/:id/scan',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final id = int.parse(state.pathParameters['id']!);
           final title = state.uri.queryParameters['title'];
-          return TicketScannerScreen(eventId: id, eventTitle: title);
+          return sharedAxisPage(
+              child: TicketScannerScreen(eventId: id, eventTitle: title));
         },
       ),
       GoRoute(
         path: '/events/:id/tickets/:saleId/receipt',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final id = int.parse(state.pathParameters['id']!);
           final saleId = int.parse(state.pathParameters['saleId']!);
-          return TicketReceiptScreen(eventId: id, saleId: saleId);
+          return fadeScalePage(
+              child: TicketReceiptScreen(eventId: id, saleId: saleId));
         },
       ),
       GoRoute(
         path: '/events/:id/co-organizers',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final id = int.parse(state.pathParameters['id']!);
-          return CoOrganizerScreen(eventId: id);
+          return sharedAxisPage(child: CoOrganizerScreen(eventId: id));
         },
       ),
       GoRoute(
         path: '/events/:id/discounts',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final id = int.parse(state.pathParameters['id']!);
-          return ClaimDiscountsScreen(eventId: id);
+          return sharedAxisPage(child: ClaimDiscountsScreen(eventId: id));
         },
       ),
-      // ─── Global Manage pages ───
+
+      // ─── Global Manage pages (fade-through) ───
       GoRoute(
         path: '/manage/ticket-sales',
-        builder: (context, state) =>
-            const GlobalTicketSalesScreen(scannedOnly: false),
+        pageBuilder: (context, state) => fadeThroughPage(
+            child: const GlobalTicketSalesScreen(scannedOnly: false)),
       ),
       GoRoute(
         path: '/manage/scanned-tickets',
-        builder: (context, state) =>
-            const GlobalTicketSalesScreen(scannedOnly: true),
+        pageBuilder: (context, state) => fadeThroughPage(
+            child: const GlobalTicketSalesScreen(scannedOnly: true)),
       ),
       GoRoute(
         path: '/manage/waitlist',
-        builder: (context, state) => const GlobalWaitlistScreen(),
+        pageBuilder: (context, state) =>
+            fadeThroughPage(child: const GlobalWaitlistScreen()),
       ),
       GoRoute(
         path: '/manage/ticket-waitlist',
-        builder: (context, state) =>
-            const GlobalWaitlistScreen(initialTicketView: true),
+        pageBuilder: (context, state) => fadeThroughPage(
+            child: const GlobalWaitlistScreen(initialTicketView: true)),
       ),
       GoRoute(
         path: '/manage/discounts',
-        builder: (context, state) => const GlobalDiscountsScreen(),
+        pageBuilder: (context, state) =>
+            fadeThroughPage(child: const GlobalDiscountsScreen()),
       ),
 
-      // ─── Venues ───
+      // ─── Venues (fade-through) ───
       GoRoute(
         path: '/venues',
-        builder: (context, state) => const VenueListScreen(),
+        pageBuilder: (context, state) =>
+            fadeThroughPage(child: const VenueListScreen()),
       ),
       GoRoute(
         path: '/venues/create',
-        builder: (context, state) => const CreateVenueScreen(),
+        pageBuilder: (context, state) =>
+            fadeThroughPage(child: const CreateVenueScreen()),
       ),
 
-      // ─── Ticket Strategies ───
+      // ─── Ticket Strategies (fade-through) ───
       GoRoute(
         path: '/ticket-strategies',
-        builder: (context, state) => const TicketStrategiesScreen(),
+        pageBuilder: (context, state) =>
+            fadeThroughPage(child: const TicketStrategiesScreen()),
       ),
 
-      // ─── Sponsor Category Templates ───
+      // ─── Sponsor Category Templates (fade-through) ───
       GoRoute(
         path: '/sponsor-category-templates',
-        builder: (context, state) => const SponsorCategoryTemplatesScreen(),
+        pageBuilder: (context, state) =>
+            fadeThroughPage(child: const SponsorCategoryTemplatesScreen()),
       ),
 
-      // ─── Organizer: Sponsors ───
+      // ─── Organizer: Sponsors (fade-through) ───
       GoRoute(
         path: '/manage/sponsors',
-        builder: (context, state) => const OrganizerSponsorsScreen(),
+        pageBuilder: (context, state) =>
+            fadeThroughPage(child: const OrganizerSponsorsScreen()),
       ),
 
-      // ─── Sponsor ───
+      // ─── Sponsor (fade-through) ───
       GoRoute(
         path: '/sponsor/onboarding',
-        builder: (context, state) => const SponsorOnboardingScreen(),
+        pageBuilder: (context, state) =>
+            fadeThroughPage(child: const SponsorOnboardingScreen()),
       ),
       GoRoute(
         path: '/events/:id/sponsorships',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final id = int.parse(state.pathParameters['id']!);
-          return SponsorshipCategoriesScreen(eventId: id);
+          return sharedAxisPage(
+              child: SponsorshipCategoriesScreen(eventId: id));
         },
       ),
       GoRoute(
         path: '/sponsor/dashboard',
-        builder: (context, state) => const SponsorDashboardScreen(),
+        pageBuilder: (context, state) =>
+            fadeThroughPage(child: const SponsorDashboardScreen()),
       ),
       GoRoute(
         path: '/sponsor/tickets',
-        builder: (context, state) => const SponsorTicketScreen(),
+        pageBuilder: (context, state) =>
+            fadeThroughPage(child: const SponsorTicketScreen()),
       ),
       GoRoute(
         path: '/events/:id/sponsorships/:catId/bids',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final id = int.parse(state.pathParameters['id']!);
           final catId = int.parse(state.pathParameters['catId']!);
           final catName = state.uri.queryParameters['name'];
-          return BidManagementScreen(
-              eventId: id, categoryId: catId, categoryName: catName);
-        },
-      ),
-
-      // ─── Bookmarks ───
-      GoRoute(
-        path: '/bookmarks',
-        builder: (context, state) => const BookmarkedEventsScreen(),
-      ),
-
-      // ─── Public Profiles ───
-      GoRoute(
-        path: '/users/:id/profile',
-        builder: (context, state) {
-          final id = int.parse(state.pathParameters['id']!);
-          return OrganizerProfileScreen(userId: id);
-        },
-      ),
-      GoRoute(
-        path: '/users/:id/sponsor-profile',
-        builder: (context, state) {
-          final id = int.parse(state.pathParameters['id']!);
-          final extra = state.extra as Map<String, dynamic>? ?? {};
-          final isOrganizerView = extra['isOrganizerView'] == true;
-          return SponsorProfileScreen(
-            userId: id,
-            isOrganizerView: isOrganizerView,
+          return sharedAxisPage(
+            child: BidManagementScreen(
+                eventId: id, categoryId: catId, categoryName: catName),
           );
         },
       ),
 
-      // ─── Admin ───
+      // ─── Bookmarks (fade-through) ───
+      GoRoute(
+        path: '/bookmarks',
+        pageBuilder: (context, state) =>
+            fadeThroughPage(child: const BookmarkedEventsScreen()),
+      ),
+
+      // ─── Public Profiles (fade-scale) ───
+      GoRoute(
+        path: '/users/:id/profile',
+        pageBuilder: (context, state) {
+          final id = int.parse(state.pathParameters['id']!);
+          return fadeScalePage(child: OrganizerProfileScreen(userId: id));
+        },
+      ),
+      GoRoute(
+        path: '/users/:id/sponsor-profile',
+        pageBuilder: (context, state) {
+          final id = int.parse(state.pathParameters['id']!);
+          final extra = state.extra as Map<String, dynamic>? ?? {};
+          final isOrganizerView = extra['isOrganizerView'] == true;
+          return fadeScalePage(
+            child: SponsorProfileScreen(
+              userId: id,
+              isOrganizerView: isOrganizerView,
+            ),
+          );
+        },
+      ),
+
+      // ─── Admin (fade-through) ───
       GoRoute(
         path: '/admin',
-        builder: (context, state) => const AdminDashboardScreen(),
+        pageBuilder: (context, state) =>
+            fadeThroughPage(child: const AdminDashboardScreen()),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(

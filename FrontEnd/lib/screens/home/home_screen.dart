@@ -20,6 +20,7 @@ import '../../widgets/event_card.dart';
 import '../../widgets/section_header.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../widgets/event_map_widget.dart';
+import '../../widgets/press_feedback.dart';
 import '../../services/location_helper.dart';
 import '../legal/terms_screen.dart';
 
@@ -538,16 +539,18 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       floatingActionButton:
           user != null && (user.isOrganizer || user.isAdmin) && _navIndex != 3
-              ? FloatingActionButton(
-                  onPressed: () async {
-                    final created = await context.push<bool>('/events/create');
-                    if (created == true && mounted) {
-                      _applyFilters();
-                      _loadFeatured();
-                    }
-                  },
-                  backgroundColor: AppTheme.accentColor,
-                  child: const Icon(Icons.add, color: Colors.white, size: AppIconSize.xl),
+              ? PressFeedback(
+                  child: FloatingActionButton(
+                    onPressed: () async {
+                      final created = await context.push<bool>('/events/create');
+                      if (created == true && mounted) {
+                        _applyFilters();
+                        _loadFeatured();
+                      }
+                    },
+                    backgroundColor: AppTheme.accentColor,
+                    child: const Icon(Icons.add, color: Colors.white, size: AppIconSize.xl),
+                  ),
                 )
               : null,
     );
@@ -883,6 +886,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         index: i,
                         child: EventCard(
                           event: event,
+                          imageUrl: event.firstImageUrl,
                           onTap: () => context.push('/events/${event.id}'),
                           isBookmarked: _bookmarkedIds.contains(event.id),
                           onBookmarkToggle: () => _toggleBookmark(event.id),
@@ -1307,6 +1311,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     index: index,
                     child: EventCard(
                       event: event,
+                      imageUrl: event.firstImageUrl,
                       onTap: () => context.push('/events/${event.id}'),
                       isBookmarked: _bookmarkedIds.contains(event.id),
                       onBookmarkToggle: () => _toggleBookmark(event.id),
@@ -1601,35 +1606,37 @@ class _HomeScreenState extends State<HomeScreen> {
   }) {
     final isDark = AppTheme.isDark(context);
     return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
-          decoration: BoxDecoration(
-            color: AppTheme.cardOf(context),
-            borderRadius: AppRadius.lg,
-            boxShadow: AppShadow.card(isDark),
-          ),
-          child: Column(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
-                  borderRadius: AppRadius.md,
+      child: PressFeedback(
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
+            decoration: BoxDecoration(
+              color: AppTheme.cardOf(context),
+              borderRadius: AppRadius.lg,
+              boxShadow: AppShadow.card(isDark),
+            ),
+            child: Column(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.1),
+                    borderRadius: AppRadius.md,
+                  ),
+                  child: Icon(icon, size: AppIconSize.lg, color: color),
                 ),
-                child: Icon(icon, size: AppIconSize.lg, color: color),
-              ),
-              AppSpacing.vSm,
-              Text(label,
-                  style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textPrimaryOf(context)),
-                  textAlign: TextAlign.center),
-            ],
-          ),
+                AppSpacing.vSm,
+                Text(label,
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textPrimaryOf(context)),
+                    textAlign: TextAlign.center),
+              ],
+            ),
+        ),
         ),
       ),
     );
@@ -1876,6 +1883,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             index: index,
                             child: EventCard(
                               event: event,
+                              imageUrl: event.firstImageUrl,
                               onTap: () => context.push('/events/${event.id}'),
                               isBookmarked: _bookmarkedIds.contains(event.id),
                               onBookmarkToggle: () => _toggleBookmark(event.id),
@@ -2502,6 +2510,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     margin: const EdgeInsets.only(right: AppSpacing.md),
                     child: EventCard(
                       event: event,
+                      imageUrl: event.firstImageUrl,
                       onTap: () => context.push('/events/${event.id}'),
                       isBookmarked: _bookmarkedIds.contains(event.id),
                       onBookmarkToggle: () => _toggleBookmark(event.id),

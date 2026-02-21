@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:flutter_animate/flutter_animate.dart';
 
+import '../../config/api_config.dart';
 import '../../config/theme.dart';
 import '../../config/design_tokens.dart';
 import '../../models/event.dart';
@@ -19,10 +21,10 @@ import '../../models/ticket_strategy.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/event_provider.dart';
 import '../../widgets/animated_list_item.dart';
+import '../../widgets/press_feedback.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/error_state.dart';
 import '../../widgets/event_lifecycle_bar.dart';
-import '../../widgets/section_header.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/star_rating.dart';
@@ -44,6 +46,9 @@ class EventDetailScreen extends StatefulWidget {
 
 class _EventDetailScreenState extends State<EventDetailScreen> {
   List<EventImage> _images = [];
+  final ScrollController _scrollCtrl = ScrollController();
+  bool _scrolledPastHero = false;
+  static const double _heroHeight = 300;
 
   // Registration state
   bool _isRegistered = false;
@@ -66,6 +71,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   @override
   void initState() {
     super.initState();
+    _scrollCtrl.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<EventProvider>().loadEvent(widget.eventId);
       _loadImages();
@@ -75,6 +81,17 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       _loadRevenue();
       _checkBookmark();
     });
+  }
+
+  @override
+  void dispose() {
+    _scrollCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    final past = _scrollCtrl.offset > _heroHeight - kToolbarHeight;
+    if (past != _scrolledPastHero) setState(() => _scrolledPastHero = past);
   }
 
   Future<void> _checkBookmark() async {
@@ -108,11 +125,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       _loadMyReservedSpots(),
       _loadRevenue(),
     ]);
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
   }
 
   // _loadPosts moved into _EventFeed widget
@@ -211,48 +223,40 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     final isDark = AppTheme.isDark(context);
     final dateFormat = DateFormat('MMM dd, yyyy h:mm a');
 
+    final heroUrl = _images.isNotEmpty ? _images.first.imageUrl : null;
+    final hasHero = heroUrl != null;
+
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: Container(
-            padding: const EdgeInsets.all(AppSpacing.xs),
-            decoration: BoxDecoration(
-              color: AppTheme.surfaceOf(context),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.close, size: AppIconSize.sm),
-          ),
-          onPressed: () {
-            if (Navigator.of(context).canPop()) {
-              context.pop();
-            } else {
-              context.go('/');
-            }
-          },
-        ),
-        title: const SizedBox.shrink(),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        surfaceTintColor: Colors.transparent,
-        actions: [
-          IconButton(
-            icon: Container(
-              padding: const EdgeInsets.all(AppSpacing.xs),
-              decoration: BoxDecoration(
-                color: AppTheme.surfaceOf(context),
-                shape: BoxShape.circle,
+      bottomNavigationBar: event != null && _scrolledPastHero
+          ? AnimatedSlide(
+              offset: _scrolledPastHero ? Offset.zero : const Offset(0, 1),
+              duration: AppDuration.fast,
+              curve: AppCurve.enter,
+              child: AnimatedOpacity(
+                opacity: _scrolledPastHero ? 1.0 : 0.0,
+                duration: AppDuration.fast,
+                child: Container(
+                  padding: EdgeInsets.only(
+                    left: AppSpacing.lg,
+                    right: AppSpacing.lg,
+                    top: AppSpacing.sm,
+                    bottom: MediaQuery.of(context).padding.bottom + AppSpacing.sm,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surfaceOf(context),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 12,
+                        offset: const Offset(0, -4),
+                      ),
+                    ],
+                  ),
+                  child: _buildQuickActionBar(context, event, user),
+                ),
               ),
-              child: Icon(
-                _bookmarked ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
-                size: AppIconSize.sm,
-                color: _bookmarked ? AppTheme.accentColor : null,
-              ),
-            ),
-            onPressed: _toggleBookmark,
-          ),
-          AppSpacing.hXs,
-        ],
-      ),
+            )
+          : null,
       body: eventProvider.isLoading
           ? const ShimmerDetailHeader()
           : eventProvider.error != null
@@ -267,15 +271,134 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                     )
                   : RefreshIndicator(
                       onRefresh: _refreshAll,
-                      child: SingleChildScrollView(
+                      child: CustomScrollView(
+                        controller: _scrollCtrl,
                         physics: const AlwaysScrollableScrollPhysics(),
-                        padding: AppSpacing.paddingXl,
-                        child: Center(
-                          child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 700),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
+                        slivers: [
+                          SliverAppBar(
+                            expandedHeight: hasHero ? _heroHeight : 0,
+                            pinned: true,
+                            stretch: hasHero,
+                            backgroundColor: AppTheme.surfaceOf(context),
+                            surfaceTintColor: Colors.transparent,
+                            leading: IconButton(
+                              icon: Container(
+                                padding: const EdgeInsets.all(AppSpacing.xs),
+                                decoration: BoxDecoration(
+                                  color: _scrolledPastHero || !hasHero
+                                      ? Colors.transparent
+                                      : AppTheme.surfaceOf(context).withValues(alpha: 0.7),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.close, size: AppIconSize.sm),
+                              ),
+                              onPressed: () {
+                                if (Navigator.of(context).canPop()) {
+                                  context.pop();
+                                } else {
+                                  context.go('/');
+                                }
+                              },
+                            ),
+                            title: AnimatedOpacity(
+                              opacity: _scrolledPastHero || !hasHero ? 1.0 : 0.0,
+                              duration: AppDuration.fast,
+                              child: Text(
+                                event?.title ?? '',
+                                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            actions: [
+                              IconButton(
+                                icon: Container(
+                                  padding: const EdgeInsets.all(AppSpacing.xs),
+                                  decoration: BoxDecoration(
+                                    color: _scrolledPastHero || !hasHero
+                                        ? Colors.transparent
+                                        : AppTheme.surfaceOf(context).withValues(alpha: 0.7),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    _bookmarked ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+                                    size: AppIconSize.sm,
+                                    color: _bookmarked ? AppTheme.accentColor : null,
+                                  ),
+                                ),
+                                onPressed: _toggleBookmark,
+                              ),
+                              AppSpacing.hXs,
+                            ],
+                            flexibleSpace: hasHero
+                                ? FlexibleSpaceBar(
+                                    collapseMode: CollapseMode.parallax,
+                                    stretchModes: const [StretchMode.zoomBackground],
+                                    background: Stack(
+                                      fit: StackFit.expand,
+                                      children: [
+                                        Image.network(
+                                          ApiConfig.imageUrl(heroUrl!),
+                                          fit: BoxFit.cover,
+                                          loadingBuilder: (context, child, progress) {
+                                            if (progress == null) return child;
+                                            return Container(
+                                              color: AppTheme.cardOf(context),
+                                              child: const Center(
+                                                child: CircularProgressIndicator(strokeWidth: 2),
+                                              ),
+                                            );
+                                          },
+                                          errorBuilder: (_, __, ___) => Container(
+                                            decoration: BoxDecoration(
+                                              gradient: LinearGradient(
+                                                begin: Alignment.topLeft,
+                                                end: Alignment.bottomRight,
+                                                colors: [
+                                                  AppTheme.accentColor.withValues(alpha: 0.15),
+                                                  AppTheme.secondaryColor.withValues(alpha: 0.15),
+                                                ],
+                                              ),
+                                            ),
+                                            child: Column(
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                Icon(Icons.image_rounded, size: 48,
+                                                    color: AppTheme.textSecondaryOf(context)),
+                                                AppSpacing.vSm,
+                                                Text('Image could not be loaded',
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      color: AppTheme.textSecondaryOf(context),
+                                                    )),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                        const DecoratedBox(
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              begin: Alignment.topCenter,
+                                              end: Alignment.bottomCenter,
+                                              colors: [Colors.black26, Colors.transparent, Colors.black38],
+                                              stops: [0.0, 0.4, 1.0],
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                : null,
+                          ),
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: AppSpacing.paddingXl,
+                              child: Center(
+                                child: ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 700),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
                               // ── Hero Header ──
                               Text(
                                 event.title,
@@ -367,19 +490,38 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                         child: Stack(
                                           children: [
                                             Image.network(
-                                              img.imageUrl,
+                                              ApiConfig.imageUrl(img.imageUrl),
                                               height: 180,
                                               width: 260,
                                               fit: BoxFit.cover,
+                                              loadingBuilder: (context, child, progress) {
+                                                if (progress == null) return child;
+                                                return Container(
+                                                  height: 180,
+                                                  width: 260,
+                                                  color: AppTheme.cardOf(context),
+                                                  child: const Center(
+                                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                                  ),
+                                                );
+                                              },
                                               errorBuilder:
                                                   (_, __, ___) =>
                                                       Container(
                                                 height: 180,
                                                 width: 260,
-                                                color: Colors.grey[200],
-                                                child: const Icon(
-                                                    Icons.broken_image,
-                                                    size: 40),
+                                                color: AppTheme.cardOf(context),
+                                                child: Column(
+                                                  mainAxisAlignment: MainAxisAlignment.center,
+                                                  children: [
+                                                    Icon(Icons.broken_image_rounded,
+                                                        size: 32, color: AppTheme.textSecondaryOf(context)),
+                                                    AppSpacing.vXs,
+                                                    Text('Failed to load',
+                                                        style: TextStyle(fontSize: 11,
+                                                            color: AppTheme.textSecondaryOf(context))),
+                                                  ],
+                                                ),
                                               ),
                                             ),
                                             if (img.caption != null &&
@@ -1193,6 +1335,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                       ),
                     ),
                   ),
+                ],
+              ),
+            ),
     );
   }
 
@@ -1200,73 +1345,54 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
   // ─── Add image button ───
 
+  bool _uploadingImages = false;
+
   Widget _addImageButton(BuildContext context) {
     return OutlinedButton.icon(
-      onPressed: () => _showAddImageDialog(context),
-      icon: const Icon(Icons.add_photo_alternate, size: AppIconSize.sm),
-      label: const Text('Add Image URL'),
+      onPressed: _uploadingImages ? null : () => _pickAndUploadImages(context),
+      icon: _uploadingImages
+          ? const SizedBox(
+              width: AppIconSize.sm,
+              height: AppIconSize.sm,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.add_photo_alternate, size: AppIconSize.sm),
+      label: Text(_uploadingImages ? 'Uploading...' : 'Add Photos'),
     );
   }
 
-  Future<void> _showAddImageDialog(BuildContext context) async {
-    final urlCtrl = TextEditingController();
-    final captionCtrl = TextEditingController();
+  Future<void> _pickAndUploadImages(BuildContext context) async {
+    try {
+      final picker = ImagePicker();
+      final picked = await picker.pickMultiImage();
+      if (picked.isEmpty) return;
 
-    await showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Add Image'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: urlCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Image URL',
-                hintText: 'https://...',
-              ),
-            ),
-            AppSpacing.vMd,
-            TextField(
-              controller: captionCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Caption (optional)',
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (urlCtrl.text.trim().isEmpty) return;
-              try {
-                final api = context.read<ApiService>();
-                await api.addEventImage(
-                  widget.eventId,
-                  imageUrl: urlCtrl.text.trim(),
-                  caption: captionCtrl.text.trim().isEmpty
-                      ? null
-                      : captionCtrl.text.trim(),
-                );
-                if (ctx.mounted) Navigator.pop(ctx);
-                _loadImages();
-              } catch (e) {
-                if (context.mounted) {
-                  AppToast.fromError(context, e, fallback: 'Image upload failed');
-                }
-              }
-            },
-            child: const Text('Add'),
-          ),
-        ],
-      ),
-    );
+      setState(() => _uploadingImages = true);
+      final api = context.read<ApiService>();
+      int order = _images.length;
+
+      for (final xFile in picked) {
+        final Uint8List bytes = await xFile.readAsBytes();
+        await api.uploadEventImage(
+          widget.eventId,
+          fileBytes: bytes,
+          fileName: xFile.name,
+          displayOrder: order++,
+        );
+      }
+
+      await _loadImages();
+      if (mounted) {
+        AppToast.success(context, '${picked.length} photo${picked.length == 1 ? '' : 's'} added');
+      }
+    } catch (e) {
+      if (mounted) {
+        AppToast.fromError(context, e, fallback: 'Image upload failed');
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingImages = false);
+    }
   }
-
   // ─── Helpers ───
 
   /// Total capacity used = reserved spots (unredeemed) + tickets sold.
@@ -1621,10 +1747,11 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     VoidCallback? onTap,
     Widget? trailing,
   }) {
-    return Material(
-      color: filled ? color : Colors.transparent,
-      borderRadius: AppRadius.md,
-      child: InkWell(
+    return PressFeedback(
+      child: Material(
+        color: filled ? color : Colors.transparent,
+        borderRadius: AppRadius.md,
+        child: InkWell(
         borderRadius: AppRadius.md,
         onTap: onTap,
         child: Container(
@@ -1658,6 +1785,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 
@@ -2985,21 +3113,23 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
         // Scan QR button (prominent, for selling/live events)
         if (event.status == EventStatus.selling_tickets ||
             event.status == EventStatus.live) ...[
-          SizedBox(
-            width: double.infinity,
-            height: 54,
-            child: ElevatedButton.icon(
-              onPressed: () => context.push(
-                '/events/${event.id}/scan?title=${Uri.encodeComponent(event.title)}',
-              ),
-              icon: const Icon(Icons.qr_code_scanner_rounded, size: AppIconSize.lg),
-              label: const Text('Scan Tickets',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.successColor,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: AppRadius.lg),
-                elevation: 0,
+          PressFeedback(
+            child: SizedBox(
+              width: double.infinity,
+              height: 54,
+              child: ElevatedButton.icon(
+                onPressed: () => context.push(
+                  '/events/${event.id}/scan?title=${Uri.encodeComponent(event.title)}',
+                ),
+                icon: const Icon(Icons.qr_code_scanner_rounded, size: AppIconSize.lg),
+                label: const Text('Scan Tickets',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.successColor,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: AppRadius.lg),
+                  elevation: 0,
+                ),
               ),
             ),
           ),
@@ -3102,20 +3232,22 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           AppSpacing.vLg,
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton(
-              onPressed: buttonEnabled ? onPressed : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: color,
-                disabledBackgroundColor: Colors.white.withValues(alpha: 0.5),
-                disabledForegroundColor: color.withValues(alpha: 0.4),
-                padding: const EdgeInsets.symmetric(vertical: 13),
-                shape: RoundedRectangleBorder(borderRadius: AppRadius.md),
-                elevation: 0,
+            child: PressFeedback(
+              child: ElevatedButton(
+                onPressed: buttonEnabled ? onPressed : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: color,
+                  disabledBackgroundColor: Colors.white.withValues(alpha: 0.5),
+                  disabledForegroundColor: color.withValues(alpha: 0.4),
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  shape: RoundedRectangleBorder(borderRadius: AppRadius.md),
+                  elevation: 0,
+                ),
+                child: Text(buttonLabel,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700, fontSize: 14)),
               ),
-              child: Text(buttonLabel,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w700, fontSize: 14)),
             ),
           ),
         ],
@@ -7443,7 +7575,7 @@ class _SponsorCarouselState extends State<_SponsorCarousel> {
               radius: AppSpacing.xxxl,
               backgroundColor: AppTheme.accentColor.withValues(alpha: 0.1),
               backgroundImage: sponsor['logo_url'] != null
-                  ? NetworkImage(sponsor['logo_url'])
+                  ? NetworkImage(ApiConfig.imageUrl(sponsor['logo_url']))
                   : null,
               child: sponsor['logo_url'] == null
                   ? Text(
@@ -7518,7 +7650,7 @@ class _SponsorCarouselState extends State<_SponsorCarousel> {
                         backgroundColor:
                             AppTheme.accentColor.withValues(alpha: 0.12),
                         backgroundImage: s['logo_url'] != null
-                            ? NetworkImage(s['logo_url'])
+                            ? NetworkImage(ApiConfig.imageUrl(s['logo_url']))
                             : null,
                         child: s['logo_url'] == null
                             ? Text(

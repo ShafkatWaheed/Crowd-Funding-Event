@@ -89,6 +89,31 @@ def _directions_url(e: Event) -> str | None:
     return None
 
 
+async def _get_first_images(db, event_ids: list[int]) -> dict[int, str]:
+    """Batch-fetch the first image URL for each event (by display_order)."""
+    if not event_ids:
+        return {}
+    from sqlalchemy import select, func
+    from app.models.image import EventImage
+
+    subq = (
+        select(
+            EventImage.event_id,
+            func.min(EventImage.id).label("min_id"),
+        )
+        .where(EventImage.event_id.in_(event_ids))
+        .group_by(EventImage.event_id)
+        .subquery()
+    )
+    rows = (
+        await db.execute(
+            select(EventImage.event_id, EventImage.image_url)
+            .join(subq, EventImage.id == subq.c.min_id)
+        )
+    ).all()
+    return {r.event_id: r.image_url for r in rows}
+
+
 def _event_to_response(
     e: Event,
     *,
@@ -98,6 +123,7 @@ def _event_to_response(
     tickets_sold_count: int = 0,
     include_dislike: bool = False,
     organizer_trust: dict | None = None,
+    first_image_url: str | None = None,
 ) -> EventResponse:
     """Build response; e.venue must be loaded so everyone can see venue info when viewing an event."""
     from app.schemas.event import OrganizerTrustInfo
@@ -159,6 +185,7 @@ def _event_to_response(
         rideshare_info=e.rideshare_info,
         accessibility_info=e.accessibility_info,
         directions_url=_directions_url(e),
+        first_image_url=first_image_url,
         lat=e.lat,
         lng=e.lng,
         created_at=e.created_at,
@@ -237,6 +264,7 @@ async def list_events(
     pledged = await funding_service.get_pledged_totals_for_events(db, event_ids=event_ids)
     reserved = await funding_service.get_total_reserved_spots_for_events(db, event_ids=event_ids)
     tickets_sold = await ticket_service.get_ticket_sold_counts_for_events(db, event_ids=event_ids)
+    first_images = await _get_first_images(db, event_ids)
     now = datetime.now(timezone.utc)
     out = []
     for e in events:
@@ -253,6 +281,7 @@ async def list_events(
                 funding_days_left=days_left,
                 total_reserved_spots=reserved.get(e.id, 0),
                 tickets_sold_count=tickets_sold.get(e.id, 0),
+                first_image_url=first_images.get(e.id),
             )
         )
     return out
@@ -278,6 +307,7 @@ async def get_featured_events(db: DbSession):
     pledged = await funding_service.get_pledged_totals_for_events(db, event_ids=all_ids)
     reserved = await funding_service.get_total_reserved_spots_for_events(db, event_ids=all_ids)
     tickets_sold = await ticket_service.get_ticket_sold_counts_for_events(db, event_ids=all_ids)
+    first_images = await _get_first_images(db, all_ids)
 
     now = datetime.now(timezone.utc)
 
@@ -294,6 +324,7 @@ async def get_featured_events(db: DbSession):
             funding_days_left=days_left,
             total_reserved_spots=reserved.get(e.id, 0),
             tickets_sold_count=tickets_sold.get(e.id, 0),
+            first_image_url=first_images.get(e.id),
         )
 
     return {
@@ -361,8 +392,8 @@ async def get_event(event_id: int, db: DbSession, current_user: CurrentUserOptio
         delta = (end - now).days
         days_left = max(0, delta) if delta > 0 else 0
     is_admin = current_user is not None and current_user.role == UserRole.admin
-    # Compute organizer trust score
     trust = await event_service.get_organizer_trust_score(db, organizer_id=event.organizer_id)
+    first_images = await _get_first_images(db, [event.id])
     return _event_to_response(
         event,
         total_pledged_cents=summary["total_pledged_cents"],
@@ -371,6 +402,7 @@ async def get_event(event_id: int, db: DbSession, current_user: CurrentUserOptio
         tickets_sold_count=ticket_stats["total_sold"],
         include_dislike=is_admin,
         organizer_trust=trust,
+        first_image_url=first_images.get(event.id),
     )
 
 

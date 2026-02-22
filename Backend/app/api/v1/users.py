@@ -5,10 +5,14 @@ from fastapi import APIRouter, Depends
 
 from app.dependencies import CurrentUser, DbSession, require_role
 from app.models.user import User, UserRole
-from app.schemas import EventResponse, MeResponse, MeUpdate, MyPledgeItem, PledgeReceiptResponse, TicketReceiptResponse, TicketSaleResponse
+from app.schemas import (
+    EventResponse, MeResponse, MeUpdate, MyPledgeItem,
+    OrganizerDashboardResponse, OrganizerTimeSeriesResponse,
+    PledgeReceiptResponse, TicketReceiptResponse, TicketSaleResponse,
+)
 from fastapi import Query
 
-from app.api.v1.events import _event_to_response, _ticket_sale_to_response
+from app.api.v1.events import _event_to_response, _get_first_images, _ticket_sale_to_response
 from app.services import event as event_service
 from app.services import funding as funding_service
 from app.services import ticket as ticket_service
@@ -374,3 +378,71 @@ async def list_bookmarked_events(
             days_left = max(0, delta) if delta > 0 else 0
         out.append(_event_to_response(e, total_pledged_cents=total_cents, funding_days_left=days_left))
     return out
+
+
+# ── Organizer Dashboard ────────────────────────────────────────────────
+
+
+@router.get("/organizer-dashboard", response_model=OrganizerDashboardResponse)
+async def get_organizer_dashboard(
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+):
+    """Aggregated dashboard: KPIs with deltas, status breakdown, top events, activity feed."""
+    from datetime import datetime, timezone
+    from app.services import dashboard as dashboard_service
+
+    raw = await dashboard_service.get_organizer_dashboard(db, current_user.id)
+
+    all_event_objs = list({
+        e.id: e
+        for e in raw["top_events"] + raw["trending_events"] + raw["popular_events"]
+    }.values())
+    event_ids = [e.id for e in all_event_objs]
+    pledged_map = await funding_service.get_pledged_totals_for_events(db, event_ids=event_ids) if event_ids else {}
+    from app.services import ticket as ts
+    tickets_sold_map = await ts.get_ticket_sold_counts_for_events(db, event_ids=event_ids) if event_ids else {}
+    first_images = await _get_first_images(db, event_ids) if event_ids else {}
+
+    now = datetime.now(timezone.utc)
+
+    def _build_responses(events: list) -> list:
+        result = []
+        for e in events:
+            total_cents = pledged_map.get(e.id, 0)
+            days_left = None
+            if e.funding_end_at is not None:
+                end_dt = e.funding_end_at if e.funding_end_at.tzinfo else e.funding_end_at.replace(tzinfo=timezone.utc)
+                d = (end_dt - now).days
+                days_left = max(0, d) if d > 0 else 0
+            result.append(_event_to_response(
+                e,
+                total_pledged_cents=total_cents,
+                funding_days_left=days_left,
+                tickets_sold_count=tickets_sold_map.get(e.id, 0),
+                first_image_url=first_images.get(e.id),
+            ))
+        return result
+
+    return OrganizerDashboardResponse(
+        total_revenue=raw["total_revenue"],
+        tickets_sold=raw["tickets_sold"],
+        total_backers=raw["total_backers"],
+        total_events=raw["total_events"],
+        status_breakdown=raw["status_breakdown"],
+        top_events=_build_responses(raw["top_events"]),
+        trending_events=_build_responses(raw["trending_events"]),
+        popular_events=_build_responses(raw["popular_events"]),
+        recent_activity=raw["recent_activity"],
+    )
+
+
+@router.get("/organizer-dashboard/time-series", response_model=OrganizerTimeSeriesResponse)
+async def get_organizer_time_series(
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+    days: int = Query(30, ge=7, le=90, description="Number of days (7, 30, or 90)"),
+):
+    """Time-series revenue and ticket data for the organizer's events."""
+    from app.services import dashboard as dashboard_service
+    return await dashboard_service.get_organizer_time_series(db, current_user.id, days=days)

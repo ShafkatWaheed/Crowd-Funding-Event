@@ -1,4 +1,8 @@
+import 'dart:math' as math;
+
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -187,6 +191,15 @@ class _HomeScreenState extends State<HomeScreen> {
   String _sponsorBidSearch = '';
   String? _sponsorBidStatus;
 
+  // Organizer dashboard
+  Map<String, dynamic>? _dashboardData;
+  bool _dashboardLoading = false;
+  String? _dashboardError;
+  Map<String, dynamic>? _timeSeriesData;
+  bool _timeSeriesLoading = false;
+  int _chartDays = 30;
+  int? _activityFilterEventId;
+
   // Cache timestamps for tab data staleness checks
   DateTime? _myEventsLoadedAt;
   DateTime? _sponsorBidLoadedAt;
@@ -202,6 +215,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _loadFeatured();
       _loadMyEvents();
       _loadSponsorBidEvents();
+      _loadDashboard();
       _loadNearMe();
       final ep = context.read<EventProvider>();
       ep.addListener(_onEventsChanged);
@@ -291,6 +305,42 @@ class _HomeScreenState extends State<HomeScreen> {
     if (mounted) {
       _sponsorBidLoadedAt = DateTime.now();
       setState(() => _sponsorBidEventsLoading = false);
+    }
+  }
+
+  Future<void> _loadDashboard() async {
+    final auth = context.read<AuthProvider>();
+    if (auth.user == null || !(auth.user!.isOrganizer || auth.user!.isAdmin)) return;
+    setState(() { _dashboardLoading = true; _dashboardError = null; });
+    try {
+      final api = context.read<ApiService>();
+      final data = await api.getOrganizerDashboard();
+      if (mounted) {
+        setState(() {
+          _dashboardData = data;
+          _dashboardLoading = false;
+        });
+        _loadTimeSeries();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _dashboardError = ApiService.extractError(e);
+          _dashboardLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadTimeSeries() async {
+    setState(() => _timeSeriesLoading = true);
+    try {
+      final api = context.read<ApiService>();
+      final data = await api.getOrganizerTimeSeries(days: _chartDays);
+      if (mounted) setState(() { _timeSeriesData = data; _timeSeriesLoading = false; });
+    } catch (e) {
+      debugPrint('_loadTimeSeries error: $e');
+      if (mounted) setState(() => _timeSeriesLoading = false);
     }
   }
 
@@ -1408,193 +1458,941 @@ class _HomeScreenState extends State<HomeScreen> {
   // TAB 2: MANAGE (organizer) / MY EVENTS (customer)
   // ════════════════════════════════════════════
 
+  String _formatCents(int cents) {
+    if (cents >= 100000) return '\$${(cents / 100).toStringAsFixed(0)}';
+    return '\$${(cents / 100).toStringAsFixed(2)}';
+  }
+
+  String _relativeTime(String iso) {
+    final dt = DateTime.tryParse(iso);
+    if (dt == null) return '';
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 1) return 'just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    return DateFormat.MMMd().format(dt);
+  }
+
   Widget _buildManageTab() {
     final user = context.watch<AuthProvider>().user;
     final isDark = AppTheme.isDark(context);
-    return CustomScrollView(
-      slivers: [
-        SliverToBoxAdapter(
-          child: Container(
-            decoration: BoxDecoration(
-              color: AppTheme.cardOf(context),
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(AppRadius.xxlValue),
-                bottomRight: Radius.circular(AppRadius.xxlValue),
-              ),
-              boxShadow: AppShadow.soft(isDark),
-            ),
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.xxl, 56, AppSpacing.xxl, AppSpacing.xxl,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Manage',
-                    style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.5,
-                        color: AppTheme.textPrimaryOf(context))),
-                AppSpacing.vSm,
-                Text(
-                  'Tools & shortcuts for your events',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppTheme.textSecondaryOf(context),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
 
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.xl, AppSpacing.xxl, AppSpacing.xl, 0,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Quick Actions',
+    return RefreshIndicator(
+      color: AppTheme.accentColor,
+      onRefresh: () async {
+        HapticFeedback.mediumImpact();
+        await _loadDashboard();
+      },
+      child: CustomScrollView(
+        slivers: [
+          // ── A. Header ──────────────────────────────────────────
+          SliverToBoxAdapter(
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppTheme.cardOf(context),
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(AppRadius.xxlValue),
+                  bottomRight: Radius.circular(AppRadius.xxlValue),
+                ),
+                boxShadow: AppShadow.soft(isDark),
+              ),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.xxl, 56, AppSpacing.xxl, AppSpacing.xl,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Hi, ${user?.displayName?.split(' ').first ?? 'Organizer'}',
                     style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textSecondaryOf(context),
-                        letterSpacing: 0.5)),
-                AppSpacing.vLg,
-                AnimatedListItem(
-                  index: 0,
-                  child: Row(
-                    children: [
-                      _quickActionCard(
-                        icon: Icons.add_circle_rounded,
-                        label: 'Create Event',
-                        color: AppTheme.accentColor,
-                        onTap: () async {
-                          final created =
-                              await context.push<bool>('/events/create');
-                          if (created == true && mounted) {
-                            _applyFilters();
-                            _loadFeatured();
-                          }
-                        },
-                      ),
-                      AppSpacing.hMd,
-                      _quickActionCard(
-                        icon: Icons.location_city_rounded,
-                        label: 'Venues',
-                        color: AppTheme.accentColor,
-                        onTap: () => context.push('/venues'),
-                      ),
-                      AppSpacing.hMd,
-                      _quickActionCard(
-                        icon: Icons.confirmation_number_rounded,
-                        label: 'Ticket Tiers',
-                        color: context.statusSelling,
-                        onTap: () => context.push('/ticket-strategies'),
-                      ),
-                    ],
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.5,
+                      color: AppTheme.textPrimaryOf(context),
+                    ),
                   ),
-                ),
-                AppSpacing.vMd,
-                AnimatedListItem(
-                  index: 1,
-                  child: Row(
-                    children: [
-                      _quickActionCard(
-                        icon: Icons.receipt_long_rounded,
-                        label: 'All Sales',
-                        color: AppTheme.successColor,
-                        onTap: () => context.push('/manage/ticket-sales'),
-                      ),
-                      AppSpacing.hMd,
-                      _quickActionCard(
-                        icon: Icons.qr_code_scanner_rounded,
-                        label: 'Scanned',
-                        color: context.sponsorAccent,
-                        onTap: () => context.push('/manage/scanned-tickets'),
-                      ),
-                      AppSpacing.hMd,
-                      _quickActionCard(
-                        icon: Icons.hourglass_top_rounded,
-                        label: 'Waitlist',
-                        color: context.statusPending,
-                        onTap: () => context.push('/manage/waitlist'),
-                      ),
-                    ],
-                  ),
-                ),
-                AppSpacing.vMd,
-                AnimatedListItem(
-                  index: 2,
-                  child: Row(
-                    children: [
-                      _quickActionCard(
-                        icon: Icons.discount_rounded,
-                        label: 'Discounts',
-                        color: AppTheme.errorColor,
-                        onTap: () => context.push('/manage/discounts'),
-                      ),
-                      AppSpacing.hMd,
-                      _quickActionCard(
-                        icon: Icons.handshake_rounded,
-                        label: 'Sponsors',
-                        color: context.managementAccent,
-                        onTap: () => context.push('/manage/sponsors'),
-                      ),
-                      AppSpacing.hMd,
-                      _quickActionCard(
-                        icon: Icons.category_rounded,
-                        label: 'Sponsorships',
-                        color: context.sponsorAccent,
-                        onTap: () => context.push('/sponsor-category-templates'),
-                      ),
-                    ],
-                  ),
-                ),
-                AppSpacing.vMd,
-                AnimatedListItem(
-                  index: 3,
-                  child: Row(
-                    children: [
-                      _quickActionCard(
-                        icon: Icons.bookmark_rounded,
-                        label: 'Bookmarks',
-                        color: AppTheme.warningColor,
-                        onTap: () => context.push('/bookmarks'),
-                      ),
-                    ],
-                  ),
-                ),
-                if (user != null && user.isAdmin) ...[
-                  AppSpacing.vMd,
-                  AnimatedListItem(
-                    index: 4,
-                    child: Row(
-                      children: [
-                        _quickActionCard(
-                          icon: Icons.admin_panel_settings_rounded,
-                          label: 'Admin',
-                          color: AppTheme.primaryColor,
-                          onTap: () => context.push('/admin'),
-                        ),
-                        AppSpacing.hMd,
-                        const Expanded(child: SizedBox()),
-                        AppSpacing.hMd,
-                        const Expanded(child: SizedBox()),
-                      ],
+                  AppSpacing.vXs,
+                  Text(
+                    "Here's how your events are doing",
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppTheme.textSecondaryOf(context),
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ],
+              ),
+            ),
+          ),
 
+          // ── Content ────────────────────────────────────────────
+          if (_dashboardLoading && _dashboardData == null)
+            SliverToBoxAdapter(child: _buildDashboardShimmer())
+          else if (_dashboardError != null && _dashboardData == null)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.xxl),
+                child: ErrorState(
+                  message: _dashboardError!,
+                  onRetry: _loadDashboard,
+                ),
+              ),
+            )
+          else if (_dashboardData != null) ...[
+            // ── B. KPI Cards ───────────────────────────────────
+            SliverToBoxAdapter(child: _buildKpiSection()),
+            // ── C. Status Breakdown ────────────────────────────
+            SliverToBoxAdapter(child: _buildStatusChips()),
+            // ── D. Time-Series Chart ───────────────────────────
+            SliverToBoxAdapter(child: _buildChartSection()),
+            // ── E. Event Carousels ─────────────────────────────
+            ..._buildCarouselSections(),
+            // ── F. Activity Feed ───────────────────────────────
+            SliverToBoxAdapter(child: _buildActivityFeed()),
+          ],
+
+          // ── G. Quick Actions ─────────────────────────────────
+          SliverToBoxAdapter(child: _buildQuickActionsSection(user)),
+          const SliverToBoxAdapter(child: SizedBox(height: 100)),
+        ],
+      ),
+    );
+  }
+
+  // ── Dashboard Shimmer ────────────────────────────────────────────────
+
+  Widget _buildDashboardShimmer() {
+    return Padding(
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      child: Column(
+        children: [
+          AppSpacing.vLg,
+          Row(
+            children: [
+              Expanded(child: _shimmerBox(height: 110)),
+              AppSpacing.hMd,
+              Expanded(child: _shimmerBox(height: 110)),
+            ],
+          ),
+          AppSpacing.vMd,
+          Row(
+            children: [
+              Expanded(child: _shimmerBox(height: 110)),
+              AppSpacing.hMd,
+              Expanded(child: _shimmerBox(height: 110)),
+            ],
+          ),
+          AppSpacing.vXl,
+          _shimmerBox(height: 40),
+          AppSpacing.vXl,
+          _shimmerBox(height: 200),
+          AppSpacing.vXl,
+          _shimmerBox(height: 180),
+        ],
+      ),
+    );
+  }
+
+  Widget _shimmerBox({required double height}) {
+    final isDark = AppTheme.isDark(context);
+    return Container(
+      height: height,
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.06),
+        borderRadius: AppRadius.lg,
+      ),
+    ).animate(onPlay: (c) => c.repeat())
+      .shimmer(duration: 1200.ms, color: isDark ? Colors.white12 : Colors.white60);
+  }
+
+  // ── B. KPI Cards ─────────────────────────────────────────────────────
+
+  Widget _buildKpiSection() {
+    final d = _dashboardData!;
+    final revenue = d['total_revenue'] as Map<String, dynamic>;
+    final tickets = d['tickets_sold'] as Map<String, dynamic>;
+    final backers = d['total_backers'] as Map<String, dynamic>;
+    final events = d['total_events'] as Map<String, dynamic>;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.xl, AppSpacing.xl, AppSpacing.xl, 0),
+      child: Column(
+        children: [
+          AnimatedListItem(
+            index: 0,
+            child: Row(
+              children: [
+                Expanded(
+                  child: _DashboardKpiCard(
+                    icon: Icons.attach_money_rounded,
+                    label: 'Total Revenue',
+                    value: _formatCents(revenue['value'] as int? ?? 0),
+                    deltaPercent: (revenue['delta_percent'] as num?)?.toDouble(),
+                    accentColor: AppTheme.successColor,
+                  ),
+                ),
+                AppSpacing.hMd,
+                Expanded(
+                  child: _DashboardKpiCard(
+                    icon: Icons.confirmation_number_rounded,
+                    label: 'Tickets Sold',
+                    value: '${tickets['value'] ?? 0}',
+                    deltaPercent: (tickets['delta_percent'] as num?)?.toDouble(),
+                    accentColor: context.ticketAccent,
+                  ),
+                ),
               ],
             ),
           ),
+          AppSpacing.vMd,
+          AnimatedListItem(
+            index: 1,
+            child: Row(
+              children: [
+                Expanded(
+                  child: _DashboardKpiCard(
+                    icon: Icons.volunteer_activism_rounded,
+                    label: 'Total Backers',
+                    value: '${backers['value'] ?? 0}',
+                    deltaPercent: (backers['delta_percent'] as num?)?.toDouble(),
+                    accentColor: context.fundingAccent,
+                  ),
+                ),
+                AppSpacing.hMd,
+                Expanded(
+                  child: _DashboardKpiCard(
+                    icon: Icons.event_rounded,
+                    label: 'Total Events',
+                    value: '${events['value'] ?? 0}',
+                    deltaPercent: (events['delta_percent'] as num?)?.toDouble(),
+                    accentColor: context.managementAccent,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── C. Status Breakdown ──────────────────────────────────────────────
+
+  Widget _buildStatusChips() {
+    final breakdown = (_dashboardData!['status_breakdown'] as List?) ?? [];
+    if (breakdown.isEmpty) return const SizedBox.shrink();
+    final isDark = AppTheme.isDark(context);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.xl, AppSpacing.xl, AppSpacing.xl, 0),
+      child: AnimatedListItem(
+        index: 2,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Event Status',
+              style: TextStyle(
+                fontSize: 13, fontWeight: FontWeight.w600,
+                color: AppTheme.textSecondaryOf(context), letterSpacing: 0.5,
+              ),
+            ),
+            AppSpacing.vMd,
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (int i = 0; i < breakdown.length; i++) ...[
+                    if (i > 0) AppSpacing.hSm,
+                    Builder(builder: (ctx) {
+                      final item = breakdown[i] as Map<String, dynamic>;
+                      final status = item['status'] as String;
+                      final count = item['count'] as int? ?? 0;
+                      final statusEnum = EventStatus.values.firstWhere(
+                        (s) => s.name == status, orElse: () => EventStatus.draft,
+                      );
+                      final color = _statusChipColor(context, statusEnum);
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: isDark ? 0.2 : 0.1),
+                          borderRadius: AppRadius.pill,
+                          border: Border.all(color: color.withValues(alpha: 0.3)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              _statusDisplayName(statusEnum),
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color),
+                            ),
+                            AppSpacing.hXs,
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: color.withValues(alpha: 0.2),
+                                borderRadius: AppRadius.pill,
+                              ),
+                              child: Text('$count',
+                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: color),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ).animate().fadeIn(delay: (80 * i).ms, duration: 300.ms)
+                        .slideX(begin: 0.1, duration: 300.ms, curve: Curves.easeOut);
+                    }),
+                  ],
+                ],
+              ),
+            ),
+          ],
         ),
-        const SliverToBoxAdapter(child: SizedBox(height: 100)),
-      ],
+      ),
+    );
+  }
+
+  // ── D. Time-Series Chart ─────────────────────────────────────────────
+
+  Widget _buildChartSection() {
+    final isDark = AppTheme.isDark(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.xl, AppSpacing.xxl, AppSpacing.xl, 0),
+      child: AnimatedListItem(
+        index: 3,
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          decoration: BoxDecoration(
+            color: AppTheme.cardOf(context),
+            borderRadius: AppRadius.lg,
+            boxShadow: AppShadow.soft(isDark),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.show_chart_rounded, size: AppIconSize.md, color: AppTheme.accentColor),
+                  AppSpacing.hSm,
+                  Text('Revenue & Activity',
+                    style: TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w700,
+                      color: AppTheme.textPrimaryOf(context),
+                    ),
+                  ),
+                  const Spacer(),
+                  _chartPeriodToggle(),
+                ],
+              ),
+              AppSpacing.vLg,
+              SizedBox(
+                height: 200,
+                child: _timeSeriesLoading && _timeSeriesData == null
+                  ? _shimmerBox(height: 200)
+                  : _timeSeriesData != null
+                    ? _buildLineChart()
+                    : Center(
+                        child: Text('No data yet',
+                          style: TextStyle(color: AppTheme.textSecondaryOf(context)),
+                        ),
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _chartPeriodToggle() {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceOf(context),
+        borderRadius: AppRadius.pill,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final days in [7, 30, 90])
+            GestureDetector(
+              onTap: () {
+                if (_chartDays != days) {
+                  setState(() => _chartDays = days);
+                  _loadTimeSeries();
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: _chartDays == days ? AppTheme.accentColor : Colors.transparent,
+                  borderRadius: AppRadius.pill,
+                ),
+                child: Text(
+                  '${days}d',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: _chartDays == days
+                      ? Colors.white
+                      : AppTheme.textSecondaryOf(context),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLineChart() {
+    final points = (_timeSeriesData!['points'] as List?) ?? [];
+    if (points.isEmpty) {
+      return Center(
+        child: Text('No data for this period',
+          style: TextStyle(color: AppTheme.textSecondaryOf(context)),
+        ),
+      );
+    }
+
+    final isDark = AppTheme.isDark(context);
+    final revenueColor = AppTheme.accentColor;
+    final ticketColor = AppTheme.successColor;
+
+    double maxRevenue = 0;
+    double maxTickets = 0;
+    for (final p in points) {
+      final rev = ((p as Map)['revenue_cents'] as num?)?.toDouble() ?? 0;
+      final tix = ((p)['tickets_sold'] as num?)?.toDouble() ?? 0;
+      if (rev > maxRevenue) maxRevenue = rev;
+      if (tix > maxTickets) maxTickets = tix;
+    }
+    if (maxRevenue == 0) maxRevenue = 100;
+    if (maxTickets == 0) maxTickets = 10;
+
+    final revenueSpots = <FlSpot>[];
+    final ticketSpots = <FlSpot>[];
+    for (int i = 0; i < points.length; i++) {
+      final p = points[i] as Map;
+      revenueSpots.add(FlSpot(i.toDouble(), ((p['revenue_cents'] as num?)?.toDouble() ?? 0) / 100));
+      ticketSpots.add(FlSpot(i.toDouble(), (p['tickets_sold'] as num?)?.toDouble() ?? 0));
+    }
+
+    final maxY = math.max(
+      revenueSpots.map((s) => s.y).reduce(math.max),
+      ticketSpots.map((s) => s.y).reduce(math.max),
+    );
+
+    return LineChart(
+      LineChartData(
+        minY: 0,
+        maxY: maxY * 1.2 + 1,
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: false,
+          horizontalInterval: maxY > 0 ? maxY / 4 : 1,
+          getDrawingHorizontalLine: (_) => FlLine(
+            color: AppTheme.dividerOf(context),
+            strokeWidth: 0.5,
+          ),
+        ),
+        titlesData: FlTitlesData(
+          leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 22,
+              interval: math.max(1, (points.length / 5).ceilToDouble()),
+              getTitlesWidget: (value, meta) {
+                final idx = value.toInt();
+                if (idx < 0 || idx >= points.length) return const SizedBox.shrink();
+                final dateStr = (points[idx] as Map)['date'] as String? ?? '';
+                final dt = DateTime.tryParse(dateStr);
+                if (dt == null) return const SizedBox.shrink();
+                return Text(
+                  DateFormat.MMMd().format(dt),
+                  style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryOf(context)),
+                );
+              },
+            ),
+          ),
+        ),
+        borderData: FlBorderData(show: false),
+        lineTouchData: LineTouchData(
+          touchTooltipData: LineTouchTooltipData(
+            getTooltipColor: (_) => AppTheme.cardOf(context),
+            getTooltipItems: (spots) => spots.map((s) {
+              final isRevenue = s.barIndex == 0;
+              return LineTooltipItem(
+                isRevenue ? '\$${s.y.toStringAsFixed(0)}' : '${s.y.toInt()} tickets',
+                TextStyle(
+                  color: isRevenue ? revenueColor : ticketColor,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+        lineBarsData: [
+          LineChartBarData(
+            spots: revenueSpots,
+            isCurved: true,
+            curveSmoothness: 0.3,
+            color: revenueColor,
+            barWidth: 2.5,
+            dotData: const FlDotData(show: false),
+            belowBarData: BarAreaData(
+              show: true,
+              color: revenueColor.withValues(alpha: isDark ? 0.15 : 0.08),
+            ),
+          ),
+          LineChartBarData(
+            spots: ticketSpots,
+            isCurved: true,
+            curveSmoothness: 0.3,
+            color: ticketColor,
+            barWidth: 2.5,
+            dotData: const FlDotData(show: false),
+            belowBarData: BarAreaData(
+              show: true,
+              color: ticketColor.withValues(alpha: isDark ? 0.15 : 0.08),
+            ),
+          ),
+        ],
+      ),
+      duration: const Duration(milliseconds: 600),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  // ── E. Event Carousels ───────────────────────────────────────────────
+
+  List<Widget> _buildCarouselSections() {
+    final trending = (_dashboardData!['trending_events'] as List?) ?? [];
+    final top = (_dashboardData!['top_events'] as List?) ?? [];
+
+    if (trending.isEmpty && top.isEmpty) {
+      return [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(AppSpacing.xl, AppSpacing.xxl, AppSpacing.xl, 0),
+            child: AnimatedListItem(
+              index: 4,
+              child: EmptyState(
+                icon: Icons.rocket_launch_rounded,
+                title: 'Create your first event',
+                subtitle: 'Your trending and top-earning events will appear here.',
+              ),
+            ),
+          ),
+        ),
+      ];
+    }
+
+    return [
+      if (trending.isNotEmpty)
+        SliverToBoxAdapter(
+          child: _buildEventCarousel(
+            title: 'Your Trending Events',
+            icon: Icons.trending_up_rounded,
+            events: trending,
+            index: 4,
+          ),
+        ),
+      if (top.isNotEmpty)
+        SliverToBoxAdapter(
+          child: _buildEventCarousel(
+            title: 'Your Top Earners',
+            icon: Icons.emoji_events_rounded,
+            events: top,
+            index: 5,
+          ),
+        ),
+    ];
+  }
+
+  Widget _buildEventCarousel({
+    required String title,
+    required IconData icon,
+    required List events,
+    required int index,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, AppSpacing.xxl, 0, 0),
+      child: AnimatedListItem(
+        index: index,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+              child: Row(
+                children: [
+                  Icon(icon, size: AppIconSize.sm, color: AppTheme.accentColor),
+                  AppSpacing.hSm,
+                  Text(title,
+                    style: TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w700,
+                      color: AppTheme.textPrimaryOf(context),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            AppSpacing.vMd,
+            SizedBox(
+              height: 230,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+                itemCount: events.length,
+                separatorBuilder: (_, __) => AppSpacing.hMd,
+                itemBuilder: (ctx, i) {
+                  final e = Event.fromJson(events[i] as Map<String, dynamic>);
+                  return SizedBox(
+                    width: 260,
+                    child: PressFeedback(
+                      child: EventCard(
+                        event: e,
+                        isBookmarked: _bookmarkedIds.contains(e.id),
+                        onBookmarkToggle: () => _toggleBookmark(e.id),
+                        onTap: () => context.push('/events/${e.id}'),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── F. Activity Feed ─────────────────────────────────────────────────
+
+  Widget _buildActivityFeed() {
+    final feed = (_dashboardData!['recent_activity'] as List?) ?? [];
+    if (feed.isEmpty) return const SizedBox.shrink();
+
+    final isDark = AppTheme.isDark(context);
+    final uniqueEvents = <int, String>{};
+    for (final item in feed) {
+      final m = item as Map<String, dynamic>;
+      uniqueEvents[m['event_id'] as int] = m['event_title'] as String? ?? '';
+    }
+
+    final showFilter = uniqueEvents.length >= 4;
+    final filtered = _activityFilterEventId == null
+      ? feed
+      : feed.where((item) => (item as Map)['event_id'] == _activityFilterEventId).toList();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.xl, AppSpacing.xxl, AppSpacing.xl, 0),
+      child: AnimatedListItem(
+        index: 6,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.notifications_active_rounded, size: AppIconSize.sm, color: context.fundingAccent),
+                AppSpacing.hSm,
+                Text('Recent Activity',
+                  style: TextStyle(
+                    fontSize: 16, fontWeight: FontWeight.w700,
+                    color: AppTheme.textPrimaryOf(context),
+                  ),
+                ),
+              ],
+            ),
+            if (showFilter) ...[
+              AppSpacing.vMd,
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _feedFilterChip(label: 'All', eventId: null),
+                    for (final entry in uniqueEvents.entries) ...[
+                      AppSpacing.hSm,
+                      _feedFilterChip(
+                        label: entry.value.length > 20 ? '${entry.value.substring(0, 20)}...' : entry.value,
+                        eventId: entry.key,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+            AppSpacing.vMd,
+            for (int i = 0; i < filtered.length; i++)
+              _buildActivityItem(filtered[i] as Map<String, dynamic>, i, isDark),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _feedFilterChip({required String label, required int? eventId}) {
+    final selected = _activityFilterEventId == eventId;
+    return GestureDetector(
+      onTap: () => setState(() => _activityFilterEventId = eventId),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected ? AppTheme.accentColor : AppTheme.surfaceOf(context),
+          borderRadius: AppRadius.pill,
+          border: selected ? null : Border.all(color: AppTheme.dividerOf(context)),
+        ),
+        child: Text(label,
+          style: TextStyle(
+            fontSize: 12, fontWeight: FontWeight.w600,
+            color: selected ? Colors.white : AppTheme.textSecondaryOf(context),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActivityItem(Map<String, dynamic> item, int index, bool isDark) {
+    final type = item['type'] as String? ?? '';
+    final actorName = item['actor_name'] as String? ?? 'Someone';
+    final eventTitle = item['event_title'] as String? ?? '';
+    final amountCents = item['amount_cents'] as int? ?? 0;
+    final createdAt = item['created_at'] as String? ?? '';
+
+    IconData icon;
+    Color iconColor;
+    String action;
+    switch (type) {
+      case 'ticket_sale':
+        icon = Icons.confirmation_number_rounded;
+        iconColor = context.ticketAccent;
+        action = 'bought a ticket';
+      case 'pledge':
+        icon = Icons.volunteer_activism_rounded;
+        iconColor = context.fundingAccent;
+        action = 'pledged';
+      case 'sponsor_bid':
+        icon = Icons.handshake_rounded;
+        iconColor = context.sponsorAccent;
+        final bidStatus = (item['extra'] as Map?)?['bid_status'] as String? ?? '';
+        action = 'bid ($bidStatus)';
+      default:
+        icon = Icons.circle;
+        iconColor = AppTheme.textSecondaryOf(context);
+        action = 'activity';
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: AppTheme.cardOf(context),
+          borderRadius: AppRadius.md,
+          boxShadow: AppShadow.card(isDark),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36, height: 36,
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: isDark ? 0.2 : 0.1),
+                borderRadius: AppRadius.sm,
+              ),
+              child: Icon(icon, size: 18, color: iconColor),
+            ),
+            AppSpacing.hMd,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text.rich(
+                    TextSpan(children: [
+                      TextSpan(
+                        text: actorName,
+                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppTheme.textPrimaryOf(context)),
+                      ),
+                      TextSpan(
+                        text: ' $action',
+                        style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryOf(context)),
+                      ),
+                    ]),
+                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    eventTitle,
+                    style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context)),
+                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            AppSpacing.hSm,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  _formatCents(amountCents),
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.successColor),
+                ),
+                Text(
+                  _relativeTime(createdAt),
+                  style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryOf(context)),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ).animate().fadeIn(delay: (60 * index).ms, duration: 300.ms)
+      .slideY(begin: 0.05, duration: 300.ms, curve: Curves.easeOut);
+  }
+
+  // ── G. Quick Actions ─────────────────────────────────────────────────
+
+  Widget _buildQuickActionsSection(dynamic user) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.xl, AppSpacing.xxl, AppSpacing.xl, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Quick Actions',
+            style: TextStyle(
+              fontSize: 13, fontWeight: FontWeight.w600,
+              color: AppTheme.textSecondaryOf(context), letterSpacing: 0.5,
+            ),
+          ),
+          AppSpacing.vLg,
+          AnimatedListItem(
+            index: 7,
+            child: Row(
+              children: [
+                _quickActionCard(
+                  icon: Icons.add_circle_rounded,
+                  label: 'Create Event',
+                  color: AppTheme.accentColor,
+                  onTap: () async {
+                    final created = await context.push<bool>('/events/create');
+                    if (created == true && mounted) {
+                      _applyFilters();
+                      _loadFeatured();
+                      _loadDashboard();
+                    }
+                  },
+                ),
+                AppSpacing.hMd,
+                _quickActionCard(
+                  icon: Icons.location_city_rounded,
+                  label: 'Venues',
+                  color: AppTheme.accentColor,
+                  onTap: () => context.push('/venues'),
+                ),
+                AppSpacing.hMd,
+                _quickActionCard(
+                  icon: Icons.confirmation_number_rounded,
+                  label: 'Ticket Tiers',
+                  color: context.statusSelling,
+                  onTap: () => context.push('/ticket-strategies'),
+                ),
+              ],
+            ),
+          ),
+          AppSpacing.vMd,
+          AnimatedListItem(
+            index: 8,
+            child: Row(
+              children: [
+                _quickActionCard(
+                  icon: Icons.receipt_long_rounded,
+                  label: 'All Sales',
+                  color: AppTheme.successColor,
+                  onTap: () => context.push('/manage/ticket-sales'),
+                ),
+                AppSpacing.hMd,
+                _quickActionCard(
+                  icon: Icons.qr_code_scanner_rounded,
+                  label: 'Scanned',
+                  color: context.sponsorAccent,
+                  onTap: () => context.push('/manage/scanned-tickets'),
+                ),
+                AppSpacing.hMd,
+                _quickActionCard(
+                  icon: Icons.hourglass_top_rounded,
+                  label: 'Waitlist',
+                  color: context.statusPending,
+                  onTap: () => context.push('/manage/waitlist'),
+                ),
+              ],
+            ),
+          ),
+          AppSpacing.vMd,
+          AnimatedListItem(
+            index: 9,
+            child: Row(
+              children: [
+                _quickActionCard(
+                  icon: Icons.discount_rounded,
+                  label: 'Discounts',
+                  color: AppTheme.errorColor,
+                  onTap: () => context.push('/manage/discounts'),
+                ),
+                AppSpacing.hMd,
+                _quickActionCard(
+                  icon: Icons.handshake_rounded,
+                  label: 'Sponsors',
+                  color: context.managementAccent,
+                  onTap: () => context.push('/manage/sponsors'),
+                ),
+                AppSpacing.hMd,
+                _quickActionCard(
+                  icon: Icons.category_rounded,
+                  label: 'Sponsorships',
+                  color: context.sponsorAccent,
+                  onTap: () => context.push('/sponsor-category-templates'),
+                ),
+              ],
+            ),
+          ),
+          AppSpacing.vMd,
+          AnimatedListItem(
+            index: 10,
+            child: Row(
+              children: [
+                _quickActionCard(
+                  icon: Icons.bookmark_rounded,
+                  label: 'Bookmarks',
+                  color: AppTheme.warningColor,
+                  onTap: () => context.push('/bookmarks'),
+                ),
+              ],
+            ),
+          ),
+          if (user != null && user.isAdmin) ...[
+            AppSpacing.vMd,
+            AnimatedListItem(
+              index: 11,
+              child: Row(
+                children: [
+                  _quickActionCard(
+                    icon: Icons.admin_panel_settings_rounded,
+                    label: 'Admin',
+                    color: AppTheme.primaryColor,
+                    onTap: () => context.push('/admin'),
+                  ),
+                  AppSpacing.hMd,
+                  const Expanded(child: SizedBox()),
+                  AppSpacing.hMd,
+                  const Expanded(child: SizedBox()),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -2521,6 +3319,117 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _DashboardKpiCard extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final double? deltaPercent;
+  final Color accentColor;
+
+  const _DashboardKpiCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.deltaPercent,
+    required this.accentColor,
+  });
+
+  @override
+  State<_DashboardKpiCard> createState() => _DashboardKpiCardState();
+}
+
+class _DashboardKpiCardState extends State<_DashboardKpiCard>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
+    _ctrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
+    final accent = widget.accentColor;
+    final delta = widget.deltaPercent;
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: AppTheme.cardOf(context),
+        borderRadius: AppRadius.lg,
+        boxShadow: AppShadow.soft(isDark),
+        border: Border.all(color: AppTheme.dividerOf(context), width: 0.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36, height: 36,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: isDark ? 0.2 : 0.1),
+                  borderRadius: AppRadius.sm,
+                ),
+                child: Icon(widget.icon, size: 18, color: accent),
+              ),
+              if (delta != null) ...[
+                const Spacer(),
+                ScaleTransition(
+                  scale: CurvedAnimation(parent: _ctrl, curve: Curves.elasticOut),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: (delta >= 0 ? AppTheme.successColor : AppTheme.errorColor)
+                          .withValues(alpha: isDark ? 0.2 : 0.1),
+                      borderRadius: AppRadius.pill,
+                    ),
+                    child: Text(
+                      '${delta >= 0 ? '+' : ''}${delta.toStringAsFixed(1)}%',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: delta >= 0 ? AppTheme.successColor : AppTheme.errorColor,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          AppSpacing.vMd,
+          Text(
+            widget.value,
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
+              color: AppTheme.textPrimaryOf(context),
+            ),
+          ),
+          AppSpacing.vXs,
+          Text(
+            widget.label,
+            style: TextStyle(
+              fontSize: 12,
+              color: AppTheme.textSecondaryOf(context),
+            ),
+          ),
+        ],
       ),
     );
   }

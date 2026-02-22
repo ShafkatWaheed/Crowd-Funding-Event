@@ -552,6 +552,18 @@ class ApiService {
     return resp.data;
   }
 
+  // ─── Organizer Dashboard ───
+
+  Future<Map<String, dynamic>> getOrganizerDashboard() async {
+    final resp = await dio.get('/me/organizer-dashboard');
+    return resp.data;
+  }
+
+  Future<Map<String, dynamic>> getOrganizerTimeSeries({int days = 30}) async {
+    final resp = await dio.get('/me/organizer-dashboard/time-series', queryParameters: {'days': days});
+    return resp.data;
+  }
+
   // ─── Discount Strategies ───
 
   Future<List<dynamic>> getDiscountStrategies() async {

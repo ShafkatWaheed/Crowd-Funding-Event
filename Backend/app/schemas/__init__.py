@@ -1,5 +1,9 @@
 # Pydantic schemas (request/response). Per-domain schemas live in separate modules.
 from app.schemas.admin import AdminEventItem, AdminStats, AdminUserItem, ApproveBody, PlatformSettingItem, PlatformSettingUpdate
+from app.schemas.dashboard import (
+    ActivityFeedItem, KpiItem, OrganizerDashboardResponse,
+    OrganizerTimeSeriesResponse, StatusBreakdown, TimeSeriesPoint,
+)
 from app.schemas.event import (
     AddEventOrganizerBody, CancelBody, CustomerHistoryItem, EVENT_GENRES,
     EventCreate, EventDiscountCreate, EventDiscountResponse,
@@ -103,4 +107,10 @@ __all__ = [
     "UnregisterResponse",
     "VerifyBody",
     "VerifyResponse",
+    "ActivityFeedItem",
+    "KpiItem",
+    "OrganizerDashboardResponse",
+    "OrganizerTimeSeriesResponse",
+    "StatusBreakdown",
+    "TimeSeriesPoint",
 ]

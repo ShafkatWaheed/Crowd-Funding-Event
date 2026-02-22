@@ -83,6 +83,7 @@ class Event(Base):
     accessibility_info: Mapped[str | None] = mapped_column(Text, nullable=True)
     has_schedule: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     link_funding_to_tiers: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    max_discount_percent: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -102,6 +103,8 @@ class Event(Base):
     discount_strategy_links = relationship("EventDiscountStrategyLink", back_populates="event", cascade="all, delete-orphan")
     escrow = relationship("FundEscrow", back_populates="event", uselist=False, cascade="all, delete-orphan")
     milestones = relationship("FundingMilestone", back_populates="event", cascade="all, delete-orphan")
+    milestone_snapshots = relationship("FundingMilestoneSnapshot", back_populates="event", cascade="all, delete-orphan")
+    early_bird_discounts = relationship("EarlyBirdDiscount", back_populates="event", cascade="all, delete-orphan")
     schedule_items = relationship("EventScheduleItem", back_populates="event", cascade="all, delete-orphan")
     sponsorship_categories = relationship("SponsorshipCategory", back_populates="event", cascade="all, delete-orphan")
 
@@ -113,9 +116,11 @@ class EventDiscount(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     event_id: Mapped[int] = mapped_column(ForeignKey("events.id"), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(120), nullable=False)
-    discount_type: Mapped[str] = mapped_column(String(20), nullable=False)  # 'pledge_percent' | 'ticket_percent' | 'fixed_cents'
+    discount_type: Mapped[str] = mapped_column(String(20), nullable=False)  # 'pledge_percent' | 'ticket_percent' | 'fixed_cents' | 'funding_milestone'
     value: Mapped[int] = mapped_column(Integer, nullable=False)  # percent 0-100 or cents
     target: Mapped[str] = mapped_column(String(16), nullable=False, default="all")  # 'all' | 'pledgers' | 'non_pledgers'
+    milestone_percent: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    milestone_discount_value: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 
     event = relationship("Event", back_populates="event_discounts")

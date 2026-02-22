@@ -22,6 +22,7 @@ class MilestoneTimeline extends StatefulWidget {
 class _MilestoneTimelineState extends State<MilestoneTimeline> {
   List<FundingMilestone> _milestones = [];
   Map<int, String?> _myReactions = {};
+  Map<int, int> _milestoneDiscounts = {}; // unlock_percent -> discount_value
   bool _loading = true;
   bool _featureEnabled = true;
 
@@ -62,10 +63,22 @@ class _MilestoneTimelineState extends State<MilestoneTimeline> {
         }
       }
 
+      // Load milestone discount rules
+      final discMap = <int, int>{};
+      try {
+        final discounts = await api.getEventDiscounts(widget.eventId);
+        for (final d in discounts) {
+          if (d['discount_type'] == 'funding_milestone' && d['milestone_percent'] != null) {
+            discMap[d['milestone_percent'] as int] = d['milestone_discount_value'] ?? d['value'] ?? 0;
+          }
+        }
+      } catch (_) {}
+
       if (mounted) {
         setState(() {
           _milestones = milestones;
           _myReactions = reactions;
+          _milestoneDiscounts = discMap;
           _loading = false;
         });
       }
@@ -243,6 +256,25 @@ class _MilestoneTimelineState extends State<MilestoneTimeline> {
                                 ),
                               ),
                               const Spacer(),
+                              if (_milestoneDiscounts.containsKey(ms.unlockPercent))
+                                Container(
+                                  margin: EdgeInsets.only(right: AppSpacing.xs),
+                                  padding: EdgeInsets.symmetric(
+                                      horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+                                  decoration: BoxDecoration(
+                                    color: context.fundingAccent.withValues(alpha: 0.12),
+                                    borderRadius: AppRadius.sm,
+                                  ),
+                                  child: Text(
+                                    '${_milestoneDiscounts[ms.unlockPercent]}% OFF',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: context.fundingAccent,
+                                      letterSpacing: 0.3,
+                                    ),
+                                  ),
+                                ),
                               Container(
                                 padding: EdgeInsets.symmetric(
                                     horizontal: AppSpacing.sm, vertical: AppSpacing.xs),

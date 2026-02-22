@@ -207,6 +207,7 @@ def _event_to_response(
         accessibility_info=e.accessibility_info,
         has_schedule=e.has_schedule,
         link_funding_to_tiers=e.link_funding_to_tiers,
+        max_discount_percent=getattr(e, "max_discount_percent", 100),
         directions_url=_directions_url(e),
         first_image_url=first_image_url,
         lat=e.lat,
@@ -396,6 +397,9 @@ async def create_event(
         rideshare_info=body.rideshare_info,
         accessibility_info=body.accessibility_info,
     )
+    if body.max_discount_percent is not None:
+        event.max_discount_percent = max(0, min(100, body.max_discount_percent))
+        await db.flush()
     event = await event_service.get_by_id(db, event.id, load_venue=True)
     return _event_to_response(event)
 
@@ -546,6 +550,10 @@ async def update_event(
         rideshare_info=body.rideshare_info,
         accessibility_info=body.accessibility_info,
     )
+
+    if body.max_discount_percent is not None:
+        updated.max_discount_percent = max(0, min(100, body.max_discount_percent))
+        await db.flush()
 
     if needs_approval:
         updated.status = EventStatus.pending_approval

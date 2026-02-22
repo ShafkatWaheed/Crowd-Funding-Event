@@ -59,6 +59,7 @@ class EventCreate(BaseModel):
     accessibility_info: str | None = None
     has_schedule: bool = False
     link_funding_to_tiers: bool = False
+    max_discount_percent: int = 100
     publish: bool = False  # True = approved immediately, False = draft
 
 
@@ -88,6 +89,7 @@ class EventUpdate(BaseModel):
     accessibility_info: str | None = None
     has_schedule: bool | None = None
     link_funding_to_tiers: bool | None = None
+    max_discount_percent: int | None = None
 
 
 class ExtendFundingBody(BaseModel):
@@ -180,6 +182,7 @@ class EventResponse(BaseModel):
     accessibility_info: str | None = None
     has_schedule: bool = False
     link_funding_to_tiers: bool = False
+    max_discount_percent: int = 100
     directions_url: str | None = None  # computed from venue address
     first_image_url: str | None = None
     created_at: datetime
@@ -229,9 +232,11 @@ class MapEventMarker(BaseModel):
 
 class EventDiscountCreate(BaseModel):
     name: str
-    discount_type: str  # 'pledge_percent' | 'ticket_percent' | 'fixed_cents'
+    discount_type: str  # 'pledge_percent' | 'ticket_percent' | 'fixed_cents' | 'funding_milestone'
     value: int
     target: str = "all"  # 'all' | 'pledgers' | 'non_pledgers'
+    milestone_percent: int | None = None  # required when discount_type='funding_milestone'
+    milestone_discount_value: int | None = None  # percent or cents discount at this milestone
 
 
 class EventDiscountResponse(BaseModel):
@@ -241,6 +246,8 @@ class EventDiscountResponse(BaseModel):
     discount_type: str
     value: int
     target: str
+    milestone_percent: int | None = None
+    milestone_discount_value: int | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

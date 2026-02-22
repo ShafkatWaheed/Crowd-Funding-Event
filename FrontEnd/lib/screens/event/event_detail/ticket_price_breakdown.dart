@@ -74,7 +74,11 @@ class _TicketPriceBreakdownState extends State<TicketPriceBreakdown> {
     final selectiveDisc = _preview!['selective_discount_cents'] ?? 0;
     final pledgeDisc = _preview!['pledge_discount_cents'] ?? 0;
     final eventDisc = _preview!['event_discount_cents'] ?? 0;
+    final milestoneDisc = _preview!['milestone_discount_cents'] ?? 0;
+    final earlyBirdDisc = _preview!['early_bird_discount_cents'] ?? 0;
     final finalPrice = _preview!['final_price_cents'] ?? 0;
+    final discountCapped = _preview!['discount_capped'] ?? false;
+    final maxDiscountPct = _preview!['max_discount_percent'] ?? 100;
 
     return Padding(
       padding: const EdgeInsets.only(left: 28, top: AppSpacing.sm),
@@ -100,6 +104,18 @@ class _TicketPriceBreakdownState extends State<TicketPriceBreakdown> {
               _breakdownRow('Pledge discount', '- ${_cents(pledgeDisc)}', color: context.bidAccepted),
             if (eventDisc > 0)
               _breakdownRow('Event discount', '- ${_cents(eventDisc)}', color: context.bidAccepted),
+            if (milestoneDisc > 0)
+              _breakdownRow('Milestone discount', '- ${_cents(milestoneDisc)}', color: context.fundingAccent),
+            if (earlyBirdDisc > 0)
+              _breakdownRow('Early bird discount', '- ${_cents(earlyBirdDisc)}', color: context.scheduleAccent),
+            if (discountCapped == true && maxDiscountPct < 100)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  'Discount capped at $maxDiscountPct% (organizer limit)',
+                  style: TextStyle(fontSize: 10, fontStyle: FontStyle.italic, color: AppTheme.textSecondaryOf(context)),
+                ),
+              ),
             const Divider(height: 10),
             _breakdownRow(
               'You pay',

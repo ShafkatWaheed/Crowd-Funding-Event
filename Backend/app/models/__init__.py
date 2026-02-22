@@ -13,7 +13,7 @@ from app.models.image import EventImage
 from app.models.discount_strategy import DiscountStrategy, EventDiscountStrategyLink, CustomerDiscountClaim
 from app.models.platform_settings import PlatformSetting
 from app.models.escrow import FundEscrow, EscrowRelease, EscrowStatus
-from app.models.milestone import FundingMilestone, MilestoneReaction
+from app.models.milestone import FundingMilestone, MilestoneReaction, FundingMilestoneSnapshot, FundingMilestoneUser, EarlyBirdDiscount
 from app.models.schedule import EventScheduleItem
 from app.models.sponsor import SponsorProfile, SponsorshipCategory, SponsorBid, BidStatus, SponsorPayment, PaymentStatus, SponsorTicket
 from app.models.bookmark import Bookmark
@@ -53,6 +53,9 @@ __all__ = [
     "EscrowStatus",
     "FundingMilestone",
     "MilestoneReaction",
+    "FundingMilestoneSnapshot",
+    "FundingMilestoneUser",
+    "EarlyBirdDiscount",
     "EventScheduleItem",
     "SponsorProfile",
     "SponsorshipCategory",

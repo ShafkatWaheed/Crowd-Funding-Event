@@ -1,14 +1,31 @@
 """
-Milestone service: CRUD for funding milestones + per-milestone reactions.
+Milestone service: CRUD for funding milestones + per-milestone reactions,
+milestone snapshots, and early bird discounts.
 """
-from sqlalchemy import select
+from datetime import datetime, timezone
+
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError, ForbiddenError, ConflictError
-from app.models.milestone import FundingMilestone, MilestoneReaction
+from app.models.milestone import (
+    FundingMilestone,
+    MilestoneReaction,
+    FundingMilestoneSnapshot,
+    FundingMilestoneUser,
+    EarlyBirdDiscount,
+)
 from app.models.event import Event, EventStatus
 from app.models.user import User
-from app.schemas.milestone import MilestoneCreate, MilestoneUpdate, MilestoneResponse
+from app.schemas.milestone import (
+    MilestoneCreate,
+    MilestoneUpdate,
+    MilestoneResponse,
+    MilestoneSnapshotResponse,
+    EarlyBirdDiscountCreate,
+    EarlyBirdDiscountUpdate,
+    EarlyBirdDiscountResponse,
+)
 from app.services import event as event_service
 from app.services import funding as funding_service
 
@@ -201,3 +218,129 @@ async def get_my_reaction(
     )
     existing = (await db.execute(q)).scalar_one_or_none()
     return {"reaction": existing.reaction if existing else None}
+
+
+# ─── Milestone Snapshots ─────────────────────────────────
+
+
+async def list_snapshots(db: AsyncSession, event_id: int) -> list[MilestoneSnapshotResponse]:
+    await event_service.get_or_404(db, event_id)
+    q = (
+        select(FundingMilestoneSnapshot)
+        .where(FundingMilestoneSnapshot.event_id == event_id)
+        .order_by(FundingMilestoneSnapshot.milestone_percent)
+    )
+    rows = list((await db.execute(q)).scalars().all())
+    result = []
+    for snap in rows:
+        count_q = select(func.count()).where(FundingMilestoneUser.snapshot_id == snap.id)
+        user_count = int((await db.execute(count_q)).scalar_one())
+        result.append(MilestoneSnapshotResponse(
+            id=snap.id,
+            event_id=snap.event_id,
+            milestone_percent=snap.milestone_percent,
+            reached_at=snap.reached_at,
+            user_count=user_count,
+        ))
+    return result
+
+
+# ─── Early Bird Discounts ────────────────────────────────
+
+
+def _eb_to_response(eb: EarlyBirdDiscount) -> EarlyBirdDiscountResponse:
+    now = datetime.now(timezone.utc)
+    window_start = eb.window_start or eb.created_at
+    is_active = window_start <= now <= eb.window_end
+    return EarlyBirdDiscountResponse(
+        id=eb.id,
+        event_id=eb.event_id,
+        applies_to=eb.applies_to,
+        window_start=eb.window_start,
+        window_end=eb.window_end,
+        discount_type=eb.discount_type,
+        value=eb.value,
+        is_active=is_active,
+        created_at=eb.created_at,
+    )
+
+
+async def list_early_bird_discounts(
+    db: AsyncSession, event_id: int
+) -> list[EarlyBirdDiscountResponse]:
+    await event_service.get_or_404(db, event_id)
+    q = select(EarlyBirdDiscount).where(EarlyBirdDiscount.event_id == event_id)
+    rows = list((await db.execute(q)).scalars().all())
+    return [_eb_to_response(eb) for eb in rows]
+
+
+async def create_early_bird_discount(
+    db: AsyncSession, event_id: int, data: EarlyBirdDiscountCreate, user: User
+) -> EarlyBirdDiscountResponse:
+    event = await event_service.get_or_404(db, event_id)
+    if not await event_service.user_can_edit_event(db, event, user):
+        raise ForbiddenError("Only the organizer can manage early bird discounts")
+
+    if data.applies_to not in ("funding", "tickets"):
+        raise ConflictError("applies_to must be 'funding' or 'tickets'")
+    if data.discount_type not in ("percent", "fixed_cents"):
+        raise ConflictError("discount_type must be 'percent' or 'fixed_cents'")
+    if data.discount_type == "percent" and data.value > 100:
+        raise ConflictError("Percent value must be 0-100")
+
+    window_end = datetime.fromisoformat(data.window_end.replace("Z", "+00:00"))
+
+    eb = EarlyBirdDiscount(
+        event_id=event_id,
+        applies_to=data.applies_to,
+        window_end=window_end,
+        discount_type=data.discount_type,
+        value=data.value,
+    )
+    db.add(eb)
+    await db.flush()
+    await db.refresh(eb)
+    return _eb_to_response(eb)
+
+
+async def update_early_bird_discount(
+    db: AsyncSession, discount_id: int, data: EarlyBirdDiscountUpdate, user: User
+) -> EarlyBirdDiscountResponse:
+    q = select(EarlyBirdDiscount).where(EarlyBirdDiscount.id == discount_id)
+    eb = (await db.execute(q)).scalar_one_or_none()
+    if not eb:
+        raise NotFoundError("EarlyBirdDiscount", discount_id)
+
+    event = await event_service.get_or_404(db, eb.event_id)
+    if not await event_service.user_can_edit_event(db, event, user):
+        raise ForbiddenError("Only the organizer can manage early bird discounts")
+
+    update_data = data.model_dump(exclude_unset=True)
+    if "window_end" in update_data and update_data["window_end"] is not None:
+        update_data["window_end"] = datetime.fromisoformat(
+            update_data["window_end"].replace("Z", "+00:00")
+        )
+    if "discount_type" in update_data and update_data["discount_type"] == "percent":
+        if "value" in update_data and update_data["value"] > 100:
+            raise ConflictError("Percent value must be 0-100")
+    for field, value in update_data.items():
+        setattr(eb, field, value)
+    await db.flush()
+    await db.refresh(eb)
+    return _eb_to_response(eb)
+
+
+async def delete_early_bird_discount(
+    db: AsyncSession, discount_id: int, user: User
+) -> None:
+    q = select(EarlyBirdDiscount).where(EarlyBirdDiscount.id == discount_id)
+    eb = (await db.execute(q)).scalar_one_or_none()
+    if not eb:
+        raise NotFoundError("EarlyBirdDiscount", discount_id)
+
+    event = await event_service.get_or_404(db, eb.event_id)
+    if not await event_service.user_can_edit_event(db, event, user):
+        raise ForbiddenError("Only the organizer can manage early bird discounts")
+
+    await db.delete(eb)
+    await db.flush()

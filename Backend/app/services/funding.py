@@ -381,6 +381,29 @@ async def create_pledge(
     await db.flush()
     await db.refresh(pledge)
 
+    # Check early bird funding window
+    try:
+        from app.models.milestone import EarlyBirdDiscount
+        eb_q = select(EarlyBirdDiscount).where(
+            EarlyBirdDiscount.event_id == event_id,
+            EarlyBirdDiscount.applies_to == "funding",
+        )
+        eb_disc = (await db.execute(eb_q)).scalar_one_or_none()
+        if eb_disc:
+            now = datetime.now(timezone.utc)
+            window_start = eb_disc.window_start or event.created_at
+            if window_start <= now <= eb_disc.window_end:
+                pledge.is_early_bird = True
+                await db.flush()
+    except Exception:
+        pass
+
+    # Check and create milestone snapshots if a new milestone was crossed
+    try:
+        await _check_milestone_snapshots(db, event)
+    except Exception:
+        pass
+
     try:
         from app.services import escrow as escrow_svc
         await escrow_svc.check_and_release_stage1(db, event_id=event_id)
@@ -548,6 +571,74 @@ async def refund_pledges_for_user_event(
         .values(status=FundingStatus.refunded)
     )
     return result.rowcount or 0
+
+
+async def _check_milestone_snapshots(db: AsyncSession, event) -> None:
+    """Create snapshots for any milestones newly crossed by the current funding level."""
+    if not event.funding_goal_cents or event.funding_goal_cents <= 0:
+        return
+
+    from app.models.milestone import FundingMilestone, FundingMilestoneSnapshot, FundingMilestoneUser
+    from app.models.event import EventDiscount
+
+    total_q = select(func.coalesce(func.sum(Funding.amount_cents), 0)).where(
+        Funding.event_id == event.id,
+        Funding.status == FundingStatus.pledged,
+    )
+    total_pledged = int((await db.execute(total_q)).scalar_one())
+    current_pct = total_pledged / event.funding_goal_cents * 100
+
+    # Milestone discount thresholds from EventDiscount entries
+    disc_q = select(EventDiscount).where(
+        EventDiscount.event_id == event.id,
+        EventDiscount.discount_type == "funding_milestone",
+        EventDiscount.milestone_percent.isnot(None),
+    )
+    milestone_discounts = list((await db.execute(disc_q)).scalars().all())
+
+    # Also check FundingMilestone entries (display milestones)
+    fm_q = select(FundingMilestone).where(FundingMilestone.event_id == event.id)
+    display_milestones = list((await db.execute(fm_q)).scalars().all())
+
+    # Collect all milestone percentages that should trigger snapshots
+    all_percents: set[int] = set()
+    for d in milestone_discounts:
+        if d.milestone_percent is not None:
+            all_percents.add(d.milestone_percent)
+    for m in display_milestones:
+        all_percents.add(m.unlock_percent)
+
+    if not all_percents:
+        return
+
+    # Get existing snapshots to avoid duplicates
+    existing_q = select(FundingMilestoneSnapshot.milestone_percent).where(
+        FundingMilestoneSnapshot.event_id == event.id,
+    )
+    existing_percents = set((await db.execute(existing_q)).scalars().all())
+
+    # Current pledgers
+    pledgers_q = select(func.distinct(Funding.user_id)).where(
+        Funding.event_id == event.id,
+        Funding.status == FundingStatus.pledged,
+    )
+    pledger_ids = list((await db.execute(pledgers_q)).scalars().all())
+
+    for pct in sorted(all_percents):
+        if pct in existing_percents:
+            continue
+        if current_pct < pct:
+            continue
+        snapshot = FundingMilestoneSnapshot(
+            event_id=event.id,
+            milestone_percent=pct,
+        )
+        db.add(snapshot)
+        await db.flush()
+        await db.refresh(snapshot)
+        for uid in pledger_ids:
+            db.add(FundingMilestoneUser(snapshot_id=snapshot.id, user_id=uid))
+        await db.flush()
 
 
 async def list_pledges_by_user(

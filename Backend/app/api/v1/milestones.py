@@ -1,6 +1,6 @@
 """
-Funding Milestones API — CRUD + per-milestone reactions.
-All endpoints gated by the feature_milestones_enabled flag.
+Funding Milestones API — CRUD + per-milestone reactions + early bird discounts.
+All milestone endpoints gated by the feature_milestones_enabled flag.
 """
 from fastapi import APIRouter, Depends, Query
 
@@ -11,6 +11,10 @@ from app.schemas.milestone import (
     MilestoneUpdate,
     MilestoneResponse,
     MilestoneReactionResponse,
+    MilestoneSnapshotResponse,
+    EarlyBirdDiscountCreate,
+    EarlyBirdDiscountUpdate,
+    EarlyBirdDiscountResponse,
 )
 from app.services import milestone as milestone_service
 
@@ -112,3 +116,65 @@ async def get_my_milestone_reaction(
     current_user: User = Depends(require_role(UserRole.customer, UserRole.organizer, UserRole.admin, UserRole.sponsor)),
 ):
     return await milestone_service.get_my_reaction(db, milestone_id, current_user.id)
+
+
+# ── Milestone Snapshots (read-only) ──────────────────────
+
+@router.get(
+    "/{event_id}/milestone-snapshots",
+    response_model=list[MilestoneSnapshotResponse],
+    dependencies=[_feature_guard],
+)
+async def list_milestone_snapshots(event_id: int, db: DbSession):
+    return await milestone_service.list_snapshots(db, event_id)
+
+
+# ── Early Bird Discounts CRUD ────────────────────────────
+
+@router.get(
+    "/{event_id}/early-bird-discounts",
+    response_model=list[EarlyBirdDiscountResponse],
+)
+async def list_early_bird_discounts(event_id: int, db: DbSession):
+    return await milestone_service.list_early_bird_discounts(db, event_id)
+
+
+@router.post(
+    "/{event_id}/early-bird-discounts",
+    response_model=EarlyBirdDiscountResponse,
+    status_code=201,
+)
+async def create_early_bird_discount(
+    event_id: int,
+    body: EarlyBirdDiscountCreate,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+):
+    return await milestone_service.create_early_bird_discount(db, event_id, body, current_user)
+
+
+@router.patch(
+    "/{event_id}/early-bird-discounts/{discount_id}",
+    response_model=EarlyBirdDiscountResponse,
+)
+async def update_early_bird_discount(
+    event_id: int,
+    discount_id: int,
+    body: EarlyBirdDiscountUpdate,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+):
+    return await milestone_service.update_early_bird_discount(db, discount_id, body, current_user)
+
+
+@router.delete(
+    "/{event_id}/early-bird-discounts/{discount_id}",
+    status_code=204,
+)
+async def delete_early_bird_discount(
+    event_id: int,
+    discount_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+):
+    await milestone_service.delete_early_bird_discount(db, discount_id, current_user)

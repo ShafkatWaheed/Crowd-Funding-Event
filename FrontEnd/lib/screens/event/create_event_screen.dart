@@ -68,6 +68,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   bool _postsEnabled = true;
   int _refundDeadlineDays = 7;
   bool _linkFundingToTiers = false;
+  int _maxDiscountPercent = 100;
   bool _publish = true;
   bool _isLoading = false;
   bool _isDirty = false;
@@ -122,6 +123,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
   // Funding Milestones
   final List<MilestoneInput> _milestones = [];
+
+  // Early Bird Discounts
+  final List<EarlyBirdInput> _earlyBirdDiscounts = [];
 
   // Event Schedule
   bool _hasSchedule = false;
@@ -689,6 +693,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     }
     if (_hasSchedule) data['has_schedule'] = true;
     if (_linkFundingToTiers) data['link_funding_to_tiers'] = true;
+    if (_maxDiscountPercent != 100) {
+      data['max_discount_percent'] = _maxDiscountPercent;
+    }
 
     try {
       final api = context.read<ApiService>();
@@ -731,6 +738,34 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
             'unlock_percent': ms.unlockPercent,
             if (ms.benefitCtrl.text.trim().isNotEmpty)
               'benefit_description': ms.benefitCtrl.text.trim(),
+          });
+        } catch (_) {}
+        // Create milestone discount rule if a discount value is set
+        final discVal = int.tryParse(ms.discountValueCtrl.text.trim()) ?? 0;
+        if (discVal > 0) {
+          try {
+            await api.createEventDiscount(eventId, {
+              'name': 'Milestone ${ms.unlockPercent}% discount',
+              'discount_type': 'funding_milestone',
+              'value': discVal,
+              'target': 'pledgers',
+              'milestone_percent': ms.unlockPercent,
+              'milestone_discount_value': discVal,
+            });
+          } catch (_) {}
+        }
+      }
+
+      // Create early bird discounts
+      for (final eb in _earlyBirdDiscounts) {
+        final val = int.tryParse(eb.valueCtrl.text.trim()) ?? 0;
+        if (val <= 0 || eb.windowEnd == null) continue;
+        try {
+          await api.createEarlyBirdDiscount(eventId, {
+            'applies_to': eb.appliesTo,
+            'discount_type': eb.discountType,
+            'value': val,
+            'window_end': eb.windowEnd!.toUtc().toIso8601String(),
           });
         } catch (_) {}
       }
@@ -1091,6 +1126,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       linkFundingToTiers: _linkFundingToTiers,
       onLinkFundingToTiersChanged: (v) => setState(() => _linkFundingToTiers = v),
       localTiers: _localTiers,
+      maxDiscountPercent: _maxDiscountPercent,
+      onMaxDiscountPercentChanged: (v) => setState(() => _maxDiscountPercent = v),
+      earlyBirdDiscounts: _earlyBirdDiscounts,
     );
   }
 

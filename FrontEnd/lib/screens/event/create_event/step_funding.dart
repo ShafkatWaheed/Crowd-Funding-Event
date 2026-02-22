@@ -20,6 +20,9 @@ class StepFunding extends StatefulWidget {
   final bool linkFundingToTiers;
   final ValueChanged<bool> onLinkFundingToTiersChanged;
   final List<EditableTier> localTiers;
+  final int maxDiscountPercent;
+  final ValueChanged<int> onMaxDiscountPercentChanged;
+  final List<EarlyBirdInput> earlyBirdDiscounts;
 
   const StepFunding({
     super.key,
@@ -38,6 +41,9 @@ class StepFunding extends StatefulWidget {
     required this.linkFundingToTiers,
     required this.onLinkFundingToTiersChanged,
     required this.localTiers,
+    required this.maxDiscountPercent,
+    required this.onMaxDiscountPercentChanged,
+    required this.earlyBirdDiscounts,
   });
 
   @override
@@ -46,6 +52,8 @@ class StepFunding extends StatefulWidget {
 
 class _StepFundingState extends State<StepFunding> {
   bool _showMilestoneSection = false;
+  bool _showEarlyBirdSection = false;
+  bool _showDiscountCapSection = false;
 
   @override
   Widget build(BuildContext context) {
@@ -108,6 +116,10 @@ class _StepFundingState extends State<StepFunding> {
                   ],
                   const SizedBox(height: 24),
                   _buildMilestoneSection(context),
+                  const SizedBox(height: 16),
+                  _buildEarlyBirdSection(context),
+                  const SizedBox(height: 16),
+                  _buildDiscountCapSection(context),
                 ],
               ],
             ),
@@ -688,6 +700,45 @@ class _StepFundingState extends State<StepFunding> {
                           ),
                           maxLines: 2,
                         ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Icon(Icons.discount_rounded,
+                                size: 14,
+                                color: context.fundingAccent),
+                            const SizedBox(width: 6),
+                            Text('Discount for early pledgers',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.textSecondaryOf(
+                                        context))),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller: ms.discountValueCtrl,
+                                decoration: const InputDecoration(
+                                  labelText: 'Discount %',
+                                  hintText: '0',
+                                  isDense: true,
+                                  suffixText: '%',
+                                ),
+                                keyboardType: TextInputType.number,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Pledgers at this milestone get this % off tickets',
+                          style: TextStyle(
+                              fontSize: 10,
+                              color: AppTheme.textSecondaryOf(context)),
+                        ),
                       ],
                     ),
                   );
@@ -723,6 +774,374 @@ class _StepFundingState extends State<StepFunding> {
             ),
           ),
           crossFadeState: _showMilestoneSection
+              ? CrossFadeState.showSecond
+              : CrossFadeState.showFirst,
+          duration: const Duration(milliseconds: 250),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEarlyBirdSection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        GestureDetector(
+          onTap: () =>
+              setState(() => _showEarlyBirdSection = !_showEarlyBirdSection),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: _showEarlyBirdSection
+                  ? context.scheduleAccent.withValues(alpha: 0.08)
+                  : AppTheme.cardOf(context),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: _showEarlyBirdSection
+                    ? context.scheduleAccent.withValues(alpha: 0.3)
+                    : AppTheme.dividerOf(context),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.bolt_rounded,
+                    size: 18,
+                    color: _showEarlyBirdSection
+                        ? context.scheduleAccent
+                        : AppTheme.textSecondaryOf(context)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('Early Bird Discounts (Optional)',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          color: AppTheme.textPrimaryOf(context))),
+                ),
+                if (widget.earlyBirdDiscounts.isNotEmpty)
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: context.scheduleAccent.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text('${widget.earlyBirdDiscounts.length}',
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: context.scheduleAccent)),
+                  ),
+                const SizedBox(width: 4),
+                Icon(
+                  _showEarlyBirdSection
+                      ? Icons.keyboard_arrow_up
+                      : Icons.keyboard_arrow_down,
+                  color: AppTheme.textSecondaryOf(context),
+                ),
+              ],
+            ),
+          ),
+        ),
+        AnimatedCrossFade(
+          firstChild: const SizedBox.shrink(),
+          secondChild: Container(
+            margin: const EdgeInsets.only(top: 8),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppTheme.cardOf(context),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppTheme.dividerOf(context)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Reward early supporters with time-limited discounts on tickets.',
+                  style: TextStyle(
+                      fontSize: 12, color: AppTheme.textSecondaryOf(context)),
+                ),
+                const SizedBox(height: 12),
+                ...widget.earlyBirdDiscounts.asMap().entries.map((entry) {
+                  final idx = entry.key;
+                  final eb = entry.value;
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppTheme.dividerOf(context)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            Text('Early Bird ${idx + 1}',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w600, fontSize: 13)),
+                            const Spacer(),
+                            IconButton(
+                              icon: Icon(Icons.delete_outline,
+                                  size: 18, color: AppTheme.errorColor),
+                              onPressed: () => setState(
+                                  () => widget.earlyBirdDiscounts.removeAt(idx)),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        SegmentedButton<String>(
+                          segments: const [
+                            ButtonSegment(
+                                value: 'funding',
+                                label: Text('Early Pledge',
+                                    style: TextStyle(fontSize: 12))),
+                            ButtonSegment(
+                                value: 'tickets',
+                                label: Text('Early Ticket',
+                                    style: TextStyle(fontSize: 12))),
+                          ],
+                          selected: {eb.appliesTo},
+                          onSelectionChanged: (s) =>
+                              setState(() => eb.appliesTo = s.first),
+                          style: SegmentedButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller: eb.valueCtrl,
+                                decoration: InputDecoration(
+                                  labelText: 'Discount',
+                                  isDense: true,
+                                  suffixText:
+                                      eb.discountType == 'percent' ? '%' : '¢',
+                                ),
+                                keyboardType: TextInputType.number,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            SegmentedButton<String>(
+                              segments: const [
+                                ButtonSegment(
+                                    value: 'percent',
+                                    label: Text('%',
+                                        style: TextStyle(fontSize: 12))),
+                                ButtonSegment(
+                                    value: 'fixed_cents',
+                                    label: Text('\$',
+                                        style: TextStyle(fontSize: 12))),
+                              ],
+                              selected: {eb.discountType},
+                              onSelectionChanged: (s) =>
+                                  setState(() => eb.discountType = s.first),
+                              style: SegmentedButton.styleFrom(
+                                visualDensity: VisualDensity.compact,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        OutlinedButton.icon(
+                          onPressed: () async {
+                            final picked = await showDatePicker(
+                              context: context,
+                              initialDate: eb.windowEnd ??
+                                  DateTime.now().add(const Duration(days: 7)),
+                              firstDate: DateTime.now(),
+                              lastDate:
+                                  DateTime.now().add(const Duration(days: 365)),
+                            );
+                            if (picked != null) {
+                              setState(() => eb.windowEnd = picked);
+                              widget.onMarkDirty();
+                            }
+                          },
+                          icon: Icon(Icons.timer_outlined,
+                              size: 16, color: context.scheduleAccent),
+                          label: Text(
+                            eb.windowEnd != null
+                                ? 'Ends: ${widget.fmtDt(eb.windowEnd!)}'
+                                : 'Set Window End Date',
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: eb.windowEnd != null
+                                    ? AppTheme.textPrimaryOf(context)
+                                    : AppTheme.textSecondaryOf(context)),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 10, horizontal: 12),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          eb.appliesTo == 'funding'
+                              ? 'Pledgers within this window get the discount on tickets'
+                              : 'Ticket buyers within this window get the discount',
+                          style: TextStyle(
+                              fontSize: 10,
+                              color: AppTheme.textSecondaryOf(context)),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+                GestureDetector(
+                  onTap: () =>
+                      setState(() => widget.earlyBirdDiscounts.add(EarlyBirdInput())),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppTheme.dividerOf(context)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.add_rounded,
+                            size: 18,
+                            color: AppTheme.textSecondaryOf(context)),
+                        const SizedBox(width: 6),
+                        Text('Add Early Bird Discount',
+                            style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                                color: AppTheme.textSecondaryOf(context))),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          crossFadeState: _showEarlyBirdSection
+              ? CrossFadeState.showSecond
+              : CrossFadeState.showFirst,
+          duration: const Duration(milliseconds: 250),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDiscountCapSection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        GestureDetector(
+          onTap: () => setState(
+              () => _showDiscountCapSection = !_showDiscountCapSection),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: _showDiscountCapSection
+                  ? context.fundingAccent.withValues(alpha: 0.08)
+                  : AppTheme.cardOf(context),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: _showDiscountCapSection
+                    ? context.fundingAccent.withValues(alpha: 0.3)
+                    : AppTheme.dividerOf(context),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.tune_rounded,
+                    size: 18,
+                    color: _showDiscountCapSection
+                        ? context.fundingAccent
+                        : AppTheme.textSecondaryOf(context)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('Maximum Discount Cap',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          color: AppTheme.textPrimaryOf(context))),
+                ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: context.fundingAccent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text('${widget.maxDiscountPercent}%',
+                      style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: context.fundingAccent)),
+                ),
+                const SizedBox(width: 4),
+                Icon(
+                  _showDiscountCapSection
+                      ? Icons.keyboard_arrow_up
+                      : Icons.keyboard_arrow_down,
+                  color: AppTheme.textSecondaryOf(context),
+                ),
+              ],
+            ),
+          ),
+        ),
+        AnimatedCrossFade(
+          firstChild: const SizedBox.shrink(),
+          secondChild: Container(
+            margin: const EdgeInsets.only(top: 8),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppTheme.cardOf(context),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppTheme.dividerOf(context)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'All discounts (common, pledge, milestone, early bird) stack up to this limit.',
+                  style: TextStyle(
+                      fontSize: 12, color: AppTheme.textSecondaryOf(context)),
+                ),
+                const SizedBox(height: 12),
+                SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    trackHeight: 4,
+                    thumbShape:
+                        const RoundSliderThumbShape(enabledThumbRadius: 8),
+                    overlayShape:
+                        const RoundSliderOverlayShape(overlayRadius: 16),
+                  ),
+                  child: Slider(
+                    value: widget.maxDiscountPercent.toDouble(),
+                    min: 0,
+                    max: 100,
+                    divisions: 20,
+                    label: '${widget.maxDiscountPercent}%',
+                    activeColor: context.fundingAccent,
+                    onChanged: (v) {
+                      widget.onMaxDiscountPercentChanged(v.round());
+                      widget.onMarkDirty();
+                    },
+                  ),
+                ),
+                Text(
+                  widget.maxDiscountPercent == 100
+                      ? 'No cap — discounts can cover the full ticket price'
+                      : 'Total discount capped at ${widget.maxDiscountPercent}% of ticket price',
+                  style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.textSecondaryOf(context)),
+                ),
+              ],
+            ),
+          ),
+          crossFadeState: _showDiscountCapSection
               ? CrossFadeState.showSecond
               : CrossFadeState.showFirst,
           duration: const Duration(milliseconds: 250),

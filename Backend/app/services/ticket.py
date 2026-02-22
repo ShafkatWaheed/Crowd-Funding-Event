@@ -159,9 +159,88 @@ async def compute_ticket_price(
         elif d_type == "pledge_percent":
             event_discount_cents += total_pledged * min(100, d_value) // 100
 
-    total_discount = common_cents + selective_cents + pledge_cents + event_discount_cents
-    # Cap: discount cannot exceed ticket price
-    total_discount = min(total_discount, base)
+    # ── Milestone discount: best milestone the user qualifies for ──
+    milestone_cents = 0
+    try:
+        from app.models.milestone import FundingMilestoneSnapshot, FundingMilestoneUser
+        snap_q = (
+            select(FundingMilestoneSnapshot)
+            .join(FundingMilestoneUser, FundingMilestoneUser.snapshot_id == FundingMilestoneSnapshot.id)
+            .where(
+                FundingMilestoneSnapshot.event_id == event_id,
+                FundingMilestoneUser.user_id == user_id,
+            )
+            .order_by(FundingMilestoneSnapshot.milestone_percent.desc())
+        )
+        user_snapshots = list((await db.execute(snap_q)).scalars().unique().all())
+
+        if user_snapshots:
+            milestone_disc_q = select(EventDiscount).where(
+                EventDiscount.event_id == event_id,
+                EventDiscount.discount_type == "funding_milestone",
+                EventDiscount.milestone_percent.isnot(None),
+            )
+            milestone_discs = list((await db.execute(milestone_disc_q)).scalars().all())
+            user_milestone_pcts = {s.milestone_percent for s in user_snapshots}
+
+            best_milestone_cents = 0
+            for md in milestone_discs:
+                if md.milestone_percent not in user_milestone_pcts:
+                    continue
+                disc_val = md.milestone_discount_value or md.value
+                if md.discount_type == "funding_milestone":
+                    mc = base * min(100, disc_val) // 100
+                else:
+                    mc = min(base, disc_val)
+                best_milestone_cents = max(best_milestone_cents, mc)
+            milestone_cents = best_milestone_cents
+    except Exception:
+        pass
+
+    # ── Early bird discount ──
+    early_bird_cents = 0
+    try:
+        from app.models.milestone import EarlyBirdDiscount
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc)
+
+        eb_q = select(EarlyBirdDiscount).where(EarlyBirdDiscount.event_id == event_id)
+        eb_discs = list((await db.execute(eb_q)).scalars().all())
+
+        for eb in eb_discs:
+            eb_amount = 0
+            if eb.applies_to == "funding":
+                # User must have an early bird pledge
+                eb_pledge_q = select(func.count()).where(
+                    Funding.event_id == event_id,
+                    Funding.user_id == user_id,
+                    Funding.status == FundingStatus.pledged,
+                    Funding.is_early_bird == True,  # noqa: E712
+                )
+                has_eb = int((await db.execute(eb_pledge_q)).scalar_one()) > 0
+                if not has_eb:
+                    continue
+            elif eb.applies_to == "tickets":
+                window_end = eb.window_end
+                if now > window_end:
+                    continue
+            else:
+                continue
+
+            if eb.discount_type == "percent":
+                eb_amount = base * min(100, eb.value) // 100
+            elif eb.discount_type == "fixed_cents":
+                eb_amount = min(base, eb.value)
+            early_bird_cents = max(early_bird_cents, eb_amount)
+    except Exception:
+        pass
+
+    # ── Stack all discounts, apply organizer cap ──
+    standard_total = common_cents + selective_cents + pledge_cents + event_discount_cents
+    raw_total = standard_total + milestone_cents + early_bird_cents
+
+    cap_cents = base * getattr(event, "max_discount_percent", 100) // 100
+    total_discount = min(raw_total, cap_cents, base)
     final = max(0, base - total_discount)
     return {
         "tier_price_cents": base,
@@ -169,8 +248,12 @@ async def compute_ticket_price(
         "selective_discount_cents": selective_cents,
         "pledge_discount_cents": pledge_cents,
         "event_discount_cents": event_discount_cents,
+        "milestone_discount_cents": milestone_cents,
+        "early_bird_discount_cents": early_bird_cents,
         "total_discount_cents": total_discount,
         "final_price_cents": final,
+        "discount_capped": raw_total > cap_cents,
+        "max_discount_percent": getattr(event, "max_discount_percent", 100),
     }
 
 

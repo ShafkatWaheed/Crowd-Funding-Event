@@ -33,17 +33,26 @@ class _FundingCardState extends State<FundingCard> {
   bool _pledging = false;
   int _fundingCommissionPercent = 0;
   int _totalReservedSpots = 0;
+  List<dynamic> _earlyBirdDiscounts = [];
 
   Event get event => widget.event;
 
   @override
   void initState() {
     super.initState();
-    // Seed from event data while we load fresh numbers
     _totalPledgedCents = event.totalPledgedCents ?? 0;
     _goalCents = event.fundingGoalCents;
     _totalReservedSpots = event.totalReservedSpots;
     _loadFunding();
+    _loadEarlyBirdDiscounts();
+  }
+
+  Future<void> _loadEarlyBirdDiscounts() async {
+    try {
+      final api = context.read<ApiService>();
+      final data = await api.getEarlyBirdDiscounts(widget.eventId);
+      if (mounted) setState(() => _earlyBirdDiscounts = data);
+    } catch (_) {}
   }
 
   Future<void> _loadFunding() async {
@@ -883,6 +892,76 @@ class _FundingCardState extends State<FundingCard> {
               ),
             ),
           ),
+
+          // Early bird discount banner
+          ..._earlyBirdDiscounts.where((eb) {
+            final isActive = eb['is_active'] == true;
+            return isActive;
+          }).map((eb) {
+            final appliesTo = eb['applies_to'] ?? '';
+            final discType = eb['discount_type'] ?? '';
+            final value = eb['value'] ?? 0;
+            final windowEnd = eb['window_end'] != null
+                ? DateTime.tryParse(eb['window_end'])
+                : null;
+            final remaining = windowEnd != null
+                ? windowEnd.difference(DateTime.now().toUtc())
+                : Duration.zero;
+            final daysLeft = remaining.inDays;
+            final hoursLeft = remaining.inHours % 24;
+            final discLabel = discType == 'percent'
+                ? '$value% off'
+                : '\$${(value / 100).toStringAsFixed(2)} off';
+            final timeLabel = daysLeft > 0
+                ? '${daysLeft}d ${hoursLeft}h left'
+                : '${remaining.inHours}h left';
+            return Padding(
+              padding: EdgeInsets.only(top: AppSpacing.sm),
+              child: Container(
+                padding: AppSpacing.paddingMd,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      context.scheduleAccent.withValues(alpha: 0.12),
+                      context.scheduleAccent.withValues(alpha: 0.04),
+                    ],
+                  ),
+                  borderRadius: AppRadius.sm,
+                  border: Border.all(color: context.scheduleAccent.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.bolt_rounded, size: 18, color: context.scheduleAccent),
+                    AppSpacing.hSm,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            appliesTo == 'funding'
+                                ? 'Early bird pledge — $discLabel tickets!'
+                                : 'Early bird tickets — $discLabel!',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: context.scheduleAccent,
+                            ),
+                          ),
+                          Text(
+                            timeLabel,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: context.scheduleAccent.withValues(alpha: 0.8),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
 
           // Pledge / Unpledge buttons
           if (canPledge) ...[

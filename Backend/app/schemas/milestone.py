@@ -1,4 +1,4 @@
-"""Funding milestone request/response schemas."""
+"""Funding milestone and early bird discount request/response schemas."""
 from datetime import datetime
 
 from pydantic import BaseModel, Field
@@ -41,3 +41,46 @@ class MilestoneReactionResponse(BaseModel):
     reaction: str
     like_count: int
     dislike_count: int
+
+
+# ─── Milestone Snapshot Schemas ───
+
+
+class MilestoneSnapshotResponse(BaseModel):
+    id: int
+    event_id: int
+    milestone_percent: int
+    reached_at: datetime
+    user_count: int = 0
+
+    model_config = {"from_attributes": True}
+
+
+# ─── Early Bird Discount Schemas ───
+
+
+class EarlyBirdDiscountCreate(BaseModel):
+    applies_to: str = Field(..., pattern=r"^(funding|tickets)$")
+    window_end: str  # ISO datetime
+    discount_type: str = Field(..., pattern=r"^(percent|fixed_cents)$")
+    value: int = Field(..., ge=1)
+
+
+class EarlyBirdDiscountUpdate(BaseModel):
+    window_end: str | None = None
+    discount_type: str | None = Field(None, pattern=r"^(percent|fixed_cents)$")
+    value: int | None = Field(None, ge=1)
+
+
+class EarlyBirdDiscountResponse(BaseModel):
+    id: int
+    event_id: int
+    applies_to: str
+    window_start: datetime | None = None
+    window_end: datetime
+    discount_type: str
+    value: int
+    is_active: bool = False
+    created_at: datetime
+
+    model_config = {"from_attributes": True}

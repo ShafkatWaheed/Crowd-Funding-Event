@@ -62,6 +62,7 @@ class Event {
   final String? accessibilityInfo;
   final bool hasSchedule;
   final bool linkFundingToTiers;
+  final int maxDiscountPercent;
   final String? directionsUrl;
   final String? firstImageUrl;
   final Venue? venue;
@@ -114,6 +115,7 @@ class Event {
     this.accessibilityInfo,
     this.hasSchedule = false,
     this.linkFundingToTiers = false,
+    this.maxDiscountPercent = 100,
     this.directionsUrl,
     this.firstImageUrl,
     this.venue,
@@ -182,6 +184,7 @@ class Event {
       accessibilityInfo: json['accessibility_info'],
       hasSchedule: json['has_schedule'] ?? false,
       linkFundingToTiers: json['link_funding_to_tiers'] ?? false,
+      maxDiscountPercent: json['max_discount_percent'] ?? 100,
       directionsUrl: json['directions_url'],
       firstImageUrl: json['first_image_url'],
       venue: json['venue'] != null ? Venue.fromJson(json['venue']) : null,

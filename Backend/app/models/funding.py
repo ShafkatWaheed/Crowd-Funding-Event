@@ -27,6 +27,7 @@ class Funding(Base):
     status: Mapped[FundingStatus] = mapped_column(Enum(FundingStatus), nullable=False, default=FundingStatus.pledged)
     is_guest: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)  # guest pledges are non-refundable
     reserved_spots: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # spots reserved for future ticket purchase
+    is_early_bird: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     receipt_number: Mapped[str | None] = mapped_column(String(32), nullable=True, unique=True, index=True)  # human-readable pledge receipt ID
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 

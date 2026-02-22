@@ -717,6 +717,39 @@ class ApiService {
     return resp.data;
   }
 
+  // ─── Milestone Snapshots ───
+
+  Future<List<dynamic>> getMilestoneSnapshots(int eventId) async {
+    final resp = await dio.get('/events/$eventId/milestone-snapshots');
+    return resp.data;
+  }
+
+  // ─── Early Bird Discounts ───
+
+  Future<List<dynamic>> getEarlyBirdDiscounts(int eventId) async {
+    final resp = await dio.get('/events/$eventId/early-bird-discounts');
+    return resp.data;
+  }
+
+  Future<Map<String, dynamic>> createEarlyBirdDiscount(
+      int eventId, Map<String, dynamic> data) async {
+    final resp =
+        await dio.post('/events/$eventId/early-bird-discounts', data: data);
+    return resp.data;
+  }
+
+  Future<Map<String, dynamic>> updateEarlyBirdDiscount(
+      int eventId, int discountId, Map<String, dynamic> data) async {
+    final resp = await dio.patch(
+        '/events/$eventId/early-bird-discounts/$discountId',
+        data: data);
+    return resp.data;
+  }
+
+  Future<void> deleteEarlyBirdDiscount(int eventId, int discountId) async {
+    await dio.delete('/events/$eventId/early-bird-discounts/$discountId');
+  }
+
   // ─── Schedule ───
 
   Future<List<dynamic>> getSchedule(int eventId) async {

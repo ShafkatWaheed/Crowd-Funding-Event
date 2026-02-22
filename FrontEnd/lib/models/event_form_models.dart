@@ -36,7 +36,15 @@ class EditableSponsorCategory {
 class MilestoneInput {
   final titleCtrl = TextEditingController();
   final benefitCtrl = TextEditingController();
+  final discountValueCtrl = TextEditingController();
   int unlockPercent = 50;
+}
+
+class EarlyBirdInput {
+  String appliesTo = 'funding'; // 'funding' | 'tickets'
+  String discountType = 'percent'; // 'percent' | 'fixed_cents'
+  final valueCtrl = TextEditingController();
+  DateTime? windowEnd;
 }
 
 class ScheduleDayInput {

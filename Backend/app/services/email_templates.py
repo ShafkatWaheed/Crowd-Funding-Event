@@ -290,3 +290,153 @@ def waitlist_ticket_rejected_template(
   You can browse other events in the app.
 </p>"""
     return _wrap("Ticket Not Approved", body)
+
+
+# ═══════════════════════════════════════════════════════════
+# 7. Ticket Refund Approved
+# ═══════════════════════════════════════════════════════════
+
+def ticket_refund_approved_template(
+    event_title: str,
+    tier_name: str,
+    amount_cents: int,
+    receipt_number: str | None = None,
+) -> str:
+    rows: list[tuple[str, str]] = [
+        ("Event", event_title),
+        ("Tier", tier_name),
+        ("Refund Amount", _cents_to_dollars(amount_cents) if amount_cents > 0 else "FREE"),
+    ]
+    if receipt_number:
+        rows.append(("Receipt #", receipt_number))
+
+    body = f"""\
+{_heading("Ticket Refund Approved")}
+{_subheading("Your ticket refund request has been approved by the organizer.")}
+{_badge("REFUNDED")}
+{_detail_table(rows)}
+{_info_box(f'''
+  <p style="margin:0;font-size:13px;color:{_TEXT};">
+    The refund has been processed. It may take a few business days to appear in your account.
+  </p>
+''')}"""
+    return _wrap("Ticket Refund Approved", body)
+
+
+# ═══════════════════════════════════════════════════════════
+# 8. Waitlisted Ticket Approved
+# ═══════════════════════════════════════════════════════════
+
+def waitlist_ticket_approved_template(
+    event_title: str,
+    tier_name: str,
+    amount_cents: int,
+    ticket_code: str | None = None,
+    event_date: str | None = None,
+) -> str:
+    rows: list[tuple[str, str]] = [
+        ("Event", event_title),
+        ("Tier", tier_name),
+    ]
+    if event_date:
+        rows.append(("Event Date", event_date))
+    rows.append(("Amount Paid", _cents_to_dollars(amount_cents) if amount_cents > 0 else "FREE"))
+    if ticket_code:
+        rows.append(("Ticket Code", ticket_code))
+
+    body = f"""\
+{_heading("You're In!")}
+{_subheading("Great news — your waitlisted ticket has been approved by the organizer.")}
+{_badge("APPROVED")}
+{_detail_table(rows)}
+{_info_box(f'''
+  <p style="margin:0;font-size:13px;color:{_TEXT};">
+    <strong>Bring your QR code.</strong> Open your ticket in the app to display the QR code for entry.
+  </p>
+''')}"""
+    return _wrap("Ticket Approved", body)
+
+
+# ═══════════════════════════════════════════════════════════
+# 9. Sponsor Bid Approved
+# ═══════════════════════════════════════════════════════════
+
+def sponsor_bid_approved_template(
+    event_title: str,
+    category_name: str,
+    bid_amount_cents: int,
+) -> str:
+    body = f"""\
+{_heading("Sponsorship Bid Accepted!")}
+{_subheading("The event organizer has accepted your sponsorship bid.")}
+{_badge("ACCEPTED")}
+{_detail_table([
+    ("Event", event_title),
+    ("Category", category_name),
+    ("Bid Amount", _cents_to_dollars(bid_amount_cents)),
+])}
+{_info_box(f'''
+  <p style="margin:0;font-size:13px;color:{_TEXT};">
+    Please proceed to complete your payment in the app to secure your sponsorship spot.
+  </p>
+''')}"""
+    return _wrap("Bid Accepted", body)
+
+
+# ═══════════════════════════════════════════════════════════
+# 10. Sponsor Bid Rejected
+# ═══════════════════════════════════════════════════════════
+
+def sponsor_bid_rejected_template(
+    event_title: str,
+    category_name: str,
+    bid_amount_cents: int,
+) -> str:
+    body = f"""\
+{_heading("Sponsorship Bid Not Accepted")}
+{_subheading("Unfortunately, the organizer did not accept your sponsorship bid.")}
+{_detail_table([
+    ("Event", event_title),
+    ("Category", category_name),
+    ("Bid Amount", _cents_to_dollars(bid_amount_cents)),
+])}
+{_info_box(f'''
+  <p style="margin:0;font-size:13px;color:{_TEXT};">
+    You can submit a new bid for this or other sponsorship categories.
+  </p>
+''', color="#ff9800")}
+<p style="font-size:13px;color:{_TEXT_SECONDARY};margin:16px 0 0;">
+  Browse other sponsorship opportunities in the app.
+</p>"""
+    return _wrap("Bid Not Accepted", body)
+
+
+# ═══════════════════════════════════════════════════════════
+# 11. Sponsor Payment Refunded
+# ═══════════════════════════════════════════════════════════
+
+def sponsor_refund_template(
+    event_title: str,
+    category_name: str,
+    refunded_cents: int,
+    receipt_number: str | None = None,
+) -> str:
+    rows: list[tuple[str, str]] = [
+        ("Event", event_title),
+        ("Category", category_name),
+        ("Refund Amount", _cents_to_dollars(refunded_cents)),
+    ]
+    if receipt_number:
+        rows.append(("Receipt #", receipt_number))
+
+    body = f"""\
+{_heading("Sponsorship Refunded")}
+{_subheading("Your sponsorship payment has been refunded by the organizer.")}
+{_badge("REFUNDED")}
+{_detail_table(rows)}
+{_info_box(f'''
+  <p style="margin:0;font-size:13px;color:{_TEXT};">
+    The refund has been processed. It may take a few business days to appear in your account.
+  </p>
+''')}"""
+    return _wrap("Sponsorship Refunded", body)

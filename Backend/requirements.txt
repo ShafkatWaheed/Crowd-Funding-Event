@@ -37,3 +37,6 @@ alembic>=1.13.0
 # Background task queue (ARQ + Redis)
 arq>=0.26.0
 redis[hiredis]>=5.0.0
+
+# Rate limiting
+slowapi>=0.1.9

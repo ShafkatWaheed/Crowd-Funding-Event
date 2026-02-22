@@ -279,6 +279,10 @@ async def purchase_ticket(
     event = await event_service.get_or_404(db, event_id)
     tier = await get_tier_or_404(db, event_id=event_id, tier_id=tier_id)
 
+    # Serialize capacity-sensitive operations per-event (auto-releases on commit/rollback)
+    from sqlalchemy import text
+    await db.execute(text("SELECT pg_advisory_xact_lock(:eid)"), {"eid": event_id})
+
     reg_q = select(Registration).where(
         Registration.event_id == event_id,
         Registration.user_id == user.id,
@@ -293,7 +297,6 @@ async def purchase_ticket(
     total_discount = price_info["total_discount_cents"]
     tier_price = price_info["tier_price_cents"]
 
-    # Compute platform commission (skip for free tickets)
     from app.services import platform_settings as settings_svc
     commission_cents = 0
     net_to_organizer = final_cents

@@ -236,3 +236,131 @@ async def notify_waitlist_ticket_rejected(
         await send_email(buyer_email, buyer_name, f"Ticket Not Approved — {event_title}", html)
     except Exception:
         logger.exception("notify_waitlist_ticket_rejected failed for %s", buyer_email)
+
+
+# ═══════════════════════════════════════════════════════════
+# 6. Ticket Refund Approved
+# ═══════════════════════════════════════════════════════════
+
+async def notify_ticket_refund_approved(
+    *,
+    buyer_email: str,
+    buyer_name: str,
+    event_title: str,
+    tier_name: str,
+    amount_cents: int,
+    receipt_number: str | None = None,
+) -> None:
+    """Send ticket refund approval confirmation to the buyer."""
+    try:
+        html = tpl.ticket_refund_approved_template(
+            event_title=event_title,
+            tier_name=tier_name,
+            amount_cents=amount_cents,
+            receipt_number=receipt_number,
+        )
+        await send_email(buyer_email, buyer_name, f"Ticket Refund Approved — {event_title}", html)
+    except Exception:
+        logger.exception("notify_ticket_refund_approved failed for %s", buyer_email)
+
+
+# ═══════════════════════════════════════════════════════════
+# 7. Waitlisted Ticket Approved
+# ═══════════════════════════════════════════════════════════
+
+async def notify_waitlist_ticket_approved(
+    *,
+    buyer_email: str,
+    buyer_name: str,
+    event_title: str,
+    tier_name: str,
+    amount_cents: int,
+    ticket_code: str | None = None,
+    event_date: datetime | None = None,
+) -> None:
+    """Send waitlisted ticket approval notice to the buyer."""
+    try:
+        html = tpl.waitlist_ticket_approved_template(
+            event_title=event_title,
+            tier_name=tier_name,
+            amount_cents=amount_cents,
+            ticket_code=ticket_code,
+            event_date=_format_date(event_date),
+        )
+        await send_email(buyer_email, buyer_name, f"Ticket Approved — {event_title}", html)
+    except Exception:
+        logger.exception("notify_waitlist_ticket_approved failed for %s", buyer_email)
+
+
+# ═══════════════════════════════════════════════════════════
+# 8. Sponsor Bid Approved
+# ═══════════════════════════════════════════════════════════
+
+async def notify_sponsor_bid_approved(
+    *,
+    sponsor_email: str,
+    sponsor_name: str,
+    event_title: str,
+    category_name: str,
+    bid_amount_cents: int,
+) -> None:
+    """Send bid acceptance email to the sponsor."""
+    try:
+        html = tpl.sponsor_bid_approved_template(
+            event_title=event_title,
+            category_name=category_name,
+            bid_amount_cents=bid_amount_cents,
+        )
+        await send_email(sponsor_email, sponsor_name, f"Bid Accepted — {event_title}", html)
+    except Exception:
+        logger.exception("notify_sponsor_bid_approved failed for %s", sponsor_email)
+
+
+# ═══════════════════════════════════════════════════════════
+# 9. Sponsor Bid Rejected
+# ═══════════════════════════════════════════════════════════
+
+async def notify_sponsor_bid_rejected(
+    *,
+    sponsor_email: str,
+    sponsor_name: str,
+    event_title: str,
+    category_name: str,
+    bid_amount_cents: int,
+) -> None:
+    """Send bid rejection email to the sponsor."""
+    try:
+        html = tpl.sponsor_bid_rejected_template(
+            event_title=event_title,
+            category_name=category_name,
+            bid_amount_cents=bid_amount_cents,
+        )
+        await send_email(sponsor_email, sponsor_name, f"Bid Not Accepted — {event_title}", html)
+    except Exception:
+        logger.exception("notify_sponsor_bid_rejected failed for %s", sponsor_email)
+
+
+# ═══════════════════════════════════════════════════════════
+# 10. Sponsor Payment Refunded
+# ═══════════════════════════════════════════════════════════
+
+async def notify_sponsor_refund(
+    *,
+    sponsor_email: str,
+    sponsor_name: str,
+    event_title: str,
+    category_name: str,
+    refunded_cents: int,
+    receipt_number: str | None = None,
+) -> None:
+    """Send sponsorship refund confirmation to the sponsor."""
+    try:
+        html = tpl.sponsor_refund_template(
+            event_title=event_title,
+            category_name=category_name,
+            refunded_cents=refunded_cents,
+            receipt_number=receipt_number,
+        )
+        await send_email(sponsor_email, sponsor_name, f"Sponsorship Refunded — {event_title}", html)
+    except Exception:
+        logger.exception("notify_sponsor_refund failed for %s", sponsor_email)

@@ -22,6 +22,7 @@ from app.schemas.sponsor import (
 from app.services import sponsor as sponsor_svc
 from app.services import notification_service as notif_svc
 from app.models.notification import NotificationType
+from app.worker.redis_pool import enqueue as arq_enqueue
 
 router = APIRouter()
 
@@ -511,6 +512,23 @@ async def accept_bid(
     )
     await db.commit()
     await db.refresh(bid)
+
+    from app.models.user import User as _User
+    from app.models.sponsor import SponsorshipCategory as _Cat
+    from app.models.event import Event as _Evt
+    sponsor = (await db.execute(select(_User).where(_User.id == bid.sponsor_user_id))).scalar_one_or_none()
+    cat = (await db.execute(select(_Cat).where(_Cat.id == bid.category_id))).scalar_one_or_none()
+    event = (await db.execute(select(_Evt).where(_Evt.id == event_id))).scalar_one_or_none()
+    if sponsor and sponsor.email:
+        await arq_enqueue(
+            "send_sponsor_bid_approved_email",
+            sponsor_email=sponsor.email,
+            sponsor_name=sponsor.display_name or "",
+            event_title=event.title if event else f"Event #{event_id}",
+            category_name=cat.name if cat else f"Category #{cat_id}",
+            bid_amount_cents=bid.amount_cents,
+        )
+
     return await _bid_to_response(db, bid)
 
 
@@ -536,6 +554,23 @@ async def reject_bid(
     )
     await db.commit()
     await db.refresh(bid)
+
+    from app.models.user import User as _User
+    from app.models.sponsor import SponsorshipCategory as _Cat
+    from app.models.event import Event as _Evt
+    sponsor = (await db.execute(select(_User).where(_User.id == bid.sponsor_user_id))).scalar_one_or_none()
+    cat = (await db.execute(select(_Cat).where(_Cat.id == bid.category_id))).scalar_one_or_none()
+    event = (await db.execute(select(_Evt).where(_Evt.id == event_id))).scalar_one_or_none()
+    if sponsor and sponsor.email:
+        await arq_enqueue(
+            "send_sponsor_bid_rejected_email",
+            sponsor_email=sponsor.email,
+            sponsor_name=sponsor.display_name or "",
+            event_title=event.title if event else f"Event #{event_id}",
+            category_name=cat.name if cat else f"Category #{cat_id}",
+            bid_amount_cents=bid.amount_cents,
+        )
+
     return await _bid_to_response(db, bid)
 
 
@@ -588,7 +623,9 @@ async def refund_bid(
 ):
     """Organizer refunds a paid bid."""
     from sqlalchemy import select as sa_select
-    from app.models.sponsor import SponsorBid
+    from app.models.sponsor import SponsorBid, SponsorshipCategory as _Cat
+    from app.models.user import User as _User
+    from app.models.event import Event as _Evt
 
     bid_obj = (await db.execute(
         sa_select(SponsorBid).where(SponsorBid.id == bid_id)
@@ -606,9 +643,8 @@ async def refund_bid(
             data={"event_id": event_id, "category_id": cat_id, "bid_id": bid_id, "payment_id": payment.id},
         )
 
-    from app.models.event import Event
     event_obj = (await db.execute(
-        sa_select(Event).where(Event.id == event_id)
+        sa_select(_Evt).where(_Evt.id == event_id)
     )).scalar_one_or_none()
     if event_obj:
         await notif_svc.create_notification(
@@ -621,6 +657,21 @@ async def refund_bid(
 
     await db.commit()
     await db.refresh(payment)
+
+    if sponsor_user_id:
+        sponsor = (await db.execute(sa_select(_User).where(_User.id == sponsor_user_id))).scalar_one_or_none()
+        cat = (await db.execute(sa_select(_Cat).where(_Cat.id == cat_id))).scalar_one_or_none()
+        if sponsor and sponsor.email:
+            await arq_enqueue(
+                "send_sponsor_refund_email",
+                sponsor_email=sponsor.email,
+                sponsor_name=sponsor.display_name or "",
+                event_title=event_obj.title if event_obj else f"Event #{event_id}",
+                category_name=cat.name if cat else f"Category #{cat_id}",
+                refunded_cents=payment.amount_cents,
+                receipt_number=getattr(payment, "receipt_number", None),
+            )
+
     return payment
 
 

@@ -3,9 +3,11 @@ Events: CRUD, list (filters), pledge, register, registrations.
 """
 from datetime import date, datetime, timezone
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel
+
+from app.rate_limit import limiter
 
 from app.dependencies import CurrentUserOptional, DbSession, require_role
 from app.models.event import Event, EventStatus, RegistrationType
@@ -56,8 +58,8 @@ from app.services import post as post_service
 from app.services import registration as registration_service
 from app.services import ticket as ticket_service
 from app.services import discount_strategy as ds_service
-from app.services import email_notifications as email_notify
 from app.services import notification_service as notif_svc
+from app.worker.redis_pool import enqueue as arq_enqueue
 from app.models.notification import NotificationType
 from app.services.ticket_crypto import encrypt_ticket_qr, decrypt_ticket_qr
 # DiscountStrategyResponse no longer needed — endpoint returns raw dicts
@@ -587,7 +589,6 @@ async def cancel_event(
     event_id: int,
     body: CancelBody,
     db: DbSession,
-    bg: BackgroundTasks,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
     """Organizer (main or co-) cancels the event. A reason is required."""
@@ -595,11 +596,12 @@ async def cancel_event(
     if not await event_service.user_can_edit_event(db, event, current_user):
         raise ForbiddenError("You cannot cancel this event")
     event = await event_service.cancel_event(db, event, current_user, reason=body.reason)
-    # Send cancellation emails to all affected users
-    bg.add_task(
-        email_notify.notify_event_cancelled, db,
-        event_id=event.id, event_title=event.title or f"Event #{event.id}",
-        reason=body.reason, event_date=event.start_time,
+    await arq_enqueue(
+        "send_event_cancelled_email",
+        event.id,
+        event.title or f"Event #{event.id}",
+        body.reason,
+        event.start_time,
     )
     # In-app notification to all registrants + pledgers
     from sqlalchemy import select as sel
@@ -833,7 +835,9 @@ async def get_pledge_preview(
 
 
 @router.post("/{event_id}/pledge")
+@limiter.limit("20/minute")
 async def pledge_event(
+    request: Request,
     event_id: int,
     body: PledgeBody,
     db: DbSession,
@@ -995,30 +999,6 @@ async def get_event_funding(event_id: int, db: DbSession):
     return FundingSummaryResponse(**summary)
 
 
-@router.get("/{event_id}/capacity-summary")
-async def get_capacity_summary(
-    event_id: int,
-    db: DbSession,
-    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
-):
-    """Capacity breakdown for waitlist management (organizer/admin)."""
-    event = await event_service.get_or_404(db, event_id)
-    total_reserved = await funding_service.get_total_reserved_spots(db, event_id)
-    from app.models.ticket import TicketSale as _TS, TicketSaleStatus as _TSS
-    from sqlalchemy import select as sel2, func as fn2
-    tickets_sold = int((await db.execute(
-        sel2(fn2.count()).where(_TS.event_id == event_id, _TS.status == _TSS.purchased)
-    )).scalar_one())
-    return {
-        "max_capacity": event.max_capacity,
-        "tickets_sold": tickets_sold,
-        "reserved_spots": total_reserved,
-        "occupied": tickets_sold + total_reserved,
-        "available": max(0, event.max_capacity - tickets_sold - total_reserved),
-        "registration_count": event.registration_count,
-    }
-
-
 @router.get("/{event_id}/escrow")
 async def get_event_escrow(event_id: int, db: DbSession):
     """Escrow summary for event (public)."""
@@ -1026,17 +1006,10 @@ async def get_event_escrow(event_id: int, db: DbSession):
     return await escrow_service.get_escrow_summary(db, event_id=event_id)
 
 
-@router.get("/{event_id}/organizer-trust")
-async def get_event_organizer_trust(event_id: int, db: DbSession):
-    """Organizer trust score for this event's organizer (public)."""
-    event = await event_service.get_by_id(db, event_id)
-    if not event:
-        raise NotFoundError("Event", event_id)
-    return await event_service.get_organizer_trust_score(db, organizer_id=event.organizer_id)
-
-
 @router.post("/{event_id}/register")
+@limiter.limit("20/minute")
 async def register_event(
+    request: Request,
     event_id: int,
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.customer)),
@@ -1102,7 +1075,6 @@ async def get_my_registration(
 async def unregister_event(
     event_id: int,
     db: DbSession,
-    bg: BackgroundTasks,
     current_user: User = Depends(require_role(UserRole.customer)),
 ):
     """Customer unregisters from event. Not allowed after funding ends (selling_tickets/waiting/live/completed)."""
@@ -1272,11 +1244,12 @@ async def get_ticket_price(
 
 
 @router.post("/{event_id}/purchase-ticket", response_model=list[TicketSaleResponse])
+@limiter.limit("15/minute")
 async def purchase_ticket(
+    request: Request,
     event_id: int,
     body: TicketPurchaseBody,
     db: DbSession,
-    bg: BackgroundTasks,
     current_user: User = Depends(require_role(UserRole.customer)),
 ):
     """Purchase one or more tickets (customer, must be registered). Returns list of tickets with ticket_code for QR."""
@@ -1289,8 +1262,8 @@ async def purchase_ticket(
         first = sales[0]
         event = first.event
         tier = first.ticket_tier
-        bg.add_task(
-            email_notify.notify_ticket_purchased,
+        await arq_enqueue(
+            "send_ticket_purchased_email",
             buyer_email=current_user.email,
             buyer_name=current_user.display_name or "",
             event_title=event.title if event else f"Event #{event_id}",
@@ -1370,6 +1343,19 @@ async def approve_ticket_refund(
             message=f"Your ticket refund of ${sale.amount_paid_cents / 100:.2f} has been approved.",
             data={"event_id": event_id},
         )
+        buyer = sale.user
+        if buyer and buyer.email:
+            event = sale.event
+            tier = sale.ticket_tier
+            await arq_enqueue(
+                "send_ticket_refund_approved_email",
+                buyer_email=buyer.email,
+                buyer_name=buyer.display_name or "",
+                event_title=event.title if event else f"Event #{event_id}",
+                tier_name=tier.name if tier else "General",
+                amount_cents=sale.amount_paid_cents,
+                receipt_number=sale.receipt_number or "",
+            )
     return _ticket_sale_to_response(sale)
 
 
@@ -1703,6 +1689,20 @@ async def approve_waitlisted_ticket(
         message="Your waitlisted ticket has been approved!",
         data={"event_id": event_id},
     )
+    buyer = sale.user
+    if buyer and buyer.email:
+        event = sale.event
+        tier = sale.ticket_tier
+        await arq_enqueue(
+            "send_waitlist_approved_email",
+            buyer_email=buyer.email,
+            buyer_name=buyer.display_name or "",
+            event_title=event.title if event else f"Event #{event_id}",
+            tier_name=tier.name if tier else "General",
+            amount_cents=sale.amount_paid_cents,
+            ticket_code=sale.ticket_code,
+            event_date=event.start_time if event else None,
+        )
     return _ticket_sale_to_response(sale)
 
 
@@ -1711,7 +1711,6 @@ async def reject_waitlisted_ticket(
     event_id: int,
     ticket_id: int,
     db: DbSession,
-    bg: BackgroundTasks,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
     """Reject a waitlisted ticket → cancelled (organizer/admin)."""
@@ -1723,8 +1722,8 @@ async def reject_waitlisted_ticket(
     event = sale.event
     tier = sale.ticket_tier
     if buyer and buyer.email:
-        bg.add_task(
-            email_notify.notify_waitlist_ticket_rejected,
+        await arq_enqueue(
+            "send_waitlist_rejected_email",
             buyer_email=buyer.email,
             buyer_name=buyer.display_name or "",
             event_title=event.title if event else f"Event #{event_id}",
@@ -2096,7 +2095,6 @@ async def approve_cancellation(
     event_id: int,
     body: ExtensionApprovalAction,
     db: DbSession,
-    bg: BackgroundTasks,
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
     """Admin approve/reject a pending cancellation request."""
@@ -2116,11 +2114,12 @@ async def approve_cancellation(
         await sponsor_service.refund_all_sponsor_payments_for_event(db, event_id=event.id)
         await ticket_service.refund_all_tickets_for_event(db, event_id=event.id)
         await db.flush()
-        # Send cancellation emails to all affected users
-        bg.add_task(
-            email_notify.notify_event_cancelled, db,
-            event_id=event.id, event_title=event.title or f"Event #{event.id}",
-            reason=reason, event_date=event.start_time,
+        await arq_enqueue(
+            "send_event_cancelled_email",
+            event.id,
+            event.title or f"Event #{event.id}",
+            reason,
+            event.start_time,
         )
     elif body.action == "reject":
         event.pending_cancellation = None

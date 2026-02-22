@@ -239,6 +239,10 @@ async def create_pledge(
     if event.status == EventStatus.completed:
         raise ConflictError("Cannot pledge to an ended event")
 
+    # Serialize capacity-sensitive operations per-event (auto-releases on commit/rollback)
+    from sqlalchemy import text
+    await db.execute(text("SELECT pg_advisory_xact_lock(:eid)"), {"eid": event_id})
+
     reg_q = select(Registration).where(
         Registration.event_id == event_id,
         Registration.user_id == user.id,

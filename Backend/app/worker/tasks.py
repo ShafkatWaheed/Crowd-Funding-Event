@@ -1,5 +1,5 @@
 """
-ARQ background tasks for refund processing and other async work.
+ARQ background tasks for refund processing, email sending, and other async work.
 
 Each task gets its own DB session (not tied to the HTTP request lifecycle).
 The pattern: API sets status to *_processing -> enqueues task -> task completes the refund.
@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
+from typing import Any
 
 from sqlalchemy import select, update
 
@@ -18,6 +19,206 @@ from app.models.sponsor import SponsorBid, SponsorPayment, PaymentStatus, BidSta
 from app.services import email_notifications as email_notify
 
 logger = logging.getLogger("arq.tasks")
+
+
+# ═══════════════════════════════════════════
+#  Email tasks
+# ═══════════════════════════════════════════
+
+async def send_event_cancelled_email(
+    ctx: dict,
+    event_id: int,
+    event_title: str,
+    reason: str | None,
+    event_date: Any | None,
+) -> None:
+    """Send cancellation emails to all registrants/pledgers of an event."""
+    async with async_session_maker() as db:
+        try:
+            await email_notify.notify_event_cancelled(
+                db,
+                event_id=event_id,
+                event_title=event_title,
+                reason=reason,
+                event_date=event_date,
+            )
+            logger.info("Event %d: cancellation emails sent", event_id)
+        except Exception:
+            logger.exception("Event %d: failed to send cancellation emails", event_id)
+
+
+async def send_ticket_purchased_email(
+    ctx: dict,
+    *,
+    buyer_email: str,
+    buyer_name: str,
+    event_title: str,
+    tier_name: str,
+    ticket_code: str,
+    receipt_number: str,
+    amount_cents: int,
+    quantity: int,
+    event_date: Any | None,
+    discount_cents: int,
+    commission_cents: int,
+) -> None:
+    try:
+        await email_notify.notify_ticket_purchased(
+            buyer_email=buyer_email,
+            buyer_name=buyer_name,
+            event_title=event_title,
+            tier_name=tier_name,
+            ticket_code=ticket_code,
+            receipt_number=receipt_number,
+            amount_cents=amount_cents,
+            quantity=quantity,
+            event_date=event_date,
+            discount_cents=discount_cents,
+            commission_cents=commission_cents,
+        )
+        logger.info("Ticket purchase email sent to %s", buyer_email)
+    except Exception:
+        logger.exception("Failed to send ticket purchase email to %s", buyer_email)
+
+
+async def send_waitlist_rejected_email(
+    ctx: dict,
+    *,
+    buyer_email: str,
+    buyer_name: str,
+    event_title: str,
+    tier_name: str,
+    amount_cents: int,
+) -> None:
+    try:
+        await email_notify.notify_waitlist_ticket_rejected(
+            buyer_email=buyer_email,
+            buyer_name=buyer_name,
+            event_title=event_title,
+            tier_name=tier_name,
+            amount_cents=amount_cents,
+        )
+        logger.info("Waitlist rejection email sent to %s", buyer_email)
+    except Exception:
+        logger.exception("Failed to send waitlist rejection email to %s", buyer_email)
+
+
+async def send_ticket_refund_approved_email(
+    ctx: dict,
+    *,
+    buyer_email: str,
+    buyer_name: str,
+    event_title: str,
+    tier_name: str,
+    amount_cents: int,
+    receipt_number: str | None = None,
+) -> None:
+    try:
+        await email_notify.notify_ticket_refund_approved(
+            buyer_email=buyer_email,
+            buyer_name=buyer_name,
+            event_title=event_title,
+            tier_name=tier_name,
+            amount_cents=amount_cents,
+            receipt_number=receipt_number,
+        )
+        logger.info("Ticket refund approved email sent to %s", buyer_email)
+    except Exception:
+        logger.exception("Failed to send ticket refund email to %s", buyer_email)
+
+
+async def send_waitlist_approved_email(
+    ctx: dict,
+    *,
+    buyer_email: str,
+    buyer_name: str,
+    event_title: str,
+    tier_name: str,
+    amount_cents: int,
+    ticket_code: str | None = None,
+    event_date: Any | None = None,
+) -> None:
+    try:
+        await email_notify.notify_waitlist_ticket_approved(
+            buyer_email=buyer_email,
+            buyer_name=buyer_name,
+            event_title=event_title,
+            tier_name=tier_name,
+            amount_cents=amount_cents,
+            ticket_code=ticket_code,
+            event_date=event_date,
+        )
+        logger.info("Waitlist approval email sent to %s", buyer_email)
+    except Exception:
+        logger.exception("Failed to send waitlist approval email to %s", buyer_email)
+
+
+async def send_sponsor_bid_approved_email(
+    ctx: dict,
+    *,
+    sponsor_email: str,
+    sponsor_name: str,
+    event_title: str,
+    category_name: str,
+    bid_amount_cents: int,
+) -> None:
+    try:
+        await email_notify.notify_sponsor_bid_approved(
+            sponsor_email=sponsor_email,
+            sponsor_name=sponsor_name,
+            event_title=event_title,
+            category_name=category_name,
+            bid_amount_cents=bid_amount_cents,
+        )
+        logger.info("Sponsor bid approved email sent to %s", sponsor_email)
+    except Exception:
+        logger.exception("Failed to send sponsor bid approved email to %s", sponsor_email)
+
+
+async def send_sponsor_bid_rejected_email(
+    ctx: dict,
+    *,
+    sponsor_email: str,
+    sponsor_name: str,
+    event_title: str,
+    category_name: str,
+    bid_amount_cents: int,
+) -> None:
+    try:
+        await email_notify.notify_sponsor_bid_rejected(
+            sponsor_email=sponsor_email,
+            sponsor_name=sponsor_name,
+            event_title=event_title,
+            category_name=category_name,
+            bid_amount_cents=bid_amount_cents,
+        )
+        logger.info("Sponsor bid rejected email sent to %s", sponsor_email)
+    except Exception:
+        logger.exception("Failed to send sponsor bid rejected email to %s", sponsor_email)
+
+
+async def send_sponsor_refund_email(
+    ctx: dict,
+    *,
+    sponsor_email: str,
+    sponsor_name: str,
+    event_title: str,
+    category_name: str,
+    refunded_cents: int,
+    receipt_number: str | None = None,
+) -> None:
+    try:
+        await email_notify.notify_sponsor_refund(
+            sponsor_email=sponsor_email,
+            sponsor_name=sponsor_name,
+            event_title=event_title,
+            category_name=category_name,
+            refunded_cents=refunded_cents,
+            receipt_number=receipt_number,
+        )
+        logger.info("Sponsor refund email sent to %s", sponsor_email)
+    except Exception:
+        logger.exception("Failed to send sponsor refund email to %s", sponsor_email)
 
 
 async def process_pledge_refund(ctx: dict, funding_id: int) -> None:

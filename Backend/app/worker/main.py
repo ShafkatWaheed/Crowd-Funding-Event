@@ -11,6 +11,14 @@ from app.worker.tasks import (
     process_ticket_refund,
     process_sponsor_refund,
     process_bulk_sponsor_refunds,
+    send_event_cancelled_email,
+    send_ticket_purchased_email,
+    send_waitlist_rejected_email,
+    send_ticket_refund_approved_email,
+    send_waitlist_approved_email,
+    send_sponsor_bid_approved_email,
+    send_sponsor_bid_rejected_email,
+    send_sponsor_refund_email,
 )
 
 
@@ -21,6 +29,14 @@ class WorkerSettings:
         process_ticket_refund,
         process_sponsor_refund,
         process_bulk_sponsor_refunds,
+        send_event_cancelled_email,
+        send_ticket_purchased_email,
+        send_waitlist_rejected_email,
+        send_ticket_refund_approved_email,
+        send_waitlist_approved_email,
+        send_sponsor_bid_approved_email,
+        send_sponsor_bid_rejected_email,
+        send_sponsor_refund_email,
     ]
     redis_settings = RedisSettings.from_dsn(settings.REDIS_URL)
     max_jobs = 20

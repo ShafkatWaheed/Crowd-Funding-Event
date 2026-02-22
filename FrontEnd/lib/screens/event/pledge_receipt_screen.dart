@@ -95,7 +95,7 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
         ? DateTime.parse(r['created_at']).toLocal()
         : null;
 
-    final headerColor = isDonation ? Colors.amber.shade700 : Colors.deepPurple;
+    final headerColor = isDonation ? context.photoAccent : context.sponsorAccent;
 
     return RefreshIndicator(
       onRefresh: _load,
@@ -126,8 +126,8 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: isDonation
-                          ? [Colors.amber.shade800, Colors.amber.shade600]
-                          : [Colors.deepPurple.shade600, Colors.deepPurple.shade400],
+                          ? [context.photoAccent, context.photoAccent.withValues(alpha: 0.8)]
+                          : [context.sponsorAccent, context.sponsorAccent.withValues(alpha: 0.8)],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
@@ -186,18 +186,18 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
                           width: double.infinity,
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: Colors.amber.withValues(alpha: 0.12),
+                            color: context.photoAccent.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
+                            border: Border.all(color: context.photoAccent.withValues(alpha: 0.3)),
                           ),
                           child: Row(
                             children: [
-                              Icon(Icons.info_outline_rounded, size: 20, color: Colors.amber.shade600),
+                              Icon(Icons.info_outline_rounded, size: 20, color: context.photoAccent),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Text(
                                   'This is a guest donation and is non-refundable. No ticket spots are reserved.',
-                                  style: TextStyle(fontSize: 12, color: Colors.amber.shade600),
+                                  style: TextStyle(fontSize: 12, color: context.photoAccent),
                                 ),
                               ),
                             ],
@@ -210,18 +210,18 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
                           width: double.infinity,
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: Colors.teal.withValues(alpha: 0.12),
+                            color: context.ticketAccent.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.teal.withValues(alpha: 0.3)),
+                            border: Border.all(color: context.ticketAccent.withValues(alpha: 0.3)),
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.event_seat_rounded, size: 20, color: Colors.teal),
+                              Icon(Icons.event_seat_rounded, size: 20, color: context.ticketAccent),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Text(
                                   '$reservedSpots ticket spot(s) reserved. These will be consumed first when you buy tickets.',
-                                  style: const TextStyle(fontSize: 12, color: Colors.teal),
+                                  style: TextStyle(fontSize: 12, color: context.ticketAccent),
                                 ),
                               ),
                             ],

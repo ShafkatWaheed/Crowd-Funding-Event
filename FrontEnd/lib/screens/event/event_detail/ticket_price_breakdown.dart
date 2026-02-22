@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../config/theme.dart';
 import '../../../config/design_tokens.dart';
 import '../../../services/api_service.dart';
 
@@ -80,31 +81,31 @@ class _TicketPriceBreakdownState extends State<TicketPriceBreakdown> {
       child: Container(
         padding: AppSpacing.paddingSm,
         decoration: BoxDecoration(
-          color: Colors.teal.shade50,
+          color: context.ticketSurface,
           borderRadius: AppRadius.sm,
-          border: Border.all(color: Colors.teal.shade200),
+          border: Border.all(color: context.ticketAccent.withValues(alpha: 0.3)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Your Price Breakdown',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.teal.shade800)),
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: context.ticketAccent)),
             const SizedBox(height: 6),
             _breakdownRow('Base price', _cents(tierPrice), isBold: false),
             if (commonDisc > 0)
-              _breakdownRow('Common discount', '- ${_cents(commonDisc)}', color: Colors.green.shade700),
+              _breakdownRow('Common discount', '- ${_cents(commonDisc)}', color: context.bidAccepted),
             if (selectiveDisc > 0)
-              _breakdownRow('Selective discount', '- ${_cents(selectiveDisc)}', color: Colors.green.shade700),
+              _breakdownRow('Selective discount', '- ${_cents(selectiveDisc)}', color: context.bidAccepted),
             if (pledgeDisc > 0)
-              _breakdownRow('Pledge discount', '- ${_cents(pledgeDisc)}', color: Colors.green.shade700),
+              _breakdownRow('Pledge discount', '- ${_cents(pledgeDisc)}', color: context.bidAccepted),
             if (eventDisc > 0)
-              _breakdownRow('Event discount', '- ${_cents(eventDisc)}', color: Colors.green.shade700),
+              _breakdownRow('Event discount', '- ${_cents(eventDisc)}', color: context.bidAccepted),
             const Divider(height: 10),
             _breakdownRow(
               'You pay',
               finalPrice == 0 ? 'FREE' : _cents(finalPrice),
               isBold: true,
-              color: finalPrice == 0 ? Colors.green.shade700 : Colors.teal.shade900,
+              color: finalPrice == 0 ? context.bidAccepted : context.ticketAccent,
             ),
           ],
         ),
@@ -118,8 +119,8 @@ class _TicketPriceBreakdownState extends State<TicketPriceBreakdown> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(fontSize: 12, fontWeight: isBold ? FontWeight.w700 : FontWeight.w400, color: color ?? Colors.grey.shade700)),
-          Text(value, style: TextStyle(fontSize: 12, fontWeight: isBold ? FontWeight.w700 : FontWeight.w500, color: color ?? Colors.grey.shade700)),
+          Text(label, style: TextStyle(fontSize: 12, fontWeight: isBold ? FontWeight.w700 : FontWeight.w400, color: color ?? AppTheme.textSecondaryOf(context))),
+          Text(value, style: TextStyle(fontSize: 12, fontWeight: isBold ? FontWeight.w700 : FontWeight.w500, color: color ?? AppTheme.textSecondaryOf(context))),
         ],
       ),
     );

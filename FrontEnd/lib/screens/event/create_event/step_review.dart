@@ -132,7 +132,7 @@ class StepReview extends StatelessWidget {
                   context: context,
                   step: 0,
                   icon: Icons.edit_note_rounded,
-                  color: Colors.indigo,
+                  color: context.managementAccent,
                   title: 'Basics',
                   items: {
                     'Title': title.trim(),
@@ -146,7 +146,7 @@ class StepReview extends StatelessWidget {
                   context: context,
                   step: 1,
                   icon: Icons.attach_money_rounded,
-                  color: Colors.teal,
+                  color: context.fundingAccent,
                   title: 'Funding',
                   items: {
                     'Deadline': fundingEndAt != null
@@ -167,7 +167,7 @@ class StepReview extends StatelessWidget {
                   context: context,
                   step: 2,
                   icon: Icons.event_rounded,
-                  color: Colors.blue,
+                  color: context.feedAccent,
                   title: 'Dates & Tickets',
                   items: {
                     'Start': startTime != null
@@ -192,7 +192,7 @@ class StepReview extends StatelessWidget {
                   context: context,
                   step: 3,
                   icon: Icons.location_on_rounded,
-                  color: Colors.orange,
+                  color: context.fundingAccent,
                   title: 'Location & Sponsors',
                   items: {
                     'Venue': selectedVenueName ?? 'Not set',

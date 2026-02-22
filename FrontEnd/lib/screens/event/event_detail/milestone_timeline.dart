@@ -138,7 +138,7 @@ class _MilestoneTimelineState extends State<MilestoneTimeline> {
           Row(
             children: [
               Icon(Icons.emoji_events_rounded,
-                  size: AppIconSize.sm, color: Colors.amber[700]),
+                  size: AppIconSize.sm, color: context.photoAccent),
               AppSpacing.hSm,
               Text(
                 'Funding Milestones',
@@ -248,7 +248,7 @@ class _MilestoneTimelineState extends State<MilestoneTimeline> {
                                     horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
                                 decoration: BoxDecoration(
                                   color: isUnlocked
-                                      ? Colors.green.withValues(alpha: 0.12)
+                                      ? AppTheme.successSurfaceOf(context)
                                       : AppTheme.textSecondaryOf(context).withValues(alpha: 0.12),
                                   borderRadius: AppRadius.sm,
                                 ),
@@ -258,7 +258,7 @@ class _MilestoneTimelineState extends State<MilestoneTimeline> {
                                     fontSize: 10,
                                     fontWeight: FontWeight.w700,
                                     color: isUnlocked
-                                        ? Colors.green[700]
+                                        ? AppTheme.successColor
                                         : AppTheme.textSecondaryOf(context),
                                     letterSpacing: 0.5,
                                   ),

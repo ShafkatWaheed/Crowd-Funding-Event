@@ -396,9 +396,9 @@ class _GlobalDiscountsScreenState extends State<GlobalDiscountsScreen> {
       ),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: Colors.deepPurple.withValues(alpha: 0.15),
+          backgroundColor: context.sponsorAccent.withValues(alpha: 0.15),
           child: Icon(_typeIcon(d['discount_type'] ?? ''),
-              color: Colors.deepPurple, size: 20),
+              color: context.sponsorAccent, size: 20),
         ),
         title: Text(d['name'] ?? 'Discount',
             style: TextStyle(

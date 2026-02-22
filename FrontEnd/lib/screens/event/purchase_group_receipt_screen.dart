@@ -398,7 +398,7 @@ class _PurchaseGroupReceiptScreenState
                     style: TextStyle(
                         fontWeight: FontWeight.w700, fontSize: 15)),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.teal,
+                  backgroundColor: context.ticketAccent,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14)),

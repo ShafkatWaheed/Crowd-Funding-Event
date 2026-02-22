@@ -206,8 +206,8 @@ class _FullBar extends StatelessWidget {
     if (!isCurrent) return AppTheme.accentColor.withValues(alpha: 0.4);
     return switch (step.status) {
       EventStatus.approved => AppTheme.accentColor,
-      EventStatus.selling_tickets => const Color(0xFF00838F),
-      EventStatus.waiting_event_date => const Color(0xFFE65100),
+      EventStatus.selling_tickets => context.statusSelling,
+      EventStatus.waiting_event_date => context.statusPending,
       EventStatus.live => AppTheme.successColor,
       EventStatus.completed => AppTheme.textSecondaryOf(context),
       _ => AppTheme.accentColor,

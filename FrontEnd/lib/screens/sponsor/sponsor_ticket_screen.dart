@@ -371,8 +371,8 @@ class _SponsorTicketReceiptPage extends StatelessWidget {
               ),
               child: Column(
                 children: [
-                  const Icon(Icons.workspace_premium_rounded,
-                      color: Colors.amber, size: 40),
+                  Icon(Icons.workspace_premium_rounded,
+                      color: context.reviewAccent, size: 40),
                   const SizedBox(height: 10),
                   Text(
                     ticket.eventTitle ?? 'Sponsor Ticket',
@@ -389,15 +389,15 @@ class _SponsorTicketReceiptPage extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.amber.withValues(alpha: 0.2),
+                      color: context.reviewAccent.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: const Text(
+                    child: Text(
                       'SPONSOR PASS',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
-                        color: Colors.amber,
+                        color: context.reviewAccent,
                         letterSpacing: 1,
                       ),
                     ),

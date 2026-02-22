@@ -343,9 +343,9 @@ class _EditEventScreenState extends State<EditEventScreen> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.teal.withValues(alpha: 0.03),
+        color: context.ticketAccent.withValues(alpha: 0.03),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.teal.withValues(alpha: 0.15)),
+        border: Border.all(color: context.ticketAccent.withValues(alpha: 0.15)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -365,23 +365,23 @@ class _EditEventScreenState extends State<EditEventScreen> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: Colors.orange.withValues(alpha: 0.1),
+                      color: context.fundingAccent.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                      border: Border.all(color: context.fundingAccent.withValues(alpha: 0.3)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.checklist_rounded, size: 14, color: Colors.orange[800]),
+                        Icon(Icons.checklist_rounded, size: 14, color: context.fundingAccent),
                         const SizedBox(width: 4),
-                        Text('Prerequisites', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.orange[800])),
+                        Text('Prerequisites', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.fundingAccent)),
                       ],
                     ),
                   ),
                 ),
               const SizedBox(width: 6),
               IconButton(
-                icon: Icon(Icons.save, size: 18, color: Colors.teal[700]),
+                icon: Icon(Icons.save, size: 18, color: context.ticketAccent),
                 onPressed: () => _saveSponsorCategory(sc),
                 tooltip: 'Save',
                 padding: EdgeInsets.zero,
@@ -464,7 +464,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
           children: [
             Row(
               children: [
-                const Icon(Icons.checklist_rounded, size: 16, color: Colors.teal),
+                Icon(Icons.checklist_rounded, size: 16, color: context.ticketAccent),
                 const SizedBox(width: 6),
                 Text('Prerequisites',
                     style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
@@ -473,11 +473,11 @@ class _EditEventScreenState extends State<EditEventScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                   decoration: BoxDecoration(
-                    color: Colors.teal.withValues(alpha: 0.12),
+                    color: context.ticketAccent.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text('${sc.prereqs.length}',
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.teal)),
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.ticketAccent)),
                 ),
               ],
             ),
@@ -505,14 +505,14 @@ class _EditEventScreenState extends State<EditEventScreen> {
                               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                               decoration: BoxDecoration(
                                 color: p.isRequired
-                                    ? Colors.red.withValues(alpha: 0.1)
-                                    : Colors.grey.withValues(alpha: 0.1),
+                                    ? AppTheme.errorSurfaceOf(context)
+                                    : AppTheme.textSecondaryOf(context).withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
                                 p.isRequired ? 'Required' : 'Optional',
                                 style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600,
-                                    color: p.isRequired ? Colors.red : Colors.grey),
+                                    color: p.isRequired ? AppTheme.errorColor : AppTheme.textSecondaryOf(context)),
                               ),
                             ),
                             if (p.requiresDocument) ...[
@@ -520,13 +520,13 @@ class _EditEventScreenState extends State<EditEventScreen> {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                                 decoration: BoxDecoration(
-                                  color: Colors.deepPurple.withValues(alpha: 0.1),
+                                  color: context.sponsorAccent.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
-                                child: const Text(
+                                child: Text(
                                   'Doc',
                                   style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600,
-                                      color: Colors.deepPurple),
+                                      color: context.sponsorAccent),
                                 ),
                               ),
                             ],
@@ -538,9 +538,9 @@ class _EditEventScreenState extends State<EditEventScreen> {
                           setState(() => sc.prereqs.removeAt(i));
                           setLocal(() {});
                         },
-                        child: const Padding(
-                          padding: EdgeInsets.all(4),
-                          child: Icon(Icons.close, size: 16, color: Colors.red),
+                        child: Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: Icon(Icons.close, size: 16, color: AppTheme.errorColor),
                         ),
                       ),
                     ],
@@ -588,7 +588,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                         Icon(
                           isRequired ? Icons.check_box : Icons.check_box_outline_blank,
                           size: 18,
-                          color: isRequired ? Colors.teal : Colors.grey,
+                          color: isRequired ? context.ticketAccent : AppTheme.textSecondaryOf(context),
                         ),
                         const SizedBox(width: 2),
                         Text('Req', style: TextStyle(fontSize: 10,
@@ -608,7 +608,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                         Icon(
                           requiresDocument ? Icons.check_box : Icons.check_box_outline_blank,
                           size: 18,
-                          color: requiresDocument ? Colors.deepPurple : Colors.grey,
+                          color: requiresDocument ? context.sponsorAccent : AppTheme.textSecondaryOf(context),
                         ),
                         const SizedBox(width: 2),
                         Text('Doc', style: TextStyle(fontSize: 10,
@@ -637,7 +637,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: Colors.teal,
+                      color: context.ticketAccent,
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: const Icon(Icons.add, size: 16, color: Colors.white),
@@ -699,7 +699,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                               leading: Icon(
                                 p['is_required'] == true ? Icons.check_circle : Icons.radio_button_unchecked,
                                 size: 18,
-                                color: p['is_required'] == true ? Colors.orange : AppTheme.textSecondaryOf(ctx),
+                                color: p['is_required'] == true ? ctx.fundingAccent : AppTheme.textSecondaryOf(ctx),
                               ),
                               title: Text(p['name'] ?? '', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                               subtitle: p['description'] != null && (p['description'] as String).isNotEmpty
@@ -738,14 +738,14 @@ class _EditEventScreenState extends State<EditEventScreen> {
                     Checkbox(
                       value: isRequired,
                       onChanged: (v) => setSheetState(() => isRequired = v ?? true),
-                      activeColor: Colors.orange,
+                      activeColor: ctx.fundingAccent,
                     ),
                     const Text('Required', style: TextStyle(fontSize: 13)),
                     const SizedBox(width: 8),
                     Checkbox(
                       value: requiresDocument,
                       onChanged: (v) => setSheetState(() => requiresDocument = v ?? false),
-                      activeColor: Colors.deepPurple,
+                      activeColor: ctx.sponsorAccent,
                     ),
                     const Text('Doc', style: TextStyle(fontSize: 13)),
                     const Spacer(),
@@ -774,7 +774,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                       },
                       icon: const Icon(Icons.add, size: 16),
                       label: const Text('Add'),
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, foregroundColor: Colors.white),
+                      style: ElevatedButton.styleFrom(backgroundColor: ctx.fundingAccent, foregroundColor: Colors.white),
                     ),
                   ],
                 ),
@@ -861,9 +861,9 @@ class _EditEventScreenState extends State<EditEventScreen> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.blue.withValues(alpha: 0.03),
+        color: context.feedAccent.withValues(alpha: 0.03),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.blue.withValues(alpha: 0.15)),
+        border: Border.all(color: context.feedAccent.withValues(alpha: 0.15)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -876,7 +876,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
               ),
               const Spacer(),
               IconButton(
-                icon: Icon(Icons.save, size: 18, color: Colors.blue[700]),
+                icon: Icon(Icons.save, size: 18, color: context.feedAccent),
                 onPressed: () => _saveTier(t),
                 tooltip: 'Save',
                 padding: EdgeInsets.zero,
@@ -1079,7 +1079,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                   style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(ctx)),
                                 ),
                                 dense: true,
-                                activeColor: Colors.teal,
+                                activeColor: ctx.ticketAccent,
                               );
                             },
                           ),
@@ -1087,7 +1087,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                   const SizedBox(height: 8),
                   ElevatedButton(
                     onPressed: chosen.isEmpty ? null : () => Navigator.pop(ctx, chosen.toList()),
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.teal, foregroundColor: Colors.white),
+                    style: ElevatedButton.styleFrom(backgroundColor: ctx.ticketAccent, foregroundColor: Colors.white),
                     child: Text('Add ${chosen.length} sponsorship${chosen.length == 1 ? '' : 's'}'),
                   ),
                 ],
@@ -1328,12 +1328,12 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                       horizontal: 14, vertical: 12),
                                   decoration: BoxDecoration(
                                     color: _showScheduleSection
-                                        ? Colors.blue.withValues(alpha: 0.08)
+                                        ? context.feedAccent.withValues(alpha: 0.08)
                                         : AppTheme.surfaceOf(context),
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
                                       color: _showScheduleSection
-                                          ? Colors.blue.withValues(alpha: 0.3)
+                                          ? context.feedAccent.withValues(alpha: 0.3)
                                           : AppTheme.dividerOf(context),
                                     ),
                                   ),
@@ -1342,7 +1342,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                       Icon(Icons.calendar_month_rounded,
                                           size: 18,
                                           color: _showScheduleSection
-                                              ? Colors.blue[700]
+                                              ? context.feedAccent
                                               : AppTheme.textSecondaryOf(context)),
                                       const SizedBox(width: 8),
                                       Expanded(
@@ -1360,14 +1360,14 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                           padding: const EdgeInsets.symmetric(
                                               horizontal: 6, vertical: 2),
                                           decoration: BoxDecoration(
-                                            color: Colors.blue.withValues(alpha: 0.15),
+                                            color: context.feedAccent.withValues(alpha: 0.15),
                                             borderRadius: BorderRadius.circular(8),
                                           ),
                                           child: Text('${_scheduleItems.length}',
                                               style: TextStyle(
                                                   fontSize: 11,
                                                   fontWeight: FontWeight.w700,
-                                                  color: Colors.blue[800])),
+                                                  color: context.feedAccent)),
                                         ),
                                       const SizedBox(width: 4),
                                       Icon(
@@ -1453,20 +1453,20 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                                         padding: const EdgeInsets.symmetric(
                                                             horizontal: 10, vertical: 6),
                                                         decoration: BoxDecoration(
-                                                          color: Colors.blue.withValues(alpha: 0.08),
+                                                          color: context.feedAccent.withValues(alpha: 0.08),
                                                           borderRadius: BorderRadius.circular(8),
                                                         ),
                                                         child: Row(
                                                           mainAxisSize: MainAxisSize.min,
                                                           children: [
                                                             Icon(Icons.calendar_today_rounded,
-                                                                size: 14, color: Colors.blue[700]),
+                                                                size: 14, color: context.feedAccent),
                                                             const SizedBox(width: 6),
                                                             Text(dateLabel,
                                                                 style: TextStyle(
                                                                     fontSize: 12,
                                                                     fontWeight: FontWeight.w600,
-                                                                    color: Colors.blue[700])),
+                                                                    color: context.feedAccent)),
                                                           ],
                                                         ),
                                                       ),
@@ -1474,7 +1474,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                                     const Spacer(),
                                                     IconButton(
                                                       icon: Icon(Icons.save_rounded,
-                                                          size: 18, color: Colors.green[600]),
+                                                          size: 18, color: AppTheme.successColor),
                                                       onPressed: () => _saveScheduleItem(si),
                                                       padding: EdgeInsets.zero,
                                                       constraints: const BoxConstraints(),
@@ -1483,7 +1483,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                                     const SizedBox(width: 8),
                                                     IconButton(
                                                       icon: Icon(Icons.delete_outline,
-                                                          size: 18, color: Colors.red[400]),
+                                                          size: 18, color: AppTheme.errorColor),
                                                       onPressed: () => _deleteScheduleItem(idx),
                                                       padding: EdgeInsets.zero,
                                                       constraints: const BoxConstraints(),
@@ -1748,19 +1748,19 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                                 decoration: BoxDecoration(
                                   color: _showTierSection
-                                      ? Colors.blue.withValues(alpha: 0.08)
+                                      ? context.feedAccent.withValues(alpha: 0.08)
                                       : AppTheme.surfaceOf(context),
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
                                     color: _showTierSection
-                                        ? Colors.blue.withValues(alpha: 0.3)
+                                        ? context.feedAccent.withValues(alpha: 0.3)
                                         : AppTheme.dividerOf(context),
                                   ),
                                 ),
                                 child: Row(
                                   children: [
                                     Icon(Icons.layers_rounded, size: 18,
-                                        color: _showTierSection ? Colors.blue : AppTheme.textSecondaryOf(context)),
+                                        color: _showTierSection ? context.feedAccent : AppTheme.textSecondaryOf(context)),
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text('Ticket Tiers',
@@ -1771,11 +1771,11 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                         decoration: BoxDecoration(
-                                          color: Colors.blue.withValues(alpha: 0.12),
+                                          color: context.feedAccent.withValues(alpha: 0.12),
                                           borderRadius: BorderRadius.circular(10),
                                         ),
                                         child: Text('${_tiers.length}',
-                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blue)),
+                                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: context.feedAccent)),
                                       ),
                                     const SizedBox(width: 4),
                                     Icon(_showTierSection ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
@@ -1805,7 +1805,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                         onPressed: () => setState(() => _tiers.add(_EditTier())),
                                         icon: const Icon(Icons.add, size: 18),
                                         label: const Text('Add Tier'),
-                                        style: OutlinedButton.styleFrom(foregroundColor: Colors.blue),
+                                        style: OutlinedButton.styleFrom(foregroundColor: context.feedAccent),
                                       ),
                                     ],
                                   ],
@@ -1830,12 +1830,12 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                       horizontal: 14, vertical: 12),
                                   decoration: BoxDecoration(
                                     color: _showMilestoneSection
-                                        ? Colors.amber.withValues(alpha: 0.08)
+                                        ? context.photoAccent.withValues(alpha: 0.08)
                                         : AppTheme.surfaceOf(context),
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
                                       color: _showMilestoneSection
-                                          ? Colors.amber
+                                          ? context.photoAccent
                                               .withValues(alpha: 0.3)
                                           : AppTheme.dividerOf(context),
                                     ),
@@ -1845,7 +1845,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                       Icon(Icons.emoji_events_rounded,
                                           size: 18,
                                           color: _showMilestoneSection
-                                              ? Colors.amber[700]
+                                              ? context.photoAccent
                                               : AppTheme.textSecondaryOf(context)),
                                       const SizedBox(width: 8),
                                       Expanded(
@@ -1863,7 +1863,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                           padding: const EdgeInsets.symmetric(
                                               horizontal: 6, vertical: 2),
                                           decoration: BoxDecoration(
-                                            color: Colors.amber
+                                            color: context.photoAccent
                                                 .withValues(alpha: 0.15),
                                             borderRadius:
                                                 BorderRadius.circular(8),
@@ -1872,7 +1872,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                               style: TextStyle(
                                                   fontSize: 11,
                                                   fontWeight: FontWeight.w700,
-                                                  color: Colors.amber[800])),
+                                                  color: context.photoAccent)),
                                         ),
                                       const SizedBox(width: 4),
                                       Icon(
@@ -1940,8 +1940,8 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                                     icon: Icon(
                                                         Icons.save_rounded,
                                                         size: 18,
-                                                        color: Colors
-                                                            .green[600]),
+                                                        color: AppTheme
+                                                            .successColor),
                                                     onPressed: () =>
                                                         _saveMilestone(ms),
                                                     padding: EdgeInsets.zero,
@@ -1955,7 +1955,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                                         Icons.delete_outline,
                                                         size: 18,
                                                         color:
-                                                            Colors.red[400]),
+                                                            AppTheme.errorColor),
                                                     onPressed: () =>
                                                         _deleteMilestone(idx),
                                                     padding: EdgeInsets.zero,
@@ -2084,12 +2084,12 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                     horizontal: 14, vertical: 12),
                                 decoration: BoxDecoration(
                                   color: _showSponsorshipSection
-                                      ? Colors.teal.withValues(alpha: 0.08)
+                                      ? context.ticketAccent.withValues(alpha: 0.08)
                                       : AppTheme.surfaceOf(context),
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
                                     color: _showSponsorshipSection
-                                        ? Colors.teal.withValues(alpha: 0.3)
+                                        ? context.ticketAccent.withValues(alpha: 0.3)
                                         : AppTheme.dividerOf(context),
                                   ),
                                 ),
@@ -2098,7 +2098,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                     Icon(Icons.storefront_rounded,
                                         size: 18,
                                         color: _showSponsorshipSection
-                                            ? Colors.teal[700]
+                                            ? context.ticketAccent
                                             : AppTheme.textSecondaryOf(context)),
                                     const SizedBox(width: 8),
                                     Expanded(
@@ -2116,7 +2116,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 8, vertical: 2),
                                         decoration: BoxDecoration(
-                                          color: Colors.teal
+                                          color: context.ticketAccent
                                               .withValues(alpha: 0.12),
                                           borderRadius:
                                               BorderRadius.circular(10),
@@ -2126,7 +2126,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                           style: TextStyle(
                                               fontSize: 11,
                                               fontWeight: FontWeight.bold,
-                                              color: Colors.teal[700]),
+                                              color: context.ticketAccent),
                                         ),
                                       ),
                                     const SizedBox(width: 4),
@@ -2185,7 +2185,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                               onPressed: _showTemplatePicker,
                                               icon: const Icon(Icons.copy_rounded, size: 18),
                                               label: const Text('From Template'),
-                                              style: OutlinedButton.styleFrom(foregroundColor: Colors.teal),
+                                              style: OutlinedButton.styleFrom(foregroundColor: context.ticketAccent),
                                             ),
                                           ),
                                         ],

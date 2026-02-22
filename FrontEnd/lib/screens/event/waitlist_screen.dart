@@ -410,7 +410,7 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
         decoration: BoxDecoration(
           color: AppTheme.cardOf(context),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.dividerColor),
+          border: Border.all(color: AppTheme.dividerOf(context)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -452,12 +452,12 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
             Wrap(
               spacing: 12,
               children: [
-                _capLabel(context, 'Tickets sold', _ticketsSold, Colors.blue),
+                _capLabel(context, 'Tickets sold', _ticketsSold, context.feedAccent),
                 if (_totalReservedSpots > 0)
-                  _capLabel(context, 'Reserved spots', _totalReservedSpots, Colors.deepPurple),
+                  _capLabel(context, 'Reserved spots', _totalReservedSpots, context.sponsorAccent),
                 _capLabel(context, 'Available', _available, AppTheme.successColor),
                 if (_type == _WaitlistType.fund)
-                  _capLabel(context, 'Registered', _registrationCount, Colors.teal),
+                  _capLabel(context, 'Registered', _registrationCount, context.ticketAccent),
               ],
             ),
           ],
@@ -611,12 +611,12 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.teal.withValues(alpha: 0.06),
+                color: context.ticketSurface,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
                 'If approved: Registered $newRegCount / $_maxCapacity',
-                style: TextStyle(fontSize: 11, color: Colors.teal[700], fontWeight: FontWeight.w500),
+                style: TextStyle(fontSize: 11, color: context.ticketAccent, fontWeight: FontWeight.w500),
               ),
             ),
           ],
@@ -663,11 +663,11 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: Colors.orange.withValues(alpha: 0.12),
+                    color: context.fundingAccent.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.confirmation_number,
-                      size: 22, color: Colors.orange),
+                  child: Icon(Icons.confirmation_number,
+                      size: 22, color: context.fundingAccent),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -696,7 +696,7 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
               decoration: BoxDecoration(
                 color: wouldExceed
                     ? AppTheme.errorColor.withValues(alpha: 0.08)
-                    : Colors.blue.withValues(alpha: 0.06),
+                    : context.feedAccent.withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
@@ -711,7 +711,7 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
                           : 'If approved: $newOccupied / $_maxCapacity occupied',
                       style: TextStyle(
                         fontSize: 11,
-                        color: wouldExceed ? AppTheme.errorColor : Colors.blue[700],
+                        color: wouldExceed ? AppTheme.errorColor : context.feedAccent,
                         fontWeight: FontWeight.w500,
                       ),
                     ),

@@ -500,7 +500,7 @@ class _VenueEventsSheet extends StatelessWidget {
   Color _statusColor(BuildContext context, String status) {
     return switch (status) {
       'live' => AppTheme.successColor,
-      'selling_tickets' => const Color(0xFF00838F),
+      'selling_tickets' => context.statusSelling,
       'approved' => AppTheme.primaryColor,
       _ => AppTheme.textSecondaryOf(context),
     };

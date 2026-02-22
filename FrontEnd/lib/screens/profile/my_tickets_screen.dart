@@ -224,7 +224,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                           Icons.qr_code_scanner_rounded,
                           '$scannedCount',
                           'Scanned',
-                          color: Colors.teal,
+                          color: context.ticketAccent,
                         ),
                       ],
                     ],

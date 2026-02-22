@@ -44,7 +44,7 @@ class TermsScreen extends StatelessWidget {
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: _isOrganizer
-                        ? Colors.deepPurple.withValues(alpha: 0.1)
+                        ? context.sponsorAccent.withValues(alpha: 0.1)
                         : AppTheme.primaryColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -55,7 +55,7 @@ class TermsScreen extends StatelessWidget {
                         _isOrganizer ? Icons.event : Icons.person,
                         size: 14,
                         color: _isOrganizer
-                            ? Colors.deepPurple
+                            ? context.sponsorAccent
                             : AppTheme.primaryColor,
                       ),
                       const SizedBox(width: 4),
@@ -67,7 +67,7 @@ class TermsScreen extends StatelessWidget {
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
                           color: _isOrganizer
-                              ? Colors.deepPurple
+                              ? context.sponsorAccent
                               : AppTheme.primaryColor,
                         ),
                       ),
@@ -77,7 +77,7 @@ class TermsScreen extends StatelessWidget {
                 const Spacer(),
                 Text(
                   'Updated ${TermsContent.lastUpdated}',
-                  style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                  style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context)),
                 ),
               ],
             ),

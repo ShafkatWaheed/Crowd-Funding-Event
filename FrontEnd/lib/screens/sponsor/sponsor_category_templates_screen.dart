@@ -78,7 +78,7 @@ class _SponsorCategoryTemplatesScreenState
               child: const Text('Cancel')),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorColor),
             child: const Text('Delete'),
           ),
         ],
@@ -278,11 +278,11 @@ class _TemplateCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.deepPurple.withOpacity(0.1),
+                    color: context.sponsorAccent.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.category_rounded,
-                      size: 20, color: Colors.deepPurple),
+                  child: Icon(Icons.category_rounded,
+                      size: 20, color: context.sponsorAccent),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -305,10 +305,10 @@ class _TemplateCard extends StatelessWidget {
                     const PopupMenuItem(value: 'edit', child: Text('Edit')),
                     const PopupMenuItem(
                         value: 'prereqs', child: Text('Requirements')),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'delete',
                       child:
-                          Text('Delete', style: TextStyle(color: Colors.red)),
+                          Text('Delete', style: TextStyle(color: AppTheme.errorColor)),
                     ),
                   ],
                 ),
@@ -345,8 +345,8 @@ class _TemplateCard extends StatelessWidget {
                 icon: const Icon(Icons.checklist_rounded, size: 18),
                 label: const Text('Manage Requirements'),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.deepPurple,
-                  side: const BorderSide(color: Colors.deepPurple),
+                  foregroundColor: context.sponsorAccent,
+                  side: BorderSide(color: context.sponsorAccent),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10)),
                 ),
@@ -704,8 +704,8 @@ class _TemplatePrerequisiteSheetState
                 ),
                 IconButton(
                   onPressed: _add,
-                  icon: const Icon(Icons.add_circle_rounded,
-                      color: Colors.deepPurple),
+                  icon: Icon(Icons.add_circle_rounded,
+                      color: context.sponsorAccent),
                   tooltip: 'Add requirement',
                 ),
               ],
@@ -747,7 +747,7 @@ class _TemplatePrerequisiteSheetState
                                         : Icons.star_border_rounded,
                                     size: 18,
                                     color: isReq
-                                        ? Colors.deepPurple
+                                        ? context.sponsorAccent
                                         : AppTheme.textSecondaryOf(context),
                                   ),
                                   const SizedBox(width: 10),
@@ -782,8 +782,8 @@ class _TemplatePrerequisiteSheetState
                                   IconButton(
                                     onPressed: () =>
                                         _delete(p['id'] as int),
-                                    icon: const Icon(Icons.delete_outline,
-                                        size: 18, color: Colors.red),
+                                    icon: Icon(Icons.delete_outline,
+                                        size: 18, color: AppTheme.errorColor),
                                     tooltip: 'Remove',
                                   ),
                                 ],

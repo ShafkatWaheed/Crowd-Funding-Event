@@ -396,7 +396,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                 runSpacing: AppSpacing.sm,
                                 crossAxisAlignment: WrapCrossAlignment.center,
                                 children: [
-                                  _statusPill(event.status),
+                                  _statusPill(context, event.status),
                                   if (event.genre != null && event.genre!.isNotEmpty)
                                     _tagPill(
                                       icon: Icons.category_rounded,
@@ -421,13 +421,13 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                     ),
                                   GestureDetector(
                                     onTap: () => _showOrganizerBottomSheet(event),
-                                    child: _trustBadgePill(event),
+                                    child: _trustBadgePill(context, event),
                                   ),
                                   if (_revenueCents > 0 && user != null && (user.isOrganizer || user.isAdmin))
                                     _tagPill(
                                       icon: Icons.paid_rounded,
                                       label: '\$${(_revenueCents / 100).toStringAsFixed(0)} revenue',
-                                      color: Colors.teal,
+                                      color: context.ticketAccent,
                                     ),
                                 ],
                               ).animate().fadeIn(duration: 300.ms, delay: 100.ms).slideX(begin: -0.05, duration: 300.ms),
@@ -452,7 +452,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
                               // Image gallery
                               if (_images.isNotEmpty) ...[
-                                _sectionTitle(context, 'Photos', icon: Icons.photo_library_rounded, iconColor: Colors.amber.shade700),
+                                _sectionTitle(context, 'Photos', icon: Icons.photo_library_rounded, iconColor: context.photoAccent),
                                 AppSpacing.vSm,
                                 SizedBox(
                                   height: 180,
@@ -578,7 +578,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                 AppSpacing.vXxl,
                               ] else if (user != null &&
                                   (user.isOrganizer || user.isAdmin)) ...[
-                                _sectionTitle(context, 'Photos', icon: Icons.photo_library_rounded, iconColor: Colors.amber.shade700),
+                                _sectionTitle(context, 'Photos', icon: Icons.photo_library_rounded, iconColor: context.photoAccent),
                                 AppSpacing.vSm,
                                 _addImageButton(context),
                                 AppSpacing.vXxl,
@@ -695,7 +695,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                     if (event.endTime != null)
                                       _modernInfoRow(Icons.event_available_rounded, 'Ends', dateFormat.format(event.endTime!)),
                                     if (event.startTime == null && event.endTime == null)
-                                      _modernInfoRow(Icons.schedule_rounded, 'Date', 'Announced after funding milestone', valueColor: Colors.orange[700]),
+                                      _modernInfoRow(Icons.schedule_rounded, 'Date', 'Announced after funding milestone', valueColor: context.fundingAccent),
                                     _modernInfoRow(
                                       Icons.people_alt_rounded,
                                       'Capacity',
@@ -815,7 +815,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                           color: AppTheme.warningColor.withValues(alpha: 0.15),
                                           borderRadius: AppRadius.sm,
                                         ),
-                                        child: Icon(Icons.hourglass_top_rounded, color: Colors.orange.shade800, size: AppIconSize.sm),
+                                        child: Icon(Icons.hourglass_top_rounded, color: context.fundingAccent, size: AppIconSize.sm),
                                       ),
                                       AppSpacing.hMd,
                                       Expanded(
@@ -823,7 +823,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
                                             Text('Cancellation Pending Admin Approval',
-                                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.orange.shade800)),
+                                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: context.fundingAccent)),
                                             AppSpacing.vXs,
                                             Text(
                                               event.pendingCancellation!['pledge_percent'] != null
@@ -890,7 +890,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                               if (event.ticketStrategyId != null &&
                                   (user == null || (!user.isOrganizer && !user.isAdmin))) ...[
                                 AppSpacing.vLg,
-                                _sectionTitle(context, 'Ticket Tiers', icon: Icons.confirmation_number_rounded, iconColor: Colors.deepPurple),
+                                _sectionTitle(context, 'Ticket Tiers', icon: Icons.confirmation_number_rounded, iconColor: context.sponsorAccent),
                                 AppSpacing.vSm,
                               ],
                               TicketTiersSection(
@@ -914,13 +914,13 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
                               // State info banners
                               if (event.status == EventStatus.selling_tickets)
-                                _infoBanner('Tickets are now on sale! Grab yours before they sell out.', Icons.confirmation_number, Colors.teal),
+                                _infoBanner('Tickets are now on sale! Grab yours before they sell out.', Icons.confirmation_number, context.ticketAccent),
                               if (event.status == EventStatus.waiting_event_date)
                                 _infoBanner(
                                   'The funding phase is complete. The organizer is finalizing event details — stay tuned for ticket sales!',
-                                  Icons.event_note_rounded, Colors.orange),
+                                  Icons.event_note_rounded, context.fundingAccent),
                               if (event.status == EventStatus.completed)
-                                _infoBanner('This event has ended. Thanks for being part of it!', Icons.check_circle, Colors.grey),
+                                _infoBanner('This event has ended. Thanks for being part of it!', Icons.check_circle, AppTheme.textSecondaryOf(context)),
 
                               // Sponsor: sponsorship categories access
                               if (user != null &&
@@ -933,7 +933,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                   width: double.infinity,
                                   padding: AppSpacing.paddingLg,
                                   decoration: BoxDecoration(
-                                    color: Colors.teal.withValues(alpha: 0.06),
+                                    color: context.ticketSurface,
                                     borderRadius: AppRadius.lg,
                                     boxShadow: AppShadow.soft(isDark),
                                   ),
@@ -951,7 +951,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                           onPressed: () => context.push('/events/${widget.eventId}/sponsorships'),
                                           icon: const Icon(Icons.storefront_rounded, size: AppIconSize.sm),
                                           label: const Text('View Sponsorships'),
-                                          style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
+                                          style: ElevatedButton.styleFrom(backgroundColor: context.ticketAccent),
                                         ),
                                       ),
                                     ],
@@ -1120,10 +1120,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     );
   }
 
-  Widget _statusPill(EventStatus status) {
+  Widget _statusPill(BuildContext context, EventStatus status) {
     final label = _statusLabel(status);
-    final bgColor = _statusColor(status);
-    final fgColor = _statusForeground(status);
+    final bgColor = _statusColor(context, status);
+    final fgColor = _statusForeground(context, status);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
@@ -1180,16 +1180,16 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     IconData trustIcon;
     switch (label) {
       case 'Excellent':
-        trustColor = const Color(0xFF05944F);
+        trustColor = context.trustHigh;
         trustIcon = Icons.verified_rounded;
       case 'Good':
-        trustColor = const Color(0xFF0077B6);
+        trustColor = AppTheme.accentColor;
         trustIcon = Icons.verified_outlined;
       case 'Fair':
-        trustColor = Colors.orange;
+        trustColor = context.trustMedium;
         trustIcon = Icons.shield_outlined;
       default:
-        trustColor = Colors.grey;
+        trustColor = AppTheme.textSecondaryOf(context);
         trustIcon = Icons.person_outline;
     }
 
@@ -1252,30 +1252,30 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     );
   }
 
-  Widget _trustBadgePill(Event event) {
+  Widget _trustBadgePill(BuildContext context, Event event) {
     final label = event.organizerTrustLabel;
     final score = event.organizerTrustScore;
     final Color color;
     final IconData icon;
     switch (label) {
       case 'Excellent':
-        color = const Color(0xFF05944F);
+        color = context.trustHigh;
         icon = Icons.verified_rounded;
         break;
       case 'Good':
-        color = const Color(0xFF0077B6);
+        color = AppTheme.accentColor;
         icon = Icons.verified_outlined;
         break;
       case 'Fair':
-        color = Colors.orange;
+        color = context.trustMedium;
         icon = Icons.shield_outlined;
         break;
       case 'Low':
-        color = Colors.red;
+        color = context.trustLow;
         icon = Icons.warning_amber_rounded;
         break;
       default: // New
-        color = Colors.grey;
+        color = AppTheme.textSecondaryOf(context);
         icon = Icons.person_outline;
     }
     return Tooltip(
@@ -1302,22 +1302,22 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     );
   }
 
-  Color _statusForeground(EventStatus status) {
+  Color _statusForeground(BuildContext context, EventStatus status) {
     switch (status) {
       case EventStatus.draft:
-        return Colors.grey[600]!;
+        return AppTheme.textSecondaryOf(context);
       case EventStatus.pending_approval:
-        return Colors.orange[800]!;
+        return context.statusPending;
       case EventStatus.approved:
         return AppTheme.secondaryColor;
       case EventStatus.selling_tickets:
-        return Colors.teal[700]!;
+        return context.statusSelling;
       case EventStatus.waiting_event_date:
-        return Colors.orange[700]!;
+        return context.statusWaiting;
       case EventStatus.live:
         return AppTheme.accentColor;
       case EventStatus.completed:
-        return Colors.grey[500]!;
+        return context.statusCompleted;
       case EventStatus.cancelled:
         return AppTheme.errorColor;
     }
@@ -1513,22 +1513,22 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     }
   }
 
-  Color _statusColor(EventStatus status) {
+  Color _statusColor(BuildContext context, EventStatus status) {
     switch (status) {
       case EventStatus.draft:
-        return Colors.grey.withValues(alpha: 0.2);
+        return AppTheme.textSecondaryOf(context).withValues(alpha: 0.2);
       case EventStatus.pending_approval:
         return AppTheme.warningColor.withValues(alpha: 0.2);
       case EventStatus.approved:
         return AppTheme.successColor.withValues(alpha: 0.2);
       case EventStatus.selling_tickets:
-        return Colors.teal.withValues(alpha: 0.2);
+        return context.ticketAccent.withValues(alpha: 0.2);
       case EventStatus.waiting_event_date:
-        return Colors.orange.withValues(alpha: 0.2);
+        return context.fundingAccent.withValues(alpha: 0.2);
       case EventStatus.live:
         return AppTheme.secondaryColor.withValues(alpha: 0.2);
       case EventStatus.completed:
-        return Colors.grey.withValues(alpha: 0.2);
+        return AppTheme.textSecondaryOf(context).withValues(alpha: 0.2);
       case EventStatus.cancelled:
         return AppTheme.errorColor.withValues(alpha: 0.2);
     }

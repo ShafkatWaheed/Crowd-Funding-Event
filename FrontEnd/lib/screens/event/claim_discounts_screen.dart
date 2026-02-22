@@ -129,12 +129,12 @@ class _ClaimDiscountsScreenState extends State<ClaimDiscountsScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: Colors.deepPurple.withValues(alpha: 0.06),
+                        color: context.sponsorSurface,
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.info_outline, size: 16, color: Colors.deepPurple),
+                          Icon(Icons.info_outline, size: 16, color: context.sponsorAccent),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -174,12 +174,12 @@ class _ClaimDiscountsScreenState extends State<ClaimDiscountsScreen> {
                               return Container(
                                 decoration: BoxDecoration(
                                   color: claimed
-                                      ? Colors.green.withValues(alpha: 0.06)
+                                      ? AppTheme.successSurfaceOf(context)
                                       : AppTheme.cardOf(context),
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
                                     color: claimed
-                                        ? Colors.green.withValues(alpha: 0.4)
+                                        ? AppTheme.successColor.withValues(alpha: 0.4)
                                         : AppTheme.dividerOf(context),
                                   ),
                                 ),
@@ -188,7 +188,7 @@ class _ClaimDiscountsScreenState extends State<ClaimDiscountsScreen> {
                                   children: [
                                     Icon(
                                       claimed ? Icons.check_circle : Icons.discount_outlined,
-                                      color: claimed ? Colors.green : Colors.deepPurple,
+                                      color: claimed ? AppTheme.successColor : context.sponsorAccent,
                                       size: 24,
                                     ),
                                     const SizedBox(width: 12),

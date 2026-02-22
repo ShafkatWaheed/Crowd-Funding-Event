@@ -214,7 +214,7 @@ class _SponsorshipCategoriesScreenState
               onPressed: _showAddSponsorshipDialog,
               icon: const Icon(Icons.add),
               label: const Text('Add Sponsorship'),
-              backgroundColor: Colors.deepPurple,
+              backgroundColor: context.sponsorAccent,
               foregroundColor: Colors.white,
             )
           : null,
@@ -338,8 +338,8 @@ class _SponsorshipCategoriesScreenState
                                         style: const TextStyle(fontWeight: FontWeight.w600),
                                       ),
                                       style: OutlinedButton.styleFrom(
-                                        foregroundColor: Colors.teal,
-                                        side: const BorderSide(color: Colors.teal),
+                                        foregroundColor: context.ticketAccent,
+                                        side: BorderSide(color: context.ticketAccent),
                                         shape: RoundedRectangleBorder(
                                             borderRadius: BorderRadius.circular(10)),
                                       ),
@@ -352,8 +352,8 @@ class _SponsorshipCategoriesScreenState
                                     label: const Text('Reqs',
                                         style: TextStyle(fontWeight: FontWeight.w600)),
                                     style: OutlinedButton.styleFrom(
-                                      foregroundColor: Colors.deepPurple,
-                                      side: const BorderSide(color: Colors.deepPurple),
+                                      foregroundColor: context.sponsorAccent,
+                                      side: BorderSide(color: context.sponsorAccent),
                                       shape: RoundedRectangleBorder(
                                           borderRadius: BorderRadius.circular(10)),
                                     ),
@@ -539,7 +539,7 @@ class _PrerequisiteSheetState extends State<_PrerequisiteSheet> {
                 if (!widget.readOnly)
                   IconButton(
                     onPressed: _add,
-                    icon: Icon(Icons.add_circle_rounded, color: Colors.deepPurple),
+                    icon: Icon(Icons.add_circle_rounded, color: context.sponsorAccent),
                     tooltip: 'Add requirement',
                   ),
               ],
@@ -575,7 +575,7 @@ class _PrerequisiteSheetState extends State<_PrerequisiteSheet> {
                                   Icon(
                                     required_ ? Icons.star_rounded : Icons.star_border_rounded,
                                     size: 18,
-                                    color: required_ ? Colors.deepPurple : AppTheme.textSecondaryOf(context),
+                                    color: required_ ? context.sponsorAccent : AppTheme.textSecondaryOf(context),
                                   ),
                                   const SizedBox(width: 10),
                                   Expanded(
@@ -604,19 +604,19 @@ class _PrerequisiteSheetState extends State<_PrerequisiteSheet> {
                                               style: TextStyle(
                                                 fontSize: 11,
                                                 fontWeight: FontWeight.w600,
-                                                color: required_ ? Colors.deepPurple : AppTheme.textSecondaryOf(context),
+                                                color: required_ ? context.sponsorAccent : AppTheme.textSecondaryOf(context),
                                               ),
                                             ),
                                             if (p['requires_document'] == true) ...[
                                               const SizedBox(width: 8),
-                                              Icon(Icons.upload_file_rounded, size: 13, color: Colors.deepPurple),
+                                              Icon(Icons.upload_file_rounded, size: 13, color: context.sponsorAccent),
                                               const SizedBox(width: 2),
                                               Text(
                                                 'Doc required',
                                                 style: TextStyle(
                                                   fontSize: 11,
                                                   fontWeight: FontWeight.w600,
-                                                  color: Colors.deepPurple,
+                                                  color: context.sponsorAccent,
                                                 ),
                                               ),
                                             ],
@@ -847,7 +847,7 @@ class _SponsorUploadSheetState extends State<_SponsorUploadSheet> {
                                       Icon(
                                         isRequired ? Icons.star_rounded : Icons.star_border_rounded,
                                         size: 16,
-                                        color: isRequired ? Colors.deepPurple : AppTheme.textSecondaryOf(context),
+                                        color: isRequired ? context.sponsorAccent : AppTheme.textSecondaryOf(context),
                                       ),
                                       const SizedBox(width: 8),
                                       Expanded(
@@ -908,8 +908,8 @@ class _SponsorUploadSheetState extends State<_SponsorUploadSheet> {
                                         style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                                       ),
                                       style: OutlinedButton.styleFrom(
-                                        foregroundColor: Colors.deepPurple,
-                                        side: const BorderSide(color: Colors.deepPurple),
+                                        foregroundColor: context.sponsorAccent,
+                                        side: BorderSide(color: context.sponsorAccent),
                                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                         padding: EdgeInsets.zero,
                                       ),
@@ -1329,7 +1329,7 @@ class _CategoryRequirementsState extends State<_CategoryRequirements> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               child: Row(
                 children: [
-                  const Icon(Icons.checklist_rounded, size: 18, color: Colors.deepPurple),
+                  Icon(Icons.checklist_rounded, size: 18, color: context.sponsorAccent),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -1460,7 +1460,7 @@ class _CategoryRequirementsState extends State<_CategoryRequirements> {
                                       child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 1.5)),
                                     )
                                   : Material(
-                                      color: Colors.deepPurple.withValues(alpha: 0.08),
+                                      color: context.sponsorAccent.withValues(alpha: 0.08),
                                       borderRadius: BorderRadius.circular(8),
                                       child: InkWell(
                                         onTap: () => _uploadFile(prereqId),
@@ -1473,15 +1473,15 @@ class _CategoryRequirementsState extends State<_CategoryRequirements> {
                                               Icon(
                                                 hasUpload ? Icons.sync_rounded : Icons.upload_file_rounded,
                                                 size: 16,
-                                                color: Colors.deepPurple,
+                                                color: context.sponsorAccent,
                                               ),
                                               const SizedBox(width: 4),
                                               Text(
                                                 hasUpload ? 'Replace' : 'Upload',
-                                                style: const TextStyle(
+                                                style: TextStyle(
                                                   fontSize: 11,
                                                   fontWeight: FontWeight.w600,
-                                                  color: Colors.deepPurple,
+                                                  color: context.sponsorAccent,
                                                 ),
                                               ),
                                             ],

@@ -62,7 +62,7 @@ class _TicketTierManagementState extends State<TicketTierManagement> {
         const SizedBox(height: 28),
         _sectionTitle(context, 'Ticket Tiers',
             icon: Icons.confirmation_number_rounded,
-            iconColor: Colors.deepPurple),
+            iconColor: context.sponsorAccent),
         const SizedBox(height: 14),
         FutureBuilder<List<dynamic>>(
           future: context
@@ -122,9 +122,9 @@ class _TicketTierManagementState extends State<TicketTierManagement> {
                         icon: const Icon(Icons.add_rounded, size: AppIconSize.sm),
                         label: const Text('Add Tier'),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.deepPurple,
+                          foregroundColor: context.sponsorAccent,
                           side: BorderSide(
-                              color: Colors.deepPurple.withValues(alpha: 0.4)),
+                              color: context.sponsorAccent.withValues(alpha: 0.4)),
                           shape: RoundedRectangleBorder(
                               borderRadius: AppRadius.md),
                           padding: const EdgeInsets.symmetric(vertical: 12),
@@ -165,14 +165,14 @@ class _TicketTierManagementState extends State<TicketTierManagement> {
                                 Container(
                                   padding: const EdgeInsets.all(9),
                                   decoration: BoxDecoration(
-                                    color: Colors.deepPurple
+                                    color: context.sponsorAccent
                                         .withValues(alpha: 0.1),
                                     borderRadius: AppRadius.md,
                                   ),
-                                  child: const Icon(
+                                  child: Icon(
                                       Icons.confirmation_number_rounded,
                                       size: AppIconSize.md,
-                                      color: Colors.deepPurple),
+                                      color: context.sponsorAccent),
                                 ),
                                 AppSpacing.hMd,
                                 Expanded(
@@ -251,9 +251,9 @@ class _TicketTierManagementState extends State<TicketTierManagement> {
                           size: AppIconSize.sm),
                       label: const Text('Add Tier'),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.deepPurple,
+                        foregroundColor: context.sponsorAccent,
                         side: BorderSide(
-                            color: Colors.deepPurple.withValues(alpha: 0.4)),
+                            color: context.sponsorAccent.withValues(alpha: 0.4)),
                         shape: RoundedRectangleBorder(
                             borderRadius: AppRadius.md),
                         padding: const EdgeInsets.symmetric(vertical: 12),

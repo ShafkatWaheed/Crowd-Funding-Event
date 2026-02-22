@@ -146,7 +146,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
           : TabBarView(
               controller: _tabCtrl,
               children: [
-                _buildOverview(),
+                _buildOverview(context),
                 _buildPendingApproval(),
                 _buildPendingExtensions(),
                 _buildDrafts(),
@@ -158,7 +158,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     );
   }
 
-  Widget _buildOverview() {
+  Widget _buildOverview(BuildContext context) {
     if (_stats == null) {
       return const Center(child: Text('Failed to load stats'));
     }
@@ -198,14 +198,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                 label: 'Ticket Commission',
                 value:
                     '\$${((_stats!['total_ticket_commission_cents'] ?? 0) / 100).toStringAsFixed(2)}',
-                color: Colors.deepPurple,
+                color: context.sponsorAccent,
               ),
               _StatCard(
                 icon: Icons.savings,
                 label: 'Funding Commission',
                 value:
                     '\$${((_stats!['total_funding_commission_cents'] ?? 0) / 100).toStringAsFixed(2)}',
-                color: Colors.teal,
+                color: context.ticketAccent,
               ),
             ],
           ),
@@ -339,7 +339,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
             padding: const EdgeInsets.only(bottom: 12),
             child: Row(
               children: [
-                Icon(Icons.cancel, color: Colors.red[400], size: 20),
+                Icon(Icons.cancel, color: context.discountAccent, size: 20),
                 const SizedBox(width: 8),
                 Text('Pending Cancellations (${_pendingCancellations.length})',
                     style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
@@ -366,7 +366,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
             return Card(
               margin: const EdgeInsets.only(bottom: 12),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              color: Colors.red.shade50,
+              color: AppTheme.errorSurfaceOf(context),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -378,11 +378,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: Colors.red.shade100,
+                        color: AppTheme.errorSurfaceOf(context),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(contextLabel,
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.red.shade800)),
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.errorColor)),
                     ),
                     const SizedBox(height: 8),
                     Text('Reason: $reason', style: const TextStyle(fontSize: 13)),
@@ -394,7 +394,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                             onPressed: () => _decideCancellation(e['id'], 'approve'),
                             icon: const Icon(Icons.check, size: 18),
                             label: const Text('Approve Cancel'),
-                            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                            style: FilledButton.styleFrom(backgroundColor: AppTheme.errorColor),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -403,7 +403,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                             onPressed: () => _decideCancellation(e['id'], 'reject'),
                             icon: const Icon(Icons.shield, size: 18),
                             label: const Text('Keep Event'),
-                            style: OutlinedButton.styleFrom(foregroundColor: Colors.green.shade700),
+                            style: OutlinedButton.styleFrom(foregroundColor: AppTheme.successColor),
                           ),
                         ),
                       ],
@@ -421,7 +421,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
             padding: const EdgeInsets.only(bottom: 12),
             child: Row(
               children: [
-                Icon(Icons.schedule, color: Colors.orange[400], size: 20),
+                Icon(Icons.schedule, color: context.fundingAccent, size: 20),
                 const SizedBox(width: 8),
                 Text('Pending Extensions (${_pendingExtensions.length})',
                     style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
@@ -460,7 +460,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                             onPressed: () => _decideExtension(e['id'], 'approve'),
                             icon: const Icon(Icons.check, size: 18),
                             label: const Text('Approve'),
-                            style: FilledButton.styleFrom(backgroundColor: Colors.green),
+                            style: FilledButton.styleFrom(backgroundColor: AppTheme.successColor),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -469,7 +469,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                             onPressed: () => _decideExtension(e['id'], 'reject'),
                             icon: const Icon(Icons.close, size: 18),
                             label: const Text('Reject'),
-                            style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+                            style: OutlinedButton.styleFrom(foregroundColor: AppTheme.errorColor),
                           ),
                         ),
                       ],
@@ -676,12 +676,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
         final s3 = e['stage3_released_at'];
         final isFrozen = status == 'frozen';
         final statusColor = isFrozen
-            ? Colors.red
+            ? AppTheme.errorColor
             : status == 'fully_released'
-                ? Colors.green
+                ? AppTheme.successColor
                 : status == 'partially_released'
-                    ? Colors.orange
-                    : Colors.grey;
+                    ? context.fundingAccent
+                    : AppTheme.textSecondaryOf(context);
 
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
@@ -717,11 +717,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                 // Amounts
                 Row(
                   children: [
-                    _escrowStat('Held', totalHeld, Colors.blueGrey),
+                    _escrowStat('Held', totalHeld, AppTheme.textSecondaryOf(context)),
                     const SizedBox(width: 16),
-                    _escrowStat('Released', totalReleased, Colors.green),
+                    _escrowStat('Released', totalReleased, AppTheme.successColor),
                     const SizedBox(width: 16),
-                    _escrowStat('Remaining', remaining, Colors.orange),
+                    _escrowStat('Remaining', remaining, context.fundingAccent),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -729,11 +729,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                 // Stage timeline
                 Row(
                   children: [
-                    _stageDot('S1', s1 != null, Colors.blue),
-                    _stageLine(s1 != null && s2 != null),
-                    _stageDot('S2', s2 != null, Colors.orange),
-                    _stageLine(s2 != null && s3 != null),
-                    _stageDot('S3', s3 != null, Colors.green),
+                    _stageDot('S1', s1 != null, context.feedAccent),
+                    _stageLine(context, s1 != null && s2 != null),
+                    _stageDot('S2', s2 != null, context.fundingAccent),
+                    _stageLine(context, s2 != null && s3 != null),
+                    _stageDot('S3', s3 != null, AppTheme.successColor),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -744,19 +744,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                   runSpacing: 8,
                   children: [
                     if (s1 == null)
-                      _escrowBtn('Release S1', Icons.looks_one, Colors.blue,
+                      _escrowBtn('Release S1', Icons.looks_one, context.feedAccent,
                           () => _escrowAction(eventId, 'release', stage: 1)),
                     if (s1 != null && s2 == null)
-                      _escrowBtn('Release S2', Icons.looks_two, Colors.orange,
+                      _escrowBtn('Release S2', Icons.looks_two, context.fundingAccent,
                           () => _escrowAction(eventId, 'release', stage: 2)),
                     if (s2 != null && s3 == null)
-                      _escrowBtn('Release S3', Icons.looks_3, Colors.green,
+                      _escrowBtn('Release S3', Icons.looks_3, AppTheme.successColor,
                           () => _escrowAction(eventId, 'release', stage: 3)),
                     if (!isFrozen)
-                      _escrowBtn('Freeze', Icons.ac_unit, Colors.red,
+                      _escrowBtn('Freeze', Icons.ac_unit, AppTheme.errorColor,
                           () => _escrowAction(eventId, 'freeze'))
                     else
-                      _escrowBtn('Unfreeze', Icons.wb_sunny, Colors.teal,
+                      _escrowBtn('Unfreeze', Icons.wb_sunny, context.ticketAccent,
                           () => _escrowAction(eventId, 'unfreeze')),
                   ],
                 ),
@@ -802,13 +802,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     );
   }
 
-  Widget _stageLine(bool active) {
+  Widget _stageLine(BuildContext context, bool active) {
     return Expanded(
       child: Container(
         height: 3,
         margin: const EdgeInsets.symmetric(horizontal: 4),
         decoration: BoxDecoration(
-          color: active ? Colors.green.shade300 : AppTheme.dividerOf(context),
+          color: active ? AppTheme.successColor : AppTheme.dividerOf(context),
           borderRadius: BorderRadius.circular(2),
         ),
       ),
@@ -873,13 +873,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                                     ? Icons.shield_rounded
                                     : Icons.settings;
                 final color = isFeatureFlag
-                    ? Colors.green
+                    ? AppTheme.successColor
                     : isCommunity
-                        ? Colors.orange
+                        ? context.fundingAccent
                         : key.contains('ticket')
-                            ? Colors.deepPurple
+                            ? context.sponsorAccent
                             : key.contains('funding') || key.contains('escrow')
-                                ? Colors.teal
+                                ? context.ticketAccent
                                 : AppTheme.primaryColor;
                 // Format display value
                 String displayValue = value;
@@ -930,7 +930,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                         if (isBool) ...[
                           Switch(
                             value: value == 'true',
-                            activeColor: Colors.green,
+                            activeColor: AppTheme.successColor,
                             onChanged: (on) {
                               _updateSetting(key, on ? 'true' : 'false');
                             },

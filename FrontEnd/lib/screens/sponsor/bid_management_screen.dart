@@ -461,13 +461,13 @@ class _BidCardState extends State<_BidCard> {
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Row(
                   children: [
-                    Icon(Icons.checklist_rounded, size: 16, color: Colors.deepPurple),
+                    Icon(Icons.checklist_rounded, size: 16, color: context.sponsorAccent),
                     const SizedBox(width: 6),
                     Text('Prerequisites',
                         style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
-                            color: Colors.deepPurple)),
+                            color: context.sponsorAccent)),
                     const Spacer(),
                     Icon(
                       _docsExpanded ? Icons.expand_less : Icons.expand_more,
@@ -516,7 +516,7 @@ class _BidCardState extends State<_BidCard> {
                             Icon(
                               isRequired ? Icons.star_rounded : Icons.star_border_rounded,
                               size: 14,
-                              color: isRequired ? Colors.deepPurple : AppTheme.textSecondaryOf(context),
+                              color: isRequired ? context.sponsorAccent : AppTheme.textSecondaryOf(context),
                             ),
                             const SizedBox(width: 6),
                             Expanded(
@@ -636,8 +636,8 @@ class _BidCardState extends State<_BidCard> {
                   icon: const Icon(Icons.undo_rounded, size: 18),
                   label: const Text('Refund Sponsor'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.deepOrange,
-                    side: const BorderSide(color: Colors.deepOrange),
+                    foregroundColor: AppTheme.errorColor,
+                    side: BorderSide(color: AppTheme.errorColor),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                 ),

@@ -62,14 +62,13 @@ class _FundingCardState extends State<FundingCard> {
     } catch (_) {}
   }
 
-  // ── Trust score helpers ──
-  static Color _trustColor(String label) {
+  Color _trustColor(BuildContext context, String label) {
     switch (label) {
-      case 'Excellent': return const Color(0xFF05944F); // green
-      case 'Good':      return const Color(0xFF0077B6); // blue
-      case 'Fair':      return Colors.orange;
-      case 'Low':       return Colors.red;
-      default:          return Colors.grey;               // New
+      case 'Excellent': return context.trustHigh;
+      case 'Good':      return context.trustMedium;
+      case 'Fair':      return context.trustMedium;
+      case 'Low':       return context.trustLow;
+      default:         return AppTheme.textSecondaryOf(context);
     }
   }
 
@@ -248,7 +247,7 @@ class _FundingCardState extends State<FundingCard> {
         return AlertDialog(
           title: Row(
             children: [
-              Icon(Icons.receipt_long, size: AppIconSize.lg, color: Colors.deepPurple),
+              Icon(Icons.receipt_long, size: AppIconSize.lg, color: ctx.sponsorAccent),
               AppSpacing.hSm,
               const Text('Pledge Invoice'),
             ],
@@ -262,10 +261,10 @@ class _FundingCardState extends State<FundingCard> {
                   Container(
                     padding: AppSpacing.paddingMd,
                     decoration: BoxDecoration(
-                      color: Colors.red.withValues(alpha: 0.1),
+                      color: AppTheme.errorSurfaceOf(ctx),
                       borderRadius: AppRadius.sm,
                     ),
-                    child: Text(previewError, style: const TextStyle(color: Colors.red, fontSize: 12)),
+                    child: Text(previewError, style: TextStyle(color: AppTheme.errorColor, fontSize: 12)),
                   )
                 else if (loadingPreview)
                   const Center(child: CircularProgressIndicator())
@@ -288,17 +287,17 @@ class _FundingCardState extends State<FundingCard> {
                     Container(
                       padding: AppSpacing.paddingMd,
                       decoration: BoxDecoration(
-                        color: Colors.teal.withValues(alpha: 0.08),
+                        color: ctx.ticketSurface,
                         borderRadius: AppRadius.sm,
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.event_seat, size: AppIconSize.sm, color: Colors.teal),
+                          Icon(Icons.event_seat, size: AppIconSize.sm, color: ctx.ticketAccent),
                           AppSpacing.hSm,
                           Expanded(
                             child: Text(
                               '$reservedSpots spot(s) will be reserved for your future ticket purchase.',
-                              style: const TextStyle(fontSize: 12, color: Colors.teal),
+                              style: TextStyle(fontSize: 12, color: ctx.ticketAccent),
                             ),
                           ),
                         ],
@@ -596,13 +595,13 @@ class _FundingCardState extends State<FundingCard> {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.people_outline, size: 14, color: Colors.grey[500]),
+                      Icon(Icons.people_outline, size: 14, color: AppTheme.textSecondaryOf(context)),
                       const SizedBox(width: 4),
                       Text(
                         '$_backersCount backer${_backersCount == 1 ? '' : 's'}',
                         style: TextStyle(
                             fontSize: 12,
-                            color: Colors.grey[500],
+                            color: AppTheme.textSecondaryOf(context),
                             fontWeight: FontWeight.w500),
                       ),
                     ],
@@ -611,13 +610,13 @@ class _FundingCardState extends State<FundingCard> {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.event_seat, size: AppIconSize.sm, color: Colors.teal),
+                      Icon(Icons.event_seat, size: AppIconSize.sm, color: context.ticketAccent),
                       AppSpacing.hXs,
                       Text(
                         '$_totalReservedSpots spot${_totalReservedSpots == 1 ? '' : 's'} reserved',
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 12,
-                            color: Colors.teal,
+                            color: context.ticketAccent,
                             fontWeight: FontWeight.w500),
                       ),
                     ],
@@ -659,7 +658,7 @@ class _FundingCardState extends State<FundingCard> {
                       Icon(
                         _trustIcon(event.organizerTrustLabel),
                         size: AppIconSize.sm,
-                        color: _trustColor(event.organizerTrustLabel),
+                        color: _trustColor(context, event.organizerTrustLabel),
                       ),
                       AppSpacing.hSm,
                       Text(
@@ -669,7 +668,7 @@ class _FundingCardState extends State<FundingCard> {
                       Container(
                         padding: EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
                         decoration: BoxDecoration(
-                          color: _trustColor(event.organizerTrustLabel).withValues(alpha: 0.15),
+                          color: _trustColor(context, event.organizerTrustLabel).withValues(alpha: 0.15),
                           borderRadius: AppRadius.sm,
                         ),
                         child: Text(
@@ -677,7 +676,7 @@ class _FundingCardState extends State<FundingCard> {
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
-                            color: _trustColor(event.organizerTrustLabel),
+                            color: _trustColor(context, event.organizerTrustLabel),
                           ),
                         ),
                       ),

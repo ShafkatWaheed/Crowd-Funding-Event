@@ -271,7 +271,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('Profile updated successfully'),
-            backgroundColor: Colors.green.shade600,
+            backgroundColor: AppTheme.successColor,
           ),
         );
       }
@@ -425,7 +425,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             SnackBar(
                               content:
                                   const Text('Password changed successfully'),
-                              backgroundColor: Colors.green.shade600,
+                              backgroundColor: AppTheme.successColor,
                             ),
                           );
                         }
@@ -954,10 +954,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                           context),
                                       borderRadius: AppRadius.md,
                                     ),
-                                    child: const Icon(
+                                    child: Icon(
                                         Icons.lock_outline_rounded,
                                         size: 20,
-                                        color: Colors.orange),
+                                        color: context.fundingAccent),
                                   ),
                                   title: Text('Change Password',
                                       style: TextStyle(

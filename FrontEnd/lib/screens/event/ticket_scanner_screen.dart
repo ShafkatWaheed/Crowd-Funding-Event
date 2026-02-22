@@ -756,7 +756,7 @@ class _OverlayPainter extends CustomPainter {
     // Draw corner brackets
     final borderPaint = Paint()
       ..color = isProcessing
-          ? const Color(0xFFFFC043)
+          ? AppTheme.warningColor
           : Colors.white
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3.5

@@ -96,16 +96,16 @@ class _StrategyPickerScreenState extends State<StrategyPickerScreen> {
                       )
                     : null,
                 filled: true,
-                fillColor: Colors.white,
+                fillColor: AppTheme.inputFillOf(context),
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: AppTheme.dividerColor),
+                  borderSide: BorderSide(color: AppTheme.dividerOf(context)),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: AppTheme.dividerColor),
+                  borderSide: BorderSide(color: AppTheme.dividerOf(context)),
                 ),
               ),
               onChanged: (_) => setState(() => _applySearch()),
@@ -122,14 +122,14 @@ class _StrategyPickerScreenState extends State<StrategyPickerScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.confirmation_number_outlined,
-                                size: 56, color: Colors.grey[300]),
+                                size: 56, color: AppTheme.dividerOf(context)),
                             const SizedBox(height: 12),
                             Text(
                               _searchCtrl.text.isNotEmpty
                                   ? 'No matching strategies'
                                   : 'No strategies available',
                               style: TextStyle(
-                                  fontSize: 16, color: Colors.grey[500]),
+                                  fontSize: 16, color: AppTheme.textSecondaryOf(context)),
                             ),
                           ],
                         ),
@@ -173,7 +173,7 @@ class _StrategyPickerScreenState extends State<StrategyPickerScreen> {
                                               color: isActive
                                                   ? AppTheme.primaryColor
                                                       .withValues(alpha: 0.12)
-                                                  : Colors.deepPurple
+                                                  : context.sponsorAccent
                                                       .withValues(alpha: 0.08),
                                               borderRadius:
                                                   BorderRadius.circular(11),
@@ -183,7 +183,7 @@ class _StrategyPickerScreenState extends State<StrategyPickerScreen> {
                                                   .confirmation_number_rounded,
                                               color: isActive
                                                   ? AppTheme.primaryColor
-                                                  : Colors.deepPurple,
+                                                  : context.sponsorAccent,
                                               size: 20,
                                             ),
                                           ),
@@ -201,14 +201,14 @@ class _StrategyPickerScreenState extends State<StrategyPickerScreen> {
                                                       color: isActive
                                                           ? AppTheme
                                                               .primaryColor
-                                                          : Colors.black87,
+                                                          : AppTheme.textPrimaryOf(context),
                                                     )),
                                                 Text(
                                                     '${s.tiers.length} tier${s.tiers.length == 1 ? '' : 's'}',
                                                     style: TextStyle(
                                                         fontSize: 12,
                                                         color:
-                                                            Colors.grey[500])),
+                                                            AppTheme.textSecondaryOf(context))),
                                               ],
                                             ),
                                           ),

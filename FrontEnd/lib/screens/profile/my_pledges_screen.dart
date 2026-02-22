@@ -175,7 +175,7 @@ class _MyPledgesScreenState extends State<MyPledgesScreen> {
                       if (donationCount > 0) ...[
                         AppSpacing.hMd,
                         _statChip(Icons.card_giftcard_rounded, '$donationCount', 'Donations',
-                            color: Colors.amber.shade700),
+                            color: context.photoAccent),
                       ],
                       if (refundedCount > 0) ...[
                         AppSpacing.hMd,
@@ -188,16 +188,16 @@ class _MyPledgesScreenState extends State<MyPledgesScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: AppSpacing.sm),
                     decoration: BoxDecoration(
-                      color: Colors.deepPurple.withValues(alpha: 0.08),
+                      color: context.sponsorAccent.withValues(alpha: 0.08),
                       borderRadius: AppRadius.md,
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.attach_money_rounded, size: 18, color: Colors.deepPurple),
+                        Icon(Icons.attach_money_rounded, size: 18, color: context.sponsorAccent),
                         AppSpacing.hSm,
                         Text('Total Contributed: \$${(totalCents / 100).toStringAsFixed(2)}',
-                            style: const TextStyle(
-                                fontSize: 14, fontWeight: FontWeight.w700, color: Colors.deepPurple)),
+                            style: TextStyle(
+                                fontSize: 14, fontWeight: FontWeight.w700, color: context.sponsorAccent)),
                       ],
                     ),
                   ),
@@ -364,19 +364,19 @@ class _EventPledgeGroup extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: Colors.deepPurple.withValues(alpha: 0.06),
+                color: context.sponsorSurface,
                 borderRadius: AppRadius.md,
-                border: Border.all(color: Colors.deepPurple.withValues(alpha: 0.12)),
+                border: Border.all(color: context.sponsorAccent.withValues(alpha: 0.12)),
               ),
               child: Row(
                 children: [
                   Container(
                     width: 36, height: 36,
                     decoration: BoxDecoration(
-                      color: Colors.deepPurple.withValues(alpha: 0.1),
+                      color: context.sponsorAccent.withValues(alpha: 0.1),
                       borderRadius: AppRadius.sm,
                     ),
-                    child: const Icon(Icons.event_rounded, size: 18, color: Colors.deepPurple),
+                    child: Icon(Icons.event_rounded, size: 18, color: context.sponsorAccent),
                   ),
                   AppSpacing.hMd,
                   Expanded(
@@ -436,7 +436,7 @@ class _PledgeCard extends StatelessWidget {
         : null;
 
     final statusLabel = isGuest ? 'DONATION' : status.toUpperCase();
-    final headerColor = isGuest ? Colors.amber.shade700 : Colors.deepPurple;
+    final headerColor = isGuest ? context.photoAccent : context.sponsorAccent;
 
     return GestureDetector(
       onTap: () {
@@ -545,7 +545,7 @@ class _PledgeCard extends StatelessWidget {
                   ],
                   if (isGuest)
                     _infoRow(context, Icons.info_outline_rounded, 'Type', 'Non-refundable donation',
-                        valueColor: Colors.amber.shade700),
+                        valueColor: context.photoAccent),
                   if (isGuest) AppSpacing.vSm,
 
                   AppSpacing.vXs,

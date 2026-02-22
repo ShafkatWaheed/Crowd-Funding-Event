@@ -125,15 +125,15 @@ class _StepDatesTicketsState extends State<StepDatesTickets> {
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        Colors.indigo.withValues(alpha: 0.08),
-                        Colors.indigo.withValues(alpha: 0.02),
+                        context.managementAccent.withValues(alpha: 0.08),
+                        context.managementAccent.withValues(alpha: 0.02),
                       ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: Colors.indigo.withValues(alpha: 0.12),
+                      color: context.managementAccent.withValues(alpha: 0.12),
                     ),
                   ),
                   child: Row(
@@ -142,11 +142,11 @@ class _StepDatesTicketsState extends State<StepDatesTickets> {
                         width: 44,
                         height: 44,
                         decoration: BoxDecoration(
-                          color: Colors.indigo.withValues(alpha: 0.12),
+                          color: context.managementAccent.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Icon(Icons.event_rounded,
-                            size: 24, color: Colors.indigo),
+                        child: Icon(Icons.event_rounded,
+                            size: 24, color: context.managementAccent),
                       ),
                       const SizedBox(width: 14),
                       Expanded(
@@ -732,7 +732,7 @@ class _StepDatesTicketsState extends State<StepDatesTickets> {
                     ? const SizedBox(
                         height: 16,
                         width: 16,
-                        child: CircularProgressIndicator(
+                        child: const CircularProgressIndicator(
                             strokeWidth: 2,
                             color: Colors.white),
                       )
@@ -786,7 +786,7 @@ class _StepDatesTicketsState extends State<StepDatesTickets> {
         padding: const EdgeInsets.only(bottom: 4),
         child: Container(
           decoration: BoxDecoration(
-            color: Colors.deepPurple.withValues(alpha: 0.04),
+            color: context.sponsorSurface,
             borderRadius: BorderRadius.circular(8),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -799,13 +799,13 @@ class _StepDatesTicketsState extends State<StepDatesTickets> {
               const SizedBox(width: 6),
               CreateDiscountBtn(
                 label: 'Add + Apply',
-                color: Colors.green,
+                color: AppTheme.successColor,
                 onTap: () => widget.onAddDiscount(d['id'] as int, true),
               ),
               const SizedBox(width: 6),
               CreateDiscountBtn(
                 label: 'Add',
-                color: Colors.deepPurple,
+                color: context.sponsorAccent,
                 onTap: () => widget.onAddDiscount(d['id'] as int, false),
               ),
             ],
@@ -819,18 +819,18 @@ class _StepDatesTicketsState extends State<StepDatesTickets> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.deepPurple.withValues(alpha: 0.05),
+        color: context.sponsorSurface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-            color: Colors.deepPurple.withValues(alpha: 0.2)),
+            color: context.sponsorAccent.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.discount_rounded,
-                  size: 18, color: Colors.deepPurple),
+              Icon(Icons.discount_rounded,
+                  size: 18, color: context.sponsorAccent),
               const SizedBox(width: 8),
               Text('Discounts (Optional)',
                   style: TextStyle(
@@ -865,12 +865,12 @@ class _StepDatesTicketsState extends State<StepDatesTickets> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 8),
                         decoration: BoxDecoration(
-                          color: Colors.deepPurple
+                          color: context.sponsorAccent
                               .withValues(alpha: 0.08),
                           borderRadius:
                               BorderRadius.circular(8),
                           border: Border.all(
-                              color: Colors.deepPurple
+                              color: context.sponsorAccent
                                   .withValues(alpha: 0.3),
                               width: 0.5),
                         ),
@@ -891,12 +891,8 @@ class _StepDatesTicketsState extends State<StepDatesTickets> {
                                       vertical: 2),
                               decoration: BoxDecoration(
                                 color: autoApply
-                                    ? Colors.green
-                                        .withValues(
-                                            alpha: 0.15)
-                                    : Colors.orange
-                                        .withValues(
-                                            alpha: 0.15),
+                                    ? AppTheme.successSurfaceOf(context)
+                                    : AppTheme.warningSurfaceOf(context),
                                 borderRadius:
                                     BorderRadius.circular(4),
                               ),
@@ -906,8 +902,8 @@ class _StepDatesTicketsState extends State<StepDatesTickets> {
                                     : 'Claimable',
                                 style: TextStyle(
                                   color: autoApply
-                                      ? Colors.green
-                                      : Colors.orange,
+                                      ? AppTheme.successColor
+                                      : context.fundingAccent,
                                   fontSize: 10,
                                   fontWeight:
                                       FontWeight.w700,
@@ -973,12 +969,12 @@ class _StepDatesTicketsState extends State<StepDatesTickets> {
                 horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
               color: _showScheduleSection
-                  ? Colors.blue.withValues(alpha: 0.08)
+                  ? context.feedAccent.withValues(alpha: 0.08)
                   : AppTheme.cardOf(context),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: _showScheduleSection
-                    ? Colors.blue.withValues(alpha: 0.3)
+                    ? context.feedAccent.withValues(alpha: 0.3)
                     : AppTheme.dividerOf(context),
               ),
             ),
@@ -987,7 +983,7 @@ class _StepDatesTicketsState extends State<StepDatesTickets> {
                 Icon(Icons.calendar_month_rounded,
                     size: 18,
                     color: _showScheduleSection
-                        ? Colors.blue
+                        ? context.feedAccent
                         : AppTheme.textSecondaryOf(context)),
                 const SizedBox(width: 8),
                 Expanded(
@@ -1003,7 +999,7 @@ class _StepDatesTicketsState extends State<StepDatesTickets> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: Colors.blue.withValues(alpha: 0.15),
+                      color: context.feedAccent.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -1011,7 +1007,7 @@ class _StepDatesTicketsState extends State<StepDatesTickets> {
                         style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
-                            color: AppTheme.primaryOf(context))),
+                            color: context.feedAccent)),
                   ),
                 const SizedBox(width: 4),
                 Icon(
@@ -1080,7 +1076,7 @@ class _StepDatesTicketsState extends State<StepDatesTickets> {
                         borderRadius:
                             BorderRadius.circular(10),
                         border: Border.all(
-                            color: Colors.blue
+                            color: context.feedAccent
                                 .withValues(alpha: 0.2)),
                       ),
                       child: Column(
@@ -1113,7 +1109,7 @@ class _StepDatesTicketsState extends State<StepDatesTickets> {
                                       horizontal: 10,
                                       vertical: 6),
                                   decoration: BoxDecoration(
-                                    color: Colors.blue
+                                    color: context.feedAccent
                                         .withValues(
                                             alpha: 0.08),
                                     borderRadius:
@@ -1124,12 +1120,12 @@ class _StepDatesTicketsState extends State<StepDatesTickets> {
                                     mainAxisSize:
                                         MainAxisSize.min,
                                     children: [
-                                      const Icon(
+                                      Icon(
                                           Icons
                                               .calendar_today_rounded,
                                           size: 14,
                                           color:
-                                              Colors.blue),
+                                              context.feedAccent),
                                       const SizedBox(
                                           width: 6),
                                       Text(dateLabel,
@@ -1138,20 +1134,18 @@ class _StepDatesTicketsState extends State<StepDatesTickets> {
                                               fontWeight:
                                                   FontWeight
                                                       .w600,
-                                              color: Colors
-                                                      .blue[
-                                                  700])),
+                                              color: context.feedAccent)),
                                     ],
                                   ),
                                 ),
                               ),
                               const Spacer(),
                               IconButton(
-                                icon: Icon(
+                                icon:                               Icon(
                                     Icons.delete_outline,
                                     size: 18,
                                     color:
-                                        Colors.red[400]),
+                                        AppTheme.errorColor),
                                 onPressed: () => setState(
                                     () => widget.scheduleDays
                                         .removeAt(
@@ -1214,9 +1208,7 @@ class _StepDatesTicketsState extends State<StepDatesTickets> {
                                             Icons
                                                 .delete_outline,
                                             size: 16,
-                                            color: Colors
-                                                    .red[
-                                                400]),
+                                            color: AppTheme.errorColor),
                                         onPressed: () =>
                                             setState(() =>
                                                 day.slots

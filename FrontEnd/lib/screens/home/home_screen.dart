@@ -45,24 +45,24 @@ String _statusDisplayName(EventStatus s) {
   }
 }
 
-Color _statusChipColor(EventStatus s) {
+Color _statusChipColor(BuildContext context, EventStatus s) {
   switch (s) {
     case EventStatus.approved:
-      return const Color(0xFF276EF1);
+      return AppTheme.accentColor;
     case EventStatus.selling_tickets:
-      return const Color(0xFF05944F);
+      return context.statusApproved;
     case EventStatus.live:
-      return const Color(0xFFE11900);
+      return AppTheme.errorColor;
     case EventStatus.completed:
-      return const Color(0xFF7356BF);
+      return context.sponsorAccent;
     case EventStatus.cancelled:
-      return const Color(0xFF8B0000);
+      return context.statusCancelled;
     case EventStatus.draft:
-      return const Color(0xFF757575);
+      return context.statusDraft;
     case EventStatus.pending_approval:
-      return const Color(0xFFE65100);
+      return context.statusPending;
     case EventStatus.waiting_event_date:
-      return const Color(0xFF00838F);
+      return context.statusSelling;
   }
 }
 
@@ -794,11 +794,11 @@ class _HomeScreenState extends State<HomeScreen> {
                               });
                               _homeSearch();
                             },
-                            selectedColor: _statusChipColor(s),
+                            selectedColor: _statusChipColor(context, s),
                             backgroundColor: AppTheme.cardOf(context),
                             side: BorderSide(
                               color: isActive
-                                  ? _statusChipColor(s)
+                                  ? _statusChipColor(context, s)
                                   : AppTheme.dividerOf(context),
                             ),
                             labelStyle: TextStyle(
@@ -1048,11 +1048,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                   });
                                   _applyFilters();
                                 },
-                                selectedColor: _statusChipColor(s),
+                                selectedColor: _statusChipColor(context, s),
                                 backgroundColor: AppTheme.cardOf(context),
                                 side: BorderSide(
                                   color: isActive
-                                      ? _statusChipColor(s)
+                                      ? _statusChipColor(context, s)
                                       : AppTheme.dividerOf(context),
                                 ),
                                 labelStyle: TextStyle(
@@ -1352,7 +1352,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         decoration: BoxDecoration(
           color: isActive
-              ? Colors.white
+              ? AppTheme.cardOf(context)
               : Colors.transparent,
           borderRadius: AppRadius.pill,
         ),
@@ -1485,14 +1485,14 @@ class _HomeScreenState extends State<HomeScreen> {
                       _quickActionCard(
                         icon: Icons.location_city_rounded,
                         label: 'Venues',
-                        color: const Color(0xFF276EF1),
+                        color: AppTheme.accentColor,
                         onTap: () => context.push('/venues'),
                       ),
                       AppSpacing.hMd,
                       _quickActionCard(
                         icon: Icons.confirmation_number_rounded,
                         label: 'Ticket Tiers',
-                        color: const Color(0xFF00838F),
+                        color: context.statusSelling,
                         onTap: () => context.push('/ticket-strategies'),
                       ),
                     ],
@@ -1506,21 +1506,21 @@ class _HomeScreenState extends State<HomeScreen> {
                       _quickActionCard(
                         icon: Icons.receipt_long_rounded,
                         label: 'All Sales',
-                        color: const Color(0xFF05944F),
+                        color: AppTheme.successColor,
                         onTap: () => context.push('/manage/ticket-sales'),
                       ),
                       AppSpacing.hMd,
                       _quickActionCard(
                         icon: Icons.qr_code_scanner_rounded,
                         label: 'Scanned',
-                        color: const Color(0xFF7356BF),
+                        color: context.sponsorAccent,
                         onTap: () => context.push('/manage/scanned-tickets'),
                       ),
                       AppSpacing.hMd,
                       _quickActionCard(
                         icon: Icons.hourglass_top_rounded,
                         label: 'Waitlist',
-                        color: const Color(0xFFE65100),
+                        color: context.statusPending,
                         onTap: () => context.push('/manage/waitlist'),
                       ),
                     ],
@@ -1534,21 +1534,21 @@ class _HomeScreenState extends State<HomeScreen> {
                       _quickActionCard(
                         icon: Icons.discount_rounded,
                         label: 'Discounts',
-                        color: const Color(0xFFE11900),
+                        color: AppTheme.errorColor,
                         onTap: () => context.push('/manage/discounts'),
                       ),
                       AppSpacing.hMd,
                       _quickActionCard(
                         icon: Icons.handshake_rounded,
                         label: 'Sponsors',
-                        color: const Color(0xFF0D3B66),
+                        color: context.managementAccent,
                         onTap: () => context.push('/manage/sponsors'),
                       ),
                       AppSpacing.hMd,
                       _quickActionCard(
                         icon: Icons.category_rounded,
                         label: 'Sponsorships',
-                        color: const Color(0xFF6A1B9A),
+                        color: context.sponsorAccent,
                         onTap: () => context.push('/sponsor-category-templates'),
                       ),
                     ],
@@ -1562,7 +1562,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       _quickActionCard(
                         icon: Icons.bookmark_rounded,
                         label: 'Bookmarks',
-                        color: const Color(0xFFFFC043),
+                        color: AppTheme.warningColor,
                         onTap: () => context.push('/bookmarks'),
                       ),
                     ],
@@ -1577,7 +1577,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         _quickActionCard(
                           icon: Icons.admin_panel_settings_rounded,
                           label: 'Admin',
-                          color: const Color(0xFF141414),
+                          color: AppTheme.primaryColor,
                           onTap: () => context.push('/admin'),
                         ),
                         AppSpacing.hMd,
@@ -1741,14 +1741,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   _customerQuickAction(
                     icon: Icons.confirmation_number_rounded,
                     label: 'My Tickets',
-                    color: const Color(0xFF276EF1),
+                    color: AppTheme.accentColor,
                     onTap: () => context.push('/my-tickets'),
                   ),
                   AppSpacing.hSm,
                   _customerQuickAction(
                     icon: Icons.volunteer_activism_rounded,
                     label: 'My Pledges',
-                    color: Colors.deepPurple,
+                    color: context.sponsorAccent,
                     onTap: () => context.push('/my-pledges'),
                   ),
                 ],
@@ -1823,11 +1823,11 @@ class _HomeScreenState extends State<HomeScreen> {
                             _myEventsStatus = selected ? s.name : null;
                           });
                         },
-                        selectedColor: _statusChipColor(s),
+                        selectedColor: _statusChipColor(context, s),
                         backgroundColor: AppTheme.cardOf(context),
                         side: BorderSide(
                           color: isActive
-                              ? _statusChipColor(s)
+                              ? _statusChipColor(context, s)
                               : AppTheme.dividerOf(context),
                         ),
                         labelStyle: TextStyle(
@@ -1977,14 +1977,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   _customerQuickAction(
                     icon: Icons.workspace_premium_rounded,
                     label: 'Sponsor Tickets',
-                    color: const Color(0xFF0D3B66),
+                    color: context.managementAccent,
                     onTap: () => context.push('/sponsor/tickets'),
                   ),
                   AppSpacing.hSm,
                   _customerQuickAction(
                     icon: Icons.volunteer_activism_rounded,
                     label: 'My Pledges',
-                    color: Colors.deepPurple,
+                    color: context.sponsorAccent,
                     onTap: () => context.push('/my-pledges'),
                   ),
                 ],
@@ -2025,11 +2025,11 @@ class _HomeScreenState extends State<HomeScreen> {
                             _sponsorBidStatus = selected ? s.name : null;
                           });
                         },
-                        selectedColor: _statusChipColor(s),
+                        selectedColor: _statusChipColor(context, s),
                         backgroundColor: AppTheme.cardOf(context),
                         side: BorderSide(
                           color: isActive
-                              ? _statusChipColor(s)
+                              ? _statusChipColor(context, s)
                               : AppTheme.dividerOf(context),
                         ),
                         labelStyle: TextStyle(
@@ -2133,7 +2133,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   width: 80,
                   height: 80,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppTheme.cardOf(context),
                     borderRadius: AppRadius.xl,
                   ),
                   child: Center(
@@ -2571,8 +2571,8 @@ class _SponsorBidEventCard extends StatelessWidget {
                 AppSpacing.lg, 14, AppSpacing.lg, AppSpacing.md,
               ),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF1B1B2F), Color(0xFF162447)],
+                gradient: LinearGradient(
+                  colors: [context.cardGradientStart, context.cardGradientEnd],
                 ),
                 borderRadius: AppRadius.topLg,
               ),
@@ -2635,16 +2635,16 @@ class _SponsorBidEventCard extends StatelessWidget {
                     children: [
                       if (item.accepted > 0)
                         _bidChip('${item.accepted} Accepted',
-                            Colors.green.shade600, Icons.check_circle_rounded),
+                            context.bidAccepted, Icons.check_circle_rounded),
                       if (item.paid > 0)
                         _bidChip('${item.paid} Paid',
-                            Colors.blue.shade600, Icons.payment_rounded),
+                            context.bidPaid, Icons.payment_rounded),
                       if (item.pending > 0)
                         _bidChip('${item.pending} Under Review',
-                            Colors.orange.shade700, Icons.hourglass_top_rounded),
+                            context.bidPending, Icons.hourglass_top_rounded),
                       if (item.rejected > 0)
                         _bidChip('${item.rejected} Rejected',
-                            Colors.red.shade600, Icons.cancel_rounded),
+                            context.bidRejected, Icons.cancel_rounded),
                       _bidChip('${item.totalBids} Total',
                           AppTheme.textSecondaryOf(context), Icons.gavel_rounded),
                     ],

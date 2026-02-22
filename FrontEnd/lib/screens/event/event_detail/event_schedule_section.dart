@@ -121,7 +121,7 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
             // Header
             Row(
               children: [
-                Icon(Icons.calendar_month_rounded, size: AppIconSize.sm, color: Colors.blue[600]),
+                Icon(Icons.calendar_month_rounded, size: AppIconSize.sm, color: context.feedAccent),
                 AppSpacing.hSm,
                 Text(
                   'Event Schedule',
@@ -134,7 +134,7 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
                 ),
                 const Spacer(),
                 Material(
-                  color: Colors.blue.withValues(alpha: 0.08),
+                  color: context.feedAccent.withValues(alpha: 0.08),
                   borderRadius: AppRadius.sm,
                   child: InkWell(
                     borderRadius: AppRadius.sm,
@@ -144,13 +144,13 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.download_rounded, size: AppIconSize.sm, color: Colors.blue[600]),
+                          Icon(Icons.download_rounded, size: AppIconSize.sm, color: context.feedAccent),
                           AppSpacing.hXs,
                           Text('Excel',
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
-                              color: Colors.blue[600],
+                              color: context.feedAccent,
                             ),
                           ),
                         ],
@@ -177,12 +177,12 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
                       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? Colors.blue.withValues(alpha: 0.12)
+                            ? context.feedAccent.withValues(alpha: 0.12)
                             : AppTheme.surfaceOf(context),
                         borderRadius: AppRadius.xl,
                         border: Border.all(
                           color: isSelected
-                              ? Colors.blue.withValues(alpha: 0.4)
+                              ? context.feedAccent.withValues(alpha: 0.4)
                               : AppTheme.dividerOf(context),
                         ),
                       ),
@@ -192,9 +192,7 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
                           fontSize: 12,
                           fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                           color: isSelected
-                              ? (Theme.of(context).brightness == Brightness.dark
-                                  ? Colors.blue[300]
-                                  : Colors.blue[700])
+                              ? context.feedAccent
                               : AppTheme.textSecondaryOf(context),
                         ),
                       ),
@@ -225,7 +223,7 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
                             height: AppSpacing.xxl,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: isOverlap ? Colors.amber[700] : Colors.blue[600],
+                              color: isOverlap ? context.photoAccent : context.feedAccent,
                             ),
                             child: Center(
                               child: Icon(
@@ -240,8 +238,8 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
                               child: Container(
                                 width: 2,
                                 color: isOverlap
-                                    ? Colors.amber.withValues(alpha: 0.4)
-                                    : Colors.blue.withValues(alpha: 0.2),
+                                    ? context.photoAccent.withValues(alpha: 0.4)
+                                    : context.feedAccent.withValues(alpha: 0.2),
                               ),
                             ),
                         ],
@@ -253,14 +251,12 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
                         margin: EdgeInsets.only(bottom: isLast ? 0 : AppSpacing.md),
                         padding: AppSpacing.paddingMd,
                         decoration: BoxDecoration(
-                          color: Theme.of(context).brightness == Brightness.dark
-                              ? const Color(0xFF2A2A2A)
-                              : Colors.white,
+                          color: AppTheme.cardOf(context),
                           borderRadius: AppRadius.sm,
                           border: Border.all(
                             color: isOverlap
-                                ? Colors.amber.withValues(alpha: 0.5)
-                                : Colors.blue.withValues(alpha: 0.3),
+                                ? context.photoAccent.withValues(alpha: 0.5)
+                                : context.feedAccent.withValues(alpha: 0.3),
                             width: 1,
                           ),
                         ),
@@ -273,8 +269,8 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
                                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
                                   decoration: BoxDecoration(
                                     color: isOverlap
-                                        ? Colors.amber.withValues(alpha: 0.15)
-                                        : Colors.blue.withValues(alpha: 0.12),
+                                        ? context.photoAccent.withValues(alpha: 0.15)
+                                        : context.feedAccent.withValues(alpha: 0.12),
                                     borderRadius: AppRadius.sm,
                                   ),
                                   child: Text(
@@ -283,8 +279,8 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
                                       fontSize: 11,
                                       fontWeight: FontWeight.w700,
                                       color: isOverlap
-                                          ? Colors.amber[400]
-                                          : Colors.blue[300],
+                                          ? context.photoAccent
+                                          : context.feedAccent,
                                     ),
                                   ),
                                 ),
@@ -293,14 +289,14 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
                                     decoration: BoxDecoration(
-                                      color: Colors.amber.withValues(alpha: 0.15),
+                                      color: context.photoAccent.withValues(alpha: 0.15),
                                       borderRadius: AppRadius.sm,
                                     ),
                                     child: Text('Overlaps',
                                       style: TextStyle(
                                         fontSize: 9,
                                         fontWeight: FontWeight.w700,
-                                        color: Colors.amber[400],
+                                        color: context.photoAccent,
                                       ),
                                     ),
                                   ),
@@ -315,7 +311,7 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
                                 fontWeight: FontWeight.w700,
                                 color: Theme.of(context).brightness == Brightness.dark
                                     ? Colors.white
-                                    : Colors.black87,
+                                    : AppTheme.textPrimaryOf(context),
                               ),
                             ),
                             if (item.description != null && item.description!.isNotEmpty) ...[

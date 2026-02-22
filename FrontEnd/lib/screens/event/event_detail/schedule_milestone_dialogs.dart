@@ -286,7 +286,7 @@ class ScheduleMilestoneDialogs {
                       Expanded(
                         child: ListTile(
                           contentPadding: EdgeInsets.zero,
-                          leading: Icon(Icons.play_arrow_rounded, size: AppIconSize.md, color: Colors.teal),
+                          leading: Icon(Icons.play_arrow_rounded, size: AppIconSize.md, color: ctx.scheduleAccent),
                           title: Text(fmtTime(startTime), style: const TextStyle(fontSize: 14)),
                           subtitle: const Text('Start', style: TextStyle(fontSize: 11)),
                           onTap: () async {
@@ -298,7 +298,7 @@ class ScheduleMilestoneDialogs {
                       Expanded(
                         child: ListTile(
                           contentPadding: EdgeInsets.zero,
-                          leading: Icon(Icons.stop_rounded, size: AppIconSize.md, color: Colors.redAccent),
+                          leading: Icon(Icons.stop_rounded, size: AppIconSize.md, color: ctx.discountAccent),
                           title: Text(fmtTime(endTime), style: const TextStyle(fontSize: 14)),
                           subtitle: const Text('End', style: TextStyle(fontSize: 11)),
                           onTap: () async {
@@ -402,14 +402,14 @@ class ScheduleMilestoneDialogs {
                     AppSpacing.vLg,
                     Row(
                       children: [
-                        Icon(Icons.flag_rounded, color: Colors.orange),
+                        Icon(Icons.flag_rounded, color: ctx.fundingAccent),
                         AppSpacing.hSm,
                         Text('Manage Milestones',
                             style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700,
                                 color: AppTheme.textPrimaryOf(ctx))),
                         const Spacer(),
                         IconButton(
-                          icon: Icon(Icons.add_circle_rounded, color: Colors.orange, size: AppIconSize.xl),
+                          icon: Icon(Icons.add_circle_rounded, color: ctx.fundingAccent, size: AppIconSize.xl),
                           onPressed: () => showMilestoneEditor(ctx, api, event.id, null, (newItem) {
                             setSheetState(() => items.add(newItem));
                             onRefresh();
@@ -443,12 +443,12 @@ class ScheduleMilestoneDialogs {
                                           Container(
                                             width: 42, height: 42,
                                             decoration: BoxDecoration(
-                                              color: Colors.orange.withValues(alpha: 0.15),
+                                              color: ctx.fundingAccent.withValues(alpha: 0.15),
                                               borderRadius: AppRadius.sm,
                                             ),
                                             child: Center(
                                               child: Text('${item['unlock_percent'] ?? 0}%',
-                                                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Colors.orange[400])),
+                                                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: ctx.fundingAccent)),
                                             ),
                                           ),
                                           AppSpacing.hMd,
@@ -541,13 +541,13 @@ class ScheduleMilestoneDialogs {
                       Text('Unlock at:', style: TextStyle(color: AppTheme.textSecondaryOf(ctx))),
                       AppSpacing.hSm,
                       Text('$unlockPercent%',
-                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: Colors.orange[400])),
+                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: ctx.fundingAccent)),
                     ],
                   ),
                   Slider(
                     value: unlockPercent.toDouble(),
                     min: 10, max: 100, divisions: 18,
-                    activeColor: Colors.orange,
+                    activeColor: ctx.fundingAccent,
                     label: '$unlockPercent%',
                     onChanged: (v) => setDlgState(() => unlockPercent = v.round()),
                   ),
@@ -616,17 +616,17 @@ class ScheduleMilestoneDialogs {
                 Container(
                   padding: AppSpacing.paddingMd,
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
+                    color: AppTheme.accentSurfaceOf(ctx),
                     borderRadius: AppRadius.sm,
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.info_outline, size: AppIconSize.sm, color: Colors.blue.shade700),
+                      Icon(Icons.info_outline, size: AppIconSize.sm, color: AppTheme.accentColor),
                       AppSpacing.hSm,
                       Expanded(
                         child: Text(
                           'This will send a request to admin for approval.',
-                          style: TextStyle(color: Colors.blue.shade700, fontSize: 12),
+                          style: TextStyle(color: AppTheme.accentColor, fontSize: 12),
                         ),
                       ),
                     ],
@@ -749,17 +749,17 @@ class ScheduleMilestoneDialogs {
                     Container(
                       padding: AppSpacing.paddingMd,
                       decoration: BoxDecoration(
-                        color: Colors.green.shade50,
+                        color: AppTheme.successSurfaceOf(ctx),
                         borderRadius: AppRadius.sm,
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.check_circle_outline, size: AppIconSize.sm, color: Colors.green.shade700),
+                          Icon(Icons.check_circle_outline, size: AppIconSize.sm, color: AppTheme.successColor),
                           AppSpacing.hSm,
                           Expanded(
                             child: Text(
                               'This applies immediately — no admin approval needed.',
-                              style: TextStyle(color: Colors.green.shade700, fontSize: 12),
+                              style: TextStyle(color: AppTheme.successColor, fontSize: 12),
                             ),
                           ),
                         ],
@@ -768,7 +768,7 @@ class ScheduleMilestoneDialogs {
                     AppSpacing.vLg,
                     ListTile(
                       contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.play_arrow_rounded, color: Colors.teal),
+                      leading: Icon(Icons.play_arrow_rounded, color: ctx.scheduleAccent),
                       title: Text(
                         pickedStart != null
                             ? DateFormat('MMM d, y – h:mm a').format(pickedStart!)
@@ -804,7 +804,7 @@ class ScheduleMilestoneDialogs {
                     const Divider(),
                     ListTile(
                       contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.stop_rounded, color: Colors.redAccent),
+                      leading: Icon(Icons.stop_rounded, color: ctx.discountAccent),
                       title: Text(
                         pickedEnd != null
                             ? DateFormat('MMM d, y – h:mm a').format(pickedEnd!)
@@ -843,17 +843,17 @@ class ScheduleMilestoneDialogs {
                     Container(
                       padding: AppSpacing.paddingMd,
                       decoration: BoxDecoration(
-                        color: Colors.blue.shade50,
+                        color: AppTheme.accentSurfaceOf(ctx),
                         borderRadius: AppRadius.sm,
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.info_outline, size: AppIconSize.sm, color: Colors.blue.shade700),
+                          Icon(Icons.info_outline, size: AppIconSize.sm, color: AppTheme.accentColor),
                           AppSpacing.hSm,
                           Expanded(
                             child: Text(
                               'After setting dates, you can start selling tickets from the organizer actions.',
-                              style: TextStyle(color: Colors.blue.shade700, fontSize: 12),
+                              style: TextStyle(color: AppTheme.accentColor, fontSize: 12),
                             ),
                           ),
                         ],

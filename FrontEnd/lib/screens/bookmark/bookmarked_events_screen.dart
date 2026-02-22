@@ -306,7 +306,7 @@ class _BookmarkCard extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
               decoration: BoxDecoration(
-                gradient: _gradient(event.status),
+                gradient: _gradient(context, event.status),
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(16),
                   topRight: Radius.circular(16),
@@ -383,18 +383,18 @@ class _BookmarkCard extends StatelessWidget {
     );
   }
 
-  LinearGradient _gradient(EventStatus s) {
+  LinearGradient _gradient(BuildContext context, EventStatus s) {
     return switch (s) {
-      EventStatus.live =>
-        const LinearGradient(colors: [Color(0xFF05944F), Color(0xFF0A7544)]),
-      EventStatus.selling_tickets =>
-        const LinearGradient(colors: [Color(0xFF00838F), Color(0xFF00695C)]),
-      EventStatus.completed =>
-        const LinearGradient(colors: [Color(0xFF424242), Color(0xFF212121)]),
-      EventStatus.cancelled =>
-        const LinearGradient(colors: [Color(0xFF8B0000), Color(0xFF5D0000)]),
-      _ => const LinearGradient(
-          colors: [Color(0xFF141414), Color(0xFF2C2C2C)]),
+      EventStatus.live => LinearGradient(
+          colors: [AppTheme.successColor, const Color(0xFF0A7544)]),
+      EventStatus.selling_tickets => LinearGradient(
+          colors: [context.statusSelling, const Color(0xFF00695C)]),
+      EventStatus.completed => LinearGradient(
+          colors: [context.statusCompleted, const Color(0xFF212121)]),
+      EventStatus.cancelled => LinearGradient(
+          colors: [context.statusCancelled, const Color(0xFF5D0000)]),
+      _ => LinearGradient(
+          colors: [AppTheme.darkSurface, const Color(0xFF2C2C2C)]),
     };
   }
 }

@@ -104,15 +104,15 @@ class _StepFundingState extends State<StepFunding> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            Colors.teal.withValues(alpha: 0.08),
-            Colors.teal.withValues(alpha: 0.02),
+            context.fundingAccent.withValues(alpha: 0.08),
+            context.fundingAccent.withValues(alpha: 0.02),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Colors.teal.withValues(alpha: 0.12),
+          color: context.fundingAccent.withValues(alpha: 0.12),
         ),
       ),
       child: Row(
@@ -121,11 +121,11 @@ class _StepFundingState extends State<StepFunding> {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: Colors.teal.withValues(alpha: 0.12),
+              color: context.fundingAccent.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.attach_money_rounded,
-                size: 24, color: Colors.teal),
+            child: Icon(Icons.attach_money_rounded,
+                size: 24, color: context.fundingAccent),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -177,7 +177,7 @@ class _StepFundingState extends State<StepFunding> {
                 height: 32,
                 decoration: BoxDecoration(
                   color: (widget.fundingEndAt != null
-                          ? Colors.teal
+                          ? context.fundingAccent
                           : AppTheme.textSecondaryOf(context))
                       .withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
@@ -185,7 +185,7 @@ class _StepFundingState extends State<StepFunding> {
                 child: Icon(Icons.timer_rounded,
                     size: 18,
                     color: widget.fundingEndAt != null
-                        ? Colors.teal
+                        ? context.fundingAccent
                         : AppTheme.textSecondaryOf(context)),
               ),
               const SizedBox(width: 10),
@@ -205,7 +205,7 @@ class _StepFundingState extends State<StepFunding> {
                   icon: Icon(Icons.calendar_month_rounded,
                       size: 18,
                       color: widget.fundingEndAt != null
-                          ? Colors.teal
+                          ? context.fundingAccent
                           : AppTheme.textSecondaryOf(context)),
                   label: Text(
                     widget.fundingEndAt != null
@@ -347,12 +347,12 @@ class _StepFundingState extends State<StepFunding> {
                 const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
               color: _showMilestoneSection
-                  ? Colors.amber.withValues(alpha: 0.08)
+                  ? context.reviewAccent.withValues(alpha: 0.08)
                   : AppTheme.cardOf(context),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: _showMilestoneSection
-                    ? Colors.amber.withValues(alpha: 0.3)
+                    ? context.reviewAccent.withValues(alpha: 0.3)
                     : AppTheme.dividerOf(context),
               ),
             ),
@@ -361,7 +361,7 @@ class _StepFundingState extends State<StepFunding> {
                 Icon(Icons.emoji_events_rounded,
                     size: 18,
                     color: _showMilestoneSection
-                        ? Colors.amber[700]
+                        ? context.photoAccent
                         : AppTheme.textSecondaryOf(context)),
                 const SizedBox(width: 8),
                 Expanded(
@@ -376,14 +376,14 @@ class _StepFundingState extends State<StepFunding> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: Colors.amber.withValues(alpha: 0.15),
+                      color: context.reviewAccent.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text('${widget.milestones.length}',
                         style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
-                            color: Colors.amber[800])),
+                            color: context.reviewAccent)),
                   ),
                 const SizedBox(width: 4),
                 Icon(
@@ -439,7 +439,7 @@ class _StepFundingState extends State<StepFunding> {
                             const Spacer(),
                             IconButton(
                               icon: Icon(Icons.delete_outline,
-                                  size: 18, color: Colors.red[400]),
+                                  size: 18, color: AppTheme.errorColor),
                               onPressed: () => setState(
                                   () => widget.milestones.removeAt(idx)),
                               padding: EdgeInsets.zero,

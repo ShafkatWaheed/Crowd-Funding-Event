@@ -313,3 +313,56 @@ class AppTheme {
     );
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  AppColors — context-aware semantic colours for dark/light mode
+// ═══════════════════════════════════════════════════════════════════════════
+
+extension AppColors on BuildContext {
+  bool get _dk => Theme.of(this).brightness == Brightness.dark;
+
+  // ─── Section accent colours (icons, titles, buttons in themed sections) ───
+  Color get ticketAccent    => _dk ? const Color(0xFF4DB6AC) : Colors.teal;
+  Color get fundingAccent   => _dk ? const Color(0xFFFFB74D) : Colors.orange;
+  Color get sponsorAccent   => _dk ? const Color(0xFFB39DDB) : Colors.deepPurple;
+  Color get managementAccent => _dk ? const Color(0xFF7986CB) : Colors.indigo;
+  Color get photoAccent     => _dk ? const Color(0xFFFFD54F) : Colors.amber.shade700;
+  Color get scheduleAccent  => _dk ? const Color(0xFF81C784) : Colors.green;
+  Color get discountAccent  => _dk ? const Color(0xFFEF5350) : Colors.red;
+  Color get reviewAccent    => _dk ? const Color(0xFFFFD54F) : Colors.amber;
+  Color get feedAccent      => _dk ? const Color(0xFF90CAF9) : Colors.blue;
+
+  // ─── Section surface tints (light background behind section cards) ───
+  Color get ticketSurface     => _dk ? const Color(0xFF1A2E2B) : Colors.teal.withValues(alpha: 0.06);
+  Color get fundingSurface    => _dk ? const Color(0xFF2E2A1A) : Colors.orange.withValues(alpha: 0.06);
+  Color get sponsorSurface    => _dk ? const Color(0xFF251A2E) : Colors.deepPurple.withValues(alpha: 0.06);
+  Color get managementSurface => _dk ? const Color(0xFF1A1F2E) : Colors.indigo.withValues(alpha: 0.06);
+  Color get scheduleSurface   => _dk ? const Color(0xFF1A2E1A) : Colors.green.withValues(alpha: 0.06);
+
+  // ─── Status colours (pills, badges, lifecycle indicators) ───
+  Color get statusDraft      => _dk ? const Color(0xFF9E9E9E) : const Color(0xFF757575);
+  Color get statusPending    => _dk ? const Color(0xFFFFB74D) : const Color(0xFFE65100);
+  Color get statusApproved   => _dk ? const Color(0xFF66BB6A) : const Color(0xFF05944F);
+  Color get statusLive       => _dk ? const Color(0xFF42A5F5) : const Color(0xFF276EF1);
+  Color get statusSelling    => _dk ? const Color(0xFF4DB6AC) : const Color(0xFF00838F);
+  Color get statusWaiting    => _dk ? const Color(0xFFFFB74D) : const Color(0xFFE65100);
+  Color get statusCompleted  => _dk ? const Color(0xFF9E9E9E) : const Color(0xFF424242);
+  Color get statusCancelled  => _dk ? const Color(0xFFEF5350) : const Color(0xFF8B0000);
+
+  // ─── Trust score colours ───
+  Color get trustHigh   => _dk ? const Color(0xFF66BB6A) : const Color(0xFF05944F);
+  Color get trustMedium => _dk ? const Color(0xFFFFB74D) : Colors.orange;
+  Color get trustLow    => _dk ? const Color(0xFFEF5350) : Colors.red;
+
+  // ─── Bid status colours ───
+  Color get bidAccepted => _dk ? const Color(0xFF66BB6A) : Colors.green.shade600;
+  Color get bidPaid     => _dk ? const Color(0xFF42A5F5) : Colors.blue.shade600;
+  Color get bidPending  => _dk ? const Color(0xFFFFB74D) : Colors.orange.shade700;
+  Color get bidRejected => _dk ? const Color(0xFFEF5350) : Colors.red.shade600;
+
+  // ─── Misc semantic colours ───
+  Color get onDarkSurface   => Colors.white;
+  Color get overlayScrim    => Colors.black54;
+  Color get cardGradientStart => _dk ? const Color(0xFF1B1B2F) : const Color(0xFF1B1B2F);
+  Color get cardGradientEnd   => _dk ? const Color(0xFF162447) : const Color(0xFF162447);
+}

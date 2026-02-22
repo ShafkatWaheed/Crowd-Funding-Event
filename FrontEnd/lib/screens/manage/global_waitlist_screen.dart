@@ -443,7 +443,7 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
                   decoration: BoxDecoration(
                     color: selected
                         ? Colors.white.withValues(alpha: 0.25)
-                        : Colors.grey.withValues(alpha: 0.15),
+                        : AppTheme.dividerOf(context).withValues(alpha: 0.5),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -561,11 +561,11 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: Colors.orange.withValues(alpha: 0.12),
+                color: context.fundingAccent.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.confirmation_number,
-                  size: 22, color: Colors.orange),
+              child: Icon(Icons.confirmation_number,
+                  size: 22, color: context.fundingAccent),
             ),
             const SizedBox(width: 14),
             Expanded(

@@ -155,16 +155,16 @@ class _GlobalTicketWaitlistScreenState
                       )
                     : null,
                 filled: true,
-                fillColor: Colors.white,
+                fillColor: AppTheme.inputFillOf(context),
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: AppTheme.dividerColor),
+                  borderSide: BorderSide(color: AppTheme.dividerOf(context)),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: AppTheme.dividerColor),
+                  borderSide: BorderSide(color: AppTheme.dividerOf(context)),
                 ),
               ),
               onChanged: (_) => setState(() => _applySearch()),
@@ -180,15 +180,15 @@ class _GlobalTicketWaitlistScreenState
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withValues(alpha: 0.15),
+                    color: context.fundingAccent.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     '${_all.length} waitlisted',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: Colors.orange,
+                      color: context.fundingAccent,
                     ),
                   ),
                 ),
@@ -232,10 +232,10 @@ class _GlobalTicketWaitlistScreenState
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.error_outline,
-                                size: 48, color: Colors.grey[400]),
+                                size: 48, color: AppTheme.textSecondaryOf(context)),
                             const SizedBox(height: 12),
                             Text('Failed to load',
-                                style: TextStyle(color: Colors.grey[500])),
+                                style: TextStyle(color: AppTheme.textSecondaryOf(context))),
                             const SizedBox(height: 8),
                             OutlinedButton(
                                 onPressed: _load,
@@ -258,7 +258,7 @@ class _GlobalTicketWaitlistScreenState
                                       ? 'No matching tickets'
                                       : 'No waitlisted tickets',
                                   style: TextStyle(
-                                      color: Colors.grey[500], fontSize: 15),
+                                      color: AppTheme.textSecondaryOf(context), fontSize: 15),
                                 ),
                               ],
                             ),
@@ -292,7 +292,7 @@ class _GlobalTicketWaitlistScreenState
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.cardOf(context),
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
@@ -310,11 +310,11 @@ class _GlobalTicketWaitlistScreenState
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: Colors.orange.withValues(alpha: 0.12),
+                color: context.fundingAccent.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.confirmation_number,
-                  size: 22, color: Colors.orange),
+              child: Icon(Icons.confirmation_number,
+                  size: 22, color: context.fundingAccent),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -332,7 +332,7 @@ class _GlobalTicketWaitlistScreenState
                           color: AppTheme.accentColor)),
                   Text('$tierName · $price',
                       style:
-                          TextStyle(fontSize: 11, color: Colors.grey[500])),
+                          TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context))),
                 ],
               ),
             ),

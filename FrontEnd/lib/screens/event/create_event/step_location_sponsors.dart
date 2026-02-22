@@ -127,15 +127,15 @@ class _StepLocationSponsorsState extends State<StepLocationSponsors> {
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        Colors.deepOrange.withValues(alpha: 0.08),
-                        Colors.deepOrange.withValues(alpha: 0.02),
+                        context.sponsorAccent.withValues(alpha: 0.08),
+                        context.sponsorAccent.withValues(alpha: 0.02),
                       ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: Colors.deepOrange.withValues(alpha: 0.12),
+                      color: context.sponsorAccent.withValues(alpha: 0.12),
                     ),
                   ),
                   child: Row(
@@ -144,11 +144,11 @@ class _StepLocationSponsorsState extends State<StepLocationSponsors> {
                         width: 44,
                         height: 44,
                         decoration: BoxDecoration(
-                          color: Colors.deepOrange.withValues(alpha: 0.12),
+                          color: context.sponsorAccent.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Icon(Icons.location_on_rounded,
-                            size: 24, color: Colors.deepOrange),
+                        child: Icon(Icons.location_on_rounded,
+                            size: 24, color: context.sponsorAccent),
                       ),
                       const SizedBox(width: 14),
                       Expanded(
@@ -289,7 +289,7 @@ class _StepLocationSponsorsState extends State<StepLocationSponsors> {
                                         10),
                                 border: Border.all(
                                     color: AppTheme
-                                        .dividerColor),
+                                        .dividerOf(context)),
                                 boxShadow: [
                                   BoxShadow(
                                     color: Colors.black
@@ -463,13 +463,13 @@ class _StepLocationSponsorsState extends State<StepLocationSponsors> {
                   padding: const EdgeInsets.symmetric(
                       horizontal: 12, vertical: 4),
                   decoration: BoxDecoration(
-                    color: widget.communityRules
-                        ? Colors.orange.withValues(alpha: 0.08)
+                  color: widget.communityRules
+                        ? context.fundingAccent.withValues(alpha: 0.08)
                         : AppTheme.cardOf(context),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                        color: widget.communityRules
-                            ? Colors.orange
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                      color: widget.communityRules
+                            ? context.fundingAccent
                                 .withValues(alpha: 0.4)
                             : AppTheme.dividerOf(context)),
                   ),
@@ -482,7 +482,7 @@ class _StepLocationSponsorsState extends State<StepLocationSponsors> {
                             Icon(Icons.groups_rounded,
                                 size: 20,
                                 color: widget.communityRules
-                                    ? Colors.orange
+                                    ? context.fundingAccent
                                     : AppTheme
                                         .textSecondaryOf(
                                             context)),
@@ -500,7 +500,7 @@ class _StepLocationSponsorsState extends State<StepLocationSponsors> {
                           style: TextStyle(fontSize: 11),
                         ),
                         value: widget.communityRules,
-                        activeColor: Colors.orange,
+                        activeColor: context.fundingAccent,
                         onChanged: widget.onCommunityRulesChanged,
                       ),
                       if (widget.communityRules) ...[
@@ -689,7 +689,7 @@ class _StepLocationSponsorsState extends State<StepLocationSponsors> {
           children: [
             Row(
               children: [
-                const Icon(Icons.checklist_rounded, size: 16, color: Colors.teal),
+                Icon(Icons.checklist_rounded, size: 16, color: context.ticketAccent),
                 const SizedBox(width: 6),
                 Text('Prerequisites',
                     style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
@@ -698,11 +698,11 @@ class _StepLocationSponsorsState extends State<StepLocationSponsors> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                   decoration: BoxDecoration(
-                    color: Colors.teal.withValues(alpha: 0.12),
+                    color: context.ticketAccent.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text('${cat.prereqs.length}',
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.teal)),
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.ticketAccent)),
                 ),
               ],
             ),
@@ -730,14 +730,14 @@ class _StepLocationSponsorsState extends State<StepLocationSponsors> {
                               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                               decoration: BoxDecoration(
                                 color: p.isRequired
-                                    ? Colors.red.withValues(alpha: 0.1)
-                                    : Colors.grey.withValues(alpha: 0.1),
+                                    ? context.discountAccent.withValues(alpha: 0.1)
+                                    : AppTheme.textSecondaryOf(context).withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
                                 p.isRequired ? 'Required' : 'Optional',
                                 style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600,
-                                    color: p.isRequired ? Colors.red : Colors.grey),
+                                    color: p.isRequired ? context.discountAccent : AppTheme.textSecondaryOf(context)),
                               ),
                             ),
                             if (p.requiresDocument) ...[
@@ -745,13 +745,13 @@ class _StepLocationSponsorsState extends State<StepLocationSponsors> {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                                 decoration: BoxDecoration(
-                                  color: Colors.deepPurple.withValues(alpha: 0.1),
+                                  color: context.sponsorAccent.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
-                                child: const Text(
+                                child: Text(
                                   'Doc',
                                   style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600,
-                                      color: Colors.deepPurple),
+                                      color: context.sponsorAccent),
                                 ),
                               ),
                             ],
@@ -763,9 +763,9 @@ class _StepLocationSponsorsState extends State<StepLocationSponsors> {
                           setState(() => cat.prereqs.removeAt(i));
                           setLocal(() {});
                         },
-                        child: const Padding(
-                          padding: EdgeInsets.all(4),
-                          child: Icon(Icons.close, size: 16, color: Colors.red),
+                        child: Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: Icon(Icons.close, size: 16, color: AppTheme.errorColor),
                         ),
                       ),
                     ],
@@ -813,7 +813,7 @@ class _StepLocationSponsorsState extends State<StepLocationSponsors> {
                         Icon(
                           isRequired ? Icons.check_box : Icons.check_box_outline_blank,
                           size: 18,
-                          color: isRequired ? Colors.teal : Colors.grey,
+                          color: isRequired ? context.ticketAccent : AppTheme.textSecondaryOf(context),
                         ),
                         const SizedBox(width: 2),
                         Text('Req', style: TextStyle(fontSize: 10,
@@ -833,7 +833,7 @@ class _StepLocationSponsorsState extends State<StepLocationSponsors> {
                         Icon(
                           requiresDocument ? Icons.check_box : Icons.check_box_outline_blank,
                           size: 18,
-                          color: requiresDocument ? Colors.deepPurple : Colors.grey,
+                          color: requiresDocument ? context.sponsorAccent : AppTheme.textSecondaryOf(context),
                         ),
                         const SizedBox(width: 2),
                         Text('Doc', style: TextStyle(fontSize: 10,
@@ -862,7 +862,7 @@ class _StepLocationSponsorsState extends State<StepLocationSponsors> {
                   child: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: Colors.teal,
+                      color: context.ticketAccent,
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: const Icon(Icons.add, size: 16, color: Colors.white),
@@ -880,9 +880,9 @@ class _StepLocationSponsorsState extends State<StepLocationSponsors> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.teal.withValues(alpha: 0.03),
+        color: context.ticketAccent.withValues(alpha: 0.03),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.teal.withValues(alpha: 0.15)),
+        border: Border.all(color: context.ticketAccent.withValues(alpha: 0.15)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -967,12 +967,12 @@ class _StepLocationSponsorsState extends State<StepLocationSponsors> {
                 horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
               color: _showSponsorshipSection
-                  ? Colors.teal.withValues(alpha: 0.08)
+                  ? context.ticketAccent.withValues(alpha: 0.08)
                   : AppTheme.cardOf(context),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: _showSponsorshipSection
-                    ? Colors.teal.withValues(alpha: 0.3)
+                    ? context.ticketAccent.withValues(alpha: 0.3)
                     : AppTheme.dividerOf(context),
               ),
             ),
@@ -981,7 +981,7 @@ class _StepLocationSponsorsState extends State<StepLocationSponsors> {
                 Icon(Icons.storefront_rounded,
                     size: 18,
                     color: _showSponsorshipSection
-                        ? Colors.teal
+                        ? context.ticketAccent
                         : AppTheme.textSecondaryOf(context)),
                 const SizedBox(width: 8),
                 Expanded(
@@ -997,17 +997,17 @@ class _StepLocationSponsorsState extends State<StepLocationSponsors> {
                   Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color:
-                          Colors.teal.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                        '${widget.localCategories.length}',
-                        style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.teal)),
+                  decoration: BoxDecoration(
+                    color:
+                        context.ticketAccent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                      '${widget.localCategories.length}',
+                      style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: context.ticketAccent)),
                   ),
                 const SizedBox(width: 4),
                 Icon(
@@ -1061,7 +1061,7 @@ class _StepLocationSponsorsState extends State<StepLocationSponsors> {
                                 onPressed: widget.onManageTemplates,
                                 icon: const Icon(Icons.copy_rounded, size: 18),
                                 label: const Text('From Template'),
-                                style: OutlinedButton.styleFrom(foregroundColor: Colors.teal),
+                                style: OutlinedButton.styleFrom(foregroundColor: context.ticketAccent),
                               ),
                             ],
                           ),
@@ -1095,7 +1095,7 @@ class _StepLocationSponsorsState extends State<StepLocationSponsors> {
                               onPressed: widget.onManageTemplates,
                               icon: const Icon(Icons.settings, size: 16),
                               label: const Text('Manage Templates'),
-                              style: TextButton.styleFrom(foregroundColor: Colors.teal),
+                              style: TextButton.styleFrom(foregroundColor: context.ticketAccent),
                             ),
                           ),
                         ],
@@ -1125,7 +1125,7 @@ class _StepLocationSponsorsState extends State<StepLocationSponsors> {
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                               decoration: BoxDecoration(
                                 color: selected
-                                    ? Colors.teal.withValues(alpha: 0.08)
+                                    ? context.ticketAccent.withValues(alpha: 0.08)
                                     : AppTheme.surfaceOf(context),
                                 borderRadius: BorderRadius.only(
                                   topLeft: const Radius.circular(10),
@@ -1135,7 +1135,7 @@ class _StepLocationSponsorsState extends State<StepLocationSponsors> {
                                 ),
                                 border: Border.all(
                                   color: selected
-                                      ? Colors.teal.withValues(alpha: 0.4)
+                                      ? context.ticketAccent.withValues(alpha: 0.4)
                                       : AppTheme.dividerOf(context),
                                 ),
                               ),
@@ -1144,7 +1144,7 @@ class _StepLocationSponsorsState extends State<StepLocationSponsors> {
                                   Icon(
                                     selected ? Icons.check_circle_rounded : Icons.circle_outlined,
                                     size: 20,
-                                    color: selected ? Colors.teal : AppTheme.textSecondaryOf(context),
+                                    color: selected ? context.ticketAccent : AppTheme.textSecondaryOf(context),
                                   ),
                                   const SizedBox(width: 10),
                                   Expanded(
@@ -1158,7 +1158,7 @@ class _StepLocationSponsorsState extends State<StepLocationSponsors> {
                                       icon: Icon(localCat.expanded ? Icons.expand_less : Icons.expand_more, size: 20),
                                       padding: EdgeInsets.zero,
                                       constraints: const BoxConstraints(),
-                                      color: Colors.teal,
+                                      color: context.ticketAccent,
                                     ),
                                 ],
                               ),
@@ -1168,12 +1168,12 @@ class _StepLocationSponsorsState extends State<StepLocationSponsors> {
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: Colors.teal.withValues(alpha: 0.03),
+                                color: context.ticketAccent.withValues(alpha: 0.03),
                                 borderRadius: const BorderRadius.only(
                                   bottomLeft: Radius.circular(10),
                                   bottomRight: Radius.circular(10),
                                 ),
-                                border: Border.all(color: Colors.teal.withValues(alpha: 0.4)),
+                                border: Border.all(color: context.ticketAccent.withValues(alpha: 0.4)),
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1240,7 +1240,7 @@ class _StepLocationSponsorsState extends State<StepLocationSponsors> {
                           onPressed: widget.onManageTemplates,
                           icon: const Icon(Icons.settings, size: 16),
                           label: const Text('Manage Templates'),
-                          style: TextButton.styleFrom(foregroundColor: Colors.teal),
+                          style: TextButton.styleFrom(foregroundColor: context.ticketAccent),
                         ),
                       ),
                     ],

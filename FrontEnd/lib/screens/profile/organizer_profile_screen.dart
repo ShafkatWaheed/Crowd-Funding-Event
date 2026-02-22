@@ -179,15 +179,15 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
                   _buildProfileHeader(name, role, address, yoe, trust, createdAt, sponsorProfile),
                   const SizedBox(height: 24),
                   if (trust != null) ...[
-                    _buildTrustSection(trust),
+                    _buildTrustSection(context, trust),
                     const SizedBox(height: 24),
                   ],
                   if (_profile?['event_metrics'] != null) ...[
-                    _buildEventMetrics(_profile!['event_metrics'] as Map<String, dynamic>),
+                    _buildEventMetrics(context, _profile!['event_metrics'] as Map<String, dynamic>),
                     const SizedBox(height: 24),
                   ],
                   if (_ratingsSummary != null && (_ratingsSummary!['count'] as int? ?? 0) > 0) ...[
-                    _buildRatingsSection(),
+                    _buildRatingsSection(context),
                     const SizedBox(height: 24),
                   ],
                   _buildEventsSection(),
@@ -291,7 +291,7 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
     );
   }
 
-  Widget _buildTrustSection(Map<String, dynamic> trust) {
+  Widget _buildTrustSection(BuildContext context, Map<String, dynamic> trust) {
     final score = ((trust['trust_score'] ?? 0.0) as num).toDouble();
     final label = trust['label'] ?? 'New';
     final completed = trust['completed_events'] ?? 0;
@@ -302,16 +302,16 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
     IconData trustIcon;
     switch (label) {
       case 'Excellent':
-        trustColor = const Color(0xFF05944F);
+        trustColor = context.trustHigh;
         trustIcon = Icons.verified_rounded;
       case 'Good':
-        trustColor = const Color(0xFF0077B6);
+        trustColor = AppTheme.accentColor;
         trustIcon = Icons.verified_outlined;
       case 'Fair':
-        trustColor = const Color(0xFFFFC043);
+        trustColor = context.trustMedium;
         trustIcon = Icons.shield_outlined;
       default:
-        trustColor = const Color(0xFFE11900);
+        trustColor = context.trustLow;
         trustIcon = Icons.shield_outlined;
     }
 
@@ -363,13 +363,13 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
     );
   }
 
-  Widget _buildEventMetrics(Map<String, dynamic> metrics) {
+  Widget _buildEventMetrics(BuildContext context, Map<String, dynamic> metrics) {
     final items = <_MetricItem>[
-      _MetricItem('Completed', metrics['completed'] ?? 0, const Color(0xFF7356BF), Icons.check_circle_rounded),
-      _MetricItem('Cancelled', metrics['cancelled'] ?? 0, const Color(0xFF8B0000), Icons.cancel_rounded),
-      _MetricItem('Live', metrics['live'] ?? 0, const Color(0xFF05944F), Icons.play_circle_rounded),
-      _MetricItem('Funding', metrics['approved'] ?? 0, const Color(0xFF276EF1), Icons.monetization_on_rounded),
-      _MetricItem('Selling', metrics['selling_tickets'] ?? 0, const Color(0xFF00838F), Icons.confirmation_num_rounded),
+      _MetricItem('Completed', metrics['completed'] ?? 0, context.managementAccent, Icons.check_circle_rounded),
+      _MetricItem('Cancelled', metrics['cancelled'] ?? 0, context.statusCancelled, Icons.cancel_rounded),
+      _MetricItem('Live', metrics['live'] ?? 0, AppTheme.successColor, Icons.play_circle_rounded),
+      _MetricItem('Funding', metrics['approved'] ?? 0, AppTheme.accentColor, Icons.monetization_on_rounded),
+      _MetricItem('Selling', metrics['selling_tickets'] ?? 0, context.statusSelling, Icons.confirmation_num_rounded),
       _MetricItem('Total', metrics['total'] ?? 0, AppTheme.textSecondaryOf(context), Icons.bar_chart_rounded),
     ];
 
@@ -418,7 +418,7 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
     );
   }
 
-  Widget _buildRatingsSection() {
+  Widget _buildRatingsSection(BuildContext context) {
     final s = _ratingsSummary!;
     final avgStars = s['avg_stars'] as double?;
     final count = s['count'] as int? ?? 0;
@@ -437,7 +437,7 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
         children: [
           Row(
             children: [
-              Icon(Icons.reviews_rounded, size: 16, color: Colors.amber),
+              Icon(Icons.reviews_rounded, size: 16, color: context.reviewAccent),
               const SizedBox(width: 8),
               Text('Reviews',
                   style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textSecondaryOf(context), letterSpacing: 0.3)),
@@ -553,7 +553,7 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
                 labelStyle: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: active ? Colors.white : AppTheme.textSecondaryOf(context),
+                  color: active ? ctx.onDarkSurface : AppTheme.textSecondaryOf(ctx),
                 ),
                 backgroundColor: AppTheme.surfaceOf(context),
                 side: BorderSide.none,
@@ -628,11 +628,11 @@ class _ProfileEventCard extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: _statusColor(event.status).withValues(alpha: 0.12),
+                  color: _statusColor(context, event.status).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Center(
-                  child: Icon(Icons.event_rounded, size: 22, color: _statusColor(event.status)),
+                  child: Icon(Icons.event_rounded, size: 22, color: _statusColor(context, event.status)),
                 ),
               ),
               const SizedBox(width: 12),
@@ -652,12 +652,12 @@ class _ProfileEventCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: _statusColor(event.status).withValues(alpha: 0.12),
+                  color: _statusColor(context, event.status).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   _statusLabel(event.status),
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: _statusColor(event.status)),
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: _statusColor(context, event.status)),
                 ),
               ),
             ],
@@ -667,14 +667,14 @@ class _ProfileEventCard extends StatelessWidget {
     );
   }
 
-  Color _statusColor(EventStatus s) {
+  Color _statusColor(BuildContext context, EventStatus s) {
     return switch (s) {
-      EventStatus.live => const Color(0xFF05944F),
-      EventStatus.selling_tickets => const Color(0xFF00838F),
-      EventStatus.completed => const Color(0xFF7356BF),
-      EventStatus.cancelled => const Color(0xFF8B0000),
-      EventStatus.approved => const Color(0xFF276EF1),
-      _ => const Color(0xFF757575),
+      EventStatus.live => AppTheme.successColor,
+      EventStatus.selling_tickets => context.statusSelling,
+      EventStatus.completed => context.managementAccent,
+      EventStatus.cancelled => context.statusCancelled,
+      EventStatus.approved => AppTheme.accentColor,
+      _ => context.statusDraft,
     };
   }
 

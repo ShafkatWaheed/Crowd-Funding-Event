@@ -63,7 +63,7 @@ class _CustomerDiscountsSectionState extends State<CustomerDiscountsSection> {
         AppSpacing.vXl,
         Row(
           children: [
-            Icon(Icons.local_offer_rounded, size: AppIconSize.md, color: Colors.deepPurple),
+            Icon(Icons.local_offer_rounded, size: AppIconSize.md, color: context.sponsorAccent),
             AppSpacing.hSm,
             Expanded(
               child: Text('Your Discounts',
@@ -74,7 +74,7 @@ class _CustomerDiscountsSectionState extends State<CustomerDiscountsSection> {
               icon: const Icon(Icons.search, size: AppIconSize.sm),
               label: const Text('Browse', style: TextStyle(fontSize: 12)),
               style: TextButton.styleFrom(
-                foregroundColor: Colors.deepPurple,
+                foregroundColor: context.sponsorAccent,
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 minimumSize: Size.zero,
               ),
@@ -86,7 +86,7 @@ class _CustomerDiscountsSectionState extends State<CustomerDiscountsSection> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
             decoration: BoxDecoration(
-              color: Colors.deepPurple.withOpacity(0.05),
+              color: context.sponsorSurface,
               borderRadius: AppRadius.md,
             ),
             child: Row(
@@ -107,12 +107,12 @@ class _CustomerDiscountsSectionState extends State<CustomerDiscountsSection> {
                 margin: const EdgeInsets.only(bottom: AppSpacing.xs),
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
                 decoration: BoxDecoration(
-                  color: Colors.deepPurple.withOpacity(0.06),
+                  color: context.sponsorSurface,
                   borderRadius: AppRadius.md,
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.discount_rounded, size: AppIconSize.sm, color: Colors.deepPurple),
+                    Icon(Icons.discount_rounded, size: AppIconSize.sm, color: context.sponsorAccent),
                     AppSpacing.hSm,
                     Expanded(
                       child: Column(

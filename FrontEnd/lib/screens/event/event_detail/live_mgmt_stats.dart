@@ -154,7 +154,7 @@ class _LiveMgmtStatsState extends State<LiveMgmtStats> {
           _statChip(
             icon: Icons.event_seat_rounded,
             label: '$_ticketWaitlistCount ticket waitlist',
-            color: Colors.orange,
+            color: context.fundingAccent,
             onTap: () => context.push('/events/$_eventId/ticket-waitlist'),
           ),
         ],
@@ -204,7 +204,7 @@ class _LiveMgmtStatsState extends State<LiveMgmtStats> {
                 child: _statChip(
                   icon: Icons.event_seat_rounded,
                   label: '$_ticketWaitlistCount ticket wl',
-                  color: Colors.orange,
+                  color: context.fundingAccent,
                   onTap: () => context.push('/events/$_eventId/ticket-waitlist'),
                 ),
               ),

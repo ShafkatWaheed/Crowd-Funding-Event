@@ -97,7 +97,7 @@ class _OrganizerManagementSectionState
         if (_event.status == EventStatus.waiting_event_date)
           _primaryActionCard(
             icon: Icons.storefront_rounded,
-            color: Colors.teal,
+            color: context.ticketAccent,
             title: 'Funding complete — next steps',
             subtitle: _event.startTime != null && _event.ticketStrategyId != null
                 ? 'Everything is set. You can start selling tickets now!'
@@ -141,7 +141,7 @@ class _OrganizerManagementSectionState
                 subtitle: _event.startTime != null
                     ? DateFormat('MMM d, y – h:mm a').format(_event.startTime!)
                     : 'Not set',
-                color: Colors.orange,
+                color: context.fundingAccent,
                 isSet: _event.startTime != null,
                 onTap: () => ScheduleMilestoneDialogs.showSetEventDateDialog(
                     context, _event, widget.onRefresh),
@@ -150,7 +150,7 @@ class _OrganizerManagementSectionState
                 icon: Icons.location_on_rounded,
                 label: 'Venue',
                 subtitle: _event.venue?.name ?? 'Not set',
-                color: Colors.indigo,
+                color: context.managementAccent,
                 isSet: _event.venue != null,
                 onTap: () => _selectVenueForEvent(context, _event),
               ),
@@ -158,7 +158,7 @@ class _OrganizerManagementSectionState
                 icon: Icons.confirmation_number_rounded,
                 label: 'Ticket Strategy',
                 subtitle: _event.ticketStrategyName ?? 'Not set',
-                color: Colors.deepPurple,
+                color: context.sponsorAccent,
                 isSet: _event.ticketStrategyId != null,
                 onTap: () => _selectStrategyForEvent(context, _event),
               ),
@@ -166,7 +166,7 @@ class _OrganizerManagementSectionState
                 icon: Icons.people_rounded,
                 label: 'Max Capacity',
                 subtitle: '${_event.maxCapacity}',
-                color: Colors.teal,
+                color: context.ticketAccent,
                 isSet: true,
                 onTap: () => _showChangeCapacityDialog(context, _event),
               ),
@@ -215,7 +215,7 @@ class _OrganizerManagementSectionState
                 if (_event.status == EventStatus.approved)
                   _menuTile(
                     icon: Icons.flag_rounded,
-                    iconColor: Colors.orange,
+                    iconColor: context.fundingAccent,
                     label: 'Manage Milestones',
                     onTap: () =>
                         ScheduleMilestoneDialogs.showManageMilestonesSheet(
@@ -228,7 +228,7 @@ class _OrganizerManagementSectionState
                       ? Icons.comments_disabled_rounded
                       : Icons.comment_rounded,
                   iconColor: _event.postsEnabled
-                      ? Colors.grey
+                      ? AppTheme.textSecondaryOf(context)
                       : AppTheme.accentColor,
                   label: _event.postsEnabled ? 'Disable Posts' : 'Enable Posts',
                   onTap: _togglePosts,
@@ -240,7 +240,7 @@ class _OrganizerManagementSectionState
                     _event.status == EventStatus.selling_tickets)
                   _menuTile(
                     icon: Icons.location_on_rounded,
-                    iconColor: Colors.indigo,
+                    iconColor: context.managementAccent,
                     label: 'Change Venue',
                     trailing: _event.venue?.name,
                     onTap: () => _selectVenueForEvent(context, _event),
@@ -251,7 +251,7 @@ class _OrganizerManagementSectionState
                     _event.status == EventStatus.waiting_event_date)
                   _menuTile(
                     icon: Icons.confirmation_number_rounded,
-                    iconColor: Colors.deepPurple,
+                    iconColor: context.sponsorAccent,
                     label: 'Change Ticket Strategy',
                     trailing: _event.ticketStrategyName,
                     onTap: () => _selectStrategyForEvent(context, _event),
@@ -264,7 +264,7 @@ class _OrganizerManagementSectionState
                     _event.status == EventStatus.live)
                   _menuTile(
                     icon: Icons.group_add_rounded,
-                    iconColor: Colors.teal,
+                    iconColor: context.ticketAccent,
                     label: 'Increase Capacity',
                     trailing: '${_event.maxCapacity}',
                     onTap: () => _showChangeCapacityDialog(context, _event),
@@ -340,7 +340,7 @@ class _OrganizerManagementSectionState
         // ── Management shortcuts ──
         AppSpacing.vXxl,
         _sectionTitle(context, 'Management',
-            icon: Icons.dashboard_rounded, iconColor: Colors.indigo),
+            icon: Icons.dashboard_rounded, iconColor: context.managementAccent),
         AppSpacing.vMd,
         _buildMgmtButtons(_event),
       ],
@@ -417,7 +417,7 @@ class _OrganizerManagementSectionState
               child: const Text('Cancel')),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.teal),
+            style: FilledButton.styleFrom(backgroundColor: context.ticketAccent),
             child: const Text('Start Selling'),
           ),
         ],
@@ -762,7 +762,7 @@ class _OrganizerManagementSectionState
               child: _mgmtActionCard(
                 icon: Icons.storefront_rounded,
                 label: 'Sponsorships',
-                color: Colors.teal,
+                color: context.ticketAccent,
                 onTap: () =>
                     context.push('/events/${event.id}/sponsorships'),
               ),

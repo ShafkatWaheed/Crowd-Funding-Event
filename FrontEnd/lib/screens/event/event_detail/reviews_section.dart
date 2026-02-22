@@ -129,7 +129,7 @@ class _ReviewsSectionState extends State<ReviewsSection> {
             padding: EdgeInsets.symmetric(horizontal: AppSpacing.xl),
             child: Row(
               children: [
-                Icon(Icons.reviews_rounded, size: AppIconSize.sm, color: Colors.amber),
+                Icon(Icons.reviews_rounded, size: AppIconSize.sm, color: context.reviewAccent),
                 AppSpacing.hSm,
                 Text('Reviews',
                     style: TextStyle(
@@ -220,7 +220,7 @@ class _ReviewsSectionState extends State<ReviewsSection> {
                       child: ElevatedButton(
                         onPressed: _selectedStars > 0 && !_submitting ? _submit : null,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.amber.shade700,
+                          backgroundColor: context.photoAccent,
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(borderRadius: AppRadius.md),
                         ),
@@ -278,7 +278,7 @@ class _ReviewsSectionState extends State<ReviewsSection> {
                       child: ElevatedButton(
                         onPressed: _selectedOrgStars > 0 && !_submittingOrg ? _submitOrgRating : null,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue.shade700,
+                          backgroundColor: context.feedAccent,
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(borderRadius: AppRadius.md),
                         ),
@@ -439,7 +439,7 @@ class _AllReviewsSheetState extends State<AllReviewsSheet> {
                         setState(() { _directionFilter = d.$2; _loading = true; });
                         _load();
                       },
-                      selectedColor: Colors.amber,
+                      selectedColor: context.reviewAccent,
                       labelStyle: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,

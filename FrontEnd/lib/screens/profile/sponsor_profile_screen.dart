@@ -112,7 +112,7 @@ class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
                       ],
                       if (_ratingsSummary != null && (_ratingsSummary!['count'] as int? ?? 0) > 0) ...[
                         const SizedBox(height: 20),
-                        _buildRatingsSection(),
+                        _buildRatingsSection(context),
                       ],
                       if (widget.isOrganizerView) ...[
                         const SizedBox(height: 20),
@@ -284,7 +284,7 @@ class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
                 icon: Icons.event_rounded,
                 value: '$eventsSponsored',
                 label: 'Events',
-                color: Colors.deepPurple,
+                color: context.sponsorAccent,
               ),
             ],
           ),
@@ -364,7 +364,7 @@ class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
     );
   }
 
-  Widget _buildRatingsSection() {
+  Widget _buildRatingsSection(BuildContext context) {
     final s = _ratingsSummary!;
     final avgStars = s['avg_stars'] as double?;
     final count = s['count'] as int? ?? 0;
@@ -383,7 +383,7 @@ class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
         children: [
           Row(
             children: [
-              Icon(Icons.reviews_rounded, size: 16, color: Colors.amber),
+              Icon(Icons.reviews_rounded, size: 16, color: context.reviewAccent),
               const SizedBox(width: 8),
               Text('Reviews',
                   style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textSecondaryOf(context), letterSpacing: 0.3)),
@@ -627,7 +627,7 @@ class _SponsorEventCard extends StatelessWidget {
               runSpacing: 4,
               children: [
                 if (pending > 0)
-                  _summaryChip(context, '$pending Under Review', Colors.orange),
+                  _summaryChip(context, '$pending Under Review', context.statusPending),
                 if (accepted > 0)
                   _summaryChip(
                       context, '$accepted Accepted', AppTheme.accentColor),
@@ -688,9 +688,9 @@ class _SponsorEventCard extends StatelessWidget {
   Widget _statusBadge(BuildContext context, String status) {
     final color = switch (status) {
       'approved' => AppTheme.secondaryColor,
-      'live' => const Color(0xFFE11900),
+      'live' => context.statusLive,
       'selling_tickets' => AppTheme.accentColor,
-      'waiting_event_date' => Colors.orange,
+      'waiting_event_date' => context.statusWaiting,
       'completed' => AppTheme.textSecondaryOf(context),
       'cancelled' => AppTheme.errorColor,
       _ => AppTheme.textSecondaryOf(context),
@@ -731,7 +731,7 @@ class _SponsorEventCard extends StatelessWidget {
 
   Color _bidStatusColor(BuildContext context, String status) {
     return switch (status) {
-      'pending' => Colors.orange,
+      'pending' => context.bidPending,
       'accepted' => AppTheme.accentColor,
       'paid' => AppTheme.secondaryColor,
       'rejected' => AppTheme.errorColor,
@@ -843,7 +843,7 @@ void showSponsorProfileSheet(BuildContext context, int sponsorUserId, {bool isOr
                     const SizedBox(width: 16),
                     _sheetStat(ctx, '$acceptedBids', 'Accepted', AppTheme.successColor),
                     const SizedBox(width: 16),
-                    _sheetStat(ctx, '$eventsSponsored', 'Events', Colors.deepPurple),
+                    _sheetStat(ctx, '$eventsSponsored', 'Events', ctx.sponsorAccent),
                   ],
                 ),
                 const SizedBox(height: 20),

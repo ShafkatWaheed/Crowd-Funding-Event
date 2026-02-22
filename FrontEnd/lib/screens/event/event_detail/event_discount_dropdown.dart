@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../config/theme.dart';
 import '../../../config/design_tokens.dart';
 import '../../../services/api_service.dart';
 import '../../../widgets/app_toast.dart';
@@ -77,9 +78,9 @@ class _EventDiscountDropdownState extends State<EventDiscountDropdown> {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: AppTheme.cardOf(context),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: AppTheme.dividerOf(context)),
       ),
       padding: AppSpacing.paddingMd,
       child: Column(
@@ -87,12 +88,12 @@ class _EventDiscountDropdownState extends State<EventDiscountDropdown> {
         children: [
           Row(
             children: [
-              const Icon(Icons.discount_rounded, color: Colors.deepPurple, size: 20),
+              Icon(Icons.discount_rounded, color: context.discountAccent, size: 20),
               AppSpacing.hSm,
-              const Text('Discounts', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15)),
+              Text('Discounts', style: TextStyle(color: AppTheme.textPrimaryOf(context), fontWeight: FontWeight.w700, fontSize: 15)),
               const Spacer(),
               if (_loading)
-                const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white54)),
+                SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.textSecondaryOf(context))),
             ],
           ),
           const SizedBox(height: 10),
@@ -108,16 +109,16 @@ class _EventDiscountDropdownState extends State<EventDiscountDropdown> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                         decoration: BoxDecoration(
-                          color: Colors.deepPurple.withOpacity(0.18),
+                          color: context.discountAccent.withOpacity(0.18),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.deepPurple.withOpacity(0.4), width: 0.5),
+                          border: Border.all(color: context.discountAccent.withOpacity(0.4), width: 0.5),
                         ),
                         child: Row(
                           children: [
                             Expanded(
                               child: Text(
                                 _label(d),
-                                style: const TextStyle(color: Colors.white, fontSize: 12),
+                                style: TextStyle(color: AppTheme.textPrimaryOf(context), fontSize: 12),
                               ),
                             ),
                             const SizedBox(width: 6),
@@ -125,14 +126,14 @@ class _EventDiscountDropdownState extends State<EventDiscountDropdown> {
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
                                 color: autoApply
-                                    ? Colors.green.withOpacity(0.25)
-                                    : Colors.orange.withOpacity(0.25),
+                                    ? AppTheme.successSurfaceOf(context)
+                                    : AppTheme.warningSurfaceOf(context),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
                                 autoApply ? 'Auto' : 'Claimable',
                                 style: TextStyle(
-                                  color: autoApply ? Colors.greenAccent : Colors.orangeAccent,
+                                  color: autoApply ? AppTheme.successColor : context.fundingAccent,
                                   fontSize: 10,
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -146,9 +147,9 @@ class _EventDiscountDropdownState extends State<EventDiscountDropdown> {
                     InkWell(
                       onTap: () => _detach(d['id'] as int),
                       borderRadius: BorderRadius.circular(12),
-                      child: const Padding(
-                        padding: EdgeInsets.all(4),
-                        child: Icon(Icons.close, size: 16, color: Colors.white54),
+                      child: Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: Icon(Icons.close, size: 16, color: AppTheme.textSecondaryOf(context)),
                       ),
                     ),
                   ],
@@ -159,13 +160,13 @@ class _EventDiscountDropdownState extends State<EventDiscountDropdown> {
           ],
           // Search
           TextField(
-            style: const TextStyle(color: Colors.white, fontSize: 14),
+            style: TextStyle(color: AppTheme.textPrimaryOf(context), fontSize: 14),
             decoration: InputDecoration(
               hintText: 'Search discounts…',
-              hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
-              prefixIcon: const Icon(Icons.search, color: Colors.white38, size: 20),
+              hintStyle: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 13),
+              prefixIcon: Icon(Icons.search, color: AppTheme.textSecondaryOf(context), size: 20),
               filled: true,
-              fillColor: Colors.white.withOpacity(0.06),
+              fillColor: AppTheme.inputFillOf(context),
               contentPadding: const EdgeInsets.symmetric(vertical: 10),
               border: OutlineInputBorder(borderRadius: AppRadius.sm, borderSide: BorderSide.none),
             ),
@@ -190,7 +191,7 @@ class _EventDiscountDropdownState extends State<EventDiscountDropdown> {
       return [
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Text('No matching discounts', style: TextStyle(color: Colors.white38, fontSize: 13)),
+          child: Text('No matching discounts', style: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 13)),
         ),
       ];
     }
@@ -200,25 +201,25 @@ class _EventDiscountDropdownState extends State<EventDiscountDropdown> {
         padding: const EdgeInsets.only(bottom: 4),
         child: Container(
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.04),
+            color: AppTheme.inputFillOf(context),
             borderRadius: BorderRadius.circular(8),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           child: Row(
             children: [
               Expanded(
-                child: Text(_label(d), style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                child: Text(_label(d), style: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 12)),
               ),
               const SizedBox(width: 6),
               AddButton(
                 label: 'Add + Apply',
-                color: Colors.green,
+                color: AppTheme.successColor,
                 onTap: () => _attach(d['id'] as int, autoApply: true),
               ),
               const SizedBox(width: 6),
               AddButton(
                 label: 'Add',
-                color: Colors.deepPurple,
+                color: context.discountAccent,
                 onTap: () => _attach(d['id'] as int, autoApply: false),
               ),
             ],

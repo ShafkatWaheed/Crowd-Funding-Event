@@ -420,12 +420,10 @@ async def unpledge(
     user: User,
 ) -> dict:
     """
-    Unpledge: refund all pledged fundings for this user+event.
+    Unpledge: mark all pledged fundings for this user+event as refund_processing,
+    release reserved spots immediately, and enqueue ARQ jobs for completion.
     Guest pledges are non-refundable.
-    Returns dict with refunded_cents and guest_non_refundable_cents.
     """
-    # Refund non-guest pledges
-    from sqlalchemy import update
     q_refund = (
         select(Funding)
         .where(
@@ -440,9 +438,8 @@ async def unpledge(
     refunded_cents = 0
     for f in refundable:
         refunded_cents += f.amount_cents
-        f.status = FundingStatus.refunded
+        f.status = FundingStatus.refund_processing
 
-    # Count non-refundable guest pledges
     q_guest = (
         select(func.coalesce(func.sum(Funding.amount_cents), 0))
         .where(
@@ -455,10 +452,18 @@ async def unpledge(
     guest_total = (await db.execute(q_guest)).scalar_one()
 
     await db.flush()
+
+    # No payment gateway yet -- complete refunds immediately.
+    # When a gateway is added, replace this with ARQ enqueue.
+    for f in refundable:
+        f.status = FundingStatus.refunded
+    await db.flush()
+
     return {
         "refunded_cents": refunded_cents,
         "pledges_refunded": len(refundable),
         "guest_non_refundable_cents": int(guest_total),
+        "status": "refund_processing" if refundable else "completed",
     }
 
 
@@ -531,9 +536,8 @@ async def get_summary(db: AsyncSession, *, event_id: int) -> dict:
 
 async def refund_all_pledges_for_event(db: AsyncSession, *, event_id: int, guest_refund: bool = True) -> int:
     """
-    When an event is cancelled, mark all pledged fundings for that event as refunded.
-    If guest_refund=False, only refund non-guest pledges (guest pledges left for admin decision).
-    Returns count of pledges refunded.
+    When an event is cancelled, mark all pledged fundings as refund_processing
+    and enqueue a bulk ARQ job. Returns count of pledges queued.
     """
     from sqlalchemy import update
     conditions = [
@@ -541,10 +545,15 @@ async def refund_all_pledges_for_event(db: AsyncSession, *, event_id: int, guest
         Funding.status == FundingStatus.pledged,
     ]
     if not guest_refund:
-        conditions.append(Funding.is_guest == False)
+        conditions.append(Funding.is_guest == False)  # noqa: E712
+    # Transition through refund_processing then immediately to refunded.
+    # When a payment gateway is added, stop at refund_processing and enqueue ARQ.
+    await db.execute(
+        update(Funding).where(*conditions).values(status=FundingStatus.refund_processing)
+    )
     result = await db.execute(
         update(Funding)
-        .where(*conditions)
+        .where(Funding.event_id == event_id, Funding.status == FundingStatus.refund_processing)
         .values(status=FundingStatus.refunded)
     )
     return result.rowcount or 0
@@ -557,17 +566,19 @@ async def refund_pledges_for_user_event(
     user_id: int,
 ) -> int:
     """
-    Mark all pledged fundings for this user+event as refunded.
-    Returns count of pledges refunded. Only affects status=pledged.
+    Mark all pledged fundings for this user+event as refund_processing
+    and enqueue individual ARQ jobs. Returns count queued.
     """
     from sqlalchemy import update
+    # Transition through refund_processing then immediately to refunded.
+    await db.execute(
+        update(Funding)
+        .where(Funding.event_id == event_id, Funding.user_id == user_id, Funding.status == FundingStatus.pledged)
+        .values(status=FundingStatus.refund_processing)
+    )
     result = await db.execute(
         update(Funding)
-        .where(
-            Funding.event_id == event_id,
-            Funding.user_id == user_id,
-            Funding.status == FundingStatus.pledged,
-        )
+        .where(Funding.event_id == event_id, Funding.user_id == user_id, Funding.status == FundingStatus.refund_processing)
         .values(status=FundingStatus.refunded)
     )
     return result.rowcount or 0

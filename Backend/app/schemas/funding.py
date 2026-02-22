@@ -42,6 +42,7 @@ class UnpledgeResponse(BaseModel):
     refunded_cents: int
     pledges_refunded: int
     guest_non_refundable_cents: int
+    status: str = "completed"  # "refund_processing" | "completed"
 
 
 class FundingSummaryResponse(BaseModel):

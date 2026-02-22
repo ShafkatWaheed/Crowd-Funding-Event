@@ -14,6 +14,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.api.v1.router import api_router
 from app.config import settings
+from app.worker.redis_pool import get_arq_pool, close_arq_pool
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 STATIC_DIR.mkdir(exist_ok=True)
@@ -63,7 +64,13 @@ class LogRequestsMiddleware:
 @asynccontextmanager
 async def lifespan(application: FastAPI):
     logger.info("Starting %s", settings.PROJECT_NAME)
+    try:
+        await get_arq_pool()
+        logger.info("ARQ Redis pool connected")
+    except Exception:
+        logger.warning("Redis not available — ARQ tasks will be skipped (refunds complete inline)")
     yield
+    await close_arq_pool()
 
 
 app = FastAPI(

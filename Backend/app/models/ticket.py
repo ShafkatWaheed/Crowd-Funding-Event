@@ -13,6 +13,10 @@ from app.db.base import Base
 class TicketSaleStatus(str, enum.Enum):
     purchased = "purchased"
     waitlisted = "waitlisted"
+    refund_requested = "refund_requested"
+    refund_processing = "refund_processing"
+    refunded = "refunded"
+    refund_failed = "refund_failed"
     cancelled = "cancelled"
 
 

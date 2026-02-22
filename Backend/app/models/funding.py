@@ -12,7 +12,9 @@ from app.db.base import Base
 class FundingStatus(str, enum.Enum):
     pledged = "pledged"
     collected = "collected"
+    refund_processing = "refund_processing"
     refunded = "refunded"
+    refund_failed = "refund_failed"
 
 
 class Funding(Base):

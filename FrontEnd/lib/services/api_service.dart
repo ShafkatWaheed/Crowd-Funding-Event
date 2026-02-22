@@ -344,6 +344,11 @@ class ApiService {
     return resp.data;
   }
 
+  Future<Map<String, dynamic>> getRefundStatus(int eventId) async {
+    final resp = await dio.get('/events/$eventId/refund-status');
+    return resp.data;
+  }
+
   // ─── Registration ───
 
   Future<Map<String, dynamic>> register(int eventId) async {
@@ -396,6 +401,26 @@ class ApiService {
     if (extraPerks != null) data['extra_perks'] = extraPerks;
     final resp =
         await dio.post('/events/$eventId/purchase-ticket', data: data);
+    return resp.data;
+  }
+
+  Future<Map<String, dynamic>> requestTicketRefund(int eventId, int ticketId) async {
+    final resp = await dio.post('/events/$eventId/tickets/$ticketId/refund');
+    return resp.data;
+  }
+
+  Future<List<dynamic>> getRefundRequests(int eventId) async {
+    final resp = await dio.get('/events/$eventId/refund-requests');
+    return resp.data;
+  }
+
+  Future<Map<String, dynamic>> approveTicketRefund(int eventId, int ticketId) async {
+    final resp = await dio.post('/events/$eventId/tickets/$ticketId/approve-refund');
+    return resp.data;
+  }
+
+  Future<Map<String, dynamic>> rejectTicketRefund(int eventId, int ticketId) async {
+    final resp = await dio.post('/events/$eventId/tickets/$ticketId/reject-refund');
     return resp.data;
   }
 

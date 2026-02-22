@@ -159,7 +159,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       final tickets = await api.getMyTickets();
       final myTickets = tickets.where((t) =>
           t['event_id'] == widget.eventId &&
-          (t['status'] == 'purchased' || t['status'] == 'waitlisted')).toList();
+          (t['status'] == 'purchased' || t['status'] == 'waitlisted' || t['status'] == 'refund_requested')).toList();
       if (mounted) {
         setState(() {
           _myTicketCount = myTickets.length;

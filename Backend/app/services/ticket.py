@@ -634,6 +634,135 @@ async def reject_waitlisted_ticket(
     return sale
 
 
+async def request_refund(
+    db: AsyncSession, *, event_id: int, ticket_sale_id: int, user: User
+) -> TicketSale:
+    """
+    Customer requests a refund for a purchased ticket.
+    Sets status to refund_requested; organizer must approve.
+    """
+    q = select(TicketSale).where(
+        TicketSale.id == ticket_sale_id,
+        TicketSale.event_id == event_id,
+        TicketSale.user_id == user.id,
+    ).options(
+        selectinload(TicketSale.user),
+        selectinload(TicketSale.ticket_tier),
+        selectinload(TicketSale.event),
+    )
+    sale = (await db.execute(q)).scalar_one_or_none()
+    if not sale:
+        raise NotFoundError("TicketSale", ticket_sale_id)
+    if sale.status != TicketSaleStatus.purchased:
+        raise ConflictError("Only purchased tickets can be refunded")
+    if sale.scanned_at is not None:
+        raise ConflictError("Scanned tickets cannot be refunded")
+
+    sale.status = TicketSaleStatus.refund_requested
+    await db.flush()
+    await db.refresh(sale)
+    return sale
+
+
+async def approve_refund(
+    db: AsyncSession, *, event_id: int, ticket_sale_id: int, user: User
+) -> TicketSale:
+    """
+    Organizer approves a refund request.
+    Transitions refund_requested -> refund_processing -> refunded (no gateway yet).
+    """
+    event = await event_service.get_or_404(db, event_id)
+    if not await _can_manage_event_tickets(db, user, event):
+        raise ForbiddenError("Only the event organizer or admin can approve refunds")
+
+    q = select(TicketSale).where(
+        TicketSale.id == ticket_sale_id,
+        TicketSale.event_id == event_id,
+    ).options(
+        selectinload(TicketSale.user),
+        selectinload(TicketSale.ticket_tier),
+        selectinload(TicketSale.event),
+    )
+    sale = (await db.execute(q)).scalar_one_or_none()
+    if not sale:
+        raise NotFoundError("TicketSale", ticket_sale_id)
+    if sale.status != TicketSaleStatus.refund_requested:
+        raise ConflictError("Only refund-requested tickets can be approved")
+
+    sale.status = TicketSaleStatus.refund_processing
+    # No payment gateway yet -- complete immediately.
+    sale.status = TicketSaleStatus.refunded
+    await db.flush()
+    await db.refresh(sale)
+    return sale
+
+
+async def reject_refund(
+    db: AsyncSession, *, event_id: int, ticket_sale_id: int, user: User
+) -> TicketSale:
+    """
+    Organizer rejects a refund request. Ticket goes back to purchased.
+    """
+    event = await event_service.get_or_404(db, event_id)
+    if not await _can_manage_event_tickets(db, user, event):
+        raise ForbiddenError("Only the event organizer or admin can reject refunds")
+
+    q = select(TicketSale).where(
+        TicketSale.id == ticket_sale_id,
+        TicketSale.event_id == event_id,
+    ).options(
+        selectinload(TicketSale.user),
+        selectinload(TicketSale.ticket_tier),
+        selectinload(TicketSale.event),
+    )
+    sale = (await db.execute(q)).scalar_one_or_none()
+    if not sale:
+        raise NotFoundError("TicketSale", ticket_sale_id)
+    if sale.status != TicketSaleStatus.refund_requested:
+        raise ConflictError("Only refund-requested tickets can be rejected")
+
+    sale.status = TicketSaleStatus.purchased
+    await db.flush()
+    await db.refresh(sale)
+    return sale
+
+
+async def list_refund_requests(
+    db: AsyncSession, *, event_id: int
+) -> list[TicketSale]:
+    """List all tickets with refund_requested status for an event."""
+    q = (
+        select(TicketSale)
+        .where(
+            TicketSale.event_id == event_id,
+            TicketSale.status == TicketSaleStatus.refund_requested,
+        )
+        .options(
+            selectinload(TicketSale.user),
+            selectinload(TicketSale.ticket_tier),
+            selectinload(TicketSale.event),
+        )
+        .order_by(TicketSale.created_at.desc())
+    )
+    return list((await db.execute(q)).scalars().all())
+
+
+async def refund_all_tickets_for_event(db: AsyncSession, *, event_id: int) -> int:
+    """Bulk refund all purchased tickets for a cancelled event. Returns count."""
+    from sqlalchemy import update
+    await db.execute(
+        update(TicketSale)
+        .where(TicketSale.event_id == event_id, TicketSale.status == TicketSaleStatus.purchased)
+        .values(status=TicketSaleStatus.refund_processing)
+    )
+    result = await db.execute(
+        update(TicketSale)
+        .where(TicketSale.event_id == event_id, TicketSale.status == TicketSaleStatus.refund_processing)
+        .values(status=TicketSaleStatus.refunded)
+    )
+    return result.rowcount or 0
+
+
 async def scan_ticket(
     db: AsyncSession,
     *,

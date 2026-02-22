@@ -925,27 +925,67 @@ async def get_pledge_receipt(
 async def unpledge_event(
     event_id: int,
     db: DbSession,
-    bg: BackgroundTasks,
     current_user: User = Depends(require_role(UserRole.customer, UserRole.sponsor)),
 ):
-    """Unpledge from event (customer). Guest pledges are non-refundable."""
+    """Unpledge from event (customer). Guest pledges are non-refundable.
+    Refunds are processed asynchronously via ARQ; email sent on completion."""
     result = await funding_service.unpledge(
         db,
         event_id=event_id,
         user=current_user,
     )
-    # Send unpledge refund email
-    if result.get("refunded_cents", 0) > 0:
-        event = await event_service.get_or_404(db, event_id)
-        bg.add_task(
-            email_notify.notify_unpledge_refund,
-            user_email=current_user.email,
-            user_name=current_user.display_name or "",
-            event_title=event.title or f"Event #{event_id}",
-            refunded_cents=result["refunded_cents"],
-            pledges_count=result.get("pledges_refunded", 1),
-        )
     return UnpledgeResponse(**result)
+
+
+@router.get("/{event_id}/refund-status")
+async def get_refund_status(
+    event_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.customer, UserRole.sponsor)),
+):
+    """Poll refund status for the current user's pledges on this event."""
+    from app.models.funding import Funding, FundingStatus
+    from sqlalchemy import select as sel, func as fn
+
+    processing = int((await db.execute(
+        sel(fn.count()).where(
+            Funding.event_id == event_id,
+            Funding.user_id == current_user.id,
+            Funding.status == FundingStatus.refund_processing,
+        )
+    )).scalar_one())
+
+    completed = int((await db.execute(
+        sel(fn.count()).where(
+            Funding.event_id == event_id,
+            Funding.user_id == current_user.id,
+            Funding.status == FundingStatus.refunded,
+        )
+    )).scalar_one())
+
+    failed = int((await db.execute(
+        sel(fn.count()).where(
+            Funding.event_id == event_id,
+            Funding.user_id == current_user.id,
+            Funding.status == FundingStatus.refund_failed,
+        )
+    )).scalar_one())
+
+    if processing > 0:
+        status = "processing"
+    elif failed > 0:
+        status = "failed"
+    elif completed > 0:
+        status = "completed"
+    else:
+        status = "none"
+
+    return {
+        "status": status,
+        "processing_count": processing,
+        "completed_count": completed,
+        "failed_count": failed,
+    }
 
 
 @router.get("/{event_id}/funding")
@@ -1078,20 +1118,12 @@ async def unregister_event(
             detail=f"Cannot unregister — event is in '{event.status.value}' state",
         )
     result = await registration_service.unregister(db, event_id=event_id, user=current_user)
-    # Send refund email if applicable
     if result.get("refunded_cents", 0) > 0:
-        bg.add_task(
-            email_notify.notify_unregister_refund,
-            user_email=current_user.email,
-            user_name=current_user.display_name or "",
-            event_title=event.title or f"Event #{event_id}",
-            refunded_cents=result["refunded_cents"],
-        )
         await notif_svc.create_notification(
             db, user_id=current_user.id,
             type=NotificationType.refund_issued,
-            title="Refund Issued",
-            message=f"Your pledge of ${result['refunded_cents'] / 100:.2f} has been refunded.",
+            title="Refund Processing",
+            message=f"Your pledge refund of ${result['refunded_cents'] / 100:.2f} is being processed.",
             data={"event_id": event_id},
         )
     return UnregisterResponse(
@@ -1279,6 +1311,88 @@ async def purchase_ticket(
             data={"event_id": event_id},
         )
     return [_ticket_sale_to_response(s) for s in sales]
+
+
+# ----- Ticket refund: customer requests, organizer approves/rejects -----
+@router.post("/{event_id}/tickets/{ticket_id}/refund", response_model=TicketSaleResponse)
+async def request_ticket_refund(
+    event_id: int,
+    ticket_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.customer)),
+):
+    """Customer requests a refund for a purchased ticket. Organizer must approve."""
+    sale = await ticket_service.request_refund(
+        db, event_id=event_id, ticket_sale_id=ticket_id, user=current_user,
+    )
+    event = sale.event
+    if event:
+        await notif_svc.create_notification(
+            db, user_id=event.organizer_id,
+            type=NotificationType.refund_issued,
+            title="Refund Requested",
+            message=f"{current_user.display_name or 'A customer'} requested a ticket refund for \"{event.title}\".",
+            data={"event_id": event_id, "ticket_sale_id": ticket_id},
+        )
+    return _ticket_sale_to_response(sale)
+
+
+@router.get("/{event_id}/refund-requests", response_model=list[TicketSaleResponse])
+async def list_refund_requests(
+    event_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+):
+    """List tickets with pending refund requests (organizer/admin)."""
+    event = await event_service.get_or_404(db, event_id)
+    if not await event_service.user_can_edit_event(db, event, current_user):
+        raise ForbiddenError("You cannot manage refunds for this event")
+    sales = await ticket_service.list_refund_requests(db, event_id=event_id)
+    return [_ticket_sale_to_response(s) for s in sales]
+
+
+@router.post("/{event_id}/tickets/{ticket_id}/approve-refund", response_model=TicketSaleResponse)
+async def approve_ticket_refund(
+    event_id: int,
+    ticket_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+):
+    """Organizer approves a refund request."""
+    sale = await ticket_service.approve_refund(
+        db, event_id=event_id, ticket_sale_id=ticket_id, user=current_user,
+    )
+    if sale.user_id:
+        await notif_svc.create_notification(
+            db, user_id=sale.user_id,
+            type=NotificationType.refund_issued,
+            title="Refund Approved",
+            message=f"Your ticket refund of ${sale.amount_paid_cents / 100:.2f} has been approved.",
+            data={"event_id": event_id},
+        )
+    return _ticket_sale_to_response(sale)
+
+
+@router.post("/{event_id}/tickets/{ticket_id}/reject-refund", response_model=TicketSaleResponse)
+async def reject_ticket_refund(
+    event_id: int,
+    ticket_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+):
+    """Organizer rejects a refund request. Ticket goes back to purchased."""
+    sale = await ticket_service.reject_refund(
+        db, event_id=event_id, ticket_sale_id=ticket_id, user=current_user,
+    )
+    if sale.user_id:
+        await notif_svc.create_notification(
+            db, user_id=sale.user_id,
+            type=NotificationType.refund_issued,
+            title="Refund Rejected",
+            message=f"Your ticket refund request for \"{sale.event.title if sale.event else 'the event'}\" was rejected.",
+            data={"event_id": event_id},
+        )
+    return _ticket_sale_to_response(sale)
 
 
 # ----- Scan ticket (organizer) -----
@@ -2000,6 +2114,7 @@ async def approve_cancellation(
         await funding_service.refund_all_pledges_for_event(db, event_id=event.id)
         from app.services import sponsor as sponsor_service
         await sponsor_service.refund_all_sponsor_payments_for_event(db, event_id=event.id)
+        await ticket_service.refund_all_tickets_for_event(db, event_id=event.id)
         await db.flush()
         # Send cancellation emails to all affected users
         bg.add_task(

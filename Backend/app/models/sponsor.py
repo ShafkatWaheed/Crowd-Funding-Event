@@ -79,7 +79,9 @@ class SponsorBid(Base):
 class PaymentStatus(str, enum.Enum):
     pending = "pending"
     completed = "completed"
+    refund_processing = "refund_processing"
     refunded = "refunded"
+    refund_failed = "refund_failed"
 
 
 class SponsorPayment(Base):

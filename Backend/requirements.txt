@@ -33,3 +33,7 @@ aiofiles>=23.2.0
 
 # Migrations
 alembic>=1.13.0
+
+# Background task queue (ARQ + Redis)
+arq>=0.26.0
+redis[hiredis]>=5.0.0

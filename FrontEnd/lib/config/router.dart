@@ -11,6 +11,7 @@ import '../screens/event/event_detail_screen.dart';
 import '../screens/event/ticket_receipt_screen.dart';
 import '../screens/event/waitlist_screen.dart';
 import '../screens/event/ticket_sales_screen.dart';
+import '../screens/event/refund_requests_screen.dart';
 import '../screens/event/co_organizer_screen.dart';
 import '../screens/event/claim_discounts_screen.dart';
 import '../screens/manage/global_ticket_sales_screen.dart';
@@ -166,6 +167,13 @@ GoRouter createRouter(AuthProvider authProvider) {
         pageBuilder: (context, state) {
           final id = int.parse(state.pathParameters['id']!);
           return sharedAxisPage(child: TicketSalesScreen(eventId: id));
+        },
+      ),
+      GoRoute(
+        path: '/events/:id/refund-requests',
+        pageBuilder: (context, state) {
+          final id = int.parse(state.pathParameters['id']!);
+          return sharedAxisPage(child: RefundRequestsScreen(eventId: id));
         },
       ),
       GoRoute(

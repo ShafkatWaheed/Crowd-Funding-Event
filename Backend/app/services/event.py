@@ -764,6 +764,8 @@ async def cancel_event(db: AsyncSession, event: Event, user: User, *, reason: st
     await funding_service.refund_all_pledges_for_event(db, event_id=event.id)
     from app.services import sponsor as sponsor_service
     await sponsor_service.refund_all_sponsor_payments_for_event(db, event_id=event.id)
+    from app.services import ticket as ticket_service
+    await ticket_service.refund_all_tickets_for_event(db, event_id=event.id)
     await db.flush()
     await db.refresh(event)
     return event

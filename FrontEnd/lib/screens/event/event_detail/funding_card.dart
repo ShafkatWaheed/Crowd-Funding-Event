@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -34,6 +36,8 @@ class _FundingCardState extends State<FundingCard> {
   int _fundingCommissionPercent = 0;
   int _totalReservedSpots = 0;
   List<dynamic> _earlyBirdDiscounts = [];
+  bool _refundProcessing = false;
+  Timer? _refundPollTimer;
 
   Event get event => widget.event;
 
@@ -45,6 +49,12 @@ class _FundingCardState extends State<FundingCard> {
     _totalReservedSpots = event.totalReservedSpots;
     _loadFunding();
     _loadEarlyBirdDiscounts();
+  }
+
+  @override
+  void dispose() {
+    _refundPollTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadEarlyBirdDiscounts() async {
@@ -612,13 +622,23 @@ class _FundingCardState extends State<FundingCard> {
         if (context.mounted) {
           final refunded = result['refunded_cents'] ?? 0;
           final guest = result['guest_non_refundable_cents'] ?? 0;
-          var msg = 'Refunded \$${(refunded / 100).toStringAsFixed(2)}';
-          if (guest > 0) {
-            msg +=
-                ' (\$${(guest / 100).toStringAsFixed(2)} guest pledges non-refundable)';
+          final status = result['status'] ?? 'completed';
+
+          if (status == 'refund_processing') {
+            setState(() => _refundProcessing = true);
+            var msg = 'Refund of \$${(refunded / 100).toStringAsFixed(2)} is processing';
+            if (guest > 0) {
+              msg += ' (\$${(guest / 100).toStringAsFixed(2)} guest pledges non-refundable)';
+            }
+            AppToast.info(context, msg);
+            _startRefundPolling();
+          } else {
+            var msg = 'Refunded \$${(refunded / 100).toStringAsFixed(2)}';
+            if (guest > 0) {
+              msg += ' (\$${(guest / 100).toStringAsFixed(2)} guest pledges non-refundable)';
+            }
+            AppToast.success(context, msg);
           }
-          AppToast.success(context, msg);
-          // Refresh only this card
           _loadFunding();
         }
       } catch (e) {
@@ -627,6 +647,33 @@ class _FundingCardState extends State<FundingCard> {
         }
       }
     }
+  }
+
+  void _startRefundPolling() {
+    _refundPollTimer?.cancel();
+    _refundPollTimer = Timer.periodic(const Duration(seconds: 3), (_) async {
+      try {
+        final api = context.read<ApiService>();
+        final result = await api.getRefundStatus(widget.eventId);
+        final status = result['status'] as String? ?? 'none';
+
+        if (status == 'completed') {
+          _refundPollTimer?.cancel();
+          if (mounted) {
+            setState(() => _refundProcessing = false);
+            AppToast.success(context, 'Refund completed');
+            _loadFunding();
+          }
+        } else if (status == 'failed') {
+          _refundPollTimer?.cancel();
+          if (mounted) {
+            setState(() => _refundProcessing = false);
+            AppToast.error(context, 'Refund failed — contact support');
+            _loadFunding();
+          }
+        }
+      } catch (_) {}
+    });
   }
 
   @override
@@ -993,20 +1040,35 @@ class _FundingCardState extends State<FundingCard> {
                   Expanded(
                     child: SizedBox(
                       height: 40,
-                      child: OutlinedButton.icon(
-                        onPressed: _pledging ? null : _unpledge,
-                        icon: Icon(Icons.money_off,
-                            size: AppIconSize.md, color: AppTheme.warningColor),
-                        label: const Text('Unpledge',
-                            style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                color: AppTheme.warningColor)),
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: AppTheme.warningColor),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: AppRadius.md),
-                        ),
-                      ),
+                      child: _refundProcessing
+                          ? OutlinedButton.icon(
+                              onPressed: null,
+                              icon: const SizedBox(
+                                width: 16, height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                              label: const Text('Refund Processing…',
+                                  style: TextStyle(fontWeight: FontWeight.w700)),
+                              style: OutlinedButton.styleFrom(
+                                side: BorderSide(color: Colors.grey.shade400),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: AppRadius.md),
+                              ),
+                            )
+                          : OutlinedButton.icon(
+                              onPressed: _pledging ? null : _unpledge,
+                              icon: Icon(Icons.money_off,
+                                  size: AppIconSize.md, color: AppTheme.warningColor),
+                              label: const Text('Unpledge',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      color: AppTheme.warningColor)),
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: AppTheme.warningColor),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: AppRadius.md),
+                              ),
+                            ),
                     ),
                   ),
                 ],

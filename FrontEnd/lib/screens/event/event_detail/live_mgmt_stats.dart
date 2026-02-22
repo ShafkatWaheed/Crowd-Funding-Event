@@ -25,6 +25,7 @@ class _LiveMgmtStatsState extends State<LiveMgmtStats> {
   int _scannedCount = 0;
   int _fundingWaitlistCount = 0;
   int _ticketWaitlistCount = 0;
+  int _refundRequestCount = 0;
   bool _loading = true;
 
   Event get _event => widget.event;
@@ -70,11 +71,13 @@ class _LiveMgmtStatsState extends State<LiveMgmtStats> {
           api.getScannedTickets(_eventId),
           api.getRegistrations(_eventId),
           api.getWaitlistedTickets(_eventId),
+          api.getRefundRequests(_eventId),
         ]);
         final allSales = results[0];
         final scanned = results[1];
         final regs = results[2];
         final ticketWaitlist = results[3];
+        final refundRequests = results[4];
         final fundingWaitlisted =
             regs.where((r) => r['status'] == 'waitlist').length;
         if (mounted) {
@@ -83,6 +86,7 @@ class _LiveMgmtStatsState extends State<LiveMgmtStats> {
             _scannedCount = scanned.length;
             _fundingWaitlistCount = fundingWaitlisted;
             _ticketWaitlistCount = ticketWaitlist.length;
+            _refundRequestCount = refundRequests.length;
             _loading = false;
           });
         }
@@ -151,11 +155,28 @@ class _LiveMgmtStatsState extends State<LiveMgmtStats> {
             ],
           ),
           const SizedBox(height: 8),
-          _statChip(
-            icon: Icons.event_seat_rounded,
-            label: '$_ticketWaitlistCount ticket waitlist',
-            color: context.fundingAccent,
-            onTap: () => context.push('/events/$_eventId/ticket-waitlist'),
+          Row(
+            children: [
+              Expanded(
+                child: _statChip(
+                  icon: Icons.event_seat_rounded,
+                  label: '$_ticketWaitlistCount ticket wl',
+                  color: context.fundingAccent,
+                  onTap: () => context.push('/events/$_eventId/ticket-waitlist'),
+                ),
+              ),
+              if (_refundRequestCount > 0) ...[
+                AppSpacing.hSm,
+                Expanded(
+                  child: _statChip(
+                    icon: Icons.money_off_rounded,
+                    label: '$_refundRequestCount refund req',
+                    color: AppTheme.errorColor,
+                    onTap: () => context.push('/events/$_eventId/refund-requests'),
+                  ),
+                ),
+              ],
+            ],
           ),
         ],
       );

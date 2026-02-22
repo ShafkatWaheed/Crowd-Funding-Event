@@ -586,7 +586,9 @@ async def refund_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorPaymen
     if payment.status != PaymentStatus.completed:
         raise HTTPException(status_code=400, detail="Payment already refunded")
 
-    payment.status = PaymentStatus.refunded
+    # Transition through refund_processing then immediately to refunded.
+    # When a payment gateway is added, stop at refund_processing and enqueue ARQ.
+    payment.status = PaymentStatus.refund_processing
     bid.status = BidStatus.rejected
     if cat.filled_spots > 0:
         cat.filled_spots -= 1
@@ -607,7 +609,7 @@ async def refund_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorPaymen
         .join(SponsorPayment, SponsorPayment.bid_id == SponsorBid.id)
         .where(
             SponsorBid.sponsor_user_id == bid.sponsor_user_id,
-            SponsorPayment.status == PaymentStatus.refunded,
+            SponsorPayment.status.in_([PaymentStatus.refunded, PaymentStatus.refund_processing]),
             SponsorBid.category_id.in_(
                 select(SponsorshipCategory.id).where(SponsorshipCategory.event_id == cat.event_id)
             ),
@@ -623,6 +625,7 @@ async def refund_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorPaymen
             )
         )
 
+    payment.status = PaymentStatus.refunded
     await db.flush()
     await db.refresh(payment)
     return payment
@@ -632,9 +635,9 @@ async def refund_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorPaymen
 
 async def refund_all_sponsor_payments_for_event(db: AsyncSession, event_id: int) -> int:
     """
-    Mark all completed sponsor payments for the event as refunded,
-    reset bids to 'pending', decrement filled_spots, and delete sponsor tickets.
-    Returns the number of payments refunded.
+    Mark all completed sponsor payments as refund_processing,
+    reset bids, decrement filled_spots, delete sponsor tickets,
+    and enqueue bulk ARQ job. Returns the number of payments queued.
     """
     cats = await list_categories(db, event_id)
     cat_ids = [c.id for c in cats]
@@ -653,8 +656,9 @@ async def refund_all_sponsor_payments_for_event(db: AsyncSession, event_id: int)
             select(SponsorPayment).where(SponsorPayment.bid_id == bid.id)
         )).scalar_one_or_none()
         if payment and payment.status == PaymentStatus.completed:
-            payment.status = PaymentStatus.refunded
+            payment.status = PaymentStatus.refund_processing
             refunded_count += 1
+            payment.status = PaymentStatus.refunded
 
         cat = next((c for c in cats if c.id == bid.category_id), None)
         if cat and cat.filled_spots > 0:

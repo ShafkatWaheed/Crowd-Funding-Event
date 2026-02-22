@@ -262,6 +262,8 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                         AppSpacing.hSm,
                         _filterChip('Waitlisted', 'waitlisted'),
                         AppSpacing.hSm,
+                        _filterChip('Refunded', 'refunded'),
+                        AppSpacing.hSm,
                         _filterChip('Cancelled', 'cancelled'),
                       ],
                     ),
@@ -309,6 +311,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                         tickets: tickets,
                         scannedCount: scannedInGroup,
                         onTicketTap: _openReceipt,
+                        onRefund: _refundTicket,
                         onEventTap: () => context.push('/events/$eventId'),
                       ),
                     );
@@ -338,6 +341,45 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _refundTicket(TicketSale ticket) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Request Refund'),
+        content: Text(
+          'Request a refund for ticket ${ticket.receiptNumber ?? ticket.ticketCode} '
+          '(${ticket.amountPaidFormatted})?\n\n'
+          'The organizer will review your request.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorColor),
+            child: const Text('Request Refund'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      final api = context.read<ApiService>();
+      await api.requestTicketRefund(ticket.eventId, ticket.id);
+      if (mounted) {
+        AppToast.success(context, 'Refund request sent to organizer');
+        _load();
+      }
+    } catch (e) {
+      if (mounted) {
+        AppToast.fromError(context, e, fallback: 'Refund request failed');
+      }
+    }
   }
 
   Widget _statChip(IconData icon, String value, String label, {Color? color}) {
@@ -406,6 +448,7 @@ class _EventTicketGroup extends StatelessWidget {
   final List<TicketSale> tickets;
   final int scannedCount;
   final void Function(TicketSale) onTicketTap;
+  final void Function(TicketSale) onRefund;
   final VoidCallback onEventTap;
 
   const _EventTicketGroup({
@@ -414,6 +457,7 @@ class _EventTicketGroup extends StatelessWidget {
     required this.tickets,
     required this.scannedCount,
     required this.onTicketTap,
+    required this.onRefund,
     required this.onEventTap,
   });
 
@@ -485,6 +529,9 @@ class _EventTicketGroup extends StatelessWidget {
                 child: _TicketCard(
                   ticket: ticket,
                   onTap: () => onTicketTap(ticket),
+                  onRefund: ticket.status == 'purchased' && !ticket.isScanned
+                      ? () => onRefund(ticket)
+                      : null,
                 ),
               )),
         ],
@@ -500,8 +547,9 @@ class _EventTicketGroup extends StatelessWidget {
 class _TicketCard extends StatelessWidget {
   final TicketSale ticket;
   final VoidCallback onTap;
+  final VoidCallback? onRefund;
 
-  const _TicketCard({required this.ticket, required this.onTap});
+  const _TicketCard({required this.ticket, required this.onTap, this.onRefund});
 
   @override
   Widget build(BuildContext context) {
@@ -727,6 +775,52 @@ class _TicketCard extends StatelessWidget {
                       ),
                     ],
                   ),
+
+                  if (onRefund != null) ...[
+                    AppSpacing.vSm,
+                    SizedBox(
+                      width: double.infinity,
+                      height: 36,
+                      child: OutlinedButton.icon(
+                        onPressed: onRefund,
+                        icon: Icon(Icons.money_off_rounded,
+                            size: 16, color: AppTheme.errorColor),
+                        label: Text('Request Refund',
+                            style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.errorColor)),
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(color: AppTheme.errorColor.withValues(alpha: 0.4)),
+                          shape: RoundedRectangleBorder(borderRadius: AppRadius.sm),
+                        ),
+                      ),
+                    ),
+                  ],
+                  if (ticket.status == 'refund_requested') ...[
+                    AppSpacing.vSm,
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                      decoration: BoxDecoration(
+                        color: AppTheme.warningColor.withValues(alpha: 0.1),
+                        borderRadius: AppRadius.sm,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.hourglass_top_rounded,
+                              size: 14, color: AppTheme.warningColor),
+                          const SizedBox(width: 6),
+                          Text('Refund Pending Organizer Approval',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.warningColor)),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -785,9 +879,14 @@ class _TicketCard extends StatelessWidget {
       case 'purchased':
         return AppTheme.successColor;
       case 'waitlisted':
+      case 'refund_requested':
+      case 'refund_processing':
         return AppTheme.warningColor;
       case 'cancelled':
+      case 'refund_failed':
         return AppTheme.errorColor;
+      case 'refunded':
+        return AppTheme.accentColor;
       default:
         return AppTheme.textSecondaryOf(context);
     }

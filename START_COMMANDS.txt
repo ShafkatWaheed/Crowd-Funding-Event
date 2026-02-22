@@ -1,6 +1,16 @@
 # Crowd Funding Event — Start Commands
 
-Run these in separate terminals. Ensure PostgreSQL is running (e.g. Docker) and .env is configured before starting the backend.
+Run these in separate terminals. Ensure .env is configured before starting the backend.
+
+---
+
+## Quick Start (PostgreSQL + Redis)
+
+  # Start both services with one command (creates containers on first run)
+  sudo ./scripts/start_services.sh
+
+  # Or from project root:
+  sudo bash scripts/start_services.sh
 
 ---
 
@@ -58,6 +68,43 @@ Run these in separate terminals. Ensure PostgreSQL is running (e.g. Docker) and 
 
 ---
 
+## Redis (Docker)
+
+  # First time — pull and start Redis container
+  sudo docker run -d --name redis -p 6379:6379 --restart unless-stopped redis:7-alpine
+
+  # Verify it's running
+  docker exec redis redis-cli ping
+  # Should return: PONG
+
+  # Start Redis (if container exists but is stopped)
+  sudo docker start redis
+
+  # Stop Redis
+  sudo docker stop redis
+
+  # Check status
+  docker ps --filter name=redis
+
+  Config: REDIS_URL=redis://localhost:6379/0 (in Backend/.env)
+  Note: The app works without Redis — emails won't send and ARQ tasks are skipped,
+        but refunds still complete inline. Redis is required for background emails
+        and future payment gateway integration.
+
+---
+
+## ARQ Worker (Background Tasks)
+
+  cd Backend
+  source venv/bin/activate
+  arq app.worker.main.WorkerSettings
+
+  Requires Redis to be running.
+  Handles: email sending, refund processing (13 registered tasks).
+  Run in a separate terminal alongside the backend.
+
+---
+
 ## Admin User Management
 
   cd Backend
@@ -107,5 +154,9 @@ Run these in separate terminals. Ensure PostgreSQL is running (e.g. Docker) and 
   Frontend:   export PATH="$PATH:/home/shafkat/development/flutter/bin" && cd FrontEnd && flutter run -d web-server --web-port=8080
 
   Migrations: cd Backend && source venv/bin/activate && alembic upgrade head
+
+  Redis:      sudo docker start redis
+
+  ARQ Worker: cd Backend && source venv/bin/activate && arq app.worker.main.WorkerSettings
 
   Fix perms:  sudo chown -R $(whoami) /home/shafkat/development/flutter/bin/cache/

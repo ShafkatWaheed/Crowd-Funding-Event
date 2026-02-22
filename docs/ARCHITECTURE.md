@@ -1,305 +1,421 @@
 # Crowd-Funded Event App — Architecture
 
-**Target:** Small events in Ottawa, Canada → scale to larger events  
-**Stack:** React Native | FastAPI | PostgreSQL | Firebase Auth
+**Stack:** Flutter Web | FastAPI (async) | PostgreSQL | Redis | Firebase Auth | ARQ  
+**Roles:** Admin, Organizer, Customer, Sponsor
 
 ---
 
 ## 1. High-Level System Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           CLIENT (React Native)                              │
-│  ┌─────────────┐  ┌─────────────────┐  ┌─────────────┐                     │
-│  │   Admin     │  │ Event Organizer │  │   Customer  │                     │
-│  │   View      │  │     View        │  │    View     │                     │
-│  └──────┬──────┘  └────────┬────────┘  └──────┬──────┘                     │
-│         │                  │                   │                            │
-│         └──────────────────┼───────────────────┘                            │
-│                            │                                                 │
-│                    ┌───────▼───────┐                                         │
-│                    │  Firebase     │  (Auth only)                            │
-│                    │  Auth SDK     │                                         │
-│                    └───────┬───────┘                                         │
-└────────────────────────────┼───────────────────────────────────────────────┘
-                             │
-                             │  HTTPS / REST
-                             ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        BACKEND (FastAPI)                                     │
-│  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐ │
-│  │   Auth     │ │   Events   │ │  Funding   │ │   Map      │ │  Capacity  │ │
-│  │   Module   │ │   Module   │ │  Module    │ │  Module    │ │  Module    │ │
-│  └─────┬──────┘ └─────┬──────┘ └─────┬──────┘ └─────┬──────┘ └─────┬──────┘ │
-│        │               │              │              │              │        │
-│        └───────────────┴──────────────┴──────────────┴──────────────┘        │
-│                                    │                                         │
-│                            ┌───────▼───────┐                                 │
-│                            │  SQLAlchemy   │                                 │
-│                            │  + Pydantic   │                                 │
-│                            └───────┬───────┘                                 │
-└────────────────────────────────────┼─────────────────────────────────────────┘
-                                     │
-                                     ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         PostgreSQL                                           │
-│  users | roles | events | venues | fundings | registrations | ...            │
-└─────────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                         CLIENT (Flutter Web)                                 │
+│                                                                              │
+│  ┌──────────┐  ┌────────────┐  ┌──────────┐  ┌──────────┐                  │
+│  │  Admin   │  │ Organizer  │  │ Customer │  │ Sponsor  │                  │
+│  │  View    │  │   View     │  │   View   │  │   View   │                  │
+│  └────┬─────┘  └─────┬──────┘  └────┬─────┘  └────┬─────┘                  │
+│       └───────────────┼──────────────┼──────────────┘                        │
+│                       │              │                                        │
+│               ┌───────▼──────────────▼───────┐                               │
+│               │     Firebase Auth SDK        │                               │
+│               │     (ID token generation)    │                               │
+│               └──────────────┬───────────────┘                               │
+└──────────────────────────────┼───────────────────────────────────────────────┘
+                               │
+                               │  HTTPS / REST (Bearer token)
+                               ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                        BACKEND (FastAPI — async)                             │
+│                                                                              │
+│  ┌──────────────────────────────────────────────────────────────────────┐    │
+│  │                     API Layer (14 routers)                           │    │
+│  │  auth · events · funding · tickets · registration · sponsors        │    │
+│  │  milestones · schedule · venues · admin · notifications · ratings   │    │
+│  │  discount-strategies · ticket-strategies · public-profiles · map    │    │
+│  └──────────────────────────────┬───────────────────────────────────────┘    │
+│                                 │                                            │
+│  ┌──────────────┐  ┌───────────▼──────────┐  ┌──────────────────────┐       │
+│  │  Middleware   │  │   Service Layer      │  │   Background Tasks   │       │
+│  │  ─────────── │  │   (21 services)      │  │   (ARQ + Redis)      │       │
+│  │  Rate Limit  │  │   event, funding,    │  │   ──────────────     │       │
+│  │  (slowapi)   │  │   ticket, sponsor,   │  │   13 tasks:          │       │
+│  │  Request Log │  │   escrow, email,     │  │   • 8 email tasks    │       │
+│  │  CORS        │  │   notification ...   │  │   • 5 refund tasks   │       │
+│  └──────────────┘  └───────────┬──────────┘  └──────────┬───────────┘       │
+│                                │                        │                    │
+│                     ┌──────────▼──────────┐    ┌────────▼─────────┐          │
+│                     │   SQLAlchemy ORM    │    │   Redis (ARQ)    │          │
+│                     │   (async, pooled)   │    │   Task queue +   │          │
+│                     │   40 models         │    │   future cache   │          │
+│                     └──────────┬──────────┘    └──────────────────┘          │
+│                                │                                             │
+│  ┌─────────────┐  ┌───────────▼──────────┐  ┌───────────────────┐           │
+│  │  Advisory   │  │  Connection Pool     │  │  Health Probes    │           │
+│  │  Locks      │  │  pool_size=10        │  │  /healthz (live)  │           │
+│  │  (per-event │  │  max_overflow=20     │  │  /health (ready)  │           │
+│  │  capacity)  │  │  pool_recycle=1800   │  │  (checks DB)      │           │
+│  └─────────────┘  └───────────┬──────────┘  └───────────────────┘           │
+└────────────────────────────────┼─────────────────────────────────────────────┘
+                                 │
+                                 ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                          PostgreSQL                                          │
+│  40 tables: users, events, venues, fundings, registrations, ticket_sales,   │
+│  ticket_tiers, sponsor_bids, sponsor_payments, escrows, milestones,         │
+│  notifications, ratings, bookmarks, schedules, discount_strategies ...       │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
-
-**Auth flow:** React Native uses Firebase Auth (sign-in, tokens). Backend validates **Firebase ID tokens** on each request and maps to your PostgreSQL user/role.
 
 ---
 
-## 2. Three Views: Admin, Event Organizer, Customer
+## 2. Four Roles
 
-| Role | Purpose | Main capabilities |
-|------|---------|-------------------|
-| **Admin** | Platform oversight, Ottawa-first moderation | Approve/reject events, manage organizers, view analytics, moderate content |
-| **Event Organizer** | Create and run crowd-funded events | Create events, set funding goal & capacity, see funding/registrations, manage one event or many |
-| **Customer** | Discover, fund, and join events | Browse map, fund events, register (if capacity allows), open vs closed events |
-
----
-
-## 3. Core Concepts
-
-### 3.1 Open vs Closed Events
-
-| Type | Meaning | Join rule |
-|------|--------|-----------|
-| **Open event** | Registration is first-come-first-served up to capacity also will have funding goals | Customer can register while spots remain. |
-| **Closed event** | Registration is controlled (e.g. approval, invite-only, or after funding goal) | Customer can request/join only when organizer allows (e.g. after goal met). |
-
-**Implementation:** Each event has `registration_type: open | closed` and `max_capacity`. Backend enforces capacity and registration rules per type.
-
-### 3.2 Crowd Funding
-
-- Organizer sets a **funding goal** and optional **deadline**.
-- Customers **contribute** (pledge) to the event.
-- When goal is met (and optionally deadline passed), event is **confirmed**; otherwise it can be cancelled or extended (business rule).
-- Funding can be held in escrow or recorded as pledges (Ottawa MVP: record pledges; payment gateway later).
-
-### 3.3 Map & Live Events
-
-- Events have **location** (lat/lng + address, Ottawa-first).
-- **Live** = event is currently happening (start_time ≤ now ≤ end_time).
-- Map shows events (all or filtered: live, upcoming, by category). Clustering for many events.
+| Role | Purpose | Key capabilities |
+|------|---------|-----------------|
+| **Admin** | Platform oversight | Approve/reject events, manage settings, escrow control, view all users, feature flags |
+| **Organizer** | Create and run events | Event CRUD, ticket tiers, discounts, milestones, schedule, co-organizers, scan tickets, manage waitlist/refunds |
+| **Customer** | Discover, fund, attend | Browse/search/map, pledge, reserve spots, buy tickets, request refunds, rate, bookmark |
+| **Sponsor** | Fund events for visibility | Create profile, browse categories, place bids, pay, get sponsor tickets |
 
 ---
 
-## 4. Modules to Build
+## 3. Backend Architecture
 
-### 4.1 Backend (FastAPI) — Modules
+### 3.1 Directory Structure
 
-| Module | Responsibility | Key endpoints / logic |
-|--------|----------------|------------------------|
-| **Auth** | Verify Firebase token, create/update user in DB, assign role | `POST /auth/verify`, `GET /me`, role in JWT or DB |
-| **Users & roles** | CRUD users (Admin only for roles), profile | `GET/PATCH /users/me`, `GET /users` (admin), role: admin \| organizer \| customer |
-| **Events** | CRUD events, status (draft → pending_approval → approved → live → ended), location | `GET/POST/PATCH/DELETE /events`, filters: city=Ottawa, live, open/closed |
-| **Venues / halls** | Venue CRUD, capacity per venue | `GET/POST/PATCH /venues`, link event → venue (capacity source) |
-| **Funding** | Pledges, goals, release when goal met | `POST /events/{id}/pledge`, `GET /events/{id}/funding`, goal checks |
-| **Registrations** | Join event (respect open/closed + capacity) | `POST /events/{id}/register`, `GET /events/{id}/registrations` (organizer/admin) |
-| **Map** | Events in bounding box or by city (Ottawa) | `GET /events/map?lat=&lng=&radius=&live=` |
-| **Admin** | Approve/reject events, list organizers, simple analytics | `POST /events/{id}/approve`, `GET /admin/events`, `GET /admin/stats` |
-| **Notifications** (optional v1) | In-app or push when event approved, goal met, etc. | Firestore or FCM later |
+```
+Backend/
+├── app/
+│   ├── api/v1/              # 14 route modules
+│   │   ├── auth.py          # Firebase token verify (rate limited: 10/min)
+│   │   ├── events.py        # Event CRUD, lifecycle, tickets, pledges, refunds
+│   │   ├── sponsors.py      # Sponsor marketplace (categories, bids, payments)
+│   │   ├── admin.py         # Admin dashboard, approvals, settings
+│   │   ├── milestones.py    # Funding milestones (feature-flagged)
+│   │   ├── schedule.py      # Event schedule/agenda (feature-flagged)
+│   │   └── ...              # venues, ratings, notifications, etc.
+│   ├── models/              # 19 files, 40 SQLAlchemy models
+│   ├── schemas/             # Pydantic request/response models
+│   ├── services/            # 21 service modules (business logic)
+│   ├── worker/              # ARQ background task system
+│   │   ├── tasks.py         # 13 tasks (8 email + 5 refund)
+│   │   ├── main.py          # WorkerSettings (entry point for arq CLI)
+│   │   └── redis_pool.py    # Shared pool + enqueue() helper
+│   ├── db/base.py           # Async engine + session (pooled)
+│   ├── config.py            # Pydantic Settings from .env
+│   ├── rate_limit.py        # slowapi config (user-id/IP key)
+│   ├── dependencies.py      # DbSession, CurrentUser, require_role, require_feature
+│   └── main.py              # FastAPI app, lifespan, middleware
+├── alembic/                 # Database migrations
+├── requirements.txt         # 19 dependencies
+└── static/uploads/          # Local file storage (→ S3 in production)
+```
 
-### 4.2 React Native App — Modules (by role)
+### 3.2 Key Dependencies
 
-| Module | Admin | Organizer | Customer |
-|--------|--------|-----------|----------|
-| **Auth** | Login (Firebase), role selection if needed | Same | Same |
-| **Onboarding / role** | Redirect to Admin stack | Redirect to Organizer stack | Redirect to Customer stack |
-| **Home / Dashboard** | Pending events, stats, quick actions | My events, funding status | Discover (map + list), “My events” |
-| **Map** | Optional (all events) | Optional (my events) | **Primary**: live + upcoming events, filters |
-| **Events list** | All events (filters) | My events (draft, active, past) | Browse by category, Ottawa |
-| **Event detail** | Full detail + approve/reject | Edit, funding, registrations, capacity | View, fund, register (open/closed) |
-| **Create / Edit event** | — | Create event, set venue, goal, capacity, open/closed | — |
-| **Funding** | — | See pledges, goal progress | Pledge to event |
-| **Registrations** | — | See list, capacity used | Register (open) or request (closed) |
-| **Profile / Settings** | Profile, maybe invite organizers | Profile, my venues | Profile, my events & pledges |
-| **Admin tools** | Approve events, users, stats | — | — |
+| Category | Packages |
+|----------|----------|
+| Framework | `fastapi`, `uvicorn`, `pydantic`, `pydantic-settings` |
+| Database | `sqlalchemy[asyncio]`, `asyncpg`, `alembic` |
+| Auth | `firebase-admin` |
+| Background tasks | `arq`, `redis[hiredis]` |
+| Rate limiting | `slowapi` |
+| Email | `sendgrid` |
+| Security | `cryptography` (AES-256-GCM for ticket QR) |
+| Export | `openpyxl` (Excel schedule export) |
+| Upload | `python-multipart`, `aiofiles` |
+
+### 3.3 Concurrency & Safety
+
+- **Advisory locks**: `pg_advisory_xact_lock(event_id)` on `purchase_ticket()` and `create_pledge()` — serializes capacity-sensitive operations per-event; two purchases for different events run in parallel
+- **Connection pooling**: `pool_size=10`, `max_overflow=20`, `pool_recycle=1800` — prevents connection exhaustion under load
+- **Rate limiting**: Global 120/min, auth 10/min, purchase 15/min, pledge/register 20/min — user-id preferred, falls back to IP
+
+### 3.4 Background Task System (ARQ + Redis)
+
+```
+API Request                          ARQ Worker (separate process)
+───────────                          ────────────────────────────
+1. Handle request                    4. Pick up job from Redis
+2. enqueue("task_name", **kwargs)    5. Execute task (email/refund)
+3. Return response immediately       6. Retry up to 3x on failure
+                                     7. Log result
+```
+
+**13 registered tasks:**
+
+| Type | Tasks |
+|------|-------|
+| Email (8) | event cancelled, ticket purchased, waitlist rejected, ticket refund approved, waitlist approved, sponsor bid approved, sponsor bid rejected, sponsor refunded |
+| Refund (5) | pledge refund, bulk pledge refunds, ticket refund, sponsor refund, bulk sponsor refunds |
+
+**Graceful degradation**: If Redis is unavailable, the app starts normally — emails are silently skipped, refunds complete inline (synchronous fallback).
 
 ---
 
-## 5. Database (PostgreSQL) — Core Entities
+## 4. Frontend Architecture (Flutter Web)
 
 ```
-┌──────────────┐       ┌──────────────┐       ┌──────────────┐
-│    users     │       │   venues     │       │   events     │
-├──────────────┤       ├──────────────┤       ├──────────────┤
-│ id           │       │ id           │       │ id           │
-│ firebase_uid │       │ name         │       │ organizer_id │──┐
-│ email        │       │ address      │       │ venue_id     │  │
-│ display_name │       │ lat, lng     │       │ title        │  │
-│ role         │       │ max_capacity │       │ description  │  │
-│ created_at   │       │ city (Ottawa)│       │ start_time   │  │
-└──────┬───────┘       └──────┬───────┘       │ end_time    │  │
-       │                      │               │ lat, lng    │  │
-       │                      │               │ funding_goal│  │
-       │                      │               │ funding_end │  │
-       │                      │               │ status      │  │
-       │                      │               │ registration_type │ open|closed
-       │                      │               │ max_capacity│  │
-       │                      │               └──────┬──────┘  │
-       │                      │                      │         │
-       │                      │               ┌──────▼──────┐  │
-       │                      │               │  fundings   │  │
-       │                      │               ├────────────┤  │
-       │                      │               │ event_id   │  │
-       │                      │               │ user_id    │◄─┘
-       │                      │               │ amount     │
-       │                      │               │ status     │
-       │                      │               └────────────┘
-       │                      │
-       │                      │               ┌──────────────┐
-       │                      │               │registrations│
-       │                      │               ├──────────────┤
-       │                      └──────────────►│ event_id     │
-       │                                      │ user_id     │
-       │                                      │ status      │
-       │                                      │ (optional)  │
-       └─────────────────────────────────────►│ requested_at│
-                                              └──────────────┘
-```
-
-**Suggested tables (minimal for v1):**
-
-- **users** — id, firebase_uid (unique), email, display_name, role (enum: admin, organizer, customer), created_at, updated_at
-- **venues** — id, name, address, city, province, lat, lng, max_capacity, created_at
-- **events** — id, organizer_id, venue_id, title, description, start_time, end_time, lat, lng, funding_goal, funding_end_at, status (draft, pending_approval, approved, live, ended, cancelled), registration_type (open, closed), max_capacity, created_at, updated_at
-- **fundings** — id, event_id, user_id, amount_cents, status (pledged, collected, refunded), created_at
-- **registrations** — id, event_id, user_id, status (registered, waitlist, cancelled), created_at
-
-Add indexes on: `events(city, status, start_time)`, `events(lat, lng)` or PostGIS for map, `registrations(event_id)`, `fundings(event_id)`.
-
----
-
-## 6. API Structure (FastAPI) — Layout
-
-```
-/api
-├── v1/
-│   ├── auth/
-│   │   └── verify          # POST: body { id_token } → create/update user, return app token or session
-│   ├── me/                 # GET/PATCH current user (role, profile)
-│   ├── events/
-│   │   ├── GET             # list (query: city, status, live, registration_type, organizer_id)
-│   │   ├── POST            # create (organizer)
-│   │   └── /{id}/
-│   │       ├── GET         # detail
-│   │       ├── PATCH       # update (organizer owner or admin)
-│   │       ├── DELETE      # (organizer or admin)
-│   │       ├── pledge      # POST fundings (customer)
-│   │       ├── register    # POST registrations (customer, check capacity & open/closed)
-│   │       ├── registrations  # GET (organizer/admin)
-│   │       └── approve     # POST (admin)
-│   ├── events/map/
-│   │   └── GET             # ?lat=&lng=&radius=&live=&city=Ottawa
-│   ├── venues/
-│   │   └── GET, POST, PATCH
-│   ├── admin/
-│   │   ├── events          # GET list (pending, all)
-│   │   ├── events/{id}/approve   # POST
-│   │   └── stats           # GET
-│   └── ...
-├── health
-└── ...
-```
-
-Use **dependency injection** for “current user” and “require role” (admin, organizer, customer). Validate Firebase token in a middleware or dependency and load user from PostgreSQL.
-
-**Request/response schemas:** All API request and response bodies are defined as Pydantic models in `app/schemas/` (event, user, venue, funding, registration, admin). Route handlers import these schemas from `app.schemas` so validation and OpenAPI docs stay in one place.
-
----
-
-## 7. React Native App — Layout & Navigation
-
-### 7.1 Suggested folder structure
-
-```
-mobile/
-├── src/
-│   ├── api/              # API client (axios/fetch), auth header (Firebase token)
-│   ├── auth/             # Firebase Auth, token refresh, role persistence
-│   ├── navigation/       # Root navigator + role-based stacks
+FrontEnd/
+├── lib/
+│   ├── config/
+│   │   ├── router.dart          # GoRouter with role-based routes
+│   │   └── theme.dart           # AppTheme (light + dark palettes)
+│   ├── models/                  # Dart data classes (Event, User, Ticket, etc.)
+│   ├── providers/               # State management (ThemeProvider, NotificationProvider)
+│   ├── services/
+│   │   └── api_service.dart     # HTTP client (all backend calls)
 │   ├── screens/
-│   │   ├── auth/         # Login, Register, ForgotPassword
-│   │   ├── admin/        # Dashboard, PendingEvents, EventDetail, Stats
-│   │   ├── organizer/    # Dashboard, CreateEvent, EditEvent, EventFunding, EventRegistrations
-│   │   └── customer/     # Home, Map, EventList, EventDetail, FundEvent, RegisterEvent, MyEvents
-│   ├── components/       # Shared: EventCard, MapMarkers, FundingBar, CapacityBadge
-│   ├── context/          # AuthContext (user, role), Theme
-│   ├── hooks/            # useEvents, useMapEvents, useFunding
-│   ├── types/            # Event, User, Venue, RegistrationType
-│   └── utils/
-├── App.tsx
-├── app.json
-└── package.json
+│   │   ├── auth/                # Login, register, terms
+│   │   ├── event/               # Create wizard, detail, management
+│   │   ├── profile/             # My tickets, bookmarks, settings
+│   │   ├── admin/               # Dashboard, approvals, escrow
+│   │   ├── sponsor/             # Dashboard, bids, payments
+│   │   └── manage/              # Waitlist, sales, discounts
+│   └── widgets/                 # Reusable components
+└── pubspec.yaml
 ```
 
-### 7.2 Navigation layout (conceptual)
-
-- **Unauthenticated:** Auth stack (Login, Register).
-- **Authenticated:** Role resolved from `/me` (or cached). Single place to switch stacks:
-  - **Admin:** Tab or Drawer — Dashboard, Pending events, Events (list), Stats, Profile.
-  - **Organizer:** Tab — Dashboard (my events), Create event, Map (optional), Profile.
-  - **Customer:** Tab — **Map** (default), List, My events, Profile.
-
-**Map tab (customer):** Full-screen map (e.g. React Native Maps) with markers for events; filter by “Live”, “Upcoming”, “Ottawa”. Tapping marker → bottom sheet or navigate to Event detail. List view can sit in another tab or as a list overlay on map.
-
-### 7.3 Key screens to bring forward (MVP)
-
-| Priority | Screen | Role | Purpose |
-|----------|--------|------|---------|
-| 1 | Login / Register | All | Firebase Auth, then fetch `/me` for role |
-| 2 | Map (events) | Customer | Show live/upcoming events in Ottawa on map |
-| 3 | Event detail | Customer | See event, funding progress, “Pledge” and “Register” (if open/closed allows) |
-| 4 | Organizer dashboard | Organizer | List my events, funding status, capacity |
-| 5 | Create event | Organizer | Form: venue, dates, funding goal, capacity, open/closed |
-| 6 | Pending events + Approve | Admin | List pending, approve/reject |
-| 7 | Register / Pledge flows | Customer | Complete registration and pledge from Event detail |
+**Key patterns:**
+- **5-step event creation wizard** with `IndexedStack` for state persistence
+- **Self-contained widgets** (FundingCard, ReactionBar, EventFeed) — refresh only themselves
+- **Dark mode** with context-aware color helpers
+- **Mapbox** integration (dark-v11 tiles, geocoding, venue markers)
 
 ---
 
-## 8. Auth: Firebase + FastAPI
+## 5. Database Schema (40 tables)
 
-1. **React Native:** User signs in with Firebase Auth (email/password or Google, etc.). Get `idToken` after sign-in.
-2. **Every API request:** Send `Authorization: Bearer <idToken>` (or refresh token server-side if you add your own JWT).
-3. **FastAPI:**  
-   - Dependency: decode Firebase ID token (use `firebase-admin` or a JWT library with Firebase’s public keys).  
-   - Get `firebase_uid` from token → lookup or create user in PostgreSQL, attach `user` and `role` to request.  
-   - Protect routes by role (e.g. only admin can hit `POST /admin/events/{id}/approve`).
+### Core Domain
 
-No need to store passwords in PostgreSQL; only `firebase_uid`, email, display_name, role.
+```
+users ──────────┐
+                │
+events ─────────┼──── registrations
+  │             │
+  ├── fundings ─┘──── pledge_spot_reservations
+  │
+  ├── ticket_tiers ── ticket_sales
+  │
+  ├── event_discounts
+  ├── event_images
+  ├── event_posts
+  ├── event_schedule_items
+  │
+  ├── funding_milestones ── milestone_reactions
+  │                      ── funding_milestone_snapshots
+  │                      ── funding_milestone_users
+  │
+  ├── early_bird_discounts
+  │
+  ├── sponsorship_categories ── sponsor_bids ── sponsor_payments
+  │                          ── category_prerequisites
+  │                                           ── bid_prerequisite_uploads
+  │
+  ├── fund_escrows ── escrow_releases
+  │
+  ├── event_organizers (co-organizers)
+  ├── event_reactions
+  └── bookmarks
+```
+
+### Supporting
+
+```
+venues
+ticket_strategies ── ticket_strategy_tiers
+discount_strategies ── event_discount_strategy_links ── customer_discount_claims
+sponsor_profiles
+sponsor_tickets
+organizer_customer_history
+notifications
+ratings
+platform_settings
+```
+
+### Key Enum Types
+
+| Enum | Values |
+|------|--------|
+| `EventStatus` | draft, pending_approval, approved, selling_tickets, waiting_event_date, live, completed, cancelled |
+| `FundingStatus` | pledged, collected, refund_processing, refunded, refund_failed |
+| `TicketSaleStatus` | purchased, waitlisted, refund_requested, refund_processing, refunded, refund_failed, cancelled |
+| `PaymentStatus` | pending, completed, refund_processing, refunded, refund_failed |
+| `UserRole` | admin, organizer, customer, sponsor |
 
 ---
 
-## 9. Ottawa-First, Then Scale
+## 6. Auth Flow
 
-- **Phase 1 (Ottawa small events):**  
-  - City filter default “Ottawa”; venues and events in Ottawa.  
-  - Simple map (no clustering) and list.  
-  - Open/closed and capacity for small halls.
+```
+Flutter App                    Firebase                    FastAPI Backend
+───────────                    ────────                    ──────────────
+1. Email/password sign-in  ──► 2. Returns ID token
+                                                    ◄──── 3. POST /auth/verify
+                                                           { id_token, role? }
+                               4. firebase-admin
+                                  verifies token    ──────►
+                                                           5. Upsert user in DB
+                                                              (firebase_uid → user)
+                                                    ◄──── 6. Return user_id, role
+7. Store token, call APIs
+   with Authorization:
+   Bearer <idToken>        ──────────────────────────────► 8. Dependency extracts
+                                                              user from token on
+                                                              every request
+```
 
-- **Phase 2:**  
-  - More cities (e.g. Ontario then Canada).  
-  - Map clustering, better search/filters.  
-  - Payments (Stripe) for pledges, escrow, refunds.
-
-- **Phase 3:**  
-  - Larger venues, multi-day events, tickets, notifications (FCM), analytics.
+No passwords stored in PostgreSQL — only `firebase_uid`, email, display_name, role.
 
 ---
 
-## 10. Summary: What to Build First
+## 7. Scaling Architecture (Kubernetes)
 
-| Order | Module | Delivers |
-|-------|--------|----------|
-| 1 | **Auth** (Firebase + FastAPI verify, users table, role) | Login and role-based access |
-| 2 | **Events + Venues** (CRUD, status, capacity, open/closed) | Organizers can create events |
-| 3 | **Map API + Map screen** (Ottawa, live/upcoming) | Customers see events on map |
-| 4 | **Funding** (pledges, goal) | Crowd-funded flow |
-| 5 | **Registrations** (capacity, open/closed) | Customers join events |
-| 6 | **Admin** (approve events, stats) | Safe rollout in Ottawa |
+### Current State (Development)
 
-This gives you a clear **architecture**, **modules**, and **layout** for the crowd-funded, event-based app with Admin, Organizer, and Customer views, live events on map, and open/closed capacity-based joining, using React Native, FastAPI, PostgreSQL, and Firebase Auth.
+```
+┌──────────┐     ┌──────────────┐     ┌────────────┐     ┌───────────┐
+│  Flutter  │────►│  FastAPI     │────►│ PostgreSQL │     │   Redis   │
+│  Web      │     │  (uvicorn)   │     │            │     │  (Docker) │
+└──────────┘     │              │     └────────────┘     └─────┬─────┘
+                 │  + rate limit │                              │
+                 │  + adv. locks │                        ┌─────▼─────┐
+                 └──────────────┘                        │ ARQ Worker│
+                                                         └───────────┘
+```
+
+### Production Target (Kubernetes)
+
+```
+                    ┌─────────────────┐
+                    │  nginx-ingress   │
+                    │  (rate limiting)  │
+                    └────────┬────────┘
+                             │
+              ┌──────────────┼──────────────┐
+              ▼              ▼              ▼
+     ┌────────────┐  ┌────────────┐  ┌────────────┐
+     │  Read Pods  │  │ Write Pods │  │ Worker Pods │
+     │  HPA: 5-15  │  │  HPA: 3-5  │  │  (ARQ)     │
+     │             │  │             │  │  2-3 pods   │
+     │ GET /events │  │ POST pledge │  │             │
+     │ GET /detail │  │ POST ticket │  │ Emails     │
+     │ GET /search │  │ POST refund │  │ Refunds    │
+     └──────┬──────┘  └──────┬──────┘  └──────┬─────┘
+            │                │                │
+            ▼                ▼                ▼
+     ┌────────────┐  ┌────────────┐  ┌────────────┐
+     │ DB Replica  │  │ DB Primary │  │   Redis    │
+     │ (read-only) │  │  (writes)  │  │  (queue +  │
+     └────────────┘  └────────────┘  │   cache)   │
+                                      └────────────┘
+```
+
+**Read Pods** (scale aggressively):
+- Handle all GET requests (event list, detail, featured, search, map)
+- Connect to PostgreSQL read replica
+- Redis cache for featured events (TTL 60s) and event detail (TTL 30s)
+- Stateless, cheap to scale
+
+**Write Pods** (scale moderately):
+- Handle all POST/PATCH/DELETE requests (pledge, ticket purchase, refund, registration, event CRUD)
+- Connect to primary DB with advisory locks for per-event serialization
+- Rate limited at both ingress and application level
+
+**Worker Pods** (ARQ):
+- Process background tasks from Redis queue
+- Email sending (11 types), refund processing (5 tasks)
+- 3 retries per task, `refund_failed` status for admin investigation
+
+**Routing** (nginx-ingress by HTTP method):
+- `GET /api/*` → read-pods service
+- `POST|PATCH|PUT|DELETE /api/*` → write-pods service
+- `/health`, `/healthz` → both (independent health checks)
+
+### Infrastructure Roadmap
+
+| Priority | Component | Status | Purpose |
+|----------|-----------|--------|---------|
+| ✅ Done | Advisory locks | Implemented | Per-event capacity serialization |
+| ✅ Done | Connection pooling | Implemented | DB connection management |
+| ✅ Done | Rate limiting (slowapi) | Implemented | Abuse prevention |
+| ✅ Done | Health probes | Implemented | K8s readiness/liveness |
+| ✅ Done | ARQ + Redis | Implemented | Background task queue |
+| ⏳ Next | Dockerfile | Planned | Multi-stage build for deployment |
+| ⏳ Next | K8s manifests | Planned | Deployments, HPA, PDB, Ingress |
+| ⏳ Next | S3 storage | Planned | Multi-pod file sharing |
+| ⏳ Later | Redis caching | Planned | Read scaling |
+| ⏳ Later | Observability | Planned | Prometheus, structured logging |
+
+### Why Not Microservices
+
+- **Tight transactional coupling**: A single ticket purchase touches tickets, funding (reserved spots), escrow, events (capacity), platform settings (commission), and registration — all in one DB transaction
+- **Small codebase**: ~7,000 lines across 21 service files. Microservices add value at 50k+ lines with multiple teams
+- **Advisory locks solve the bottleneck**: The scaling problem is DB write contention on capacity checks, not service-level scaling
+- **Revisit when**: 3+ teams deploying independently, 50k+ users, or a module with 10x different scaling needs
+
+---
+
+## 8. Email System
+
+```
+API Endpoint                     Redis (ARQ)                  Email Provider
+────────────                     ───────────                  ──────────────
+1. Business logic completes
+2. arq_enqueue("send_*_email",   3. Job queued    ──────────►
+   buyer_email=..., ...)                                      4. ARQ worker picks up
+                                                              5. email_notifications.py
+                                                                 builds HTML template
+                                                              6. email_service.py sends
+                                                                 via SendGrid (or console)
+```
+
+**11 email types** with Uber-themed HTML templates (inline CSS, mobile-friendly):
+- Event cancelled, cancellation + refund, ticket purchased, unpledge refund, unregister refund
+- Waitlist rejected, waitlist approved, ticket refund approved
+- Sponsor bid approved, sponsor bid rejected, sponsor payment refunded
+
+**Provider-agnostic**: `EmailBackend` ABC with `SendGrid` and `Console` backends. Swap via `EMAIL_PROVIDER` env var.
+
+---
+
+## 9. Refund Processing
+
+```
+Customer                    API                         ARQ Worker
+────────                    ───                         ──────────
+Request refund ──────────► Set refund_requested
+                           (ticket only)
+
+Organizer approves ──────► Set refund_processing
+                           → Set refunded (inline)      (Future: payment gateway
+                           Return response               call goes here, with
+                                                         3 retries on failure)
+
+Event cancelled ─────────► Bulk: all pledges,
+                           tickets, sponsor payments
+                           → refund_processing
+                           → refunded (inline)
+```
+
+**States**: `refund_processing` → `refunded` | `refund_failed`  
+**Ticket-specific**: `refund_requested` (customer asks) → organizer approves/rejects  
+**Bulk**: Automatic on event cancellation for all pledges, tickets, and sponsor payments
+
+---
+
+## 10. Development Setup
+
+| Component | Command | Port |
+|-----------|---------|------|
+| PostgreSQL | Docker or system install | 5432 |
+| Redis | `sudo docker run -d --name redis -p 6379:6379 --restart unless-stopped redis:7-alpine` | 6379 |
+| Backend | `cd Backend && source venv/bin/activate && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000` | 8000 |
+| ARQ Worker | `cd Backend && source venv/bin/activate && arq app.worker.main.WorkerSettings` | — |
+| Frontend | `cd FrontEnd && flutter run -d web-server --web-port=8080` | 8080 |
+| Migrations | `cd Backend && source venv/bin/activate && alembic upgrade head` | — |
+
+**Config**: All settings via `Backend/.env` — `DATABASE_URL`, `REDIS_URL`, `FIREBASE_PROJECT_ID`, `EMAIL_PROVIDER`, `TICKET_ENCRYPTION_KEY`
+
+**Without Redis**: App works — emails silently skipped, refunds complete inline. Redis required for background email delivery and future payment gateway integration.

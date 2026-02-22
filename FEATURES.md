@@ -233,21 +233,26 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 - **Profile access** — "Terms & Conditions" ListTile in Legal section on Profile screen navigates to TermsScreen with the user's role
 - **Router** — `/terms?role=customer|organizer` route for direct navigation
 
-### Email Notifications (Provider-Agnostic)
+### Email Notifications (Provider-Agnostic + ARQ Background Tasks)
 - **Provider-agnostic architecture** — `EmailBackend` abstract base class with pluggable backends; swap providers by changing `EMAIL_PROVIDER` in `.env`
 - **SendGrid backend** (default) — production email delivery via SendGrid v3 Web API
 - **Console backend** — logs emails to stdout for development/testing without a real provider
 - **Generic config** — `EMAIL_ENABLED` (master kill switch), `EMAIL_PROVIDER`, `EMAIL_API_KEY`, `EMAIL_FROM_ADDRESS`, `EMAIL_FROM_NAME`
-- **Background sending** — all emails sent via FastAPI `BackgroundTasks` (or `asyncio.ensure_future` for lifecycle transitions) so API responses are never delayed
+- **ARQ background sending** — all emails enqueued as ARQ tasks via Redis (replaced `BackgroundTasks`); `enqueue()` helper with graceful Redis-down fallback; emails survive pod restarts
 - **Graceful failure** — all email functions wrapped in try/except with logging; email errors never break the API
-- **6 email types with Uber-themed HTML templates** (inline CSS, mobile-friendly, black/white/green accent):
+- **11 email types with Uber-themed HTML templates** (inline CSS, mobile-friendly, black/white/green accent):
   - **Event Cancelled** — sent to all registrants and ticket buyers when an event is cancelled
   - **Cancellation + Refund** — sent to pledgers when event is cancelled (includes individual refund amount)
   - **Ticket Purchased** — receipt email to buyer with tier, code, receipt number, amount, quantity, discount, commission
   - **Unpledge Refund** — confirmation when a user unpledges with refund details
   - **Unregister Refund** — confirmation when a user unregisters and receives a refund
   - **Waitlist Ticket Rejected** — notification to buyer when their waitlisted ticket is rejected
-- **Trigger points:** cancel event endpoint, admin approve cancellation, auto-cancel lifecycle, purchase ticket, unpledge, unregister, reject waitlisted ticket
+  - **Ticket Refund Approved** — sent to customer when organizer approves their ticket refund request (tier, amount, receipt #)
+  - **Waitlist Ticket Approved** — sent to customer when organizer approves their waitlisted ticket (ticket code, "bring your QR")
+  - **Sponsor Bid Approved** — sent to sponsor when organizer accepts their bid (category, bid amount)
+  - **Sponsor Bid Rejected** — sent to sponsor when organizer rejects their bid (category, bid amount)
+  - **Sponsor Payment Refunded** — sent to sponsor when organizer refunds their paid bid (category, refund amount, receipt #)
+- **Trigger points:** cancel event, admin approve cancellation, auto-cancel lifecycle, purchase ticket, unpledge, unregister, reject waitlisted ticket, approve waitlisted ticket, approve ticket refund, accept/reject/refund sponsor bid
 - **Cancellation email logic** — queries all affected users (registrants, pledgers, ticket buyers), deduplicates by email, sends refund variant to pledgers and generic variant to others
 
 ### Like / Dislike System
@@ -419,6 +424,48 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 - **Description character count** — live counter showing X / 2000
 - **Contextual Next button** — label shows upcoming step name ("Next: Funding", "Next: Dates & Tickets", etc.)
 
+### Milestone Discounts & Early Bird Discounts
+- **Milestone discounts** — `FundingMilestoneSnapshot` + `FundingMilestoneUser` tables track which users had active pledges when each funding milestone was crossed
+- **Automatic snapshot** — `_check_milestone_snapshots()` triggers on every pledge; when funding crosses a milestone percentage, all current pledgers are recorded
+- **Discount application** — `compute_ticket_price()` applies the best milestone discount the user qualifies for (highest milestone reached while they had an active pledge)
+- **Early bird discounts** — `EarlyBirdDiscount` table with `applies_to` (funding/tickets), time windows, and discount values
+- **Funding early bird** — pledges within the early bird window get `is_early_bird=True` on the `Funding` record
+- **Full CRUD** — endpoints on `/events/{id}/early-bird-discounts` for organizer management
+- **Organizer discount cap** — `max_discount_percent` on `Event` (default 100); all discount types stack (standard + milestone + early bird), then the cap is applied
+- **Frontend** — milestone discount config in event creation wizard (funding step), early bird config section, discount cap slider, early bird banner with countdown on event detail, milestone badges on timeline, full discount breakdown in ticket purchase flow
+
+### Tier-Linked Funding (Spot Reservation by Tier)
+- **Per-tier spot reservation** — `PledgeSpotReservation` join table maps each pledge's reserved spots to specific ticket tiers (one pledge can reserve across multiple tiers)
+- **Tier-aware capacity** — `max_reserved_spots` on `TicketTier` controls per-tier reservation limits; `get_reserved_spots_for_tier()` and `consume_reserved_spots_for_tier()` handle tier-specific logic
+- **`link_funding_to_tiers` toggle** — boolean on Event model; when enabled, pledge dialog shows tier-specific spot selectors instead of generic spot count
+- **Minimum pledge enforcement** — pledge amount must cover `spots × tier.price_cents` for each selected tier
+- **Reordered creation steps** — Dates & Tickets moved before Funding in the wizard so tiers are available when configuring funding
+- **Backward compatible** — legacy global reservation mode still works when `link_funding_to_tiers` is false
+
+### Refund Processing System (ARQ + Redis)
+- **ARQ task queue** — asyncio-native background task system with Redis as message broker; replaces `FastAPI.BackgroundTasks` for persistent, retryable operations
+- **Refund state machine** — new statuses on `FundingStatus`, `TicketSaleStatus`, `PaymentStatus`: `refund_processing`, `refunded`, `refund_failed`
+- **Customer-initiated ticket refunds** — customers request refund (`refund_requested` status), organizer approves or rejects; `request_refund()`, `approve_refund()`, `reject_refund()`, `list_refund_requests()` service functions
+- **Organizer refund management** — dedicated `RefundRequestsScreen` for organizers to view and approve/reject pending ticket refund requests; linked from live management stats
+- **Bulk refunds on cancellation** — `refund_all_tickets_for_event()`, `refund_all_pledges_for_event()`, `refund_all_sponsor_payments_for_event()` automatically process all refunds when an event is cancelled
+- **Immediate completion** — refunds transition `refund_processing` → `refunded` immediately (no payment gateway yet); ARQ infrastructure ready for future gateway integration with 3 retries and `refund_failed` for admin investigation
+- **Frontend polling** — funding card shows "Refund Processing…" spinner, polls `GET /events/{id}/refund-status` every 3s until completed
+- **Ticket refund UI** — "Request Refund" button on My Tickets for purchased/unscanned tickets; "Refund Pending Organizer Approval" banner for `refund_requested` status; "Refunded" filter chip on ticket list
+- **ARQ worker** — `Backend/app/worker/main.py` with 13 registered tasks (5 refund + 8 email), `max_jobs=20`, `job_timeout=300`, 3 retries
+- **Redis pool** — shared connection via `get_arq_pool()`/`close_arq_pool()` managed in FastAPI lifespan; `enqueue()` helper with graceful Redis-down fallback
+
+### Backend Scaling & Infrastructure Hardening
+- **API cleanup** — removed duplicate `capacity-summary` endpoint (frontend uses `capacity-info`), removed unused `organizer-trust` endpoint (data already in `EventResponse`)
+- **Concurrency fix** — `pg_advisory_xact_lock(event_id)` added to `purchase_ticket()` and `create_pledge()`; serializes capacity-sensitive operations per-event (purchases for event A don't block event B) — prevents overselling under burst load
+- **DB connection pooling** — `pool_size=10`, `max_overflow=20`, `pool_timeout=30`, `pool_recycle=1800` on async engine
+- **Health probes** — `/healthz` (liveness, just returns 200) and `/health` (readiness, pings DB, returns 503 if unreachable)
+- **Rate limiting** — `slowapi` middleware with user-id/IP key function:
+  - Global default: 120 req/min
+  - Auth (`/verify`): 10/min
+  - Ticket purchase: 15/min
+  - Pledge + register: 20/min
+- **Email migration** — all `BackgroundTasks` email sends replaced with ARQ task enqueue; `BackgroundTasks` parameter removed from all endpoints
+
 ### API Documentation
 - Swagger at `/api/v1/docs`, redirect from `/docs`
 
@@ -462,6 +509,11 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 | Ratings | Multi-directional rating (4 directions), star picker, reviews on events + profiles, reusable star widgets |
 | Scan Count | Sponsor ticket scan counter (increments every scan), displayed on ticket card + receipt |
 | Event Creation Wizard | 5-step wizard with IndexedStack, step error indicators, loading states, date validation, character count |
+| Milestone Discounts | Funding milestone snapshots, early bird time-window discounts, organizer discount cap, all types stack |
+| Tier-Linked Funding | PledgeSpotReservation table, per-tier reservation/consumption, link_funding_to_tiers toggle, reordered wizard |
+| Refund Processing | ARQ + Redis task queue, refund_processing/refunded/refund_failed states, customer-initiated ticket refunds with organizer approval, bulk refunds on cancellation |
+| Backend Scaling | Advisory locks on capacity checks, DB connection pooling, health probes, slowapi rate limiting, email migration to ARQ |
+| Email Expansion | 11 email types (added: ticket refund approved, waitlist approved, sponsor bid approved/rejected/refunded) |
 
 ### Detailed Phase Breakdowns (Phases 9–20)
 
@@ -637,6 +689,71 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 
 </details>
 
+<details>
+<summary>Milestone Discounts & Early Bird Discounts (click to expand)</summary>
+
+- `FundingMilestoneSnapshot` + `FundingMilestoneUser` tables for tracking pledgers at each milestone crossing
+- `EarlyBirdDiscount` table with `applies_to` (funding/tickets), time windows, discount values
+- `_check_milestone_snapshots()` in `funding.py` triggers on every pledge
+- `compute_ticket_price()` applies best milestone discount user qualifies for
+- `max_discount_percent` on Event (default 100) — organizer cap on total stacked discounts
+- Full CRUD on `/events/{id}/early-bird-discounts`
+- Frontend: milestone config in wizard, early bird section, cap slider, countdown banner, discount breakdown
+
+</details>
+
+<details>
+<summary>Tier-Linked Funding (click to expand)</summary>
+
+- `PledgeSpotReservation` join table (pledge_id, tier_id, spots)
+- `max_reserved_spots` on `TicketTier` for per-tier limits
+- `link_funding_to_tiers` boolean on Event model
+- `get_reserved_spots_for_tier()`, `consume_reserved_spots_for_tier()` service functions
+- Reordered wizard: Dates & Tickets → Funding (tiers available when configuring funding)
+- Legacy global reservation mode preserved when `link_funding_to_tiers` is false
+
+</details>
+
+<details>
+<summary>Refund Processing System (click to expand)</summary>
+
+- ARQ + Redis task queue replacing `BackgroundTasks` for persistent, retryable operations
+- New enum values: `refund_processing`, `refunded`, `refund_failed` on `FundingStatus`, `TicketSaleStatus`, `PaymentStatus`
+- `refund_requested` status on `TicketSaleStatus` for customer-initiated refund flow
+- Service functions: `request_refund()`, `approve_refund()`, `reject_refund()`, `list_refund_requests()`
+- Bulk refund functions: `refund_all_tickets_for_event()`, `refund_all_pledges_for_event()`, `refund_all_sponsor_payments_for_event()`
+- ARQ worker: 13 registered tasks (5 refund + 8 email), `max_jobs=20`, 3 retries
+- Redis pool: `get_arq_pool()`/`close_arq_pool()` in FastAPI lifespan, `enqueue()` helper
+- Frontend: "Request Refund" button, "Refund Pending" banner, RefundRequestsScreen for organizers, polling on funding card
+- Alembic migration `tt70t3u4v5w6` for new enum values
+
+</details>
+
+<details>
+<summary>Backend Scaling & Infrastructure Hardening (click to expand)</summary>
+
+- Removed duplicate `capacity-summary` and unused `organizer-trust` endpoints
+- `pg_advisory_xact_lock(event_id)` in `purchase_ticket()` and `create_pledge()` — per-event serialization
+- DB connection pooling: `pool_size=10`, `max_overflow=20`, `pool_timeout=30`, `pool_recycle=1800`
+- Health probes: `/healthz` (liveness), `/health` (readiness, checks DB connectivity)
+- Rate limiting via `slowapi`: global 120/min, auth 10/min, purchase 15/min, pledge/register 20/min
+- `rate_limit.py` with user-id/IP key function
+- All `BackgroundTasks` email sends replaced with ARQ enqueue; `BackgroundTasks` removed from all endpoints
+- Dependencies added: `slowapi>=0.1.9`, `arq>=0.26.0`, `redis[hiredis]>=5.0.0`
+
+</details>
+
+<details>
+<summary>Email Expansion — 11 Types (click to expand)</summary>
+
+- Original 6: event cancelled, cancellation+refund, ticket purchased, unpledge refund, unregister refund, waitlist rejected
+- New 5: ticket refund approved, waitlist ticket approved, sponsor bid approved, sponsor bid rejected, sponsor payment refunded
+- All 11 types have Uber-themed HTML templates (inline CSS, mobile-friendly, black/white/green accent)
+- All sent via ARQ background tasks with Redis queue
+- Trigger points wired into: `approve_ticket_refund`, `approve_waitlisted_ticket`, `accept_bid`, `reject_bid`, `refund_bid` endpoints
+
+</details>
+
 ---
 
 ## Unimplemented Features (To Do)
@@ -658,13 +775,22 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 | 6 | **Verify Organizer via External Apps** | Use third-party verification service or app for organizer identity | Low — Phase 23 |
 | 7 | **Chatbot for Support** | In-app chatbot for user support and FAQ | Low — Phase 23 |
 
+### Infrastructure (When K8s Env Available)
+
+| # | Feature | Description | Priority |
+|---|---------|-------------|----------|
+| 8 | **Dockerization & K8s Deployment** | Dockerfile (multi-stage), K8s manifests (Deployments, Services, HPA, PDB), nginx-ingress with method-based routing, read/write/worker pod split, ConfigMap/Secrets | Medium — When K8s ready |
+| 9 | **S3 Storage Migration** | Replace local `static/uploads/` with S3-compatible storage (MinIO/AWS S3) for multi-pod; `storage.py` abstraction, presigned URLs, CDN | Medium — Before multi-pod |
+| 10 | **Redis Caching Layer** | Cache featured events (60s TTL), event detail (30s), dashboard stats (30s), map data (120s); time-based + event-driven invalidation | Medium — For read scaling |
+| 11 | **Observability & Monitoring** | Structured JSON logging (structlog), Prometheus metrics (`/metrics`), request ID propagation (`X-Request-ID`), per-service dashboards | Medium — For production |
+
 ### Scaling (When Needed)
 
 | # | Feature | Description | Priority |
 |---|---------|-------------|----------|
-| 8 | **K8s Role-Based Scaling** | Same codebase, conditional route mounting via `SERVICE_ROLE` env var, 4 K8s Deployments with independent HPAs, Nginx Ingress path-based routing | Medium — Phase 24a |
-| 9 | **Domain-Based Modular Monolith** | Reorganize into domain folders, break up 78KB `events.py`, shared queries layer, clean domain boundaries | Medium — Phase 24b |
-| 10 | **Full Microservice Extraction** | Separate databases, API gateway, gRPC, distributed tracing. Only when team/traffic scaling triggers are met | Low — Phase 24c |
+| 12 | **K8s Role-Based Scaling** | Same codebase, conditional route mounting via `SERVICE_ROLE` env var, 4 K8s Deployments with independent HPAs, Nginx Ingress path-based routing | Medium — Phase 24a |
+| 13 | **Domain-Based Modular Monolith** | Reorganize into domain folders, break up 78KB `events.py`, shared queries layer, clean domain boundaries | Medium — Phase 24b |
+| 14 | **Full Microservice Extraction** | Separate databases, API gateway, gRPC, distributed tracing. Only when team/traffic scaling triggers are met | Low — Phase 24c |
 
 ---
 
@@ -719,6 +845,49 @@ Lowest priority. Estimated: **1–2 sessions**.
 | 1 | **Newcomer / Trending Badges** | Small | Backend: badge logic based on organizer age / event stats. Frontend: badge display on cards |
 | 2 | **Verify Organizer via External Apps** | Large | Third-party API integration — scope TBD |
 | 3 | **Chatbot for Support** | Large | Standalone feature — could use an off-the-shelf widget or build custom |
+
+### Feature 10 — Dockerization & K8s Deployment
+
+**Status:** Deferred — no K8s environment yet. Estimated: **1–2 sessions**.
+
+**Prerequisite**: K8s cluster available (local minikube/kind or cloud).
+
+| # | Feature | Effort | What to Build |
+|---|---------|--------|--------------|
+| 10.1 | **Dockerfile** | Small | Multi-stage build (python:3.12-slim), separate entrypoint for ARQ worker (`arq app.worker.main.WorkerSettings`) |
+| 10.2 | **K8s Manifests** | Medium | Deployments (read/write/worker pods), Services, HPA (CPU 70%), PDB (`minAvailable: 1`), ConfigMap/Secrets |
+| 10.3 | **Ingress Routing** | Small | nginx-ingress with method-based routing: `GET /api/*` → read-pods, `POST/PATCH/DELETE /api/*` → write-pods |
+| 10.4 | **Read/Write Split** | Small | Same codebase deployed three ways; read pods connect to DB replica, write pods to primary, worker pods to Redis + primary |
+
+### Feature 11 — S3 Storage Migration
+
+**Status:** Deferred — required before multi-pod deployment. Estimated: **1 session**.
+
+| # | Feature | Effort | What to Build |
+|---|---------|--------|--------------|
+| 11.1 | **S3 Client Setup** | Small | `boto3`/`aiobotocore` dependency, `S3_BUCKET`/`S3_ENDPOINT_URL` config, `storage.py` with `upload_file()`/`get_file_url()` |
+| 11.2 | **Migrate Upload Endpoints** | Medium | Update event images, schedule images, sponsor logos to upload to S3 with structured keys (`events/{id}/images/{uuid}.{ext}`) |
+| 11.3 | **Serve Strategy** | Small | Presigned URLs or CDN (CloudFront), remove `StaticFiles` mount for uploads, migration script for existing files |
+
+### Feature 12 — Redis Caching Layer
+
+**Status:** Deferred — for read scaling. Estimated: **1 session**.
+
+| # | Feature | Effort | What to Build |
+|---|---------|--------|--------------|
+| 12.1 | **Cache Infrastructure** | Small | `cache.py` with `get_cached()`/`set_cached()`/`invalidate()` using existing Redis connection |
+| 12.2 | **Cache Targets** | Medium | Featured events (60s TTL), event detail (30s), dashboard stats (30s), map data (120s) |
+| 12.3 | **Cache Invalidation** | Medium | Time-based TTL + event-driven invalidation on mutations (update, publish, cancel, pledge, purchase) |
+
+### Feature 13 — Observability & Monitoring
+
+**Status:** Deferred — for production. Estimated: **1 session**.
+
+| # | Feature | Effort | What to Build |
+|---|---------|--------|--------------|
+| 13.1 | **Structured JSON Logging** | Small | `python-json-logger` or `structlog`, fields: timestamp, level, request_id, user_id, duration_ms |
+| 13.2 | **Prometheus Metrics** | Small | `prometheus-fastapi-instrumentator`, `/metrics` endpoint, custom metrics (ARQ jobs, cache hit/miss, DB pool) |
+| 13.3 | **Request ID Propagation** | Small | Middleware for `X-Request-ID` header generation/forwarding, attached to all log entries |
 
 ### Phase 24a — K8s Role-Based Scaling (Minimal Effort)
 
@@ -815,7 +984,7 @@ Backend/app/
 | 24c.3 | **Inter-Service Communication** | Large | gRPC or HTTP for sync calls, Redis Streams or RabbitMQ for async events (e.g., "bid accepted" triggers sponsor ticket generation) |
 | 24c.4 | **Observability** | Medium | Distributed tracing (OpenTelemetry), per-service logging, health dashboards |
 
-**Completed phases (1–20 + cross-cutting features):** Auth, venues, events, funding, tickets, registration, admin, search, business logic (commission, escrow, trust score), spot reservation, terms, multi-ticket + QR, email notifications, transport info, QR encryption, map view + geocoding, dark mode, feature flags, funding milestones, event schedule, sponsor marketplace, privacy rules, bookmarks, in-app notifications, organizer profiles, sponsor info, prerequisites, ratings, scan count, event creation wizard. Real-time negotiation chat (20.4) deferred.
+**Completed phases (1–20 + cross-cutting features):** Auth, venues, events, funding, tickets, registration, admin, search, business logic (commission, escrow, trust score), spot reservation, terms, multi-ticket + QR, email notifications (11 types via ARQ), transport info, QR encryption, map view + geocoding, dark mode, feature flags, funding milestones, event schedule, sponsor marketplace, privacy rules, bookmarks, in-app notifications, organizer profiles, sponsor info, prerequisites, ratings, scan count, event creation wizard, milestone discounts + early bird discounts, tier-linked funding, refund processing (ARQ + Redis), backend scaling (advisory locks, rate limiting, connection pooling, health probes). Real-time negotiation chat (20.4) deferred.
 
 **Recommended order for remaining work:**
 1. **Feature 7 — Multi-Role System** (next — high risk, 13+ files)
@@ -823,9 +992,13 @@ Backend/app/
 3. **Phase 22 — Trust & Security** (organizer verification)
 4. **Phase 20.4 — Sponsor Negotiation Chat** (WebSocket real-time chat, deferred)
 5. **Phase 23 — Nice to Have** (badges, external verification, chatbot)
-6. **Phase 24a — K8s Scaling** (when needed)
-7. **Phase 24b — Domain Modular Monolith** (when codebase grows)
-8. **Phase 24c — Microservice Extraction** (only when scaling triggers are met)
+6. **Dockerization & K8s Deployment** (when K8s env available)
+7. **S3 Storage Migration** (required before multi-pod deployment)
+8. **Redis Caching Layer** (for read scaling)
+9. **Observability & Monitoring** (for production)
+10. **Phase 24a — K8s Role-Based Scaling** (when needed)
+11. **Phase 24b — Domain Modular Monolith** (when codebase grows)
+12. **Phase 24c — Microservice Extraction** (only when scaling triggers are met)
 
 ---
 

@@ -22,6 +22,7 @@ import '../../widgets/error_state.dart';
 import '../../widgets/event_lifecycle_bar.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../widgets/app_toast.dart';
+import '../../widgets/fullscreen_image_viewer.dart';
 import '../../services/api_service.dart';
 import 'event_detail/event_detail.dart';
 
@@ -308,58 +309,61 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                 ? FlexibleSpaceBar(
                                     collapseMode: CollapseMode.parallax,
                                     stretchModes: const [StretchMode.zoomBackground],
-                                    background: Stack(
-                                      fit: StackFit.expand,
-                                      children: [
-                                        Image.network(
-                                          ApiConfig.imageUrl(heroUrl!),
-                                          fit: BoxFit.cover,
-                                          loadingBuilder: (context, child, progress) {
-                                            if (progress == null) return child;
-                                            return Container(
-                                              color: AppTheme.cardOf(context),
-                                              child: const Center(
-                                                child: CircularProgressIndicator(strokeWidth: 2),
+                                    background: GestureDetector(
+                                      onTap: () => _openImageViewer(0),
+                                      child: Stack(
+                                        fit: StackFit.expand,
+                                        children: [
+                                          Image.network(
+                                            ApiConfig.imageUrl(heroUrl!),
+                                            fit: BoxFit.cover,
+                                            loadingBuilder: (context, child, progress) {
+                                              if (progress == null) return child;
+                                              return Container(
+                                                color: AppTheme.cardOf(context),
+                                                child: const Center(
+                                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                                ),
+                                              );
+                                            },
+                                            errorBuilder: (_, __, ___) => Container(
+                                              decoration: BoxDecoration(
+                                                gradient: LinearGradient(
+                                                  begin: Alignment.topLeft,
+                                                  end: Alignment.bottomRight,
+                                                  colors: [
+                                                    AppTheme.accentColor.withValues(alpha: 0.15),
+                                                    AppTheme.secondaryColor.withValues(alpha: 0.15),
+                                                  ],
+                                                ),
                                               ),
-                                            );
-                                          },
-                                          errorBuilder: (_, __, ___) => Container(
-                                            decoration: BoxDecoration(
-                                              gradient: LinearGradient(
-                                                begin: Alignment.topLeft,
-                                                end: Alignment.bottomRight,
-                                                colors: [
-                                                  AppTheme.accentColor.withValues(alpha: 0.15),
-                                                  AppTheme.secondaryColor.withValues(alpha: 0.15),
+                                              child: Column(
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: [
+                                                  Icon(Icons.image_rounded, size: 48,
+                                                      color: AppTheme.textSecondaryOf(context)),
+                                                  AppSpacing.vSm,
+                                                  Text('Image could not be loaded',
+                                                      style: TextStyle(
+                                                        fontSize: 12,
+                                                        color: AppTheme.textSecondaryOf(context),
+                                                      )),
                                                 ],
                                               ),
                                             ),
-                                            child: Column(
-                                              mainAxisAlignment: MainAxisAlignment.center,
-                                              children: [
-                                                Icon(Icons.image_rounded, size: 48,
-                                                    color: AppTheme.textSecondaryOf(context)),
-                                                AppSpacing.vSm,
-                                                Text('Image could not be loaded',
-                                                    style: TextStyle(
-                                                      fontSize: 12,
-                                                      color: AppTheme.textSecondaryOf(context),
-                                                    )),
-                                              ],
+                                          ),
+                                          const DecoratedBox(
+                                            decoration: BoxDecoration(
+                                              gradient: LinearGradient(
+                                                begin: Alignment.topCenter,
+                                                end: Alignment.bottomCenter,
+                                                colors: [Colors.black26, Colors.transparent, Colors.black38],
+                                                stops: [0.0, 0.4, 1.0],
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                        const DecoratedBox(
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(
-                                              begin: Alignment.topCenter,
-                                              end: Alignment.bottomCenter,
-                                              colors: [Colors.black26, Colors.transparent, Colors.black38],
-                                              stops: [0.0, 0.4, 1.0],
-                                            ),
-                                          ),
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
                                   )
                                 : null,
@@ -459,101 +463,107 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                         AppSpacing.hSm,
                                     itemBuilder: (ctx, i) {
                                       final img = _images[i];
-                                      return ClipRRect(
-                                        borderRadius: AppRadius.md,
-                                        child: Stack(
-                                          children: [
-                                            Image.network(
-                                              ApiConfig.imageUrl(img.imageUrl),
-                                              height: 180,
-                                              width: 260,
-                                              fit: BoxFit.cover,
-                                              loadingBuilder: (context, child, progress) {
-                                                if (progress == null) return child;
-                                                return Container(
+                                      return GestureDetector(
+                                        onTap: () => _openImageViewer(i),
+                                        child: ClipRRect(
+                                          borderRadius: AppRadius.md,
+                                          child: Stack(
+                                            children: [
+                                              Hero(
+                                                tag: 'event-image-$i',
+                                                child: Image.network(
+                                                  ApiConfig.imageUrl(img.imageUrl),
                                                   height: 180,
                                                   width: 260,
-                                                  color: AppTheme.cardOf(context),
-                                                  child: const Center(
-                                                    child: CircularProgressIndicator(strokeWidth: 2),
-                                                  ),
-                                                );
-                                              },
-                                              errorBuilder:
-                                                  (_, __, ___) =>
-                                                      Container(
-                                                height: 180,
-                                                width: 260,
-                                                color: AppTheme.cardOf(context),
-                                                child: Column(
-                                                  mainAxisAlignment: MainAxisAlignment.center,
-                                                  children: [
-                                                    Icon(Icons.broken_image_rounded,
-                                                        size: 32, color: AppTheme.textSecondaryOf(context)),
-                                                    AppSpacing.vXs,
-                                                    Text('Failed to load',
-                                                        style: TextStyle(fontSize: 11,
-                                                            color: AppTheme.textSecondaryOf(context))),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                            if (img.caption != null &&
-                                                img.caption!.isNotEmpty)
-                                              Positioned(
-                                                bottom: 0,
-                                                left: 0,
-                                                right: 0,
-                                                child: Container(
-                                                  padding:
-                                                      const EdgeInsets.all(6),
-                                                  color: Colors.black54,
-                                                  child: Text(
-                                                    img.caption!,
-                                                    style: const TextStyle(
-                                                        color: Colors.white,
-                                                        fontSize: 12),
-                                                    maxLines: 1,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                  ),
-                                                ),
-                                              ),
-                                            // Delete button for organizer
-                                            if (user != null &&
-                                                (user.isOrganizer ||
-                                                    user.isAdmin))
-                                              Positioned(
-                                                top: 4,
-                                                right: 4,
-                                                child: GestureDetector(
-                                                  onTap: () async {
-                                                    final api =
-                                                        context.read<
-                                                            ApiService>();
-                                                    await api
-                                                        .deleteEventImage(
-                                                            widget.eventId,
-                                                            img.id);
-                                                    _loadImages();
+                                                  fit: BoxFit.cover,
+                                                  loadingBuilder: (context, child, progress) {
+                                                    if (progress == null) return child;
+                                                    return Container(
+                                                      height: 180,
+                                                      width: 260,
+                                                      color: AppTheme.cardOf(context),
+                                                      child: const Center(
+                                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                                      ),
+                                                    );
                                                   },
+                                                  errorBuilder:
+                                                      (_, __, ___) =>
+                                                          Container(
+                                                    height: 180,
+                                                    width: 260,
+                                                    color: AppTheme.cardOf(context),
+                                                    child: Column(
+                                                      mainAxisAlignment: MainAxisAlignment.center,
+                                                      children: [
+                                                        Icon(Icons.broken_image_rounded,
+                                                            size: 32, color: AppTheme.textSecondaryOf(context)),
+                                                        AppSpacing.vXs,
+                                                        Text('Failed to load',
+                                                            style: TextStyle(fontSize: 11,
+                                                                color: AppTheme.textSecondaryOf(context))),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                              if (img.caption != null &&
+                                                  img.caption!.isNotEmpty)
+                                                Positioned(
+                                                  bottom: 0,
+                                                  left: 0,
+                                                  right: 0,
                                                   child: Container(
                                                     padding:
-                                                        const EdgeInsets.all(
-                                                            4),
-                                                    decoration:
-                                                        const BoxDecoration(
-                                                      color: Colors.black54,
-                                                      shape: BoxShape.circle,
+                                                        const EdgeInsets.all(6),
+                                                    color: Colors.black54,
+                                                    child: Text(
+                                                      img.caption!,
+                                                      style: const TextStyle(
+                                                          color: Colors.white,
+                                                          fontSize: 12),
+                                                      maxLines: 1,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
                                                     ),
-                                                    child: const Icon(
-                                                        Icons.close,
-                                                        size: AppIconSize.sm,
-                                                        color: Colors.white),
                                                   ),
                                                 ),
-                                              ),
-                                          ],
+                                              // Delete button for organizer
+                                              if (user != null &&
+                                                  (user.isOrganizer ||
+                                                      user.isAdmin))
+                                                Positioned(
+                                                  top: 4,
+                                                  right: 4,
+                                                  child: GestureDetector(
+                                                    onTap: () async {
+                                                      final api =
+                                                          context.read<
+                                                              ApiService>();
+                                                      await api
+                                                          .deleteEventImage(
+                                                              widget.eventId,
+                                                              img.id);
+                                                      _loadImages();
+                                                    },
+                                                    child: Container(
+                                                      padding:
+                                                          const EdgeInsets.all(
+                                                              4),
+                                                      decoration:
+                                                          const BoxDecoration(
+                                                        color: Colors.black54,
+                                                        shape: BoxShape.circle,
+                                                      ),
+                                                      child: const Icon(
+                                                          Icons.close,
+                                                          size: AppIconSize.sm,
+                                                          color: Colors.white),
+                                                    ),
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
                                         ),
                                       );
                                     },
@@ -998,6 +1008,19 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   }
 
   // Posts section moved into _EventFeed widget
+
+  // ─── Image viewer ───
+
+  void _openImageViewer(int index) {
+    final urls = _images.map((i) => ApiConfig.imageUrl(i.imageUrl)).toList();
+    final captions = _images.map((i) => i.caption).toList();
+    FullscreenImageViewer.open(
+      context,
+      imageUrls: urls,
+      captions: captions,
+      initialIndex: index,
+    );
+  }
 
   // ─── Add image button ───
 

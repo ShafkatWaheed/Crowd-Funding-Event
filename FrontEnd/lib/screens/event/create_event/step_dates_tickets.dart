@@ -1359,6 +1359,55 @@ class _StepDatesTicketsState extends State<StepDatesTickets> {
                                     ),
                                     maxLines: 2,
                                   ),
+                                  const SizedBox(
+                                      height: 8),
+                                  TextFormField(
+                                    controller:
+                                        slot.imageUrlCtrl,
+                                    decoration:
+                                        InputDecoration(
+                                      labelText:
+                                          'Image URL (optional)',
+                                      hintText:
+                                          'https://example.com/logo.png',
+                                      isDense: true,
+                                      prefixIcon: Icon(
+                                          Icons.image_rounded,
+                                          size: 18,
+                                          color: AppTheme.textSecondaryOf(context)),
+                                    ),
+                                  ),
+                                  if (slot.imageUrlCtrl.text.isNotEmpty) ...[
+                                    const SizedBox(height: 6),
+                                    TextFormField(
+                                      controller:
+                                          slot.imageCaptionCtrl,
+                                      decoration:
+                                          const InputDecoration(
+                                        labelText:
+                                            'Image caption / alt text',
+                                        isDense: true,
+                                      ),
+                                    ),
+                                  ],
+                                  const SizedBox(
+                                      height: 8),
+                                  TextFormField(
+                                    controller:
+                                        slot.linkUrlCtrl,
+                                    decoration:
+                                        InputDecoration(
+                                      labelText:
+                                          'Link URL (optional)',
+                                      hintText:
+                                          'https://speaker-website.com',
+                                      isDense: true,
+                                      prefixIcon: Icon(
+                                          Icons.link_rounded,
+                                          size: 18,
+                                          color: AppTheme.textSecondaryOf(context)),
+                                    ),
+                                  ),
                                 ],
                               ),
                             );

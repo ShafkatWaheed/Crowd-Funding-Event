@@ -633,11 +633,12 @@ async def refund_bid(
 async def list_sponsor_bid_events(db: DbSession, current_user: CurrentUser):
     """Events the sponsor has placed bids on, with bid summary counts."""
     from datetime import datetime, timezone
-    from app.api.v1.events import _event_to_response
+    from app.api.v1.events import _event_to_response, _get_first_images
     from app.services import funding as funding_service
     events = await sponsor_svc.get_sponsor_bid_events(db, current_user.id)
     event_ids = [e.id for e in events]
     pledged = await funding_service.get_pledged_totals_for_events(db, event_ids=event_ids) if event_ids else {}
+    first_images = await _get_first_images(db, event_ids) if event_ids else {}
     now = datetime.now(timezone.utc)
     result = []
     for e in events:
@@ -647,11 +648,67 @@ async def list_sponsor_bid_events(db: DbSession, current_user: CurrentUser):
             end = e.funding_end_at if e.funding_end_at.tzinfo else e.funding_end_at.replace(tzinfo=timezone.utc)
             delta = (end - now).days
             days_left = max(0, delta) if delta > 0 else 0
-        resp = _event_to_response(e, total_pledged_cents=total_cents, funding_days_left=days_left)
+        resp = _event_to_response(
+            e,
+            total_pledged_cents=total_cents,
+            funding_days_left=days_left,
+            first_image_url=first_images.get(e.id),
+        )
         summary = await sponsor_svc.get_sponsor_bid_summary_for_event(db, e.id, current_user.id)
         result.append({
             **resp.model_dump(mode="json"),
             "bid_summary": summary,
+        })
+    return result
+
+
+# ── Sponsorship-Available Events ──
+
+@router.get(
+    "/events/sponsorship-available",
+    dependencies=[Depends(_feature_guard)],
+)
+async def list_sponsorship_available_events(
+    db: DbSession,
+    current_user: CurrentUser,
+    exclude_my_bids: bool = Query(False),
+):
+    """Events with at least one sponsorship category that has open spots."""
+    from datetime import datetime, timezone
+    from app.api.v1.events import _event_to_response, _get_first_images
+    from app.services import funding as funding_service
+
+    items = await sponsor_svc.get_events_with_sponsorship_available(
+        db,
+        sponsor_user_id=current_user.id,
+        exclude_my_bids=exclude_my_bids,
+    )
+    if not items:
+        return []
+
+    event_ids = [it["event"].id for it in items]
+    pledged = await funding_service.get_pledged_totals_for_events(db, event_ids=event_ids)
+    first_images = await _get_first_images(db, event_ids)
+    now = datetime.now(timezone.utc)
+
+    result = []
+    for it in items:
+        e = it["event"]
+        total_cents = pledged.get(e.id, 0)
+        days_left = None
+        if e.funding_end_at is not None:
+            end = e.funding_end_at if e.funding_end_at.tzinfo else e.funding_end_at.replace(tzinfo=timezone.utc)
+            delta = (end - now).days
+            days_left = max(0, delta) if delta > 0 else 0
+        resp = _event_to_response(
+            e,
+            total_pledged_cents=total_cents,
+            funding_days_left=days_left,
+            first_image_url=first_images.get(e.id),
+        )
+        result.append({
+            **resp.model_dump(mode="json"),
+            "categories_summary": it["categories_summary"],
         })
     return result
 

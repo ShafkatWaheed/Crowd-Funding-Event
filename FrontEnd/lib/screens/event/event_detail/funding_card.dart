@@ -101,13 +101,45 @@ class _FundingCardState extends State<FundingCard> {
     int selectedSpots = 0;
     final maxPerUser = event.maxReservedSpotsPerUser;
     final minPledgeDollars = (event.minPledgeCents / 100).toStringAsFixed(2);
+    final isTierLinked = event.linkFundingToTiers;
+
+    // Per-tier spot allocation for tier-linked mode
+    Map<int, int> tierSpots = {};
+    List<Map<String, dynamic>> tierAvailability = [];
+    bool loadingTiers = isTierLinked;
+
+    if (isTierLinked) {
+      try {
+        final api = context.read<ApiService>();
+        final preview = await api.getPledgePreview(widget.eventId, 0, 0);
+        tierAvailability = List<Map<String, dynamic>>.from(preview['tier_availability'] ?? []);
+        for (final t in tierAvailability) {
+          tierSpots[t['tier_id'] as int] = 0;
+        }
+        loadingTiers = false;
+      } catch (_) {
+        loadingTiers = false;
+      }
+    }
+
+    if (!mounted) return;
 
     await showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {
-          final minRequired = selectedSpots * event.minPledgeCents;
+          int totalTierSpots = tierSpots.values.fold(0, (a, b) => a + b);
+          int minTierCost = 0;
+          for (final t in tierAvailability) {
+            final tid = t['tier_id'] as int;
+            final price = t['price_cents'] as int;
+            minTierCost += price * (tierSpots[tid] ?? 0);
+          }
+          final minRequired = isTierLinked
+              ? minTierCost
+              : selectedSpots * event.minPledgeCents;
           final minRequiredDollars = (minRequired / 100).toStringAsFixed(2);
+
           return AlertDialog(
             title: const Text('Make a Pledge'),
             content: SingleChildScrollView(
@@ -143,12 +175,149 @@ class _FundingCardState extends State<FundingCard> {
                     decoration: InputDecoration(
                       labelText: 'Amount (\$)',
                       prefixText: '\$ ',
-                      helperText: selectedSpots > 0
-                          ? 'Min \$$minRequiredDollars for $selectedSpots spot(s)'
-                          : 'Min pledge: \$$minPledgeDollars',
+                      helperText: (isTierLinked ? totalTierSpots : selectedSpots) > 0
+                          ? 'Min \$$minRequiredDollars for ${isTierLinked ? totalTierSpots : selectedSpots} spot(s)'
+                          : isTierLinked
+                              ? 'Select tiers below to reserve spots'
+                              : 'Min pledge: \$$minPledgeDollars',
                     ),
                   ),
-                  if (maxPerUser > 0 && widget.isRegistered) ...[
+
+                  // ── Tier-linked spot selection ──
+                  if (isTierLinked && widget.isRegistered) ...[
+                    AppSpacing.vLg,
+                    Text('Reserve Spots by Tier',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                            color: AppTheme.textPrimaryOf(context))),
+                    AppSpacing.vXs,
+                    Text(
+                      'Min pledge = tier price × spots reserved.',
+                      style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context)),
+                    ),
+                    AppSpacing.vSm,
+                    if (loadingTiers)
+                      const Center(child: Padding(
+                        padding: EdgeInsets.all(16),
+                        child: CircularProgressIndicator(),
+                      ))
+                    else
+                      ...tierAvailability.map((t) {
+                        final tid = t['tier_id'] as int;
+                        final name = t['tier_name'] as String;
+                        final price = t['price_cents'] as int;
+                        final available = t['available'] as int;
+                        final spots = tierSpots[tid] ?? 0;
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            borderRadius: AppRadius.sm,
+                            border: Border.all(
+                              color: spots > 0
+                                  ? ctx.ticketAccent.withValues(alpha: 0.4)
+                                  : AppTheme.dividerOf(ctx),
+                            ),
+                            color: spots > 0
+                                ? ctx.ticketSurface
+                                : null,
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(name,
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 13,
+                                            color: AppTheme.textPrimaryOf(ctx))),
+                                    Text(
+                                      '\$${(price / 100).toStringAsFixed(2)}/spot · $available available',
+                                      style: TextStyle(
+                                          fontSize: 11,
+                                          color: AppTheme.textSecondaryOf(ctx)),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                onPressed: spots > 0
+                                    ? () => setDialogState(() => tierSpots[tid] = spots - 1)
+                                    : null,
+                                icon: const Icon(Icons.remove_circle_outline),
+                                iconSize: 22,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                                child: Text('$spots',
+                                    style: const TextStyle(
+                                        fontSize: 16, fontWeight: FontWeight.bold)),
+                              ),
+                              IconButton(
+                                onPressed: spots < available
+                                    ? () => setDialogState(() => tierSpots[tid] = spots + 1)
+                                    : null,
+                                icon: const Icon(Icons.add_circle_outline),
+                                iconSize: 22,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    if (totalTierSpots > 0) ...[
+                      AppSpacing.vSm,
+                      Container(
+                        padding: AppSpacing.paddingMd,
+                        decoration: BoxDecoration(
+                          color: ctx.fundingSurface,
+                          borderRadius: AppRadius.sm,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ...tierAvailability.where((t) => (tierSpots[t['tier_id'] as int] ?? 0) > 0).map((t) {
+                              final tid = t['tier_id'] as int;
+                              final name = t['tier_name'] as String;
+                              final price = t['price_cents'] as int;
+                              final spots = tierSpots[tid]!;
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 4),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text('$name ($spots × \$${(price / 100).toStringAsFixed(2)})',
+                                        style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(ctx))),
+                                    Text('\$${(price * spots / 100).toStringAsFixed(2)}',
+                                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textPrimaryOf(ctx))),
+                                  ],
+                                ),
+                              );
+                            }),
+                            const Divider(height: 12),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text('Minimum pledge',
+                                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textPrimaryOf(ctx))),
+                                Text('\$$minRequiredDollars',
+                                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: ctx.fundingAccent)),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+
+                  // ── Global spot selection (non-tier-linked) ──
+                  if (!isTierLinked && maxPerUser > 0 && widget.isRegistered) ...[
                     AppSpacing.vLg,
                     Text('Reserve Ticket Spots',
                         style: TextStyle(
@@ -208,7 +377,18 @@ class _FundingCardState extends State<FundingCard> {
                   final amount = double.tryParse(amountController.text);
                   if (amount == null || amount <= 0) return;
                   Navigator.pop(ctx);
-                  _showPledgeInvoice((amount * 100).toInt(), selectedSpots);
+                  final totalSpots = isTierLinked ? totalTierSpots : selectedSpots;
+                  final reservations = isTierLinked
+                      ? tierSpots.entries
+                          .where((e) => e.value > 0)
+                          .map((e) => {'tier_id': e.key, 'spots': e.value})
+                          .toList()
+                      : null;
+                  _showPledgeInvoice(
+                    (amount * 100).toInt(),
+                    totalSpots,
+                    tierReservations: reservations,
+                  );
                 },
                 child: Text(widget.isRegistered ? 'Continue to Invoice' : 'Continue to Donate'),
               ),
@@ -220,7 +400,8 @@ class _FundingCardState extends State<FundingCard> {
   }
 
   // ── Step 2: Pledge invoice ──
-  Future<void> _showPledgeInvoice(int amountCents, int reservedSpots) async {
+  Future<void> _showPledgeInvoice(int amountCents, int reservedSpots,
+      {List<Map<String, dynamic>>? tierReservations}) async {
     Map<String, dynamic>? preview;
     bool loadingPreview = true;
     String? previewError;
@@ -272,6 +453,14 @@ class _FundingCardState extends State<FundingCard> {
                   _invoiceRow('Pledge Amount', '\$$amountDollars'),
                   if (reservedSpots > 0)
                     _invoiceRow('Reserved Spots', '$reservedSpots spot(s)'),
+                  if (tierReservations != null && tierReservations.isNotEmpty) ...[
+                    const Divider(height: 12),
+                    ...tierReservations.map((tr) {
+                      final name = tr['tier_name'] ?? 'Tier #${tr['tier_id']}';
+                      final spots = tr['spots'] as int;
+                      return _invoiceRow('  $name', '$spots spot(s)', subtle: true);
+                    }),
+                  ],
                   const Divider(height: 20),
                   _invoiceRow(
                     'Platform Fee ($commissionPct%)',
@@ -328,7 +517,8 @@ class _FundingCardState extends State<FundingCard> {
     );
 
     if (confirmed == true) {
-      await _executePledge(amountCents, reservedSpots);
+      await _executePledge(amountCents, reservedSpots,
+          tierReservations: tierReservations);
     }
   }
 
@@ -353,12 +543,14 @@ class _FundingCardState extends State<FundingCard> {
   }
 
   // ── Step 3: Execute pledge and show receipt ──
-  Future<void> _executePledge(int amountCents, int reservedSpots) async {
+  Future<void> _executePledge(int amountCents, int reservedSpots,
+      {List<Map<String, dynamic>>? tierReservations}) async {
     setState(() => _pledging = true);
     try {
       final api = context.read<ApiService>();
       final result = await api.pledge(widget.eventId, amountCents,
-          reservedSpots: reservedSpots);
+          reservedSpots: reservedSpots,
+          tierReservations: tierReservations);
       if (mounted) {
         final isGuest = result['is_guest'] == true;
         final pledgeId = result['id'] as int;

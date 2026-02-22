@@ -61,6 +61,7 @@ class Event {
   final String? rideshareInfo;
   final String? accessibilityInfo;
   final bool hasSchedule;
+  final bool linkFundingToTiers;
   final String? directionsUrl;
   final String? firstImageUrl;
   final Venue? venue;
@@ -112,6 +113,7 @@ class Event {
     this.rideshareInfo,
     this.accessibilityInfo,
     this.hasSchedule = false,
+    this.linkFundingToTiers = false,
     this.directionsUrl,
     this.firstImageUrl,
     this.venue,
@@ -179,6 +181,7 @@ class Event {
       rideshareInfo: json['rideshare_info'],
       accessibilityInfo: json['accessibility_info'],
       hasSchedule: json['has_schedule'] ?? false,
+      linkFundingToTiers: json['link_funding_to_tiers'] ?? false,
       directionsUrl: json['directions_url'],
       firstImageUrl: json['first_image_url'],
       venue: json['venue'] != null ? Venue.fromJson(json['venue']) : null,

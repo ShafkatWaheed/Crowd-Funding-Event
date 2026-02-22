@@ -4,9 +4,21 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
+class TierReservation(BaseModel):
+    tier_id: int
+    spots: int  # >= 1
+
+
 class PledgeBody(BaseModel):
     amount_cents: int
     reserved_spots: int = 0
+    tier_reservations: list[TierReservation] | None = None
+
+
+class TierReservationResponse(BaseModel):
+    tier_id: int
+    tier_name: str | None = None
+    spots: int
 
 
 class PledgeResponse(BaseModel):
@@ -17,6 +29,7 @@ class PledgeResponse(BaseModel):
     platform_cut_cents: int = 0
     net_to_organizer_cents: int = 0
     reserved_spots: int = 0
+    tier_reservations: list[TierReservationResponse] = []
     receipt_number: str | None = None
     status: str
     is_guest: bool = False
@@ -43,6 +56,15 @@ class FundingSummaryResponse(BaseModel):
     total_reserved_spots: int = 0
 
 
+class TierAvailability(BaseModel):
+    tier_id: int
+    tier_name: str
+    price_cents: int
+    max_reserved_spots: int
+    reserved_so_far: int
+    available: int
+
+
 class PledgePreviewResponse(BaseModel):
     """Invoice preview before confirming a pledge."""
     amount_cents: int
@@ -51,8 +73,10 @@ class PledgePreviewResponse(BaseModel):
     platform_cut_cents: int
     net_to_organizer_cents: int
     funding_commission_percent: int
-    available_spots_for_user: int        # how many more spots user can still reserve
-    event_total_reserved_spots: int      # current total for the event
+    available_spots_for_user: int
+    event_total_reserved_spots: int
+    link_funding_to_tiers: bool = False
+    tier_availability: list[TierAvailability] = []
 
 
 class PledgeReceiptResponse(BaseModel):
@@ -64,6 +88,7 @@ class PledgeReceiptResponse(BaseModel):
     user_id: int
     amount_cents: int
     reserved_spots: int = 0
+    tier_reservations: list[TierReservationResponse] = []
     platform_cut_cents: int = 0
     net_to_organizer_cents: int = 0
     funding_commission_percent: int = 0
@@ -79,6 +104,7 @@ class MyPledgeItem(BaseModel):
     event_title: str
     amount_cents: int
     reserved_spots: int = 0
+    tier_reservations: list[TierReservationResponse] = []
     receipt_number: str | None = None
     status: str
     is_guest: bool = False

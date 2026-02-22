@@ -312,11 +312,15 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> pledge(
-      int eventId, int amountCents, {int reservedSpots = 0}) async {
-    final resp = await dio.post('/events/$eventId/pledge', data: {
+      int eventId, int amountCents,
+      {int reservedSpots = 0,
+      List<Map<String, dynamic>>? tierReservations}) async {
+    final body = <String, dynamic>{
       'amount_cents': amountCents,
       'reserved_spots': reservedSpots,
-    });
+    };
+    if (tierReservations != null) body['tier_reservations'] = tierReservations;
+    final resp = await dio.post('/events/$eventId/pledge', data: body);
     return resp.data;
   }
 
@@ -743,6 +747,25 @@ class ApiService {
     await dio.delete('/events/$eventId/schedule/$itemId');
   }
 
+  Future<Map<String, dynamic>> uploadScheduleImage(
+      int eventId, int itemId, dynamic fileBytes, String fileName,
+      {String? caption}) async {
+    final formData = FormData.fromMap({
+      'file': MultipartFile.fromBytes(fileBytes, filename: fileName),
+      if (caption != null) 'caption': caption,
+    });
+    final resp = await dio.post(
+      '/events/$eventId/schedule/$itemId/upload-image',
+      data: formData,
+    );
+    return resp.data;
+  }
+
+  Future<Map<String, dynamic>> deleteScheduleImage(int eventId, int itemId) async {
+    final resp = await dio.delete('/events/$eventId/schedule/$itemId/image');
+    return resp.data;
+  }
+
   String getScheduleExportUrl(int eventId) {
     return '${dio.options.baseUrl}/events/$eventId/schedule/export';
   }
@@ -756,6 +779,13 @@ class ApiService {
 
   Future<List<dynamic>> getSponsorBidEvents() async {
     final resp = await dio.get('/me/sponsor-bid-events');
+    return resp.data;
+  }
+
+  Future<List<dynamic>> getSponsorshipAvailableEvents({bool excludeMyBids = false}) async {
+    final resp = await dio.get('/events/sponsorship-available', queryParameters: {
+      'exclude_my_bids': excludeMyBids,
+    });
     return resp.data;
   }
 

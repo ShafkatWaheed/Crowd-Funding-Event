@@ -7,8 +7,10 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
+import '../../models/event.dart';
 import '../../models/venue.dart';
 import '../../models/ticket_strategy.dart';
+import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../services/mapbox_geocoding_service.dart';
 import '../../widgets/app_toast.dart';
@@ -18,6 +20,7 @@ import 'create_event/step_location_sponsors.dart';
 import 'create_event/step_basics.dart';
 import 'create_event/step_review.dart';
 import 'create_event/step_funding.dart';
+import 'event_detail_screen.dart';
 
 class CreateEventScreen extends StatefulWidget {
   const CreateEventScreen({super.key});
@@ -33,15 +36,15 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       List.generate(5, (_) => GlobalKey<FormState>());
   static const _stepLabels = [
     'Basics',
-    'Funding',
     'Dates & Tickets',
+    'Funding',
     'Location & Sponsors',
     'Review',
   ];
   static const _stepIcons = [
     Icons.edit_note_rounded,
-    Icons.attach_money_rounded,
     Icons.event_rounded,
+    Icons.attach_money_rounded,
     Icons.location_on_rounded,
     Icons.check_circle_rounded,
   ];
@@ -64,6 +67,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   bool _communityRules = false;
   bool _postsEnabled = true;
   int _refundDeadlineDays = 7;
+  bool _linkFundingToTiers = false;
   bool _publish = true;
   bool _isLoading = false;
   bool _isDirty = false;
@@ -684,6 +688,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       data['accessibility_info'] = _accessibilityCtrl.text.trim();
     }
     if (_hasSchedule) data['has_schedule'] = true;
+    if (_linkFundingToTiers) data['link_funding_to_tiers'] = true;
 
     try {
       final api = context.read<ApiService>();
@@ -703,13 +708,16 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
           final name = t.nameCtrl.text.trim();
           if (name.isEmpty) continue;
           try {
-            await api.createTicketTier(eventId, {
+            final tierData = <String, dynamic>{
               'name': name,
               'price_cents': ((double.tryParse(t.priceCtrl.text) ?? 0) * 100).toInt(),
               'display_order': i,
               if (t.descCtrl.text.trim().isNotEmpty)
                 'description': t.descCtrl.text.trim(),
-            });
+              if (_linkFundingToTiers && t.maxReservedSpots > 0)
+                'max_reserved_spots': t.maxReservedSpots,
+            };
+            await api.createTicketTier(eventId, tierData);
           } catch (_) {}
         }
       }
@@ -746,6 +754,12 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
               'title': title,
               if (slot.descCtrl.text.trim().isNotEmpty)
                 'description': slot.descCtrl.text.trim(),
+              if (slot.imageUrlCtrl.text.trim().isNotEmpty)
+                'image_url': slot.imageUrlCtrl.text.trim(),
+              if (slot.imageCaptionCtrl.text.trim().isNotEmpty)
+                'image_caption': slot.imageCaptionCtrl.text.trim(),
+              if (slot.linkUrlCtrl.text.trim().isNotEmpty)
+                'link_url': slot.linkUrlCtrl.text.trim(),
               'sort_order': i,
             });
           }
@@ -824,8 +838,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
               index: _currentStep,
               children: [
                 _buildStep1Basics(),
-                _buildStep2Funding(),
-                _buildStep3DatesTickets(),
+                _buildStep2DatesTickets(),
+                _buildStep3Funding(),
                 _buildStep4LocationSponsors(),
                 _buildStep5Review(),
               ],
@@ -1059,9 +1073,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     );
   }
 
-  Widget _buildStep2Funding() {
+  Widget _buildStep3Funding() {
     return StepFunding(
-      formKey: _formKeys[1],
+      formKey: _formKeys[2],
       fundingGoalCtrl: _fundingGoalCtrl,
       minPledgeCtrl: _minPledgeCtrl,
       maxReservedSpotsCtrl: _maxReservedSpotsCtrl,
@@ -1074,12 +1088,15 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       milestones: _milestones,
       onMarkDirty: _markDirty,
       fmtDt: _fmtDt,
+      linkFundingToTiers: _linkFundingToTiers,
+      onLinkFundingToTiersChanged: (v) => setState(() => _linkFundingToTiers = v),
+      localTiers: _localTiers,
     );
   }
 
-  Widget _buildStep3DatesTickets() {
+  Widget _buildStep2DatesTickets() {
     return StepDatesTickets(
-      formKey: _formKeys[2],
+      formKey: _formKeys[1],
       startTime: _startTime,
       endTime: _endTime,
       onPickStartTime: () => _pickDateTime(true),
@@ -1227,18 +1244,73 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     });
   }
 
+  Event _buildPreviewEvent() {
+    final user = context.read<AuthProvider>().user;
+    final venue = _venues.where((v) => v.id == _selectedVenueId).firstOrNull;
+
+    int parseCents(String text) {
+      final val = double.tryParse(text) ?? 0;
+      return (val * 100).round();
+    }
+
+    return Event(
+      id: 0,
+      organizerId: user?.id ?? 0,
+      organizerName: user?.displayName ?? 'You',
+      venueId: _selectedVenueId ?? 0,
+      title: _titleCtrl.text.trim().isNotEmpty ? _titleCtrl.text.trim() : 'Untitled Event',
+      description: _descCtrl.text.trim().isNotEmpty ? _descCtrl.text.trim() : null,
+      startTime: _startTime,
+      endTime: _endTime,
+      fundingGoalCents: _fundingEndAt != null ? parseCents(_fundingGoalCtrl.text) : null,
+      fundingEndAt: _fundingEndAt,
+      minPledgeCents: parseCents(_minPledgeCtrl.text),
+      status: EventStatus.draft,
+      registrationType: _registrationType == 'open' ? RegistrationType.open : RegistrationType.closed,
+      maxCapacity: int.tryParse(_capacityCtrl.text) ?? 0,
+      commonDiscountPercent: 0,
+      pledgeDiscountPercent: 0,
+      genre: _genre,
+      communityRules: _communityRules,
+      postsEnabled: _postsEnabled,
+      refundDeadlineDays: _refundDeadlineDays,
+      ticketStrategyId: _selectedStrategyId,
+      ticketStrategyName: _strategies.where((s) => s.id == _selectedStrategyId).firstOrNull?.name,
+      venue: venue,
+      hasSchedule: _hasSchedule && _scheduleDays.isNotEmpty,
+      linkFundingToTiers: _linkFundingToTiers,
+      createdAt: DateTime.now(),
+    );
+  }
+
+  void _openPreview() {
+    final previewImages = _imageBytes.values.toList();
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => EventDetailScreen(
+          eventId: 0,
+          previewEvent: _buildPreviewEvent(),
+          previewImages: previewImages.isNotEmpty ? previewImages : null,
+        ),
+      ),
+    );
+  }
+
   Widget _buildStep5Review() {
     return StepReview(
       formKey: _formKeys[4],
       publishImmediately: _publish,
       onPublishChanged: (v) => setState(() => _publish = v),
       onGoToStep: _goToStep,
+      onPreview: _openPreview,
       title: _titleCtrl.text,
       genre: _genre,
       imageCount: _pickedImages.length,
       fundingEndAt: _fundingEndAt,
       fundingGoal: _fundingGoalCtrl.text,
       minPledge: _minPledgeCtrl.text,
+      linkFundingToTiers: _linkFundingToTiers,
       milestones: _milestones,
       startTime: _startTime,
       endTime: _endTime,

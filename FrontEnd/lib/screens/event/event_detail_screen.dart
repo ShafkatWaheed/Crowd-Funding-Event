@@ -29,7 +29,17 @@ import 'event_detail/event_detail.dart';
 class EventDetailScreen extends StatefulWidget {
   final int eventId;
 
-  const EventDetailScreen({super.key, required this.eventId});
+  final Event? previewEvent;
+  final List<Uint8List>? previewImages;
+
+  bool get isPreview => previewEvent != null;
+
+  const EventDetailScreen({
+    super.key,
+    required this.eventId,
+    this.previewEvent,
+    this.previewImages,
+  });
 
   @override
   State<EventDetailScreen> createState() => _EventDetailScreenState();
@@ -63,15 +73,17 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   void initState() {
     super.initState();
     _scrollCtrl.addListener(_onScroll);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<EventProvider>().loadEvent(widget.eventId);
-      _loadImages();
-      _checkRegistration();
-      _loadMyTicketCount();
-      _loadMyReservedSpots();
-      _loadRevenue();
-      _checkBookmark();
-    });
+    if (!widget.isPreview) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        context.read<EventProvider>().loadEvent(widget.eventId);
+        _loadImages();
+        _checkRegistration();
+        _loadMyTicketCount();
+        _loadMyReservedSpots();
+        _loadRevenue();
+        _checkBookmark();
+      });
+    }
   }
 
   @override
@@ -191,18 +203,19 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final eventProvider = context.watch<EventProvider>();
+    final eventProvider = widget.isPreview ? null : context.watch<EventProvider>();
     final auth = context.watch<AuthProvider>();
-    final event = eventProvider.selectedEvent;
-    final user = auth.user;
+    final event = widget.isPreview ? widget.previewEvent : eventProvider!.selectedEvent;
+    final user = widget.isPreview ? null : auth.user;
     final isDark = AppTheme.isDark(context);
     final dateFormat = DateFormat('MMM dd, yyyy h:mm a');
 
-    final heroUrl = _images.isNotEmpty ? _images.first.imageUrl : null;
-    final hasHero = heroUrl != null;
+    final hasPreviewImages = widget.isPreview && widget.previewImages != null && widget.previewImages!.isNotEmpty;
+    final heroUrl = !widget.isPreview && _images.isNotEmpty ? _images.first.imageUrl : null;
+    final hasHero = heroUrl != null || hasPreviewImages;
 
     return Scaffold(
-      bottomNavigationBar: event != null && _scrolledPastHero
+      bottomNavigationBar: !widget.isPreview && event != null && _scrolledPastHero
           ? AnimatedSlide(
               offset: _scrolledPastHero ? Offset.zero : const Offset(0, 1),
               duration: AppDuration.fast,
@@ -232,9 +245,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
               ),
             )
           : null,
-      body: eventProvider.isLoading
+      body: !widget.isPreview && eventProvider!.isLoading
           ? const ShimmerDetailHeader()
-          : eventProvider.error != null
+          : !widget.isPreview && eventProvider!.error != null
               ? ErrorState(
                   message: eventProvider.error!,
                   onRetry: () => eventProvider.loadEvent(widget.eventId),
@@ -278,80 +291,105 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                             title: AnimatedOpacity(
                               opacity: _scrolledPastHero || !hasHero ? 1.0 : 0.0,
                               duration: AppDuration.fast,
-                              child: Text(
-                                event?.title ?? '',
-                                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                              child: Row(
+                                children: [
+                                  if (widget.isPreview) ...[
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.warningColor.withValues(alpha: 0.15),
+                                        borderRadius: AppRadius.pill,
+                                        border: Border.all(color: AppTheme.warningColor.withValues(alpha: 0.4)),
+                                      ),
+                                      child: Text('PREVIEW',
+                                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800,
+                                          color: AppTheme.warningColor, letterSpacing: 0.5)),
+                                    ),
+                                    const SizedBox(width: 8),
+                                  ],
+                                  Expanded(
+                                    child: Text(
+                                      event.title,
+                                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                             actions: [
-                              IconButton(
-                                icon: Container(
-                                  padding: const EdgeInsets.all(AppSpacing.xs),
-                                  decoration: BoxDecoration(
-                                    color: _scrolledPastHero || !hasHero
-                                        ? Colors.transparent
-                                        : AppTheme.surfaceOf(context).withValues(alpha: 0.7),
-                                    shape: BoxShape.circle,
+                              if (!widget.isPreview) ...[
+                                IconButton(
+                                  icon: Container(
+                                    padding: const EdgeInsets.all(AppSpacing.xs),
+                                    decoration: BoxDecoration(
+                                      color: _scrolledPastHero || !hasHero
+                                          ? Colors.transparent
+                                          : AppTheme.surfaceOf(context).withValues(alpha: 0.7),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      _bookmarked ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+                                      size: AppIconSize.sm,
+                                      color: _bookmarked ? AppTheme.accentColor : null,
+                                    ),
                                   ),
-                                  child: Icon(
-                                    _bookmarked ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
-                                    size: AppIconSize.sm,
-                                    color: _bookmarked ? AppTheme.accentColor : null,
-                                  ),
+                                  onPressed: _toggleBookmark,
                                 ),
-                                onPressed: _toggleBookmark,
-                              ),
-                              AppSpacing.hXs,
+                                AppSpacing.hXs,
+                              ],
                             ],
                             flexibleSpace: hasHero
                                 ? FlexibleSpaceBar(
                                     collapseMode: CollapseMode.parallax,
                                     stretchModes: const [StretchMode.zoomBackground],
                                     background: GestureDetector(
-                                      onTap: () => _openImageViewer(0),
+                                      onTap: widget.isPreview ? null : () => _openImageViewer(0),
                                       child: Stack(
                                         fit: StackFit.expand,
                                         children: [
-                                          Image.network(
-                                            ApiConfig.imageUrl(heroUrl!),
-                                            fit: BoxFit.cover,
-                                            loadingBuilder: (context, child, progress) {
-                                              if (progress == null) return child;
-                                              return Container(
-                                                color: AppTheme.cardOf(context),
-                                                child: const Center(
-                                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                          if (hasPreviewImages)
+                                            Image.memory(widget.previewImages!.first, fit: BoxFit.cover)
+                                          else
+                                            Image.network(
+                                              ApiConfig.imageUrl(heroUrl!),
+                                              fit: BoxFit.cover,
+                                              loadingBuilder: (context, child, progress) {
+                                                if (progress == null) return child;
+                                                return Container(
+                                                  color: AppTheme.cardOf(context),
+                                                  child: const Center(
+                                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                                  ),
+                                                );
+                                              },
+                                              errorBuilder: (_, __, ___) => Container(
+                                                decoration: BoxDecoration(
+                                                  gradient: LinearGradient(
+                                                    begin: Alignment.topLeft,
+                                                    end: Alignment.bottomRight,
+                                                    colors: [
+                                                      AppTheme.accentColor.withValues(alpha: 0.15),
+                                                      AppTheme.secondaryColor.withValues(alpha: 0.15),
+                                                    ],
+                                                  ),
                                                 ),
-                                              );
-                                            },
-                                            errorBuilder: (_, __, ___) => Container(
-                                              decoration: BoxDecoration(
-                                                gradient: LinearGradient(
-                                                  begin: Alignment.topLeft,
-                                                  end: Alignment.bottomRight,
-                                                  colors: [
-                                                    AppTheme.accentColor.withValues(alpha: 0.15),
-                                                    AppTheme.secondaryColor.withValues(alpha: 0.15),
+                                                child: Column(
+                                                  mainAxisAlignment: MainAxisAlignment.center,
+                                                  children: [
+                                                    Icon(Icons.image_rounded, size: 48,
+                                                        color: AppTheme.textSecondaryOf(context)),
+                                                    AppSpacing.vSm,
+                                                    Text('Image could not be loaded',
+                                                        style: TextStyle(
+                                                          fontSize: 12,
+                                                          color: AppTheme.textSecondaryOf(context),
+                                                        )),
                                                   ],
                                                 ),
                                               ),
-                                              child: Column(
-                                                mainAxisAlignment: MainAxisAlignment.center,
-                                                children: [
-                                                  Icon(Icons.image_rounded, size: 48,
-                                                      color: AppTheme.textSecondaryOf(context)),
-                                                  AppSpacing.vSm,
-                                                  Text('Image could not be loaded',
-                                                      style: TextStyle(
-                                                        fontSize: 12,
-                                                        color: AppTheme.textSecondaryOf(context),
-                                                      )),
-                                                ],
-                                              ),
                                             ),
-                                          ),
                                           const DecoratedBox(
                                             decoration: BoxDecoration(
                                               gradient: LinearGradient(
@@ -433,25 +471,58 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                               ).animate().fadeIn(duration: 300.ms, delay: 100.ms).slideX(begin: -0.05, duration: 300.ms),
                               AppSpacing.vLg,
 
+                              // Preview info banner
+                              if (widget.isPreview) ...[
+                                _previewBanner(context),
+                                AppSpacing.vLg,
+                              ],
+
                               // Lifecycle progress bar
                               EventLifecycleBar(event: event),
                               AppSpacing.vLg,
 
                               // ── Quick Action Bar (Register, Share, Calendar) ──
-                              _buildQuickActionBar(context, event, user),
-                              AppSpacing.vXl,
+                              if (!widget.isPreview) ...[
+                                _buildQuickActionBar(context, event, user),
+                                AppSpacing.vXl,
+                              ],
 
                               // Like / Dislike — self-contained widget
-                              ReactionBar(
-                                eventId: widget.eventId,
-                                initialLikeCount: event.likeCount,
-                                initialDislikeCount: event.dislikeCount,
-                                isAdmin: user?.isAdmin ?? false,
-                              ),
-                              AppSpacing.vXl,
+                              if (!widget.isPreview) ...[
+                                ReactionBar(
+                                  eventId: widget.eventId,
+                                  initialLikeCount: event.likeCount,
+                                  initialDislikeCount: event.dislikeCount,
+                                  isAdmin: user?.isAdmin ?? false,
+                                ),
+                                AppSpacing.vXl,
+                              ],
 
-                              // Image gallery
-                              if (_images.isNotEmpty) ...[
+                              // Image gallery (preview: local bytes; normal: network images)
+                              if (widget.isPreview && widget.previewImages != null && widget.previewImages!.length > 1) ...[
+                                _sectionTitle(context, 'Photos', icon: Icons.photo_library_rounded, iconColor: context.photoAccent),
+                                AppSpacing.vSm,
+                                SizedBox(
+                                  height: 180,
+                                  child: ListView.separated(
+                                    scrollDirection: Axis.horizontal,
+                                    itemCount: widget.previewImages!.length,
+                                    separatorBuilder: (_, __) => AppSpacing.hSm,
+                                    itemBuilder: (ctx, i) {
+                                      return ClipRRect(
+                                        borderRadius: AppRadius.md,
+                                        child: Image.memory(
+                                          widget.previewImages![i],
+                                          height: 180,
+                                          width: 260,
+                                          fit: BoxFit.cover,
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                                AppSpacing.vXxl,
+                              ] else if (!widget.isPreview && _images.isNotEmpty) ...[
                                 _sectionTitle(context, 'Photos', icon: Icons.photo_library_rounded, iconColor: context.photoAccent),
                                 AppSpacing.vSm,
                                 SizedBox(
@@ -528,7 +599,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                                     ),
                                                   ),
                                                 ),
-                                              // Delete button for organizer
                                               if (user != null &&
                                                   (user.isOrganizer ||
                                                       user.isAdmin))
@@ -569,14 +639,13 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                     },
                                   ),
                                 ),
-                                // Add image button for organizer
                                 if (user != null &&
                                     (user.isOrganizer || user.isAdmin)) ...[
                                   AppSpacing.vSm,
                                   _addImageButton(context),
                                 ],
                                 AppSpacing.vXxl,
-                              ] else if (user != null &&
+                              ] else if (!widget.isPreview && user != null &&
                                   (user.isOrganizer || user.isAdmin)) ...[
                                 _sectionTitle(context, 'Photos', icon: Icons.photo_library_rounded, iconColor: context.photoAccent),
                                 AppSpacing.vSm,
@@ -633,33 +702,43 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                               // ── Funding Card (self-contained) ──
                               if (event.fundingGoalCents != null &&
                                   event.fundingGoalCents! > 0) ...[
-                                AnimatedListItem(
-                                  index: 1,
-                                  child: FundingCard(
-                                    eventId: widget.eventId,
-                                    event: event,
-                                    isRegistered: _isRegistered,
+                                if (widget.isPreview) ...[
+                                  _previewPlaceholder(context, 'Funding progress will appear after publishing', Icons.attach_money_rounded),
+                                  AppSpacing.vXxl,
+                                  _previewPlaceholder(context, 'Milestones will appear after publishing', Icons.flag_rounded),
+                                  AppSpacing.vXxl,
+                                ] else ...[
+                                  AnimatedListItem(
+                                    index: 1,
+                                    child: FundingCard(
+                                      eventId: widget.eventId,
+                                      event: event,
+                                      isRegistered: _isRegistered,
+                                    ),
                                   ),
-                                ),
-                                AppSpacing.vXxl,
-                                AnimatedListItem(
-                                  index: 2,
-                                  child: MilestoneTimeline(
-                                    eventId: widget.eventId,
-                                    event: event,
+                                  AppSpacing.vXxl,
+                                  AnimatedListItem(
+                                    index: 2,
+                                    child: MilestoneTimeline(
+                                      eventId: widget.eventId,
+                                      event: event,
+                                    ),
                                   ),
-                                ),
-                                AppSpacing.vXxl,
+                                  AppSpacing.vXxl,
+                                ],
                               ],
 
                               // ── Event Schedule (self-contained) ──
-                              AnimatedListItem(
-                                index: 3,
-                                child: EventScheduleSection(
-                                  eventId: widget.eventId,
-                                  event: event,
+                              if (widget.isPreview)
+                                _previewPlaceholder(context, 'Schedule will appear after publishing', Icons.schedule_rounded)
+                              else
+                                AnimatedListItem(
+                                  index: 3,
+                                  child: EventScheduleSection(
+                                    eventId: widget.eventId,
+                                    event: event,
+                                  ),
                                 ),
-                              ),
 
                               // ── Event Details Grid ──
                               AnimatedListItem(
@@ -887,114 +966,131 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                               ],
 
                               // ─── Ticket Tiers + Buy + Your Tickets (customer view) ───
-                              if (event.ticketStrategyId != null &&
-                                  (user == null || (!user.isOrganizer && !user.isAdmin))) ...[
-                                AppSpacing.vLg,
-                                _sectionTitle(context, 'Ticket Tiers', icon: Icons.confirmation_number_rounded, iconColor: context.sponsorAccent),
-                                AppSpacing.vSm,
-                              ],
-                              TicketTiersSection(
-                                event: event,
-                                myTicketCount: _myTicketCount,
-                                myReservedSpots: _myReservedSpots,
-                                myEventTickets: _myEventTickets,
-                                isOrganizer: user?.isOrganizer ?? false,
-                                isAdmin: user?.isAdmin ?? false,
-                                isRegistered: _isRegistered && _regStatus == 'registered',
-                                onPurchaseComplete: () {
-                                  _loadMyTicketCount();
-                                  _loadMyReservedSpots();
-                                },
-                              ),
+                              if (!widget.isPreview) ...[
+                                if (event.ticketStrategyId != null &&
+                                    (user == null || (!user.isOrganizer && !user.isAdmin))) ...[
+                                  AppSpacing.vLg,
+                                  _sectionTitle(context, 'Ticket Tiers', icon: Icons.confirmation_number_rounded, iconColor: context.sponsorAccent),
+                                  AppSpacing.vSm,
+                                ],
+                                TicketTiersSection(
+                                  event: event,
+                                  myTicketCount: _myTicketCount,
+                                  myReservedSpots: _myReservedSpots,
+                                  myEventTickets: _myEventTickets,
+                                  isOrganizer: user?.isOrganizer ?? false,
+                                  isAdmin: user?.isAdmin ?? false,
+                                  isRegistered: _isRegistered && _regStatus == 'registered',
+                                  onPurchaseComplete: () {
+                                    _loadMyTicketCount();
+                                    _loadMyReservedSpots();
+                                  },
+                                ),
 
-                              // Your Discounts (customer view only)
-                              if (user != null && !user.isOrganizer && !user.isAdmin) ...[
-                                CustomerDiscountsSection(eventId: event.id),
+                                // Your Discounts (customer view only)
+                                if (user != null && !user.isOrganizer && !user.isAdmin) ...[
+                                  CustomerDiscountsSection(eventId: event.id),
+                                ],
+                              ] else ...[
+                                if (event.ticketStrategyId != null) ...[
+                                  AppSpacing.vLg,
+                                  _previewPlaceholder(context, 'Ticket tiers and purchasing will appear after publishing', Icons.confirmation_number_rounded),
+                                ],
                               ],
 
                               // State info banners
-                              if (event.status == EventStatus.selling_tickets)
-                                _infoBanner('Tickets are now on sale! Grab yours before they sell out.', Icons.confirmation_number, context.ticketAccent),
-                              if (event.status == EventStatus.waiting_event_date)
-                                _infoBanner(
-                                  'The funding phase is complete. The organizer is finalizing event details — stay tuned for ticket sales!',
-                                  Icons.event_note_rounded, context.fundingAccent),
-                              if (event.status == EventStatus.completed)
-                                _infoBanner('This event has ended. Thanks for being part of it!', Icons.check_circle, AppTheme.textSecondaryOf(context)),
+                              if (!widget.isPreview) ...[
+                                if (event.status == EventStatus.selling_tickets)
+                                  _infoBanner('Tickets are now on sale! Grab yours before they sell out.', Icons.confirmation_number, context.ticketAccent),
+                                if (event.status == EventStatus.waiting_event_date)
+                                  _infoBanner(
+                                    'The funding phase is complete. The organizer is finalizing event details — stay tuned for ticket sales!',
+                                    Icons.event_note_rounded, context.fundingAccent),
+                                if (event.status == EventStatus.completed)
+                                  _infoBanner('This event has ended. Thanks for being part of it!', Icons.check_circle, AppTheme.textSecondaryOf(context)),
 
-                              // Sponsor: sponsorship categories access
-                              if (user != null &&
-                                  user.isSponsor &&
-                                  (event.status == EventStatus.approved ||
-                                      event.status == EventStatus.waiting_event_date ||
-                                      event.status == EventStatus.selling_tickets)) ...[
-                                AppSpacing.vMd,
-                                Container(
-                                  width: double.infinity,
-                                  padding: AppSpacing.paddingLg,
-                                  decoration: BoxDecoration(
-                                    color: context.ticketSurface,
-                                    borderRadius: AppRadius.lg,
-                                    boxShadow: AppShadow.soft(isDark),
-                                  ),
-                                  child: Column(
-                                    children: [
-                                      Text(
-                                        'As a sponsor, you can bid on sponsorships for this event.',
-                                        style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryOf(context)),
-                                        textAlign: TextAlign.center,
-                                      ),
-                                      AppSpacing.vSm,
-                                      SizedBox(
-                                        width: double.infinity,
-                                        child: ElevatedButton.icon(
-                                          onPressed: () => context.push('/events/${widget.eventId}/sponsorships'),
-                                          icon: const Icon(Icons.storefront_rounded, size: AppIconSize.sm),
-                                          label: const Text('View Sponsorships'),
-                                          style: ElevatedButton.styleFrom(backgroundColor: context.ticketAccent),
+                                // Sponsor: sponsorship categories access
+                                if (user != null &&
+                                    user.isSponsor &&
+                                    (event.status == EventStatus.approved ||
+                                        event.status == EventStatus.waiting_event_date ||
+                                        event.status == EventStatus.selling_tickets)) ...[
+                                  AppSpacing.vMd,
+                                  Container(
+                                    width: double.infinity,
+                                    padding: AppSpacing.paddingLg,
+                                    decoration: BoxDecoration(
+                                      color: context.ticketSurface,
+                                      borderRadius: AppRadius.lg,
+                                      boxShadow: AppShadow.soft(isDark),
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        Text(
+                                          'As a sponsor, you can bid on sponsorships for this event.',
+                                          style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryOf(context)),
+                                          textAlign: TextAlign.center,
                                         ),
-                                      ),
-                                    ],
+                                        AppSpacing.vSm,
+                                        SizedBox(
+                                          width: double.infinity,
+                                          child: ElevatedButton.icon(
+                                            onPressed: () => context.push('/events/${widget.eventId}/sponsorships'),
+                                            icon: const Icon(Icons.storefront_rounded, size: AppIconSize.sm),
+                                            label: const Text('View Sponsorships'),
+                                            style: ElevatedButton.styleFrom(backgroundColor: context.ticketAccent),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                                AppSpacing.vLg,
+                                  AppSpacing.vLg,
+                                ],
+
+                                // ──────── Organizer Actions + Management ────────
+                                if (user != null &&
+                                    (user.isOrganizer || user.isAdmin))
+                                  OrganizerManagementSection(
+                                    event: event,
+                                    isAdmin: user.isAdmin,
+                                    isOrganizer: user.isOrganizer,
+                                    revenueCents: _revenueCents,
+                                    onRefresh: _refreshAll,
+                                  ),
+
+                                // ──────── Ticket Tier Management (organizer) ────────
+                                if (user != null &&
+                                    (user.isOrganizer || user.isAdmin) &&
+                                    event.ticketStrategyId != null)
+                                  TicketTierManagement(
+                                      event: event, onTiersChanged: _refreshAll),
                               ],
 
-                              // ──────── Organizer Actions + Management ────────
-                              if (user != null &&
-                                  (user.isOrganizer || user.isAdmin))
-                                OrganizerManagementSection(
-                                  event: event,
-                                  isAdmin: user.isAdmin,
-                                  isOrganizer: user.isOrganizer,
-                                  revenueCents: _revenueCents,
-                                  onRefresh: _refreshAll,
-                                ),
-
-                              // ──────── Ticket Tier Management (organizer) ────────
-                              if (user != null &&
-                                  (user.isOrganizer || user.isAdmin) &&
-                                  event.ticketStrategyId != null)
-                                TicketTierManagement(
-                                    event: event, onTiersChanged: _refreshAll),
-
                               // ──────── Sponsor Carousel (public) ────────
-                              SponsorCarousel(eventId: widget.eventId),
+                              if (widget.isPreview)
+                                _previewPlaceholder(context, 'Sponsors will appear after publishing', Icons.storefront_rounded)
+                              else
+                                SponsorCarousel(eventId: widget.eventId),
 
                               // ──────── Reviews (completed events) ────────
-                              if (event.status == EventStatus.completed)
+                              if (!widget.isPreview && event.status == EventStatus.completed)
                                 ReviewsSection(
                                   eventId: widget.eventId,
                                   organizerId: event.organizerId,
-                                ),
+                                )
+                              else if (widget.isPreview)
+                                _previewPlaceholder(context, 'Reviews will appear after publishing', Icons.rate_review_rounded),
 
                               // ──────── Event Feed / Posts (self-contained) ────────
                               AppSpacing.vXxxl,
-                              EventFeedSection(
-                                eventId: widget.eventId,
-                                postsEnabled: event.postsEnabled,
-                                isRegistered: _isRegistered,
-                              ),
+                              if (widget.isPreview)
+                                _previewPlaceholder(context, 'Event feed will appear after publishing', Icons.forum_rounded)
+                              else
+                                EventFeedSection(
+                                  eventId: widget.eventId,
+                                  postsEnabled: event.postsEnabled,
+                                  isRegistered: _isRegistered,
+                                ),
                             ],
                           ),
                         ),
@@ -1072,6 +1168,53 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       if (mounted) setState(() => _uploadingImages = false);
     }
   }
+  // ─── Preview helpers ───
+
+  Widget _previewBanner(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppTheme.warningColor.withValues(alpha: 0.08),
+        borderRadius: AppRadius.md,
+        border: Border.all(color: AppTheme.warningColor.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.visibility_rounded, size: AppIconSize.sm, color: AppTheme.warningColor),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'This is a preview. Some sections appear after publishing.',
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context), height: 1.3),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static Widget _previewPlaceholder(BuildContext context, String message, IconData icon) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+      padding: AppSpacing.paddingLg,
+      decoration: BoxDecoration(
+        borderRadius: AppRadius.md,
+        color: AppTheme.surfaceOf(context),
+        border: Border.all(color: AppTheme.dividerOf(context)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: AppTheme.textSecondaryOf(context), size: AppIconSize.md),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(message,
+              style: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 13)),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ─── Helpers ───
 
   /// Total capacity used = reserved spots (unredeemed) + tickets sold.

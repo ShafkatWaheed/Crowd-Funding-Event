@@ -228,27 +228,37 @@ async def purchase_ticket(
     )
     purchased_count = int((await db.execute(purchased_count_q)).scalar_one())
 
-    user_reserved = await funding_svc.get_user_reserved_spots(db, event_id, user.id)
     total_reserved = await funding_svc.get_total_reserved_spots(db, event_id)
 
-    # Determine how many reserved spots to consume (min of quantity and user's reserved)
-    spots_to_consume = min(quantity, user_reserved)
+    use_tier_linked = getattr(event, "link_funding_to_tiers", False)
+
+    if use_tier_linked:
+        user_tier_reserved = await funding_svc.get_user_reserved_spots_for_tier(
+            db, event_id, user.id, tier_id
+        )
+        spots_to_consume = min(quantity, user_tier_reserved)
+    else:
+        user_reserved = await funding_svc.get_user_reserved_spots(db, event_id, user.id)
+        spots_to_consume = min(quantity, user_reserved)
+
     remaining_tickets = quantity - spots_to_consume
 
-    # Check capacity for the remaining (non-reserved) tickets
-    occupied = purchased_count + total_reserved  # total_reserved includes user_reserved
+    occupied = purchased_count + total_reserved
     available = max(0, int(event.max_capacity) - occupied)
 
     if remaining_tickets > available:
-        # Not enough general capacity — all tickets go to waitlist
         ticket_status = TicketSaleStatus.waitlisted
-        spots_to_consume = 0  # Don't consume reserved spots if waitlisted
+        spots_to_consume = 0
     else:
         ticket_status = TicketSaleStatus.purchased
 
-    # Consume reserved spots
-    for _ in range(spots_to_consume):
-        await funding_svc.consume_one_reserved_spot(db, event_id, user.id)
+    if use_tier_linked and spots_to_consume > 0:
+        await funding_svc.consume_reserved_spots_for_tier(
+            db, event_id, user.id, tier_id, spots_to_consume
+        )
+    else:
+        for _ in range(spots_to_consume):
+            await funding_svc.consume_one_reserved_spot(db, event_id, user.id)
 
     # Generate purchase group ID for multi-ticket purchases
     purchase_group_id = secrets.token_urlsafe(16) if quantity > 1 else None

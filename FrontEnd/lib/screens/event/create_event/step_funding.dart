@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../config/theme.dart';
+import '../../../config/design_tokens.dart';
 import '../../../models/event_form_models.dart';
 
 class StepFunding extends StatefulWidget {
@@ -16,6 +17,9 @@ class StepFunding extends StatefulWidget {
   final List<MilestoneInput> milestones;
   final VoidCallback onMarkDirty;
   final String Function(DateTime) fmtDt;
+  final bool linkFundingToTiers;
+  final ValueChanged<bool> onLinkFundingToTiersChanged;
+  final List<EditableTier> localTiers;
 
   const StepFunding({
     super.key,
@@ -31,6 +35,9 @@ class StepFunding extends StatefulWidget {
     required this.milestones,
     required this.onMarkDirty,
     required this.fmtDt,
+    required this.linkFundingToTiers,
+    required this.onLinkFundingToTiersChanged,
+    required this.localTiers,
   });
 
   @override
@@ -67,26 +74,38 @@ class _StepFundingState extends State<StepFunding> {
                         prefixText: '\$ '),
                     keyboardType: TextInputType.number,
                   ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: widget.minPledgeCtrl,
-                    decoration: const InputDecoration(
-                        labelText: 'Minimum Pledge (\$)',
-                        prefixIcon: Icon(Icons.savings_rounded, size: 20),
-                        prefixText: '\$ '),
-                    keyboardType: TextInputType.number,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: widget.maxReservedSpotsCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Max Reserved Spots Per User',
-                      prefixIcon: Icon(Icons.event_seat_rounded, size: 20),
-                      helperText:
-                          'How many ticket spots each pledger can reserve (0 = disabled)',
+
+                  if (widget.localTiers.isNotEmpty) ...[
+                    const SizedBox(height: 20),
+                    _buildTierLinkToggle(context),
+                    if (widget.linkFundingToTiers) ...[
+                      const SizedBox(height: 16),
+                      _buildPerTierReservationConfig(context),
+                    ],
+                  ],
+
+                  if (!widget.linkFundingToTiers) ...[
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: widget.minPledgeCtrl,
+                      decoration: const InputDecoration(
+                          labelText: 'Minimum Pledge (\$)',
+                          prefixIcon: Icon(Icons.savings_rounded, size: 20),
+                          prefixText: '\$ '),
+                      keyboardType: TextInputType.number,
                     ),
-                    keyboardType: TextInputType.number,
-                  ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: widget.maxReservedSpotsCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Max Reserved Spots Per User',
+                        prefixIcon: Icon(Icons.event_seat_rounded, size: 20),
+                        helperText:
+                            'How many ticket spots each pledger can reserve (0 = disabled)',
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                  ],
                   const SizedBox(height: 24),
                   _buildMilestoneSection(context),
                 ],
@@ -332,6 +351,179 @@ class _StepFundingState extends State<StepFunding> {
           ],
         );
       }),
+    );
+  }
+
+  Widget _buildTierLinkToggle(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: widget.linkFundingToTiers
+            ? context.ticketAccent.withValues(alpha: 0.06)
+            : AppTheme.cardOf(context),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: widget.linkFundingToTiers
+              ? context.ticketAccent.withValues(alpha: 0.25)
+              : AppTheme.dividerOf(context),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: (widget.linkFundingToTiers
+                          ? context.ticketAccent
+                          : AppTheme.textSecondaryOf(context))
+                      .withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.link_rounded,
+                    size: 18,
+                    color: widget.linkFundingToTiers
+                        ? context.ticketAccent
+                        : AppTheme.textSecondaryOf(context)),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text('Link Spot Reservation to Tiers',
+                    style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                        color: AppTheme.textPrimaryOf(context))),
+              ),
+              Switch.adaptive(
+                value: widget.linkFundingToTiers,
+                onChanged: (v) {
+                  widget.onLinkFundingToTiersChanged(v);
+                  widget.onMarkDirty();
+                },
+                activeColor: context.ticketAccent,
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            widget.linkFundingToTiers
+                ? 'Pledgers reserve spots by tier. Min pledge = tier price × spots.'
+                : 'Enable to let pledgers reserve spots for specific ticket tiers.',
+            style: TextStyle(
+                fontSize: 12, color: AppTheme.textSecondaryOf(context)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPerTierReservationConfig(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.cardOf(context),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.dividerOf(context)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.event_seat_rounded,
+                  size: 16, color: context.ticketAccent),
+              const SizedBox(width: 6),
+              Text('Per-Tier Reservation Limits',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      color: AppTheme.textPrimaryOf(context))),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Set how many spots pledgers can reserve per tier. Set 0 to disable reservations for a tier.',
+            style: TextStyle(
+                fontSize: 11, color: AppTheme.textSecondaryOf(context)),
+          ),
+          const SizedBox(height: 12),
+          ...widget.localTiers.asMap().entries.map((entry) {
+            final tier = entry.value;
+            final name = tier.nameCtrl.text.isEmpty
+                ? 'Tier ${entry.key + 1}'
+                : tier.nameCtrl.text;
+            final price = double.tryParse(tier.priceCtrl.text) ?? 0;
+            return Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                borderRadius: AppRadius.sm,
+                border: Border.all(color: AppTheme.dividerOf(context)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(name,
+                            style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                                color: AppTheme.textPrimaryOf(context))),
+                        Text('\$${price.toStringAsFixed(2)} / spot',
+                            style: TextStyle(
+                                fontSize: 11,
+                                color: AppTheme.textSecondaryOf(context))),
+                      ],
+                    ),
+                  ),
+                  SizedBox(
+                    width: 80,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        InkWell(
+                          onTap: tier.maxReservedSpots > 0
+                              ? () => setState(() {
+                                    tier.maxReservedSpots--;
+                                    widget.onMarkDirty();
+                                  })
+                              : null,
+                          borderRadius: BorderRadius.circular(12),
+                          child: Icon(Icons.remove_circle_outline,
+                              size: 22,
+                              color: tier.maxReservedSpots > 0
+                                  ? context.ticketAccent
+                                  : AppTheme.dividerOf(context)),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 6),
+                          child: Text('${tier.maxReservedSpots}',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 15)),
+                        ),
+                        InkWell(
+                          onTap: () => setState(() {
+                            tier.maxReservedSpots++;
+                            widget.onMarkDirty();
+                          }),
+                          borderRadius: BorderRadius.circular(12),
+                          child: Icon(Icons.add_circle_outline,
+                              size: 22, color: context.ticketAccent),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
     );
   }
 

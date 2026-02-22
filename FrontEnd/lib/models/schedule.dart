@@ -6,6 +6,9 @@ class ScheduleItem {
   final String endTime;
   final String title;
   final String? description;
+  final String? imageUrl;
+  final String? imageCaption;
+  final String? linkUrl;
   final int sortOrder;
   final bool overlaps;
   final DateTime createdAt;
@@ -18,6 +21,9 @@ class ScheduleItem {
     required this.endTime,
     required this.title,
     this.description,
+    this.imageUrl,
+    this.imageCaption,
+    this.linkUrl,
     this.sortOrder = 0,
     this.overlaps = false,
     required this.createdAt,
@@ -32,6 +38,9 @@ class ScheduleItem {
       endTime: json['end_time'],
       title: json['title'],
       description: json['description'],
+      imageUrl: json['image_url'],
+      imageCaption: json['image_caption'],
+      linkUrl: json['link_url'],
       sortOrder: json['sort_order'] ?? 0,
       overlaps: json['overlaps'] ?? false,
       createdAt: DateTime.parse(json['created_at']),

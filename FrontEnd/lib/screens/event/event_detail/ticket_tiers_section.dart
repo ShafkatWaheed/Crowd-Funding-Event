@@ -448,17 +448,19 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
                             width: double.infinity,
                             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
                             decoration: BoxDecoration(
-                              color: Colors.deepPurple.withValues(alpha: 0.06),
+                              color: ctx.sponsorSurface,
                               borderRadius: AppRadius.sm,
                             ),
                             child: Row(
                               children: [
-                                Icon(Icons.event_seat_rounded, size: AppIconSize.sm, color: Colors.deepPurple[600]),
+                                Icon(Icons.event_seat_rounded, size: AppIconSize.sm, color: ctx.sponsorAccent),
                                 AppSpacing.hSm,
                                 Expanded(
                                   child: Text(
-                                    'Using $spotsUsed of your ${widget.myReservedSpots} reserved spot${widget.myReservedSpots == 1 ? '' : 's'} from pledging',
-                                    style: TextStyle(fontSize: 12, color: Colors.deepPurple[700], fontWeight: FontWeight.w500),
+                                    widget.event.linkFundingToTiers
+                                        ? 'Using $spotsUsed of your reserved spot${spotsUsed == 1 ? '' : 's'} for this tier from pledging'
+                                        : 'Using $spotsUsed of your ${widget.myReservedSpots} reserved spot${widget.myReservedSpots == 1 ? '' : 's'} from pledging',
+                                    style: TextStyle(fontSize: 12, color: ctx.sponsorAccent, fontWeight: FontWeight.w500),
                                   ),
                                 ),
                               ],

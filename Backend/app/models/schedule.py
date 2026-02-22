@@ -18,6 +18,9 @@ class EventScheduleItem(Base):
     end_time: Mapped[time] = mapped_column(Time, nullable=False)
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    image_caption: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    link_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 

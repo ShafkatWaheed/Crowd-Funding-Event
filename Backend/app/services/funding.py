@@ -18,7 +18,7 @@ from app.core.exceptions import ConflictError, NotFoundError
 from app.models.event import EventStatus
 from app.models.funding import Funding, FundingStatus
 from app.models.registration import Registration, RegistrationStatus
-from app.models.ticket import TicketSale, TicketSaleStatus
+from app.models.ticket import TicketSale, TicketSaleStatus, TicketTier
 from app.models.user import User
 from app.services import event as event_service
 
@@ -86,6 +86,74 @@ async def consume_one_reserved_spot(db: AsyncSession, event_id: int, user_id: in
     await db.flush()
 
 
+# ─── Tier-linked reservation helpers ──────────────────────────────────
+
+async def get_reserved_spots_for_tier(db: AsyncSession, event_id: int, tier_id: int) -> int:
+    """Total reserved spots for a specific tier across all pledgers."""
+    from app.models.funding import PledgeSpotReservation
+    q = (
+        select(func.coalesce(func.sum(PledgeSpotReservation.spots), 0))
+        .join(Funding, PledgeSpotReservation.funding_id == Funding.id)
+        .where(
+            Funding.event_id == event_id,
+            Funding.status == FundingStatus.pledged,
+            PledgeSpotReservation.ticket_tier_id == tier_id,
+        )
+    )
+    return int((await db.execute(q)).scalar_one())
+
+
+async def get_user_reserved_spots_for_tier(
+    db: AsyncSession, event_id: int, user_id: int, tier_id: int
+) -> int:
+    """User's reserved spots for a specific tier."""
+    from app.models.funding import PledgeSpotReservation
+    q = (
+        select(func.coalesce(func.sum(PledgeSpotReservation.spots), 0))
+        .join(Funding, PledgeSpotReservation.funding_id == Funding.id)
+        .where(
+            Funding.event_id == event_id,
+            Funding.user_id == user_id,
+            Funding.status == FundingStatus.pledged,
+            PledgeSpotReservation.ticket_tier_id == tier_id,
+        )
+    )
+    return int((await db.execute(q)).scalar_one())
+
+
+async def consume_reserved_spots_for_tier(
+    db: AsyncSession, event_id: int, user_id: int, tier_id: int, count: int
+) -> None:
+    """Decrement reservation rows for user+tier, consuming from oldest pledge first."""
+    from app.models.funding import PledgeSpotReservation
+    remaining = count
+    q = (
+        select(PledgeSpotReservation)
+        .join(Funding, PledgeSpotReservation.funding_id == Funding.id)
+        .where(
+            Funding.event_id == event_id,
+            Funding.user_id == user_id,
+            Funding.status == FundingStatus.pledged,
+            PledgeSpotReservation.ticket_tier_id == tier_id,
+            PledgeSpotReservation.spots > 0,
+        )
+        .order_by(Funding.created_at.asc())
+        .with_for_update()
+    )
+    rows = list((await db.execute(q)).scalars().all())
+    for row in rows:
+        if remaining <= 0:
+            break
+        take = min(remaining, row.spots)
+        row.spots -= take
+        remaining -= take
+        # Also decrement the parent pledge's total reserved_spots
+        pledge = await db.get(Funding, row.funding_id)
+        if pledge:
+            pledge.reserved_spots = max(0, pledge.reserved_spots - take)
+    await db.flush()
+
+
 # ─── Pledge preview (invoice) ───────────────────────────────────────
 
 
@@ -111,6 +179,23 @@ async def pledge_preview(
 
     event_total = await get_total_reserved_spots(db, event_id)
 
+    tier_availability: list[dict] = []
+    if event.link_funding_to_tiers:
+        tiers_q = select(TicketTier).where(TicketTier.event_id == event_id).order_by(TicketTier.display_order)
+        tiers = list((await db.execute(tiers_q)).scalars().all())
+        for t in tiers:
+            if t.max_reserved_spots <= 0:
+                continue
+            reserved = await get_reserved_spots_for_tier(db, event_id, t.id)
+            tier_availability.append({
+                "tier_id": t.id,
+                "tier_name": t.name,
+                "price_cents": t.price_cents,
+                "max_reserved_spots": t.max_reserved_spots,
+                "reserved_so_far": reserved,
+                "available": max(0, t.max_reserved_spots - reserved),
+            })
+
     return {
         "amount_cents": amount_cents,
         "reserved_spots": reserved_spots,
@@ -120,6 +205,8 @@ async def pledge_preview(
         "funding_commission_percent": funding_pct,
         "available_spots_for_user": available_for_user,
         "event_total_reserved_spots": event_total,
+        "link_funding_to_tiers": event.link_funding_to_tiers,
+        "tier_availability": tier_availability,
     }
 
 
@@ -133,23 +220,25 @@ async def create_pledge(
     user: User,
     amount_cents: int,
     reserved_spots: int = 0,
+    tier_reservations: list[dict] | None = None,
 ) -> Funding:
+    """Create a pledge with optional spot reservations.
+
+    tier_reservations: list of {"tier_id": int, "spots": int} when
+    event.link_funding_to_tiers is True.  In tier-linked mode the global
+    reserved_spots field is auto-computed as the sum of per-tier spots.
+    """
     if amount_cents <= 0:
         raise ConflictError("amount_cents must be greater than 0")
     if reserved_spots < 0:
         raise ConflictError("reserved_spots cannot be negative")
 
     event = await event_service.get_or_404(db, event_id)
-    if amount_cents < event.min_pledge_cents:
-        raise ConflictError(
-            f"Pledge amount must be at least {event.min_pledge_cents} cents (event minimum)"
-        )
     if event.status == EventStatus.cancelled:
         raise ConflictError("Cannot pledge to a cancelled event")
     if event.status == EventStatus.completed:
         raise ConflictError("Cannot pledge to an ended event")
 
-    # Check if user is registered for this event
     reg_q = select(Registration).where(
         Registration.event_id == event_id,
         Registration.user_id == user.id,
@@ -159,31 +248,47 @@ async def create_pledge(
     is_registered = reg_result.scalar_one_or_none() is not None
     is_guest = not is_registered
 
-    # ── Spot reservation validation ──
-    if reserved_spots > 0:
+    # ── Tier-linked reservation mode ──
+    if event.link_funding_to_tiers and tier_reservations:
         if is_guest:
             raise ConflictError("Only registered users can reserve spots. Please register first.")
 
-        if event.max_reserved_spots_per_user <= 0:
-            raise ConflictError("Spot reservation is not enabled for this event")
+        total_tier_spots = 0
+        min_required_cents = 0
 
-        # Amount must cover spots
-        min_required = reserved_spots * event.min_pledge_cents
-        if amount_cents < min_required:
+        for tr in tier_reservations:
+            tid, spots = tr["tier_id"], tr["spots"]
+            if spots <= 0:
+                raise ConflictError(f"Spots must be >= 1 for tier {tid}")
+
+            tier = (await db.execute(
+                select(TicketTier).where(TicketTier.id == tid, TicketTier.event_id == event_id)
+            )).scalar_one_or_none()
+            if tier is None:
+                raise ConflictError(f"Ticket tier {tid} not found for this event")
+            if tier.max_reserved_spots <= 0:
+                raise ConflictError(f"Tier '{tier.name}' does not allow spot reservations")
+
+            already_reserved = await get_reserved_spots_for_tier(db, event_id, tid)
+            if already_reserved + spots > tier.max_reserved_spots:
+                avail = max(0, tier.max_reserved_spots - already_reserved)
+                raise ConflictError(
+                    f"Tier '{tier.name}' only has {avail} reservable spot(s) left "
+                    f"(limit {tier.max_reserved_spots}, already reserved {already_reserved})"
+                )
+
+            min_required_cents += spots * tier.price_cents
+            total_tier_spots += spots
+
+        reserved_spots = total_tier_spots
+
+        if amount_cents < min_required_cents:
             raise ConflictError(
-                f"Pledge amount must be at least {min_required} cents "
-                f"to reserve {reserved_spots} spot(s) ({event.min_pledge_cents} cents/spot)"
+                f"Pledge amount must be at least {min_required_cents} cents "
+                f"to cover the selected tier reservations"
             )
 
-        # Per-user limit
-        user_existing_spots = await get_user_reserved_spots(db, event_id, user.id)
-        if user_existing_spots + reserved_spots > event.max_reserved_spots_per_user:
-            raise ConflictError(
-                f"Cannot reserve {reserved_spots} more spot(s). "
-                f"You already have {user_existing_spots} and the limit is {event.max_reserved_spots_per_user}."
-            )
-
-        # Event capacity check: tickets_sold + total_reserved + new <= max_capacity
+        # Global capacity check
         total_reserved = await get_total_reserved_spots(db, event_id)
         tickets_sold_q = select(func.count()).where(
             TicketSale.event_id == event_id,
@@ -198,7 +303,48 @@ async def create_pledge(
                 f"Only {available} spot(s) available."
             )
 
-    # Compute platform commission on pledge
+    # ── Legacy global reservation mode ──
+    elif reserved_spots > 0:
+        if is_guest:
+            raise ConflictError("Only registered users can reserve spots. Please register first.")
+
+        if event.max_reserved_spots_per_user <= 0:
+            raise ConflictError("Spot reservation is not enabled for this event")
+
+        min_required = reserved_spots * event.min_pledge_cents
+        if amount_cents < min_required:
+            raise ConflictError(
+                f"Pledge amount must be at least {min_required} cents "
+                f"to reserve {reserved_spots} spot(s) ({event.min_pledge_cents} cents/spot)"
+            )
+
+        user_existing_spots = await get_user_reserved_spots(db, event_id, user.id)
+        if user_existing_spots + reserved_spots > event.max_reserved_spots_per_user:
+            raise ConflictError(
+                f"Cannot reserve {reserved_spots} more spot(s). "
+                f"You already have {user_existing_spots} and the limit is {event.max_reserved_spots_per_user}."
+            )
+
+        total_reserved = await get_total_reserved_spots(db, event_id)
+        tickets_sold_q = select(func.count()).where(
+            TicketSale.event_id == event_id,
+            TicketSale.status == TicketSaleStatus.purchased,
+        )
+        tickets_sold = int((await db.execute(tickets_sold_q)).scalar_one())
+        occupied = tickets_sold + total_reserved
+        if occupied + reserved_spots > event.max_capacity:
+            available = max(0, event.max_capacity - occupied)
+            raise ConflictError(
+                f"Not enough capacity to reserve {reserved_spots} spot(s). "
+                f"Only {available} spot(s) available."
+            )
+    else:
+        if amount_cents < event.min_pledge_cents:
+            raise ConflictError(
+                f"Pledge amount must be at least {event.min_pledge_cents} cents (event minimum)"
+            )
+
+    # Compute platform commission
     from app.services import platform_settings as settings_svc
     funding_pct = await settings_svc.get_int(db, "funding_commission_percent")
     platform_cut = amount_cents * funding_pct // 100
@@ -218,18 +364,28 @@ async def create_pledge(
     await db.flush()
     await db.refresh(pledge)
 
-    # Generate pledge receipt number: PLG-YYYYMMDD-eventId-pledgeId
+    # Create per-tier reservation rows
+    if event.link_funding_to_tiers and tier_reservations:
+        from app.models.funding import PledgeSpotReservation
+        for tr in tier_reservations:
+            row = PledgeSpotReservation(
+                funding_id=pledge.id,
+                ticket_tier_id=tr["tier_id"],
+                spots=tr["spots"],
+            )
+            db.add(row)
+        await db.flush()
+
     now = datetime.now(timezone.utc)
     pledge.receipt_number = f"PLG-{now.strftime('%Y%m%d')}-{event_id}-{pledge.id}"
     await db.flush()
     await db.refresh(pledge)
 
-    # Auto-check escrow stage 1 release (goal met + date + venue)
     try:
         from app.services import escrow as escrow_svc
         await escrow_svc.check_and_release_stage1(db, event_id=event_id)
     except Exception:
-        pass  # non-critical
+        pass
 
     return pledge
 

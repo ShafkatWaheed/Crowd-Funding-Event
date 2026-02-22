@@ -58,6 +58,7 @@ class EventCreate(BaseModel):
     rideshare_info: str | None = None
     accessibility_info: str | None = None
     has_schedule: bool = False
+    link_funding_to_tiers: bool = False
     publish: bool = False  # True = approved immediately, False = draft
 
 
@@ -86,6 +87,7 @@ class EventUpdate(BaseModel):
     rideshare_info: str | None = None
     accessibility_info: str | None = None
     has_schedule: bool | None = None
+    link_funding_to_tiers: bool | None = None
 
 
 class ExtendFundingBody(BaseModel):
@@ -177,6 +179,7 @@ class EventResponse(BaseModel):
     rideshare_info: str | None = None
     accessibility_info: str | None = None
     has_schedule: bool = False
+    link_funding_to_tiers: bool = False
     directions_url: str | None = None  # computed from venue address
     first_image_url: str | None = None
     created_at: datetime

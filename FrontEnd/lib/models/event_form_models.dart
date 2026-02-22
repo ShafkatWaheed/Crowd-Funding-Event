@@ -10,6 +10,7 @@ class EditableTier {
   final nameCtrl = TextEditingController();
   final priceCtrl = TextEditingController();
   final descCtrl = TextEditingController();
+  int maxReservedSpots = 0;
 }
 
 class LocalPrerequisite {
@@ -48,6 +49,9 @@ class ScheduleSlotInput {
   TimeOfDay endTime;
   final titleCtrl = TextEditingController();
   final descCtrl = TextEditingController();
+  final imageUrlCtrl = TextEditingController();
+  final imageCaptionCtrl = TextEditingController();
+  final linkUrlCtrl = TextEditingController();
   ScheduleSlotInput()
       : startTime = const TimeOfDay(hour: 9, minute: 0),
         endTime = const TimeOfDay(hour: 10, minute: 0);

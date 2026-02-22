@@ -727,6 +727,78 @@ async def get_sponsor_bid_summary_for_event(
     return counts
 
 
+async def get_events_with_sponsorship_available(
+    db: AsyncSession,
+    sponsor_user_id: int | None = None,
+    exclude_my_bids: bool = False,
+) -> list[dict]:
+    """Return events that have at least one sponsorship category with open spots.
+
+    Each result dict contains the Event ORM object and a list of category
+    summaries (name, total_spots, filled_spots, min_bid_cents).
+    Excludes cancelled/completed events and template categories.
+    """
+    from sqlalchemy import distinct
+    from sqlalchemy.orm import selectinload
+
+    excluded_statuses = [
+        Event.status.in_(["cancelled", "completed"]),
+    ]
+
+    open_cat_q = (
+        select(distinct(SponsorshipCategory.event_id))
+        .where(
+            SponsorshipCategory.event_id.isnot(None),
+            SponsorshipCategory.is_template == False,
+            SponsorshipCategory.filled_spots < SponsorshipCategory.total_spots,
+        )
+    )
+
+    if exclude_my_bids and sponsor_user_id:
+        already_bid_event_ids = (
+            select(distinct(SponsorshipCategory.event_id))
+            .join(SponsorBid, SponsorBid.category_id == SponsorshipCategory.id)
+            .where(
+                SponsorBid.sponsor_user_id == sponsor_user_id,
+                SponsorBid.status.in_([BidStatus.pending, BidStatus.accepted, BidStatus.paid]),
+            )
+        )
+        open_cat_q = open_cat_q.where(
+            SponsorshipCategory.event_id.notin_(already_bid_event_ids)
+        )
+
+    q = (
+        select(Event)
+        .options(
+            selectinload(Event.venue),
+            selectinload(Event.ticket_strategy),
+            selectinload(Event.sponsorship_categories),
+        )
+        .where(
+            Event.id.in_(open_cat_q),
+            Event.status.notin_(["cancelled", "completed"]),
+        )
+        .order_by(Event.created_at.desc())
+    )
+    events = list((await db.execute(q)).scalars().all())
+
+    results = []
+    for e in events:
+        cats = [
+            {
+                "name": c.name,
+                "total_spots": c.total_spots,
+                "filled_spots": c.filled_spots,
+                "available_spots": c.total_spots - c.filled_spots,
+                "min_bid_cents": c.min_bid_cents,
+            }
+            for c in (e.sponsorship_categories or [])
+            if not c.is_template and c.filled_spots < c.total_spots
+        ]
+        results.append({"event": e, "categories_summary": cats})
+    return results
+
+
 # ── Sponsor Tickets ──
 
 async def get_sponsor_ticket(

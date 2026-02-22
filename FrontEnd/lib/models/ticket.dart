@@ -3,6 +3,7 @@ class TicketTier {
   final int eventId;
   final String name;
   final int priceCents;
+  final int maxReservedSpots;
   final int displayOrder;
 
   TicketTier({
@@ -10,6 +11,7 @@ class TicketTier {
     required this.eventId,
     required this.name,
     required this.priceCents,
+    this.maxReservedSpots = 0,
     required this.displayOrder,
   });
 
@@ -19,6 +21,7 @@ class TicketTier {
       eventId: json['event_id'],
       name: json['name'],
       priceCents: json['price_cents'],
+      maxReservedSpots: json['max_reserved_spots'] ?? 0,
       displayOrder: json['display_order'] ?? 0,
     );
   }

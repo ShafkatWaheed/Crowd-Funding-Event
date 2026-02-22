@@ -47,6 +47,9 @@ def _item_to_response(item: EventScheduleItem, overlaps: bool = False) -> Schedu
         end_time=item.end_time.strftime("%H:%M"),
         title=item.title,
         description=item.description,
+        image_url=item.image_url,
+        image_caption=item.image_caption,
+        link_url=item.link_url,
         sort_order=item.sort_order,
         overlaps=overlaps,
         created_at=item.created_at,
@@ -128,6 +131,9 @@ async def create_item(
         end_time=e,
         title=data.title,
         description=data.description,
+        image_url=data.image_url,
+        image_caption=data.image_caption,
+        link_url=data.link_url,
         sort_order=data.sort_order,
     )
     db.add(item)
@@ -155,7 +161,7 @@ async def update_item(
     item.start_time = s
     item.end_time = e
 
-    for field in ("title", "description", "sort_order"):
+    for field in ("title", "description", "image_url", "image_caption", "link_url", "sort_order"):
         if field in update_data:
             setattr(item, field, update_data[field])
 
@@ -189,6 +195,9 @@ async def bulk_create(
             end_time=e,
             title=data.title,
             description=data.description,
+            image_url=data.image_url,
+            image_caption=data.image_caption,
+            link_url=data.link_url,
             sort_order=data.sort_order,
         )
         db.add(item)

@@ -10,6 +10,9 @@ class ScheduleItemCreate(BaseModel):
     end_time: str = Field(..., description="HH:MM (24h)")
     title: str = Field(..., min_length=1, max_length=200)
     description: str | None = None
+    image_url: str | None = None
+    image_caption: str | None = Field(None, max_length=200)
+    link_url: str | None = None
     sort_order: int = 0
 
     @field_validator("date")
@@ -27,6 +30,15 @@ class ScheduleItemCreate(BaseModel):
         time(int(parts[0]), int(parts[1]))
         return v
 
+    @field_validator("image_url", "link_url")
+    @classmethod
+    def validate_url(cls, v: str | None) -> str | None:
+        if v is not None and v.strip():
+            v = v.strip()
+            if not v.startswith(("http://", "https://", "/")):
+                raise ValueError("URL must start with http://, https://, or /")
+        return v or None
+
 
 class ScheduleItemUpdate(BaseModel):
     date: str | None = Field(None, description="ISO date YYYY-MM-DD")
@@ -34,6 +46,9 @@ class ScheduleItemUpdate(BaseModel):
     end_time: str | None = Field(None, description="HH:MM (24h)")
     title: str | None = Field(None, min_length=1, max_length=200)
     description: str | None = None
+    image_url: str | None = None
+    image_caption: str | None = Field(None, max_length=200)
+    link_url: str | None = None
     sort_order: int | None = None
 
     @field_validator("date")
@@ -53,6 +68,15 @@ class ScheduleItemUpdate(BaseModel):
             time(int(parts[0]), int(parts[1]))
         return v
 
+    @field_validator("image_url", "link_url")
+    @classmethod
+    def validate_url(cls, v: str | None) -> str | None:
+        if v is not None and v.strip():
+            v = v.strip()
+            if not v.startswith(("http://", "https://", "/")):
+                raise ValueError("URL must start with http://, https://, or /")
+        return v or None
+
 
 class ScheduleItemResponse(BaseModel):
     id: int
@@ -62,6 +86,9 @@ class ScheduleItemResponse(BaseModel):
     end_time: str
     title: str
     description: str | None = None
+    image_url: str | None = None
+    image_caption: str | None = None
+    link_url: str | None = None
     sort_order: int = 0
     overlaps: bool = False
     created_at: datetime

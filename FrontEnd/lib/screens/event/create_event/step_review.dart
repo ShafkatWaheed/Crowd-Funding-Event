@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../config/theme.dart';
+import '../../../config/design_tokens.dart';
 import '../../../models/event_form_models.dart';
 
 class StepReview extends StatelessWidget {
@@ -8,6 +9,7 @@ class StepReview extends StatelessWidget {
   final bool publishImmediately;
   final ValueChanged<bool> onPublishChanged;
   final ValueChanged<int> onGoToStep;
+  final VoidCallback? onPreview;
 
   // Basics
   final String title;
@@ -18,6 +20,7 @@ class StepReview extends StatelessWidget {
   final DateTime? fundingEndAt;
   final String fundingGoal;
   final String minPledge;
+  final bool linkFundingToTiers;
   final List<MilestoneInput> milestones;
 
   // Dates & Tickets
@@ -39,12 +42,14 @@ class StepReview extends StatelessWidget {
     required this.publishImmediately,
     required this.onPublishChanged,
     required this.onGoToStep,
+    this.onPreview,
     required this.title,
     required this.genre,
     required this.imageCount,
     required this.fundingEndAt,
     required this.fundingGoal,
     required this.minPledge,
+    required this.linkFundingToTiers,
     required this.milestones,
     required this.startTime,
     required this.endTime,
@@ -127,7 +132,22 @@ class StepReview extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
+                if (onPreview != null)
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: onPreview,
+                      icon: const Icon(Icons.visibility_rounded, size: AppIconSize.sm),
+                      label: const Text('Preview as Customer'),
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size(double.infinity, 48),
+                        backgroundColor: AppTheme.accentColor,
+                        shape: RoundedRectangleBorder(borderRadius: AppRadius.md),
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 20),
                 _reviewCard(
                   context: context,
                   step: 0,
@@ -145,27 +165,6 @@ class StepReview extends StatelessWidget {
                 _reviewCard(
                   context: context,
                   step: 1,
-                  icon: Icons.attach_money_rounded,
-                  color: context.fundingAccent,
-                  title: 'Funding',
-                  items: {
-                    'Deadline': fundingEndAt != null
-                        ? _fmtDt(fundingEndAt!)
-                        : 'Not set',
-                    if (fundingEndAt != null) ...{
-                      'Goal': fundingGoal.isNotEmpty
-                          ? '\$$fundingGoal'
-                          : 'Not set',
-                      'Min Pledge': '\$$minPledge',
-                      'Milestones': milestones.isEmpty
-                          ? 'None'
-                          : '${milestones.length}',
-                    },
-                  },
-                ),
-                _reviewCard(
-                  context: context,
-                  step: 2,
                   icon: Icons.event_rounded,
                   color: context.feedAccent,
                   title: 'Dates & Tickets',
@@ -186,6 +185,30 @@ class StepReview extends StatelessWidget {
                     'Discounts': selectedDiscountCount == 0
                         ? 'None'
                         : '$selectedDiscountCount selected',
+                  },
+                ),
+                _reviewCard(
+                  context: context,
+                  step: 2,
+                  icon: Icons.attach_money_rounded,
+                  color: context.fundingAccent,
+                  title: 'Funding',
+                  items: {
+                    'Deadline': fundingEndAt != null
+                        ? _fmtDt(fundingEndAt!)
+                        : 'Not set',
+                    if (fundingEndAt != null) ...{
+                      'Goal': fundingGoal.isNotEmpty
+                          ? '\$$fundingGoal'
+                          : 'Not set',
+                      'Min Pledge': linkFundingToTiers
+                          ? 'Per-tier pricing'
+                          : '\$$minPledge',
+                      'Tier-Linked': linkFundingToTiers ? 'Yes' : 'No',
+                      'Milestones': milestones.isEmpty
+                          ? 'None'
+                          : '${milestones.length}',
+                    },
                   },
                 ),
                 _reviewCard(

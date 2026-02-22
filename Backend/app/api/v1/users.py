@@ -69,21 +69,24 @@ async def get_my_pledges(
     limit: int = Query(20, ge=1, le=100),
 ):
     """List events the current user has pledged to."""
+    from app.api.v1.events import _build_tier_reservation_response
     pledges = await funding_service.list_pledges_by_user(db, user_id=current_user.id, offset=offset, limit=limit)
-    return [
-        MyPledgeItem(
+    result = []
+    for p in pledges:
+        tier_resp = await _build_tier_reservation_response(db, p.id)
+        result.append(MyPledgeItem(
             id=p.id,
             event_id=p.event_id,
             event_title=p.event.title if p.event else "",
             amount_cents=p.amount_cents,
             reserved_spots=p.reserved_spots,
+            tier_reservations=tier_resp,
             receipt_number=p.receipt_number,
             status=p.status.value,
             is_guest=p.is_guest,
             created_at=p.created_at,
-        )
-        for p in pledges
-    ]
+        ))
+    return result
 
 
 @router.get("/pledges/{pledge_id}/receipt", response_model=PledgeReceiptResponse)
@@ -104,6 +107,8 @@ async def get_my_pledge_receipt(
     event = await event_service.get_or_404(db, pledge.event_id)
     from app.services import platform_settings as settings_svc
     funding_pct = await settings_svc.get_int(db, "funding_commission_percent")
+    from app.api.v1.events import _build_tier_reservation_response
+    tier_resp = await _build_tier_reservation_response(db, pledge.id)
     return PledgeReceiptResponse(
         id=pledge.id,
         receipt_number=pledge.receipt_number,
@@ -112,6 +117,7 @@ async def get_my_pledge_receipt(
         user_id=pledge.user_id,
         amount_cents=pledge.amount_cents,
         reserved_spots=pledge.reserved_spots,
+        tier_reservations=tier_resp,
         platform_cut_cents=pledge.platform_cut_cents,
         net_to_organizer_cents=pledge.net_to_organizer_cents,
         funding_commission_percent=funding_pct,

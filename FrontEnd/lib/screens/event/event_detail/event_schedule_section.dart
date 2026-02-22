@@ -3,11 +3,13 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../config/api_config.dart';
 import '../../../config/theme.dart';
 import '../../../config/design_tokens.dart';
 import '../../../models/event.dart';
 import '../../../models/schedule.dart';
 import '../../../services/api_service.dart';
+import '../../../widgets/fullscreen_image_viewer.dart';
 
 class EventScheduleSection extends StatefulWidget {
   final int eventId;
@@ -215,24 +217,10 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     SizedBox(
-                      width: AppSpacing.xxxl,
+                      width: 40,
                       child: Column(
                         children: [
-                          Container(
-                            width: AppSpacing.xxl,
-                            height: AppSpacing.xxl,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: isOverlap ? context.photoAccent : context.feedAccent,
-                            ),
-                            child: Center(
-                              child: Icon(
-                                isOverlap ? Icons.warning_rounded : Icons.schedule_rounded,
-                                size: AppIconSize.sm,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
+                          _buildTimelineNode(context, item, isOverlap),
                           if (!isLast)
                             Expanded(
                               child: Container(
@@ -324,6 +312,8 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
                                 ),
                               ),
                             ],
+                            if (item.linkUrl != null && item.linkUrl!.isNotEmpty)
+                              _buildLinkChip(context, item.linkUrl!),
                           ],
                         ),
                       ),
@@ -345,6 +335,128 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTimelineNode(BuildContext context, ScheduleItem item, bool isOverlap) {
+    final hasImage = item.imageUrl != null && item.imageUrl!.isNotEmpty;
+    final accent = isOverlap ? context.photoAccent : context.feedAccent;
+
+    if (hasImage) {
+      final resolvedUrl = item.imageUrl!.startsWith('/')
+          ? ApiConfig.imageUrl(item.imageUrl!)
+          : item.imageUrl!;
+      return GestureDetector(
+        onTap: () {
+          Navigator.of(context).push(PageRouteBuilder(
+            opaque: false,
+            barrierColor: Colors.black87,
+            pageBuilder: (_, __, ___) => FullscreenImageViewer(
+              imageUrls: [resolvedUrl],
+              captions: [item.imageCaption],
+              initialIndex: 0,
+            ),
+            transitionsBuilder: (_, anim, __, child) =>
+                FadeTransition(opacity: anim, child: child),
+          ));
+        },
+        child: Tooltip(
+          message: item.imageCaption ?? '',
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                border: Border.all(color: accent.withValues(alpha: 0.4), width: 1.5),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(6.5),
+                child: Image.network(
+                  resolvedUrl,
+                  width: 36,
+                  height: 36,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    color: accent.withValues(alpha: 0.1),
+                    child: Icon(Icons.image_rounded, size: 16, color: accent),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      width: AppSpacing.xxl,
+      height: AppSpacing.xxl,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: accent,
+      ),
+      child: Center(
+        child: Icon(
+          isOverlap ? Icons.warning_rounded : Icons.schedule_rounded,
+          size: AppIconSize.sm,
+          color: Colors.white,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLinkChip(BuildContext context, String url) {
+    String domain;
+    try {
+      final uri = Uri.parse(url);
+      domain = uri.host.isNotEmpty ? uri.host : url;
+      if (domain.startsWith('www.')) domain = domain.substring(4);
+      if (domain.length > 25) domain = '${domain.substring(0, 22)}...';
+    } catch (_) {
+      domain = url.length > 25 ? '${url.substring(0, 22)}...' : url;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.sm),
+      child: GestureDetector(
+        onTap: () async {
+          final uri = Uri.parse(url);
+          if (await canLaunchUrl(uri)) {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+          }
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.sm, vertical: AppSpacing.xs,
+          ),
+          decoration: BoxDecoration(
+            color: context.feedAccent.withValues(alpha: 0.08),
+            borderRadius: AppRadius.sm,
+            border: Border.all(color: context.feedAccent.withValues(alpha: 0.2)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.link_rounded, size: 13, color: context.feedAccent),
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text(
+                  domain,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: context.feedAccent,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

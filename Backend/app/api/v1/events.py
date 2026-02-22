@@ -114,6 +114,27 @@ async def _get_first_images(db, event_ids: list[int]) -> dict[int, str]:
     return {r.event_id: r.image_url for r in rows}
 
 
+async def _build_tier_reservation_response(db, funding_id: int) -> list[dict]:
+    """Build tier reservation list for a pledge response."""
+    from sqlalchemy import select as sel
+    from app.models.funding import PledgeSpotReservation
+    from app.models.ticket import TicketTier
+    rows = list((await db.execute(
+        sel(PledgeSpotReservation).where(PledgeSpotReservation.funding_id == funding_id)
+    )).scalars().all())
+    if not rows:
+        return []
+    result = []
+    for r in rows:
+        tier = (await db.execute(sel(TicketTier).where(TicketTier.id == r.ticket_tier_id))).scalar_one_or_none()
+        result.append({
+            "tier_id": r.ticket_tier_id,
+            "tier_name": tier.name if tier else None,
+            "spots": r.spots,
+        })
+    return result
+
+
 def _event_to_response(
     e: Event,
     *,
@@ -184,6 +205,8 @@ def _event_to_response(
         transit_info=e.transit_info,
         rideshare_info=e.rideshare_info,
         accessibility_info=e.accessibility_info,
+        has_schedule=e.has_schedule,
+        link_funding_to_tiers=e.link_funding_to_tiers,
         directions_url=_directions_url(e),
         first_image_url=first_image_url,
         lat=e.lat,
@@ -813,12 +836,18 @@ async def pledge_event(
     if event.status not in (EventStatus.approved,):
         from fastapi import HTTPException
         raise HTTPException(status_code=409, detail="Pledging is only allowed during the funding period")
+
+    tier_res = None
+    if body.tier_reservations:
+        tier_res = [{"tier_id": tr.tier_id, "spots": tr.spots} for tr in body.tier_reservations]
+
     pledge = await funding_service.create_pledge(
         db,
         event_id=event_id,
         user=current_user,
         amount_cents=body.amount_cents,
         reserved_spots=body.reserved_spots,
+        tier_reservations=tier_res,
     )
     await notif_svc.create_notification(
         db, user_id=current_user.id,
@@ -828,6 +857,7 @@ async def pledge_event(
         data={"event_id": event_id, "pledge_id": pledge.id},
     )
     await db.commit()
+    tier_resp = await _build_tier_reservation_response(db, pledge.id)
     return PledgeResponse(
         id=pledge.id,
         event_id=pledge.event_id,
@@ -836,6 +866,7 @@ async def pledge_event(
         platform_cut_cents=pledge.platform_cut_cents,
         net_to_organizer_cents=pledge.net_to_organizer_cents,
         reserved_spots=pledge.reserved_spots,
+        tier_reservations=tier_resp,
         receipt_number=pledge.receipt_number,
         status=pledge.status.value,
         is_guest=pledge.is_guest,
@@ -863,6 +894,7 @@ async def get_pledge_receipt(
     event = await event_service.get_or_404(db, event_id)
     from app.services import platform_settings as settings_svc
     funding_pct = await settings_svc.get_int(db, "funding_commission_percent")
+    tier_resp = await _build_tier_reservation_response(db, pledge.id)
     return PledgeReceiptResponse(
         id=pledge.id,
         receipt_number=pledge.receipt_number,
@@ -871,6 +903,7 @@ async def get_pledge_receipt(
         user_id=pledge.user_id,
         amount_cents=pledge.amount_cents,
         reserved_spots=pledge.reserved_spots,
+        tier_reservations=tier_resp,
         platform_cut_cents=pledge.platform_cut_cents,
         net_to_organizer_cents=pledge.net_to_organizer_cents,
         funding_commission_percent=funding_pct,

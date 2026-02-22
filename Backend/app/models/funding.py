@@ -32,3 +32,18 @@ class Funding(Base):
 
     event = relationship("Event", back_populates="fundings")
     user = relationship("User", back_populates="fundings")
+    spot_reservations = relationship("PledgeSpotReservation", back_populates="funding", cascade="all, delete-orphan")
+
+
+class PledgeSpotReservation(Base):
+    """Maps a pledge's reserved spots to specific ticket tiers."""
+    __tablename__ = "pledge_spot_reservations"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    funding_id: Mapped[int] = mapped_column(ForeignKey("fundings.id"), nullable=False, index=True)
+    ticket_tier_id: Mapped[int] = mapped_column(ForeignKey("ticket_tiers.id"), nullable=False, index=True)
+    spots: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+
+    funding = relationship("Funding", back_populates="spot_reservations")
+    ticket_tier = relationship("TicketTier")

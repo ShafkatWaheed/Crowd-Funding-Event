@@ -82,6 +82,7 @@ class Event(Base):
     rideshare_info: Mapped[str | None] = mapped_column(Text, nullable=True)
     accessibility_info: Mapped[str | None] = mapped_column(Text, nullable=True)
     has_schedule: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    link_funding_to_tiers: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
 

@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from app.rate_limit import limiter
 
-from app.dependencies import CurrentUserOptional, DbSession, require_role
+from app.dependencies import CurrentUser, CurrentUserOptional, DbSession, require_role
 from app.models.event import Event, EventStatus, RegistrationType
 from app.models.user import User, UserRole
 from app.schemas import (
@@ -891,28 +891,38 @@ async def get_pledge_receipt(
     event_id: int,
     pledge_id: int,
     db: DbSession,
-    current_user: User = Depends(require_role(UserRole.customer, UserRole.sponsor)),
+    current_user: CurrentUser,
 ):
-    """Get a pledge receipt (must be own pledge)."""
+    """Get a pledge receipt. Customers/sponsors see own pledges; organizers/admins see pledges on their events."""
     from sqlalchemy import select as sel2
+    from sqlalchemy.orm import selectinload as sil2
     from app.models.funding import Funding
     pledge = (await db.execute(
-        sel2(Funding).where(Funding.id == pledge_id, Funding.event_id == event_id)
+        sel2(Funding)
+        .where(Funding.id == pledge_id, Funding.event_id == event_id)
+        .options(sil2(Funding.user))
     )).scalar_one_or_none()
     if not pledge:
         raise NotFoundError("Pledge", pledge_id)
-    if pledge.user_id != current_user.id:
-        raise ForbiddenError("You can only view your own pledge receipts")
+    is_own_pledge = pledge.user_id == current_user.id
+    is_event_organizer = False
+    if current_user.role in (UserRole.organizer, UserRole.admin):
+        event_check = await event_service.get_or_404(db, event_id)
+        is_event_organizer = event_check.organizer_id == current_user.id or current_user.role == UserRole.admin
+    if not is_own_pledge and not is_event_organizer:
+        raise ForbiddenError("You can only view your own pledge receipts or pledges on your events")
     event = await event_service.get_or_404(db, event_id)
     from app.services import platform_settings as settings_svc
     funding_pct = await settings_svc.get_int(db, "funding_commission_percent")
     tier_resp = await _build_tier_reservation_response(db, pledge.id)
+    backer_name = pledge.user.display_name if pledge.user and pledge.user.display_name else None
     return PledgeReceiptResponse(
         id=pledge.id,
         receipt_number=pledge.receipt_number,
         event_id=event_id,
         event_title=event.title,
         user_id=pledge.user_id,
+        backer_name=backer_name,
         amount_cents=pledge.amount_cents,
         reserved_spots=pledge.reserved_spots,
         tier_reservations=tier_resp,

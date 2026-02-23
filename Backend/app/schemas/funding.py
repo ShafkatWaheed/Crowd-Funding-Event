@@ -87,6 +87,7 @@ class PledgeReceiptResponse(BaseModel):
     event_id: int
     event_title: str
     user_id: int
+    backer_name: str | None = None
     amount_cents: int
     reserved_spots: int = 0
     tier_reservations: list[TierReservationResponse] = []
@@ -112,3 +113,18 @@ class MyPledgeItem(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class OrganizerPledgeItem(BaseModel):
+    """A pledge made to one of the organizer's events."""
+    id: int
+    event_id: int
+    event_title: str
+    backer_name: str
+    amount_cents: int
+    net_to_organizer_cents: int = 0
+    reserved_spots: int = 0
+    receipt_number: str | None = None
+    status: str
+    is_guest: bool = False
+    created_at: datetime

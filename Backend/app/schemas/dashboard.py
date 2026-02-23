@@ -31,6 +31,7 @@ class OrganizerDashboardResponse(BaseModel):
     tickets_sold: KpiItem
     total_backers: KpiItem
     total_events: KpiItem
+    total_sponsors: KpiItem
     status_breakdown: list[StatusBreakdown]
     top_events: list[EventResponse]
     trending_events: list[EventResponse]

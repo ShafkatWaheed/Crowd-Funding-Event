@@ -674,3 +674,36 @@ async def list_pledges_by_user(
     )
     result = await db.execute(q)
     return result.scalars().unique().all()
+
+
+async def list_organizer_pledges(
+    db: AsyncSession,
+    *,
+    organizer_id: int,
+    status_filter: str | None = None,
+    offset: int = 0,
+    limit: int = 20,
+) -> Sequence[Funding]:
+    """List all pledges made to events owned by organizer_id."""
+    from app.models.event import Event
+    conditions = [Event.organizer_id == organizer_id]
+    if status_filter and status_filter != "all":
+        if status_filter == "donation":
+            conditions.append(Funding.is_guest == True)  # noqa: E712
+        else:
+            conditions.append(Funding.status == status_filter)
+            conditions.append(Funding.is_guest == False)  # noqa: E712
+    q = (
+        select(Funding)
+        .join(Event, Funding.event_id == Event.id)
+        .where(*conditions)
+        .options(
+            selectinload(Funding.event),
+            selectinload(Funding.user),
+        )
+        .order_by(Funding.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    result = await db.execute(q)
+    return list(result.scalars().unique().all())

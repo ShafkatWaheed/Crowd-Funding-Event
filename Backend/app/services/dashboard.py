@@ -12,7 +12,7 @@ from sqlalchemy.orm import selectinload
 from app.models.event import Event, EventStatus
 from app.models.funding import Funding, FundingStatus
 from app.models.ticket import TicketSale, TicketSaleStatus
-from app.models.sponsor import SponsorBid, SponsorshipCategory, SponsorPayment
+from app.models.sponsor import BidStatus, SponsorBid, SponsorshipCategory, SponsorPayment
 from app.models.user import User
 
 
@@ -20,12 +20,22 @@ async def get_organizer_dashboard(
     db: AsyncSession,
     organizer_id: int,
     delta_days: int = 30,
+    status_filter: str | None = None,
+    event_id: int | None = None,
 ) -> dict[str, Any]:
     now = datetime.now(timezone.utc)
     period_start = now - timedelta(days=delta_days)
     prev_start = period_start - timedelta(days=delta_days)
 
     org_event_ids_q = select(Event.id).where(Event.organizer_id == organizer_id)
+    if event_id is not None:
+        org_event_ids_q = org_event_ids_q.where(Event.id == event_id)
+    elif status_filter:
+        try:
+            status_enum = EventStatus(status_filter)
+            org_event_ids_q = org_event_ids_q.where(Event.status == status_enum)
+        except ValueError:
+            pass
     org_events_excl_draft = org_event_ids_q.where(Event.status != EventStatus.draft)
 
     # ── KPI: Total Revenue ──────────────────────────────────────────────
@@ -139,6 +149,28 @@ async def get_organizer_dashboard(
     cur_events = await _events_created(period_start, now)
     prev_events = await _events_created(prev_start, period_start)
 
+    # ── KPI: Total Sponsors ─────────────────────────────────────────────
+    sponsor_base = (
+        select(func.count(func.distinct(SponsorBid.sponsor_user_id)))
+        .join(SponsorshipCategory, SponsorBid.category_id == SponsorshipCategory.id)
+        .where(
+            SponsorshipCategory.event_id.in_(org_event_ids_q),
+            SponsorBid.status.in_([BidStatus.accepted, BidStatus.paid]),
+        )
+    )
+
+    async def _sponsors(start: datetime, end: datetime) -> int:
+        return int((await db.execute(
+            sponsor_base.where(
+                SponsorBid.created_at >= start,
+                SponsorBid.created_at < end,
+            )
+        )).scalar_one())
+
+    cur_sponsors = await _sponsors(period_start, now)
+    prev_sponsors = await _sponsors(prev_start, period_start)
+    all_sponsors = int((await db.execute(sponsor_base)).scalar_one())
+
     def _delta(cur: int | float, prev: int | float) -> float | None:
         if prev == 0:
             return None if cur == 0 else 100.0
@@ -149,6 +181,7 @@ async def get_organizer_dashboard(
         "tickets_sold": {"value": all_tickets, "delta_percent": _delta(cur_tickets, prev_tickets)},
         "total_backers": {"value": all_backers, "delta_percent": _delta(cur_backers, prev_backers)},
         "total_events": {"value": all_events, "delta_percent": _delta(cur_events, prev_events)},
+        "total_sponsors": {"value": all_sponsors, "delta_percent": _delta(cur_sponsors, prev_sponsors)},
     }
 
     # ── Status Breakdown ────────────────────────────────────────────────
@@ -308,10 +341,20 @@ async def get_organizer_time_series(
     db: AsyncSession,
     organizer_id: int,
     days: int = 30,
+    status_filter: str | None = None,
+    event_id: int | None = None,
 ) -> dict[str, Any]:
     now = datetime.now(timezone.utc)
     start = now - timedelta(days=days)
     org_event_ids_q = select(Event.id).where(Event.organizer_id == organizer_id)
+    if event_id is not None:
+        org_event_ids_q = org_event_ids_q.where(Event.id == event_id)
+    elif status_filter:
+        try:
+            status_enum = EventStatus(status_filter)
+            org_event_ids_q = org_event_ids_q.where(Event.status == status_enum)
+        except ValueError:
+            pass
 
     ticket_day = func.date_trunc("day", TicketSale.created_at)
     ticket_daily = (await db.execute(

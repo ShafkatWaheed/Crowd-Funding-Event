@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends
 from app.dependencies import CurrentUser, DbSession, require_role
 from app.models.user import User, UserRole
 from app.schemas import (
-    EventResponse, MeResponse, MeUpdate, MyPledgeItem,
+    EventResponse, MeResponse, MeUpdate, MyPledgeItem, OrganizerPledgeItem,
     OrganizerDashboardResponse, OrganizerTimeSeriesResponse,
     PledgeReceiptResponse, TicketReceiptResponse, TicketSaleResponse,
 )
@@ -115,6 +115,7 @@ async def get_my_pledge_receipt(
         event_id=pledge.event_id,
         event_title=event.title,
         user_id=pledge.user_id,
+        backer_name=current_user.display_name,
         amount_cents=pledge.amount_cents,
         reserved_spots=pledge.reserved_spots,
         tier_reservations=tier_resp,
@@ -125,6 +126,37 @@ async def get_my_pledge_receipt(
         is_guest=pledge.is_guest,
         created_at=pledge.created_at,
     )
+
+
+@router.get("/organizer-pledges", response_model=list[OrganizerPledgeItem])
+async def get_organizer_pledges(
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+    status: str | None = Query(None, description="Filter by pledge status (pledged, refunded, etc.)"),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+):
+    """List all pledges made to events organized by the current user."""
+    pledges = await funding_service.list_organizer_pledges(
+        db, organizer_id=current_user.id, status_filter=status,
+        offset=offset, limit=limit,
+    )
+    return [
+        OrganizerPledgeItem(
+            id=p.id,
+            event_id=p.event_id,
+            event_title=p.event.title if p.event else "",
+            backer_name=p.user.display_name if p.user and p.user.display_name else f"User #{p.user_id}",
+            amount_cents=p.amount_cents,
+            net_to_organizer_cents=p.net_to_organizer_cents,
+            reserved_spots=p.reserved_spots,
+            receipt_number=p.receipt_number,
+            status=p.status.value,
+            is_guest=p.is_guest,
+            created_at=p.created_at,
+        )
+        for p in pledges
+    ]
 
 
 @router.get("/tickets", response_model=list[TicketSaleResponse])
@@ -393,12 +425,16 @@ async def list_bookmarked_events(
 async def get_organizer_dashboard(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+    status: str | None = Query(None, description="Filter KPIs to events with this status"),
+    event_id: int | None = Query(None, description="Filter KPIs to a single event"),
 ):
     """Aggregated dashboard: KPIs with deltas, status breakdown, top events, activity feed."""
     from datetime import datetime, timezone
     from app.services import dashboard as dashboard_service
 
-    raw = await dashboard_service.get_organizer_dashboard(db, current_user.id)
+    raw = await dashboard_service.get_organizer_dashboard(
+        db, current_user.id, status_filter=status, event_id=event_id,
+    )
 
     all_event_objs = list({
         e.id: e
@@ -435,6 +471,7 @@ async def get_organizer_dashboard(
         tickets_sold=raw["tickets_sold"],
         total_backers=raw["total_backers"],
         total_events=raw["total_events"],
+        total_sponsors=raw["total_sponsors"],
         status_breakdown=raw["status_breakdown"],
         top_events=_build_responses(raw["top_events"]),
         trending_events=_build_responses(raw["trending_events"]),
@@ -448,7 +485,11 @@ async def get_organizer_time_series(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
     days: int = Query(30, ge=7, le=90, description="Number of days (7, 30, or 90)"),
+    status: str | None = Query(None, description="Filter to events with this status"),
+    event_id: int | None = Query(None, description="Filter to a single event"),
 ):
     """Time-series revenue and ticket data for the organizer's events."""
     from app.services import dashboard as dashboard_service
-    return await dashboard_service.get_organizer_time_series(db, current_user.id, days=days)
+    return await dashboard_service.get_organizer_time_series(
+        db, current_user.id, days=days, status_filter=status, event_id=event_id,
+    )

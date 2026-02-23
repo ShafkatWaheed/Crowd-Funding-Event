@@ -13,8 +13,9 @@ from app.schemas.event import (
     MapEventMarker, OrganizerTrustInfo, SetEventDateBody, UnregisterResponse,
 )
 from app.schemas.funding import (
-    FundingSummaryResponse, MyPledgeItem, PledgeBody, PledgePreviewResponse,
-    PledgeReceiptResponse, PledgeResponse, UnpledgeResponse,
+    FundingSummaryResponse, MyPledgeItem, OrganizerPledgeItem, PledgeBody,
+    PledgePreviewResponse, PledgeReceiptResponse, PledgeResponse,
+    UnpledgeResponse,
 )
 from app.schemas.registration import RegistrationDecisionBody, RegistrationResponse
 from app.schemas.ticket import (
@@ -70,6 +71,7 @@ __all__ = [
     "SetEventDateBody",
     "FundingSummaryResponse",
     "MyPledgeItem",
+    "OrganizerPledgeItem",
     "MapEventMarker",
     "MeResponse",
     "MeUpdate",

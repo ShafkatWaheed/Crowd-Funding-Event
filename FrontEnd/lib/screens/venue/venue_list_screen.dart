@@ -166,9 +166,9 @@ class _VenueListScreenState extends State<VenueListScreen> {
                               color: AppTheme.cardOf(context),
                               child: ListTile(
                                 leading: CircleAvatar(
-                                  backgroundColor: AppTheme.surfaceOf(context),
+                                  backgroundColor: AppTheme.accentColor.withValues(alpha: 0.15),
                                   child: const Icon(Icons.location_city,
-                                      color: AppTheme.primaryColor),
+                                      color: AppTheme.accentColor),
                                 ),
                                 title: Text(venue.name,
                                     style: TextStyle(

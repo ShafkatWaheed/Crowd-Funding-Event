@@ -600,34 +600,67 @@ class _TemplatePrerequisiteSheetState
     final nameCtrl = TextEditingController();
     final descCtrl = TextEditingController();
     bool isRequired = true;
+    bool requiresDocument = false;
 
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setInner) => AlertDialog(
           title: const Text('Add Requirement'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameCtrl,
-                decoration: const InputDecoration(labelText: 'Name *'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(labelText: 'Name *'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: descCtrl,
+                    decoration: const InputDecoration(labelText: 'Description'),
+                    maxLines: 2,
+                  ),
+                  const SizedBox(height: 12),
+                  GestureDetector(
+                    onTap: () => setInner(() => isRequired = !isRequired),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 24, height: 24,
+                          child: Checkbox(
+                            value: isRequired,
+                            onChanged: (v) => setInner(() => isRequired = v ?? true),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Expanded(child: Text('Required for bid acceptance')),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  GestureDetector(
+                    onTap: () => setInner(() => requiresDocument = !requiresDocument),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 24, height: 24,
+                          child: Checkbox(
+                            value: requiresDocument,
+                            onChanged: (v) => setInner(() => requiresDocument = v ?? false),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Expanded(child: Text('Requires document upload')),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: descCtrl,
-                decoration: const InputDecoration(labelText: 'Description'),
-                maxLines: 2,
-              ),
-              const SizedBox(height: 8),
-              CheckboxListTile(
-                value: isRequired,
-                onChanged: (v) => setInner(() => isRequired = v ?? true),
-                title: const Text('Required for bid acceptance'),
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-              ),
-            ],
+            ),
           ),
           actions: [
             TextButton(
@@ -651,6 +684,7 @@ class _TemplatePrerequisiteSheetState
         description:
             descCtrl.text.trim().isEmpty ? null : descCtrl.text.trim(),
         isRequired: isRequired,
+        requiresDocument: requiresDocument,
       );
       if (mounted) AppToast.success(context, 'Requirement added');
       _load();

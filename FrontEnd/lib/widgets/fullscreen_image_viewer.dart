@@ -77,7 +77,9 @@ class _FullscreenImageViewerState extends State<FullscreenImageViewer>
       });
 
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light);
-    _precacheAdjacent(_currentIndex);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _precacheAdjacent(_currentIndex);
+    });
   }
 
   @override
@@ -178,9 +180,13 @@ class _FullscreenImageViewerState extends State<FullscreenImageViewer>
     final caption = _captionAt(_currentIndex);
 
     return Scaffold(
-      backgroundColor: Colors.black.withValues(alpha: _dragOpacity),
+      backgroundColor: Colors.transparent,
       body: Stack(
         children: [
+          AnimatedContainer(
+            duration: AppDuration.fast,
+            color: Colors.black.withValues(alpha: _dragOpacity * 0.9),
+          ),
           GestureDetector(
             onVerticalDragStart: _onVerticalDragStart,
             onVerticalDragUpdate: _onVerticalDragUpdate,

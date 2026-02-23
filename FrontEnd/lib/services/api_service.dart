@@ -1176,11 +1176,12 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> createTemplatePrerequisite(
-      int templateId, {required String name, String? description, bool isRequired = true}) async {
+      int templateId, {required String name, String? description, bool isRequired = true, bool requiresDocument = false}) async {
     final formData = FormData.fromMap({
       'name': name,
       if (description != null) 'description': description,
       'is_required': isRequired,
+      'requires_document': requiresDocument,
     });
     final resp = await dio.post(
         '/me/sponsor-category-templates/$templateId/prerequisites',

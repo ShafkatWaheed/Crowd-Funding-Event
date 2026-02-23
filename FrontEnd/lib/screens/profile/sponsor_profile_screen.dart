@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -32,6 +34,20 @@ class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
   List<Map<String, dynamic>> _events = [];
   bool _loadingEvents = true;
 
+  final _eventSearchCtrl = TextEditingController();
+  Timer? _searchDebounce;
+  String _eventSearchQuery = '';
+  String? _eventStatusFilter;
+
+  static const _statusFilters = <(String, String?)>[
+    ('All', null),
+    ('Funding', 'approved'),
+    ('Selling', 'selling_tickets'),
+    ('Live', 'live'),
+    ('Completed', 'completed'),
+    ('Cancelled', 'cancelled'),
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -40,6 +56,43 @@ class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
       _loadRatings();
       if (widget.isOrganizerView) _loadEvents();
     });
+  }
+
+  @override
+  void dispose() {
+    _eventSearchCtrl.dispose();
+    _searchDebounce?.cancel();
+    super.dispose();
+  }
+
+  List<Map<String, dynamic>> get _filteredEvents {
+    var list = _events;
+    if (_eventStatusFilter != null) {
+      list = list.where((e) => e['status'] == _eventStatusFilter).toList();
+    }
+    if (_eventSearchQuery.isNotEmpty) {
+      final q = _eventSearchQuery.toLowerCase();
+      list = list.where((e) {
+        final title = (e['title'] ?? '').toString().toLowerCase();
+        final venue = (e['venue_name'] ?? '').toString().toLowerCase();
+        return title.contains(q) || venue.contains(q);
+      }).toList();
+    }
+    return list;
+  }
+
+  void _onEventSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      if (_eventSearchQuery != value) {
+        setState(() => _eventSearchQuery = value);
+      }
+    });
+  }
+
+  void _onEventStatusFilterChanged(String? status) {
+    if (_eventStatusFilter == status) return;
+    setState(() => _eventStatusFilter = status);
   }
 
   Future<void> _load() async {
@@ -437,6 +490,8 @@ class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
   }
 
   Widget _buildEventsSection() {
+    final filtered = _filteredEvents;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -466,13 +521,72 @@ class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
                     color: AppTheme.accentColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Text('${_events.length}',
+                  child: Text('${filtered.length}',
                       style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                           color: AppTheme.accentColor)),
                 ),
             ],
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _eventSearchCtrl,
+            onChanged: _onEventSearchChanged,
+            decoration: InputDecoration(
+              hintText: 'Search events\u2026',
+              prefixIcon: const Icon(Icons.search_rounded, size: 20),
+              suffixIcon: _eventSearchCtrl.text.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear_rounded, size: 18),
+                      onPressed: () {
+                        _eventSearchCtrl.clear();
+                        setState(() => _eventSearchQuery = '');
+                      },
+                    )
+                  : null,
+              filled: true,
+              fillColor: AppTheme.inputFillOf(context),
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              isDense: true,
+            ),
+            style: TextStyle(
+                fontSize: 14, color: AppTheme.textPrimaryOf(context)),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 34,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: _statusFilters.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (ctx, i) {
+                final f = _statusFilters[i];
+                final active = _eventStatusFilter == f.$2;
+                return ChoiceChip(
+                  label: Text(f.$1),
+                  selected: active,
+                  onSelected: (_) =>
+                      _onEventStatusFilterChanged(active ? null : f.$2),
+                  selectedColor: AppTheme.accentColor,
+                  labelStyle: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: active
+                        ? ctx.onDarkSurface
+                        : AppTheme.textSecondaryOf(ctx),
+                  ),
+                  backgroundColor: AppTheme.surfaceOf(context),
+                  side: BorderSide.none,
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  visualDensity: VisualDensity.compact,
+                );
+              },
+            ),
           ),
           const SizedBox(height: 12),
           if (_loadingEvents)
@@ -483,16 +597,19 @@ class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
                 child: CircularProgressIndicator(strokeWidth: 2),
               )),
             )
-          else if (_events.isEmpty)
+          else if (filtered.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 16),
               child: Center(
-                child: Text('No sponsored events yet.',
+                child: Text(
+                    _eventSearchQuery.isNotEmpty || _eventStatusFilter != null
+                        ? 'No matching events'
+                        : 'No sponsored events yet.',
                     style: TextStyle(color: AppTheme.textSecondaryOf(context))),
               ),
             )
           else
-            ..._events.map((e) => Padding(
+            ...filtered.map((e) => Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: _SponsorEventCard(event: e),
             )),

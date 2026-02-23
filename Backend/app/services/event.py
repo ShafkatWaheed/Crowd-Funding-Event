@@ -213,6 +213,7 @@ async def list_events(
     genre: str | None = None,
     community_rules: bool | None = None,
     include_all_statuses: bool = False,
+    sponsorship_only: bool = False,
     offset: int = 0,
     limit: int | None = None,
 ) -> Sequence[Event]:
@@ -290,6 +291,14 @@ async def list_events(
         conditions.append(Event.genre == genre)
     if community_rules is not None:
         conditions.append(Event.community_rules == community_rules)
+    if sponsorship_only:
+        from app.models.sponsor import SponsorshipCategory
+        conditions.append(exists(
+            select(SponsorshipCategory.id).where(
+                SponsorshipCategory.event_id == Event.id,
+                SponsorshipCategory.is_template == False,
+            )
+        ))
     if conditions:
         q = q.where(and_(*conditions))
     q = q.options(selectinload(Event.venue), selectinload(Event.ticket_strategy), selectinload(Event.organizer)).order_by(Event.start_time.asc())
@@ -1018,8 +1027,9 @@ async def get_my_registered_events(
     return result.scalars().unique().all()
 
 
-async def get_trending_events(db: AsyncSession, *, limit: int = 10) -> Sequence[Event]:
+async def get_trending_events(db: AsyncSession, *, limit: int = 10, sponsorship_only: bool = False) -> Sequence[Event]:
     """Events ordered by registration_count DESC. Public-visible statuses."""
+    from app.models.sponsor import SponsorshipCategory
     q = (
         select(Event)
         .where(Event.status.in_([EventStatus.approved, EventStatus.selling_tickets, EventStatus.live]))
@@ -1027,12 +1037,20 @@ async def get_trending_events(db: AsyncSession, *, limit: int = 10) -> Sequence[
         .order_by(Event.registration_count.desc(), Event.created_at.desc())
         .limit(limit)
     )
+    if sponsorship_only:
+        q = q.where(exists(
+            select(SponsorshipCategory.id).where(
+                SponsorshipCategory.event_id == Event.id,
+                SponsorshipCategory.is_template == False,
+            )
+        ))
     result = await db.execute(q)
     return result.scalars().unique().all()
 
 
-async def get_coming_soon_events(db: AsyncSession, *, limit: int = 10) -> Sequence[Event]:
+async def get_coming_soon_events(db: AsyncSession, *, limit: int = 10, sponsorship_only: bool = False) -> Sequence[Event]:
     """Approved events starting in the future, ordered by start_time ASC."""
+    from app.models.sponsor import SponsorshipCategory
     now = datetime.now(timezone.utc)
     q = (
         select(Event)
@@ -1045,13 +1063,21 @@ async def get_coming_soon_events(db: AsyncSession, *, limit: int = 10) -> Sequen
         .order_by(Event.start_time.asc())
         .limit(limit)
     )
+    if sponsorship_only:
+        q = q.where(exists(
+            select(SponsorshipCategory.id).where(
+                SponsorshipCategory.event_id == Event.id,
+                SponsorshipCategory.is_template == False,
+            )
+        ))
     result = await db.execute(q)
     return result.scalars().unique().all()
 
 
-async def get_popular_events(db: AsyncSession, *, limit: int = 10) -> Sequence[Event]:
+async def get_popular_events(db: AsyncSession, *, limit: int = 10, sponsorship_only: bool = False) -> Sequence[Event]:
     """Events with most pledged amount. Public-visible statuses."""
     from app.models.funding import Funding, FundingStatus
+    from app.models.sponsor import SponsorshipCategory
     q = (
         select(Event, func.coalesce(func.sum(Funding.amount_cents), 0).label("total_pledged"))
         .outerjoin(Funding, and_(Funding.event_id == Event.id, Funding.status == FundingStatus.pledged))
@@ -1061,6 +1087,13 @@ async def get_popular_events(db: AsyncSession, *, limit: int = 10) -> Sequence[E
         .order_by(func.coalesce(func.sum(Funding.amount_cents), 0).desc())
         .limit(limit)
     )
+    if sponsorship_only:
+        q = q.where(exists(
+            select(SponsorshipCategory.id).where(
+                SponsorshipCategory.event_id == Event.id,
+                SponsorshipCategory.is_template == False,
+            )
+        ))
     result = await db.execute(q)
     return [row[0] for row in result.unique().all()]
 

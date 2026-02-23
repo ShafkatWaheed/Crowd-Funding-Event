@@ -178,8 +178,10 @@ class ApiService {
 
   // ─── Featured / Discover ───
 
-  Future<Map<String, dynamic>> getFeaturedEvents() async {
-    final resp = await dio.get('/events/featured');
+  Future<Map<String, dynamic>> getFeaturedEvents({bool sponsorshipOnly = false}) async {
+    final resp = await dio.get('/events/featured', queryParameters: {
+      if (sponsorshipOnly) 'sponsorship_only': true,
+    });
     return resp.data;
   }
 
@@ -976,6 +978,11 @@ class ApiService {
   Future<List<dynamic>> getMySponsorTickets() async {
     final resp = await dio.get('/me/sponsor-tickets');
     return resp.data as List;
+  }
+
+  Future<Map<String, dynamic>> getSponsorPaymentReceipt(int paymentId) async {
+    final resp = await dio.get('/payments/$paymentId/receipt');
+    return resp.data;
   }
 
   Future<Map<String, dynamic>> scanSponsorTicket(

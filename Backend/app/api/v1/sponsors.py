@@ -676,6 +676,87 @@ async def refund_bid(
     return payment
 
 
+# ── Sponsor Payment Receipt ──
+
+@router.get(
+    "/payments/{payment_id}/receipt",
+    dependencies=[Depends(_feature_guard)],
+)
+async def get_sponsor_payment_receipt(
+    payment_id: int,
+    db: DbSession,
+    current_user: CurrentUser,
+):
+    """Return a detailed receipt for a sponsor payment (paid or refunded)."""
+    from sqlalchemy import select as sa_select
+    from sqlalchemy.orm import selectinload
+    from app.models.sponsor import SponsorPayment, SponsorBid, SponsorshipCategory as _Cat
+    from app.models.event import Event as _Evt
+    from app.models.user import User as _User
+
+    payment = (await db.execute(
+        sa_select(SponsorPayment).where(SponsorPayment.id == payment_id)
+    )).scalar_one_or_none()
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+
+    bid = (await db.execute(
+        sa_select(SponsorBid).where(SponsorBid.id == payment.bid_id)
+    )).scalar_one_or_none()
+    if not bid:
+        raise HTTPException(status_code=404, detail="Bid not found")
+
+    if bid.sponsor_user_id != current_user.id and current_user.role != UserRole.admin:
+        cat_check = (await db.execute(
+            sa_select(_Cat).where(_Cat.id == bid.category_id)
+        )).scalar_one_or_none()
+        if not cat_check:
+            raise HTTPException(status_code=403, detail="Not authorized")
+        evt_check = (await db.execute(
+            sa_select(_Evt).where(_Evt.id == cat_check.event_id)
+        )).scalar_one_or_none()
+        if not evt_check or evt_check.organizer_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Not authorized")
+
+    cat = (await db.execute(
+        sa_select(_Cat).where(_Cat.id == bid.category_id)
+    )).scalar_one_or_none()
+
+    event = (await db.execute(
+        sa_select(_Evt)
+        .options(selectinload(_Evt.venue))
+        .where(_Evt.id == cat.event_id)
+    )).scalar_one_or_none() if cat else None
+
+    sponsor = (await db.execute(
+        sa_select(_User).where(_User.id == bid.sponsor_user_id)
+    )).scalar_one_or_none()
+
+    is_refund = payment.status.value in ("refunded", "refund_processing")
+
+    return {
+        "payment_id": payment.id,
+        "receipt_number": payment.receipt_number,
+        "type": "refund" if is_refund else "payment",
+        "amount_cents": payment.amount_cents,
+        "platform_cut_cents": payment.platform_cut_cents,
+        "net_to_organizer_cents": payment.net_to_organizer_cents,
+        "status": payment.status.value,
+        "created_at": payment.created_at.isoformat() if payment.created_at else None,
+        "bid_id": bid.id,
+        "bid_amount_cents": bid.amount_cents,
+        "bid_proposal": bid.proposal_text,
+        "category_name": cat.name if cat else None,
+        "event_id": cat.event_id if cat else None,
+        "event_title": event.title if event else None,
+        "event_start_time": event.start_time.isoformat() if event and event.start_time else None,
+        "venue_name": event.venue.name if event and event.venue else None,
+        "venue_city": event.venue.city if event and event.venue else None,
+        "sponsor_name": sponsor.display_name if sponsor else None,
+        "sponsor_email": sponsor.email if sponsor else None,
+    }
+
+
 # ── Sponsor Bid Events ──
 
 @router.get(

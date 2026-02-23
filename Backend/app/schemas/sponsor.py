@@ -126,6 +126,8 @@ class SponsorTicketCategoryInfo(BaseModel):
     amount_cents: int
     status: str
     prerequisites: list[SponsorTicketPrereqInfo] = []
+    bid_id: int | None = None
+    payment_id: int | None = None
     payment_receipt_number: str | None = None
     payment_status: str | None = None
     payment_created_at: str | None = None
@@ -150,3 +152,4 @@ class SponsorTicketResponse(BaseModel):
     venue_name: str | None = None
     venue_address: str | None = None
     venue_city: str | None = None
+    scan_count: int = 0

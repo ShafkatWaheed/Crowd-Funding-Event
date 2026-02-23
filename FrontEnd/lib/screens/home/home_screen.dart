@@ -184,7 +184,6 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _homeGenre;
   String? _homeStatus;
   List<Event> _homeSearchResults = [];
-  bool _homeSearching = false;
   bool get _isHomeFiltered =>
       _homeSearchCtrl.text.isNotEmpty || _homeGenre != null || _homeStatus != null;
 
@@ -212,11 +211,6 @@ class _HomeScreenState extends State<HomeScreen> {
   String _sponsorBidSearch = '';
   String? _sponsorBidStatus;
 
-  // Sponsorship-available events
-  List<_SponsorAvailableEvent> _sponsorAvailableEvents = [];
-  bool _sponsorAvailableLoading = false;
-  DateTime? _sponsorAvailableLoadedAt;
-  int _sponsorTabSection = 0; // 0 = My Bids, 1 = Available
 
   // Organizer dashboard
   Map<String, dynamic>? _dashboardData;
@@ -252,7 +246,6 @@ class _HomeScreenState extends State<HomeScreen> {
       _loadFeatured();
       _loadMyEvents();
       _loadSponsorBidEvents();
-      _loadSponsorAvailableEvents();
       _loadDashboard();
       _loadNearMe();
       final ep = context.read<EventProvider>();
@@ -356,46 +349,8 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _loadSponsorAvailableEvents() async {
-    final auth = context.read<AuthProvider>();
-    if (auth.user == null || !auth.user!.isSponsor) return;
-    setState(() => _sponsorAvailableLoading = true);
-    try {
-      final api = context.read<ApiService>();
-      final data = await api.getSponsorshipAvailableEvents(excludeMyBids: true);
-      if (mounted) {
-        setState(() {
-          _sponsorAvailableEvents = data.map((e) {
-            final cats = (e['categories_summary'] as List<dynamic>?) ?? [];
-            return _SponsorAvailableEvent(
-              event: Event.fromJson(e),
-              categories: cats
-                  .map((c) => _CategorySummary(
-                        name: c['name'] ?? '',
-                        totalSpots: c['total_spots'] ?? 0,
-                        filledSpots: c['filled_spots'] ?? 0,
-                        availableSpots: c['available_spots'] ?? 0,
-                        minBidCents: c['min_bid_cents'] ?? 0,
-                      ))
-                  .toList(),
-            );
-          }).toList();
-        });
-      }
-    } catch (e) {
-      debugPrint('_loadSponsorAvailableEvents error: $e');
-    }
-    if (mounted) {
-      _sponsorAvailableLoadedAt = DateTime.now();
-      setState(() => _sponsorAvailableLoading = false);
-    }
-  }
-
   Future<void> _refreshSponsorData() async {
-    await Future.wait([
-      _loadSponsorBidEvents(),
-      _loadSponsorAvailableEvents(),
-    ]);
+    await _loadSponsorBidEvents();
   }
 
   Future<void> _loadDashboard({String? statusFilter, int? eventId}) async {
@@ -512,9 +467,15 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadFeatured() async {
     try {
       final api = context.read<ApiService>();
+      final auth = context.read<AuthProvider>();
+      final isSponsor = auth.user != null && auth.user!.isSponsor &&
+          !(auth.user!.isOrganizer || auth.user!.isAdmin);
       final results = await Future.wait([
-        api.getFeaturedEvents(),
-        api.dio.get('/events', queryParameters: {'community_rules': 'true'}).then((r) => r.data as List),
+        api.getFeaturedEvents(sponsorshipOnly: isSponsor),
+        api.dio.get('/events', queryParameters: {
+          'community_rules': 'true',
+          if (isSponsor) 'sponsorship_only': true,
+        }).then((r) => r.data as List),
       ]);
       final data = results[0] as Map<String, dynamic>;
       final communityList = results[1] as List;
@@ -560,9 +521,6 @@ class _HomeScreenState extends State<HomeScreen> {
       if (user != null && user.isSponsor && _isStale(_sponsorBidLoadedAt)) {
         _loadSponsorBidEvents();
       }
-      if (user != null && user.isSponsor && _isStale(_sponsorAvailableLoadedAt)) {
-        _loadSponsorAvailableEvents();
-      }
     }
   }
 
@@ -577,21 +535,24 @@ class _HomeScreenState extends State<HomeScreen> {
         return;
       }
       final api = context.read<ApiService>();
+      final auth = context.read<AuthProvider>();
+      final isSponsor = auth.user != null && auth.user!.isSponsor &&
+          !(auth.user!.isOrganizer || auth.user!.isAdmin);
       final data = await api.getMapEvents(
         lat: pos.latitude,
         lng: pos.longitude,
         radiusKm: 25,
       );
       if (mounted) {
-        // Convert map markers to full events by fetching them
-        // For now we'll use the limited data and fetch full events
         final ids = data
             .map((e) => e['id'] as int)
             .take(10)
             .toList();
         if (ids.isNotEmpty) {
           final fullEvents = <Event>[];
-          final allEvents = await api.getEvents();
+          final allEvents = await api.getEvents(params: {
+            if (isSponsor) 'sponsorship_only': true,
+          });
           for (final e in allEvents) {
             final ev = Event.fromJson(e);
             if (ids.contains(ev.id)) fullEvents.add(ev);
@@ -610,30 +571,34 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  Future<void> _homeSearch() async {
+  void _homeSearch() {
     if (!_isHomeFiltered) {
       setState(() => _homeSearchResults = []);
       return;
     }
-    setState(() => _homeSearching = true);
-    try {
-      final api = context.read<ApiService>();
-      final params = <String, dynamic>{};
-      if (_homeSearchCtrl.text.isNotEmpty) {
-        params['search'] = _homeSearchCtrl.text;
+
+    final seen = <int>{};
+    final allEvents = <Event>[];
+    for (final list in [_nearMeEvents, _trending, _comingSoon, _popular, _communityEvents, _myEvents]) {
+      for (final e in list) {
+        if (seen.add(e.id)) allEvents.add(e);
       }
-      if (_homeGenre != null) {
-        params['genre'] = _homeGenre;
+    }
+
+    final query = _homeSearchCtrl.text.trim().toLowerCase();
+    final results = allEvents.where((e) {
+      if (query.isNotEmpty) {
+        final match = e.title.toLowerCase().contains(query) ||
+            (e.description?.toLowerCase().contains(query) ?? false) ||
+            (e.genre?.toLowerCase().contains(query) ?? false);
+        if (!match) return false;
       }
-      if (_homeStatus != null) {
-        params['status'] = _homeStatus;
-      }
-      final data = await api.getEvents(params: params);
-      final results = data.map((e) => Event.fromJson(e)).toList();
-      setState(() => _homeSearchResults = results);
-      _batchCheckBookmarks(results.map((e) => e.id).toList());
-    } catch (_) {}
-    setState(() => _homeSearching = false);
+      if (_homeGenre != null && e.genre != _homeGenre) return false;
+      if (_homeStatus != null && e.status.name != _homeStatus) return false;
+      return true;
+    }).toList();
+
+    setState(() => _homeSearchResults = results);
   }
 
   void _clearHomeSearch() {
@@ -675,6 +640,10 @@ class _HomeScreenState extends State<HomeScreen> {
     // Organizers see only their own events on Explore
     if (user != null && user.isOrganizer) {
       filters['organizer_id'] = user.id;
+    }
+    // Sponsors only see events with sponsorship categories
+    if (user != null && user.isSponsor && !(user.isOrganizer || user.isAdmin)) {
+      filters['sponsorship_only'] = true;
     }
 
     context.read<EventProvider>().loadEvents(filters: filters);
@@ -976,7 +945,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       contentPadding: const EdgeInsets.symmetric(
                           horizontal: AppSpacing.lg, vertical: 14),
                     ),
-                    onChanged: (_) => setState(() {}),
+                    onChanged: (_) {
+                      _homeSearch();
+                    },
                     onSubmitted: (_) => _homeSearch(),
                   ),
                   AppSpacing.vXl,
@@ -1098,14 +1069,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-            if (_homeSearching)
-              const SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.all(AppSpacing.huge),
-                  child: Center(child: CircularProgressIndicator()),
-                ),
-              )
-            else if (_homeSearchResults.isEmpty)
+            if (_homeSearchResults.isEmpty)
               const SliverToBoxAdapter(
                 child: EmptyState(
                   icon: Icons.search_off_rounded,
@@ -3507,20 +3471,9 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildSponsorManageTab() {
     final isDark = AppTheme.isDark(context);
     final bidCount = _sponsorBidEvents.length;
-    final availCount = _sponsorAvailableEvents.length;
 
     final filteredBids = _sponsorBidEvents.where((item) {
       if (_sponsorBidStatus != null && item.event.status.name != _sponsorBidStatus) return false;
-      if (_sponsorBidSearch.isNotEmpty) {
-        final q = _sponsorBidSearch.toLowerCase();
-        return item.event.title.toLowerCase().contains(q) ||
-            (item.event.genre?.toLowerCase().contains(q) ?? false) ||
-            item.event.status.name.toLowerCase().contains(q);
-      }
-      return true;
-    }).toList();
-
-    final filteredAvail = _sponsorAvailableEvents.where((item) {
       if (_sponsorBidSearch.isNotEmpty) {
         final q = _sponsorBidSearch.toLowerCase();
         return item.event.title.toLowerCase().contains(q) ||
@@ -3579,26 +3532,6 @@ class _HomeScreenState extends State<HomeScreen> {
                             color: AppTheme.textSecondaryOf(context),
                           ),
                         ),
-                        if (availCount > 0) ...[
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 6),
-                            child: Text('\u2022',
-                                style: TextStyle(
-                                    color: AppTheme.textSecondaryOf(context),
-                                    fontSize: 10)),
-                          ),
-                          Icon(Icons.storefront_rounded, size: 13,
-                              color: context.sponsorAccent),
-                          const SizedBox(width: 4),
-                          Text(
-                            '$availCount open',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: context.sponsorAccent,
-                            ),
-                          ),
-                        ],
                       ],
                     ),
                   ),
@@ -3623,13 +3556,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
               AppSpacing.vLg,
-              _buildSponsorSectionToggle(),
-              AppSpacing.vMd,
               TextField(
                 decoration: InputDecoration(
-                  hintText: _sponsorTabSection == 0
-                      ? 'Search bid events\u2026'
-                      : 'Search available sponsorships\u2026',
+                  hintText: 'Search bid events\u2026',
                   prefixIcon: Icon(Icons.search,
                       color: AppTheme.textSecondaryOf(context), size: AppIconSize.md),
                   isDense: true,
@@ -3645,9 +3574,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 onChanged: (v) => setState(() => _sponsorBidSearch = v),
               ),
-              if (_sponsorTabSection == 0) ...[
-                AppSpacing.vSm,
-                SizedBox(
+              AppSpacing.vSm,
+              SizedBox(
                   height: 38,
                   child: ListView(
                     scrollDirection: Axis.horizontal,
@@ -3680,74 +3608,16 @@ class _HomeScreenState extends State<HomeScreen> {
                     }).toList(),
                   ),
                 ),
-              ],
             ],
           ),
         ),
         Expanded(
-          child: _sponsorTabSection == 0
-              ? _buildSponsorBidsList(filteredBids)
-              : _buildSponsorAvailableList(filteredAvail),
+          child: _buildSponsorBidsList(filteredBids),
         ),
       ],
     );
   }
 
-  Widget _buildSponsorSectionToggle() {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.inputFillOf(context),
-        borderRadius: AppRadius.pill,
-      ),
-      padding: const EdgeInsets.all(3),
-      child: Row(
-        children: [
-          _sponsorToggleBtn(0, Icons.gavel_rounded, 'My Bids'),
-          _sponsorToggleBtn(1, Icons.storefront_rounded, 'Available'),
-        ],
-      ),
-    );
-  }
-
-  Widget _sponsorToggleBtn(int index, IconData icon, String label) {
-    final isActive = _sponsorTabSection == index;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _sponsorTabSection = index),
-        child: AnimatedContainer(
-          duration: AppDuration.normal,
-          curve: AppCurve.standard,
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: isActive ? AppTheme.cardOf(context) : Colors.transparent,
-            borderRadius: AppRadius.pill,
-            boxShadow: isActive ? AppShadow.soft(AppTheme.isDark(context)) : null,
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon,
-                  size: AppIconSize.sm,
-                  color: isActive
-                      ? context.sponsorAccent
-                      : AppTheme.textSecondaryOf(context)),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                  color: isActive
-                      ? AppTheme.textPrimaryOf(context)
-                      : AppTheme.textSecondaryOf(context),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
   Widget _buildSponsorBidsList(List<_SponsorBidEvent> filtered) {
     if (_sponsorBidEventsLoading) {
@@ -3777,46 +3647,6 @@ class _HomeScreenState extends State<HomeScreen> {
             child: AnimatedListItem(
               index: index,
               child: _SponsorBidEventCard(
-                item: item,
-                onTap: () => context.push('/events/${item.event.id}'),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildSponsorAvailableList(List<_SponsorAvailableEvent> filtered) {
-    if (_sponsorAvailableLoading) {
-      return SingleChildScrollView(child: ShimmerEventList(count: 3));
-    }
-    if (filtered.isEmpty) {
-      return EmptyState(
-        icon: Icons.storefront_rounded,
-        title: _sponsorAvailableEvents.isEmpty
-            ? 'No open sponsorships'
-            : 'No matches',
-        subtitle: _sponsorAvailableEvents.isEmpty
-            ? 'Events with sponsorship opportunities will appear here'
-            : 'Try a different search term',
-      );
-    }
-    return RefreshIndicator(
-      color: AppTheme.primaryColor,
-      onRefresh: _refreshSponsorData,
-      child: ListView.builder(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, 100,
-        ),
-        itemCount: filtered.length,
-        itemBuilder: (context, index) {
-          final item = filtered[index];
-          return Padding(
-            padding: const EdgeInsets.only(bottom: AppSpacing.md),
-            child: AnimatedListItem(
-              index: index,
-              child: _SponsorAvailableEventCard(
                 item: item,
                 onTap: () => context.push('/events/${item.event.id}'),
               ),
@@ -4474,41 +4304,6 @@ class _SponsorBidEvent {
   int get totalBids => pending + accepted + rejected + paid;
 }
 
-class _CategorySummary {
-  final String name;
-  final int totalSpots;
-  final int filledSpots;
-  final int availableSpots;
-  final int minBidCents;
-
-  _CategorySummary({
-    required this.name,
-    required this.totalSpots,
-    required this.filledSpots,
-    required this.availableSpots,
-    required this.minBidCents,
-  });
-}
-
-class _SponsorAvailableEvent {
-  final Event event;
-  final List<_CategorySummary> categories;
-
-  _SponsorAvailableEvent({required this.event, required this.categories});
-
-  int get totalOpenSpots =>
-      categories.fold(0, (sum, c) => sum + c.availableSpots);
-
-  int get minBidCents {
-    if (categories.isEmpty) return 0;
-    return categories.map((c) => c.minBidCents).reduce(math.min);
-  }
-
-  int get maxBidCents {
-    if (categories.isEmpty) return 0;
-    return categories.map((c) => c.minBidCents).reduce(math.max);
-  }
-}
 
 class _SponsorBidEventCard extends StatelessWidget {
   final _SponsorBidEvent item;
@@ -4673,292 +4468,3 @@ class _SponsorBidEventCard extends StatelessWidget {
   }
 }
 
-class _SponsorAvailableEventCard extends StatelessWidget {
-  final _SponsorAvailableEvent item;
-  final VoidCallback onTap;
-
-  const _SponsorAvailableEventCard({required this.item, required this.onTap});
-
-  String _formatCents(int cents) {
-    if (cents >= 100) {
-      final dollars = cents / 100;
-      return '\$${dollars.toStringAsFixed(dollars.truncateToDouble() == dollars ? 0 : 2)}';
-    }
-    return '${cents}\u00A2';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = AppTheme.isDark(context);
-    final e = item.event;
-    final accent = context.sponsorAccent;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppTheme.cardOf(context),
-          borderRadius: AppRadius.lg,
-          boxShadow: AppShadow.card(isDark),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.lg, 14, AppSpacing.lg, AppSpacing.md,
-              ),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [accent.withValues(alpha: 0.85), accent],
-                ),
-                borderRadius: AppRadius.topLg,
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      e.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 15,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                  AppSpacing.hSm,
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.sm, vertical: AppSpacing.xs,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: AppRadius.pill,
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
-                    ),
-                    child: Text(
-                      _statusDisplayName(e.status),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.lg, AppSpacing.md, AppSpacing.lg, AppSpacing.lg,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (e.startTime != null)
-                    _infoRow(context, Icons.schedule_rounded,
-                        DateFormat('EEE, MMM d \u2022 h:mm a').format(e.startTime!)),
-                  if (e.venue != null) ...[
-                    const SizedBox(height: 5),
-                    _infoRow(context, Icons.location_on_rounded,
-                        '${e.venue!.name}, ${e.venue!.city}'),
-                  ],
-                  AppSpacing.vMd,
-                  Row(
-                    children: [
-                      _statBadge(
-                        context,
-                        icon: Icons.category_rounded,
-                        label: '${item.categories.length} categor${item.categories.length != 1 ? "ies" : "y"}',
-                        color: accent,
-                      ),
-                      AppSpacing.hSm,
-                      _statBadge(
-                        context,
-                        icon: Icons.event_seat_rounded,
-                        label: '${item.totalOpenSpots} spot${item.totalOpenSpots != 1 ? "s" : ""} open',
-                        color: context.statusApproved,
-                      ),
-                    ],
-                  ),
-                  AppSpacing.vMd,
-                  ...item.categories.map((cat) => Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                    child: _categoryRow(context, cat, accent),
-                  )),
-                  AppSpacing.vSm,
-                  Row(
-                    children: [
-                      Icon(Icons.monetization_on_rounded,
-                          size: 14, color: AppTheme.textSecondaryOf(context)),
-                      const SizedBox(width: 5),
-                      Text(
-                        item.minBidCents == item.maxBidCents
-                            ? 'Min bid: ${_formatCents(item.minBidCents)}'
-                            : 'Min bid: ${_formatCents(item.minBidCents)} \u2013 ${_formatCents(item.maxBidCents)}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.textSecondaryOf(context),
-                        ),
-                      ),
-                      const Spacer(),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.md, vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: accent.withValues(alpha: 0.12),
-                          borderRadius: AppRadius.pill,
-                          border: Border.all(color: accent.withValues(alpha: 0.3)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              'View & Bid',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: accent,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Icon(Icons.arrow_forward_rounded,
-                                size: 14, color: accent),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _infoRow(BuildContext context, IconData icon, String text) {
-    return Row(
-      children: [
-        Icon(icon, size: 15, color: AppTheme.textSecondaryOf(context)),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Text(
-            text,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 13,
-              color: AppTheme.textSecondaryOf(context),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _statBadge(BuildContext context,
-      {required IconData icon, required String label, required Color color}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm, vertical: 5,
-      ),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: AppRadius.pill,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 13, color: color),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: color,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _categoryRow(
-      BuildContext context, _CategorySummary cat, Color accent) {
-    final progress = cat.totalSpots > 0
-        ? cat.filledSpots / cat.totalSpots
-        : 0.0;
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md, vertical: AppSpacing.sm,
-      ),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceOf(context),
-        borderRadius: AppRadius.sm,
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  cat.name,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textPrimaryOf(context),
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  '${cat.availableSpots} of ${cat.totalSpots} spots available',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: AppTheme.textSecondaryOf(context),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(
-            width: 48,
-            height: 48,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                SizedBox(
-                  width: 36,
-                  height: 36,
-                  child: CircularProgressIndicator(
-                    value: progress,
-                    strokeWidth: 3.5,
-                    backgroundColor: AppTheme.dividerOf(context),
-                    valueColor: AlwaysStoppedAnimation(accent),
-                  ),
-                ),
-                Text(
-                  '${cat.filledSpots}/${cat.totalSpots}',
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.textSecondaryOf(context),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}

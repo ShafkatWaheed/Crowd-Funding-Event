@@ -259,6 +259,7 @@ async def list_events(
     max_capacity: int | None = Query(None, description="Event max_capacity <= this"),
     genre: str | None = Query(None, description="Filter by genre"),
     community_rules: bool | None = Query(None, description="True = community rules events only"),
+    sponsorship_only: bool = Query(False, description="True = only events with sponsorship categories"),
     include_all_statuses: bool = Query(False, description="True = show draft/pending/cancelled (for organizer/admin)"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
     limit: int = Query(20, ge=1, le=100, description="Page size (max 100)"),
@@ -282,6 +283,7 @@ async def list_events(
         max_capacity=max_capacity,
         genre=genre,
         community_rules=community_rules,
+        sponsorship_only=sponsorship_only,
         include_all_statuses=include_all_statuses,
         offset=offset,
         limit=limit,
@@ -320,11 +322,11 @@ async def list_genres():
 
 
 @router.get("/featured")
-async def get_featured_events(db: DbSession):
+async def get_featured_events(db: DbSession, sponsorship_only: bool = Query(False)):
     """Returns trending, popular, and coming-soon event lists for the discover page."""
-    trending = await event_service.get_trending_events(db, limit=10)
-    popular = await event_service.get_popular_events(db, limit=10)
-    coming_soon = await event_service.get_coming_soon_events(db, limit=10)
+    trending = await event_service.get_trending_events(db, limit=10, sponsorship_only=sponsorship_only)
+    popular = await event_service.get_popular_events(db, limit=10, sponsorship_only=sponsorship_only)
+    coming_soon = await event_service.get_coming_soon_events(db, limit=10, sponsorship_only=sponsorship_only)
 
     trending_ids = [e.id for e in trending]
     popular_ids = [e.id for e in popular]

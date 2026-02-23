@@ -9,6 +9,7 @@ import '../../models/sponsor.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/shimmer_loaders.dart';
+import 'sponsor_payment_receipt_screen.dart';
 
 class SponsorTicketScreen extends StatefulWidget {
   const SponsorTicketScreen({super.key});
@@ -20,11 +21,19 @@ class SponsorTicketScreen extends StatefulWidget {
 class _SponsorTicketScreenState extends State<SponsorTicketScreen> {
   List<SponsorTicketModel> _tickets = [];
   bool _loading = true;
+  final _searchCtrl = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -46,8 +55,25 @@ class _SponsorTicketScreenState extends State<SponsorTicketScreen> {
     }
   }
 
+  List<SponsorTicketModel> get _filtered {
+    if (_searchQuery.isEmpty) return _tickets;
+    final q = _searchQuery.toLowerCase();
+    return _tickets.where((t) {
+      final title = (t.eventTitle ?? '').toLowerCase();
+      final venue = (t.venueName ?? '').toLowerCase();
+      final receipt = t.receiptNumber.toLowerCase();
+      final cats = t.categories.map((c) => c.name.toLowerCase()).join(' ');
+      return title.contains(q) ||
+          venue.contains(q) ||
+          receipt.contains(q) ||
+          cats.contains(q);
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final filtered = _filtered;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Sponsor Tickets')),
       body: _loading
@@ -89,17 +115,64 @@ class _SponsorTicketScreenState extends State<SponsorTicketScreen> {
                 )
               : RefreshIndicator(
                   onRefresh: _load,
-                  child: ListView.separated(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _tickets.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 16),
-                    itemBuilder: (context, index) {
-                      final ticket = _tickets[index];
-                      return _SponsorTicketCard(
-                        ticket: ticket,
-                        onTap: () => _openReceipt(ticket),
-                      );
-                    },
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                        child: TextField(
+                          controller: _searchCtrl,
+                          onChanged: (v) => setState(() => _searchQuery = v),
+                          decoration: InputDecoration(
+                            hintText: 'Search tickets\u2026',
+                            prefixIcon:
+                                const Icon(Icons.search_rounded, size: 20),
+                            suffixIcon: _searchCtrl.text.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear_rounded,
+                                        size: 18),
+                                    onPressed: () {
+                                      _searchCtrl.clear();
+                                      setState(() => _searchQuery = '');
+                                    },
+                                  )
+                                : null,
+                            filled: true,
+                            fillColor: AppTheme.inputFillOf(context),
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 10),
+                            isDense: true,
+                          ),
+                          style: TextStyle(
+                              fontSize: 14,
+                              color: AppTheme.textPrimaryOf(context)),
+                        ),
+                      ),
+                      Expanded(
+                        child: filtered.isEmpty
+                            ? Center(
+                                child: Text('No matching tickets',
+                                    style: TextStyle(
+                                        color: AppTheme.textSecondaryOf(
+                                            context))),
+                              )
+                            : ListView.separated(
+                                padding: const EdgeInsets.all(16),
+                                itemCount: filtered.length,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 16),
+                                itemBuilder: (context, index) {
+                                  final ticket = filtered[index];
+                                  return _SponsorTicketCard(
+                                    ticket: ticket,
+                                    onTap: () => _openReceipt(ticket),
+                                  );
+                                },
+                              ),
+                      ),
+                    ],
                   ),
                 ),
     );
@@ -115,14 +188,23 @@ class _SponsorTicketScreenState extends State<SponsorTicketScreen> {
   }
 }
 
-class _SponsorTicketCard extends StatelessWidget {
+class _SponsorTicketCard extends StatefulWidget {
   final SponsorTicketModel ticket;
   final VoidCallback onTap;
 
   const _SponsorTicketCard({required this.ticket, required this.onTap});
 
   @override
+  State<_SponsorTicketCard> createState() => _SponsorTicketCardState();
+}
+
+class _SponsorTicketCardState extends State<_SponsorTicketCard>
+    with SingleTickerProviderStateMixin {
+  bool _expanded = false;
+
+  @override
   Widget build(BuildContext context) {
+    final ticket = widget.ticket;
     DateTime? startDt;
     if (ticket.eventStartTime != null) {
       try {
@@ -130,9 +212,11 @@ class _SponsorTicketCard extends StatelessWidget {
       } catch (_) {}
     }
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
+    final paidCount = ticket.categories.where((c) => c.isPaid).length;
+    final refundedCount = ticket.categories.where((c) => c.isRefunded).length;
+    final pendingCount = ticket.categories.length - paidCount - refundedCount;
+
+    return Container(
         decoration: BoxDecoration(
           color: AppTheme.cardOf(context),
           borderRadius: BorderRadius.circular(16),
@@ -141,17 +225,21 @@ class _SponsorTicketCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
+            GestureDetector(
+              onTap: widget.onTap,
+              child: Container(
               width: double.infinity,
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
                   colors: [Color(0xFF0D3B66), Color(0xFF1B5E8A)],
                 ),
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  topRight: Radius.circular(16),
-                ),
+                borderRadius: _expanded
+                    ? const BorderRadius.only(
+                        topLeft: Radius.circular(16),
+                        topRight: Radius.circular(16),
+                      )
+                    : BorderRadius.circular(16),
               ),
               child: Row(
                 children: [
@@ -159,55 +247,139 @@ class _SponsorTicketCard extends StatelessWidget {
                       color: Colors.white70, size: 20),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: Text(
-                      ticket.eventTitle ?? 'Event #${ticket.eventId}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 15,
-                        color: Colors.white,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          ticket.eventTitle ?? 'Event #${ticket.eventId}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            if (startDt != null) ...[
+                              Icon(Icons.schedule_rounded,
+                                  size: 12, color: Colors.white60),
+                              const SizedBox(width: 4),
+                              Text(
+                                DateFormat('MMM d, y').format(startDt),
+                                style: const TextStyle(
+                                    fontSize: 11, color: Colors.white60),
+                              ),
+                              if (ticket.venueName != null)
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 5),
+                                  child: Text('\u2022',
+                                      style: TextStyle(
+                                          fontSize: 8, color: Colors.white38)),
+                                ),
+                            ],
+                            if (ticket.venueName != null) ...[
+                              Icon(Icons.location_on_rounded,
+                                  size: 12, color: Colors.white60),
+                              const SizedBox(width: 3),
+                              Flexible(
+                                child: Text(
+                                  ticket.venueName!,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                      fontSize: 11, color: Colors.white60),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            _headerChip(
+                                '${ticket.categories.length} categor${ticket.categories.length == 1 ? "y" : "ies"}',
+                                Colors.white24,
+                                Colors.white70),
+                            const SizedBox(width: 6),
+                            if (paidCount > 0)
+                              _headerChip('$paidCount paid',
+                                  AppTheme.successColor.withValues(alpha: 0.3),
+                                  Colors.white),
+                            if (paidCount > 0 && refundedCount > 0)
+                              const SizedBox(width: 6),
+                            if (refundedCount > 0)
+                              _headerChip('$refundedCount refunded',
+                                  AppTheme.errorColor.withValues(alpha: 0.3),
+                                  Colors.white),
+                            if ((paidCount > 0 || refundedCount > 0) &&
+                                pendingCount > 0)
+                              const SizedBox(width: 6),
+                            if (pendingCount > 0)
+                              _headerChip('$pendingCount pending',
+                                  AppTheme.warningColor.withValues(alpha: 0.3),
+                                  Colors.white),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      'SPONSOR',
-                      style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                        letterSpacing: 0.5,
+                  const SizedBox(width: 8),
+                  Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Text(
+                          'SPONSOR',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
                       ),
-                    ),
+                      if (ticket.scannedAt != null) ...[
+                        const SizedBox(height: 6),
+                        Icon(Icons.verified_rounded,
+                            size: 16, color: AppTheme.successColor),
+                      ],
+                    ],
                   ),
                 ],
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (startDt != null)
-                    _infoRow(context, Icons.schedule_rounded,
-                        DateFormat('EEE, MMM d \u2022 h:mm a').format(startDt)),
-                  if (ticket.venueName != null) ...[
-                    const SizedBox(height: 4),
-                    _infoRow(
-                        context,
-                        Icons.location_on_rounded,
-                        '${ticket.venueName}'
-                            '${ticket.venueCity != null ? ', ${ticket.venueCity}' : ''}'),
-                  ],
-                  const SizedBox(height: 10),
-                  Row(
+            ),
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => setState(() => _expanded = !_expanded),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surfaceOf(context),
+                    border: Border(
+                      top: BorderSide(color: AppTheme.dividerOf(context)),
+                      bottom: _expanded
+                          ? BorderSide(color: AppTheme.dividerOf(context))
+                          : BorderSide.none,
+                    ),
+                    borderRadius: _expanded
+                        ? BorderRadius.zero
+                        : const BorderRadius.only(
+                            bottomLeft: Radius.circular(16),
+                            bottomRight: Radius.circular(16),
+                          ),
+                  ),
+                  child: Row(
                     children: [
                       Text(
                         ticket.receiptNumber,
@@ -219,47 +391,37 @@ class _SponsorTicketCard extends StatelessWidget {
                         ),
                       ),
                       const Spacer(),
-                      if (ticket.scannedAt != null)
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.verified_rounded,
-                                size: 14, color: AppTheme.successColor),
-                            const SizedBox(width: 3),
-                            Text('Scanned',
-                                style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppTheme.successColor)),
-                            if (ticket.scanCount > 0) ...[
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.accentColor.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  '${ticket.scanCount} ${ticket.scanCount == 1 ? 'entry' : 'entries'}',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppTheme.accentColor,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
+                      Text(
+                        _expanded ? 'Hide categories' : 'Show categories',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.accentColor,
                         ),
+                      ),
+                      const SizedBox(width: 4),
+                      AnimatedRotation(
+                        turns: _expanded ? 0.5 : 0,
+                        duration: const Duration(milliseconds: 200),
+                        child: Icon(Icons.keyboard_arrow_down_rounded,
+                            size: 20, color: AppTheme.accentColor),
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: ticket.categories.map((cat) {
+                ),
+              ),
+            ),
+            AnimatedCrossFade(
+              firstChild: const SizedBox(width: double.infinity, height: 0),
+              secondChild: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ...ticket.categories.map((cat) {
                       final isRefunded = cat.isRefunded;
                       final isPaid = cat.isPaid;
+                      final hasReceipt = cat.paymentId != null;
                       final color = isRefunded
                           ? AppTheme.errorColor
                           : isPaid
@@ -270,63 +432,156 @@ class _SponsorTicketCard extends StatelessWidget {
                           : isPaid
                               ? Icons.check_circle_rounded
                               : Icons.hourglass_top_rounded;
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: color.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(20),
-                          border:
-                              Border.all(color: color.withValues(alpha: 0.3)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(icon, size: 13, color: color),
-                            const SizedBox(width: 4),
-                            Text(
-                              isRefunded
-                                  ? '${cat.name} \u2022 Refunded'
-                                  : '${cat.name} \u2022 ${cat.amountDisplay}',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: color,
+                      final statusLabel = isRefunded
+                          ? 'Refunded'
+                          : isPaid
+                              ? 'Paid'
+                              : 'Pending';
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Material(
+                          color: color.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(10),
+                          child: InkWell(
+                            onTap: hasReceipt
+                                ? () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            SponsorPaymentReceiptScreen(
+                                                paymentId: cat.paymentId!),
+                                      ),
+                                    )
+                                : null,
+                            borderRadius: BorderRadius.circular(10),
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                    color: color.withValues(alpha: 0.2)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(icon, size: 16, color: color),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          cat.name,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 13,
+                                            color: AppTheme.textPrimaryOf(
+                                                context),
+                                            decoration: isRefunded
+                                                ? TextDecoration.lineThrough
+                                                : null,
+                                          ),
+                                        ),
+                                      ),
+                                      Text(
+                                        isRefunded
+                                            ? '-${cat.amountDisplay}'
+                                            : cat.amountDisplay,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 14,
+                                          color: isRefunded
+                                              ? AppTheme.errorColor
+                                              : AppTheme.textPrimaryOf(
+                                                  context),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      const SizedBox(width: 24),
+                                      Text(
+                                        statusLabel,
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: color,
+                                        ),
+                                      ),
+                                      if (cat.paymentReceiptNumber !=
+                                          null) ...[
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 6),
+                                          child: Text('\u2022',
+                                              style: TextStyle(
+                                                  fontSize: 9,
+                                                  color:
+                                                      AppTheme.textSecondaryOf(
+                                                          context))),
+                                        ),
+                                        Icon(Icons.receipt_long_rounded,
+                                            size: 11,
+                                            color: AppTheme.textSecondaryOf(
+                                                context)),
+                                        const SizedBox(width: 3),
+                                        Expanded(
+                                          child: Text(
+                                            cat.paymentReceiptNumber!,
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              color:
+                                                  AppTheme.textSecondaryOf(
+                                                      context),
+                                              fontFamily: 'monospace',
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                      if (hasReceipt) ...[
+                                        const SizedBox(width: 4),
+                                        Icon(Icons.chevron_right_rounded,
+                                            size: 16,
+                                            color: AppTheme.textSecondaryOf(
+                                                context)),
+                                      ],
+                                    ],
+                                  ),
+                                ],
                               ),
                             ),
-                          ],
+                          ),
                         ),
                       );
-                    }).toList(),
-                  ),
-                ],
+                    }),
+                  ],
+                ),
               ),
+              crossFadeState: _expanded
+                  ? CrossFadeState.showSecond
+                  : CrossFadeState.showFirst,
+              duration: const Duration(milliseconds: 250),
             ),
           ],
         ),
-      ),
     );
   }
 
-  Widget _infoRow(BuildContext context, IconData icon, String text) {
-    return Row(
-      children: [
-        Icon(icon, size: 15, color: AppTheme.textSecondaryOf(context)),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Text(
-            text,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 13,
-              color: AppTheme.textSecondaryOf(context),
-            ),
-          ),
-        ),
-      ],
+  Widget _headerChip(String text, Color bg, Color fg) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(text,
+          style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: fg)),
     );
   }
+
 }
 
 // ── Receipt Detail Page ──
@@ -520,86 +775,100 @@ class _SponsorTicketReceiptPage extends StatelessWidget {
                       : isPaid
                           ? 'Paid'
                           : 'Accepted — Pending Payment';
+                  final hasReceipt = cat.paymentId != null;
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 10),
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: statusColor.withValues(alpha: 0.06),
+                    child: Material(
+                      color: statusColor.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(10),
+                      child: InkWell(
+                        onTap: hasReceipt
+                            ? () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => SponsorPaymentReceiptScreen(
+                                        paymentId: cat.paymentId!),
+                                  ),
+                                )
+                            : null,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: statusColor.withValues(alpha: 0.2),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(statusIcon, size: 20, color: statusColor),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      cat.name,
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 14,
-                                        color: isRefunded
-                                            ? AppTheme.textSecondaryOf(context)
-                                            : AppTheme.textPrimaryOf(context),
-                                        decoration: isRefunded
-                                            ? TextDecoration.lineThrough
-                                            : null,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      statusLabel,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: statusColor,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Text(
-                                isRefunded ? '-${cat.amountDisplay}' : cat.amountDisplay,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 16,
-                                  color: isRefunded
-                                      ? AppTheme.errorColor
-                                      : AppTheme.textPrimaryOf(context),
-                                  decoration: isRefunded
-                                      ? TextDecoration.lineThrough
-                                      : null,
-                                ),
-                              ),
-                            ],
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: statusColor.withValues(alpha: 0.2),
+                            ),
                           ),
-                          if (cat.paymentReceiptNumber != null) ...[
-                            const SizedBox(height: 6),
-                            Padding(
-                              padding: const EdgeInsets.only(left: 30),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.receipt_long_rounded, size: 12,
-                                      color: AppTheme.textSecondaryOf(context)),
-                                  const SizedBox(width: 4),
-                                  Expanded(
-                                    child: Text(
-                                      cat.paymentReceiptNumber!,
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: AppTheme.textSecondaryOf(context),
-                                        fontFamily: 'monospace',
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(statusIcon, size: 20, color: statusColor),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        cat.name,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 14,
+                                          color: isRefunded
+                                              ? AppTheme.textSecondaryOf(context)
+                                              : AppTheme.textPrimaryOf(context),
+                                          decoration: isRefunded
+                                              ? TextDecoration.lineThrough
+                                              : null,
+                                        ),
                                       ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        statusLabel,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: statusColor,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Text(
+                                  isRefunded ? '-${cat.amountDisplay}' : cat.amountDisplay,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 16,
+                                    color: isRefunded
+                                        ? AppTheme.errorColor
+                                        : AppTheme.textPrimaryOf(context),
+                                    decoration: isRefunded
+                                        ? TextDecoration.lineThrough
+                                        : null,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (cat.paymentReceiptNumber != null) ...[
+                              const SizedBox(height: 6),
+                              Padding(
+                                padding: const EdgeInsets.only(left: 30),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.receipt_long_rounded, size: 12,
+                                        color: AppTheme.textSecondaryOf(context)),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text(
+                                        cat.paymentReceiptNumber!,
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: AppTheme.textSecondaryOf(context),
+                                          fontFamily: 'monospace',
+                                        ),
                                     ),
                                   ),
                                 ],
@@ -681,10 +950,36 @@ class _SponsorTicketReceiptPage extends StatelessWidget {
                                 ],
                               ),
                             ),
+                            if (hasReceipt) ...[
+                              const SizedBox(height: 8),
+                              Padding(
+                                padding: const EdgeInsets.only(left: 30),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.open_in_new_rounded, size: 12,
+                                        color: statusColor),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      isRefunded ? 'View Refund Receipt' : 'View Payment Receipt',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: statusColor,
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    Icon(Icons.chevron_right_rounded,
+                                        size: 16, color: statusColor),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ],
                         ],
                       ),
                     ),
+                  ),
+                  ),
                   );
                 }),
                 Divider(height: 1, color: AppTheme.dividerOf(context)),
@@ -780,90 +1075,107 @@ class _SponsorTicketReceiptPage extends StatelessWidget {
                         try { payDt = DateTime.parse(cat.paymentCreatedAt!); } catch (_) {}
                       }
                       final isRefund = cat.isRefunded;
+                      final payColor = isRefund ? AppTheme.errorColor : AppTheme.successColor;
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 10),
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: (isRefund ? AppTheme.errorColor : AppTheme.successColor)
-                                .withValues(alpha: 0.06),
+                        child: Material(
+                          color: payColor.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(10),
+                          child: InkWell(
+                            onTap: cat.paymentId != null
+                                ? () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => SponsorPaymentReceiptScreen(
+                                            paymentId: cat.paymentId!),
+                                      ),
+                                    )
+                                : null,
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: (isRefund ? AppTheme.errorColor : AppTheme.successColor)
-                                  .withValues(alpha: 0.15),
-                            ),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(
-                                    isRefund ? Icons.undo_rounded : Icons.payment_rounded,
-                                    size: 18,
-                                    color: isRefund ? AppTheme.errorColor : AppTheme.successColor,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      isRefund ? 'Refund — ${cat.name}' : 'Payment — ${cat.name}',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 13,
-                                        color: AppTheme.textPrimaryOf(context),
-                                      ),
-                                    ),
-                                  ),
-                                  Text(
-                                    isRefund ? '-${cat.amountDisplay}' : cat.amountDisplay,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 14,
-                                      color: isRefund ? AppTheme.errorColor : AppTheme.successColor,
-                                    ),
-                                  ),
-                                ],
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: payColor.withValues(alpha: 0.15),
+                                ),
                               ),
-                              const SizedBox(height: 6),
-                              Row(
-                                children: [
-                                  const SizedBox(width: 26),
-                                  Icon(Icons.tag_rounded, size: 11,
-                                      color: AppTheme.textSecondaryOf(context)),
-                                  const SizedBox(width: 4),
-                                  Expanded(
-                                    child: Text(
-                                      cat.paymentReceiptNumber!,
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: AppTheme.textSecondaryOf(context),
-                                        fontFamily: 'monospace',
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              if (payDt != null) ...[
-                                const SizedBox(height: 2),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
                                 Row(
                                   children: [
-                                    const SizedBox(width: 26),
-                                    Icon(Icons.access_time_rounded, size: 11,
-                                        color: AppTheme.textSecondaryOf(context)),
-                                    const SizedBox(width: 4),
+                                    Icon(
+                                      isRefund ? Icons.undo_rounded : Icons.payment_rounded,
+                                      size: 18,
+                                      color: payColor,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        isRefund ? 'Refund — ${cat.name}' : 'Payment — ${cat.name}',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 13,
+                                          color: AppTheme.textPrimaryOf(context),
+                                        ),
+                                      ),
+                                    ),
                                     Text(
-                                      DateFormat('MMM d, y \u2022 h:mm a').format(payDt),
+                                      isRefund ? '-${cat.amountDisplay}' : cat.amountDisplay,
                                       style: TextStyle(
-                                        fontSize: 11,
-                                        color: AppTheme.textSecondaryOf(context),
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 14,
+                                        color: payColor,
                                       ),
                                     ),
                                   ],
                                 ),
+                                const SizedBox(height: 6),
+                                Row(
+                                  children: [
+                                    const SizedBox(width: 26),
+                                    Icon(Icons.tag_rounded, size: 11,
+                                        color: AppTheme.textSecondaryOf(context)),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text(
+                                        cat.paymentReceiptNumber!,
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: AppTheme.textSecondaryOf(context),
+                                          fontFamily: 'monospace',
+                                        ),
+                                      ),
+                                    ),
+                                    if (cat.paymentId != null)
+                                      Icon(Icons.chevron_right_rounded, size: 16,
+                                          color: AppTheme.textSecondaryOf(context)),
+                                  ],
+                                ),
+                                if (payDt != null) ...[
+                                  const SizedBox(height: 2),
+                                  Row(
+                                    children: [
+                                      const SizedBox(width: 26),
+                                      Icon(Icons.access_time_rounded, size: 11,
+                                          color: AppTheme.textSecondaryOf(context)),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        DateFormat('MMM d, y \u2022 h:mm a').format(payDt),
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: AppTheme.textSecondaryOf(context),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ],
-                            ],
+                            ),
                           ),
+                        ),
                         ),
                       );
                     }),

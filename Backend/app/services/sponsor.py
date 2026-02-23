@@ -261,13 +261,19 @@ async def copy_template_to_event(
 
 
 async def get_bid_stats(db: AsyncSession, cat_id: int) -> tuple[int, list[int]]:
-    """Return (bid_count, list_of_amounts) for anonymous bid stats."""
-    q = select(SponsorBid).where(
+    """Return (bid_count, list_of_pending_amounts) for anonymous bid stats.
+
+    bid_count includes all active bids (pending/accepted/paid).
+    bid_amounts only includes pending bids so the leaderboard shows
+    bids still competing for acceptance.
+    """
+    all_q = select(SponsorBid).where(
         SponsorBid.category_id == cat_id,
         SponsorBid.status.in_([BidStatus.pending, BidStatus.accepted, BidStatus.paid]),
     )
-    bids = list((await db.execute(q)).scalars().all())
-    return len(bids), [b.amount_cents for b in bids]
+    all_bids = list((await db.execute(all_q)).scalars().all())
+    pending_amounts = [b.amount_cents for b in all_bids if b.status == BidStatus.pending]
+    return len(all_bids), pending_amounts
 
 
 async def get_my_bid_count(db: AsyncSession, cat_id: int, user_id: int) -> int:
@@ -897,6 +903,8 @@ async def get_won_categories(
             "amount_cents": r.amount_cents,
             "status": cat_status,
             "prerequisites": prereq_list,
+            "bid_id": r.bid_id,
+            "payment_id": payment.id if payment else None,
             "payment_receipt_number": payment.receipt_number if payment else None,
             "payment_status": payment.status.value if payment else None,
             "payment_created_at": payment.created_at.isoformat() if payment and payment.created_at else None,

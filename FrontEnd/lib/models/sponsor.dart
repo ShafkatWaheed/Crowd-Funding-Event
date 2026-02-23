@@ -195,6 +195,8 @@ class SponsorTicketCategory {
   final int amountCents;
   final String status;
   final List<SponsorTicketPrereq> prerequisites;
+  final int? bidId;
+  final int? paymentId;
   final String? paymentReceiptNumber;
   final String? paymentStatus;
   final String? paymentCreatedAt;
@@ -204,6 +206,8 @@ class SponsorTicketCategory {
     required this.amountCents,
     required this.status,
     this.prerequisites = const [],
+    this.bidId,
+    this.paymentId,
     this.paymentReceiptNumber,
     this.paymentStatus,
     this.paymentCreatedAt,
@@ -224,6 +228,8 @@ class SponsorTicketCategory {
               ?.map((p) => SponsorTicketPrereq.fromJson(p as Map<String, dynamic>))
               .toList() ??
           [],
+      bidId: json['bid_id'],
+      paymentId: json['payment_id'],
       paymentReceiptNumber: json['payment_receipt_number'],
       paymentStatus: json['payment_status'],
       paymentCreatedAt: json['payment_created_at'],

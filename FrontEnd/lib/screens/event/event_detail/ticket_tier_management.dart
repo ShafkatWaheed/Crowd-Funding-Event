@@ -86,7 +86,9 @@ class _TicketTierManagementState extends State<TicketTierManagement> {
               );
             }
             final tiers = snapshot.data ?? [];
-            final canModify = widget.event.status != EventStatus.selling_tickets &&
+            final canAdd = widget.event.status != EventStatus.live &&
+                widget.event.status != EventStatus.completed;
+            final canDelete = widget.event.status != EventStatus.selling_tickets &&
                 widget.event.status != EventStatus.live &&
                 widget.event.status != EventStatus.completed;
             final totalTierSpots = tiers.fold<int>(
@@ -117,12 +119,13 @@ class _TicketTierManagementState extends State<TicketTierManagement> {
                       ],
                     ),
                   ),
-                  if (canModify) ...[
+                  if (canAdd) ...[
                     AppSpacing.vMd,
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
-                        onPressed: () => _showAddTierDialog(widget.event.id),
+                        onPressed: () => _showAddTierDialog(widget.event.id,
+                            remainingCapacity: maxCap),
                         icon: const Icon(Icons.add_rounded, size: AppIconSize.sm),
                         label: const Text('Add Tier'),
                         style: OutlinedButton.styleFrom(
@@ -155,7 +158,10 @@ class _TicketTierManagementState extends State<TicketTierManagement> {
                       final name = tier['name'] ?? '';
                       final desc = tier['description'] ?? '';
                       final priceCents = tier['price_cents'] ?? 0;
-                      final tierMaxSpots = tier['max_reserved_spots'] ?? 0;
+                      final tierMaxSpots = (tier['max_reserved_spots'] ?? 0) as int;
+                      final tierSold = (tier['tickets_sold'] ?? 0) as int;
+                      final tierReserved = (tier['spots_reserved'] ?? 0) as int;
+                      final tierFilled = tierSold + tierReserved;
                       final price =
                           '\$${(priceCents / 100).toStringAsFixed(2)}';
                       final isLast = i == tiers.length - 1;
@@ -218,12 +224,38 @@ class _TicketTierManagementState extends State<TicketTierManagement> {
                                                 padding: const EdgeInsets.symmetric(
                                                     horizontal: 6, vertical: 2),
                                                 decoration: BoxDecoration(
+                                                  color: tierFilled >= tierMaxSpots
+                                                      ? AppTheme.errorColor.withValues(alpha: 0.1)
+                                                      : AppTheme.textSecondaryOf(context)
+                                                          .withValues(alpha: 0.1),
+                                                  borderRadius: BorderRadius.circular(4),
+                                                ),
+                                                child: Text(
+                                                  tierReserved > 0
+                                                      ? '$tierSold sold · $tierReserved pledged / $tierMaxSpots'
+                                                      : '$tierSold / $tierMaxSpots sold',
+                                                  style: TextStyle(
+                                                      fontSize: 10,
+                                                      fontWeight: FontWeight.w600,
+                                                      color: tierFilled >= tierMaxSpots
+                                                          ? AppTheme.errorColor
+                                                          : AppTheme.textSecondaryOf(context)),
+                                                ),
+                                              ),
+                                            ] else if (tierFilled > 0) ...[
+                                              const SizedBox(width: 8),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(
+                                                    horizontal: 6, vertical: 2),
+                                                decoration: BoxDecoration(
                                                   color: AppTheme.textSecondaryOf(context)
                                                       .withValues(alpha: 0.1),
                                                   borderRadius: BorderRadius.circular(4),
                                                 ),
                                                 child: Text(
-                                                  '$tierMaxSpots spots',
+                                                  tierReserved > 0
+                                                      ? '$tierSold sold · $tierReserved pledged'
+                                                      : '$tierSold sold',
                                                   style: TextStyle(
                                                       fontSize: 10,
                                                       fontWeight: FontWeight.w600,
@@ -245,9 +277,10 @@ class _TicketTierManagementState extends State<TicketTierManagement> {
                                   tooltip: 'Edit tier',
                                   onPressed: () => _showEditTierDialog(
                                       widget.event.id, tierId, name, desc,
-                                      priceCents),
+                                      priceCents, tierMaxSpots,
+                                      remainingCapacity),
                                 ),
-                                if (canModify)
+                                if (canDelete)
                                   IconButton(
                                     icon: Icon(Icons.delete_outline_rounded,
                                         size: 20,
@@ -311,7 +344,7 @@ class _TicketTierManagementState extends State<TicketTierManagement> {
                             ),
                           ),
                         ),
-                        if (canModify)
+                        if (canAdd)
                           GestureDetector(
                             onTap: () => _showIncreaseCapacityDialog(),
                             child: Container(
@@ -333,12 +366,13 @@ class _TicketTierManagementState extends State<TicketTierManagement> {
                     ),
                   ),
                 ],
-                if (canModify) ...[
+                if (canAdd) ...[
                   AppSpacing.vMd,
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
-                      onPressed: () => _showAddTierDialog(widget.event.id),
+                      onPressed: () => _showAddTierDialog(widget.event.id,
+                          remainingCapacity: remainingCapacity),
                       icon: const Icon(Icons.add_rounded,
                           size: AppIconSize.sm),
                       label: const Text('Add Tier'),
@@ -362,11 +396,14 @@ class _TicketTierManagementState extends State<TicketTierManagement> {
   }
 
   Future<void> _showEditTierDialog(int eventId, int tierId, String name,
-      String description, int priceCents) async {
+      String description, int priceCents, int currentSpots,
+      int remainingCapacity) async {
     final nameCtrl = TextEditingController(text: name);
     final descCtrl = TextEditingController(text: description);
     final priceCtrl = TextEditingController(
         text: (priceCents / 100).toStringAsFixed(2));
+    final spotsCtrl = TextEditingController(text: currentSpots.toString());
+    final maxAvailable = remainingCapacity + currentSpots;
 
     final saved = await showDialog<bool>(
       context: context,
@@ -392,6 +429,17 @@ class _TicketTierManagementState extends State<TicketTierManagement> {
                   labelText: 'Price', prefixText: '\$ '),
               keyboardType: TextInputType.number,
             ),
+            AppSpacing.vSm,
+            TextField(
+              controller: spotsCtrl,
+              decoration: InputDecoration(
+                labelText: 'Reserved Spots',
+                helperText: 'Up to $maxAvailable available',
+                prefixIcon:
+                    const Icon(Icons.event_seat_rounded, size: 20),
+              ),
+              keyboardType: TextInputType.number,
+            ),
           ],
         ),
         actions: [
@@ -402,12 +450,14 @@ class _TicketTierManagementState extends State<TicketTierManagement> {
             onPressed: () async {
               final price = double.tryParse(priceCtrl.text);
               if (nameCtrl.text.trim().isEmpty || price == null) return;
+              final spots = int.tryParse(spotsCtrl.text.trim()) ?? 0;
               try {
                 final api = context.read<ApiService>();
                 await api.updateTicketTier(eventId, tierId, {
                   'name': nameCtrl.text.trim(),
                   'description': descCtrl.text.trim(),
                   'price_cents': (price * 100).toInt(),
+                  'max_reserved_spots': spots,
                 });
                 if (ctx.mounted) Navigator.pop(ctx, true);
               } catch (e) {
@@ -427,10 +477,12 @@ class _TicketTierManagementState extends State<TicketTierManagement> {
     }
   }
 
-  Future<void> _showAddTierDialog(int eventId) async {
+  Future<void> _showAddTierDialog(int eventId,
+      {int remainingCapacity = 0}) async {
     final nameCtrl = TextEditingController();
     final descCtrl = TextEditingController();
     final priceCtrl = TextEditingController(text: '0.00');
+    final spotsCtrl = TextEditingController(text: '0');
 
     final created = await showDialog<bool>(
       context: context,
@@ -456,6 +508,19 @@ class _TicketTierManagementState extends State<TicketTierManagement> {
                   labelText: 'Price', prefixText: '\$ '),
               keyboardType: TextInputType.number,
             ),
+            AppSpacing.vSm,
+            TextField(
+              controller: spotsCtrl,
+              decoration: InputDecoration(
+                labelText: 'Reserved Spots',
+                helperText: remainingCapacity > 0
+                    ? '$remainingCapacity spots available'
+                    : 'No spots remaining — increase capacity first',
+                prefixIcon:
+                    const Icon(Icons.event_seat_rounded, size: 20),
+              ),
+              keyboardType: TextInputType.number,
+            ),
           ],
         ),
         actions: [
@@ -466,12 +531,14 @@ class _TicketTierManagementState extends State<TicketTierManagement> {
             onPressed: () async {
               final price = double.tryParse(priceCtrl.text);
               if (nameCtrl.text.trim().isEmpty || price == null) return;
+              final spots = int.tryParse(spotsCtrl.text.trim()) ?? 0;
               try {
                 final api = context.read<ApiService>();
                 await api.createTicketTier(eventId, {
                   'name': nameCtrl.text.trim(),
                   'description': descCtrl.text.trim(),
                   'price_cents': (price * 100).toInt(),
+                  if (spots > 0) 'max_reserved_spots': spots,
                 });
                 if (ctx.mounted) Navigator.pop(ctx, true);
               } catch (e) {

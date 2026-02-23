@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../config/theme.dart';
 import '../../../models/event_form_models.dart';
@@ -57,6 +58,7 @@ class StepDatesRegistration extends StatefulWidget {
 }
 
 class _StepDatesRegistrationState extends State<StepDatesRegistration> {
+  final _imagePicker = ImagePicker();
   bool _showMilestoneSection = false;
   bool _showScheduleSection = false;
 
@@ -904,27 +906,7 @@ class _StepDatesRegistrationState extends State<StepDatesRegistration> {
             maxLines: 2,
           ),
           const SizedBox(height: 8),
-          TextFormField(
-            controller: slot.imageUrlCtrl,
-            decoration: InputDecoration(
-              labelText: 'Image URL (optional)',
-              hintText: 'https://example.com/logo.png',
-              isDense: true,
-              prefixIcon: Icon(Icons.image_rounded,
-                  size: 18,
-                  color: AppTheme.textSecondaryOf(context)),
-            ),
-          ),
-          if (slot.imageUrlCtrl.text.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            TextFormField(
-              controller: slot.imageCaptionCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Image caption / alt text',
-                isDense: true,
-              ),
-            ),
-          ],
+          _buildSlotImageSection(slot),
           const SizedBox(height: 8),
           TextFormField(
             controller: slot.linkUrlCtrl,
@@ -940,6 +922,133 @@ class _StepDatesRegistrationState extends State<StepDatesRegistration> {
         ],
       ),
     );
+  }
+
+  // ── Schedule Slot Image ──
+
+  Widget _buildSlotImageSection(ScheduleSlotInput slot) {
+    final hasPickedImage = slot.pickedImageBytes != null;
+    final hasUrl = slot.imageUrlCtrl.text.trim().isNotEmpty;
+    final hasImage = hasPickedImage || hasUrl;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (hasPickedImage) ...[
+          Stack(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.memory(
+                  slot.pickedImageBytes!,
+                  width: double.infinity,
+                  height: 120,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              Positioned(
+                top: 4,
+                right: 4,
+                child: GestureDetector(
+                  onTap: () => setState(() {
+                    slot.pickedImageBytes = null;
+                    slot.pickedImageName = null;
+                  }),
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.close,
+                        size: 14, color: Colors.white),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            slot.pickedImageName ?? 'Uploaded image',
+            style: TextStyle(
+                fontSize: 10,
+                color: AppTheme.textSecondaryOf(context)),
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 6),
+        ],
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: slot.imageUrlCtrl,
+                decoration: InputDecoration(
+                  labelText: hasPickedImage
+                      ? 'Image URL (overridden by upload)'
+                      : 'Image URL (optional)',
+                  hintText: 'https://example.com/logo.png',
+                  isDense: true,
+                  enabled: !hasPickedImage,
+                  prefixIcon: Icon(Icons.image_rounded,
+                      size: 18,
+                      color: AppTheme.textSecondaryOf(context)),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              height: 40,
+              child: OutlinedButton.icon(
+                onPressed: () => _pickSlotImage(slot),
+                icon: Icon(
+                  hasPickedImage
+                      ? Icons.swap_horiz_rounded
+                      : Icons.upload_rounded,
+                  size: 16,
+                ),
+                label: Text(hasPickedImage ? 'Change' : 'Upload',
+                    style: const TextStyle(fontSize: 12)),
+                style: OutlinedButton.styleFrom(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10),
+                  side: BorderSide(
+                      color: AppTheme.dividerOf(context)),
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (hasImage) ...[
+          const SizedBox(height: 6),
+          TextFormField(
+            controller: slot.imageCaptionCtrl,
+            decoration: const InputDecoration(
+              labelText: 'Image caption / alt text',
+              isDense: true,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Future<void> _pickSlotImage(ScheduleSlotInput slot) async {
+    try {
+      final xFile =
+          await _imagePicker.pickImage(source: ImageSource.gallery);
+      if (xFile == null) return;
+      final bytes = await xFile.readAsBytes();
+      setState(() {
+        slot.pickedImageBytes = bytes;
+        slot.pickedImageName = xFile.name;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not pick image: $e')),
+        );
+      }
+    }
   }
 
   // ── Funding Milestones ──

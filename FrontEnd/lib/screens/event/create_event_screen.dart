@@ -726,7 +726,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
               'display_order': i,
               if (t.descCtrl.text.trim().isNotEmpty)
                 'description': t.descCtrl.text.trim(),
-              if (_linkFundingToTiers && t.maxReservedSpots > 0)
+              if (t.maxReservedSpots > 0)
                 'max_reserved_spots': t.maxReservedSpots,
             };
             await api.createTicketTier(eventId, tierData);
@@ -777,6 +777,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
       if (_hasSchedule && _scheduleDays.isNotEmpty) {
         final scheduleItems = <Map<String, dynamic>>[];
+        final slotsWithImages = <int, ScheduleSlotInput>{};
         for (final day in _scheduleDays) {
           if (day.date == null) continue;
           final dateStr =
@@ -785,6 +786,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
             final slot = day.slots[i];
             final title = slot.titleCtrl.text.trim();
             if (title.isEmpty) continue;
+            final itemIdx = scheduleItems.length;
             scheduleItems.add({
               'date': dateStr,
               'start_time':
@@ -794,7 +796,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
               'title': title,
               if (slot.descCtrl.text.trim().isNotEmpty)
                 'description': slot.descCtrl.text.trim(),
-              if (slot.imageUrlCtrl.text.trim().isNotEmpty)
+              if (slot.pickedImageBytes == null &&
+                  slot.imageUrlCtrl.text.trim().isNotEmpty)
                 'image_url': slot.imageUrlCtrl.text.trim(),
               if (slot.imageCaptionCtrl.text.trim().isNotEmpty)
                 'image_caption': slot.imageCaptionCtrl.text.trim(),
@@ -802,11 +805,33 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                 'link_url': slot.linkUrlCtrl.text.trim(),
               'sort_order': i,
             });
+            if (slot.pickedImageBytes != null) {
+              slotsWithImages[itemIdx] = slot;
+            }
           }
         }
         if (scheduleItems.isNotEmpty) {
           try {
-            await api.bulkCreateSchedule(eventId, scheduleItems);
+            final created =
+                await api.bulkCreateSchedule(eventId, scheduleItems);
+            for (final entry in slotsWithImages.entries) {
+              final idx = entry.key;
+              final slot = entry.value;
+              if (idx < created.length) {
+                final itemId = created[idx]['id'] as int;
+                try {
+                  await api.uploadScheduleImage(
+                    eventId,
+                    itemId,
+                    slot.pickedImageBytes!,
+                    slot.pickedImageName ?? 'image.png',
+                    caption: slot.imageCaptionCtrl.text.trim().isNotEmpty
+                        ? slot.imageCaptionCtrl.text.trim()
+                        : null,
+                  );
+                } catch (_) {}
+              }
+            }
           } catch (_) {}
         }
       }

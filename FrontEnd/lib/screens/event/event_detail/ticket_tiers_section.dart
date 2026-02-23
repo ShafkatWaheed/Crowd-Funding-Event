@@ -69,6 +69,10 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
             final priceCents = t['price_cents'] ?? 0;
             final isFree = priceCents == 0;
             final basePrice = isFree ? null : (priceCents / 100).toStringAsFixed(2);
+            final maxSpots = (t['max_reserved_spots'] ?? 0) as int;
+            final tierSold = (t['tickets_sold'] ?? 0) as int;
+            final tierReserved = (t['spots_reserved'] ?? 0) as int;
+            final spotsLeft = maxSpots > 0 ? maxSpots - tierSold - tierReserved : 0;
 
             return Card(
               margin: const EdgeInsets.only(bottom: AppSpacing.sm),
@@ -109,6 +113,35 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
                                   color: Colors.teal)),
                       ],
                     ),
+                    if (maxSpots > 0)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 28, top: 4),
+                        child: Row(
+                          children: [
+                            Icon(Icons.event_seat_rounded,
+                                size: 12,
+                                color: spotsLeft <= 0
+                                    ? AppTheme.errorColor
+                                    : spotsLeft <= 3
+                                        ? AppTheme.warningColor
+                                        : AppTheme.textSecondaryOf(context)),
+                            const SizedBox(width: 4),
+                            Text(
+                              spotsLeft > 0
+                                  ? '$spotsLeft of $maxSpots spots available'
+                                  : 'Sold out',
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: spotsLeft <= 0
+                                      ? AppTheme.errorColor
+                                      : spotsLeft <= 3
+                                          ? AppTheme.warningColor
+                                          : AppTheme.textSecondaryOf(context)),
+                            ),
+                          ],
+                        ),
+                      ),
                     if (desc != null && desc.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(left: 28, top: 3),
@@ -176,7 +209,10 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
                   final desc = t['description'] as String?;
                   final baseCents = t['price_cents'] ?? 0;
                   final tierId = t['id'];
-                  final maxSpots = t['max_reserved_spots'] ?? 0;
+                  final maxSpots = (t['max_reserved_spots'] ?? 0) as int;
+                  final tierSold = (t['tickets_sold'] ?? 0) as int;
+                  final tierReserved = (t['spots_reserved'] ?? 0) as int;
+                  final spotsLeft = maxSpots - tierSold - tierReserved;
                   final preview = previews[tierId];
                   final finalCents = preview?['final_price_cents'] ?? baseCents;
                   final totalDiscount = preview?['total_discount_cents'] ?? 0;
@@ -265,14 +301,20 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
                                         children: [
                                           Icon(Icons.event_seat_rounded,
                                               size: 12,
-                                              color: AppTheme.textSecondaryOf(context)),
+                                              color: spotsLeft <= 0
+                                                  ? AppTheme.errorColor
+                                                  : AppTheme.textSecondaryOf(context)),
                                           const SizedBox(width: 4),
                                           Text(
-                                            '$maxSpots spots available',
+                                            spotsLeft > 0
+                                                ? '$spotsLeft of $maxSpots spots available'
+                                                : 'Sold out',
                                             style: TextStyle(
                                                 fontSize: 11,
                                                 fontWeight: FontWeight.w600,
-                                                color: AppTheme.textSecondaryOf(context)),
+                                                color: spotsLeft <= 0
+                                                    ? AppTheme.errorColor
+                                                    : AppTheme.textSecondaryOf(context)),
                                           ),
                                         ],
                                       ),
@@ -318,6 +360,16 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
     final totalDiscountPerTicket = (preview?['total_discount_cents'] ?? 0) as int;
     final finalCentsPerTicket = (preview?['final_price_cents'] ?? baseCents) as int;
     final commissionPerTicket = (preview?['commission_cents'] ?? 0) as int;
+    final maxSpots = (tier['max_reserved_spots'] ?? 0) as int;
+    final tierSold = (tier['tickets_sold'] ?? 0) as int;
+    final tierReserved = (tier['spots_reserved'] ?? 0) as int;
+    final spotsLeft = maxSpots > 0 ? maxSpots - tierSold - tierReserved : 0;
+    final maxQty = maxSpots > 0 ? spotsLeft.clamp(0, 10) : 10;
+
+    if (maxSpots > 0 && spotsLeft <= 0) {
+      if (mounted) AppToast.error(context, 'This tier is sold out');
+      return;
+    }
 
     String fmtCents(int c) => '\$${(c / 100).toStringAsFixed(2)}';
 
@@ -422,22 +474,34 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
                                         fontSize: 18, fontWeight: FontWeight.w800)),
                               ),
                               GestureDetector(
-                                onTap: quantity < 10
+                                onTap: quantity < maxQty
                                     ? () => setDialogState(() => quantity++)
                                     : null,
                                 child: Container(
                                   width: 32, height: 32,
                                   decoration: BoxDecoration(
-                                    color: quantity < 10 ? Colors.teal : AppTheme.dividerOf(ctx),
+                                    color: quantity < maxQty ? Colors.teal : AppTheme.dividerOf(ctx),
                                     borderRadius: AppRadius.sm,
                                   ),
                                   child: Icon(Icons.add, size: AppIconSize.sm,
-                                      color: quantity < 10 ? Colors.white : AppTheme.textSecondaryOf(ctx)),
+                                      color: quantity < maxQty ? Colors.white : AppTheme.textSecondaryOf(ctx)),
                                 ),
                               ),
                             ],
                           ),
                         ),
+
+                        if (maxSpots > 0) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            '$spotsLeft spot${spotsLeft == 1 ? '' : 's'} available',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: spotsLeft <= 3 ? AppTheme.warningColor : AppTheme.textSecondaryOf(ctx),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
 
                         if (widget.myTicketCount > 0) ...[
                           const SizedBox(height: 8),

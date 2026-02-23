@@ -398,6 +398,8 @@ async def create_event(
         transit_info=body.transit_info,
         rideshare_info=body.rideshare_info,
         accessibility_info=body.accessibility_info,
+        has_schedule=body.has_schedule,
+        link_funding_to_tiers=body.link_funding_to_tiers,
     )
     if body.max_discount_percent is not None:
         event.max_discount_percent = max(0, min(100, body.max_discount_percent))
@@ -551,6 +553,8 @@ async def update_event(
         transit_info=body.transit_info,
         rideshare_info=body.rideshare_info,
         accessibility_info=body.accessibility_info,
+        has_schedule=body.has_schedule,
+        link_funding_to_tiers=body.link_funding_to_tiers,
     )
 
     if body.max_discount_percent is not None:
@@ -820,7 +824,7 @@ async def get_pledge_preview(
     event_id: int,
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.customer, UserRole.sponsor)),
-    amount_cents: int = Query(..., ge=1),
+    amount_cents: int = Query(0, ge=0),
     reserved_spots: int = Query(0, ge=0),
 ):
     """Preview invoice before confirming a pledge."""
@@ -1176,9 +1180,67 @@ async def decide_registration(
 # ----- Ticket tiers (organizer) -----
 @router.get("/{event_id}/ticket-tiers", response_model=list[TicketTierResponse])
 async def list_ticket_tiers(event_id: int, db: DbSession):
-    """List ticket tiers for an event (public)."""
+    """List ticket tiers for an event (public), with sold and reserved counts."""
+    from sqlalchemy import select as sel, func as fn
+    from app.models.ticket import TicketSale, TicketSaleStatus as TSS
+    from app.models.funding import Funding, FundingStatus as FS, PledgeSpotReservation
+
     tiers = await ticket_service.list_tiers(db, event_id=event_id)
-    return [TicketTierResponse.model_validate(t) for t in tiers]
+    tier_ids = [t.id for t in tiers]
+
+    sold_counts: dict[int, int] = {}
+    reserved_counts: dict[int, int] = {}
+
+    if tier_ids:
+        sold_rows = (await db.execute(
+            sel(TicketSale.ticket_tier_id, fn.count())
+            .where(
+                TicketSale.ticket_tier_id.in_(tier_ids),
+                TicketSale.status == TSS.purchased,
+            )
+            .group_by(TicketSale.ticket_tier_id)
+        )).all()
+        sold_counts = {r[0]: r[1] for r in sold_rows}
+
+        # Sum of pledge reservations from active (pledged/collected) fundings per tier.
+        # Pledgers who already bought a ticket on a tier are excluded so their
+        # spots aren't double-counted (their reservation converted to a sale).
+        buyers_sub = (
+            sel(TicketSale.user_id)
+            .where(
+                TicketSale.ticket_tier_id == PledgeSpotReservation.ticket_tier_id,
+                TicketSale.event_id == event_id,
+                TicketSale.status == TSS.purchased,
+            )
+            .correlate(PledgeSpotReservation)
+        )
+        res_rows = (await db.execute(
+            sel(PledgeSpotReservation.ticket_tier_id, fn.coalesce(fn.sum(PledgeSpotReservation.spots), 0))
+            .join(Funding, Funding.id == PledgeSpotReservation.funding_id)
+            .where(
+                PledgeSpotReservation.ticket_tier_id.in_(tier_ids),
+                Funding.event_id == event_id,
+                Funding.status.in_([FS.pledged, FS.collected]),
+                ~Funding.user_id.in_(buyers_sub),
+            )
+            .group_by(PledgeSpotReservation.ticket_tier_id)
+        )).all()
+        reserved_counts = {r[0]: int(r[1]) for r in res_rows}
+
+    return [
+        TicketTierResponse(
+            id=t.id,
+            event_id=t.event_id,
+            name=t.name,
+            description=t.description,
+            price_cents=t.price_cents,
+            max_reserved_spots=t.max_reserved_spots,
+            tickets_sold=sold_counts.get(t.id, 0),
+            spots_reserved=reserved_counts.get(t.id, 0),
+            display_order=t.display_order,
+        )
+        for t in tiers
+    ]
 
 
 @router.post("/{event_id}/ticket-tiers", response_model=TicketTierResponse)
@@ -1193,6 +1255,7 @@ async def create_ticket_tier(
         db, event_id=event_id, user=current_user,
         name=body.name, description=body.description,
         price_cents=body.price_cents,
+        max_reserved_spots=body.max_reserved_spots,
         display_order=body.display_order,
     )
     return TicketTierResponse.model_validate(tier)
@@ -1212,6 +1275,7 @@ async def update_ticket_tier(
         db, tier, current_user,
         name=body.name, description=body.description,
         price_cents=body.price_cents,
+        max_reserved_spots=body.max_reserved_spots,
         display_order=body.display_order,
     )
     return TicketTierResponse.model_validate(tier)

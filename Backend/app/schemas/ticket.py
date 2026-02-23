@@ -56,6 +56,8 @@ class TicketTierResponse(BaseModel):
     description: str | None = None
     price_cents: int
     max_reserved_spots: int = 0
+    tickets_sold: int = 0
+    spots_reserved: int = 0
     display_order: int
 
     model_config = {"from_attributes": True}

@@ -126,12 +126,14 @@ class _FundingCardState extends State<FundingCard> {
     Map<int, int> tierSpots = {};
     List<Map<String, dynamic>> tierAvailability = [];
     bool loadingTiers = isTierLinked;
+    int availableSpotsForUser = maxPerUser;
 
     if (isTierLinked) {
       try {
         final api = context.read<ApiService>();
         final preview = await api.getPledgePreview(widget.eventId, 0, 0);
         tierAvailability = List<Map<String, dynamic>>.from(preview['tier_availability'] ?? []);
+        availableSpotsForUser = (preview['available_spots_for_user'] as int?) ?? maxPerUser;
         for (final t in tierAvailability) {
           tierSpots[t['tier_id'] as int] = 0;
         }
@@ -205,14 +207,42 @@ class _FundingCardState extends State<FundingCard> {
                   // ── Tier-linked spot selection ──
                   if (isTierLinked && widget.isRegistered) ...[
                     AppSpacing.vLg,
-                    Text('Reserve Spots by Tier',
-                        style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                            color: AppTheme.textPrimaryOf(context))),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text('Reserve Spots by Tier',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                  color: AppTheme.textPrimaryOf(context))),
+                        ),
+                        if (maxPerUser > 0)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: totalTierSpots >= availableSpotsForUser
+                                  ? AppTheme.errorColor.withValues(alpha: 0.1)
+                                  : ctx.fundingAccent.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              '$totalTierSpots / $availableSpotsForUser spots',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: totalTierSpots >= availableSpotsForUser
+                                    ? AppTheme.errorColor
+                                    : ctx.fundingAccent,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                     AppSpacing.vXs,
                     Text(
-                      'Min pledge = tier price × spots reserved.',
+                      maxPerUser > 0
+                          ? 'Min pledge = tier price × spots. Max $maxPerUser spot${maxPerUser == 1 ? '' : 's'} per person.'
+                          : 'Min pledge = tier price × spots reserved.',
                       style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context)),
                     ),
                     AppSpacing.vSm,
@@ -228,6 +258,8 @@ class _FundingCardState extends State<FundingCard> {
                         final price = t['price_cents'] as int;
                         final available = t['available'] as int;
                         final spots = tierSpots[tid] ?? 0;
+                        final bool userLimitReached = maxPerUser > 0 && totalTierSpots >= availableSpotsForUser;
+                        final bool canAdd = spots < available && !userLimitReached;
                         return Container(
                           margin: const EdgeInsets.only(bottom: 8),
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -278,7 +310,7 @@ class _FundingCardState extends State<FundingCard> {
                                         fontSize: 16, fontWeight: FontWeight.bold)),
                               ),
                               IconButton(
-                                onPressed: spots < available
+                                onPressed: canAdd
                                     ? () => setDialogState(() => tierSpots[tid] = spots + 1)
                                     : null,
                                 icon: const Icon(Icons.add_circle_outline),
@@ -831,6 +863,24 @@ class _FundingCardState extends State<FundingCard> {
               ],
             ],
           ),
+
+          if (event.maxReservedSpotsPerUser > 0) ...[
+            AppSpacing.vSm,
+            Row(
+              children: [
+                Icon(Icons.person_pin_rounded,
+                    size: AppIconSize.sm, color: context.ticketAccent),
+                AppSpacing.hXs,
+                Text(
+                  'Max ${event.maxReservedSpotsPerUser} spot${event.maxReservedSpotsPerUser == 1 ? '' : 's'} per pledger',
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: context.ticketAccent,
+                      fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+          ],
 
           // Backers count + reserved spots
           if (_backersCount > 0 || _totalReservedSpots > 0) ...[

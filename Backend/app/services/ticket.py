@@ -846,14 +846,15 @@ async def create_tier(
     name: str,
     description: str | None = None,
     price_cents: int,
+    max_reserved_spots: int = 0,
     display_order: int = 0,
 ) -> TicketTier:
     event = await event_service.get_or_404(db, event_id)
     if not await _can_manage_event_tickets(db, user, event):
         raise ForbiddenError("Only the event organizer or admin can manage ticket tiers")
     from app.models.event import EventStatus
-    if event.status in (EventStatus.selling_tickets, EventStatus.live, EventStatus.completed):
-        raise ConflictError("Cannot add tiers while tickets are on sale or the event is live/completed")
+    if event.status in (EventStatus.live, EventStatus.completed):
+        raise ConflictError("Cannot add tiers while the event is live or completed")
     if price_cents < 0:
         raise ConflictError("price_cents must be >= 0")
     tier = TicketTier(
@@ -861,6 +862,7 @@ async def create_tier(
         name=name,
         description=description,
         price_cents=price_cents,
+        max_reserved_spots=max_reserved_spots,
         display_order=display_order,
     )
     db.add(tier)
@@ -877,6 +879,7 @@ async def update_tier(
     name: str | None = None,
     description: str | None = None,
     price_cents: int | None = None,
+    max_reserved_spots: int | None = None,
     display_order: int | None = None,
 ) -> TicketTier:
     event = await event_service.get_or_404(db, tier.event_id)
@@ -893,6 +896,10 @@ async def update_tier(
         if price_cents < 0:
             raise ConflictError("price_cents must be >= 0")
         tier.price_cents = price_cents
+    if max_reserved_spots is not None:
+        if max_reserved_spots < 0:
+            raise ConflictError("max_reserved_spots must be >= 0")
+        tier.max_reserved_spots = max_reserved_spots
     if display_order is not None:
         tier.display_order = display_order
     await db.flush()
@@ -906,7 +913,7 @@ async def delete_tier(db: AsyncSession, tier: TicketTier, user: User) -> None:
         raise ForbiddenError("Only the event organizer or admin can manage ticket tiers")
     from app.models.event import EventStatus
     if event.status in (EventStatus.selling_tickets, EventStatus.live, EventStatus.completed):
-        raise ConflictError("Cannot delete ticket tiers while tickets are on sale or the event is live/completed")
+        raise ConflictError("Cannot delete ticket tiers once the event is published for ticket sales")
     await db.delete(tier)
     await db.flush()
 

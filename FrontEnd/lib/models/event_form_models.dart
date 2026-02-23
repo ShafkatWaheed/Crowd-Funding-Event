@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 class StrategyTierInput {
@@ -60,6 +62,8 @@ class ScheduleSlotInput {
   final imageUrlCtrl = TextEditingController();
   final imageCaptionCtrl = TextEditingController();
   final linkUrlCtrl = TextEditingController();
+  Uint8List? pickedImageBytes;
+  String? pickedImageName;
   ScheduleSlotInput()
       : startTime = const TimeOfDay(hour: 9, minute: 0),
         endTime = const TimeOfDay(hour: 10, minute: 0);

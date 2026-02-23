@@ -54,6 +54,13 @@ class _StepFundingState extends State<StepFunding> {
   bool _showMilestoneSection = false;
   bool _showEarlyBirdSection = false;
   bool _showDiscountCapSection = false;
+  late bool _limitSpotsPerPledger;
+
+  @override
+  void initState() {
+    super.initState();
+    _limitSpotsPerPledger = (int.tryParse(widget.maxReservedSpotsCtrl.text) ?? 0) > 0;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -89,6 +96,8 @@ class _StepFundingState extends State<StepFunding> {
                     if (widget.linkFundingToTiers) ...[
                       const SizedBox(height: 16),
                       _buildPerTierReservationConfig(context),
+                      const SizedBox(height: 16),
+                      _buildSpotLimitToggle(context),
                     ],
                   ],
 
@@ -102,17 +111,8 @@ class _StepFundingState extends State<StepFunding> {
                           prefixText: '\$ '),
                       keyboardType: TextInputType.number,
                     ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: widget.maxReservedSpotsCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Max Reserved Spots Per User',
-                        prefixIcon: Icon(Icons.event_seat_rounded, size: 20),
-                        helperText:
-                            'How many ticket spots each pledger can reserve (0 = disabled)',
-                      ),
-                      keyboardType: TextInputType.number,
-                    ),
+                    const SizedBox(height: 16),
+                    _buildSpotLimitToggle(context),
                   ],
                   const SizedBox(height: 24),
                   _buildMilestoneSection(context),
@@ -534,6 +534,94 @@ class _StepFundingState extends State<StepFunding> {
               ),
             );
           }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSpotLimitToggle(BuildContext context) {
+    final currentLimit = int.tryParse(widget.maxReservedSpotsCtrl.text) ?? 0;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _limitSpotsPerPledger
+            ? context.fundingAccent.withValues(alpha: 0.06)
+            : AppTheme.cardOf(context),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: _limitSpotsPerPledger
+              ? context.fundingAccent.withValues(alpha: 0.25)
+              : AppTheme.dividerOf(context),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: (_limitSpotsPerPledger
+                          ? context.fundingAccent
+                          : AppTheme.textSecondaryOf(context))
+                      .withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.person_pin_rounded,
+                    size: 18,
+                    color: _limitSpotsPerPledger
+                        ? context.fundingAccent
+                        : AppTheme.textSecondaryOf(context)),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text('Limit Spots Per Pledger',
+                    style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                        color: AppTheme.textPrimaryOf(context))),
+              ),
+              Switch.adaptive(
+                value: _limitSpotsPerPledger,
+                onChanged: (v) {
+                  setState(() {
+                    _limitSpotsPerPledger = v;
+                    if (!v) {
+                      widget.maxReservedSpotsCtrl.text = '0';
+                    } else if (currentLimit == 0) {
+                      widget.maxReservedSpotsCtrl.text = '1';
+                    }
+                  });
+                  widget.onMarkDirty();
+                },
+                activeColor: context.fundingAccent,
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            _limitSpotsPerPledger
+                ? 'Each pledger can reserve up to $currentLimit spot${currentLimit == 1 ? '' : 's'} across all tiers.'
+                : 'No per-person limit on spot reservations.',
+            style: TextStyle(
+                fontSize: 12, color: AppTheme.textSecondaryOf(context)),
+          ),
+          if (_limitSpotsPerPledger) ...[
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: widget.maxReservedSpotsCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Max Spots Per Pledger',
+                prefixIcon: Icon(Icons.event_seat_rounded, size: 20),
+                helperText: 'Total spots one person can reserve across all tiers',
+                isDense: true,
+              ),
+              keyboardType: TextInputType.number,
+              onChanged: (_) => setState(() {}),
+            ),
+          ],
         ],
       ),
     );

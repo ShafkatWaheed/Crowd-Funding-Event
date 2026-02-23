@@ -407,6 +407,8 @@ async def create(
     transit_info: str | None = None,
     rideshare_info: str | None = None,
     accessibility_info: str | None = None,
+    has_schedule: bool = False,
+    link_funding_to_tiers: bool = False,
 ) -> Event:
     """Create event. At least one of funding_end_at or start_time must be provided."""
     from datetime import timedelta
@@ -521,16 +523,12 @@ async def create(
         transit_info=transit_info,
         rideshare_info=rideshare_info,
         accessibility_info=accessibility_info,
+        has_schedule=has_schedule,
+        link_funding_to_tiers=link_funding_to_tiers,
         status=EventStatus.approved if publish else EventStatus.draft,
     )
     db.add(event)
     await db.flush()
-
-    # If strategy linked, copy tiers into the event's TicketTier rows
-    if ticket_strategy_id is not None:
-        from app.services import ticket_strategy as ts_service
-        await ts_service.apply_strategy_to_event(db, strategy_id=ticket_strategy_id, event_id=event.id)
-
     await db.refresh(event)
     return event
 
@@ -561,6 +559,8 @@ async def update(
     transit_info: str | None = None,
     rideshare_info: str | None = None,
     accessibility_info: str | None = None,
+    has_schedule: bool | None = None,
+    link_funding_to_tiers: bool | None = None,
 ) -> Event:
     """Update event fields (only provided ones). When switching closed→open, auto-approve waitlist up to capacity."""
     old_registration_type = event.registration_type
@@ -668,6 +668,10 @@ async def update(
         event.rideshare_info = rideshare_info
     if accessibility_info is not None:
         event.accessibility_info = accessibility_info
+    if has_schedule is not None:
+        event.has_schedule = has_schedule
+    if link_funding_to_tiers is not None:
+        event.link_funding_to_tiers = link_funding_to_tiers
     # Validate dates if both are set
     if event.start_time is not None and event.end_time is not None and event.end_time <= event.start_time:
         raise ConflictError("end_time must be after start_time")

@@ -89,6 +89,10 @@ class _TicketTierManagementState extends State<TicketTierManagement> {
             final canModify = widget.event.status != EventStatus.selling_tickets &&
                 widget.event.status != EventStatus.live &&
                 widget.event.status != EventStatus.completed;
+            final totalTierSpots = tiers.fold<int>(
+                0, (sum, t) => sum + ((t['max_reserved_spots'] ?? 0) as int));
+            final maxCap = widget.event.maxCapacity;
+            final remainingCapacity = maxCap - totalTierSpots;
             if (tiers.isEmpty) {
               return Column(
                 children: [
@@ -151,6 +155,7 @@ class _TicketTierManagementState extends State<TicketTierManagement> {
                       final name = tier['name'] ?? '';
                       final desc = tier['description'] ?? '';
                       final priceCents = tier['price_cents'] ?? 0;
+                      final tierMaxSpots = tier['max_reserved_spots'] ?? 0;
                       final price =
                           '\$${(priceCents / 100).toStringAsFixed(2)}';
                       final isLast = i == tiers.length - 1;
@@ -200,11 +205,34 @@ class _TicketTierManagementState extends State<TicketTierManagement> {
                                         ),
                                       Padding(
                                         padding: const EdgeInsets.only(top: 3),
-                                        child: Text(price,
-                                            style: TextStyle(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w700,
-                                                color: AppTheme.successColor)),
+                                        child: Row(
+                                          children: [
+                                            Text(price,
+                                                style: TextStyle(
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: AppTheme.successColor)),
+                                            if (tierMaxSpots > 0) ...[
+                                              const SizedBox(width: 8),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(
+                                                    horizontal: 6, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: AppTheme.textSecondaryOf(context)
+                                                      .withValues(alpha: 0.1),
+                                                  borderRadius: BorderRadius.circular(4),
+                                                ),
+                                                child: Text(
+                                                  '$tierMaxSpots spots',
+                                                  style: TextStyle(
+                                                      fontSize: 10,
+                                                      fontWeight: FontWeight.w600,
+                                                      color: AppTheme.textSecondaryOf(context)),
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -241,6 +269,70 @@ class _TicketTierManagementState extends State<TicketTierManagement> {
                     }).toList(),
                   ),
                 ),
+                if (maxCap > 0) ...[
+                  AppSpacing.vSm,
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: remainingCapacity > 0
+                          ? AppTheme.successColor.withValues(alpha: 0.08)
+                          : AppTheme.warningColor.withValues(alpha: 0.08),
+                      borderRadius: AppRadius.sm,
+                      border: Border.all(
+                        color: remainingCapacity > 0
+                            ? AppTheme.successColor.withValues(alpha: 0.25)
+                            : AppTheme.warningColor.withValues(alpha: 0.25),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          remainingCapacity > 0
+                              ? Icons.check_circle_outline
+                              : Icons.warning_amber_rounded,
+                          size: 16,
+                          color: remainingCapacity > 0
+                              ? AppTheme.successColor
+                              : AppTheme.warningColor,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            remainingCapacity > 0
+                                ? 'Available capacity: $remainingCapacity of $maxCap spots'
+                                : 'Capacity full ($totalTierSpots / $maxCap spots allocated)',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: remainingCapacity > 0
+                                  ? AppTheme.successColor
+                                  : AppTheme.warningColor,
+                            ),
+                          ),
+                        ),
+                        if (canModify)
+                          GestureDetector(
+                            onTap: () => _showIncreaseCapacityDialog(),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: context.sponsorAccent
+                                    .withValues(alpha: 0.1),
+                                borderRadius: AppRadius.sm,
+                              ),
+                              child: Text('Increase',
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: context.sponsorAccent)),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
                 if (canModify) ...[
                   AppSpacing.vMd,
                   SizedBox(
@@ -396,6 +488,66 @@ class _TicketTierManagementState extends State<TicketTierManagement> {
     if (created == true && mounted) {
       widget.onTiersChanged();
       AppToast.success(context, 'Tier created!');
+    }
+  }
+
+  Future<void> _showIncreaseCapacityDialog() async {
+    final ctrl = TextEditingController(
+        text: widget.event.maxCapacity.toString());
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Update Max Capacity'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Current capacity: ${widget.event.maxCapacity}',
+              style: TextStyle(
+                  fontSize: 13,
+                  color: AppTheme.textSecondaryOf(ctx)),
+            ),
+            AppSpacing.vMd,
+            TextField(
+              controller: ctrl,
+              decoration: const InputDecoration(
+                labelText: 'New Max Capacity',
+                prefixIcon: Icon(Icons.groups_rounded, size: 20),
+              ),
+              keyboardType: TextInputType.number,
+              autofocus: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              final newCap = int.tryParse(ctrl.text.trim());
+              if (newCap == null || newCap < 1) return;
+              try {
+                final api = context.read<ApiService>();
+                await api.updateEvent(widget.event.id, {
+                  'max_capacity': newCap,
+                });
+                if (ctx.mounted) Navigator.pop(ctx, true);
+              } catch (e) {
+                if (ctx.mounted) {
+                  AppToast.fromError(ctx, e,
+                      fallback: 'Failed to update capacity');
+                }
+              }
+            },
+            child: const Text('Update'),
+          ),
+        ],
+      ),
+    );
+    if (saved == true && mounted) {
+      widget.onTiersChanged();
+      AppToast.success(context, 'Capacity updated!');
     }
   }
 

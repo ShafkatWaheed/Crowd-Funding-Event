@@ -167,7 +167,7 @@ class StepReview extends StatelessWidget {
                   step: 1,
                   icon: Icons.event_rounded,
                   color: context.feedAccent,
-                  title: 'Dates & Tickets',
+                  title: 'Dates & Registration',
                   items: {
                     'Start': startTime != null
                         ? _fmtDt(startTime!)
@@ -175,13 +175,49 @@ class StepReview extends StatelessWidget {
                     'End': endTime != null
                         ? _fmtDt(endTime!)
                         : 'Not set',
+                    'Funding Deadline': fundingEndAt != null
+                        ? _fmtDt(fundingEndAt!)
+                        : 'Not set',
                     'Registration': registrationType == 'open'
                         ? 'Open'
                         : 'Closed (Waitlist)',
+                    if (fundingEndAt != null)
+                      'Milestones': milestones.isEmpty
+                          ? 'None'
+                          : '${milestones.length}',
+                  },
+                ),
+                _reviewCard(
+                  context: context,
+                  step: 2,
+                  icon: Icons.confirmation_number_rounded,
+                  color: context.ticketAccent,
+                  title: 'Tickets & Funding Strategy',
+                  items: {
+                    'Capacity':
+                        capacity.isNotEmpty ? capacity : 'Not set',
                     'Ticket Strategy': selectedStrategyName ?? 'Not set',
                     'Tiers': localTiers.isEmpty
                         ? 'None'
                         : '${localTiers.length} tiers',
+                    if (fundingEndAt != null) ...{
+                      'Funding Goal': fundingGoal.isNotEmpty
+                          ? '\$$fundingGoal'
+                          : 'Not set',
+                      'Min Pledge': linkFundingToTiers
+                          ? 'Per-tier pricing'
+                          : '\$$minPledge',
+                      'Tier-Linked': linkFundingToTiers ? 'Yes' : 'No',
+                    },
+                  },
+                ),
+                _reviewCard(
+                  context: context,
+                  step: 3,
+                  icon: Icons.discount_rounded,
+                  color: context.reviewAccent,
+                  title: 'Discounts',
+                  items: {
                     'Discounts': selectedDiscountCount == 0
                         ? 'None'
                         : '$selectedDiscountCount selected',
@@ -189,38 +225,12 @@ class StepReview extends StatelessWidget {
                 ),
                 _reviewCard(
                   context: context,
-                  step: 2,
-                  icon: Icons.attach_money_rounded,
-                  color: context.fundingAccent,
-                  title: 'Funding',
-                  items: {
-                    'Deadline': fundingEndAt != null
-                        ? _fmtDt(fundingEndAt!)
-                        : 'Not set',
-                    if (fundingEndAt != null) ...{
-                      'Goal': fundingGoal.isNotEmpty
-                          ? '\$$fundingGoal'
-                          : 'Not set',
-                      'Min Pledge': linkFundingToTiers
-                          ? 'Per-tier pricing'
-                          : '\$$minPledge',
-                      'Tier-Linked': linkFundingToTiers ? 'Yes' : 'No',
-                      'Milestones': milestones.isEmpty
-                          ? 'None'
-                          : '${milestones.length}',
-                    },
-                  },
-                ),
-                _reviewCard(
-                  context: context,
-                  step: 3,
+                  step: 4,
                   icon: Icons.location_on_rounded,
-                  color: context.fundingAccent,
+                  color: context.sponsorAccent,
                   title: 'Location & Sponsors',
                   items: {
                     'Venue': selectedVenueName ?? 'Not set',
-                    'Capacity':
-                        capacity.isNotEmpty ? capacity : 'Not set',
                     'Sponsors': localCategories.isEmpty
                         ? 'None'
                         : () {

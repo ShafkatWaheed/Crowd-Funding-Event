@@ -176,6 +176,7 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
                   final desc = t['description'] as String?;
                   final baseCents = t['price_cents'] ?? 0;
                   final tierId = t['id'];
+                  final maxSpots = t['max_reserved_spots'] ?? 0;
                   final preview = previews[tierId];
                   final finalCents = preview?['final_price_cents'] ?? baseCents;
                   final totalDiscount = preview?['total_discount_cents'] ?? 0;
@@ -256,6 +257,25 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
                                               fontSize: 12,
                                               color: AppTheme.textSecondaryOf(context),
                                               fontStyle: FontStyle.italic)),
+                                    ),
+                                  if (maxSpots > 0)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 4),
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.event_seat_rounded,
+                                              size: 12,
+                                              color: AppTheme.textSecondaryOf(context)),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            '$maxSpots spots available',
+                                            style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w600,
+                                                color: AppTheme.textSecondaryOf(context)),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                 ],
                               ),

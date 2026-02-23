@@ -15,11 +15,12 @@ import '../../services/api_service.dart';
 import '../../services/mapbox_geocoding_service.dart';
 import '../../widgets/app_toast.dart';
 import '../../models/event_form_models.dart';
-import 'create_event/step_dates_tickets.dart';
-import 'create_event/step_location_sponsors.dart';
 import 'create_event/step_basics.dart';
+import 'create_event/step_dates_registration.dart';
+import 'create_event/step_tickets_funding.dart';
+import 'create_event/step_discounts_milestones.dart';
+import 'create_event/step_location_sponsors.dart';
 import 'create_event/step_review.dart';
-import 'create_event/step_funding.dart';
 import 'event_detail_screen.dart';
 
 class CreateEventScreen extends StatefulWidget {
@@ -33,18 +34,20 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   // ── Wizard state ──
   int _currentStep = 0;
   final List<GlobalKey<FormState>> _formKeys =
-      List.generate(5, (_) => GlobalKey<FormState>());
+      List.generate(6, (_) => GlobalKey<FormState>());
   static const _stepLabels = [
     'Basics',
-    'Dates & Tickets',
-    'Funding',
-    'Location & Sponsors',
+    'Dates',
+    'Tickets',
+    'Discounts',
+    'Location',
     'Review',
   ];
   static const _stepIcons = [
     Icons.edit_note_rounded,
     Icons.event_rounded,
-    Icons.attach_money_rounded,
+    Icons.confirmation_number_rounded,
+    Icons.discount_rounded,
     Icons.location_on_rounded,
     Icons.check_circle_rounded,
   ];
@@ -537,10 +540,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         if (_genre == null) return fail('Please select a genre');
         return pass();
       case 1:
-        return pass();
-      case 2:
         if (_fundingEndAt == null && (_startTime == null || _endTime == null)) {
-          return fail('Set both start & end dates, or go back and set a funding deadline');
+          return fail('Set both start & end dates, or set a funding deadline');
         }
         if (_startTime != null && _endTime == null) return fail('End time is required when start time is set');
         if (_startTime != null && _endTime != null && !_endTime!.isAfter(_startTime!)) {
@@ -550,13 +551,17 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
           return fail('Event start must be after funding deadline');
         }
         return pass();
-      case 3:
-        if (_selectedVenueId == null) return fail('Please select a venue');
+      case 2:
         if (_capacityCtrl.text.trim().isEmpty || int.tryParse(_capacityCtrl.text.trim()) == null) {
           return fail('Please enter a valid max capacity');
         }
         return pass();
+      case 3:
+        return pass();
       case 4:
+        if (_selectedVenueId == null) return fail('Please select a venue');
+        return pass();
+      case 5:
         return pass();
     }
     return pass();
@@ -601,12 +606,12 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         (_startTime == null || _endTime == null)) {
       AppToast.error(
           context, 'Set funding deadline or both start & end dates');
-      setState(() => _currentStep = 2);
+      setState(() => _currentStep = 1);
       return;
     }
     if (_startTime != null && _endTime == null) {
       AppToast.error(context, 'End time is required when start time is set');
-      setState(() => _currentStep = 2);
+      setState(() => _currentStep = 1);
       return;
     }
     if (_startTime != null &&
@@ -614,7 +619,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         !_startTime!.isAfter(_fundingEndAt!)) {
       AppToast.error(
           context, 'Event start time must be after the funding deadline');
-      setState(() => _currentStep = 2);
+      setState(() => _currentStep = 1);
       return;
     }
     if (_fundingEndAt == null && _selectedStrategyId == null) {
@@ -625,13 +630,13 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     }
     if (_selectedVenueId == null) {
       AppToast.error(context, 'Please select a venue');
-      setState(() => _currentStep = 3);
+      setState(() => _currentStep = 4);
       return;
     }
     final capVal = int.tryParse(_capacityCtrl.text.trim());
     if (capVal == null) {
       AppToast.error(context, 'Please enter a valid max capacity');
-      setState(() => _currentStep = 3);
+      setState(() => _currentStep = 2);
       return;
     }
 
@@ -872,9 +877,10 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
             child: IndexedStack(
               index: _currentStep,
               children: [
-                _buildStep1Basics(),
-                _buildStep2DatesTickets(),
-                _buildStep3Funding(),
+                _buildStep0Basics(),
+                _buildStep1DatesRegistration(),
+                _buildStep2TicketsFunding(),
+                _buildStep3DiscountsMilestones(),
                 _buildStep4LocationSponsors(),
                 _buildStep5Review(),
               ],
@@ -1091,7 +1097,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     );
   }
 
-  Widget _buildStep1Basics() {
+  Widget _buildStep0Basics() {
     return StepBasics(
       formKey: _formKeys[0],
       titleCtrl: _titleCtrl,
@@ -1108,32 +1114,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     );
   }
 
-  Widget _buildStep3Funding() {
-    return StepFunding(
-      formKey: _formKeys[2],
-      fundingGoalCtrl: _fundingGoalCtrl,
-      minPledgeCtrl: _minPledgeCtrl,
-      maxReservedSpotsCtrl: _maxReservedSpotsCtrl,
-      fundingEndAt: _fundingEndAt,
-      onPickFundingDeadline: _pickFundingDeadline,
-      onClearFundingDeadline: () => setState(() => _fundingEndAt = null),
-      refundDeadlineDays: _refundDeadlineDays,
-      onRefundDeadlineDaysChanged: (v) =>
-          setState(() => _refundDeadlineDays = v),
-      milestones: _milestones,
-      onMarkDirty: _markDirty,
-      fmtDt: _fmtDt,
-      linkFundingToTiers: _linkFundingToTiers,
-      onLinkFundingToTiersChanged: (v) => setState(() => _linkFundingToTiers = v),
-      localTiers: _localTiers,
-      maxDiscountPercent: _maxDiscountPercent,
-      onMaxDiscountPercentChanged: (v) => setState(() => _maxDiscountPercent = v),
-      earlyBirdDiscounts: _earlyBirdDiscounts,
-    );
-  }
-
-  Widget _buildStep2DatesTickets() {
-    return StepDatesTickets(
+  Widget _buildStep1DatesRegistration() {
+    return StepDatesRegistration(
       formKey: _formKeys[1],
       startTime: _startTime,
       endTime: _endTime,
@@ -1144,6 +1126,24 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       registrationType: _registrationType,
       onRegistrationTypeChanged: (v) => setState(() => _registrationType = v ?? 'open'),
       fundingEndAt: _fundingEndAt,
+      onPickFundingDeadline: _pickFundingDeadline,
+      onClearFundingDeadline: () => setState(() => _fundingEndAt = null),
+      refundDeadlineDays: _refundDeadlineDays,
+      onRefundDeadlineDaysChanged: (v) =>
+          setState(() => _refundDeadlineDays = v),
+      milestones: _milestones,
+      hasSchedule: _hasSchedule,
+      onHasScheduleChanged: (v) => setState(() => _hasSchedule = v),
+      scheduleDays: _scheduleDays,
+      onMarkDirty: () => setState(() {}),
+      fmtDt: _fmtDt,
+    );
+  }
+
+  Widget _buildStep2TicketsFunding() {
+    return StepTicketsFunding(
+      formKey: _formKeys[2],
+      capacityCtrl: _capacityCtrl,
       strategies: _strategies,
       strategiesLoading: _strategiesLoading,
       strategiesError: _strategiesError,
@@ -1169,6 +1169,21 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       creatingStrategy: _creatingStrategy,
       strategyNameCtrl: _strategyNameCtrl,
       onCreateStrategyInline: _createStrategyInline,
+      fundingEndAt: _fundingEndAt,
+      fundingGoalCtrl: _fundingGoalCtrl,
+      minPledgeCtrl: _minPledgeCtrl,
+      maxReservedSpotsCtrl: _maxReservedSpotsCtrl,
+      linkFundingToTiers: _linkFundingToTiers,
+      onLinkFundingToTiersChanged: (v) => setState(() => _linkFundingToTiers = v),
+      onMarkDirty: _markDirty,
+      buildLoadingChip: _buildLoadingChip,
+      buildErrorRetry: _buildErrorRetry,
+    );
+  }
+
+  Widget _buildStep3DiscountsMilestones() {
+    return StepDiscountsMilestones(
+      formKey: _formKeys[3],
       discounts: _discountStrategies,
       discountsLoading: _discountsLoading,
       discountsError: _discountsError,
@@ -1176,10 +1191,12 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       selectedDiscounts: _selectedDiscounts,
       onAddDiscount: (id, autoApply) => setState(() => _selectedDiscounts[id] = autoApply),
       onRemoveDiscount: (id) => setState(() => _selectedDiscounts.remove(id)),
-      hasSchedule: _hasSchedule,
-      onHasScheduleChanged: (v) => setState(() => _hasSchedule = v),
-      scheduleDays: _scheduleDays,
-      onMarkDirty: () => setState(() {}),
+      earlyBirdDiscounts: _earlyBirdDiscounts,
+      maxDiscountPercent: _maxDiscountPercent,
+      onMaxDiscountPercentChanged: (v) => setState(() => _maxDiscountPercent = v),
+      fundingEndAt: _fundingEndAt,
+      selectedStrategyId: _selectedStrategyId,
+      onMarkDirty: _markDirty,
       fmtDt: _fmtDt,
       buildLoadingChip: _buildLoadingChip,
       buildErrorRetry: _buildErrorRetry,
@@ -1188,14 +1205,13 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
   Widget _buildStep4LocationSponsors() {
     return StepLocationSponsors(
-      formKey: _formKeys[3],
+      formKey: _formKeys[4],
       venues: _venues,
       venuesLoading: _venuesLoading,
       venuesError: _venuesError,
       onReloadVenues: _loadVenues,
       selectedVenueId: _selectedVenueId,
       onVenueChanged: (id) => setState(() => _selectedVenueId = id),
-      capacityCtrl: _capacityCtrl,
       showVenueForm: _showVenueForm,
       onShowVenueFormChanged: (v) => setState(() => _showVenueForm = v),
       creatingVenue: _creatingVenue,
@@ -1337,7 +1353,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
   Widget _buildStep5Review() {
     return StepReview(
-      formKey: _formKeys[4],
+      formKey: _formKeys[5],
       publishImmediately: _publish,
       onPublishChanged: (v) => setState(() => _publish = v),
       onGoToStep: _goToStep,

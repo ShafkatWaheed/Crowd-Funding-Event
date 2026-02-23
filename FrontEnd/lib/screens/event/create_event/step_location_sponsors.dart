@@ -15,7 +15,6 @@ class StepLocationSponsors extends StatefulWidget {
   final VoidCallback onReloadVenues;
   final int? selectedVenueId;
   final ValueChanged<int?> onVenueChanged;
-  final TextEditingController capacityCtrl;
   // Venue creation
   final bool showVenueForm;
   final ValueChanged<bool> onShowVenueFormChanged;
@@ -65,7 +64,6 @@ class StepLocationSponsors extends StatefulWidget {
     required this.onReloadVenues,
     this.selectedVenueId,
     required this.onVenueChanged,
-    required this.capacityCtrl,
     required this.showVenueForm,
     required this.onShowVenueFormChanged,
     required this.creatingVenue,
@@ -439,20 +437,6 @@ class _StepLocationSponsorsState extends State<StepLocationSponsors> {
                       ? CrossFadeState.showSecond
                       : CrossFadeState.showFirst,
                   duration: const Duration(milliseconds: 250),
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: widget.capacityCtrl,
-                  decoration: const InputDecoration(
-                      labelText: 'Max Capacity *'),
-                  keyboardType: TextInputType.number,
-                  validator: (v) {
-                    if (v == null || v.isEmpty) return 'Required';
-                    if (int.tryParse(v) == null) {
-                      return 'Enter a number';
-                    }
-                    return null;
-                  },
                 ),
                 const SizedBox(height: 24),
                 _buildTransportSection(),

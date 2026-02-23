@@ -542,12 +542,19 @@ async def list_event_scanned_ticket_sales(
 
 async def list_organizer_ticket_sales(
     db: AsyncSession, *, organizer_id: int, scanned_only: bool = False,
+    event_status: str | None = None,
     offset: int = 0, limit: int = 20,
 ) -> Sequence[TicketSale]:
     """List all ticket sales across all events owned by organizer_id. Single query, no N+1."""
     conditions = [Event.organizer_id == organizer_id]
     if scanned_only:
         conditions.append(TicketSale.scanned_at.isnot(None))
+    if event_status:
+        from app.models.event import EventStatus
+        try:
+            conditions.append(Event.status == EventStatus(event_status))
+        except ValueError:
+            pass
     q = (
         select(TicketSale)
         .join(Event, TicketSale.event_id == Event.id)

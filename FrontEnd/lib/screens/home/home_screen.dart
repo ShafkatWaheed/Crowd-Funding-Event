@@ -270,7 +270,17 @@ class _HomeScreenState extends State<HomeScreen> {
   void didUpdateWidget(HomeScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.initialTab != widget.initialTab) {
-      setState(() => _navIndex = widget.initialTab);
+      setState(() {
+        _navIndex = widget.initialTab;
+        _dashboardStatusFilter = null;
+        _dashboardGenreFilter = null;
+        _dashboardKpiFilter = null;
+        _dashboardEventId = null;
+        _dashboardEventTitle = null;
+        _statusFilteredEvents = [];
+        _kpiFilteredEvents = [];
+      });
+      if (widget.initialTab == 0) _loadDashboard();
     }
   }
 
@@ -774,7 +784,17 @@ class _HomeScreenState extends State<HomeScreen> {
     return GestureDetector(
       onTap: () {
         if (_navIndex == index) return;
-        setState(() => _navIndex = index);
+        setState(() {
+          _navIndex = index;
+          _dashboardStatusFilter = null;
+          _dashboardGenreFilter = null;
+          _dashboardKpiFilter = null;
+          _dashboardEventId = null;
+          _dashboardEventTitle = null;
+          _statusFilteredEvents = [];
+          _kpiFilteredEvents = [];
+        });
+        if (index == 0) _loadDashboard();
         const tabNames = ['home', 'explore', 'manage', 'profile'];
         final tab = tabNames[index];
         context.go(tab == 'home' ? '/' : '/?tab=$tab');
@@ -2077,6 +2097,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final revenue = d['total_revenue'] as Map<String, dynamic>;
     final tickets = d['tickets_sold'] as Map<String, dynamic>;
     final backers = d['total_backers'] as Map<String, dynamic>;
+    final refundRate = d['refund_rate'] as Map<String, dynamic>?;
     final events = d['total_events'] as Map<String, dynamic>;
     final sponsors = d['total_sponsors'] as Map<String, dynamic>?;
 
@@ -2105,23 +2126,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     value: '${tickets['value'] ?? 0}',
                     deltaPercent: (tickets['delta_percent'] as num?)?.toDouble(),
                     accentColor: context.ticketAccent,
-                    isActive: _dashboardKpiFilter == 'tickets',
                     onTap: () {
-                      if (_dashboardKpiFilter == 'tickets') {
-                        setState(() {
-                          _dashboardKpiFilter = null;
-                          _kpiFilteredEvents = [];
-                          _dashboardEventId = null;
-                          _dashboardEventTitle = null;
-                        });
-                        _loadDashboard();
-                      } else {
-                        setState(() {
-                          _dashboardKpiFilter = 'tickets';
-                          _kpiFilterLoading = true;
-                        });
-                        _loadKpiFilteredEvents('tickets');
-                      }
+                      final statusQ = _dashboardStatusFilter;
+                      final path = statusQ != null
+                          ? '/manage/ticket-sales?event_status=$statusQ'
+                          : '/manage/ticket-sales';
+                      context.push(path);
                     },
                   ),
                 ),
@@ -2140,23 +2150,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     value: '${backers['value'] ?? 0}',
                     deltaPercent: (backers['delta_percent'] as num?)?.toDouble(),
                     accentColor: context.fundingAccent,
-                    isActive: _dashboardKpiFilter == 'backers',
                     onTap: () {
-                      if (_dashboardKpiFilter == 'backers') {
-                        setState(() {
-                          _dashboardKpiFilter = null;
-                          _kpiFilteredEvents = [];
-                          _dashboardEventId = null;
-                          _dashboardEventTitle = null;
-                        });
-                        _loadDashboard();
-                      } else {
-                        setState(() {
-                          _dashboardKpiFilter = 'backers';
-                          _kpiFilterLoading = true;
-                        });
-                        _loadKpiFilteredEvents('backers');
-                      }
+                      final statusQ = _dashboardStatusFilter;
+                      final path = statusQ != null
+                          ? '/manage/pledges?event_status=$statusQ'
+                          : '/manage/pledges';
+                      context.push(path);
                     },
                   ),
                 ),
@@ -2168,7 +2167,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     value: '${sponsors?['value'] ?? 0}',
                     deltaPercent: (sponsors?['delta_percent'] as num?)?.toDouble(),
                     accentColor: context.sponsorAccent,
-                    onTap: () => context.push('/manage/sponsors'),
+                    onTap: () {
+                      final statusQ = _dashboardStatusFilter;
+                      final path = statusQ != null
+                          ? '/manage/sponsors?event_status=$statusQ'
+                          : '/manage/sponsors';
+                      context.push(path);
+                    },
                   ),
                 ),
               ],
@@ -2186,14 +2191,28 @@ class _HomeScreenState extends State<HomeScreen> {
                     value: '${events['value'] ?? 0}',
                     deltaPercent: (events['delta_percent'] as num?)?.toDouble(),
                     accentColor: context.managementAccent,
+                    isActive: false,
                     onTap: () {
-                      setState(() => _navIndex = 1);
+                      setState(() {
+                        _selectedStatus = _dashboardStatusFilter;
+                        _navIndex = 1;
+                      });
+                      _applyFilters();
                       context.go('/?tab=explore');
                     },
                   ),
                 ),
                 AppSpacing.hMd,
-                const Expanded(child: SizedBox()),
+                Expanded(
+                  child: _DashboardKpiCard(
+                    icon: Icons.undo_rounded,
+                    label: 'Refund Rate',
+                    value: '${(refundRate?['value'] as num?)?.toStringAsFixed(1) ?? '0.0'}%',
+                    deltaPercent: (refundRate?['delta_percent'] as num?)?.toDouble(),
+                    accentColor: AppTheme.errorColor,
+                    invertDelta: true,
+                  ),
+                ),
               ],
             ),
           ),
@@ -2206,6 +2225,7 @@ class _HomeScreenState extends State<HomeScreen> {
     'tickets' => Icons.confirmation_number_rounded,
     'backers' => Icons.volunteer_activism_rounded,
     'sponsors' => Icons.handshake_rounded,
+    'events' => Icons.event_rounded,
     _ => Icons.bar_chart_rounded,
   };
 
@@ -2213,6 +2233,7 @@ class _HomeScreenState extends State<HomeScreen> {
     'tickets' => 'Events with Ticket Sales',
     'backers' => 'Events with Backers',
     'sponsors' => 'Sponsored Events',
+    'events' => 'All Events',
     _ => 'Events',
   };
 
@@ -2220,6 +2241,7 @@ class _HomeScreenState extends State<HomeScreen> {
     'tickets' => 'No ticket sales',
     'backers' => 'No backers yet',
     'sponsors' => 'No sponsors yet',
+    'events' => 'No events',
     _ => 'No events',
   };
 
@@ -2227,6 +2249,7 @@ class _HomeScreenState extends State<HomeScreen> {
     'tickets' => 'None of your events have sold tickets',
     'backers' => 'None of your events have received pledges',
     'sponsors' => 'None of your events have sponsors',
+    'events' => 'You have not created any events yet',
     _ => 'No matching events found',
   };
 
@@ -4311,6 +4334,7 @@ class _DashboardKpiCard extends StatefulWidget {
   final Color accentColor;
   final VoidCallback? onTap;
   final bool isActive;
+  final bool invertDelta;
 
   const _DashboardKpiCard({
     required this.icon,
@@ -4320,6 +4344,7 @@ class _DashboardKpiCard extends StatefulWidget {
     required this.accentColor,
     this.onTap,
     this.isActive = false,
+    this.invertDelta = false,
   });
 
   @override
@@ -4382,22 +4407,25 @@ class _DashboardKpiCardState extends State<_DashboardKpiCard>
                     const Spacer(),
                     ScaleTransition(
                       scale: CurvedAnimation(parent: _ctrl, curve: Curves.elasticOut),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: (delta >= 0 ? AppTheme.successColor : AppTheme.errorColor)
-                              .withValues(alpha: isDark ? 0.2 : 0.1),
-                          borderRadius: AppRadius.pill,
-                        ),
-                        child: Text(
-                          '${delta >= 0 ? '+' : ''}${delta.toStringAsFixed(1)}%',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            color: delta >= 0 ? AppTheme.successColor : AppTheme.errorColor,
+                      child: Builder(builder: (_) {
+                        final isPositive = widget.invertDelta ? delta < 0 : delta >= 0;
+                        final deltaColor = isPositive ? AppTheme.successColor : AppTheme.errorColor;
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: deltaColor.withValues(alpha: isDark ? 0.2 : 0.1),
+                            borderRadius: AppRadius.pill,
                           ),
-                        ),
-                      ),
+                          child: Text(
+                            '${delta >= 0 ? '+' : ''}${delta.toStringAsFixed(1)}%',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              color: deltaColor,
+                            ),
+                          ),
+                        );
+                      }),
                     ),
                   ],
                 ],

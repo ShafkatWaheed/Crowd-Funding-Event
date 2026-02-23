@@ -132,15 +132,14 @@ async def get_organizer_dashboard(
     # ── KPI: Total Events ──────────────────────────────────────────────
     all_events = int((await db.execute(
         select(func.count()).select_from(Event)
-        .where(Event.organizer_id == organizer_id, Event.status != EventStatus.draft)
+        .where(Event.id.in_(org_events_excl_draft))
     )).scalar_one())
 
     async def _events_created(start: datetime, end: datetime) -> int:
         return int((await db.execute(
             select(func.count()).select_from(Event)
             .where(
-                Event.organizer_id == organizer_id,
-                Event.status != EventStatus.draft,
+                Event.id.in_(org_events_excl_draft),
                 Event.created_at >= start,
                 Event.created_at < end,
             )
@@ -171,6 +170,73 @@ async def get_organizer_dashboard(
     prev_sponsors = await _sponsors(prev_start, period_start)
     all_sponsors = int((await db.execute(sponsor_base)).scalar_one())
 
+    # ── KPI: Refund Rate ────────────────────────────────────────────────
+    total_tickets_all = int((await db.execute(
+        select(func.count()).select_from(TicketSale)
+        .where(TicketSale.event_id.in_(org_event_ids_q))
+    )).scalar_one())
+    refunded_tickets_all = int((await db.execute(
+        select(func.count()).select_from(TicketSale)
+        .where(
+            TicketSale.event_id.in_(org_event_ids_q),
+            TicketSale.status.in_([
+                TicketSaleStatus.refunded,
+                TicketSaleStatus.refund_requested,
+                TicketSaleStatus.refund_processing,
+            ]),
+        )
+    )).scalar_one())
+    total_pledges_all = int((await db.execute(
+        select(func.count()).select_from(Funding)
+        .where(Funding.event_id.in_(org_event_ids_q))
+    )).scalar_one())
+    refunded_pledges_all = int((await db.execute(
+        select(func.count()).select_from(Funding)
+        .where(
+            Funding.event_id.in_(org_event_ids_q),
+            Funding.status.in_([
+                FundingStatus.refunded,
+                FundingStatus.refund_processing,
+            ]),
+        )
+    )).scalar_one())
+
+    total_transactions = total_tickets_all + total_pledges_all
+    total_refunds = refunded_tickets_all + refunded_pledges_all
+    refund_rate_all = round((total_refunds / total_transactions) * 100, 1) if total_transactions > 0 else 0.0
+
+    async def _refund_rate(start: datetime, end: datetime) -> float:
+        t_total = int((await db.execute(
+            select(func.count()).select_from(TicketSale)
+            .where(TicketSale.event_id.in_(org_event_ids_q), TicketSale.created_at >= start, TicketSale.created_at < end)
+        )).scalar_one())
+        t_ref = int((await db.execute(
+            select(func.count()).select_from(TicketSale)
+            .where(
+                TicketSale.event_id.in_(org_event_ids_q),
+                TicketSale.status.in_([TicketSaleStatus.refunded, TicketSaleStatus.refund_requested, TicketSaleStatus.refund_processing]),
+                TicketSale.created_at >= start, TicketSale.created_at < end,
+            )
+        )).scalar_one())
+        p_total = int((await db.execute(
+            select(func.count()).select_from(Funding)
+            .where(Funding.event_id.in_(org_event_ids_q), Funding.created_at >= start, Funding.created_at < end)
+        )).scalar_one())
+        p_ref = int((await db.execute(
+            select(func.count()).select_from(Funding)
+            .where(
+                Funding.event_id.in_(org_event_ids_q),
+                Funding.status.in_([FundingStatus.refunded, FundingStatus.refund_processing]),
+                Funding.created_at >= start, Funding.created_at < end,
+            )
+        )).scalar_one())
+        total = t_total + p_total
+        refs = t_ref + p_ref
+        return round((refs / total) * 100, 1) if total > 0 else 0.0
+
+    cur_refund_rate = await _refund_rate(period_start, now)
+    prev_refund_rate = await _refund_rate(prev_start, period_start)
+
     def _delta(cur: int | float, prev: int | float) -> float | None:
         if prev == 0:
             return None if cur == 0 else 100.0
@@ -182,6 +248,7 @@ async def get_organizer_dashboard(
         "total_backers": {"value": all_backers, "delta_percent": _delta(cur_backers, prev_backers)},
         "total_events": {"value": all_events, "delta_percent": _delta(cur_events, prev_events)},
         "total_sponsors": {"value": all_sponsors, "delta_percent": _delta(cur_sponsors, prev_sponsors)},
+        "refund_rate": {"value": refund_rate_all, "delta_percent": _delta(cur_refund_rate, prev_refund_rate)},
     }
 
     # ── Status Breakdown ────────────────────────────────────────────────

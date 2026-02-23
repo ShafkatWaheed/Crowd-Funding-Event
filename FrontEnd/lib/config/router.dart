@@ -221,8 +221,11 @@ GoRouter createRouter(AuthProvider authProvider) {
       // ─── Global Manage pages (fade-through) ───
       GoRoute(
         path: '/manage/ticket-sales',
-        pageBuilder: (context, state) => fadeThroughPage(
-            child: const GlobalTicketSalesScreen(scannedOnly: false)),
+        pageBuilder: (context, state) {
+          final eventStatus = state.uri.queryParameters['event_status'];
+          return fadeThroughPage(
+              child: GlobalTicketSalesScreen(scannedOnly: false, eventStatus: eventStatus));
+        },
       ),
       GoRoute(
         path: '/manage/scanned-tickets',
@@ -246,8 +249,11 @@ GoRouter createRouter(AuthProvider authProvider) {
       ),
       GoRoute(
         path: '/manage/pledges',
-        pageBuilder: (context, state) =>
-            fadeThroughPage(child: const OrganizerPledgesScreen()),
+        pageBuilder: (context, state) {
+          final eventStatus = state.uri.queryParameters['event_status'];
+          return fadeThroughPage(
+              child: OrganizerPledgesScreen(eventStatus: eventStatus));
+        },
       ),
 
       // ─── Venues (fade-through) ───
@@ -279,8 +285,11 @@ GoRouter createRouter(AuthProvider authProvider) {
       // ─── Organizer: Sponsors (fade-through) ───
       GoRoute(
         path: '/manage/sponsors',
-        pageBuilder: (context, state) =>
-            fadeThroughPage(child: const OrganizerSponsorsScreen()),
+        pageBuilder: (context, state) {
+          final eventStatus = state.uri.queryParameters['event_status'];
+          return fadeThroughPage(
+              child: OrganizerSponsorsScreen(eventStatus: eventStatus));
+        },
       ),
 
       // ─── Sponsor (fade-through) ───

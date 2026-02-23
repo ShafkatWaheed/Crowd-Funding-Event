@@ -9,7 +9,8 @@ import '../../widgets/shimmer_loaders.dart';
 import '../event/pledge_receipt_screen.dart';
 
 class OrganizerPledgesScreen extends StatefulWidget {
-  const OrganizerPledgesScreen({super.key});
+  final String? eventStatus;
+  const OrganizerPledgesScreen({super.key, this.eventStatus});
 
   @override
   State<OrganizerPledgesScreen> createState() => _OrganizerPledgesScreenState();
@@ -63,6 +64,7 @@ class _OrganizerPledgesScreenState extends State<OrganizerPledgesScreen> {
       final api = context.read<ApiService>();
       final data = await api.getOrganizerPledges(
         status: _statusFilter == 'all' ? null : _statusFilter,
+        eventStatus: widget.eventStatus,
         offset: 0,
         limit: _pageSize,
       );
@@ -90,6 +92,7 @@ class _OrganizerPledgesScreenState extends State<OrganizerPledgesScreen> {
       final api = context.read<ApiService>();
       final data = await api.getOrganizerPledges(
         status: _statusFilter == 'all' ? null : _statusFilter,
+        eventStatus: widget.eventStatus,
         offset: _all.length,
         limit: _pageSize,
       );
@@ -139,7 +142,17 @@ class _OrganizerPledgesScreenState extends State<OrganizerPledgesScreen> {
             }
           },
         ),
-        title: const Text('Pledges & Backers'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Pledges & Backers'),
+            if (widget.eventStatus != null)
+              Text(
+                'Filtered: ${widget.eventStatus!.replaceAll('_', ' ')}',
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context)),
+              ),
+          ],
+        ),
       ),
       body: Column(
         children: [

@@ -773,13 +773,14 @@ async def list_sponsorship_available_events(
 async def list_organizer_sponsors(
     db: DbSession,
     current_user: CurrentUser,
+    event_status: str | None = Query(None, description="Filter to events with this status"),
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
 ):
     """Sponsors with active bids on organizer's events."""
     if current_user.role not in (UserRole.organizer, UserRole.admin):
         raise HTTPException(status_code=403, detail="Only organizers can view their sponsors")
-    return await sponsor_svc.get_organizer_sponsors(db, current_user.id, offset=offset, limit=limit)
+    return await sponsor_svc.get_organizer_sponsors(db, current_user.id, event_status=event_status, offset=offset, limit=limit)
 
 
 @router.get(

@@ -108,18 +108,20 @@ class ApiService {
     return resp.data;
   }
 
-  Future<List<dynamic>> getOrganizerTicketSales({bool scannedOnly = false, int offset = 0, int limit = 20}) async {
+  Future<List<dynamic>> getOrganizerTicketSales({bool scannedOnly = false, String? eventStatus, int offset = 0, int limit = 20}) async {
     final resp = await dio.get('/me/organizer-ticket-sales', queryParameters: {
       if (scannedOnly) 'scanned_only': true,
+      if (eventStatus != null) 'event_status': eventStatus,
       'offset': offset,
       'limit': limit,
     });
     return resp.data;
   }
 
-  Future<List<dynamic>> getOrganizerPledges({String? status, int offset = 0, int limit = 20}) async {
+  Future<List<dynamic>> getOrganizerPledges({String? status, String? eventStatus, int offset = 0, int limit = 20}) async {
     final resp = await dio.get('/me/organizer-pledges', queryParameters: {
       if (status != null) 'status': status,
+      if (eventStatus != null) 'event_status': eventStatus,
       'offset': offset,
       'limit': limit,
     });
@@ -877,8 +879,12 @@ class ApiService {
 
   // ── Organizer: My Sponsors ──
 
-  Future<List<dynamic>> getOrganizerSponsors({int offset = 0, int limit = 20}) async {
-    final resp = await dio.get('/me/organizer-sponsors', queryParameters: {'offset': offset, 'limit': limit});
+  Future<List<dynamic>> getOrganizerSponsors({String? eventStatus, int offset = 0, int limit = 20}) async {
+    final resp = await dio.get('/me/organizer-sponsors', queryParameters: {
+      if (eventStatus != null) 'event_status': eventStatus,
+      'offset': offset,
+      'limit': limit,
+    });
     return resp.data as List;
   }
 

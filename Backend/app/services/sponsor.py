@@ -6,7 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User, UserRole
-from app.models.event import Event
+from app.models.event import Event, EventStatus
 from app.models.sponsor import (
     SponsorProfile, SponsorshipCategory, SponsorBid, BidStatus,
     SponsorPayment, PaymentStatus, SponsorTicket,
@@ -951,13 +951,24 @@ async def scan_sponsor_ticket(
 # ── Organizer: sponsors funding my events ──
 
 async def get_organizer_sponsors(
-    db: AsyncSession, organizer_id: int, *, offset: int = 0, limit: int = 20,
+    db: AsyncSession, organizer_id: int, *, event_status: str | None = None,
+    offset: int = 0, limit: int = 20,
 ) -> list[dict]:
     """Distinct sponsors with active bids on any of this organizer's events."""
     from sqlalchemy import distinct, func
     from sqlalchemy.orm import selectinload
 
     active = [BidStatus.pending, BidStatus.accepted, BidStatus.paid]
+
+    conditions = [
+        Event.organizer_id == organizer_id,
+        SponsorBid.status.in_(active),
+    ]
+    if event_status:
+        try:
+            conditions.append(Event.status == EventStatus(event_status))
+        except ValueError:
+            pass
 
     q = (
         select(
@@ -967,10 +978,7 @@ async def get_organizer_sponsors(
         )
         .join(SponsorshipCategory, SponsorBid.category_id == SponsorshipCategory.id)
         .join(Event, SponsorshipCategory.event_id == Event.id)
-        .where(
-            Event.organizer_id == organizer_id,
-            SponsorBid.status.in_(active),
-        )
+        .where(*conditions)
         .group_by(SponsorBid.sponsor_user_id)
         .order_by(func.sum(SponsorBid.amount_cents).desc())
         .offset(offset)

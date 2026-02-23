@@ -8,7 +8,8 @@ import '../../widgets/shimmer_loaders.dart';
 import '../../services/api_service.dart';
 
 class OrganizerSponsorsScreen extends StatefulWidget {
-  const OrganizerSponsorsScreen({super.key});
+  final String? eventStatus;
+  const OrganizerSponsorsScreen({super.key, this.eventStatus});
 
   @override
   State<OrganizerSponsorsScreen> createState() =>
@@ -55,7 +56,7 @@ class _OrganizerSponsorsScreenState extends State<OrganizerSponsorsScreen> {
     });
     try {
       final api = context.read<ApiService>();
-      final data = await api.getOrganizerSponsors(offset: 0, limit: _pageSize);
+      final data = await api.getOrganizerSponsors(eventStatus: widget.eventStatus, offset: 0, limit: _pageSize);
       if (!mounted) return;
       setState(() {
         _sponsors = data.cast<Map<String, dynamic>>();
@@ -77,6 +78,7 @@ class _OrganizerSponsorsScreenState extends State<OrganizerSponsorsScreen> {
     try {
       final api = context.read<ApiService>();
       final data = await api.getOrganizerSponsors(
+        eventStatus: widget.eventStatus,
         offset: _sponsors.length,
         limit: _pageSize,
       );
@@ -108,7 +110,17 @@ class _OrganizerSponsorsScreenState extends State<OrganizerSponsorsScreen> {
     return Scaffold(
       backgroundColor: AppTheme.surfaceOf(context),
       appBar: AppBar(
-        title: const Text('My Sponsors'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('My Sponsors'),
+            if (widget.eventStatus != null)
+              Text(
+                'Filtered: ${widget.eventStatus!.replaceAll('_', ' ')}',
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context)),
+              ),
+          ],
+        ),
         backgroundColor: AppTheme.cardOf(context),
         foregroundColor: AppTheme.textPrimaryOf(context),
         elevation: 0,

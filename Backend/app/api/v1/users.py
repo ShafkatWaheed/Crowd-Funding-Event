@@ -133,12 +133,14 @@ async def get_organizer_pledges(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
     status: str | None = Query(None, description="Filter by pledge status (pledged, refunded, etc.)"),
+    event_status: str | None = Query(None, description="Filter to events with this status"),
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
 ):
     """List all pledges made to events organized by the current user."""
     pledges = await funding_service.list_organizer_pledges(
         db, organizer_id=current_user.id, status_filter=status,
+        event_status=event_status,
         offset=offset, limit=limit,
     )
     return [
@@ -261,12 +263,14 @@ async def get_my_organizer_ticket_sales(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
     scanned_only: bool = Query(False, description="If true, return only scanned tickets"),
+    event_status: str | None = Query(None, description="Filter to events with this status"),
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
 ):
     """All ticket sales across every event the current user organizes. Single query."""
     sales = await ticket_service.list_organizer_ticket_sales(
         db, organizer_id=current_user.id, scanned_only=scanned_only,
+        event_status=event_status,
         offset=offset, limit=limit,
     )
     return [_ticket_sale_to_response(s) for s in sales]
@@ -472,6 +476,7 @@ async def get_organizer_dashboard(
         total_backers=raw["total_backers"],
         total_events=raw["total_events"],
         total_sponsors=raw["total_sponsors"],
+        refund_rate=raw["refund_rate"],
         status_breakdown=raw["status_breakdown"],
         top_events=_build_responses(raw["top_events"]),
         trending_events=_build_responses(raw["trending_events"]),

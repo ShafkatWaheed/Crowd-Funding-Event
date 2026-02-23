@@ -12,7 +12,8 @@ import '../../widgets/shimmer_loaders.dart';
 /// [scannedOnly] toggles between all-sales and scanned-only view.
 class GlobalTicketSalesScreen extends StatefulWidget {
   final bool scannedOnly;
-  const GlobalTicketSalesScreen({super.key, this.scannedOnly = false});
+  final String? eventStatus;
+  const GlobalTicketSalesScreen({super.key, this.scannedOnly = false, this.eventStatus});
 
   @override
   State<GlobalTicketSalesScreen> createState() =>
@@ -64,6 +65,7 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
       final api = context.read<ApiService>();
       final sales = await api.getOrganizerTicketSales(
         scannedOnly: widget.scannedOnly,
+        eventStatus: widget.eventStatus,
         offset: 0,
         limit: _pageSize,
       );
@@ -90,6 +92,7 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
       final api = context.read<ApiService>();
       final sales = await api.getOrganizerTicketSales(
         scannedOnly: widget.scannedOnly,
+        eventStatus: widget.eventStatus,
         offset: _all.length,
         limit: _pageSize,
       );
@@ -152,7 +155,17 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
             }
           },
         ),
-        title: Text(title),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title),
+            if (widget.eventStatus != null)
+              Text(
+                'Filtered: ${widget.eventStatus!.replaceAll('_', ' ')}',
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context)),
+              ),
+          ],
+        ),
       ),
       body: Column(
         children: [

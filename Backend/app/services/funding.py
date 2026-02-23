@@ -681,12 +681,19 @@ async def list_organizer_pledges(
     *,
     organizer_id: int,
     status_filter: str | None = None,
+    event_status: str | None = None,
     offset: int = 0,
     limit: int = 20,
 ) -> Sequence[Funding]:
     """List all pledges made to events owned by organizer_id."""
     from app.models.event import Event
+    from app.models.event import EventStatus
     conditions = [Event.organizer_id == organizer_id]
+    if event_status:
+        try:
+            conditions.append(Event.status == EventStatus(event_status))
+        except ValueError:
+            pass
     if status_filter and status_filter != "all":
         if status_filter == "donation":
             conditions.append(Funding.is_guest == True)  # noqa: E712

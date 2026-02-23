@@ -117,6 +117,15 @@ class ApiService {
     return resp.data;
   }
 
+  Future<List<dynamic>> getOrganizerPledges({String? status, int offset = 0, int limit = 20}) async {
+    final resp = await dio.get('/me/organizer-pledges', queryParameters: {
+      if (status != null) 'status': status,
+      'offset': offset,
+      'limit': limit,
+    });
+    return resp.data;
+  }
+
   // ─── Events ───
 
   Future<List<dynamic>> getEvents({Map<String, dynamic>? params, int offset = 0, int limit = 20}) async {
@@ -583,13 +592,20 @@ class ApiService {
 
   // ─── Organizer Dashboard ───
 
-  Future<Map<String, dynamic>> getOrganizerDashboard() async {
-    final resp = await dio.get('/me/organizer-dashboard');
+  Future<Map<String, dynamic>> getOrganizerDashboard({String? status, int? eventId}) async {
+    final resp = await dio.get('/me/organizer-dashboard', queryParameters: {
+      if (status != null) 'status': status,
+      if (eventId != null) 'event_id': eventId,
+    });
     return resp.data;
   }
 
-  Future<Map<String, dynamic>> getOrganizerTimeSeries({int days = 30}) async {
-    final resp = await dio.get('/me/organizer-dashboard/time-series', queryParameters: {'days': days});
+  Future<Map<String, dynamic>> getOrganizerTimeSeries({int days = 30, String? status, int? eventId}) async {
+    final resp = await dio.get('/me/organizer-dashboard/time-series', queryParameters: {
+      'days': days,
+      if (status != null) 'status': status,
+      if (eventId != null) 'event_id': eventId,
+    });
     return resp.data;
   }
 

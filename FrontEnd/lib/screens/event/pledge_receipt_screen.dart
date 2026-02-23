@@ -152,6 +152,15 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      if (r['backer_name'] != null) ...[
+                        _sectionLabel(isDonation ? 'DONOR' : 'BACKER'),
+                        const SizedBox(height: 6),
+                        Text(r['backer_name'],
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600,
+                                color: AppTheme.textPrimaryOf(context))),
+                        const SizedBox(height: 20),
+                      ],
+
                       _sectionLabel('EVENT'),
                       const SizedBox(height: 6),
                       Text(eventTitle,

@@ -17,6 +17,7 @@ import '../screens/event/claim_discounts_screen.dart';
 import '../screens/manage/global_ticket_sales_screen.dart';
 import '../screens/manage/global_waitlist_screen.dart';
 import '../screens/manage/global_discounts_screen.dart';
+import '../screens/manage/organizer_pledges_screen.dart';
 import '../screens/venue/venue_list_screen.dart';
 import '../screens/venue/create_venue_screen.dart';
 import '../screens/ticket_strategy/ticket_strategies_screen.dart';
@@ -242,6 +243,11 @@ GoRouter createRouter(AuthProvider authProvider) {
         path: '/manage/discounts',
         pageBuilder: (context, state) =>
             fadeThroughPage(child: const GlobalDiscountsScreen()),
+      ),
+      GoRoute(
+        path: '/manage/pledges',
+        pageBuilder: (context, state) =>
+            fadeThroughPage(child: const OrganizerPledgesScreen()),
       ),
 
       // ─── Venues (fade-through) ───

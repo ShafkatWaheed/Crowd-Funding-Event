@@ -429,8 +429,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _refreshStaleTabData(int tabIndex) {
     final user = context.read<AuthProvider>().user;
-    if (tabIndex == 0 && _isStale(_featuredLoadedAt)) {
-      _loadFeatured();
+    if (tabIndex == 0) {
+      if (user != null && (user.isOrganizer || user.isAdmin)) {
+        _loadDashboard();
+      }
+      if (_isStale(_featuredLoadedAt)) {
+        _loadFeatured();
+      }
     }
     if (tabIndex == 2) {
       if (user != null && user.isCustomer && _isStale(_myEventsLoadedAt)) {
@@ -715,10 +720,14 @@ class _HomeScreenState extends State<HomeScreen> {
     final user = auth.user;
     final isDark = AppTheme.isDark(context);
 
+    final isOrg = user != null && (user.isOrganizer || user.isAdmin);
+
     return RefreshIndicator(
       color: AppTheme.primaryColor,
       onRefresh: () async {
-        await Future.wait([_loadFeatured(), _loadMyEvents()]);
+        final futures = <Future>[_loadFeatured(), _loadMyEvents()];
+        if (isOrg) futures.add(_loadDashboard());
+        await Future.wait(futures);
       },
       child: CustomScrollView(
         slivers: [
@@ -917,6 +926,27 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
+
+          // ── Organizer Dashboard ──────────────────────────────
+          if (isOrg) ...[
+            if (_dashboardLoading && _dashboardData == null)
+              SliverToBoxAdapter(child: _buildDashboardShimmer())
+            else if (_dashboardError != null && _dashboardData == null)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.xxl),
+                  child: ErrorState(
+                    message: _dashboardError!,
+                    onRetry: _loadDashboard,
+                  ),
+                ),
+              )
+            else if (_dashboardData != null) ...[
+              SliverToBoxAdapter(child: _buildKpiSection()),
+              SliverToBoxAdapter(child: _buildStatusChips()),
+              SliverToBoxAdapter(child: _buildChartSection()),
+            ],
+          ],
 
           if (_isHomeFiltered) ...[
             SliverToBoxAdapter(
@@ -1530,85 +1560,35 @@ class _HomeScreenState extends State<HomeScreen> {
     final user = context.watch<AuthProvider>().user;
     final isDark = AppTheme.isDark(context);
 
-    return RefreshIndicator(
-      color: AppTheme.accentColor,
-      onRefresh: () async {
-        HapticFeedback.mediumImpact();
-        await _loadDashboard();
-      },
-      child: CustomScrollView(
-        slivers: [
-          // ── A. Header ──────────────────────────────────────────
-          SliverToBoxAdapter(
-            child: Container(
-              decoration: BoxDecoration(
-                color: AppTheme.cardOf(context),
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(AppRadius.xxlValue),
-                  bottomRight: Radius.circular(AppRadius.xxlValue),
-                ),
-                boxShadow: AppShadow.soft(isDark),
+    return CustomScrollView(
+      slivers: [
+        SliverToBoxAdapter(
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppTheme.cardOf(context),
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(AppRadius.xxlValue),
+                bottomRight: Radius.circular(AppRadius.xxlValue),
               ),
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.xxl, 56, AppSpacing.xxl, AppSpacing.xl,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Hi, ${user?.displayName?.split(' ').first ?? 'Organizer'}',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.5,
-                      color: AppTheme.textPrimaryOf(context),
-                    ),
-                  ),
-                  AppSpacing.vXs,
-                  Text(
-                    "Here's how your events are doing",
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppTheme.textSecondaryOf(context),
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
+              boxShadow: AppShadow.soft(isDark),
+            ),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.xxl, 56, AppSpacing.xxl, AppSpacing.xl,
+            ),
+            child: Text(
+              'Manage',
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.5,
+                color: AppTheme.textPrimaryOf(context),
               ),
             ),
           ),
-
-          // ── Content ────────────────────────────────────────────
-          if (_dashboardLoading && _dashboardData == null)
-            SliverToBoxAdapter(child: _buildDashboardShimmer())
-          else if (_dashboardError != null && _dashboardData == null)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.xxl),
-                child: ErrorState(
-                  message: _dashboardError!,
-                  onRetry: _loadDashboard,
-                ),
-              ),
-            )
-          else if (_dashboardData != null) ...[
-            // ── B. KPI Cards ───────────────────────────────────
-            SliverToBoxAdapter(child: _buildKpiSection()),
-            // ── C. Status Breakdown ────────────────────────────
-            SliverToBoxAdapter(child: _buildStatusChips()),
-            // ── D. Time-Series Chart ───────────────────────────
-            SliverToBoxAdapter(child: _buildChartSection()),
-            // ── E. Event Carousels ─────────────────────────────
-            ..._buildCarouselSections(),
-            // ── F. Activity Feed ───────────────────────────────
-            SliverToBoxAdapter(child: _buildActivityFeed()),
-          ],
-
-          // ── G. Quick Actions ─────────────────────────────────
-          SliverToBoxAdapter(child: _buildQuickActionsSection(user)),
-          const SliverToBoxAdapter(child: SizedBox(height: 100)),
-        ],
-      ),
+        ),
+        SliverToBoxAdapter(child: _buildQuickActionsSection(user)),
+        const SliverToBoxAdapter(child: SizedBox(height: 100)),
+      ],
     );
   }
 
@@ -2059,6 +2039,34 @@ class _HomeScreenState extends State<HomeScreen> {
             title: 'Your Top Earners',
             icon: Icons.emoji_events_rounded,
             events: top,
+            index: 5,
+          ),
+        ),
+    ];
+  }
+
+  List<Widget> _buildTrendingPopularCarousels() {
+    final trending = (_dashboardData!['trending_events'] as List?) ?? [];
+    final popular = (_dashboardData!['popular_events'] as List?) ?? [];
+
+    if (trending.isEmpty && popular.isEmpty) return [];
+
+    return [
+      if (trending.isNotEmpty)
+        SliverToBoxAdapter(
+          child: _buildEventCarousel(
+            title: 'Trending Events',
+            icon: Icons.trending_up_rounded,
+            events: trending,
+            index: 4,
+          ),
+        ),
+      if (popular.isNotEmpty)
+        SliverToBoxAdapter(
+          child: _buildEventCarousel(
+            title: 'Popular Events',
+            icon: Icons.star_rounded,
+            events: popular,
             index: 5,
           ),
         ),

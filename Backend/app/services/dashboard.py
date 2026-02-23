@@ -187,7 +187,7 @@ async def get_organizer_dashboard(
         .outerjoin(ticket_rev_sub, Event.id == ticket_rev_sub.c.event_id)
         .outerjoin(funding_rev_sub, Event.id == funding_rev_sub.c.event_id)
         .where(Event.organizer_id == organizer_id, Event.status != EventStatus.draft)
-        .options(selectinload(Event.venue))
+        .options(selectinload(Event.venue), selectinload(Event.ticket_strategy))
         .order_by(
             (func.coalesce(ticket_rev_sub.c.t_rev, 0) + func.coalesce(funding_rev_sub.c.f_rev, 0)).desc()
         )
@@ -200,7 +200,7 @@ async def get_organizer_dashboard(
     trending_q = (
         select(Event)
         .where(Event.organizer_id == organizer_id, Event.status != EventStatus.draft)
-        .options(selectinload(Event.venue))
+        .options(selectinload(Event.venue), selectinload(Event.ticket_strategy))
         .order_by(Event.registration_count.desc())
         .limit(5)
     )
@@ -211,7 +211,7 @@ async def get_organizer_dashboard(
         select(Event, func.coalesce(func.sum(Funding.amount_cents), 0).label("total_pledged"))
         .outerjoin(Funding, (Funding.event_id == Event.id) & (Funding.status == FundingStatus.pledged))
         .where(Event.organizer_id == organizer_id, Event.status != EventStatus.draft)
-        .options(selectinload(Event.venue))
+        .options(selectinload(Event.venue), selectinload(Event.ticket_strategy))
         .group_by(Event.id)
         .order_by(func.coalesce(func.sum(Funding.amount_cents), 0).desc())
         .limit(5)
@@ -263,7 +263,7 @@ async def get_organizer_dashboard(
             Event.title.label("event_title"),
             User.display_name.label("actor_name"),
             SponsorBid.amount_cents.label("amount_cents"),
-            SponsorBid.status.label("extra"),
+            cast(SponsorBid.status, String).label("extra"),
             SponsorBid.created_at.label("created_at"),
         )
         .join(SponsorshipCategory, SponsorBid.category_id == SponsorshipCategory.id)
@@ -313,10 +313,10 @@ async def get_organizer_time_series(
     start = now - timedelta(days=days)
     org_event_ids_q = select(Event.id).where(Event.organizer_id == organizer_id)
 
-    date_trunc = func.date_trunc("day", TicketSale.created_at)
+    ticket_day = func.date_trunc("day", TicketSale.created_at)
     ticket_daily = (await db.execute(
         select(
-            func.date_trunc("day", TicketSale.created_at).label("d"),
+            ticket_day.label("d"),
             func.coalesce(func.sum(TicketSale.net_to_organizer_cents), 0).label("rev"),
             func.count().label("cnt"),
         )
@@ -325,12 +325,13 @@ async def get_organizer_time_series(
             TicketSale.status != TicketSaleStatus.cancelled,
             TicketSale.created_at >= start,
         )
-        .group_by(func.date_trunc("day", TicketSale.created_at))
+        .group_by(ticket_day)
     )).all()
 
+    funding_day = func.date_trunc("day", Funding.created_at)
     funding_daily = (await db.execute(
         select(
-            func.date_trunc("day", Funding.created_at).label("d"),
+            funding_day.label("d"),
             func.coalesce(func.sum(Funding.net_to_organizer_cents), 0).label("rev"),
             func.count().label("cnt"),
         )
@@ -339,7 +340,7 @@ async def get_organizer_time_series(
             Funding.status == FundingStatus.pledged,
             Funding.created_at >= start,
         )
-        .group_by(func.date_trunc("day", Funding.created_at))
+        .group_by(funding_day)
     )).all()
 
     t_map: dict[str, dict] = {}

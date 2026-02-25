@@ -160,6 +160,7 @@ class EventResponse(BaseModel):
     common_discount_percent: int
     pledge_discount_percent: int
     cancellation_reason: str | None = None
+    review_notes: str | None = None
     registration_count: int = 0
     genre: str | None = None
     community_rules: bool = False

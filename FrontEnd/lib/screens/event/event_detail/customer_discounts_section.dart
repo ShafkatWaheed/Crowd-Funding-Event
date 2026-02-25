@@ -7,7 +7,8 @@ import '../../../services/api_service.dart';
 
 class CustomerDiscountsSection extends StatefulWidget {
   final int eventId;
-  const CustomerDiscountsSection({required this.eventId});
+  final VoidCallback? onDiscountsChanged;
+  const CustomerDiscountsSection({required this.eventId, this.onDiscountsChanged});
 
   @override
   State<CustomerDiscountsSection> createState() => _CustomerDiscountsSectionState();
@@ -70,7 +71,11 @@ class _CustomerDiscountsSectionState extends State<CustomerDiscountsSection> {
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
             ),
             TextButton.icon(
-              onPressed: () => context.push('/events/${widget.eventId}/discounts'),
+              onPressed: () async {
+                await context.push('/events/${widget.eventId}/discounts');
+                await _load();
+                widget.onDiscountsChanged?.call();
+              },
               icon: const Icon(Icons.search, size: AppIconSize.sm),
               label: const Text('Browse', style: TextStyle(fontSize: 12)),
               style: TextButton.styleFrom(

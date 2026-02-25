@@ -126,6 +126,7 @@ def _event_to_response(
         common_discount_percent=e.common_discount_percent,
         pledge_discount_percent=e.pledge_discount_percent,
         cancellation_reason=e.cancellation_reason,
+        review_notes=e.review_notes,
         registration_count=e.registration_count,
         genre=e.genre,
         community_rules=e.community_rules,

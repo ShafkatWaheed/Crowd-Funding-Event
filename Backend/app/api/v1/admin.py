@@ -186,3 +186,42 @@ async def freeze_organizer_payouts(
     )
     await db.flush()
     return {"ok": True, "events_frozen": result.rowcount or 0}
+
+
+from pydantic import BaseModel as _BaseModel
+
+class ResolveReviewBody(_BaseModel):
+    target_status: str
+    notes: str | None = None
+
+@router.post("/events/{event_id}/resolve-review")
+async def resolve_review(
+    event_id: int,
+    body: ResolveReviewBody,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.admin)),
+):
+    """Resolve an under_review event by moving it to the specified status."""
+    from app.models.event import Event, EventStatus
+    from app.core.exceptions import NotFoundError, ConflictError
+    event = (await db.execute(
+        __import__("sqlalchemy").select(Event).where(Event.id == event_id)
+    )).scalar_one_or_none()
+    if not event:
+        raise NotFoundError("Event", event_id)
+    if event.status != EventStatus.under_review:
+        raise ConflictError(f"Event is not under review (current: {event.status.value})")
+    allowed = {s.value for s in EventStatus} - {"under_review"}
+    if body.target_status not in allowed:
+        raise ConflictError(f"Invalid target status '{body.target_status}'")
+    event.status = EventStatus(body.target_status)
+    event.review_notes = body.notes or f"Resolved by admin → {body.target_status}"
+    await db.flush()
+    await notif_svc.create_notification(
+        db, user_id=event.organizer_id,
+        type=NotificationType.event_approved,
+        title="Event Review Resolved",
+        message=f'Your event "{event.title}" has been reviewed and moved to {body.target_status.replace("_", " ")}.',
+        data={"event_id": event.id},
+    )
+    return {"ok": True, "event_id": event.id, "status": event.status.value}

@@ -199,6 +199,11 @@ async def start_selling_tickets(
         raise ConflictError("Event start and end times must be set before selling tickets")
     if event.ticket_strategy_id is None:
         raise ConflictError("A ticket strategy is required before selling tickets")
+    tier_count = (await db.execute(
+        select(TicketTier.id).where(TicketTier.event_id == event.id).limit(1)
+    )).scalar_one_or_none()
+    if tier_count is None:
+        raise ConflictError("At least one ticket tier must exist before selling tickets")
     # If approved with active funding, don't allow early ticket sales
     if event.status == EventStatus.approved and event.funding_end_at is not None:
         now = datetime.now(timezone.utc)

@@ -967,6 +967,47 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                 AppSpacing.vXl,
                               ],
 
+                              // Under review banner
+                              if (event.status == EventStatus.under_review &&
+                                  event.reviewNotes != null &&
+                                  event.reviewNotes!.isNotEmpty) ...[
+                                Container(
+                                  width: double.infinity,
+                                  padding: AppSpacing.paddingLg,
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.warningSurfaceOf(context),
+                                    borderRadius: AppRadius.lg,
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(AppSpacing.xs),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.warningColor.withValues(alpha: 0.18),
+                                          borderRadius: AppRadius.sm,
+                                        ),
+                                        child: const Icon(Icons.warning_amber_rounded, color: AppTheme.warningColor, size: AppIconSize.sm),
+                                      ),
+                                      AppSpacing.hMd,
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text('Under Review',
+                                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppTheme.warningColor)),
+                                            AppSpacing.vXs,
+                                            Text(event.reviewNotes!,
+                                              style: TextStyle(fontSize: 14, color: AppTheme.textSecondaryOf(context), height: 1.4)),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                AppSpacing.vXl,
+                              ],
+
                               // ─── Ticket Tiers + Buy + Your Tickets (customer view) ───
                               if (!widget.isPreview) ...[
                                 if (event.ticketStrategyId != null &&
@@ -991,7 +1032,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
                                 // Your Discounts (customer view only)
                                 if (user != null && user.isCustomer) ...[
-                                  CustomerDiscountsSection(eventId: event.id),
+                                  CustomerDiscountsSection(
+                                    eventId: event.id,
+                                    onDiscountsChanged: () => setState(() {}),
+                                  ),
                                 ],
                               ] else ...[
                                 if (event.ticketStrategyId != null) ...[
@@ -1465,6 +1509,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
         return context.statusCompleted;
       case EventStatus.cancelled:
         return AppTheme.errorColor;
+      case EventStatus.under_review:
+        return AppTheme.warningColor;
     }
   }
 
@@ -1642,7 +1688,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       case EventStatus.draft:
         return 'DRAFT';
       case EventStatus.pending_approval:
-        return 'UNDER REVIEW';
+        return 'WAITING APPROVAL';
       case EventStatus.approved:
         return 'PUBLISHED';
       case EventStatus.selling_tickets:
@@ -1655,6 +1701,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
         return 'COMPLETED';
       case EventStatus.cancelled:
         return 'CANCELLED';
+      case EventStatus.under_review:
+        return 'UNDER REVIEW';
     }
   }
 
@@ -1676,6 +1724,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
         return AppTheme.textSecondaryOf(context).withValues(alpha: 0.2);
       case EventStatus.cancelled:
         return AppTheme.errorColor.withValues(alpha: 0.2);
+      case EventStatus.under_review:
+        return AppTheme.warningColor.withValues(alpha: 0.2);
     }
   }
 

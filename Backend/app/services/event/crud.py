@@ -35,78 +35,88 @@ async def auto_transition_status(db: AsyncSession, event: Event) -> Event:
       live → (end_time reaches now) → completed
       waiting_event_date → (event_date_deadline passes, no start_time) → cancelled + refund
     """
+    import logging
     from datetime import timedelta
     from app.services import platform_settings as settings_svc
+
+    log = logging.getLogger(__name__)
     now = datetime.now(timezone.utc)
     changed = False
+    previous_status = event.status
 
     def _tz(dt: datetime | None) -> datetime | None:
         if dt is None:
             return None
         return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
-    status = event.status
+    try:
+        status = event.status
 
-    # ── approved → check funding end / non-funded transitions ──
-    if status == EventStatus.approved:
-        funding_end = _tz(event.funding_end_at)
-        if funding_end is not None and now >= funding_end:
-            # Funding ended → always go to waiting_event_date (organizer must manually start selling)
-            grace_days = await settings_svc.get_int(db, "event_date_grace_days")
-            if event.event_date_deadline is None:
-                event.event_date_deadline = funding_end + timedelta(days=grace_days)
-            event.status = EventStatus.waiting_event_date
-            changed = True
-        elif funding_end is None and event.start_time is not None and event.ticket_strategy_id is not None:
-            # Non-funded event with dates + ticket strategy → go straight to selling_tickets
-            event.status = EventStatus.selling_tickets
-            changed = True
+        # ── approved → check funding end / non-funded transitions ──
+        if status == EventStatus.approved:
+            funding_end = _tz(event.funding_end_at)
+            if funding_end is not None and now >= funding_end:
+                grace_days = await settings_svc.get_int(db, "event_date_grace_days")
+                if event.event_date_deadline is None:
+                    event.event_date_deadline = funding_end + timedelta(days=grace_days)
+                event.status = EventStatus.waiting_event_date
+                changed = True
+            elif funding_end is None and event.start_time is not None and event.ticket_strategy_id is not None:
+                has_tiers = (await db.execute(
+                    select(TicketTier.id).where(TicketTier.event_id == event.id).limit(1)
+                )).scalar_one_or_none()
+                if has_tiers is not None:
+                    event.status = EventStatus.selling_tickets
+                    changed = True
 
-    # ── waiting_event_date → check if deadline passed (organizer must manually start selling) ──
-    if status == EventStatus.waiting_event_date:
-        if event.event_date_deadline is not None and now >= _tz(event.event_date_deadline) and event.start_time is None:
-            # Deadline passed, no date set → cancel and refund
-            event.status = EventStatus.cancelled
-            event.cancellation_reason = "Event date was not set within the required deadline. Pledges refunded."
-            from app.services import funding as funding_service
-            await funding_service.refund_all_pledges_for_event(db, event_id=event.id, guest_refund=False)
-            # Send cancellation emails (fire-and-forget)
-            from app.services import email_notifications as email_notify
-            import asyncio
-            asyncio.ensure_future(email_notify.notify_event_cancelled(
-                db,
-                event_id=event.id,
-                event_title=event.title or f"Event #{event.id}",
-                reason=event.cancellation_reason,
-                event_date=event.start_time,
-            ))
-            changed = True
+        # ── waiting_event_date → check if deadline passed ──
+        if status == EventStatus.waiting_event_date:
+            if event.event_date_deadline is not None and now >= _tz(event.event_date_deadline) and event.start_time is None:
+                event.status = EventStatus.cancelled
+                event.cancellation_reason = "Event date was not set within the required deadline. Pledges refunded."
+                from app.services import funding as funding_service
+                await funding_service.refund_all_pledges_for_event(db, event_id=event.id, guest_refund=False)
+                from app.services import email_notifications as email_notify
+                import asyncio
+                asyncio.ensure_future(email_notify.notify_event_cancelled(
+                    db,
+                    event_id=event.id,
+                    event_title=event.title or f"Event #{event.id}",
+                    reason=event.cancellation_reason,
+                    event_date=event.start_time,
+                ))
+                changed = True
 
-    # ── selling_tickets / approved → check if event started ──
-    if event.status in (EventStatus.selling_tickets, EventStatus.approved):
-        start = _tz(event.start_time)
-        if start is not None and now >= start:
-            event.status = EventStatus.live
-            changed = True
-            # Release all unredeemed reserved spots (capacity = tickets_sold only)
-            from sqlalchemy import update as sql_update
-            from app.models.funding import Funding, FundingStatus
-            await db.execute(
-                sql_update(Funding)
-                .where(
-                    Funding.event_id == event.id,
-                    Funding.status == FundingStatus.pledged,
-                    Funding.reserved_spots > 0,
+        # ── selling_tickets / approved → check if event started ──
+        if event.status in (EventStatus.selling_tickets, EventStatus.approved):
+            start = _tz(event.start_time)
+            if start is not None and now >= start:
+                event.status = EventStatus.live
+                changed = True
+                from sqlalchemy import update as sql_update
+                from app.models.funding import Funding, FundingStatus
+                await db.execute(
+                    sql_update(Funding)
+                    .where(
+                        Funding.event_id == event.id,
+                        Funding.status == FundingStatus.pledged,
+                        Funding.reserved_spots > 0,
+                    )
+                    .values(reserved_spots=0)
                 )
-                .values(reserved_spots=0)
-            )
 
-    # ── live → check if event ended ──
-    if event.status == EventStatus.live:
-        end = _tz(event.end_time)
-        if end is not None and now >= end:
-            event.status = EventStatus.completed
-            changed = True
+        # ── live → check if event ended ──
+        if event.status == EventStatus.live:
+            end = _tz(event.end_time)
+            if end is not None and now >= end:
+                event.status = EventStatus.completed
+                changed = True
+
+    except Exception as exc:
+        log.exception("Auto-transition failed for event %s (was %s): %s", event.id, previous_status.value, exc)
+        event.status = EventStatus.under_review
+        event.review_notes = f"Auto-transition from '{previous_status.value}' failed: {exc}"
+        changed = True
 
     if changed:
         await db.flush()

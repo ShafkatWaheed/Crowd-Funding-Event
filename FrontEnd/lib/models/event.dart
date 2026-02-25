@@ -10,6 +10,7 @@ enum EventStatus {
   live,
   completed,
   cancelled,
+  under_review,
 }
 
 enum RegistrationType { open, closed }
@@ -39,6 +40,7 @@ class Event {
   final int totalReservedSpots;
   final int ticketsSoldCount;
   final String? cancellationReason;
+  final String? reviewNotes;
   final int registrationCount;
   final String? genre;
   final bool communityRules;
@@ -93,6 +95,7 @@ class Event {
     this.totalReservedSpots = 0,
     this.ticketsSoldCount = 0,
     this.cancellationReason,
+    this.reviewNotes,
     this.registrationCount = 0,
     this.genre,
     this.communityRules = false,
@@ -156,6 +159,7 @@ class Event {
       totalReservedSpots: json['total_reserved_spots'] ?? 0,
       ticketsSoldCount: json['tickets_sold_count'] ?? 0,
       cancellationReason: json['cancellation_reason'],
+      reviewNotes: json['review_notes'],
       registrationCount: json['registration_count'] ?? 0,
       genre: json['genre'],
       communityRules: json['community_rules'] ?? false,

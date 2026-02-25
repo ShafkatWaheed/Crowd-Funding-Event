@@ -23,6 +23,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   List<dynamic> _pendingApproval = [];
   List<dynamic> _pendingExtensions = [];
   List<dynamic> _pendingCancellations = [];
+  List<dynamic> _underReviewEvents = [];
   List<dynamic> _settings = [];
   List<dynamic> _escrows = [];
   bool _isLoading = true;
@@ -63,6 +64,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
             .toList();
         _pendingCancellations = allEvents
             .where((e) => e['pending_cancellation'] != null)
+            .toList();
+        _underReviewEvents = allEvents
+            .where((e) => e['status'] == 'under_review')
             .toList();
         _settings = (results[5] as dynamic).data as List<dynamic>;
         _escrows = (results[6] as dynamic).data as List<dynamic>;
@@ -133,7 +137,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
           isScrollable: true,
           tabs: [
             const Tab(text: 'Overview'),
-            Tab(text: 'Pending Approval (${_pendingApproval.length})'),
+            Tab(text: 'Waiting Approval (${_pendingApproval.length})'),
             Tab(text: 'Requests (${_pendingExtensions.length + _pendingCancellations.length})'),
             const Tab(text: 'Drafts'),
             const Tab(text: 'Users'),
@@ -304,11 +308,33 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     }
   }
 
+  Future<void> _resolveReview(int eventId, String targetStatus) async {
+    try {
+      final api = context.read<ApiService>();
+      await api.dio.post('/admin/events/$eventId/resolve-review', data: {
+        'target_status': targetStatus,
+      });
+      _loadData();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Event moved to ${targetStatus.replaceAll('_', ' ')}')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Action failed: $e')),
+        );
+      }
+    }
+  }
+
   Widget _buildPendingExtensions() {
     final hasExtensions = _pendingExtensions.isNotEmpty;
     final hasCancellations = _pendingCancellations.isNotEmpty;
+    final hasUnderReview = _underReviewEvents.isNotEmpty;
 
-    if (!hasExtensions && !hasCancellations) {
+    if (!hasExtensions && !hasCancellations && !hasUnderReview) {
       return LayoutBuilder(
         builder: (context, constraints) => RefreshIndicator(
           onRefresh: _loadData,
@@ -475,6 +501,84 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                             onPressed: () => _decideExtension(e['id'], 'reject'),
                             icon: const Icon(Icons.close, size: 18),
                             label: const Text('Reject'),
+                            style: OutlinedButton.styleFrom(foregroundColor: AppTheme.errorColor),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        ],
+
+        // ── Under Review Events ──
+        if (hasUnderReview) ...[
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: AppTheme.warningColor, size: 20),
+                const SizedBox(width: 8),
+                Text('Under Review (${_underReviewEvents.length})',
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+              ],
+            ),
+          ),
+          ..._underReviewEvents.map((e) {
+            final notes = e['review_notes'] as String? ?? 'No details';
+            return Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              color: AppTheme.warningSurfaceOf(context),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    InkWell(
+                      onTap: () => context.push('/events/${e['id']}'),
+                      child: Text(e['title'] ?? 'Event ${e['id']}',
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16, decoration: TextDecoration.underline)),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppTheme.warningColor.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(notes, style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryOf(context))),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: FilledButton.icon(
+                            onPressed: () => _resolveReview(e['id'], 'approved'),
+                            icon: const Icon(Icons.check, size: 18),
+                            label: const Text('→ Approved'),
+                            style: FilledButton.styleFrom(backgroundColor: AppTheme.successColor),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => _resolveReview(e['id'], 'draft'),
+                            icon: const Icon(Icons.edit_note, size: 18),
+                            label: const Text('→ Draft'),
+                            style: OutlinedButton.styleFrom(foregroundColor: AppTheme.accentColor),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => _resolveReview(e['id'], 'cancelled'),
+                            icon: const Icon(Icons.cancel, size: 18),
+                            label: const Text('→ Cancel'),
                             style: OutlinedButton.styleFrom(foregroundColor: AppTheme.errorColor),
                           ),
                         ),

@@ -33,7 +33,7 @@ String _statusDisplayName(EventStatus s) {
     case EventStatus.draft:
       return 'Draft';
     case EventStatus.pending_approval:
-      return 'Under Review';
+      return 'Waiting Approval';
     case EventStatus.approved:
       return 'Funding';
     case EventStatus.selling_tickets:
@@ -46,6 +46,8 @@ String _statusDisplayName(EventStatus s) {
       return 'Completed';
     case EventStatus.cancelled:
       return 'Cancelled';
+    case EventStatus.under_review:
+      return 'Under Review';
   }
 }
 
@@ -67,6 +69,8 @@ Color _statusChipColor(BuildContext context, EventStatus s) {
       return context.statusPending;
     case EventStatus.waiting_event_date:
       return context.statusSelling;
+    case EventStatus.under_review:
+      return AppTheme.warningColor;
   }
 }
 
@@ -88,6 +92,8 @@ IconData _statusChipIcon(EventStatus s) {
       return Icons.hourglass_top_rounded;
     case EventStatus.waiting_event_date:
       return Icons.event_rounded;
+    case EventStatus.under_review:
+      return Icons.warning_amber_rounded;
   }
 }
 
@@ -4117,7 +4123,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     margin: const EdgeInsets.only(right: AppSpacing.md),
                     decoration: isSelected ? BoxDecoration(
                       borderRadius: AppRadius.lg,
-                      border: Border.all(color: AppTheme.primaryColor, width: 2.5),
+                      border: Border.all(
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? AppTheme.accentColor
+                            : AppTheme.primaryColor,
+                        width: 2.5,
+                      ),
                     ) : null,
                     child: Stack(
                       children: [

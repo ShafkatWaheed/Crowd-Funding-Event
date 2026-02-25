@@ -160,7 +160,9 @@ class _OrganizerManagementSectionState
                 subtitle: _event.ticketStrategyName ?? 'Not set',
                 color: context.sponsorAccent,
                 isSet: _event.ticketStrategyId != null,
-                onTap: () => _selectStrategyForEvent(context, _event),
+                onTap: _event.ticketStrategyId == null
+                    ? () => _selectStrategyForEvent(context, _event)
+                    : () {},
               ),
               _setupTile(
                 icon: Icons.people_rounded,
@@ -246,14 +248,14 @@ class _OrganizerManagementSectionState
                     onTap: () => _selectVenueForEvent(context, _event),
                   ),
 
-                // Change Ticket Strategy (approved, waiting_event_date)
-                if (_event.status == EventStatus.approved ||
-                    _event.status == EventStatus.waiting_event_date)
+                // Assign Ticket Strategy (funding phase only, when none set)
+                if (_event.status == EventStatus.approved &&
+                    _event.ticketStrategyId == null)
                   _menuTile(
                     icon: Icons.confirmation_number_rounded,
                     iconColor: context.sponsorAccent,
-                    label: 'Change Ticket Strategy',
-                    trailing: _event.ticketStrategyName,
+                    label: 'Assign Ticket Strategy',
+                    trailing: 'Not set',
                     onTap: () => _selectStrategyForEvent(context, _event),
                   ),
 

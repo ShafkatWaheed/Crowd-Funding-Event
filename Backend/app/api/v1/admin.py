@@ -4,7 +4,7 @@ Admin: approve/reject events, list pending, stats, platform settings.
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from app.dependencies import DbSession, require_role
 from app.models.event import Event
@@ -40,23 +40,31 @@ from app.models.notification import NotificationType
 router = APIRouter()
 
 
-@router.get("/users", response_model=list[AdminUserItem])
+@router.get("/users")
 async def admin_list_users(
     db: DbSession,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    search: str | None = Query(None),
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
-    """List all users (admin only)."""
-    users = await admin_service.list_users(db)
-    return [
-        AdminUserItem(
-            id=u.id,
-            email=u.email,
-            display_name=u.display_name,
-            role=u.role.value,
-            created_at=u.created_at,
-        )
-        for u in users
-    ]
+    """List all users (admin only) with pagination + search."""
+    users, total = await admin_service.list_users(db, offset=offset, limit=limit, search=search)
+    return {
+        "items": [
+            AdminUserItem(
+                id=u.id,
+                email=u.email,
+                display_name=u.display_name,
+                role=u.role.value,
+                created_at=u.created_at,
+            )
+            for u in users
+        ],
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+    }
 
 
 @router.get("/users/{user_id}/detail", response_model=AdminUserDetailResponse)
@@ -107,6 +115,26 @@ async def admin_get_user_detail(
             .limit(100)
         )
         events = list((await db.execute(events_q)).scalars().unique().all())
+
+        # Per-event ticket/pledge/donation counts for this customer
+        ticket_counts: dict[int, int] = {}
+        for t in tickets:
+            ticket_counts[t.event_id] = ticket_counts.get(t.event_id, 0) + 1
+        pledge_counts: dict[int, int] = {}
+        pledge_totals: dict[int, int] = {}
+        reserved_spots: dict[int, int] = {}
+        donation_counts: dict[int, int] = {}
+        donation_totals: dict[int, int] = {}
+        for p in pledges:
+            if getattr(p, "is_guest", False):
+                donation_counts[p.event_id] = donation_counts.get(p.event_id, 0) + 1
+                donation_totals[p.event_id] = donation_totals.get(p.event_id, 0) + p.amount_cents
+            else:
+                pledge_counts[p.event_id] = pledge_counts.get(p.event_id, 0) + 1
+                pledge_totals[p.event_id] = pledge_totals.get(p.event_id, 0) + p.amount_cents
+                spots = getattr(p, "reserved_spots", 0) or 0
+                reserved_spots[p.event_id] = reserved_spots.get(p.event_id, 0) + spots
+
         return AdminUserDetailResponse(
             **base,
             tickets=[
@@ -129,6 +157,8 @@ async def admin_get_user_detail(
                     user_display_name=user.display_name,
                     amount_cents=p.amount_cents,
                     status=p.status.value,
+                    is_guest=getattr(p, "is_guest", False),
+                    reserved_spots=getattr(p, "reserved_spots", 0) or 0,
                     created_at=p.created_at,
                 )
                 for p in pledges
@@ -158,6 +188,12 @@ async def admin_get_user_detail(
                     ticket_tiers_count=len(e.ticket_tiers) if e.ticket_tiers else 0,
                     sponsorship_categories_count=len(e.sponsorship_categories) if e.sponsorship_categories else 0,
                     milestones_count=len(e.milestones) if e.milestones else 0,
+                    user_ticket_count=ticket_counts.get(e.id, 0),
+                    user_pledge_count=pledge_counts.get(e.id, 0),
+                    user_pledge_total_cents=pledge_totals.get(e.id, 0),
+                    user_reserved_spots=reserved_spots.get(e.id, 0),
+                    user_donation_count=donation_counts.get(e.id, 0),
+                    user_donation_total_cents=donation_totals.get(e.id, 0),
                 )
                 for e in events
             ],
@@ -328,6 +364,8 @@ async def admin_get_user_detail(
                     user_display_name=p.user.display_name if p.user else None,
                     amount_cents=p.amount_cents,
                     status=p.status.value,
+                    is_guest=getattr(p, "is_guest", False),
+                    reserved_spots=getattr(p, "reserved_spots", 0) or 0,
                     created_at=p.created_at,
                 )
                 for p in pledges
@@ -401,6 +439,8 @@ async def admin_get_user_detail(
                     user_display_name=user.display_name,
                     amount_cents=p.amount_cents,
                     status=p.status.value,
+                    is_guest=getattr(p, "is_guest", False),
+                    reserved_spots=getattr(p, "reserved_spots", 0) or 0,
                     created_at=p.created_at,
                 )
                 for p in pledges
@@ -414,11 +454,16 @@ async def admin_get_user_detail(
 async def admin_list_events(
     db: DbSession,
     status: str | None = None,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    search: str | None = Query(None),
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
     """List events for admin with validation warnings and review log."""
-    events = await admin_service.list_events_for_admin(db, status=status)
-    result = []
+    events, total = await admin_service.list_events_for_admin(
+        db, status=status, offset=offset, limit=limit, search=search,
+    )
+    items = []
     for e in events:
         item = {
             "id": e.id,
@@ -438,8 +483,8 @@ async def admin_list_events(
             "funding_end_at": e.funding_end_at.isoformat() if e.funding_end_at else None,
             "validation_warnings": admin_service.compute_event_warnings(e),
         }
-        result.append(item)
-    return result
+        items.append(item)
+    return {"items": items, "total": total, "offset": offset, "limit": limit}
 
 
 @router.post("/events/{event_id}/approve")
@@ -509,52 +554,73 @@ async def update_setting(
 from app.services import escrow as escrow_service
 
 
-@router.get("/tickets", response_model=list[AdminTicketItem])
+@router.get("/tickets")
 async def admin_list_tickets(
     db: DbSession,
-    limit: int = 500,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    search: str | None = Query(None),
+    status: str | None = Query(None),
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
-    """List all ticket sales (purchased or refund_requested) for admin."""
-    sales = await ticket_service.list_all_ticket_sales_for_admin(db, limit=limit)
-    return [
-        AdminTicketItem(
-            id=s.id,
-            event_id=s.event_id,
-            event_title=s.event.title if s.event else None,
-            user_id=s.user_id,
-            attendee_display_name=s.user.display_name if s.user else None,
-            tier_name=s.ticket_tier.name if s.ticket_tier else None,
-            amount_paid_cents=s.amount_paid_cents,
-            status=s.status.value,
-            created_at=s.created_at,
-        )
-        for s in sales
-    ]
+    """List ticket sales for admin, optionally filtered by status."""
+    sales, total = await ticket_service.list_all_ticket_sales_for_admin(
+        db, offset=offset, limit=limit, search=search, status=status,
+    )
+    return {
+        "items": [
+            AdminTicketItem(
+                id=s.id,
+                event_id=s.event_id,
+                event_title=s.event.title if s.event else None,
+                user_id=s.user_id,
+                attendee_display_name=s.user.display_name if s.user else None,
+                tier_name=s.ticket_tier.name if s.ticket_tier else None,
+                amount_paid_cents=s.amount_paid_cents,
+                status=s.status.value,
+                created_at=s.created_at,
+            )
+            for s in sales
+        ],
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+    }
 
 
-@router.get("/pledges", response_model=list[AdminPledgeItem])
+@router.get("/pledges")
 async def admin_list_pledges(
     db: DbSession,
-    limit: int = 500,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    search: str | None = Query(None),
+    status: str | None = Query(None),
+    is_donation: bool | None = Query(None),
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
-    """List all pledges across events for admin."""
-    pledges = await funding_service.list_all_pledges_for_admin(db, limit=limit)
-    return [
-        AdminPledgeItem(
-            id=p.id,
-            event_id=p.event_id,
-            event_title=p.event.title if p.event else None,
-            user_id=p.user_id,
-            user_display_name=p.user.display_name if p.user else None,
-            amount_cents=p.amount_cents,
-            status=p.status.value,
-            is_guest=p.is_guest,
-            created_at=p.created_at,
-        )
-        for p in pledges
-    ]
+    """List pledges across events for admin, optionally filtered by status/donation."""
+    pledges, total = await funding_service.list_all_pledges_for_admin(
+        db, offset=offset, limit=limit, search=search, status=status, is_donation=is_donation,
+    )
+    return {
+        "items": [
+            AdminPledgeItem(
+                id=p.id,
+                event_id=p.event_id,
+                event_title=p.event.title if p.event else None,
+                user_id=p.user_id,
+                user_display_name=p.user.display_name if p.user else None,
+                amount_cents=p.amount_cents,
+                status=p.status.value,
+                is_guest=p.is_guest,
+                created_at=p.created_at,
+            )
+            for p in pledges
+        ],
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+    }
 
 
 @router.post("/events/{event_id}/sponsorships/{cat_id}/bids/{bid_id}/refund")
@@ -604,10 +670,16 @@ async def admin_refund_pledge(
 @router.get("/escrows")
 async def list_escrows(
     db: DbSession,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    search: str | None = Query(None),
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
-    """List all fund escrows (admin only)."""
-    return await escrow_service.list_all_escrows(db)
+    """List all fund escrows (admin only) with pagination + search."""
+    items, total = await escrow_service.list_all_escrows(
+        db, offset=offset, limit=limit, search=search,
+    )
+    return {"items": items, "total": total, "offset": offset, "limit": limit}
 
 
 @router.post("/escrows/{event_id}/release/{stage}")

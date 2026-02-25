@@ -47,6 +47,10 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
   // Organizer events status filter
   String _eventStatusFilter = 'all';
 
+  // Events search (both customer & organizer)
+  String _eventsSearch = '';
+  final _eventsSearchCtrl = TextEditingController();
+
   // Escrow search
   String _escrowSearch = '';
   final _escrowSearchCtrl = TextEditingController();
@@ -65,6 +69,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
     _pledgesSearchCtrl.dispose();
     _ticketSalesSearchCtrl.dispose();
     _pledgesReceivedSearchCtrl.dispose();
+    _eventsSearchCtrl.dispose();
     _escrowSearchCtrl.dispose();
     super.dispose();
   }
@@ -79,6 +84,17 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
   }
 
   List<String> _tabLabelsForRole(String role) {
+    if (_detail != null && role == 'customer') {
+      final tickets = _detail!['tickets'] as List<dynamic>? ?? [];
+      final pledges = _detail!['pledges'] as List<dynamic>? ?? [];
+      final donations = pledges.where((p) => p['is_guest'] == true).length;
+      final regularPledges = pledges.length - donations;
+      return [
+        'Tickets (${tickets.length})',
+        'Pledges ($regularPledges)${donations > 0 ? ' · Donations ($donations)' : ''}',
+        'Events',
+      ];
+    }
     switch (role) {
       case 'customer': return ['Tickets', 'Pledges', 'Events'];
       case 'organizer': return ['Events', 'Tickets Sold', 'Pledges Received', 'Sponsors', 'Discounts', 'Sponsor Bids', 'Escrow'];
@@ -240,16 +256,31 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
   }
 
   Widget _customerEventsTab(List<Map<String, dynamic>> events) {
-    if (events.isEmpty) {
-      return Center(child: AdminEmptyState(icon: Icons.event, message: 'No events'));
-    }
-    return RefreshIndicator(
-      onRefresh: _loadDetail,
-      child: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: events.length,
-        itemBuilder: (ctx, i) => _readOnlyExpandableEventCard(events[i]),
-      ),
+    final query = _eventsSearch.toLowerCase();
+    final filtered = query.isEmpty
+        ? events
+        : events.where((e) => (e['title']?.toString() ?? '').toLowerCase().contains(query)).toList();
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: _searchField(_eventsSearchCtrl, 'Search events...', _eventsSearch, (v) => _eventsSearch = v),
+        ),
+        _countStrip(filtered.length, events.length),
+        Expanded(
+          child: filtered.isEmpty
+              ? Center(child: AdminEmptyState(icon: Icons.event, message: 'No events'))
+              : RefreshIndicator(
+                  onRefresh: _loadDetail,
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: filtered.length,
+                    itemBuilder: (ctx, i) => _readOnlyExpandableEventCard(filtered[i]),
+                  ),
+                ),
+        ),
+      ],
     );
   }
 
@@ -257,6 +288,12 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
     final id = e['id'] as int;
     final title = e['title'] ?? 'Event #$id';
     final status = e['status']?.toString() ?? '';
+    final ticketCount = e['user_ticket_count'] as int? ?? 0;
+    final pledgeCount = e['user_pledge_count'] as int? ?? 0;
+    final pledgeTotal = e['user_pledge_total_cents'] as int? ?? 0;
+    final reservedSpots = e['user_reserved_spots'] as int? ?? 0;
+    final donationCount = e['user_donation_count'] as int? ?? 0;
+    final donationTotal = e['user_donation_total_cents'] as int? ?? 0;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -266,7 +303,29 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         leading: Icon(_eventStatusIcon(status), color: _eventStatusColor(status)),
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-        subtitle: _statusBadge(status),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _statusBadge(status),
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                if (ticketCount > 0)
+                  _infoChip(Icons.confirmation_number, '$ticketCount ticket${ticketCount == 1 ? '' : 's'}'),
+                if (pledgeCount > 0)
+                  _infoChip(Icons.volunteer_activism, '$pledgeCount pledge${pledgeCount == 1 ? '' : 's'} (\$${(pledgeTotal / 100).toStringAsFixed(2)})'),
+                if (reservedSpots > 0)
+                  _infoChip(Icons.event_seat, '$reservedSpots spot${reservedSpots == 1 ? '' : 's'} reserved'),
+                if (donationCount > 0)
+                  _infoChip(Icons.card_giftcard, '$donationCount donation${donationCount == 1 ? '' : 's'} (\$${(donationTotal / 100).toStringAsFixed(2)})'),
+                if (ticketCount == 0 && pledgeCount == 0 && reservedSpots == 0 && donationCount == 0)
+                  _infoChip(Icons.info_outline, 'Registered only'),
+              ],
+            ),
+          ],
+        ),
         children: [
           _eventPreviewSection(e),
           const SizedBox(height: 12),
@@ -363,6 +422,11 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
       filtered = allEvents.where((e) => e['status'] == _eventStatusFilter).toList();
     }
 
+    final query = _eventsSearch.toLowerCase();
+    if (query.isNotEmpty) {
+      filtered = filtered.where((e) => (e['title']?.toString() ?? '').toLowerCase().contains(query)).toList();
+    }
+
     final statusCounts = <String, int>{};
     for (final e in allEvents) {
       final s = e['status']?.toString() ?? '';
@@ -400,6 +464,10 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
               );
             }).toList(),
           ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: _searchField(_eventsSearchCtrl, 'Search events...', _eventsSearch, (v) => _eventsSearch = v),
         ),
         _countStrip(filtered.length, allEvents.length),
         Expanded(
@@ -1108,6 +1176,9 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
   // REUSABLE TAB BUILDERS
   // ===========================================================================
 
+  static const _refundTicketStatuses = {'refund_requested', 'refund_processing', 'refunded', 'refund_failed'};
+  static const _refundPledgeStatuses = {'refund_processing', 'refunded', 'refund_failed'};
+
   Widget _ticketTab(
     List<Map<String, dynamic>> allTickets,
     String searchQuery,
@@ -1119,6 +1190,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
     bool isOrganizerSales = false,
   }) {
     final statuses = _extractStatuses(allTickets, 'status');
+    statuses.addAll(_refundTicketStatuses);
     var filtered = allTickets.where((t) => _matchesTicket(t, searchQuery)).toList();
     if (statusFilter != 'all') {
       filtered = filtered.where((t) => t['status'] == statusFilter).toList();
@@ -1132,8 +1204,13 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
               isOrganizerSales ? 'Search by event, attendee, tier...' : 'Search by event, tier, status...',
               searchQuery, onSearchChanged),
         ),
-        if (statuses.length > 1)
-          _statusChips(statuses, statusFilter, onStatusChanged),
+        _statusChipsWithExtras(
+          statuses: statuses,
+          selected: statusFilter,
+          onChanged: onStatusChanged,
+          refundStatuses: _refundTicketStatuses,
+          allItems: allTickets,
+        ),
         _countStrip(filtered.length, allTickets.length),
         Expanded(
           child: filtered.isEmpty
@@ -1162,10 +1239,15 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
     bool isOrganizerPledges = false,
   }) {
     final statuses = _extractStatuses(allPledges, 'status');
+    statuses.addAll(_refundPledgeStatuses);
     var filtered = allPledges.where((p) => _matchesPledge(p, searchQuery)).toList();
-    if (statusFilter != 'all') {
+    if (statusFilter == '_donation') {
+      filtered = filtered.where((p) => p['is_guest'] == true).toList();
+    } else if (statusFilter != 'all') {
       filtered = filtered.where((p) => p['status'] == statusFilter).toList();
     }
+
+    final donationCount = allPledges.where((p) => p['is_guest'] == true).length;
 
     return Column(
       children: [
@@ -1174,8 +1256,17 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
           child: _searchField(searchCtrl, 'Search by event, user, amount...',
               searchQuery, onSearchChanged),
         ),
-        if (statuses.length > 1)
-          _statusChips(statuses, statusFilter, onStatusChanged),
+        _statusChipsWithExtras(
+          statuses: statuses,
+          selected: statusFilter,
+          onChanged: onStatusChanged,
+          refundStatuses: _refundPledgeStatuses,
+          allItems: allPledges,
+          extras: [
+            if (donationCount > 0)
+              _ExtraChip('_donation', 'Donations ($donationCount)', Icons.card_giftcard),
+          ],
+        ),
         _countStrip(filtered.length, allPledges.length),
         Expanded(
           child: filtered.isEmpty
@@ -1251,7 +1342,19 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
     );
   }
 
-  Widget _statusChips(Set<String> statuses, String selected, void Function(String) onChanged) {
+  Widget _statusChipsWithExtras({
+    required Set<String> statuses,
+    required String selected,
+    required void Function(String) onChanged,
+    Set<String> refundStatuses = const {},
+    List<Map<String, dynamic>> allItems = const [],
+    List<_ExtraChip> extras = const [],
+  }) {
+    final regular = statuses.where((s) => !refundStatuses.contains(s)).toList();
+    final refund = statuses.where((s) => refundStatuses.contains(s)).toList();
+
+    int _countFor(String status) => allItems.where((i) => i['status'] == status).length;
+
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
@@ -1265,7 +1368,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
               onSelected: (_) => onChanged('all'),
             ),
           ),
-          ...statuses.map((s) => Padding(
+          ...regular.map((s) => Padding(
             padding: const EdgeInsets.only(right: 8),
             child: FilterChip(
               label: Text(_formatStatus(s)),
@@ -1273,6 +1376,41 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
               onSelected: (_) => onChanged(s),
             ),
           )),
+          if (refund.isNotEmpty) ...[
+            Container(
+              width: 1, height: 24,
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              color: AppTheme.dividerOf(context),
+            ),
+            ...refund.map((s) {
+              final count = _countFor(s);
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: FilterChip(
+                  avatar: Icon(Icons.money_off, size: 16, color: selected == s ? null : AppTheme.errorOf(context)),
+                  label: Text('${_formatStatus(s)}${count > 0 ? ' ($count)' : ''}'),
+                  selected: selected == s,
+                  onSelected: (_) => onChanged(s),
+                ),
+              );
+            }),
+          ],
+          if (extras.isNotEmpty) ...[
+            Container(
+              width: 1, height: 24,
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              color: AppTheme.dividerOf(context),
+            ),
+            ...extras.map((e) => Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: FilterChip(
+                avatar: Icon(e.icon, size: 16),
+                label: Text(e.label),
+                selected: selected == e.key,
+                onSelected: (_) => onChanged(selected == e.key ? 'all' : e.key),
+              ),
+            )),
+          ],
         ],
       ),
     );
@@ -1313,6 +1451,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
     final ticketId = t['id'] as int;
     final status = t['status'] as String? ?? '';
     final canApproveRefund = status == 'refund_requested';
+    final isRefundRelated = _refundTicketStatuses.contains(status);
     final amountCents = t['amount_paid_cents'] as int? ?? 0;
     final subtitle = isOrganizerSales
         ? '${t['attendee_display_name'] ?? 'User'} · ${t['tier_name'] ?? 'Ticket'} · \$${(amountCents / 100).toStringAsFixed(2)}'
@@ -1321,6 +1460,9 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
+        leading: isRefundRelated
+            ? Icon(Icons.money_off, color: AppTheme.errorOf(context), size: 20)
+            : null,
         title: Text(t['event_title'] ?? 'Event #$eventId',
             style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Text(subtitle),
@@ -1349,13 +1491,36 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
     final canRefund = status == 'pledged';
     final amountCents = p['amount_cents'] as int? ?? 0;
     final name = p['user_display_name'] ?? 'User';
+    final isGuest = p['is_guest'] == true;
+    final spots = p['reserved_spots'] as int? ?? 0;
+
+    final subtitleParts = <String>[name, '\$${(amountCents / 100).toStringAsFixed(2)}'];
+    if (spots > 0) subtitleParts.add('$spots spot${spots == 1 ? '' : 's'}');
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
-        title: Text(p['event_title'] ?? 'Event #$eventId',
-            style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: Text('$name · \$${(amountCents / 100).toStringAsFixed(2)}'),
+        leading: isGuest
+            ? Icon(Icons.card_giftcard, color: AppTheme.warningOf(context), size: 20)
+            : null,
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(p['event_title'] ?? 'Event #$eventId',
+                  style: const TextStyle(fontWeight: FontWeight.w600)),
+            ),
+            if (isGuest)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppTheme.warningOf(context).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text('Donation', style: TextStyle(fontSize: 11, color: AppTheme.warningOf(context), fontWeight: FontWeight.w600)),
+              ),
+          ],
+        ),
+        subtitle: Text(subtitleParts.join(' · ')),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1692,4 +1857,11 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
       return iso;
     }
   }
+}
+
+class _ExtraChip {
+  final String key;
+  final String label;
+  final IconData icon;
+  const _ExtraChip(this.key, this.label, this.icon);
 }

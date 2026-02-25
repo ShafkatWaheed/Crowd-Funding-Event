@@ -3,7 +3,7 @@ Admin: list events for moderation, approve/reject, platform stats, validation wa
 """
 from datetime import datetime, timezone
 
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.event import Event, EventStatus
@@ -13,21 +13,46 @@ from app.models.user import User
 from app.services import event as event_service
 
 
-async def list_users(db: AsyncSession) -> list[User]:
-    """List all users (admin). Ordered by id."""
-    result = await db.execute(select(User).order_by(User.id.asc()))
-    return list(result.scalars().all())
+async def list_users(
+    db: AsyncSession,
+    *,
+    offset: int = 0,
+    limit: int = 20,
+    search: str | None = None,
+) -> tuple[list[User], int]:
+    """List users (admin) with pagination + search. Returns (items, total)."""
+    base = select(User)
+    if search:
+        pattern = f"%{search}%"
+        base = base.where(or_(User.display_name.ilike(pattern), User.email.ilike(pattern)))
+    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar_one()
+    q = base.order_by(User.id.asc()).offset(offset).limit(limit)
+    items = list((await db.execute(q)).scalars().all())
+    return items, int(total)
 
 
 async def list_events_for_admin(
     db: AsyncSession,
     *,
     status: str | None = None,
-):
-    """List events for admin view. Optional filter by status (e.g. pending_approval)."""
-    return await event_service.list_events(
-        db, status=status, include_all_statuses=True
-    )
+    offset: int = 0,
+    limit: int = 20,
+    search: str | None = None,
+) -> tuple[list[Event], int]:
+    """List events for admin view with pagination + search. Returns (items, total)."""
+    base = select(Event)
+    if status:
+        try:
+            base = base.where(Event.status == EventStatus(status))
+        except ValueError:
+            pass
+    if search:
+        pattern = f"%{search}%"
+        base = base.where(Event.title.ilike(pattern))
+    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar_one()
+    q = base.order_by(Event.created_at.desc()).offset(offset).limit(limit)
+    items = list((await db.execute(q)).scalars().all())
+    return items, int(total)
 
 
 async def approve_or_reject_event(

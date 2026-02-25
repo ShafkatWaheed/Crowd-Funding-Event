@@ -212,6 +212,7 @@ async def start_selling_tickets(
             raise ConflictError("Cannot start selling tickets while funding is still active")
 
     event.status = EventStatus.selling_tickets
+    event.ticket_selling_started_at = datetime.now(timezone.utc)
     await db.flush()
     return event
 

@@ -91,6 +91,8 @@ class AdminUserDetailPledgeItem(BaseModel):
     user_display_name: str | None
     amount_cents: int
     status: str
+    is_guest: bool = False
+    reserved_spots: int = 0
     created_at: datetime
 
 
@@ -125,6 +127,12 @@ class AdminUserDetailEventItem(BaseModel):
     ticket_tiers_count: int = 0
     sponsorship_categories_count: int = 0
     milestones_count: int = 0
+    user_ticket_count: int | None = None
+    user_pledge_count: int | None = None
+    user_pledge_total_cents: int | None = None
+    user_reserved_spots: int | None = None
+    user_donation_count: int | None = None
+    user_donation_total_cents: int | None = None
 
 
 class AdminUserDetailSponsorItem(BaseModel):

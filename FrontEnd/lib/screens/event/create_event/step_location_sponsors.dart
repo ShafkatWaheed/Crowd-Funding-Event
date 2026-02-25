@@ -39,6 +39,7 @@ class StepLocationSponsors extends StatefulWidget {
   final TextEditingController accessibilityCtrl;
   // Community
   final bool communityRules;
+  final bool communityRulesFeatureEnabled;
   final ValueChanged<bool> onCommunityRulesChanged;
   final bool postsEnabled;
   final ValueChanged<bool> onPostsEnabledChanged;
@@ -85,6 +86,7 @@ class StepLocationSponsors extends StatefulWidget {
     required this.rideshareCtrl,
     required this.accessibilityCtrl,
     required this.communityRules,
+    this.communityRulesFeatureEnabled = true,
     required this.onCommunityRulesChanged,
     required this.postsEnabled,
     required this.onPostsEnabledChanged,
@@ -479,13 +481,17 @@ class _StepLocationSponsorsState extends State<StepLocationSponsors> {
                                     fontSize: 14)),
                           ],
                         ),
-                        subtitle: const Text(
-                          'Enables max duration, ticket price caps, and listing fee',
-                          style: TextStyle(fontSize: 11),
+                        subtitle: Text(
+                          widget.communityRulesFeatureEnabled
+                              ? 'Enables max duration, ticket price caps, and listing fee'
+                              : 'Community rules are currently disabled by the platform',
+                          style: const TextStyle(fontSize: 11),
                         ),
                         value: widget.communityRules,
                         activeColor: context.fundingAccent,
-                        onChanged: widget.onCommunityRulesChanged,
+                        onChanged: widget.communityRulesFeatureEnabled
+                            ? widget.onCommunityRulesChanged
+                            : null,
                       ),
                       if (widget.communityRules) ...[
                         Padding(

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -29,14 +31,32 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   int _selectedSection = 0;
 
+  static const _pageSize = 20;
+
   Map<String, dynamic>? _stats;
   List<dynamic> _users = [];
+  int _usersTotal = 0;
+  bool _usersLoadingMore = false;
   List<dynamic> _allEvents = [];
+  int _eventsTotal = 0;
+  bool _eventsLoadingMore = false;
   List<dynamic> _settings = [];
   List<dynamic> _escrows = [];
+  int _escrowsTotal = 0;
+  bool _escrowsLoadingMore = false;
   List<dynamic> _adminTickets = [];
+  int _ticketsTotal = 0;
+  bool _ticketsLoadingMore = false;
   List<dynamic> _adminPledges = [];
+  int _pledgesTotal = 0;
+  bool _pledgesLoadingMore = false;
   bool _isLoading = true;
+
+  final _usersScrollCtrl = ScrollController();
+  final _eventsScrollCtrl = ScrollController();
+  final _ticketsScrollCtrl = ScrollController();
+  final _pledgesScrollCtrl = ScrollController();
+  final _escrowsScrollCtrl = ScrollController();
 
   // Filtered event lists (derived from _allEvents)
   List<dynamic> get _pendingApproval =>
@@ -55,6 +75,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int _eventFilterIndex = -1; // auto-detect on load
   String _financialSubTab = 'tickets';
   String _financialSearch = '';
+  String _escrowSearch = '';
+  String _ticketStatusFilter = 'all';
+  String _pledgeStatusFilter = 'all';
   String _userSearch = '';
   String _userRoleFilter = 'all';
 
@@ -62,6 +85,29 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   void initState() {
     super.initState();
     _loadData();
+    _usersScrollCtrl.addListener(() => _onScroll(_usersScrollCtrl, _loadMoreUsers));
+    _eventsScrollCtrl.addListener(() => _onScroll(_eventsScrollCtrl, _loadMoreEvents));
+    _ticketsScrollCtrl.addListener(() => _onScroll(_ticketsScrollCtrl, _loadMoreTickets));
+    _pledgesScrollCtrl.addListener(() => _onScroll(_pledgesScrollCtrl, _loadMorePledges));
+    _escrowsScrollCtrl.addListener(() => _onScroll(_escrowsScrollCtrl, _loadMoreEscrows));
+  }
+
+  @override
+  void dispose() {
+    _userSearchDebounce?.cancel();
+    _financialSearchDebounce?.cancel();
+    _usersScrollCtrl.dispose();
+    _eventsScrollCtrl.dispose();
+    _ticketsScrollCtrl.dispose();
+    _pledgesScrollCtrl.dispose();
+    _escrowsScrollCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onScroll(ScrollController ctrl, VoidCallback loadMore) {
+    if (ctrl.position.pixels >= ctrl.position.maxScrollExtent - 200) {
+      loadMore();
+    }
   }
 
   Future<void> _loadData() async {
@@ -75,27 +121,110 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     try {
       final results = await Future.wait([
         api.adminGetStats(),        // 0
-        api.adminGetUsers(),        // 1
-        api.adminGetEvents(),       // 2
+        api.adminGetUsers(offset: 0, limit: _pageSize, search: _userSearch.isEmpty ? null : _userSearch),  // 1
+        api.adminGetEvents(offset: 0, limit: _pageSize, search: _eventSearch.isEmpty ? null : _eventSearch),  // 2
         api.dio.get('/admin/settings'), // 3
-        api.dio.get('/admin/escrows'),  // 4
-        api.adminGetTickets(),      // 5
-        api.adminGetPledges(),      // 6
+        api.dio.get('/admin/escrows', queryParameters: {'offset': 0, 'limit': _pageSize, if (_escrowSearch.isNotEmpty) 'search': _escrowSearch}),  // 4
+        api.adminGetTickets(offset: 0, limit: _pageSize, search: _financialSearch.isEmpty ? null : _financialSearch, status: _ticketStatusFilter == 'all' ? null : _ticketStatusFilter),  // 5
+        api.adminGetPledges(offset: 0, limit: _pageSize, search: _financialSearch.isEmpty ? null : _financialSearch, status: _pledgeApiStatus, isDonation: _pledgeApiDonation),  // 6
       ]);
+      final usersResp = results[1] as Map<String, dynamic>;
+      final eventsResp = results[2] as Map<String, dynamic>;
+      final escrowsResp = (results[4] as dynamic).data as Map<String, dynamic>;
+      final ticketsResp = results[5] as Map<String, dynamic>;
+      final pledgesResp = results[6] as Map<String, dynamic>;
       setState(() {
         _stats = results[0] as Map<String, dynamic>;
-        _users = results[1] as List<dynamic>;
-        _allEvents = results[2] as List<dynamic>;
+        _users = (usersResp['items'] as List<dynamic>?) ?? [];
+        _usersTotal = (usersResp['total'] as int?) ?? 0;
+        _allEvents = (eventsResp['items'] as List<dynamic>?) ?? [];
+        _eventsTotal = (eventsResp['total'] as int?) ?? 0;
         _settings = (results[3] as dynamic).data as List<dynamic>;
-        _escrows = (results[4] as dynamic).data as List<dynamic>;
-        _adminTickets = results[5] as List<dynamic>;
-        _adminPledges = results[6] as List<dynamic>;
+        _escrows = (escrowsResp['items'] as List<dynamic>?) ?? [];
+        _escrowsTotal = (escrowsResp['total'] as int?) ?? 0;
+        _adminTickets = (ticketsResp['items'] as List<dynamic>?) ?? [];
+        _ticketsTotal = (ticketsResp['total'] as int?) ?? 0;
+        _adminPledges = (pledgesResp['items'] as List<dynamic>?) ?? [];
+        _pledgesTotal = (pledgesResp['total'] as int?) ?? 0;
         if (_eventFilterIndex < 0) {
           _eventFilterIndex = _autoSelectEventFilter();
         }
       });
     } catch (_) {}
     setState(() => _isLoading = false);
+  }
+
+  Future<void> _loadMoreUsers() async {
+    if (_usersLoadingMore || _users.length >= _usersTotal) return;
+    setState(() => _usersLoadingMore = true);
+    try {
+      final api = context.read<ApiService>();
+      final resp = await api.adminGetUsers(offset: _users.length, limit: _pageSize, search: _userSearch.isEmpty ? null : _userSearch);
+      final items = (resp['items'] as List<dynamic>?) ?? [];
+      setState(() { _users.addAll(items); _usersTotal = (resp['total'] as int?) ?? _usersTotal; });
+    } catch (_) {}
+    if (mounted) setState(() => _usersLoadingMore = false);
+  }
+
+  Future<void> _loadMoreEvents() async {
+    if (_eventsLoadingMore || _allEvents.length >= _eventsTotal) return;
+    setState(() => _eventsLoadingMore = true);
+    try {
+      final api = context.read<ApiService>();
+      final resp = await api.adminGetEvents(offset: _allEvents.length, limit: _pageSize, search: _eventSearch.isEmpty ? null : _eventSearch);
+      final items = (resp['items'] as List<dynamic>?) ?? [];
+      setState(() { _allEvents.addAll(items); _eventsTotal = (resp['total'] as int?) ?? _eventsTotal; });
+    } catch (_) {}
+    if (mounted) setState(() => _eventsLoadingMore = false);
+  }
+
+  String? get _pledgeApiStatus {
+    if (_pledgeStatusFilter == 'all' || _pledgeStatusFilter == '_donation') return null;
+    return _pledgeStatusFilter;
+  }
+  bool? get _pledgeApiDonation {
+    if (_pledgeStatusFilter == '_donation') return true;
+    return null;
+  }
+
+  Future<void> _loadMoreTickets() async {
+    if (_ticketsLoadingMore || _adminTickets.length >= _ticketsTotal) return;
+    setState(() => _ticketsLoadingMore = true);
+    try {
+      final api = context.read<ApiService>();
+      final resp = await api.adminGetTickets(offset: _adminTickets.length, limit: _pageSize, search: _financialSearch.isEmpty ? null : _financialSearch, status: _ticketStatusFilter == 'all' ? null : _ticketStatusFilter);
+      final items = (resp['items'] as List<dynamic>?) ?? [];
+      setState(() { _adminTickets.addAll(items); _ticketsTotal = (resp['total'] as int?) ?? _ticketsTotal; });
+    } catch (_) {}
+    if (mounted) setState(() => _ticketsLoadingMore = false);
+  }
+
+  Future<void> _loadMorePledges() async {
+    if (_pledgesLoadingMore || _adminPledges.length >= _pledgesTotal) return;
+    setState(() => _pledgesLoadingMore = true);
+    try {
+      final api = context.read<ApiService>();
+      final resp = await api.adminGetPledges(offset: _adminPledges.length, limit: _pageSize, search: _financialSearch.isEmpty ? null : _financialSearch, status: _pledgeApiStatus, isDonation: _pledgeApiDonation);
+      final items = (resp['items'] as List<dynamic>?) ?? [];
+      setState(() { _adminPledges.addAll(items); _pledgesTotal = (resp['total'] as int?) ?? _pledgesTotal; });
+    } catch (_) {}
+    if (mounted) setState(() => _pledgesLoadingMore = false);
+  }
+
+  Future<void> _loadMoreEscrows() async {
+    if (_escrowsLoadingMore || _escrows.length >= _escrowsTotal) return;
+    setState(() => _escrowsLoadingMore = true);
+    try {
+      final api = context.read<ApiService>();
+      final resp = await api.dio.get('/admin/escrows', queryParameters: {
+        'offset': _escrows.length, 'limit': _pageSize,
+        if (_escrowSearch.isNotEmpty) 'search': _escrowSearch,
+      });
+      final data = resp.data as Map<String, dynamic>;
+      final items = (data['items'] as List<dynamic>?) ?? [];
+      setState(() { _escrows.addAll(items); _escrowsTotal = (data['total'] as int?) ?? _escrowsTotal; });
+    } catch (_) {}
+    if (mounted) setState(() => _escrowsLoadingMore = false);
   }
 
   int _autoSelectEventFilter() {
@@ -499,11 +628,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     ),
                   )
                 : ListView.builder(
+                    controller: _eventsScrollCtrl,
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.all(16),
-                    itemCount: _filteredEvents.length,
-                    itemBuilder: (ctx, i) =>
-                        _buildEventCard(_filteredEvents[i]),
+                    itemCount: _filteredEvents.length + (_eventsLoadingMore ? 1 : 0),
+                    itemBuilder: (ctx, i) {
+                      if (i >= _filteredEvents.length) {
+                        return const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator()));
+                      }
+                      return _buildEventCard(_filteredEvents[i]);
+                    },
                   ),
           ),
         ],
@@ -900,6 +1034,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   // SECTION 3: FINANCIAL
   // ===========================================================================
 
+  static const _ticketRefundStatuses = ['refund_requested', 'refund_processing', 'refunded', 'refund_failed'];
+  static const _pledgeRefundStatuses = ['refund_processing', 'refunded', 'refund_failed'];
+
   Widget _buildFinancialSection() {
     return Column(
       children: [
@@ -907,28 +1044,41 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
           child: SegmentedButton<String>(
             segments: [
-              ButtonSegment(value: 'tickets', label: Text('Tickets (${_adminTickets.length})')),
-              ButtonSegment(value: 'pledges', label: Text('Pledges (${_adminPledges.length})')),
-              ButtonSegment(value: 'escrow', label: Text('Escrow (${_escrows.length})')),
+              ButtonSegment(value: 'tickets', label: Text('Tickets ($_ticketsTotal)')),
+              ButtonSegment(value: 'pledges', label: Text('Pledges ($_pledgesTotal)')),
+              ButtonSegment(value: 'escrow', label: Text('Escrow ($_escrowsTotal)')),
             ],
             selected: {_financialSubTab},
-            onSelectionChanged: (s) => setState(() {
-              _financialSubTab = s.first;
-              _financialSearch = '';
-            }),
+            onSelectionChanged: (s) {
+              setState(() {
+                _financialSubTab = s.first;
+                _financialSearch = '';
+                _escrowSearch = '';
+                _ticketStatusFilter = 'all';
+                _pledgeStatusFilter = 'all';
+              });
+              _reloadFinancialData();
+              _reloadEscrowData();
+            },
           ),
         ),
-        if (_financialSubTab != 'escrow')
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-            child: AdminSearchBar(
-              hint: _financialSubTab == 'tickets'
-                  ? 'Search by event, attendee, or tier...'
-                  : 'Search by event or user...',
-              onChanged: (q) => setState(() => _financialSearch = q),
-            ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: AdminSearchBar(
+            hint: _financialSubTab == 'tickets'
+                ? 'Search by event, attendee, or tier...'
+                : _financialSubTab == 'pledges'
+                    ? 'Search by event or user...'
+                    : 'Search by event ID...',
+            onChanged: _financialSubTab == 'escrow'
+                ? _onEscrowSearchChanged
+                : _onFinancialSearchChanged,
           ),
-        // Summary strip
+        ),
+        if (_financialSubTab == 'tickets')
+          _buildTicketFilterChips(),
+        if (_financialSubTab == 'pledges')
+          _buildPledgeFilterChips(),
         _financialSummary(),
         Expanded(
           child: RefreshIndicator(
@@ -942,6 +1092,99 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ),
       ],
     );
+  }
+
+  Widget _buildTicketFilterChips() {
+    const regular = ['purchased', 'waitlisted', 'cancelled'];
+    final selected = _ticketStatusFilter;
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: Row(
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: FilterChip(
+              label: const Text('All'),
+              selected: selected == 'all',
+              onSelected: (_) { setState(() => _ticketStatusFilter = 'all'); _reloadFinancialData(); },
+            ),
+          ),
+          ...regular.map((s) => Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: FilterChip(
+              label: Text(_formatFilterStatus(s)),
+              selected: selected == s,
+              onSelected: (_) { setState(() => _ticketStatusFilter = s); _reloadFinancialData(); },
+            ),
+          )),
+          Container(width: 1, height: 24, margin: const EdgeInsets.symmetric(horizontal: 4), color: AppTheme.dividerOf(context)),
+          ..._ticketRefundStatuses.map((s) => Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: FilterChip(
+              avatar: Icon(Icons.money_off, size: 16, color: selected == s ? null : AppTheme.errorOf(context)),
+              label: Text(_formatFilterStatus(s)),
+              selected: selected == s,
+              onSelected: (_) { setState(() => _ticketStatusFilter = s); _reloadFinancialData(); },
+            ),
+          )),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPledgeFilterChips() {
+    const regular = ['pledged', 'collected'];
+    final selected = _pledgeStatusFilter;
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: Row(
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: FilterChip(
+              label: const Text('All'),
+              selected: selected == 'all',
+              onSelected: (_) { setState(() => _pledgeStatusFilter = 'all'); _reloadFinancialData(); },
+            ),
+          ),
+          ...regular.map((s) => Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: FilterChip(
+              label: Text(_formatFilterStatus(s)),
+              selected: selected == s,
+              onSelected: (_) { setState(() => _pledgeStatusFilter = s); _reloadFinancialData(); },
+            ),
+          )),
+          Container(width: 1, height: 24, margin: const EdgeInsets.symmetric(horizontal: 4), color: AppTheme.dividerOf(context)),
+          ..._pledgeRefundStatuses.map((s) => Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: FilterChip(
+              avatar: Icon(Icons.money_off, size: 16, color: selected == s ? null : AppTheme.errorOf(context)),
+              label: Text(_formatFilterStatus(s)),
+              selected: selected == s,
+              onSelected: (_) { setState(() => _pledgeStatusFilter = s); _reloadFinancialData(); },
+            ),
+          )),
+          Container(width: 1, height: 24, margin: const EdgeInsets.symmetric(horizontal: 4), color: AppTheme.dividerOf(context)),
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: FilterChip(
+              avatar: Icon(Icons.card_giftcard, size: 16, color: selected == '_donation' ? null : AppTheme.warningOf(context)),
+              label: const Text('Donations'),
+              selected: selected == '_donation',
+              onSelected: (_) { setState(() => _pledgeStatusFilter = selected == '_donation' ? 'all' : '_donation'); _reloadFinancialData(); },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatFilterStatus(String s) {
+    return s.replaceAll('_', ' ').split(' ').map((w) =>
+        w.isEmpty ? '' : w[0].toUpperCase() + w.substring(1)).join(' ');
   }
 
   Widget _financialSummary() {
@@ -999,27 +1242,62 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  List<dynamic> get _filteredTickets {
-    if (_financialSearch.isEmpty) return _adminTickets;
-    return _adminTickets.where((t) {
-      final s = _financialSearch;
-      return (t['event_title'] ?? '').toString().toLowerCase().contains(s) ||
-          (t['attendee_display_name'] ?? '').toString().toLowerCase().contains(s) ||
-          (t['tier_name'] ?? '').toString().toLowerCase().contains(s);
-    }).toList();
+  Timer? _financialSearchDebounce;
+
+  void _onFinancialSearchChanged(String q) {
+    _financialSearchDebounce?.cancel();
+    _financialSearchDebounce = Timer(const Duration(milliseconds: 300), () async {
+      _financialSearch = q;
+      _reloadFinancialData();
+    });
   }
 
-  List<dynamic> get _filteredPledges {
-    if (_financialSearch.isEmpty) return _adminPledges;
-    return _adminPledges.where((p) {
-      final s = _financialSearch;
-      return (p['event_title'] ?? '').toString().toLowerCase().contains(s) ||
-          (p['user_display_name'] ?? '').toString().toLowerCase().contains(s);
-    }).toList();
+  Future<void> _reloadFinancialData() async {
+    final api = context.read<ApiService>();
+    try {
+      final search = _financialSearch.isEmpty ? null : _financialSearch;
+      final ticketsResp = await api.adminGetTickets(offset: 0, limit: _pageSize, search: search, status: _ticketStatusFilter == 'all' ? null : _ticketStatusFilter);
+      final pledgesResp = await api.adminGetPledges(offset: 0, limit: _pageSize, search: search, status: _pledgeApiStatus, isDonation: _pledgeApiDonation);
+      if (mounted) {
+        setState(() {
+          _adminTickets = (ticketsResp['items'] as List<dynamic>?) ?? [];
+          _ticketsTotal = (ticketsResp['total'] as int?) ?? 0;
+          _adminPledges = (pledgesResp['items'] as List<dynamic>?) ?? [];
+          _pledgesTotal = (pledgesResp['total'] as int?) ?? 0;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Timer? _escrowSearchDebounce;
+
+  void _onEscrowSearchChanged(String q) {
+    _escrowSearchDebounce?.cancel();
+    _escrowSearchDebounce = Timer(const Duration(milliseconds: 300), () async {
+      _escrowSearch = q;
+      _reloadEscrowData();
+    });
+  }
+
+  Future<void> _reloadEscrowData() async {
+    final api = context.read<ApiService>();
+    try {
+      final resp = await api.dio.get('/admin/escrows', queryParameters: {
+        'offset': 0, 'limit': _pageSize,
+        if (_escrowSearch.isNotEmpty) 'search': _escrowSearch,
+      });
+      final data = resp.data as Map<String, dynamic>;
+      if (mounted) {
+        setState(() {
+          _escrows = (data['items'] as List<dynamic>?) ?? [];
+          _escrowsTotal = (data['total'] as int?) ?? 0;
+        });
+      }
+    } catch (_) {}
   }
 
   Widget _buildTicketsList() {
-    final tickets = _filteredTickets;
+    final tickets = _adminTickets;
     if (tickets.isEmpty) {
       return SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -1030,10 +1308,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       );
     }
     return ListView.builder(
+      controller: _ticketsScrollCtrl,
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
-      itemCount: tickets.length,
+      itemCount: tickets.length + (_ticketsLoadingMore ? 1 : 0),
       itemBuilder: (ctx, i) {
+        if (i >= tickets.length) {
+          return const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator()));
+        }
         final t = tickets[i];
         final eventId = t['event_id'] as int;
         final ticketId = t['id'] as int;
@@ -1079,7 +1361,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildPledgesList() {
-    final pledges = _filteredPledges;
+    final pledges = _adminPledges;
     if (pledges.isEmpty) {
       return SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -1090,10 +1372,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       );
     }
     return ListView.builder(
+      controller: _pledgesScrollCtrl,
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
-      itemCount: pledges.length,
+      itemCount: pledges.length + (_pledgesLoadingMore ? 1 : 0),
       itemBuilder: (ctx, i) {
+        if (i >= pledges.length) {
+          return const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator()));
+        }
         final p = pledges[i];
         final eventId = p['event_id'] as int;
         final fundingId = p['id'] as int;
@@ -1140,10 +1426,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       );
     }
     return ListView.builder(
+      controller: _escrowsScrollCtrl,
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
-      itemCount: _escrows.length,
-      itemBuilder: (ctx, i) => _escrowCard(_escrows[i]),
+      itemCount: _escrows.length + (_escrowsLoadingMore ? 1 : 0),
+      itemBuilder: (ctx, i) {
+        if (i >= _escrows.length) {
+          return const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator()));
+        }
+        return _escrowCard(_escrows[i]);
+      },
     );
   }
 
@@ -1240,23 +1532,37 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   // SECTION 4: USERS
   // ===========================================================================
 
+  Timer? _userSearchDebounce;
+
   List<dynamic> get _filteredUsers {
     var list = _users;
     if (_userRoleFilter != 'all') {
       list = list.where((u) => u['role'] == _userRoleFilter).toList();
     }
-    if (_userSearch.isNotEmpty) {
-      list = list.where((u) {
-        final name = (u['display_name'] ?? '').toString().toLowerCase();
-        final email = (u['email'] ?? '').toString().toLowerCase();
-        return name.contains(_userSearch) || email.contains(_userSearch);
-      }).toList();
-    }
     return list;
+  }
+
+  void _onUserSearchChanged(String q) {
+    _userSearchDebounce?.cancel();
+    _userSearchDebounce = Timer(const Duration(milliseconds: 300), () async {
+      _userSearch = q;
+      final api = context.read<ApiService>();
+      try {
+        final resp = await api.adminGetUsers(offset: 0, limit: _pageSize, search: q.isEmpty ? null : q);
+        if (mounted) {
+          setState(() {
+            _users = (resp['items'] as List<dynamic>?) ?? [];
+            _usersTotal = (resp['total'] as int?) ?? 0;
+          });
+        }
+      } catch (_) {}
+    });
   }
 
   Widget _buildUsersSection() {
     final roles = ['all', 'customer', 'organizer', 'sponsor', 'admin'];
+    final displayList = _filteredUsers;
+    final showingCount = displayList.length;
 
     return RefreshIndicator(
       onRefresh: _loadData,
@@ -1266,9 +1572,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: AdminSearchBar(
               hint: 'Search by name or email...',
-              onChanged: (q) => setState(() => _userSearch = q),
-              resultCount: (_userSearch.isNotEmpty || _userRoleFilter != 'all') ? _filteredUsers.length : null,
-              totalCount: (_userSearch.isNotEmpty || _userRoleFilter != 'all') ? _users.length : null,
+              onChanged: _onUserSearchChanged,
+              resultCount: showingCount,
+              totalCount: _usersTotal,
             ),
           ),
           SingleChildScrollView(
@@ -1289,7 +1595,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
           ),
           Expanded(
-            child: _filteredUsers.isEmpty
+            child: displayList.isEmpty
                 ? SingleChildScrollView(
                     physics: const AlwaysScrollableScrollPhysics(),
                     child: SizedBox(
@@ -1298,11 +1604,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     ),
                   )
                 : ListView.builder(
+                    controller: _usersScrollCtrl,
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: _filteredUsers.length,
+                    itemCount: displayList.length + (_usersLoadingMore ? 1 : 0),
                     itemBuilder: (ctx, i) {
-                      final user = _filteredUsers[i];
+                      if (i >= displayList.length) {
+                        return const Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Center(child: CircularProgressIndicator()),
+                        );
+                      }
+                      final user = displayList[i];
                       final name = user['display_name'] ?? 'No name';
                       final email = user['email'] ?? '';
                       final role = user['role'] ?? 'unknown';
@@ -1343,11 +1656,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   static const _settingsGroups = {
     'Branding': ['platform_name', 'support_email'],
     'Commissions': ['ticket_commission_percent', 'funding_commission_percent', 'sponsor_commission_percent'],
-    'Escrow': ['escrow_stage1_percent', 'escrow_stage2_percent', 'escrow_stage3_percent', 'scan_threshold_percent', 'stage3_grace_days'],
+    'Escrow': ['escrow_stage1_percent', 'escrow_stage1_trigger_enabled', 'escrow_stage1_trigger_mode', 'escrow_stage1_ticket_percent', 'escrow_stage2_percent', 'escrow_stage2_trigger_enabled', 'escrow_stage2_trigger_mode', 'escrow_stage2_ticket_percent', 'escrow_stage2_days_percent', 'escrow_stage3_percent', 'escrow_stage3_trigger_enabled', 'escrow_stage3_trigger_mode', 'escrow_stage3_days_after_event', 'scan_threshold_percent', 'stage3_grace_days'],
     'Events': ['cancel_approval_threshold_percent', 'event_date_grace_days', 'event_date_deadline_days', 'default_refund_deadline_days'],
-    'Community Rules': ['community_max_duration_days', 'community_max_ticket_price_cents', 'community_listing_fee_cents', 'community_funding_commission_override', 'new_organizer_deposit_cents'],
+    'Community Rules': ['community_max_duration_days', 'community_max_ticket_price_cents', 'community_listing_fee_cents', 'community_ticket_commission_percent', 'community_funding_commission_percent', 'community_sponsor_commission_percent', 'community_escrow_disabled', 'new_organizer_deposit_cents'],
     'Rate Limits': ['max_tickets_per_purchase'],
-    'Feature Flags': ['feature_milestones_enabled', 'feature_schedule_enabled', 'feature_sponsors_enabled'],
+    'Feature Flags': ['feature_milestones_enabled', 'feature_schedule_enabled', 'feature_sponsors_enabled', 'feature_community_rules_enabled'],
   };
 
   static const _groupIcons = {
@@ -1413,6 +1726,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
+  static const _triggerModeOptions = <String, List<String>>{
+    'escrow_stage1_trigger_mode': ['ticket_percent', 'funding_end', 'selling_started'],
+    'escrow_stage2_trigger_mode': ['ticket_percent', 'days_percent'],
+    'escrow_stage3_trigger_mode': ['days_after', 'scan_threshold'],
+  };
+
   Widget _settingRow(Map<String, dynamic> s) {
     final key = s['key'] ?? '';
     final value = s['value'] ?? '';
@@ -1420,6 +1739,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final isPercent = key.contains('percent');
     final isCents = key.contains('_cents');
     final isBool = value == 'true' || value == 'false';
+    final isDropdown = _triggerModeOptions.containsKey(key);
 
     String displayValue = value;
     if (isBool) {
@@ -1452,6 +1772,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               value: value == 'true',
               activeColor: AppTheme.successOf(context),
               onChanged: (on) => _updateSetting(key, on ? 'true' : 'false'),
+            )
+          else if (isDropdown)
+            DropdownButton<String>(
+              value: _triggerModeOptions[key]!.contains(value) ? value : _triggerModeOptions[key]!.first,
+              underline: const SizedBox.shrink(),
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.accentOf(context)),
+              items: _triggerModeOptions[key]!.map((opt) => DropdownMenuItem(
+                value: opt,
+                child: Text(opt.replaceAll('_', ' ')),
+              )).toList(),
+              onChanged: (v) { if (v != null) _updateSetting(key, v); },
             )
           else ...[
             Text(displayValue,

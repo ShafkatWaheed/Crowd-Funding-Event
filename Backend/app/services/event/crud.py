@@ -67,6 +67,7 @@ async def auto_transition_status(db: AsyncSession, event: Event) -> Event:
                 )).scalar_one_or_none()
                 if has_tiers is not None:
                     event.status = EventStatus.selling_tickets
+                    event.ticket_selling_started_at = now
                     changed = True
 
         # ── waiting_event_date → check if deadline passed ──
@@ -86,6 +87,14 @@ async def auto_transition_status(db: AsyncSession, event: Event) -> Event:
                     event_date=event.start_time,
                 ))
                 changed = True
+
+        # ── selling_tickets / approved → try stage 2 escrow release ──
+        if event.status in (EventStatus.selling_tickets, EventStatus.approved):
+            try:
+                from app.services import escrow as escrow_svc
+                await escrow_svc.check_and_release_stage2(db, event_id=event.id)
+            except Exception:
+                pass
 
         # ── selling_tickets / approved → check if event started ──
         if event.status in (EventStatus.selling_tickets, EventStatus.approved):
@@ -452,6 +461,8 @@ async def create(
     # ── Community rules (opt-in via toggle) ──
     if community_rules:
         from app.services import platform_settings as settings_svc
+        if not await settings_svc.get_bool(db, "feature_community_rules_enabled"):
+            raise ConflictError("Community rules are currently disabled by the platform.")
         max_duration = await settings_svc.get_int(db, "community_max_duration_days")
         if max_duration <= 0:
             max_duration = 14  # fallback

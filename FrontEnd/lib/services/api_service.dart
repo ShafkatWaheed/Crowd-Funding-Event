@@ -688,9 +688,11 @@ class ApiService {
 
   // ─── Admin ───
 
-  Future<List<dynamic>> adminGetUsers() async {
-    final resp = await dio.get('/admin/users');
-    return resp.data;
+  Future<Map<String, dynamic>> adminGetUsers({int offset = 0, int limit = 20, String? search}) async {
+    final resp = await dio.get('/admin/users', queryParameters: {
+      'offset': offset, 'limit': limit, if (search != null && search.isNotEmpty) 'search': search,
+    });
+    return resp.data as Map<String, dynamic>;
   }
 
   Future<Map<String, dynamic>> adminGetUserDetail(int userId) async {
@@ -704,10 +706,13 @@ class ApiService {
         '/admin/events/$eventId/sponsorships/$catId/bids/$bidId/refund');
   }
 
-  Future<List<dynamic>> adminGetEvents(
-      {Map<String, dynamic>? params}) async {
-    final resp = await dio.get('/admin/events', queryParameters: params);
-    return resp.data;
+  Future<Map<String, dynamic>> adminGetEvents({int offset = 0, int limit = 20, String? search, String? status}) async {
+    final resp = await dio.get('/admin/events', queryParameters: {
+      'offset': offset, 'limit': limit,
+      if (search != null && search.isNotEmpty) 'search': search,
+      if (status != null && status.isNotEmpty) 'status': status,
+    });
+    return resp.data as Map<String, dynamic>;
   }
 
   Future<Map<String, dynamic>> adminApproveEvent(
@@ -722,14 +727,23 @@ class ApiService {
     return resp.data;
   }
 
-  Future<List<dynamic>> adminGetTickets({int limit = 500}) async {
-    final resp = await dio.get('/admin/tickets', queryParameters: {'limit': limit});
-    return resp.data;
+  Future<Map<String, dynamic>> adminGetTickets({int offset = 0, int limit = 20, String? search, String? status}) async {
+    final resp = await dio.get('/admin/tickets', queryParameters: {
+      'offset': offset, 'limit': limit,
+      if (search != null && search.isNotEmpty) 'search': search,
+      if (status != null && status.isNotEmpty) 'status': status,
+    });
+    return resp.data as Map<String, dynamic>;
   }
 
-  Future<List<dynamic>> adminGetPledges({int limit = 500}) async {
-    final resp = await dio.get('/admin/pledges', queryParameters: {'limit': limit});
-    return resp.data;
+  Future<Map<String, dynamic>> adminGetPledges({int offset = 0, int limit = 20, String? search, String? status, bool? isDonation}) async {
+    final resp = await dio.get('/admin/pledges', queryParameters: {
+      'offset': offset, 'limit': limit,
+      if (search != null && search.isNotEmpty) 'search': search,
+      if (status != null && status.isNotEmpty) 'status': status,
+      if (isDonation != null) 'is_donation': isDonation,
+    });
+    return resp.data as Map<String, dynamic>;
   }
 
   Future<void> adminRefundPledge(int eventId, int fundingId) async {

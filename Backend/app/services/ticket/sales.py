@@ -58,6 +58,10 @@ async def purchase_ticket(
     net_to_organizer = final_cents
     if final_cents > 0:
         commission_pct = await settings_svc.get_int(db, "ticket_commission_percent")
+        if getattr(event, "community_rules", False):
+            override = await settings_svc.get_str(db, "community_ticket_commission_percent")
+            if override is not None and override != "":
+                commission_pct = int(override)
         commission_cents = final_cents * commission_pct // 100
         net_to_organizer = final_cents - commission_cents
 
@@ -341,27 +345,44 @@ async def list_organizer_ticket_sales(
 
 
 async def list_all_ticket_sales_for_admin(
-    db: AsyncSession, *, limit: int = 500,
-) -> Sequence[TicketSale]:
-    """List all ticket sales (purchased or refund_requested) for admin. Across all events."""
-    q = (
+    db: AsyncSession,
+    *,
+    offset: int = 0,
+    limit: int = 20,
+    search: str | None = None,
+    status: str | None = None,
+) -> tuple[Sequence[TicketSale], int]:
+    """List ticket sales for admin, optionally filtered by status. Returns (items, total)."""
+    from sqlalchemy import or_ as sql_or
+    base = (
         select(TicketSale)
-        .where(
-            TicketSale.status.in_([
-                TicketSaleStatus.purchased,
-                TicketSaleStatus.refund_requested,
-            ])
+        .join(Event, TicketSale.event_id == Event.id)
+    )
+    if status:
+        try:
+            base = base.where(TicketSale.status == TicketSaleStatus(status))
+        except ValueError:
+            pass
+    if search:
+        pattern = f"%{search}%"
+        base = base.outerjoin(User, TicketSale.user_id == User.id).where(
+            sql_or(Event.title.ilike(pattern), User.display_name.ilike(pattern))
         )
+    count_q = select(func.count()).select_from(base.subquery())
+    total = (await db.execute(count_q)).scalar_one()
+    q = (
+        base
         .options(
             selectinload(TicketSale.event),
             selectinload(TicketSale.user),
             selectinload(TicketSale.ticket_tier),
         )
         .order_by(TicketSale.created_at.desc())
+        .offset(offset)
         .limit(limit)
     )
     res = await db.execute(q)
-    return list(res.scalars().unique().all())
+    return list(res.scalars().unique().all()), int(total)
 
 
 async def list_event_waitlisted_tickets(db: AsyncSession, *, event_id: int) -> Sequence[TicketSale]:

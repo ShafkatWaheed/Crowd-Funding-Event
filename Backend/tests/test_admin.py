@@ -34,8 +34,10 @@ async def test_admin_list_users(
     r = await client.get("/api/v1/admin/users", headers=auth_headers_admin)
     assert r.status_code == 200
     data = r.json()
-    assert isinstance(data, list)
-    emails = [u["email"] for u in data]
+    assert isinstance(data, dict)
+    assert "items" in data
+    assert "total" in data
+    emails = [u["email"] for u in data["items"]]
     assert "admin@test.com" in emails
 
 
@@ -48,8 +50,10 @@ async def test_admin_list_events(
     r = await client.get("/api/v1/admin/events?status=approved", headers=auth_headers_admin)
     assert r.status_code == 200
     data = r.json()
-    assert isinstance(data, list)
-    titles = [e["title"] for e in data]
+    assert isinstance(data, dict)
+    assert "items" in data
+    assert "total" in data
+    titles = [e["title"] for e in data["items"]]
     assert "Test Event" in titles
 
 

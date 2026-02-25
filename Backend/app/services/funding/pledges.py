@@ -209,6 +209,10 @@ async def create_pledge(
 
     from app.services import platform_settings as settings_svc
     funding_pct = await settings_svc.get_int(db, "funding_commission_percent")
+    if getattr(event, "community_rules", False):
+        override = await settings_svc.get_str(db, "community_funding_commission_percent")
+        if override is not None and override != "":
+            funding_pct = int(override)
     platform_cut = amount_cents * funding_pct // 100
     net_to_organizer = amount_cents - platform_cut
 
@@ -488,23 +492,49 @@ async def list_organizer_pledges(
 
 
 async def list_all_pledges_for_admin(
-    db: AsyncSession, *, limit: int = 500,
-) -> Sequence[Funding]:
-    """List all pledged fundings across events for admin."""
+    db: AsyncSession,
+    *,
+    offset: int = 0,
+    limit: int = 20,
+    search: str | None = None,
+    status: str | None = None,
+    is_donation: bool | None = None,
+) -> tuple[Sequence[Funding], int]:
+    """List fundings across events for admin, optionally filtered by status/donation. Returns (items, total)."""
     from app.models.event import Event
-    q = (
+    from sqlalchemy import or_ as sql_or
+    base = (
         select(Funding)
         .join(Event, Funding.event_id == Event.id)
-        .where(Funding.status == FundingStatus.pledged)
+    )
+    if status:
+        try:
+            base = base.where(Funding.status == FundingStatus(status))
+        except ValueError:
+            pass
+    if is_donation is True:
+        base = base.where(Funding.is_guest == True)  # noqa: E712
+    elif is_donation is False:
+        base = base.where(Funding.is_guest == False)  # noqa: E712
+    if search:
+        pattern = f"%{search}%"
+        base = base.outerjoin(User, Funding.user_id == User.id).where(
+            sql_or(Event.title.ilike(pattern), User.display_name.ilike(pattern))
+        )
+    count_q = select(func.count()).select_from(base.subquery())
+    total = (await db.execute(count_q)).scalar_one()
+    q = (
+        base
         .options(
             selectinload(Funding.event),
             selectinload(Funding.user),
         )
         .order_by(Funding.created_at.desc())
+        .offset(offset)
         .limit(limit)
     )
     result = await db.execute(q)
-    return list(result.scalars().unique().all())
+    return list(result.scalars().unique().all()), int(total)
 
 
 async def refund_pledge_by_id(

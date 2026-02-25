@@ -80,6 +80,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
   String _registrationType = 'open';
   String? _genre;
   bool _communityRules = false;
+  bool _communityRulesFeatureEnabled = true;
   bool _postsEnabled = true;
   int _refundDeadlineDays = 0;
   bool _isLoading = false;
@@ -132,7 +133,20 @@ class _EditEventScreenState extends State<EditEventScreen> {
       _loadEvent();
       _loadStrategies();
       _loadVenues();
+      _loadFeatureFlags();
     });
+  }
+
+  Future<void> _loadFeatureFlags() async {
+    try {
+      final api = context.read<ApiService>();
+      final flags = await api.getFeatureFlags();
+      if (mounted) {
+        setState(() {
+          _communityRulesFeatureEnabled = flags['feature_community_rules_enabled'] ?? true;
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadVenues() async {
@@ -1682,12 +1696,15 @@ class _EditEventScreenState extends State<EditEventScreen> {
                               SwitchListTile(
                                 contentPadding: EdgeInsets.zero,
                                 title: const Text('Community Event Rules'),
-                                subtitle: const Text(
-                                  'Apply platform community rules (e.g. max ticket price, capacity limits)',
+                                subtitle: Text(
+                                  _communityRulesFeatureEnabled
+                                      ? 'Apply platform community rules (e.g. max ticket price, capacity limits)'
+                                      : 'Community rules are currently disabled by the platform',
                                 ),
                                 value: _communityRules,
-                                onChanged: (v) =>
-                                    setState(() => _communityRules = v),
+                                onChanged: _communityRulesFeatureEnabled
+                                    ? (v) => setState(() => _communityRules = v)
+                                    : null,
                               ),
                             if (_event?.status.name == 'draft')
                               const SizedBox(height: 16),

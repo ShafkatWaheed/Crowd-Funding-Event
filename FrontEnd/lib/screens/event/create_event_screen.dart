@@ -68,6 +68,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   String _registrationType = 'open';
   String? _genre;
   bool _communityRules = false;
+  bool _communityRulesFeatureEnabled = true;
   bool _postsEnabled = true;
   int _refundDeadlineDays = 7;
   bool _linkFundingToTiers = false;
@@ -151,6 +152,20 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     _loadStrategies();
     _loadDiscounts();
     _loadSponsorTemplates();
+    _loadFeatureFlags();
+  }
+
+  Future<void> _loadFeatureFlags() async {
+    try {
+      final api = context.read<ApiService>();
+      final flags = await api.getFeatureFlags();
+      if (mounted) {
+        setState(() {
+          _communityRulesFeatureEnabled = flags['feature_community_rules_enabled'] ?? true;
+          if (!_communityRulesFeatureEnabled) _communityRules = false;
+        });
+      }
+    } catch (_) {}
   }
 
   @override
@@ -1258,6 +1273,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       rideshareCtrl: _rideshareCtrl,
       accessibilityCtrl: _accessibilityCtrl,
       communityRules: _communityRules,
+      communityRulesFeatureEnabled: _communityRulesFeatureEnabled,
       onCommunityRulesChanged: (v) => setState(() => _communityRules = v),
       postsEnabled: _postsEnabled,
       onPostsEnabledChanged: (v) => setState(() => _postsEnabled = v),

@@ -86,6 +86,7 @@ class Event(Base):
     accessibility_info: Mapped[str | None] = mapped_column(Text, nullable=True)
     has_schedule: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     link_funding_to_tiers: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    ticket_selling_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     max_discount_percent: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)

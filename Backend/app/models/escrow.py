@@ -16,6 +16,7 @@ class EscrowStatus(str, enum.Enum):
     fully_released = "fully_released"
     refunded = "refunded"
     frozen = "frozen"
+    waived = "waived"
 
 
 class FundEscrow(Base):

@@ -80,6 +80,16 @@ async def pay_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorPayment:
 
     from app.services import platform_settings as settings_svc
     commission_pct = await settings_svc.get_int(db, "sponsor_commission_percent")
+    cat = (await db.execute(
+        select(SponsorshipCategory).where(SponsorshipCategory.id == bid.category_id)
+    )).scalar_one_or_none()
+    if cat and cat.event_id:
+        from app.models.event import Event
+        event = (await db.execute(select(Event).where(Event.id == cat.event_id))).scalar_one_or_none()
+        if event and getattr(event, "community_rules", False):
+            override = await settings_svc.get_str(db, "community_sponsor_commission_percent")
+            if override is not None and override != "":
+                commission_pct = int(override)
     platform_cut = (bid.amount_cents * commission_pct) // 100
     net = bid.amount_cents - platform_cut
 

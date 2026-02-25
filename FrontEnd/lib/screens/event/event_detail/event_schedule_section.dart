@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../config/api_config.dart';
 import '../../../config/theme.dart';
+import '../../../providers/auth_provider.dart';
 import '../../../config/design_tokens.dart';
 import '../../../models/event.dart';
 import '../../../models/schedule.dart';
@@ -37,13 +38,16 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
     try {
       final api = context.read<ApiService>();
 
-      try {
-        final flags = await api.getFeatureFlags();
-        if (flags['feature_schedule_enabled'] == false) {
-          if (mounted) setState(() { _featureEnabled = false; _loading = false; });
-          return;
-        }
-      } catch (_) {}
+      final auth = context.read<AuthProvider>();
+      if (auth.user != null && auth.user!.isAdmin) {
+        try {
+          final flags = await api.getFeatureFlags();
+          if (flags['feature_schedule_enabled'] == false) {
+            if (mounted) setState(() { _featureEnabled = false; _loading = false; });
+            return;
+          }
+        } catch (_) {}
+      }
 
       final list = await api.getSchedule(widget.eventId);
       final days = list.map((j) => ScheduleDay.fromJson(j)).toList();

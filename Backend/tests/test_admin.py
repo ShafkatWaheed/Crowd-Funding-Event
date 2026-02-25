@@ -41,10 +41,11 @@ async def test_admin_list_users(
 
 async def test_admin_list_events(
     client: AsyncClient,
-    test_event,
+    test_event_approved,
     auth_headers_admin: dict[str, str],
 ) -> None:
-    r = await client.get("/api/v1/admin/events", headers=auth_headers_admin)
+    """Admin list excludes draft by default; filter by status=approved to see approved events."""
+    r = await client.get("/api/v1/admin/events?status=approved", headers=auth_headers_admin)
     assert r.status_code == 200
     data = r.json()
     assert isinstance(data, list)
@@ -54,17 +55,12 @@ async def test_admin_list_events(
 
 async def test_admin_approve_event(
     client: AsyncClient,
-    test_event,
-    auth_headers_organizer: dict[str, str],
+    test_event_pending,
     auth_headers_admin: dict[str, str],
 ) -> None:
-    # First submit for approval
-    await client.post(
-        f"/api/v1/events/{test_event.id}/submit",
-        headers=auth_headers_organizer,
-    )
+    """Admin approves an event that is pending_approval (fixture sets status; no submit endpoint)."""
     r = await client.post(
-        f"/api/v1/admin/events/{test_event.id}/approve",
+        f"/api/v1/admin/events/{test_event_pending.id}/approve",
         headers=auth_headers_admin,
         json={"approved": True},
     )
@@ -72,38 +68,23 @@ async def test_admin_approve_event(
     data = r.json()
     assert data.get("status") == "approved"
 
-    get_r = await client.get(f"/api/v1/events/{test_event.id}")
+    get_r = await client.get(f"/api/v1/events/{test_event_pending.id}")
     assert get_r.json()["status"] == "approved"
 
 
 async def test_admin_reject_event(
     client: AsyncClient,
-    auth_headers_organizer: dict[str, str],
+    test_event_pending,
     auth_headers_admin: dict[str, str],
-    test_venue,
 ) -> None:
-    create_r = await client.post(
-        "/api/v1/events",
-        headers=auth_headers_organizer,
-        json={
-            "venue_id": test_venue.id,
-            "title": "To Reject",
-            "start_time": "2030-01-15T18:00:00Z",
-            "end_time": "2030-01-15T20:00:00Z",
-            "min_pledge_cents": 100,
-            "max_capacity": 10,
-        },
-    )
-    assert create_r.status_code == 200
-    eid = create_r.json()["id"]
-    await client.post(f"/api/v1/events/{eid}/submit", headers=auth_headers_organizer)
+    """Admin rejects an event that is pending_approval (fixture sets status; no submit endpoint)."""
     r = await client.post(
-        f"/api/v1/admin/events/{eid}/approve",
+        f"/api/v1/admin/events/{test_event_pending.id}/approve",
         headers=auth_headers_admin,
         json={"approved": False},
     )
     assert r.status_code == 200
-    get_r = await client.get(f"/api/v1/events/{eid}")
+    get_r = await client.get(f"/api/v1/events/{test_event_pending.id}")
     assert get_r.json()["status"] == "draft"
 
 

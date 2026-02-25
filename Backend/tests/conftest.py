@@ -1,7 +1,8 @@
 """
 Pytest fixtures: async client, mock auth, test users/venue/event.
 
-- Use a test PostgreSQL (same DATABASE_URL or set TEST_DATABASE_URL).
+- Use a separate test DB: set TEST_DATABASE_URL in .env (e.g. event_db_test) so tests never
+  truncate your real data. If unset, tests use DATABASE_URL and will wipe all tables.
 - Auth: use Authorization: Bearer test-admin | test-organizer | test-customer (no real Firebase).
 - DB: test data is committed; tables are truncated after each test for isolation.
 """
@@ -15,11 +16,12 @@ from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 
 from app.main import app as fastapi_app
-from app.db.base import async_engine, async_session_maker, Base
+from app.db.base import async_engine, async_session_maker, Base, get_db_session
 import app.models  # noqa: F401 - register models for metadata
+from app.config import settings
 from app.core import security
 from app.models.user import User, UserRole
 from app.models.venue import Venue
@@ -30,13 +32,37 @@ from app.models.ticket import TicketTier
 # Skip DB-dependent tests when requested (e.g. in CI without DB)
 SKIP_DB = os.environ.get("SKIP_DB_TESTS", "").lower() in ("1", "true", "yes")
 
+# Use separate test DB when set so pytest never truncates real data
+TEST_DATABASE_URL = getattr(settings, "TEST_DATABASE_URL", None) or os.environ.get("TEST_DATABASE_URL")
+if TEST_DATABASE_URL:
+    _test_engine = create_async_engine(TEST_DATABASE_URL, pool_size=5, max_overflow=5)
+    _test_session_maker = async_sessionmaker(
+        _test_engine, class_=AsyncSession, expire_on_commit=False, autocommit=False, autoflush=False
+    )
+else:
+    _test_engine = async_engine
+    _test_session_maker = async_session_maker
+
+
+async def _get_test_db_session() -> AsyncGenerator[AsyncSession, None]:
+    async with _test_session_maker() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
+
 
 @pytest_asyncio.fixture(scope="session", autouse=True)
 async def _reset_engine_pool():
     """Dispose engine pool at session start so all connections are created on the test event loop."""
-    await async_engine.dispose()
+    target = _test_engine if TEST_DATABASE_URL else async_engine
+    await target.dispose()
     yield
-    await async_engine.dispose()
+    await target.dispose()
 
 
 # ----- Mock auth: Bearer test-admin / test-organizer / test-customer -----
@@ -57,6 +83,10 @@ async def _mock_verify_firebase(
 # Apply mock auth for all tests (so we don't need real Firebase)
 fastapi_app.dependency_overrides[security.verify_firebase_token] = _mock_verify_firebase
 
+# Use test DB for app when TEST_DATABASE_URL is set so requests hit test DB, not real data
+if TEST_DATABASE_URL:
+    fastapi_app.dependency_overrides[get_db_session] = _get_test_db_session
+
 
 @pytest_asyncio.fixture
 async def client() -> AsyncGenerator[AsyncClient, None]:
@@ -72,7 +102,7 @@ def _auth_headers(token: str) -> dict[str, str]:
 @pytest_asyncio.fixture
 async def db_session() -> AsyncGenerator[AsyncSession, None]:
     """Provide a normal DB session (committed) for fixture data setup."""
-    async with async_session_maker() as session:
+    async with _test_session_maker() as session:
         yield session
 
 
@@ -83,7 +113,7 @@ async def _cleanup_db() -> AsyncGenerator[None, None]:
         yield
         return
     yield
-    async with async_engine.begin() as conn:
+    async with _test_engine.begin() as conn:
         for table in reversed(Base.metadata.sorted_tables):
             await conn.execute(text(f'TRUNCATE TABLE "{table.name}" RESTART IDENTITY CASCADE'))
 
@@ -205,6 +235,14 @@ async def test_event(
 async def test_event_approved(db_session: AsyncSession, test_event: Event) -> Event:
     """Same as test_event but status = approved (for pledge/register tests)."""
     test_event.status = EventStatus.approved
+    await db_session.commit()
+    return test_event
+
+
+@pytest_asyncio.fixture
+async def test_event_pending(db_session: AsyncSession, test_event: Event) -> Event:
+    """Same as test_event but status = pending_approval (for admin approve/reject tests, no submit endpoint)."""
+    test_event.status = EventStatus.pending_approval
     await db_session.commit()
     return test_event
 

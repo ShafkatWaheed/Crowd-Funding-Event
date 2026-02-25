@@ -10,6 +10,7 @@ import '../../widgets/animated_list_item.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/error_state.dart';
 import '../../widgets/shimmer_loaders.dart';
+import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_toast.dart';
 import '../event/pledge_receipt_screen.dart';
@@ -57,6 +58,11 @@ class _MyPledgesScreenState extends State<MyPledgesScreen> {
   }
 
   Future<void> _load() async {
+    final user = context.read<AuthProvider>().user;
+    if (user == null || !(user.isCustomer || user.isSponsor)) {
+      if (mounted) setState(() { _loading = false; _error = 'Only customers and sponsors can view pledges'; });
+      return;
+    }
     setState(() { _loading = true; _error = null; _hasMore = true; });
     try {
       final api = context.read<ApiService>();

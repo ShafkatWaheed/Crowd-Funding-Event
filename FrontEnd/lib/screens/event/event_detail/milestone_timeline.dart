@@ -36,23 +36,21 @@ class _MilestoneTimelineState extends State<MilestoneTimeline> {
     try {
       final api = context.read<ApiService>();
 
-      // Check feature flag
-      try {
-        final flags = await api.getFeatureFlags();
-        if (flags['feature_milestones_enabled'] == false) {
-          if (mounted) setState(() { _featureEnabled = false; _loading = false; });
-          return;
-        }
-      } catch (_) {
-        // If flag fetch fails (non-admin), just try loading milestones directly
+      final auth = context.read<AuthProvider>();
+      if (auth.user != null && auth.user!.isAdmin) {
+        try {
+          final flags = await api.getFeatureFlags();
+          if (flags['feature_milestones_enabled'] == false) {
+            if (mounted) setState(() { _featureEnabled = false; _loading = false; });
+            return;
+          }
+        } catch (_) {}
       }
 
       final list = await api.getMilestones(widget.eventId);
       final milestones =
           list.map((j) => FundingMilestone.fromJson(j)).toList();
 
-      // Load user reactions for each milestone
-      final auth = context.read<AuthProvider>();
       final reactions = <int, String?>{};
       if (auth.user != null) {
         for (final ms in milestones) {
@@ -63,16 +61,17 @@ class _MilestoneTimelineState extends State<MilestoneTimeline> {
         }
       }
 
-      // Load milestone discount rules
       final discMap = <int, int>{};
-      try {
-        final discounts = await api.getEventDiscounts(widget.eventId);
-        for (final d in discounts) {
-          if (d['discount_type'] == 'funding_milestone' && d['milestone_percent'] != null) {
-            discMap[d['milestone_percent'] as int] = d['milestone_discount_value'] ?? d['value'] ?? 0;
+      if (auth.user != null && (auth.user!.isOrganizer || auth.user!.isAdmin)) {
+        try {
+          final discounts = await api.getEventDiscounts(widget.eventId);
+          for (final d in discounts) {
+            if (d['discount_type'] == 'funding_milestone' && d['milestone_percent'] != null) {
+              discMap[d['milestone_percent'] as int] = d['milestone_discount_value'] ?? d['value'] ?? 0;
+            }
           }
-        }
-      } catch (_) {}
+        } catch (_) {}
+      }
 
       if (mounted) {
         setState(() {

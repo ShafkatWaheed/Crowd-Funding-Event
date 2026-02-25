@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
+import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/shimmer_loaders.dart';
@@ -29,6 +31,11 @@ class _ClaimDiscountsScreenState extends State<ClaimDiscountsScreen> {
   }
 
   Future<void> _load() async {
+    final user = context.read<AuthProvider>().user;
+    if (user == null || !(user.isCustomer || user.isOrganizer || user.isAdmin)) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
     setState(() => _loading = true);
     try {
       final data = await _api.getClaimableDiscounts(widget.eventId);

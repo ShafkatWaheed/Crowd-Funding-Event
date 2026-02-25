@@ -19,7 +19,8 @@ def _future_iso(hours_from_now: float = 24) -> str:
     return t.isoformat().replace("+00:00", "Z")
 
 
-async def test_list_events_public(client: AsyncClient, test_event) -> None:
+async def test_list_events_public(client: AsyncClient, test_event_approved) -> None:
+    """Public list excludes draft; use approved event so it appears."""
     r = await client.get("/api/v1/events")
     assert r.status_code == 200
     data = r.json()
@@ -69,6 +70,8 @@ async def test_create_event_success(
     test_venue,
     auth_headers_organizer: dict[str, str],
 ) -> None:
+    """Create event: need funding_end_at or ticket_strategy_id when no funding; add funding_end_at."""
+    funding_end = (datetime.now(timezone.utc) + timedelta(hours=24)).isoformat().replace("+00:00", "Z")
     r = await client.post(
         "/api/v1/events",
         headers=auth_headers_organizer,
@@ -78,6 +81,8 @@ async def test_create_event_success(
             "description": "Desc",
             "start_time": _future_iso(48),
             "end_time": _future_iso(50),
+            "funding_end_at": funding_end,
+            "funding_goal_cents": 5000,
             "min_pledge_cents": 200,
             "max_capacity": 40,
             "registration_type": "open",
@@ -110,17 +115,18 @@ async def test_get_calendar_ics(client: AsyncClient, test_event) -> None:
     assert b"Test Event" in r.content
 
 
-async def test_submit_event(
+async def test_publish_event(
     client: AsyncClient,
     test_event,
     auth_headers_organizer: dict[str, str],
 ) -> None:
+    """Publish draft event (draft → approved); backend has /publish, no /submit."""
     r = await client.post(
-        f"/api/v1/events/{test_event.id}/submit",
+        f"/api/v1/events/{test_event.id}/publish",
         headers=auth_headers_organizer,
     )
     assert r.status_code == 200
-    assert r.json()["status"] == "pending_approval"
+    assert r.json()["status"] == "approved"
 
 
 async def test_delete_draft_event(
@@ -128,6 +134,7 @@ async def test_delete_draft_event(
     auth_headers_organizer: dict[str, str],
     test_venue,
 ) -> None:
+    funding_end = (datetime.now(timezone.utc) + timedelta(hours=24)).isoformat().replace("+00:00", "Z")
     create_r = await client.post(
         "/api/v1/events",
         headers=auth_headers_organizer,
@@ -136,6 +143,8 @@ async def test_delete_draft_event(
             "title": "To Delete",
             "start_time": _future_iso(48),
             "end_time": _future_iso(50),
+            "funding_end_at": funding_end,
+            "funding_goal_cents": 3000,
             "min_pledge_cents": 100,
             "max_capacity": 20,
         },
@@ -355,6 +364,7 @@ async def test_cancel_event(
     r = await client.post(
         f"/api/v1/events/{test_event_approved.id}/cancel",
         headers=auth_headers_organizer,
+        json={"reason": "Test cancellation"},
     )
     assert r.status_code == 200
     assert r.json()["status"] == "cancelled"
@@ -369,11 +379,11 @@ async def test_extend_funding(
     r = await client.post(
         f"/api/v1/events/{test_event_approved.id}/extend-funding",
         headers=auth_headers_organizer,
-        json={"funding_end_at": None, "start_time": None, "end_time": new_end},
+        json={"funding_end_at": new_end, "funding_goal_cents": None},
     )
     assert r.status_code == 200
     data = r.json()
-    assert "end_time" in data
+    assert "funding_end_at" in data or "end_time" in data
 
 
 async def test_add_and_remove_co_organizer(

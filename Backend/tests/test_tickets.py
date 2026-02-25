@@ -189,7 +189,9 @@ async def test_purchase_ticket_success(
         json={"tier_id": test_ticket_tier.id},
     )
     assert r.status_code == 200
-    data = r.json()
+    raw = r.json()
+    # API returns list of ticket sales; take first
+    data = raw[0] if isinstance(raw, list) and raw else raw
     assert data["event_id"] == test_event_approved.id
     assert data["ticket_tier_id"] == test_ticket_tier.id
     assert "ticket_code" in data and len(data["ticket_code"]) > 0
@@ -214,7 +216,8 @@ async def test_scan_ticket_success(
         json={"tier_id": test_ticket_tier.id},
     )
     assert purchase_r.status_code == 200
-    ticket_code = purchase_r.json()["ticket_code"]
+    purchase_data = purchase_r.json()
+    ticket_code = (purchase_data[0] if isinstance(purchase_data, list) else purchase_data)["ticket_code"]
 
     r = await client.post(
         f"/api/v1/events/{test_event_approved.id}/scan-ticket",
@@ -244,7 +247,8 @@ async def test_scan_ticket_already_scanned(
         headers=auth_headers_customer,
         json={"tier_id": test_ticket_tier.id},
     )
-    ticket_code = purchase_r.json()["ticket_code"]
+    purchase_data = purchase_r.json()
+    ticket_code = (purchase_data[0] if isinstance(purchase_data, list) else purchase_data)["ticket_code"]
     await client.post(
         f"/api/v1/events/{test_event_approved.id}/scan-ticket",
         headers=auth_headers_organizer,
@@ -313,7 +317,8 @@ async def test_scanned_tickets_after_scan(
         headers=auth_headers_customer,
         json={"tier_id": test_ticket_tier.id},
     )
-    ticket_code = purchase_r.json()["ticket_code"]
+    purchase_data = purchase_r.json()
+    ticket_code = (purchase_data[0] if isinstance(purchase_data, list) else purchase_data)["ticket_code"]
     await client.post(
         f"/api/v1/events/{test_event_approved.id}/scan-ticket",
         headers=auth_headers_organizer,

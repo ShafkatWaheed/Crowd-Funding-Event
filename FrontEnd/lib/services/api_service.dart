@@ -714,12 +714,17 @@ class ApiService {
   // ─── Feature Flags ───
 
   Future<Map<String, bool>> getFeatureFlags() async {
-    final resp = await dio.get('/admin/settings');
-    final list = resp.data as List;
-    return {
-      for (var s in list.where((s) => (s['key'] as String).startsWith('feature_')))
-        s['key'] as String: s['value'] == 'true',
-    };
+    try {
+      final resp = await dio.get('/admin/settings');
+      final list = resp.data as List;
+      return {
+        for (var s in list.where((s) => (s['key'] as String).startsWith('feature_')))
+          s['key'] as String: s['value'] == 'true',
+      };
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 403) return {};
+      rethrow;
+    }
   }
 
   // ─── Milestones ───

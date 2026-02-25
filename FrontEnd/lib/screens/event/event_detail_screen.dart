@@ -153,7 +153,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
   Future<void> _loadMyTicketCount() async {
     final auth = context.read<AuthProvider>();
-    if (auth.user == null) return;
+    final user = auth.user;
+    if (user == null || !user.isCustomer) return;
     try {
       final api = context.read<ApiService>();
       final tickets = await api.getMyTickets();
@@ -171,7 +172,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
   Future<void> _loadMyReservedSpots() async {
     final auth = context.read<AuthProvider>();
-    if (auth.user == null) return;
+    final user = auth.user;
+    if (user == null || !(user.isCustomer || user.isSponsor)) return;
     try {
       final api = context.read<ApiService>();
       final pledges = await api.getMyPledges();
@@ -988,7 +990,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                 ),
 
                                 // Your Discounts (customer view only)
-                                if (user != null && !user.isOrganizer && !user.isAdmin) ...[
+                                if (user != null && user.isCustomer) ...[
                                   CustomerDiscountsSection(eventId: event.id),
                                 ],
                               ] else ...[

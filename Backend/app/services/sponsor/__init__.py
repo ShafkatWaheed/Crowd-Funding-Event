@@ -1,0 +1,93 @@
+"""
+Sponsor service: re-export all public functions so "from app.services import sponsor as sponsor_svc" still works.
+"""
+from app.services.sponsor.bids import (
+    accept_bid,
+    list_bids,
+    place_bid,
+    reject_bid,
+    update_bid,
+    withdraw_bid,
+)
+from app.services.sponsor.categories import (
+    _get_category,
+    _require_organizer,
+    copy_template_to_event,
+    create_category,
+    delete_category,
+    delete_template,
+    get_bid_stats,
+    get_my_bid_count,
+    get_my_bids,
+    get_prereq_counts,
+    list_categories,
+    list_templates,
+    update_category,
+    update_template,
+)
+from app.services.sponsor.organizer_queries import (
+    get_events_with_sponsorship_available,
+    get_organizer_sponsors,
+    get_paid_sponsors,
+    get_sponsor_bid_events,
+    get_sponsor_bid_summary_for_event,
+    get_sponsor_events_for_organizer,
+)
+from app.services.sponsor.payments import (
+    _ensure_sponsor_ticket,
+    pay_bid,
+    refund_all_sponsor_payments_for_event,
+    refund_bid,
+)
+from app.services.sponsor.profile import (
+    create_profile,
+    get_profile,
+    update_profile,
+)
+from app.services.sponsor.tickets import (
+    get_sponsor_ticket,
+    get_won_categories,
+    list_sponsor_tickets,
+    scan_sponsor_ticket,
+)
+
+__all__ = [
+    "_ensure_sponsor_ticket",
+    "_get_category",
+    "_require_organizer",
+    "accept_bid",
+    "copy_template_to_event",
+    "create_category",
+    "create_profile",
+    "create_template",
+    "delete_category",
+    "delete_template",
+    "get_bid_stats",
+    "get_events_with_sponsorship_available",
+    "get_my_bid_count",
+    "get_my_bids",
+    "get_organizer_sponsors",
+    "get_paid_sponsors",
+    "get_prereq_counts",
+    "get_profile",
+    "get_sponsor_bid_events",
+    "get_sponsor_bid_summary_for_event",
+    "get_sponsor_events_for_organizer",
+    "get_sponsor_ticket",
+    "get_won_categories",
+    "list_bids",
+    "list_categories",
+    "list_sponsor_tickets",
+    "list_templates",
+    "pay_bid",
+    "place_bid",
+    "refund_all_sponsor_payments_for_event",
+    "refund_bid",
+    "reject_bid",
+    "scan_sponsor_ticket",
+    "update_bid",
+    "update_category",
+    "update_profile",
+    "update_template",
+    "withdraw_bid",
+]

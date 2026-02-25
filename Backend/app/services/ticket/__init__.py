@@ -1,0 +1,62 @@
+"""
+Ticket service: re-export all public functions so "from app.services import ticket" still works.
+"""
+from app.services.ticket.pricing import compute_ticket_price
+from app.services.ticket.sales import (
+    approve_refund,
+    approve_waitlisted_ticket,
+    get_purchase_group_tickets,
+    get_ticket_receipt,
+    get_ticket_sales_stats,
+    get_ticket_sold_counts_for_events,
+    list_event_scanned_ticket_sales,
+    list_event_ticket_sales,
+    list_event_waitlisted_tickets,
+    list_my_tickets,
+    list_organizer_ticket_sales,
+    list_refund_requests,
+    purchase_ticket,
+    refund_all_tickets_for_event,
+    reject_refund,
+    reject_waitlisted_ticket,
+    request_refund,
+    scan_ticket,
+)
+from app.services.ticket.tiers import (
+    create_tier,
+    delete_tier,
+    list_tiers,
+    get_tier_or_404,
+    remove_user_discount,
+    set_user_discount,
+    update_tier,
+)
+
+__all__ = [
+    "approve_refund",
+    "approve_waitlisted_ticket",
+    "compute_ticket_price",
+    "create_tier",
+    "delete_tier",
+    "get_purchase_group_tickets",
+    "get_tier_or_404",
+    "get_ticket_receipt",
+    "get_ticket_sales_stats",
+    "get_ticket_sold_counts_for_events",
+    "list_event_scanned_ticket_sales",
+    "list_event_ticket_sales",
+    "list_event_waitlisted_tickets",
+    "list_my_tickets",
+    "list_organizer_ticket_sales",
+    "list_refund_requests",
+    "list_tiers",
+    "purchase_ticket",
+    "refund_all_tickets_for_event",
+    "reject_refund",
+    "reject_waitlisted_ticket",
+    "remove_user_discount",
+    "request_refund",
+    "scan_ticket",
+    "set_user_discount",
+    "update_tier",
+]

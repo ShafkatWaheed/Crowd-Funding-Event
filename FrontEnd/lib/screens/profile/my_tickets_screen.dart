@@ -8,6 +8,7 @@ import '../../config/design_tokens.dart';
 import '../../config/theme.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../models/ticket.dart';
+import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/animated_list_item.dart';
@@ -63,6 +64,11 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
   }
 
   Future<void> _load() async {
+    final user = context.read<AuthProvider>().user;
+    if (user == null || !user.isCustomer) {
+      if (mounted) setState(() { _loading = false; _error = 'Only customers can view tickets'; });
+      return;
+    }
     setState(() {
       _loading = true;
       _error = null;

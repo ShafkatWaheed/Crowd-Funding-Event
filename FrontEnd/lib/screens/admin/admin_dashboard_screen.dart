@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
+import '../../providers/auth_provider.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../services/api_service.dart';
 
@@ -34,6 +35,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   }
 
   Future<void> _loadData() async {
+    final user = context.read<AuthProvider>().user;
+    if (user == null || !user.isAdmin) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
     setState(() => _isLoading = true);
     final api = context.read<ApiService>();
     try {

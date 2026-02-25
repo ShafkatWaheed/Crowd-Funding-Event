@@ -1781,7 +1781,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 Container(
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryColor,
+                    color: AppTheme.cardOf(context),
                     borderRadius: AppRadius.pill,
                   ),
                   child: Row(
@@ -1890,6 +1890,8 @@ class _HomeScreenState extends State<HomeScreen> {
     required bool isActive,
     required VoidCallback onTap,
   }) {
+    final activeColor = AppTheme.textPrimaryOf(context);
+    final inactiveColor = AppTheme.textSecondaryOf(context);
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -1899,9 +1901,7 @@ class _HomeScreenState extends State<HomeScreen> {
           horizontal: 14, vertical: AppSpacing.sm,
         ),
         decoration: BoxDecoration(
-          color: isActive
-              ? AppTheme.cardOf(context)
-              : Colors.transparent,
+          color: isActive ? AppTheme.surfaceOf(context) : Colors.transparent,
           borderRadius: AppRadius.pill,
         ),
         child: Row(
@@ -1910,7 +1910,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Icon(
               icon,
               size: AppIconSize.sm,
-              color: isActive ? AppTheme.primaryColor : Colors.white60,
+              color: isActive ? activeColor : inactiveColor,
             ),
             const SizedBox(width: 5),
             Text(
@@ -1918,7 +1918,7 @@ class _HomeScreenState extends State<HomeScreen> {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: isActive ? AppTheme.primaryColor : Colors.white60,
+                color: isActive ? activeColor : inactiveColor,
               ),
             ),
           ],
@@ -3707,10 +3707,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Center(
                     child: Text(
                       user.initial,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 34,
                         fontWeight: FontWeight.w900,
-                        color: AppTheme.primaryColor,
+                        color: AppTheme.textPrimaryOf(context),
                       ),
                     ),
                   ),

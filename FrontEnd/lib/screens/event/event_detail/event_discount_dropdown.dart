@@ -27,17 +27,20 @@ class _EventDiscountDropdownState extends State<EventDiscountDropdown> {
   }
 
   Future<void> _load() async {
+    if (!mounted) return;
     setState(() => _loading = true);
     try {
       final all = await _api.getDiscountStrategies();
+      if (!mounted) return;
       final attached = await _api.getEventDiscountStrategies(widget.eventId);
-      setState(() {
-        _allStrategies = all.cast<Map<String, dynamic>>();
-        _attached = attached.cast<Map<String, dynamic>>();
-        _loading = false;
-      });
+      if (!mounted) return;
+      _allStrategies = all.cast<Map<String, dynamic>>();
+      _attached = attached.cast<Map<String, dynamic>>();
+      _loading = false;
+      if (mounted) setState(() {});
     } catch (_) {
-      setState(() => _loading = false);
+      _loading = false;
+      if (mounted) setState(() {});
     }
   }
 

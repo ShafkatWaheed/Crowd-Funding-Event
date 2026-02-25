@@ -88,14 +88,6 @@ async def auto_transition_status(db: AsyncSession, event: Event) -> Event:
                 ))
                 changed = True
 
-        # ── selling_tickets / approved → try stage 2 escrow release ──
-        if event.status in (EventStatus.selling_tickets, EventStatus.approved):
-            try:
-                from app.services import escrow as escrow_svc
-                await escrow_svc.check_and_release_stage2(db, event_id=event.id)
-            except Exception:
-                pass
-
         # ── selling_tickets / approved → check if event started ──
         if event.status in (EventStatus.selling_tickets, EventStatus.approved):
             start = _tz(event.start_time)

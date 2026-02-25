@@ -359,22 +359,22 @@ class _HomeScreenState extends State<HomeScreen> {
     await _loadSponsorBidEvents();
   }
 
-  Future<void> _loadDashboard({String? statusFilter, int? eventId}) async {
+  Future<void> _loadDashboard({String? statusFilter, int? eventId, String? genre}) async {
     final auth = context.read<AuthProvider>();
     if (auth.user == null || !(auth.user!.isOrganizer || auth.user!.isAdmin)) return;
     setState(() { _dashboardLoading = true; _dashboardError = null; });
     try {
       final api = context.read<ApiService>();
-      final data = await api.getOrganizerDashboard(status: statusFilter, eventId: eventId);
+      final data = await api.getOrganizerDashboard(status: statusFilter, eventId: eventId, genre: genre);
       if (mounted) {
         setState(() {
           _dashboardData = data;
-          if (statusFilter == null && eventId == null) {
+          if (statusFilter == null && eventId == null && genre == null) {
             _statusBreakdownAll = (data['status_breakdown'] as List?)?.toList();
           }
           _dashboardLoading = false;
         });
-        _loadTimeSeries(statusFilter: statusFilter, eventId: eventId);
+        _loadTimeSeries(statusFilter: statusFilter, eventId: eventId, genre: genre);
       }
     } catch (e) {
       if (mounted) {
@@ -386,12 +386,12 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _loadTimeSeries({String? statusFilter, int? eventId}) async {
+  Future<void> _loadTimeSeries({String? statusFilter, int? eventId, String? genre}) async {
     setState(() => _timeSeriesLoading = true);
     try {
       final api = context.read<ApiService>();
       final data = await api.getOrganizerTimeSeries(
-        days: _chartDays, status: statusFilter, eventId: eventId,
+        days: _chartDays, status: statusFilter, eventId: eventId, genre: genre,
       );
       if (mounted) setState(() { _timeSeriesData = data; _timeSeriesLoading = false; });
     } catch (e) {
@@ -827,7 +827,11 @@ class _HomeScreenState extends State<HomeScreen> {
       color: AppTheme.primaryColor,
       onRefresh: () async {
         final futures = <Future>[_loadFeatured(), _loadMyEvents()];
-        if (isOrg) futures.add(_loadDashboard());
+        if (isOrg) futures.add(_loadDashboard(
+          statusFilter: _dashboardStatusFilter,
+          eventId: _dashboardEventId,
+          genre: _dashboardGenreFilter,
+        ));
         await Future.wait(futures);
       },
       child: CustomScrollView(
@@ -1194,13 +1198,13 @@ class _HomeScreenState extends State<HomeScreen> {
                           _dashboardEventId = null;
                           _dashboardEventTitle = null;
                         });
-                        _loadDashboard(statusFilter: _dashboardStatusFilter);
+                        _loadDashboard(statusFilter: _dashboardStatusFilter, genre: _dashboardGenreFilter);
                       } else {
                         setState(() {
                           _dashboardEventId = event.id;
                           _dashboardEventTitle = event.title;
                         });
-                        _loadDashboard(eventId: event.id);
+                        _loadDashboard(eventId: event.id, genre: _dashboardGenreFilter);
                       }
                     },
                     genreChips: genres.length > 1
@@ -1247,7 +1251,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 _dashboardEventId = null;
                                 _dashboardEventTitle = null;
                               });
-                              _loadDashboard(statusFilter: _dashboardStatusFilter);
+                              _loadDashboard(statusFilter: _dashboardStatusFilter, genre: _dashboardGenreFilter);
                             },
                             child: Padding(
                               padding: const EdgeInsets.all(4),
@@ -1331,13 +1335,13 @@ class _HomeScreenState extends State<HomeScreen> {
                           _dashboardEventId = null;
                           _dashboardEventTitle = null;
                         });
-                        _loadDashboard();
+                        _loadDashboard(genre: _dashboardGenreFilter);
                       } else {
                         setState(() {
                           _dashboardEventId = event.id;
                           _dashboardEventTitle = event.title;
                         });
-                        _loadDashboard(eventId: event.id);
+                        _loadDashboard(eventId: event.id, genre: _dashboardGenreFilter);
                       }
                     },
                     genreChips: genres.length > 1
@@ -1384,7 +1388,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 _dashboardEventId = null;
                                 _dashboardEventTitle = null;
                               });
-                              _loadDashboard();
+                              _loadDashboard(genre: _dashboardGenreFilter);
                             },
                             child: Padding(
                               padding: const EdgeInsets.all(4),
@@ -2230,7 +2234,14 @@ class _HomeScreenState extends State<HomeScreen> {
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: GestureDetector(
-        onTap: () => setState(() => _dashboardGenreFilter = value),
+        onTap: () {
+          setState(() => _dashboardGenreFilter = value);
+          _loadDashboard(
+            statusFilter: _dashboardStatusFilter,
+            eventId: _dashboardEventId,
+            genre: value,
+          );
+        },
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
@@ -2496,7 +2507,7 @@ class _HomeScreenState extends State<HomeScreen> {
               onTap: () {
                 if (_chartDays != days) {
                   setState(() => _chartDays = days);
-                  _loadTimeSeries(statusFilter: _dashboardStatusFilter, eventId: _dashboardEventId);
+                  _loadTimeSeries(statusFilter: _dashboardStatusFilter, eventId: _dashboardEventId, genre: _dashboardGenreFilter);
                 }
               },
               child: Container(

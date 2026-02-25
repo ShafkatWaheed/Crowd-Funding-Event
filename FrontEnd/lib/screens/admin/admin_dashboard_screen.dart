@@ -312,8 +312,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         _pendingCancellations.length +
         _pendingExtensions.length;
 
-    return SizedBox(
+    return Container(
       width: 220,
+      color: AppTheme.cardOf(context),
       child: Column(
         children: [
           Container(
@@ -1629,7 +1630,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         child: ListTile(
                           onTap: () => context.push('/admin/users/${user['id']}'),
                           leading: CircleAvatar(
-                            backgroundColor: AppTheme.surfaceOf(context),
+                            backgroundColor: AppTheme.accentOf(context).withValues(alpha: 0.15),
+                            foregroundColor: AppTheme.accentOf(context),
                             child: Text(initial),
                           ),
                           title: Text(name,
@@ -1859,7 +1861,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       case 'admin': return AppTheme.errorOf(context);
       case 'organizer': return AppTheme.accentOf(context);
       case 'sponsor': return context.sponsorAccent;
-      case 'customer': return AppTheme.primaryOf(context);
+      case 'customer': return AppTheme.successOf(context);
       default: return AppTheme.textSecondaryOf(context);
     }
   }

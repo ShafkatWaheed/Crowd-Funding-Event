@@ -134,6 +134,12 @@ async def purchase_ticket(
         await db.refresh(sale)
         sales.append(sale)
 
+    try:
+        from app.services import escrow as escrow_svc
+        await escrow_svc.check_and_release_stage2(db, event_id=event_id)
+    except Exception:
+        pass
+
     loaded_sales: list[TicketSale] = []
     for sale in sales:
         q = select(TicketSale).where(TicketSale.id == sale.id).options(

@@ -596,19 +596,21 @@ class ApiService {
 
   // ─── Organizer Dashboard ───
 
-  Future<Map<String, dynamic>> getOrganizerDashboard({String? status, int? eventId}) async {
+  Future<Map<String, dynamic>> getOrganizerDashboard({String? status, int? eventId, String? genre}) async {
     final resp = await dio.get('/me/organizer-dashboard', queryParameters: {
       if (status != null) 'status': status,
       if (eventId != null) 'event_id': eventId,
+      if (genre != null) 'genre': genre,
     });
     return resp.data;
   }
 
-  Future<Map<String, dynamic>> getOrganizerTimeSeries({int days = 30, String? status, int? eventId}) async {
+  Future<Map<String, dynamic>> getOrganizerTimeSeries({int days = 30, String? status, int? eventId, String? genre}) async {
     final resp = await dio.get('/me/organizer-dashboard/time-series', queryParameters: {
       'days': days,
       if (status != null) 'status': status,
       if (eventId != null) 'event_id': eventId,
+      if (genre != null) 'genre': genre,
     });
     return resp.data;
   }

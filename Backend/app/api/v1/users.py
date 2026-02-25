@@ -431,13 +431,14 @@ async def get_organizer_dashboard(
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
     status: str | None = Query(None, description="Filter KPIs to events with this status"),
     event_id: int | None = Query(None, description="Filter KPIs to a single event"),
+    genre: str | None = Query(None, description="Filter KPIs to events with this genre"),
 ):
     """Aggregated dashboard: KPIs with deltas, status breakdown, top events, activity feed."""
     from datetime import datetime, timezone
     from app.services import dashboard as dashboard_service
 
     raw = await dashboard_service.get_organizer_dashboard(
-        db, current_user.id, status_filter=status, event_id=event_id,
+        db, current_user.id, status_filter=status, event_id=event_id, genre=genre,
     )
 
     all_event_objs = list({
@@ -492,9 +493,10 @@ async def get_organizer_time_series(
     days: int = Query(30, ge=7, le=90, description="Number of days (7, 30, or 90)"),
     status: str | None = Query(None, description="Filter to events with this status"),
     event_id: int | None = Query(None, description="Filter to a single event"),
+    genre: str | None = Query(None, description="Filter to events with this genre"),
 ):
     """Time-series revenue and ticket data for the organizer's events."""
     from app.services import dashboard as dashboard_service
     return await dashboard_service.get_organizer_time_series(
-        db, current_user.id, days=days, status_filter=status, event_id=event_id,
+        db, current_user.id, days=days, status_filter=status, event_id=event_id, genre=genre,
     )

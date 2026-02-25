@@ -22,6 +22,7 @@ async def get_organizer_dashboard(
     delta_days: int = 30,
     status_filter: str | None = None,
     event_id: int | None = None,
+    genre: str | None = None,
 ) -> dict[str, Any]:
     now = datetime.now(timezone.utc)
     period_start = now - timedelta(days=delta_days)
@@ -36,6 +37,8 @@ async def get_organizer_dashboard(
             org_event_ids_q = org_event_ids_q.where(Event.status == status_enum)
         except ValueError:
             pass
+    if genre:
+        org_event_ids_q = org_event_ids_q.where(Event.genre == genre)
     org_events_excl_draft = org_event_ids_q.where(Event.status != EventStatus.draft)
 
     # ── KPI: Total Revenue ──────────────────────────────────────────────
@@ -410,6 +413,7 @@ async def get_organizer_time_series(
     days: int = 30,
     status_filter: str | None = None,
     event_id: int | None = None,
+    genre: str | None = None,
 ) -> dict[str, Any]:
     now = datetime.now(timezone.utc)
     start = now - timedelta(days=days)
@@ -422,6 +426,8 @@ async def get_organizer_time_series(
             org_event_ids_q = org_event_ids_q.where(Event.status == status_enum)
         except ValueError:
             pass
+    if genre:
+        org_event_ids_q = org_event_ids_q.where(Event.genre == genre)
 
     ticket_day = func.date_trunc("day", TicketSale.created_at)
     ticket_daily = (await db.execute(

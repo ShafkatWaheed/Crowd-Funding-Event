@@ -4,6 +4,7 @@ Fund escrow service: create, release stages, freeze, get status.
 from datetime import datetime, timezone
 
 from sqlalchemy import select, func
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ConflictError, NotFoundError
@@ -25,10 +26,12 @@ async def get_or_create(db: AsyncSession, *, event_id: int) -> FundEscrow:
         Funding.status == FundingStatus.pledged,
     )
     total = int((await db.execute(total_q)).scalar_one())
-    escrow = FundEscrow(event_id=event_id, total_held_cents=total)
-    db.add(escrow)
+    stmt = pg_insert(FundEscrow).values(
+        event_id=event_id, total_held_cents=total,
+    ).on_conflict_do_nothing(index_elements=["event_id"])
+    await db.execute(stmt)
     await db.flush()
-    await db.refresh(escrow)
+    escrow = (await db.execute(q)).scalar_one()
     return escrow
 
 
@@ -225,8 +228,9 @@ async def check_and_release_stage1(db: AsyncSession, *, event_id: int) -> FundEs
     if not await settings_svc.get_bool(db, "escrow_stage1_trigger_enabled"):
         return None
 
-    from app.services import event as event_svc
-    event = await event_svc.get_or_404(db, event_id)
+    event = (await db.execute(select(Event).where(Event.id == event_id))).scalar_one_or_none()
+    if not event:
+        return None
 
     waived = await _check_community_waiver(db, event)
     if waived:
@@ -270,8 +274,9 @@ async def check_and_release_stage2(db: AsyncSession, *, event_id: int) -> FundEs
     if not await settings_svc.get_bool(db, "escrow_stage2_trigger_enabled"):
         return None
 
-    from app.services import event as event_svc
-    event = await event_svc.get_or_404(db, event_id)
+    event = (await db.execute(select(Event).where(Event.id == event_id))).scalar_one_or_none()
+    if not event:
+        return None
 
     waived = await _check_community_waiver(db, event)
     if waived:
@@ -322,8 +327,9 @@ async def check_and_release_stage3(db: AsyncSession, *, event_id: int) -> FundEs
     if not await settings_svc.get_bool(db, "escrow_stage3_trigger_enabled"):
         return None
 
-    from app.services import event as event_svc
-    event = await event_svc.get_or_404(db, event_id)
+    event = (await db.execute(select(Event).where(Event.id == event_id))).scalar_one_or_none()
+    if not event:
+        return None
 
     waived = await _check_community_waiver(db, event)
     if waived:

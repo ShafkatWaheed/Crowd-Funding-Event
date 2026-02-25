@@ -148,7 +148,25 @@ class AppTheme {
       floatingActionButtonTheme: _fabTheme(primaryColor),
       bottomNavigationBarTheme: _bottomNavTheme(Colors.white, primaryColor, textSecondary),
       dividerTheme: DividerThemeData(color: dividerColor, thickness: 1, space: 0),
-      chipTheme: _chipTheme(surfaceColor, primaryColor),
+      chipTheme: _chipTheme(surfaceColor, primaryColor, textPrimary, Colors.white),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: ButtonStyle(
+          backgroundColor: WidgetStateProperty.resolveWith((states) =>
+              states.contains(WidgetState.selected) ? primaryColor : Colors.white),
+          foregroundColor: WidgetStateProperty.resolveWith((states) =>
+              states.contains(WidgetState.selected) ? Colors.white : textPrimary),
+          side: WidgetStatePropertyAll(BorderSide(color: dividerColor)),
+          textStyle: WidgetStatePropertyAll(GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600)),
+        ),
+      ),
+      navigationRailTheme: NavigationRailThemeData(
+        backgroundColor: Colors.white,
+        selectedIconTheme: IconThemeData(color: primaryColor),
+        unselectedIconTheme: IconThemeData(color: textSecondary),
+        selectedLabelTextStyle: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: primaryColor),
+        unselectedLabelTextStyle: GoogleFonts.inter(fontSize: 12, color: textSecondary),
+        indicatorColor: accentColor.withValues(alpha: 0.12),
+      ),
       dialogTheme: DialogTheme(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
@@ -189,7 +207,25 @@ class AppTheme {
       floatingActionButtonTheme: _fabTheme(accentColor),
       bottomNavigationBarTheme: _bottomNavTheme(_dkCard, accentColor, _dkTextSecondary),
       dividerTheme: DividerThemeData(color: _dkDivider, thickness: 1, space: 0),
-      chipTheme: _chipTheme(const Color(0xFF252525), accentColor),
+      chipTheme: _chipTheme(const Color(0xFF252525), accentColor, _dkTextPrimary, Colors.white),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: ButtonStyle(
+          backgroundColor: WidgetStateProperty.resolveWith((states) =>
+              states.contains(WidgetState.selected) ? accentColor : _dkCard),
+          foregroundColor: WidgetStateProperty.resolveWith((states) =>
+              states.contains(WidgetState.selected) ? Colors.white : _dkTextPrimary),
+          side: WidgetStatePropertyAll(BorderSide(color: _dkDivider)),
+          textStyle: WidgetStatePropertyAll(GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600)),
+        ),
+      ),
+      navigationRailTheme: NavigationRailThemeData(
+        backgroundColor: _dkCard,
+        selectedIconTheme: IconThemeData(color: accentColor),
+        unselectedIconTheme: IconThemeData(color: _dkTextSecondary),
+        selectedLabelTextStyle: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: accentColor),
+        unselectedLabelTextStyle: GoogleFonts.inter(fontSize: 12, color: _dkTextSecondary),
+        indicatorColor: accentColor.withValues(alpha: 0.15),
+      ),
       dialogTheme: DialogTheme(
         backgroundColor: _dkCard,
         surfaceTintColor: Colors.transparent,
@@ -314,15 +350,18 @@ class AppTheme {
     );
   }
 
-  static ChipThemeData _chipTheme(Color bg, Color selected) {
+  static ChipThemeData _chipTheme(Color bg, Color selected, Color labelColor, Color selectedLabelColor) {
     return ChipThemeData(
       backgroundColor: bg,
       selectedColor: selected,
       secondarySelectedColor: selected,
-      labelStyle: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500),
+      labelStyle: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500, color: labelColor),
+      secondaryLabelStyle: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500, color: selectedLabelColor),
       shape: RoundedRectangleBorder(borderRadius: AppRadius.pill),
       side: BorderSide.none,
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 6),
+      showCheckmark: true,
+      checkmarkColor: selectedLabelColor,
     );
   }
 }

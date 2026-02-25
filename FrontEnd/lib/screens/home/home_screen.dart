@@ -2182,13 +2182,17 @@ class _HomeScreenState extends State<HomeScreen> {
                     accentColor: context.managementAccent,
                     isActive: false,
                     onTap: () {
-                      setState(() {
-                        _selectedStatus = _dashboardStatusFilter;
-                        _selectedGenre = _dashboardGenreFilter;
-                        _navIndex = 1;
-                      });
-                      _applyFilters();
-                      context.go('/?tab=explore');
+                      if (_dashboardEventId != null) {
+                        context.push('/events/$_dashboardEventId');
+                      } else {
+                        setState(() {
+                          _selectedStatus = _dashboardStatusFilter;
+                          _selectedGenre = _dashboardGenreFilter;
+                          _navIndex = 1;
+                        });
+                        _applyFilters();
+                        context.go('/?tab=explore');
+                      }
                     },
                   ),
                 ),

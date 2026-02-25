@@ -116,7 +116,27 @@ async def auto_transition_status(db: AsyncSession, event: Event) -> Event:
         log.exception("Auto-transition failed for event %s (was %s): %s", event.id, previous_status.value, exc)
         event.status = EventStatus.under_review
         event.review_notes = f"Auto-transition from '{previous_status.value}' failed: {exc}"
+        event.review_log = (event.review_log or []) + [{
+            "timestamp": now.isoformat(),
+            "actor": "system",
+            "action": "entered_review",
+            "from_status": previous_status.value,
+            "to_status": "under_review",
+            "message": f"Auto-transition failed: {exc}",
+        }]
         changed = True
+        try:
+            from app.services import notification_service as notif_svc
+            from app.models.notification import NotificationType
+            await notif_svc.create_notification(
+                db, user_id=event.organizer_id,
+                type=NotificationType.event_under_review,
+                title="Event Under Review",
+                message=f'Your event "{event.title}" needs attention. An automatic transition failed: {exc}. An admin will review it shortly.',
+                data={"event_id": event.id},
+            )
+        except Exception:
+            log.exception("Failed to send under_review notification for event %s", event.id)
 
     if changed:
         await db.flush()

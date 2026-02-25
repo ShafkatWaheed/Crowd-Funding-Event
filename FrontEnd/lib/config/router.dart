@@ -22,6 +22,7 @@ import '../screens/venue/venue_list_screen.dart';
 import '../screens/venue/create_venue_screen.dart';
 import '../screens/ticket_strategy/ticket_strategies_screen.dart';
 import '../screens/admin/admin_dashboard_screen.dart';
+import '../screens/admin/admin_user_detail_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import '../screens/profile/my_tickets_screen.dart';
 import '../screens/profile/my_pledges_screen.dart';
@@ -61,6 +62,7 @@ GoRouter createRouter(AuthProvider authProvider) {
       }
 
       if (isAuthenticated && isAuthRoute) {
+        if (authProvider.user?.isAdmin == true) return '/admin';
         final redirect = state.uri.queryParameters['redirect'];
         if (redirect != null &&
             redirect.isNotEmpty &&
@@ -69,6 +71,18 @@ GoRouter createRouter(AuthProvider authProvider) {
           return Uri.decodeComponent(redirect);
         }
         return '/';
+      }
+
+      if (isAuthenticated) {
+        final isAdminRoute = currentPath == '/admin' ||
+            currentPath.startsWith('/admin/');
+        final isEventRoute = currentPath.startsWith('/events/');
+        if (authProvider.user?.isAdmin == true && !isAdminRoute && !isEventRoute) {
+          return '/admin';
+        }
+        if (authProvider.user?.isAdmin != true && isAdminRoute) {
+          return '/';
+        }
       }
 
       return null;
@@ -138,7 +152,10 @@ GoRouter createRouter(AuthProvider authProvider) {
         path: '/events/:id',
         pageBuilder: (context, state) {
           final id = int.parse(state.pathParameters['id']!);
-          return fadeScalePage(child: EventDetailScreen(eventId: id));
+          final extra = state.extra as Map<String, dynamic>? ?? {};
+          final readOnly = extra['readOnly'] == true;
+          return fadeScalePage(
+              child: EventDetailScreen(eventId: id, readOnly: readOnly));
         },
       ),
       GoRoute(
@@ -364,6 +381,13 @@ GoRouter createRouter(AuthProvider authProvider) {
         path: '/admin',
         pageBuilder: (context, state) =>
             fadeThroughPage(child: const AdminDashboardScreen()),
+      ),
+      GoRoute(
+        path: '/admin/users/:id',
+        pageBuilder: (context, state) {
+          final id = int.parse(state.pathParameters['id']!);
+          return fadeThroughPage(child: AdminUserDetailScreen(userId: id));
+        },
       ),
     ],
     errorBuilder: (context, state) => Scaffold(

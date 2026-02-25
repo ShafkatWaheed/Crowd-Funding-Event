@@ -693,6 +693,17 @@ class ApiService {
     return resp.data;
   }
 
+  Future<Map<String, dynamic>> adminGetUserDetail(int userId) async {
+    final resp = await dio.get('/admin/users/$userId/detail');
+    return resp.data as Map<String, dynamic>;
+  }
+
+  Future<void> adminRefundSponsorBid(
+      int eventId, int catId, int bidId) async {
+    await dio.post(
+        '/admin/events/$eventId/sponsorships/$catId/bids/$bidId/refund');
+  }
+
   Future<List<dynamic>> adminGetEvents(
       {Map<String, dynamic>? params}) async {
     final resp = await dio.get('/admin/events', queryParameters: params);
@@ -709,6 +720,20 @@ class ApiService {
   Future<Map<String, dynamic>> adminGetStats() async {
     final resp = await dio.get('/admin/stats');
     return resp.data;
+  }
+
+  Future<List<dynamic>> adminGetTickets({int limit = 500}) async {
+    final resp = await dio.get('/admin/tickets', queryParameters: {'limit': limit});
+    return resp.data;
+  }
+
+  Future<List<dynamic>> adminGetPledges({int limit = 500}) async {
+    final resp = await dio.get('/admin/pledges', queryParameters: {'limit': limit});
+    return resp.data;
+  }
+
+  Future<void> adminRefundPledge(int eventId, int fundingId) async {
+    await dio.post('/admin/events/$eventId/pledges/$fundingId/refund');
   }
 
   // ─── Feature Flags ───

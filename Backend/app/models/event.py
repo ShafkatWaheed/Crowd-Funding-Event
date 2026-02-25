@@ -65,6 +65,7 @@ class Event(Base):
     pledge_discount_percent: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # % of user's pledges as discount
     cancellation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     review_notes: Mapped[str | None] = mapped_column(Text, nullable=True)  # failure message when under_review
+    review_log: Mapped[list | None] = mapped_column(JSON, nullable=True, default=list)
     registration_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # denormalized for trending
     genre: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True)
     community_rules: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

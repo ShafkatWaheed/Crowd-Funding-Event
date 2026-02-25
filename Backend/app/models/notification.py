@@ -51,6 +51,9 @@ class NotificationType(str, enum.Enum):
     # Bookmarks (used by Feature 6)
     bookmarked_event_update = "bookmarked_event_update"
 
+    # Admin review
+    event_under_review = "event_under_review"
+
 
 class Notification(Base):
     __tablename__ = "notifications"

@@ -1,5 +1,5 @@
 """
-Admin: list events for moderation, approve/reject, platform stats.
+Admin: list events for moderation, approve/reject, platform stats, validation warnings.
 """
 from datetime import datetime, timezone
 
@@ -26,7 +26,7 @@ async def list_events_for_admin(
 ):
     """List events for admin view. Optional filter by status (e.g. pending_approval)."""
     return await event_service.list_events(
-        db, status=status
+        db, status=status, include_all_statuses=True
     )
 
 
@@ -49,11 +49,52 @@ async def approve_or_reject_event(
     return event
 
 
+def compute_event_warnings(event: Event) -> list[str]:
+    """Inspect an Event and return a list of human-readable warning strings."""
+    now = datetime.now(timezone.utc)
+    warnings: list[str] = []
+
+    if not event.description or len(event.description.strip()) < 20:
+        warnings.append("Description is missing or too short")
+    if not event.funding_goal_cents and event.funding_end_at:
+        warnings.append("Funding deadline set but goal is $0")
+    if event.funding_goal_cents and not event.funding_end_at:
+        warnings.append("Funding goal set but no funding deadline")
+    if event.max_capacity == 0:
+        warnings.append("Capacity is 0")
+    if (
+        not event.ticket_strategy_id
+        and event.status in (EventStatus.selling_tickets, EventStatus.approved)
+        and not event.funding_end_at
+    ):
+        warnings.append("No ticket tier assigned")
+
+    def _tz(dt: datetime | None) -> datetime | None:
+        if dt is None:
+            return None
+        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+    if event.start_time and _tz(event.start_time) < now:
+        if event.status in (EventStatus.draft, EventStatus.pending_approval, EventStatus.under_review):
+            warnings.append("Event start date is in the past")
+    if event.end_time and event.start_time and _tz(event.end_time) <= _tz(event.start_time):
+        warnings.append("End time is before or equal to start time")
+    if event.funding_end_at and _tz(event.funding_end_at) < now:
+        if event.status in (EventStatus.draft, EventStatus.pending_approval):
+            warnings.append("Funding deadline already passed")
+    if not event.genre:
+        warnings.append("No genre/category set")
+
+    return warnings
+
+
 async def get_stats(db: AsyncSession) -> dict:
     """
     Return platform stats: events_total, events_pending, events_live, users_total,
-    total_ticket_commission_cents, total_funding_commission_cents.
+    total_ticket_commission_cents, total_funding_commission_cents, total_escrow_held_cents.
     """
+    from app.models.escrow import FundEscrow
+
     now = datetime.now(timezone.utc)
     total = (await db.execute(select(func.count()).select_from(Event))).scalar_one()
     pending = (
@@ -72,7 +113,6 @@ async def get_stats(db: AsyncSession) -> dict:
     ).scalar_one()
     users_total = (await db.execute(select(func.count()).select_from(User))).scalar_one()
 
-    # Commission totals
     ticket_commission = (
         await db.execute(
             select(func.coalesce(func.sum(TicketSale.commission_cents), 0))
@@ -84,6 +124,15 @@ async def get_stats(db: AsyncSession) -> dict:
         )
     ).scalar_one()
 
+    try:
+        escrow_held = (
+            await db.execute(
+                select(func.coalesce(func.sum(FundEscrow.total_held_cents), 0))
+            )
+        ).scalar_one()
+    except Exception:
+        escrow_held = 0
+
     return {
         "events_total": int(total),
         "events_pending": int(pending),
@@ -91,4 +140,5 @@ async def get_stats(db: AsyncSession) -> dict:
         "users_total": int(users_total),
         "total_ticket_commission_cents": int(ticket_commission),
         "total_funding_commission_cents": int(funding_commission),
+        "total_escrow_held_cents": int(escrow_held),
     }

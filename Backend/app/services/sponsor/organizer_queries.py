@@ -30,6 +30,48 @@ async def get_sponsor_bid_events(db: AsyncSession, sponsor_user_id: int) -> list
     return list((await db.execute(q)).scalars().all())
 
 
+async def get_sponsor_bids_detail_for_admin(
+    db: AsyncSession, sponsor_user_id: int
+) -> list[dict]:
+    """Return events with bid details for a sponsor (admin user detail)."""
+    events = await get_sponsor_bid_events(db, sponsor_user_id)
+    result = []
+    for e in events:
+        cats_q = (
+            select(
+                SponsorshipCategory.id.label("cat_id"),
+                SponsorshipCategory.name.label("cat_name"),
+                SponsorBid.id.label("bid_id"),
+                SponsorBid.amount_cents,
+                SponsorBid.status,
+            )
+            .join(SponsorBid, SponsorBid.category_id == SponsorshipCategory.id)
+            .where(
+                SponsorshipCategory.event_id == e.id,
+                SponsorBid.sponsor_user_id == sponsor_user_id,
+                SponsorBid.status.in_([BidStatus.pending, BidStatus.accepted, BidStatus.paid]),
+            )
+        )
+        cat_rows = (await db.execute(cats_q)).all()
+        bids = [
+            {
+                "bid_id": r.bid_id,
+                "category_id": r.cat_id,
+                "category_name": r.cat_name,
+                "amount_cents": r.amount_cents,
+                "status": r.status.value if hasattr(r.status, "value") else str(r.status),
+                "can_refund": r.status == BidStatus.paid,
+            }
+            for r in cat_rows
+        ]
+        result.append({
+            "event_id": e.id,
+            "event_title": e.title,
+            "bids": bids,
+        })
+    return result
+
+
 async def get_sponsor_bid_summary_for_event(
     db: AsyncSession, event_id: int, sponsor_user_id: int
 ) -> dict:

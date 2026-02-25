@@ -485,3 +485,50 @@ async def list_organizer_pledges(
     )
     result = await db.execute(q)
     return list(result.scalars().unique().all())
+
+
+async def list_all_pledges_for_admin(
+    db: AsyncSession, *, limit: int = 500,
+) -> Sequence[Funding]:
+    """List all pledged fundings across events for admin."""
+    from app.models.event import Event
+    q = (
+        select(Funding)
+        .join(Event, Funding.event_id == Event.id)
+        .where(Funding.status == FundingStatus.pledged)
+        .options(
+            selectinload(Funding.event),
+            selectinload(Funding.user),
+        )
+        .order_by(Funding.created_at.desc())
+        .limit(limit)
+    )
+    result = await db.execute(q)
+    return list(result.scalars().unique().all())
+
+
+async def refund_pledge_by_id(
+    db: AsyncSession, *, event_id: int, funding_id: int,
+) -> int:
+    """Admin-only: mark a single pledge as refunded. Returns 1 if found and refunded."""
+    from sqlalchemy import update
+    result = await db.execute(
+        update(Funding)
+        .where(
+            Funding.id == funding_id,
+            Funding.event_id == event_id,
+            Funding.status == FundingStatus.pledged,
+        )
+        .values(status=FundingStatus.refund_processing)
+    )
+    if result.rowcount:
+        await db.execute(
+            update(Funding)
+            .where(
+                Funding.id == funding_id,
+                Funding.event_id == event_id,
+                Funding.status == FundingStatus.refund_processing,
+            )
+            .values(status=FundingStatus.refunded)
+        )
+    return result.rowcount or 0

@@ -31,6 +31,7 @@ from app.services.sponsor.organizer_queries import (
     get_paid_sponsors,
     get_sponsor_bid_events,
     get_sponsor_bid_summary_for_event,
+    get_sponsor_bids_detail_for_admin,
     get_sponsor_events_for_organizer,
 )
 from app.services.sponsor.payments import (
@@ -72,6 +73,7 @@ __all__ = [
     "get_profile",
     "get_sponsor_bid_events",
     "get_sponsor_bid_summary_for_event",
+    "get_sponsor_bids_detail_for_admin",
     "get_sponsor_events_for_organizer",
     "get_sponsor_ticket",
     "get_won_categories",

@@ -3,10 +3,12 @@ Funding service: re-export all public functions so "from app.services import fun
 """
 from app.services.funding.pledges import (
     create_pledge,
+    list_all_pledges_for_admin,
     list_organizer_pledges,
     list_pledges_by_user,
     pledge_preview,
     refund_all_pledges_for_event,
+    refund_pledge_by_id,
     refund_pledges_for_user_event,
     unpledge,
 )
@@ -37,8 +39,10 @@ __all__ = [
     "get_user_reserved_spots_for_tier",
     "list_organizer_pledges",
     "list_pledges_by_user",
+    "list_all_pledges_for_admin",
     "pledge_preview",
     "refund_all_pledges_for_event",
+    "refund_pledge_by_id",
     "refund_pledges_for_user_event",
     "unpledge",
 ]

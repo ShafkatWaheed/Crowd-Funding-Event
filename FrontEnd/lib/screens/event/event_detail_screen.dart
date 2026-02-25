@@ -32,6 +32,9 @@ class EventDetailScreen extends StatefulWidget {
   final Event? previewEvent;
   final List<Uint8List>? previewImages;
 
+  /// When true (e.g. from admin user detail), hide edit/delete and organizer actions.
+  final bool readOnly;
+
   bool get isPreview => previewEvent != null;
 
   const EventDetailScreen({
@@ -39,6 +42,7 @@ class EventDetailScreen extends StatefulWidget {
     required this.eventId,
     this.previewEvent,
     this.previewImages,
+    this.readOnly = false,
   });
 
   @override
@@ -295,18 +299,31 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                               duration: AppDuration.fast,
                               child: Row(
                                 children: [
-                                  if (widget.isPreview) ...[
-                                    Container(
+                                  if (widget.isPreview || widget.readOnly) ...[
+                                    if (widget.readOnly)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.accentColor.withValues(alpha: 0.15),
+                                          borderRadius: AppRadius.pill,
+                                          border: Border.all(color: AppTheme.accentColor.withValues(alpha: 0.4)),
+                                        ),
+                                        child: Text('VIEW ONLY (ADMIN)',
+                                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800,
+                                            color: AppTheme.accentColor, letterSpacing: 0.5)),
+                                      ),
+                                    if (widget.isPreview)
+                                      Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                       decoration: BoxDecoration(
                                         color: AppTheme.warningColor.withValues(alpha: 0.15),
                                         borderRadius: AppRadius.pill,
                                         border: Border.all(color: AppTheme.warningColor.withValues(alpha: 0.4)),
                                       ),
-                                      child: Text('PREVIEW',
-                                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800,
-                                          color: AppTheme.warningColor, letterSpacing: 0.5)),
-                                    ),
+                                        child: Text('PREVIEW',
+                                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800,
+                                            color: AppTheme.warningColor, letterSpacing: 0.5)),
+                                      ),
                                     const SizedBox(width: 8),
                                   ],
                                   Expanded(
@@ -463,7 +480,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                     onTap: () => _showOrganizerBottomSheet(event),
                                     child: _trustBadgePill(context, event),
                                   ),
-                                  if (_revenueCents > 0 && user != null && (user.isOrganizer || user.isAdmin))
+                                  if (_revenueCents > 0 && user != null &&
+                                      (user.isOrganizer || user.isAdmin) &&
+                                      !widget.readOnly)
                                     _tagPill(
                                       icon: Icons.paid_rounded,
                                       label: '\$${(_revenueCents / 100).toStringAsFixed(0)} revenue',
@@ -603,7 +622,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                                 ),
                                               if (user != null &&
                                                   (user.isOrganizer ||
-                                                      user.isAdmin))
+                                                      user.isAdmin) &&
+                                                  !widget.readOnly)
                                                 Positioned(
                                                   top: 4,
                                                   right: 4,
@@ -642,13 +662,15 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                   ),
                                 ),
                                 if (user != null &&
-                                    (user.isOrganizer || user.isAdmin)) ...[
+                                    (user.isOrganizer || user.isAdmin) &&
+                                    !widget.readOnly) ...[
                                   AppSpacing.vSm,
                                   _addImageButton(context),
                                 ],
                                 AppSpacing.vXxl,
                               ] else if (!widget.isPreview && user != null &&
-                                  (user.isOrganizer || user.isAdmin)) ...[
+                                  (user.isOrganizer || user.isAdmin) &&
+                                  !widget.readOnly) ...[
                                 _sectionTitle(context, 'Photos', icon: Icons.photo_library_rounded, iconColor: context.photoAccent),
                                 AppSpacing.vSm,
                                 _addImageButton(context),
@@ -1011,7 +1033,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                               // ─── Ticket Tiers + Buy + Your Tickets (customer view) ───
                               if (!widget.isPreview) ...[
                                 if (event.ticketStrategyId != null &&
-                                    (user == null || (!user.isOrganizer && !user.isAdmin))) ...[
+                                    (user == null || (!user.isOrganizer && !user.isAdmin) || widget.readOnly)) ...[
                                   AppSpacing.vLg,
                                   _sectionTitle(context, 'Ticket Tiers', icon: Icons.confirmation_number_rounded, iconColor: context.sponsorAccent),
                                   AppSpacing.vSm,
@@ -1021,8 +1043,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                   myTicketCount: _myTicketCount,
                                   myReservedSpots: _myReservedSpots,
                                   myEventTickets: _myEventTickets,
-                                  isOrganizer: user?.isOrganizer ?? false,
-                                  isAdmin: user?.isAdmin ?? false,
+                                  isOrganizer: widget.readOnly ? false : (user?.isOrganizer ?? false),
+                                  isAdmin: widget.readOnly ? false : (user?.isAdmin ?? false),
                                   isRegistered: _isRegistered && _regStatus == 'registered',
                                   onPurchaseComplete: () {
                                     _loadMyTicketCount();
@@ -1095,7 +1117,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
                                 // ──────── Organizer Actions + Management ────────
                                 if (user != null &&
-                                    (user.isOrganizer || user.isAdmin))
+                                    (user.isOrganizer || user.isAdmin) &&
+                                    !widget.readOnly)
                                   OrganizerManagementSection(
                                     event: event,
                                     isAdmin: user.isAdmin,
@@ -1107,6 +1130,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                 // ──────── Ticket Tier Management (organizer) ────────
                                 if (user != null &&
                                     (user.isOrganizer || user.isAdmin) &&
+                                    !widget.readOnly &&
                                     event.ticketStrategyId != null)
                                   TicketTierManagement(
                                       event: event, onTiersChanged: _refreshAll),

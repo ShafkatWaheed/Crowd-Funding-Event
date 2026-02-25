@@ -1,14 +1,40 @@
 """
 Admin: approve/reject events, list pending, stats, platform settings.
 """
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
+
 from fastapi import APIRouter, Depends
 
 from app.dependencies import DbSession, require_role
+from app.models.event import Event
+from app.models.ticket import UserEventDiscount
 from app.models.user import User, UserRole
-from app.schemas import AdminEventItem, AdminStats, AdminUserItem, ApproveBody, PlatformSettingItem, PlatformSettingUpdate
+from app.schemas import (
+    AdminEventItem,
+    AdminStats,
+    AdminUserItem,
+    AdminTicketItem,
+    AdminPledgeItem,
+    ApproveBody,
+    PlatformSettingItem,
+    PlatformSettingUpdate,
+)
+from app.schemas.admin import (
+    AdminUserDetailResponse,
+    AdminUserDetailTicketItem,
+    AdminUserDetailPledgeItem,
+    AdminUserDetailEventItem,
+    AdminUserDetailSponsorItem,
+    AdminUserDetailDiscountItem,
+    AdminSponsorshipBidItem,
+    AdminSponsorshipEventItem,
+)
 from app.services import admin as admin_service
 from app.services import platform_settings as settings_service
 from app.services import notification_service as notif_svc
+from app.services import ticket as ticket_service
+from app.services import funding as funding_service
 from app.models.notification import NotificationType
 
 router = APIRouter()
@@ -33,23 +59,387 @@ async def admin_list_users(
     ]
 
 
-@router.get("/events", response_model=list[AdminEventItem])
+@router.get("/users/{user_id}/detail", response_model=AdminUserDetailResponse)
+async def admin_get_user_detail(
+    user_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.admin)),
+):
+    """Get role-based user detail (tickets, pledges, events, sponsors, etc.)."""
+    from app.core.exceptions import NotFoundError
+    from app.services import event as event_service
+    from app.services import ticket as ticket_service
+    from app.services import funding as funding_service
+    from app.services import sponsor as sponsor_svc
+
+    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    if not user:
+        raise NotFoundError("User", user_id)
+
+    base = {
+        "id": user.id,
+        "email": user.email,
+        "display_name": user.display_name,
+        "role": user.role.value,
+        "created_at": user.created_at,
+    }
+
+    if user.role == UserRole.customer:
+        from app.models.registration import Registration, RegistrationStatus
+
+        tickets = await ticket_service.list_tickets_for_user_admin(db, user_id=user_id)
+        pledges = await funding_service.list_pledges_by_user(db, user_id=user_id, limit=200)
+        events_q = (
+            select(Event)
+            .join(Registration, Registration.event_id == Event.id)
+            .where(
+                Registration.user_id == user_id,
+                Registration.status.in_([RegistrationStatus.registered, RegistrationStatus.waitlist]),
+            )
+            .options(
+                selectinload(Event.venue),
+                selectinload(Event.ticket_strategy),
+                selectinload(Event.ticket_tiers),
+                selectinload(Event.milestones),
+                selectinload(Event.sponsorship_categories),
+            )
+            .order_by(Event.created_at.desc())
+            .limit(100)
+        )
+        events = list((await db.execute(events_q)).scalars().unique().all())
+        return AdminUserDetailResponse(
+            **base,
+            tickets=[
+                AdminUserDetailTicketItem(
+                    id=t.id,
+                    event_id=t.event_id,
+                    event_title=t.event.title if t.event else None,
+                    tier_name=t.ticket_tier.name if t.ticket_tier else None,
+                    amount_paid_cents=t.amount_paid_cents,
+                    status=t.status.value,
+                    created_at=t.created_at,
+                )
+                for t in tickets
+            ],
+            pledges=[
+                AdminUserDetailPledgeItem(
+                    id=p.id,
+                    event_id=p.event_id,
+                    event_title=p.event.title if p.event else None,
+                    user_display_name=user.display_name,
+                    amount_cents=p.amount_cents,
+                    status=p.status.value,
+                    created_at=p.created_at,
+                )
+                for p in pledges
+            ],
+            events=[
+                AdminUserDetailEventItem(
+                    id=e.id,
+                    title=e.title,
+                    status=e.status.value,
+                    organizer_id=e.organizer_id,
+                    description=e.description,
+                    genre=e.genre,
+                    max_capacity=e.max_capacity,
+                    registration_type=e.registration_type.value if e.registration_type else None,
+                    registration_count=e.registration_count or 0,
+                    funding_goal_cents=e.funding_goal_cents,
+                    min_pledge_cents=e.min_pledge_cents or 0,
+                    ticket_strategy_name=e.ticket_strategy.name if e.ticket_strategy else None,
+                    venue_name=e.venue.name if e.venue else None,
+                    venue_address=f"{e.venue.address}, {e.venue.city}" if e.venue and e.venue.address else (e.venue.name if e.venue else None),
+                    created_at=e.created_at,
+                    start_time=e.start_time,
+                    end_time=e.end_time,
+                    funding_end_at=e.funding_end_at,
+                    has_schedule=e.has_schedule or False,
+                    community_rules=e.community_rules or False,
+                    ticket_tiers_count=len(e.ticket_tiers) if e.ticket_tiers else 0,
+                    sponsorship_categories_count=len(e.sponsorship_categories) if e.sponsorship_categories else 0,
+                    milestones_count=len(e.milestones) if e.milestones else 0,
+                )
+                for e in events
+            ],
+        )
+
+    if user.role == UserRole.organizer:
+        from app.models.escrow import FundEscrow
+        from app.models.sponsor import SponsorBid, SponsorshipCategory as SpCat, BidStatus
+        from app.services.admin import compute_event_warnings
+        from collections import defaultdict
+
+        events_q = (
+            select(Event)
+            .where(Event.organizer_id == user_id)
+            .options(
+                selectinload(Event.venue),
+                selectinload(Event.ticket_strategy),
+                selectinload(Event.ticket_tiers),
+                selectinload(Event.milestones),
+                selectinload(Event.sponsorship_categories),
+            )
+            .order_by(Event.created_at.desc())
+            .limit(200)
+        )
+        events = list((await db.execute(events_q)).scalars().unique().all())
+
+        ticket_sales = await ticket_service.list_organizer_ticket_sales(
+            db, organizer_id=user_id, limit=200
+        )
+        pledges = await funding_service.list_organizer_pledges(
+            db, organizer_id=user_id, limit=200
+        )
+        sponsors = await sponsor_svc.get_organizer_sponsors(db, organizer_id=user_id, limit=100)
+        discounts_q = (
+            select(UserEventDiscount)
+            .join(Event, UserEventDiscount.event_id == Event.id)
+            .where(Event.organizer_id == user_id)
+            .options(
+                selectinload(UserEventDiscount.event),
+                selectinload(UserEventDiscount.user),
+            )
+        )
+        discounts_res = await db.execute(discounts_q)
+        discounts = list(discounts_res.scalars().unique().all())
+
+        # Sponsor bids on this organizer's events
+        event_ids = [e.id for e in events]
+        sponsor_bids_list: list[AdminSponsorshipEventItem] = []
+        if event_ids:
+            bids_q = (
+                select(
+                    SpCat.id.label("cat_id"),
+                    SpCat.name.label("cat_name"),
+                    SpCat.event_id,
+                    SponsorBid.id.label("bid_id"),
+                    SponsorBid.amount_cents,
+                    SponsorBid.status,
+                    SponsorBid.sponsor_user_id,
+                )
+                .join(SponsorBid, SponsorBid.category_id == SpCat.id)
+                .where(
+                    SpCat.event_id.in_(event_ids),
+                    SponsorBid.status.in_([BidStatus.pending, BidStatus.accepted, BidStatus.paid]),
+                )
+                .order_by(SpCat.event_id)
+            )
+            bid_rows = (await db.execute(bids_q)).all()
+            events_by_id = {e.id: e for e in events}
+            grouped: dict[int, list] = defaultdict(list)
+            for r in bid_rows:
+                grouped[r.event_id].append(
+                    AdminSponsorshipBidItem(
+                        bid_id=r.bid_id,
+                        category_id=r.cat_id,
+                        category_name=r.cat_name,
+                        amount_cents=r.amount_cents,
+                        status=r.status.value if hasattr(r.status, "value") else str(r.status),
+                        can_refund=r.status == BidStatus.paid,
+                    )
+                )
+            for eid, bids in grouped.items():
+                evt = events_by_id.get(eid)
+                sponsor_bids_list.append(
+                    AdminSponsorshipEventItem(
+                        event_id=eid,
+                        event_title=evt.title if evt else None,
+                        bids=bids,
+                    )
+                )
+
+        # Escrows for this organizer's events
+        escrows_list: list[dict] = []
+        if event_ids:
+            escrow_q = (
+                select(FundEscrow)
+                .where(FundEscrow.event_id.in_(event_ids))
+                .order_by(FundEscrow.updated_at.desc())
+            )
+            escrow_rows = (await db.execute(escrow_q)).scalars().all()
+            for esc in escrow_rows:
+                total_released = esc.stage1_released_cents + esc.stage2_released_cents + esc.stage3_released_cents
+                escrows_list.append({
+                    "id": esc.id,
+                    "event_id": esc.event_id,
+                    "total_held_cents": esc.total_held_cents,
+                    "total_released_cents": total_released,
+                    "remaining_cents": max(0, esc.total_held_cents - total_released),
+                    "status": esc.status.value,
+                    "stage1_released_at": esc.stage1_released_at.isoformat() if esc.stage1_released_at else None,
+                    "stage2_released_at": esc.stage2_released_at.isoformat() if esc.stage2_released_at else None,
+                    "stage3_released_at": esc.stage3_released_at.isoformat() if esc.stage3_released_at else None,
+                })
+
+        return AdminUserDetailResponse(
+            **base,
+            events=[
+                AdminUserDetailEventItem(
+                    id=e.id,
+                    title=e.title,
+                    status=e.status.value,
+                    organizer_id=e.organizer_id,
+                    description=e.description,
+                    genre=e.genre,
+                    max_capacity=e.max_capacity,
+                    registration_type=e.registration_type.value if e.registration_type else None,
+                    registration_count=e.registration_count or 0,
+                    funding_goal_cents=e.funding_goal_cents,
+                    min_pledge_cents=e.min_pledge_cents or 0,
+                    ticket_strategy_name=e.ticket_strategy.name if e.ticket_strategy else None,
+                    venue_name=e.venue.name if e.venue else None,
+                    venue_address=f"{e.venue.address}, {e.venue.city}" if e.venue and e.venue.address else (e.venue.name if e.venue else None),
+                    review_notes=e.review_notes,
+                    review_log=e.review_log or [],
+                    validation_warnings=compute_event_warnings(e),
+                    cancellation_reason=e.cancellation_reason,
+                    pending_extension=e.pending_extension,
+                    pending_cancellation=e.pending_cancellation,
+                    created_at=e.created_at,
+                    start_time=e.start_time,
+                    end_time=e.end_time,
+                    funding_end_at=e.funding_end_at,
+                    has_schedule=e.has_schedule or False,
+                    community_rules=e.community_rules or False,
+                    ticket_tiers_count=len(e.ticket_tiers) if e.ticket_tiers else 0,
+                    sponsorship_categories_count=len(e.sponsorship_categories) if e.sponsorship_categories else 0,
+                    milestones_count=len(e.milestones) if e.milestones else 0,
+                )
+                for e in events
+            ],
+            ticket_sales=[
+                AdminUserDetailTicketItem(
+                    id=s.id,
+                    event_id=s.event_id,
+                    event_title=s.event.title if s.event else None,
+                    tier_name=s.ticket_tier.name if s.ticket_tier else None,
+                    amount_paid_cents=s.amount_paid_cents,
+                    status=s.status.value,
+                    created_at=s.created_at,
+                    attendee_display_name=s.user.display_name if s.user else None,
+                )
+                for s in ticket_sales
+            ],
+            pledges=[
+                AdminUserDetailPledgeItem(
+                    id=p.id,
+                    event_id=p.event_id,
+                    event_title=p.event.title if p.event else None,
+                    user_display_name=p.user.display_name if p.user else None,
+                    amount_cents=p.amount_cents,
+                    status=p.status.value,
+                    created_at=p.created_at,
+                )
+                for p in pledges
+            ],
+            sponsors=[
+                AdminUserDetailSponsorItem(
+                    sponsor_user_id=s["sponsor_user_id"],
+                    company_name=s.get("company_name"),
+                    contact_name=s.get("contact_name"),
+                    total_bids=s.get("total_bids", 0),
+                    total_amount_cents=s.get("total_amount_cents", 0),
+                )
+                for s in sponsors
+            ],
+            discounts=[
+                AdminUserDetailDiscountItem(
+                    event_id=d.event_id,
+                    event_title=d.event.title if d.event else None,
+                    user_id=d.user_id,
+                    user_display_name=d.user.display_name if d.user else None,
+                    discount_type=d.discount_type,
+                    value=d.value,
+                )
+                for d in discounts
+            ],
+            sponsor_bids=sponsor_bids_list if sponsor_bids_list else None,
+            escrows=escrows_list if escrows_list else None,
+        )
+
+    if user.role == UserRole.sponsor:
+        sponsorships = await sponsor_svc.get_sponsor_bids_detail_for_admin(db, sponsor_user_id=user_id)
+        tickets = await ticket_service.list_tickets_for_user_admin(db, user_id=user_id)
+        pledges = await funding_service.list_pledges_by_user(db, user_id=user_id, limit=200)
+        return AdminUserDetailResponse(
+            **base,
+            sponsorships=[
+                AdminSponsorshipEventItem(
+                    event_id=sp["event_id"],
+                    event_title=sp["event_title"],
+                    bids=[
+                        AdminSponsorshipBidItem(
+                            bid_id=b["bid_id"],
+                            category_id=b["category_id"],
+                            category_name=b["category_name"],
+                            amount_cents=b["amount_cents"],
+                            status=b["status"],
+                            can_refund=b["can_refund"],
+                        )
+                        for b in sp["bids"]
+                    ],
+                )
+                for sp in sponsorships
+            ],
+            tickets=[
+                AdminUserDetailTicketItem(
+                    id=t.id,
+                    event_id=t.event_id,
+                    event_title=t.event.title if t.event else None,
+                    tier_name=t.ticket_tier.name if t.ticket_tier else None,
+                    amount_paid_cents=t.amount_paid_cents,
+                    status=t.status.value,
+                    created_at=t.created_at,
+                )
+                for t in tickets
+            ],
+            pledges=[
+                AdminUserDetailPledgeItem(
+                    id=p.id,
+                    event_id=p.event_id,
+                    event_title=p.event.title if p.event else None,
+                    user_display_name=user.display_name,
+                    amount_cents=p.amount_cents,
+                    status=p.status.value,
+                    created_at=p.created_at,
+                )
+                for p in pledges
+            ],
+        )
+
+    return AdminUserDetailResponse(**base)
+
+
+@router.get("/events")
 async def admin_list_events(
     db: DbSession,
     status: str | None = None,
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
-    """List events for admin (e.g. status=pending_approval)."""
+    """List events for admin with validation warnings and review log."""
     events = await admin_service.list_events_for_admin(db, status=status)
-    return [
-        AdminEventItem(
-            id=e.id,
-            title=e.title,
-            status=e.status.value,
-            organizer_id=e.organizer_id,
-        )
-        for e in events
-    ]
+    result = []
+    for e in events:
+        item = {
+            "id": e.id,
+            "title": e.title,
+            "status": e.status.value,
+            "organizer_id": e.organizer_id,
+            "max_capacity": e.max_capacity,
+            "funding_goal_cents": e.funding_goal_cents,
+            "review_notes": e.review_notes,
+            "review_log": e.review_log or [],
+            "cancellation_reason": e.cancellation_reason,
+            "pending_extension": e.pending_extension,
+            "pending_cancellation": e.pending_cancellation,
+            "created_at": e.created_at.isoformat() if e.created_at else None,
+            "start_time": e.start_time.isoformat() if e.start_time else None,
+            "end_time": e.end_time.isoformat() if e.end_time else None,
+            "funding_end_at": e.funding_end_at.isoformat() if e.funding_end_at else None,
+            "validation_warnings": admin_service.compute_event_warnings(e),
+        }
+        result.append(item)
+    return result
 
 
 @router.post("/events/{event_id}/approve")
@@ -117,6 +507,98 @@ async def update_setting(
 
 # ----- Escrow Management (Admin) -----
 from app.services import escrow as escrow_service
+
+
+@router.get("/tickets", response_model=list[AdminTicketItem])
+async def admin_list_tickets(
+    db: DbSession,
+    limit: int = 500,
+    current_user: User = Depends(require_role(UserRole.admin)),
+):
+    """List all ticket sales (purchased or refund_requested) for admin."""
+    sales = await ticket_service.list_all_ticket_sales_for_admin(db, limit=limit)
+    return [
+        AdminTicketItem(
+            id=s.id,
+            event_id=s.event_id,
+            event_title=s.event.title if s.event else None,
+            user_id=s.user_id,
+            attendee_display_name=s.user.display_name if s.user else None,
+            tier_name=s.ticket_tier.name if s.ticket_tier else None,
+            amount_paid_cents=s.amount_paid_cents,
+            status=s.status.value,
+            created_at=s.created_at,
+        )
+        for s in sales
+    ]
+
+
+@router.get("/pledges", response_model=list[AdminPledgeItem])
+async def admin_list_pledges(
+    db: DbSession,
+    limit: int = 500,
+    current_user: User = Depends(require_role(UserRole.admin)),
+):
+    """List all pledges across events for admin."""
+    pledges = await funding_service.list_all_pledges_for_admin(db, limit=limit)
+    return [
+        AdminPledgeItem(
+            id=p.id,
+            event_id=p.event_id,
+            event_title=p.event.title if p.event else None,
+            user_id=p.user_id,
+            user_display_name=p.user.display_name if p.user else None,
+            amount_cents=p.amount_cents,
+            status=p.status.value,
+            is_guest=p.is_guest,
+            created_at=p.created_at,
+        )
+        for p in pledges
+    ]
+
+
+@router.post("/events/{event_id}/sponsorships/{cat_id}/bids/{bid_id}/refund")
+async def admin_refund_sponsor_bid(
+    event_id: int,
+    cat_id: int,
+    bid_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.admin)),
+):
+    """Admin refund a paid sponsor bid."""
+    from app.services import sponsor as sponsor_svc
+    from app.services import notification_service as notif_svc
+    from app.models.notification import NotificationType
+    from app.models.sponsor import SponsorBid
+    payment = await sponsor_svc.refund_bid(db, bid_id, current_user)
+    bid_obj = (await db.execute(
+        select(SponsorBid).where(SponsorBid.id == bid_id)
+    )).scalar_one_or_none()
+    sponsor_user_id = bid_obj.sponsor_user_id if bid_obj else None
+    if sponsor_user_id:
+        await notif_svc.create_notification(
+            db, user_id=sponsor_user_id,
+            type=NotificationType.sponsor_refunded,
+            title="Sponsorship Refunded",
+            message="Your sponsorship payment has been refunded by an administrator.",
+            data={"event_id": event_id, "category_id": cat_id, "bid_id": bid_id, "payment_id": payment.id},
+        )
+    return {"ok": True, "event_id": event_id, "bid_id": bid_id, "payment_id": payment.id}
+
+
+@router.post("/events/{event_id}/pledges/{funding_id}/refund")
+async def admin_refund_pledge(
+    event_id: int,
+    funding_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.admin)),
+):
+    """Admin refund a single pledge by id."""
+    count = await funding_service.refund_pledge_by_id(db, event_id=event_id, funding_id=funding_id)
+    if count == 0:
+        from app.core.exceptions import NotFoundError
+        raise NotFoundError("Pledge", funding_id)
+    return {"ok": True, "event_id": event_id, "funding_id": funding_id}
 
 
 @router.get("/escrows")
@@ -204,8 +686,9 @@ async def resolve_review(
     """Resolve an under_review event by moving it to the specified status."""
     from app.models.event import Event, EventStatus
     from app.core.exceptions import NotFoundError, ConflictError
+    from datetime import datetime, timezone as tz
     event = (await db.execute(
-        __import__("sqlalchemy").select(Event).where(Event.id == event_id)
+        select(Event).where(Event.id == event_id)
     )).scalar_one_or_none()
     if not event:
         raise NotFoundError("Event", event_id)
@@ -216,12 +699,23 @@ async def resolve_review(
         raise ConflictError(f"Invalid target status '{body.target_status}'")
     event.status = EventStatus(body.target_status)
     event.review_notes = body.notes or f"Resolved by admin → {body.target_status}"
+    event.review_log = (event.review_log or []) + [{
+        "timestamp": datetime.now(tz.utc).isoformat(),
+        "actor": f"admin:{current_user.email}",
+        "action": "resolved",
+        "from_status": "under_review",
+        "to_status": body.target_status,
+        "message": body.notes or f"Resolved → {body.target_status}",
+    }]
     await db.flush()
+    notif_msg = f'Your event "{event.title}" has been reviewed and moved to {body.target_status.replace("_", " ")}.'
+    if body.notes:
+        notif_msg += f" Admin notes: {body.notes}"
     await notif_svc.create_notification(
         db, user_id=event.organizer_id,
         type=NotificationType.event_approved,
         title="Event Review Resolved",
-        message=f'Your event "{event.title}" has been reviewed and moved to {body.target_status.replace("_", " ")}.',
+        message=notif_msg,
         data={"event_id": event.id},
     )
     return {"ok": True, "event_id": event.id, "status": event.status.value}

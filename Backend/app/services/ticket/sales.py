@@ -246,6 +246,25 @@ async def list_my_tickets(
     return list(res.scalars().unique().all())
 
 
+async def list_tickets_for_user_admin(
+    db: AsyncSession, *, user_id: int, limit: int = 200,
+) -> Sequence[TicketSale]:
+    """List all ticket sales for a user (all statuses) for admin user detail."""
+    q = (
+        select(TicketSale)
+        .where(TicketSale.user_id == user_id)
+        .options(
+            selectinload(TicketSale.event),
+            selectinload(TicketSale.ticket_tier),
+            selectinload(TicketSale.user),
+        )
+        .order_by(TicketSale.created_at.desc())
+        .limit(limit)
+    )
+    res = await db.execute(q)
+    return list(res.scalars().unique().all())
+
+
 async def list_event_ticket_sales(
     db: AsyncSession, *, event_id: int, offset: int = 0, limit: int = 20,
 ) -> Sequence[TicketSale]:
@@ -315,6 +334,30 @@ async def list_organizer_ticket_sales(
         )
         .order_by(TicketSale.created_at.desc())
         .offset(offset)
+        .limit(limit)
+    )
+    res = await db.execute(q)
+    return list(res.scalars().unique().all())
+
+
+async def list_all_ticket_sales_for_admin(
+    db: AsyncSession, *, limit: int = 500,
+) -> Sequence[TicketSale]:
+    """List all ticket sales (purchased or refund_requested) for admin. Across all events."""
+    q = (
+        select(TicketSale)
+        .where(
+            TicketSale.status.in_([
+                TicketSaleStatus.purchased,
+                TicketSaleStatus.refund_requested,
+            ])
+        )
+        .options(
+            selectinload(TicketSale.event),
+            selectinload(TicketSale.user),
+            selectinload(TicketSale.ticket_tier),
+        )
+        .order_by(TicketSale.created_at.desc())
         .limit(limit)
     )
     res = await db.execute(q)

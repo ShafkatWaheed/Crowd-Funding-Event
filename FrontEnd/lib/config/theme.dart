@@ -107,6 +107,19 @@ class AppTheme {
   static bool isDark(BuildContext context) =>
       Theme.of(context).brightness == Brightness.dark;
 
+  // ─── Brand colours – dark-mode–aware variants ───
+  static Color accentOf(BuildContext context) =>
+      isDark(context) ? const Color(0xFF5B8DEF) : accentColor;
+
+  static Color successOf(BuildContext context) =>
+      isDark(context) ? const Color(0xFF66BB6A) : successColor;
+
+  static Color errorOf(BuildContext context) =>
+      isDark(context) ? const Color(0xFFEF5350) : errorColor;
+
+  static Color warningOf(BuildContext context) =>
+      isDark(context) ? const Color(0xFFFFB74D) : warningColor;
+
   // ──────────────────────── LIGHT THEME ────────────────────────
   static ThemeData get lightTheme {
     final base = ThemeData(

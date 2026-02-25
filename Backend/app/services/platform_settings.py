@@ -10,15 +10,61 @@ from app.models.platform_settings import PlatformSetting
 
 # Default values used when key not yet in DB
 DEFAULTS = {
+    # Branding (strings; use get_str in code)
+    "platform_name": "",
+    "support_email": "",
+    # Rate limits
+    "max_tickets_per_purchase": 10,
+    # Refund
+    "default_refund_deadline_days": 7,
     "ticket_commission_percent": 5,
     "funding_commission_percent": 3,
     "cancel_approval_threshold_percent": 80,
     "event_date_grace_days": 7,
+    "event_date_deadline_days": 30,
+    # Escrow: release stage percentages (must sum to 100)
+    "escrow_stage1_percent": 30,
+    "escrow_stage2_percent": 40,
+    "escrow_stage3_percent": 30,
+    "scan_threshold_percent": 50,
+    "stage3_grace_days": 14,
+    # Community / organizer
+    "community_max_duration_days": 14,
+    "community_max_ticket_price_cents": 5000,
+    "community_listing_fee_cents": 1000,
+    "community_funding_commission_override": "",
+    "new_organizer_deposit_cents": 5000,
     # Feature flags (boolean, stored as "true"/"false")
     "feature_milestones_enabled": "true",
     "feature_schedule_enabled": "true",
     "feature_sponsors_enabled": "true",
     "sponsor_commission_percent": 5,
+}
+
+DESCRIPTIONS = {
+    "platform_name": "Platform name shown in UI and emails",
+    "support_email": "Support contact email for users (UI and emails)",
+    "max_tickets_per_purchase": "Max tickets per single purchase (rate limit)",
+    "default_refund_deadline_days": "Default refund deadline: X days before event start (refund eligible until then)",
+    "ticket_commission_percent": "Platform commission on ticket sales (%)",
+    "funding_commission_percent": "Platform commission on pledges (%)",
+    "sponsor_commission_percent": "Platform commission on sponsor payments (%)",
+    "cancel_approval_threshold_percent": "Pledge % above which event cancel needs admin approval",
+    "event_date_grace_days": "Days allowed to set event date after approval",
+    "event_date_deadline_days": "Days after goal met to set event date before auto-refund",
+    "escrow_stage1_percent": "Percentage of funds released at Stage 1 (planning confirmed)",
+    "escrow_stage2_percent": "Percentage of funds released at Stage 2 (event imminent)",
+    "escrow_stage3_percent": "Percentage of funds released at Stage 3 (event completed)",
+    "scan_threshold_percent": "Min % of tickets scanned to auto-release Stage 3",
+    "stage3_grace_days": "Days to hold Stage 3 funds for admin review",
+    "community_max_duration_days": "Max total days for community events (funding + event)",
+    "community_max_ticket_price_cents": "Max ticket price for community tiers (cents, e.g. 5000 = $50)",
+    "community_listing_fee_cents": "Listing fee for community events (cents, e.g. 1000 = $10)",
+    "community_funding_commission_override": "Override funding commission % for community events (empty = use global)",
+    "new_organizer_deposit_cents": "Deposit required from first-time organizers (cents, e.g. 5000 = $50)",
+    "feature_milestones_enabled": "Enable funding milestones",
+    "feature_schedule_enabled": "Enable event schedule",
+    "feature_sponsors_enabled": "Enable sponsors",
 }
 
 
@@ -30,10 +76,21 @@ async def get_all(db: AsyncSession) -> dict[str, str]:
 
 
 async def get_all_with_descriptions(db: AsyncSession) -> list[dict]:
-    """Return all settings with descriptions for admin UI."""
+    """Return all settings with descriptions for admin UI. Merges in defaults for any key not in DB."""
     q = select(PlatformSetting).order_by(PlatformSetting.key)
     rows = (await db.execute(q)).scalars().all()
-    return [{"key": r.key, "value": r.value, "description": r.description} for r in rows]
+    by_key = {r.key: {"key": r.key, "value": r.value, "description": r.description} for r in rows}
+    result = []
+    for key in sorted(set(DEFAULTS.keys()) | set(by_key.keys())):
+        if key in by_key:
+            result.append(by_key[key])
+        else:
+            result.append({
+                "key": key,
+                "value": str(DEFAULTS[key]),
+                "description": DESCRIPTIONS.get(key),
+            })
+    return result
 
 
 async def get_int(db: AsyncSession, key: str) -> int:

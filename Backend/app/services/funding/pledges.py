@@ -457,6 +457,8 @@ async def list_organizer_pledges(
     organizer_id: int,
     status_filter: str | None = None,
     event_status: str | None = None,
+    genre: str | None = None,
+    event_id: int | None = None,
     offset: int = 0,
     limit: int = 20,
 ) -> Sequence[Funding]:
@@ -469,6 +471,10 @@ async def list_organizer_pledges(
             conditions.append(Event.status == EventStatus(event_status))
         except ValueError:
             pass
+    if genre:
+        conditions.append(Event.genre == genre)
+    if event_id:
+        conditions.append(Event.id == event_id)
     if status_filter and status_filter != "all":
         if status_filter == "donation":
             conditions.append(Funding.is_guest == True)  # noqa: E712

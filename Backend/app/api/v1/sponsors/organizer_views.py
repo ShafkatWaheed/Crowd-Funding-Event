@@ -90,12 +90,14 @@ async def list_organizer_sponsors(
     db: DbSession,
     current_user: CurrentUser,
     event_status: str | None = Query(None, description="Filter to events with this status"),
+    genre: str | None = Query(None, description="Filter to events with this genre"),
+    event_id: int | None = Query(None, description="Filter to a single event"),
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
 ):
     if current_user.role not in (UserRole.organizer, UserRole.admin):
         raise HTTPException(status_code=403, detail="Only organizers can view their sponsors")
-    return await sponsor_svc.get_organizer_sponsors(db, current_user.id, event_status=event_status, offset=offset, limit=limit)
+    return await sponsor_svc.get_organizer_sponsors(db, current_user.id, event_status=event_status, genre=genre, event_id=event_id, offset=offset, limit=limit)
 
 
 @router.get("/me/organizer-sponsors/{sponsor_user_id}/events")

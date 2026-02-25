@@ -108,20 +108,24 @@ class ApiService {
     return resp.data;
   }
 
-  Future<List<dynamic>> getOrganizerTicketSales({bool scannedOnly = false, String? eventStatus, int offset = 0, int limit = 20}) async {
+  Future<List<dynamic>> getOrganizerTicketSales({bool scannedOnly = false, String? eventStatus, String? genre, int? eventId, int offset = 0, int limit = 20}) async {
     final resp = await dio.get('/me/organizer-ticket-sales', queryParameters: {
       if (scannedOnly) 'scanned_only': true,
       if (eventStatus != null) 'event_status': eventStatus,
+      if (genre != null) 'genre': genre,
+      if (eventId != null) 'event_id': eventId,
       'offset': offset,
       'limit': limit,
     });
     return resp.data;
   }
 
-  Future<List<dynamic>> getOrganizerPledges({String? status, String? eventStatus, int offset = 0, int limit = 20}) async {
+  Future<List<dynamic>> getOrganizerPledges({String? status, String? eventStatus, String? genre, int? eventId, int offset = 0, int limit = 20}) async {
     final resp = await dio.get('/me/organizer-pledges', queryParameters: {
       if (status != null) 'status': status,
       if (eventStatus != null) 'event_status': eventStatus,
+      if (genre != null) 'genre': genre,
+      if (eventId != null) 'event_id': eventId,
       'offset': offset,
       'limit': limit,
     });
@@ -130,14 +134,28 @@ class ApiService {
 
   // ─── Events ───
 
-  Future<List<dynamic>> getEvents({Map<String, dynamic>? params, int offset = 0, int limit = 20}) async {
+  /// Returns { items: List, next_cursor: String? }. Prefer cursor over offset for infinite scroll.
+  Future<Map<String, dynamic>> getEvents({
+    Map<String, dynamic>? params,
+    int? offset,
+    int limit = 20,
+    String? cursor,
+  }) async {
     final merged = <String, dynamic>{
       ...?params,
-      'offset': offset,
       'limit': limit,
     };
+    if (cursor != null) {
+      merged['cursor'] = cursor;
+    } else if (offset != null && offset > 0) {
+      merged['offset'] = offset;
+    }
     final resp = await dio.get('/events', queryParameters: merged);
-    return resp.data;
+    final data = resp.data;
+    if (data is List) {
+      return {'items': data, 'next_cursor': null};
+    }
+    return data as Map<String, dynamic>;
   }
 
   Future<Map<String, dynamic>> getEvent(int id) async {
@@ -927,9 +945,11 @@ class ApiService {
 
   // ── Organizer: My Sponsors ──
 
-  Future<List<dynamic>> getOrganizerSponsors({String? eventStatus, int offset = 0, int limit = 20}) async {
+  Future<List<dynamic>> getOrganizerSponsors({String? eventStatus, String? genre, int? eventId, int offset = 0, int limit = 20}) async {
     final resp = await dio.get('/me/organizer-sponsors', queryParameters: {
       if (eventStatus != null) 'event_status': eventStatus,
+      if (genre != null) 'genre': genre,
+      if (eventId != null) 'event_id': eventId,
       'offset': offset,
       'limit': limit,
     });

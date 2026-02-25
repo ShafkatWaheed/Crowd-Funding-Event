@@ -7,7 +7,7 @@ from app.schemas.dashboard import (
 from app.schemas.event import (
     AddEventOrganizerBody, CancelBody, CustomerHistoryItem, EVENT_GENRES,
     EventCreate, EventDiscountCreate, EventDiscountResponse,
-    EventImageResponse, EventOrganizerItem,
+    EventImageResponse, EventListResponse, EventOrganizerItem,
     EventPostCreate, EventPostResponse, EventResponse, EventUpdate,
     EventVenueInfo, ExtendFundingBody, ExtensionApprovalAction,
     MapEventMarker, OrganizerTrustInfo, SetEventDateBody, UnregisterResponse,
@@ -61,6 +61,7 @@ __all__ = [
     "EventDiscountCreate",
     "EventDiscountResponse",
     "EventImageResponse",
+    "EventListResponse",
     "EventOrganizerItem",
     "EventPostCreate",
     "EventPostResponse",

@@ -1,11 +1,13 @@
 """
 Event CRUD: auto_transition_status, get_by_id, get_or_404, publish_event, list_events, list_events_for_map, create, update.
 """
+import base64
+import json
 import math
 from datetime import datetime, timezone
 from typing import Sequence
 
-from sqlalchemy import func, select, and_, or_, exists
+from sqlalchemy import func, nulls_last, select, and_, or_, exists
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -192,6 +194,28 @@ async def publish_event(db: AsyncSession, event_id: int, user: User) -> Event:
     return event
 
 
+def _encode_cursor(start_time: datetime | None, event_id: int) -> str:
+    """Encode keyset cursor as base64url JSON."""
+    t = start_time.isoformat() if start_time else None
+    payload = {"t": t, "i": event_id}
+    return base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip("=")
+
+
+def _decode_cursor(cursor: str) -> tuple[datetime | None, int] | None:
+    """Decode keyset cursor. Returns (start_time, event_id) or None if invalid."""
+    try:
+        pad = 4 - len(cursor) % 4
+        if pad != 4:
+            cursor += "=" * pad
+        payload = json.loads(base64.urlsafe_b64decode(cursor).decode())
+        t = payload.get("t")
+        i = int(payload["i"])
+        start_time = datetime.fromisoformat(t.replace("Z", "+00:00")) if t else None
+        return (start_time, i)
+    except (ValueError, KeyError, TypeError):
+        return None
+
+
 async def list_events(
     db: AsyncSession,
     *,
@@ -211,10 +235,11 @@ async def list_events(
     community_rules: bool | None = None,
     include_all_statuses: bool = False,
     sponsorship_only: bool = False,
-    offset: int = 0,
+    offset: int | None = None,
     limit: int | None = None,
-) -> Sequence[Event]:
-    """List events with optional filters. include_all_statuses=True skips the default hidden-status filter (for organizer/admin)."""
+    cursor: str | None = None,
+) -> tuple[Sequence[Event], str | None]:
+    """List events with optional filters. Returns (events, next_cursor)."""
     conditions = []
     q = select(Event)
     need_venue_join = city is not None
@@ -239,7 +264,7 @@ async def list_events(
         try:
             status_enum = EventStatus(status)
         except ValueError:
-            return []
+            return ([], None)
         conditions.append(Event.status == status_enum)
     elif not include_all_statuses and organizer_id is None:
         conditions.append(
@@ -259,7 +284,7 @@ async def list_events(
         try:
             reg_type = RegistrationType(registration_type)
         except ValueError:
-            return []
+            return ([], None)
         conditions.append(Event.registration_type == reg_type)
     if organizer_id is not None:
         conditions.append(Event.organizer_id == organizer_id)
@@ -298,13 +323,48 @@ async def list_events(
         ))
     if conditions:
         q = q.where(and_(*conditions))
-    q = q.options(selectinload(Event.venue), selectinload(Event.ticket_strategy), selectinload(Event.organizer)).order_by(Event.start_time.asc())
-    if offset:
+
+    use_keyset = cursor is not None and limit is not None
+    if use_keyset:
+        decoded = _decode_cursor(cursor)
+        if decoded:
+            cursor_start_time, cursor_id = decoded
+            if cursor_start_time is not None:
+                keyset = or_(
+                    Event.start_time > cursor_start_time,
+                    (Event.start_time == cursor_start_time) & (Event.id > cursor_id),
+                    Event.start_time.is_(None),
+                )
+            else:
+                keyset = or_(
+                    Event.start_time.isnot(None),
+                    (Event.start_time.is_(None) & (Event.id > cursor_id)),
+                )
+            q = q.where(keyset)
+        else:
+            use_keyset = False
+
+    q = q.options(
+        selectinload(Event.venue),
+        selectinload(Event.ticket_strategy),
+        selectinload(Event.organizer),
+    ).order_by(nulls_last(Event.start_time.asc()), Event.id.asc())
+    if not use_keyset and offset is not None and offset > 0:
         q = q.offset(offset)
     if limit is not None:
-        q = q.limit(limit)
+        q = q.limit(limit + 1 if use_keyset else limit)
     result = await db.execute(q)
-    return result.scalars().unique().all()
+    rows = result.scalars().unique().all()
+
+    next_cursor = None
+    if use_keyset and limit is not None and len(rows) > limit:
+        rows = list(rows)[:limit]
+        last = rows[-1]
+        next_cursor = _encode_cursor(last.start_time, last.id)
+    elif not use_keyset:
+        next_cursor = None
+
+    return (rows, next_cursor)
 
 
 async def list_events_for_map(

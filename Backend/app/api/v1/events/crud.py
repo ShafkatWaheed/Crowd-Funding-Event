@@ -1,6 +1,7 @@
 """
 Events CRUD: list, featured, genres, create, get, patch, delete, calendar.ics.
 """
+import asyncio
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Query
@@ -53,13 +54,14 @@ async def list_events(
     community_rules: bool | None = Query(None, description="True = community rules events only"),
     sponsorship_only: bool = Query(False, description="True = only events with sponsorship categories"),
     include_all_statuses: bool = Query(False, description="True = show draft/pending/cancelled (for organizer/admin)"),
-    offset: int = Query(0, ge=0, description="Pagination offset"),
+    offset: int | None = Query(None, ge=0, description="Pagination offset (deprecated: prefer cursor)"),
     limit: int = Query(20, ge=1, le=100, description="Page size (max 100)"),
+    cursor: str | None = Query(None, description="Keyset cursor from previous response for infinite scroll"),
 ):
     """List events with optional search and filters."""
     date_from_dt = _parse_date_or_datetime(date_from, end_of_day=False)
     date_to_dt = _parse_date_or_datetime(date_to, end_of_day=True)
-    events = await event_service.list_events(
+    events, next_cursor = await event_service.list_events(
         db,
         search=search,
         city=city,
@@ -77,14 +79,17 @@ async def list_events(
         community_rules=community_rules,
         sponsorship_only=sponsorship_only,
         include_all_statuses=include_all_statuses,
-        offset=offset,
+        offset=offset if offset is not None else 0,
         limit=limit,
+        cursor=cursor,
     )
     event_ids = [e.id for e in events]
-    pledged = await funding_service.get_pledged_totals_for_events(db, event_ids=event_ids)
-    reserved = await funding_service.get_total_reserved_spots_for_events(db, event_ids=event_ids)
-    tickets_sold = await ticket_service.get_ticket_sold_counts_for_events(db, event_ids=event_ids)
-    first_images = await _get_first_images(db, event_ids)
+    pledged, reserved, tickets_sold, first_images = await asyncio.gather(
+        funding_service.get_pledged_totals_for_events(db, event_ids=event_ids),
+        funding_service.get_total_reserved_spots_for_events(db, event_ids=event_ids),
+        ticket_service.get_ticket_sold_counts_for_events(db, event_ids=event_ids),
+        _get_first_images(db, event_ids),
+    )
     now = datetime.now(timezone.utc)
     out = []
     for e in events:
@@ -104,7 +109,7 @@ async def list_events(
                 first_image_url=first_images.get(e.id),
             )
         )
-    return out
+    return {"items": out, "next_cursor": next_cursor}
 
 
 @router.get("/genres", response_model=list[str])
@@ -124,10 +129,12 @@ async def get_featured_events(db: DbSession, sponsorship_only: bool = Query(Fals
     popular_ids = [e.id for e in popular]
     coming_soon_ids = [e.id for e in coming_soon]
     all_ids = list(set(trending_ids + popular_ids + coming_soon_ids))
-    pledged = await funding_service.get_pledged_totals_for_events(db, event_ids=all_ids)
-    reserved = await funding_service.get_total_reserved_spots_for_events(db, event_ids=all_ids)
-    tickets_sold = await ticket_service.get_ticket_sold_counts_for_events(db, event_ids=all_ids)
-    first_images = await _get_first_images(db, all_ids)
+    pledged, reserved, tickets_sold, first_images = await asyncio.gather(
+        funding_service.get_pledged_totals_for_events(db, event_ids=all_ids),
+        funding_service.get_total_reserved_spots_for_events(db, event_ids=all_ids),
+        ticket_service.get_ticket_sold_counts_for_events(db, event_ids=all_ids),
+        _get_first_images(db, all_ids),
+    )
 
     now = datetime.now(timezone.utc)
 

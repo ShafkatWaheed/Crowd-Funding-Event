@@ -13,7 +13,10 @@ import '../../widgets/shimmer_loaders.dart';
 class GlobalTicketSalesScreen extends StatefulWidget {
   final bool scannedOnly;
   final String? eventStatus;
-  const GlobalTicketSalesScreen({super.key, this.scannedOnly = false, this.eventStatus});
+  final String? genre;
+  final int? eventId;
+  final String? eventTitle;
+  const GlobalTicketSalesScreen({super.key, this.scannedOnly = false, this.eventStatus, this.genre, this.eventId, this.eventTitle});
 
   @override
   State<GlobalTicketSalesScreen> createState() =>
@@ -66,6 +69,8 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
       final sales = await api.getOrganizerTicketSales(
         scannedOnly: widget.scannedOnly,
         eventStatus: widget.eventStatus,
+        genre: widget.genre,
+        eventId: widget.eventId,
         offset: 0,
         limit: _pageSize,
       );
@@ -93,6 +98,8 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
       final sales = await api.getOrganizerTicketSales(
         scannedOnly: widget.scannedOnly,
         eventStatus: widget.eventStatus,
+        genre: widget.genre,
+        eventId: widget.eventId,
         offset: _all.length,
         limit: _pageSize,
       );
@@ -159,9 +166,14 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(title),
-            if (widget.eventStatus != null)
+            if (widget.eventStatus != null || widget.genre != null || widget.eventId != null)
               Text(
-                'Filtered: ${widget.eventStatus!.replaceAll('_', ' ')}',
+                [
+                  if (widget.eventStatus != null) widget.eventStatus!.replaceAll('_', ' '),
+                  if (widget.genre != null) widget.genre!,
+                  if (widget.eventTitle != null) widget.eventTitle!
+                  else if (widget.eventId != null) 'Event #${widget.eventId}',
+                ].join(' · '),
                 style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context)),
               ),
           ],

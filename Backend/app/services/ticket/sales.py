@@ -319,8 +319,8 @@ async def list_event_scanned_ticket_sales(
 
 async def list_organizer_ticket_sales(
     db: AsyncSession, *, organizer_id: int, scanned_only: bool = False,
-    event_status: str | None = None,
-    offset: int = 0, limit: int = 20,
+    event_status: str | None = None, genre: str | None = None,
+    event_id: int | None = None, offset: int = 0, limit: int = 20,
 ) -> Sequence[TicketSale]:
     """List all ticket sales across all events owned by organizer_id."""
     conditions = [Event.organizer_id == organizer_id]
@@ -332,6 +332,10 @@ async def list_organizer_ticket_sales(
             conditions.append(Event.status == EventStatus(event_status))
         except ValueError:
             pass
+    if genre:
+        conditions.append(Event.genre == genre)
+    if event_id:
+        conditions.append(Event.id == event_id)
     q = (
         select(TicketSale)
         .join(Event, TicketSale.event_id == Event.id)

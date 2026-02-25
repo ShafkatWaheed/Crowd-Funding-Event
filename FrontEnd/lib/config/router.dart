@@ -240,8 +240,12 @@ GoRouter createRouter(AuthProvider authProvider) {
         path: '/manage/ticket-sales',
         pageBuilder: (context, state) {
           final eventStatus = state.uri.queryParameters['event_status'];
+          final genre = state.uri.queryParameters['genre'];
+          final eventIdStr = state.uri.queryParameters['event_id'];
+          final eventId = eventIdStr != null ? int.tryParse(eventIdStr) : null;
+          final eventTitle = state.uri.queryParameters['event_title'];
           return fadeThroughPage(
-              child: GlobalTicketSalesScreen(scannedOnly: false, eventStatus: eventStatus));
+              child: GlobalTicketSalesScreen(scannedOnly: false, eventStatus: eventStatus, genre: genre, eventId: eventId, eventTitle: eventTitle));
         },
       ),
       GoRoute(
@@ -268,8 +272,12 @@ GoRouter createRouter(AuthProvider authProvider) {
         path: '/manage/pledges',
         pageBuilder: (context, state) {
           final eventStatus = state.uri.queryParameters['event_status'];
+          final genre = state.uri.queryParameters['genre'];
+          final eventIdStr = state.uri.queryParameters['event_id'];
+          final eventId = eventIdStr != null ? int.tryParse(eventIdStr) : null;
+          final eventTitle = state.uri.queryParameters['event_title'];
           return fadeThroughPage(
-              child: OrganizerPledgesScreen(eventStatus: eventStatus));
+              child: OrganizerPledgesScreen(eventStatus: eventStatus, genre: genre, eventId: eventId, eventTitle: eventTitle));
         },
       ),
 
@@ -304,8 +312,12 @@ GoRouter createRouter(AuthProvider authProvider) {
         path: '/manage/sponsors',
         pageBuilder: (context, state) {
           final eventStatus = state.uri.queryParameters['event_status'];
+          final genre = state.uri.queryParameters['genre'];
+          final eventIdStr = state.uri.queryParameters['event_id'];
+          final eventId = eventIdStr != null ? int.tryParse(eventIdStr) : null;
+          final eventTitle = state.uri.queryParameters['event_title'];
           return fadeThroughPage(
-              child: OrganizerSponsorsScreen(eventStatus: eventStatus));
+              child: OrganizerSponsorsScreen(eventStatus: eventStatus, genre: genre, eventId: eventId, eventTitle: eventTitle));
         },
       ),
 

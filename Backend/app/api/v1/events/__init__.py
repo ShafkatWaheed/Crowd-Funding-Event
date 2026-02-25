@@ -4,7 +4,7 @@ Same prefix and tags as before; only code organization changed.
 """
 from fastapi import APIRouter
 
-from app.schemas import EventResponse
+from app.schemas import EventListResponse, EventResponse
 
 from . import crud, lifecycle, organizers, pledge, registration, tickets, discounts, posts, images, reactions
 from ._helpers import _build_tier_reservation_response, _event_to_response, _get_first_images
@@ -12,7 +12,7 @@ from .tickets import _ticket_sale_to_response
 
 router = APIRouter()
 # Register empty-path routes on this router (FastAPI disallows prefix and path both "")
-router.get("", response_model=list[EventResponse])(crud.list_events)
+router.get("", response_model=EventListResponse)(crud.list_events)
 router.post("", response_model=EventResponse)(crud.create_event)
 router.include_router(crud.router, prefix="")
 router.include_router(lifecycle.router, prefix="")

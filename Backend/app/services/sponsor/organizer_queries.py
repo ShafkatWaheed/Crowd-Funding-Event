@@ -155,6 +155,7 @@ async def get_events_with_sponsorship_available(
 
 async def get_organizer_sponsors(
     db: AsyncSession, organizer_id: int, *, event_status: str | None = None,
+    genre: str | None = None, event_id: int | None = None,
     offset: int = 0, limit: int = 20,
 ) -> list[dict]:
     """Distinct sponsors with active bids on any of this organizer's events."""
@@ -169,6 +170,10 @@ async def get_organizer_sponsors(
             conditions.append(Event.status == EventStatus(event_status))
         except ValueError:
             pass
+    if genre:
+        conditions.append(Event.genre == genre)
+    if event_id:
+        conditions.append(Event.id == event_id)
 
     q = (
         select(

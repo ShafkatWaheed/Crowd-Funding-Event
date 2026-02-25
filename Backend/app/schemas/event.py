@@ -136,6 +136,12 @@ class OrganizerTrustInfo(BaseModel):
     published_events: int = 0
 
 
+class EventListResponse(BaseModel):
+    """Paginated event list with keyset cursor for infinite scroll."""
+    items: list["EventResponse"]
+    next_cursor: str | None = None
+
+
 class EventResponse(BaseModel):
     id: int
     organizer_id: int
@@ -271,3 +277,7 @@ class CustomerHistoryItem(BaseModel):
 
 class ExtensionApprovalAction(BaseModel):
     action: str  # 'approve' | 'reject'
+
+
+# Resolve forward reference in EventListResponse
+EventListResponse.model_rebuild()

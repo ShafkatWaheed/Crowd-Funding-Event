@@ -9,7 +9,10 @@ import '../../services/api_service.dart';
 
 class OrganizerSponsorsScreen extends StatefulWidget {
   final String? eventStatus;
-  const OrganizerSponsorsScreen({super.key, this.eventStatus});
+  final String? genre;
+  final int? eventId;
+  final String? eventTitle;
+  const OrganizerSponsorsScreen({super.key, this.eventStatus, this.genre, this.eventId, this.eventTitle});
 
   @override
   State<OrganizerSponsorsScreen> createState() =>
@@ -56,7 +59,7 @@ class _OrganizerSponsorsScreenState extends State<OrganizerSponsorsScreen> {
     });
     try {
       final api = context.read<ApiService>();
-      final data = await api.getOrganizerSponsors(eventStatus: widget.eventStatus, offset: 0, limit: _pageSize);
+      final data = await api.getOrganizerSponsors(eventStatus: widget.eventStatus, genre: widget.genre, eventId: widget.eventId, offset: 0, limit: _pageSize);
       if (!mounted) return;
       setState(() {
         _sponsors = data.cast<Map<String, dynamic>>();
@@ -79,6 +82,8 @@ class _OrganizerSponsorsScreenState extends State<OrganizerSponsorsScreen> {
       final api = context.read<ApiService>();
       final data = await api.getOrganizerSponsors(
         eventStatus: widget.eventStatus,
+        genre: widget.genre,
+        eventId: widget.eventId,
         offset: _sponsors.length,
         limit: _pageSize,
       );
@@ -114,9 +119,14 @@ class _OrganizerSponsorsScreenState extends State<OrganizerSponsorsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text('My Sponsors'),
-            if (widget.eventStatus != null)
+            if (widget.eventStatus != null || widget.genre != null || widget.eventId != null)
               Text(
-                'Filtered: ${widget.eventStatus!.replaceAll('_', ' ')}',
+                [
+                  if (widget.eventStatus != null) widget.eventStatus!.replaceAll('_', ' '),
+                  if (widget.genre != null) widget.genre!,
+                  if (widget.eventTitle != null) widget.eventTitle!
+                  else if (widget.eventId != null) 'Event #${widget.eventId}',
+                ].join(' · '),
                 style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context)),
               ),
           ],

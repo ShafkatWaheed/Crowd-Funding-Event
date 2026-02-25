@@ -413,14 +413,15 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final api = context.read<ApiService>();
       final user = context.read<AuthProvider>().user;
-      final data = await api.getEvents(params: {
+      final result = await api.getEvents(params: {
         'status': status,
         'include_all_statuses': true,
         if (user != null && user.isOrganizer) 'organizer_id': user.id,
       }, limit: 50);
       if (mounted) {
+        final data = (result['items'] as List?) ?? [];
         setState(() {
-          _statusFilteredEvents = data.map((e) => Event.fromJson(e)).toList();
+          _statusFilteredEvents = data.map((e) => Event.fromJson(e as Map<String, dynamic>)).toList();
           _statusFilterLoading = false;
         });
         _batchCheckBookmarks(_statusFilteredEvents.map((e) => e.id).toList());
@@ -443,12 +444,13 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final api = context.read<ApiService>();
       final user = context.read<AuthProvider>().user;
-      final data = await api.getEvents(params: {
+      final result = await api.getEvents(params: {
         'include_all_statuses': true,
         if (user != null && user.isOrganizer) 'organizer_id': user.id,
       }, limit: 100);
       if (mounted) {
-        final allEvents = data.map((e) => Event.fromJson(e)).toList();
+        final data = (result['items'] as List?) ?? [];
+        final allEvents = data.map((e) => Event.fromJson(e as Map<String, dynamic>)).toList();
         final List<Event> filtered;
         switch (kpi) {
           case 'tickets':
@@ -481,7 +483,10 @@ class _HomeScreenState extends State<HomeScreen> {
         api.dio.get('/events', queryParameters: {
           'community_rules': 'true',
           if (isSponsor) 'sponsorship_only': true,
-        }).then((r) => r.data as List),
+        }).then((r) {
+          final d = r.data;
+          return d is List ? d : (d as Map)['items'] as List? ?? [];
+        }),
       ]);
       final data = results[0] as Map<String, dynamic>;
       final communityList = results[1] as List;
@@ -556,11 +561,12 @@ class _HomeScreenState extends State<HomeScreen> {
             .toList();
         if (ids.isNotEmpty) {
           final fullEvents = <Event>[];
-          final allEvents = await api.getEvents(params: {
+          final result = await api.getEvents(params: {
             if (isSponsor) 'sponsorship_only': true,
           });
+          final allEvents = (result['items'] as List?) ?? [];
           for (final e in allEvents) {
-            final ev = Event.fromJson(e);
+            final ev = Event.fromJson(e as Map<String, dynamic>);
             if (ids.contains(ev.id)) fullEvents.add(ev);
           }
           setState(() => _nearMeEvents = fullEvents);
@@ -2101,10 +2107,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     deltaPercent: (tickets['delta_percent'] as num?)?.toDouble(),
                     accentColor: context.ticketAccent,
                     onTap: () {
-                      final statusQ = _dashboardStatusFilter;
-                      final path = statusQ != null
-                          ? '/manage/ticket-sales?event_status=$statusQ'
-                          : '/manage/ticket-sales';
+                      final params = <String, String>{};
+                      if (_dashboardStatusFilter != null) params['event_status'] = _dashboardStatusFilter!;
+                      if (_dashboardGenreFilter != null) params['genre'] = _dashboardGenreFilter!;
+                      if (_dashboardEventId != null) params['event_id'] = _dashboardEventId.toString();
+                      if (_dashboardEventTitle != null) params['event_title'] = _dashboardEventTitle!;
+                      final query = params.entries.map((e) => '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}').join('&');
+                      final path = query.isNotEmpty ? '/manage/ticket-sales?$query' : '/manage/ticket-sales';
                       context.push(path);
                     },
                   ),
@@ -2125,10 +2134,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     deltaPercent: (backers['delta_percent'] as num?)?.toDouble(),
                     accentColor: context.fundingAccent,
                     onTap: () {
-                      final statusQ = _dashboardStatusFilter;
-                      final path = statusQ != null
-                          ? '/manage/pledges?event_status=$statusQ'
-                          : '/manage/pledges';
+                      final params = <String, String>{};
+                      if (_dashboardStatusFilter != null) params['event_status'] = _dashboardStatusFilter!;
+                      if (_dashboardGenreFilter != null) params['genre'] = _dashboardGenreFilter!;
+                      if (_dashboardEventId != null) params['event_id'] = _dashboardEventId.toString();
+                      if (_dashboardEventTitle != null) params['event_title'] = _dashboardEventTitle!;
+                      final query = params.entries.map((e) => '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}').join('&');
+                      final path = query.isNotEmpty ? '/manage/pledges?$query' : '/manage/pledges';
                       context.push(path);
                     },
                   ),
@@ -2142,10 +2154,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     deltaPercent: (sponsors?['delta_percent'] as num?)?.toDouble(),
                     accentColor: context.sponsorAccent,
                     onTap: () {
-                      final statusQ = _dashboardStatusFilter;
-                      final path = statusQ != null
-                          ? '/manage/sponsors?event_status=$statusQ'
-                          : '/manage/sponsors';
+                      final params = <String, String>{};
+                      if (_dashboardStatusFilter != null) params['event_status'] = _dashboardStatusFilter!;
+                      if (_dashboardGenreFilter != null) params['genre'] = _dashboardGenreFilter!;
+                      if (_dashboardEventId != null) params['event_id'] = _dashboardEventId.toString();
+                      if (_dashboardEventTitle != null) params['event_title'] = _dashboardEventTitle!;
+                      final query = params.entries.map((e) => '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}').join('&');
+                      final path = query.isNotEmpty ? '/manage/sponsors?$query' : '/manage/sponsors';
                       context.push(path);
                     },
                   ),
@@ -2169,6 +2184,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     onTap: () {
                       setState(() {
                         _selectedStatus = _dashboardStatusFilter;
+                        _selectedGenre = _dashboardGenreFilter;
                         _navIndex = 1;
                       });
                       _applyFilters();

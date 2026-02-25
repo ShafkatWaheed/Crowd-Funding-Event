@@ -10,7 +10,10 @@ import '../event/pledge_receipt_screen.dart';
 
 class OrganizerPledgesScreen extends StatefulWidget {
   final String? eventStatus;
-  const OrganizerPledgesScreen({super.key, this.eventStatus});
+  final String? genre;
+  final int? eventId;
+  final String? eventTitle;
+  const OrganizerPledgesScreen({super.key, this.eventStatus, this.genre, this.eventId, this.eventTitle});
 
   @override
   State<OrganizerPledgesScreen> createState() => _OrganizerPledgesScreenState();
@@ -65,6 +68,8 @@ class _OrganizerPledgesScreenState extends State<OrganizerPledgesScreen> {
       final data = await api.getOrganizerPledges(
         status: _statusFilter == 'all' ? null : _statusFilter,
         eventStatus: widget.eventStatus,
+        genre: widget.genre,
+        eventId: widget.eventId,
         offset: 0,
         limit: _pageSize,
       );
@@ -93,6 +98,8 @@ class _OrganizerPledgesScreenState extends State<OrganizerPledgesScreen> {
       final data = await api.getOrganizerPledges(
         status: _statusFilter == 'all' ? null : _statusFilter,
         eventStatus: widget.eventStatus,
+        genre: widget.genre,
+        eventId: widget.eventId,
         offset: _all.length,
         limit: _pageSize,
       );
@@ -146,9 +153,14 @@ class _OrganizerPledgesScreenState extends State<OrganizerPledgesScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text('Pledges & Backers'),
-            if (widget.eventStatus != null)
+            if (widget.eventStatus != null || widget.genre != null || widget.eventId != null)
               Text(
-                'Filtered: ${widget.eventStatus!.replaceAll('_', ' ')}',
+                [
+                  if (widget.eventStatus != null) widget.eventStatus!.replaceAll('_', ' '),
+                  if (widget.genre != null) widget.genre!,
+                  if (widget.eventTitle != null) widget.eventTitle!
+                  else if (widget.eventId != null) 'Event #${widget.eventId}',
+                ].join(' · '),
                 style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context)),
               ),
           ],

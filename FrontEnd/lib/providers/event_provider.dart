@@ -11,9 +11,9 @@ class EventProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _error;
 
-  // Pagination state
+  // Pagination state (keyset cursor for infinite scroll)
   static const int _pageSize = 20;
-  int _currentOffset = 0;
+  String? _nextCursor;
   bool _hasMore = true;
   bool _isLoadingMore = false;
   Map<String, dynamic>? _lastFilters;
@@ -35,16 +35,17 @@ class EventProvider extends ChangeNotifier {
   Future<void> loadEvents({Map<String, dynamic>? filters}) async {
     _isLoading = true;
     _error = null;
-    _currentOffset = 0;
+    _nextCursor = null;
     _hasMore = true;
     _lastFilters = filters;
     notifyListeners();
 
     try {
-      final data = await _api.getEvents(params: filters, offset: 0, limit: _pageSize);
-      _events = data.map((e) => Event.fromJson(e)).toList();
-      _hasMore = data.length >= _pageSize;
-      _currentOffset = _events.length;
+      final result = await _api.getEvents(params: filters, limit: _pageSize);
+      final items = (result['items'] as List?) ?? [];
+      _events = items.map((e) => Event.fromJson(e as Map<String, dynamic>)).toList();
+      _nextCursor = result['next_cursor'] as String?;
+      _hasMore = _nextCursor != null;
     } catch (e) {
       _error = ApiService.extractError(e, fallback: 'Failed to load events.');
     }
@@ -59,15 +60,16 @@ class EventProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final data = await _api.getEvents(
+      final result = await _api.getEvents(
         params: _lastFilters,
-        offset: _currentOffset,
         limit: _pageSize,
+        cursor: _nextCursor,
       );
-      final newEvents = data.map((e) => Event.fromJson(e)).toList();
+      final items = (result['items'] as List?) ?? [];
+      final newEvents = items.map((e) => Event.fromJson(e as Map<String, dynamic>)).toList();
       _events.addAll(newEvents);
-      _hasMore = newEvents.length >= _pageSize;
-      _currentOffset += newEvents.length;
+      _nextCursor = result['next_cursor'] as String?;
+      _hasMore = _nextCursor != null;
     } catch (e) {
       _error = ApiService.extractError(e, fallback: 'Failed to load more events.');
     }

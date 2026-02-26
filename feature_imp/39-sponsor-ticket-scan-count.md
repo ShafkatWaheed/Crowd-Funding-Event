@@ -31,6 +31,10 @@
 - **Requires:** [Auth](01-auth-users.md), [37](37-sponsorship-prerequisites.md).
 - **Triggers / side effects:** None.
 
+## Prompt
+
+Implement **Sponsor Ticket Scan Count** for the Crowd Funding Event app. Backend: POST scan-sponsor; increment scan_count on sponsor ticket; set scanned_at on first scan. Frontend: TicketScannerScreen sponsor mode; sponsor ticket card/receipt showing scanCount. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

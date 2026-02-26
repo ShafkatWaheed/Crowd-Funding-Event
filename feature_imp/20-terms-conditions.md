@@ -31,6 +31,10 @@
 - **Requires:** [Auth](01-auth-users.md). Terms content is role-specific (organizer vs customer) in frontend.
 - **Triggers / side effects:** None (compliance and display only).
 
+## Prompt
+
+Implement **Terms and Conditions Agreement** for the Crowd Funding Event app. Backend: POST `/auth/verify` accepts terms_accepted_at; store on user create (User.terms_accepted_at); no dedicated terms API. Frontend: RegisterScreen checkbox and link to terms; TermsScreen (/terms?role=); Profile Legal → Terms & Conditions. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

@@ -31,6 +31,10 @@
 - **Requires:** [Auth](01-auth-users.md), [Events](03-events-crud-lifecycle.md), [Funding](09-funding-pledges.md) (for total_pledged), [Feature Flags](12-feature-flags.md).
 - **Triggers / side effects:** Milestone snapshots for [41-milestone-early-bird-discounts](41-milestone-early-bird-discounts.md) (pledgers at unlock).
 
+## Prompt
+
+Implement **Funding Milestones** for the Crowd Funding Event app. Backend: GET/POST/PATCH/DELETE `/events/{id}/milestones`, POST/GET react; list with is_unlocked from total_pledged vs goal; require_feature("feature_milestones_enabled"). Frontend: Create/Edit Event funding step (milestone builder); Event Detail Milestone Timeline with like/dislike. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

@@ -31,6 +31,10 @@
 - **Requires:** [Funding Milestones](11-funding-milestones.md), [Funding](09-funding-pledges.md), [Tickets](19-tickets.md), [Event Discounts](15-event-discounts.md).
 - **Triggers / side effects:** Snapshot on pledge; discount at purchase.
 
+## Prompt
+
+Implement **Milestone and Early Bird Discounts** for the Crowd Funding Event app. Backend: FundingMilestoneSnapshot/User on milestone cross; EarlyBirdDiscount CRUD; compute_ticket_price applies milestone plus early bird with max_discount_percent cap. Frontend: Create/Edit Funding (milestone config, early bird, cap); Event Detail early bird banner; purchase discount breakdown. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

@@ -31,6 +31,10 @@
 - **Requires:** [Auth](01-auth-users.md), [Events](03-events-crud-lifecycle.md), [35](35-organizer-public-profile.md), [36](36-sponsor-info-organizers.md).
 - **Triggers / side effects:** None.
 
+## Prompt
+
+Implement **Multi-Directional Rating System** for the Crowd Funding Event app. Backend: POST `/events/{id}/ratings`, GET summary and list, GET `/users/{id}/ratings-received`; directions customer_to_organizer, organizer_to_customer, organizer_to_sponsor, sponsor_to_organizer; score 1-5 and description. Frontend: Event Detail completed reviews (submit and top 5); profile average. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

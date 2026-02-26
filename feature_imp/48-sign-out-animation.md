@@ -28,6 +28,10 @@
 - **Requires:** [Auth](01-auth-users.md). Uses `flutter_animate` for scale, fade, slide effects.
 - **Triggers / side effects:** None.
 
+## Prompt
+
+Implement **Sign-Out Animation** for the Crowd Funding Event app. Frontend only: When user is null on Profile tab, show animated sign-out state (e.g. flutter_animate scale, fade, slide) instead of static "Not signed in". No backend; auth state from Auth provider. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

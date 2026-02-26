@@ -31,6 +31,10 @@
 - **Requires:** All features (rate limit and pool affect every request). ARQ and Redis for [Refund](43-refund-processing.md) and [Email](21-email-notifications.md).
 - **Triggers / side effects:** Rate limit returns 429; health readiness returns 503 if DB unreachable. Advisory lock blocks concurrent pledge/purchase for same event (other events not blocked).
 
+## Prompt
+
+Implement **Backend Scaling and Infrastructure** for the Crowd Funding Event app. Backend: Rate limit middleware (e.g. slowapi; global, auth, purchase, pledge/register limits); GET /healthz and /health (DB ping); DB pool (pool_size, max_overflow, pool_recycle); Redis and ARQ in lifespan; pg_advisory_xact_lock for purchase and pledge. No frontend change. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

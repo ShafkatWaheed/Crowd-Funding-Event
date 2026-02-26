@@ -31,6 +31,10 @@
 - **Requires:** [Auth](01-auth-users.md), [Events](03-events-crud-lifecycle.md), [Funding Milestones](11-funding-milestones.md) (for milestone react).
 - **Triggers / side effects:** None (counts displayed only).
 
+## Prompt
+
+Implement **Like / Dislike System** for the Crowd Funding Event app. Backend: POST/GET `/events/{id}/react` and my-reaction; milestone react in milestones router; one reaction per user per event or milestone; like_count and dislike_count (dislike hidden for non-admin). Frontend: Event Detail reaction bar; milestone cards react. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

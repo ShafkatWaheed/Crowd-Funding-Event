@@ -31,6 +31,10 @@
 - **Requires:** [Spot Reservation](10-spot-reservation-funding.md), [Funding](09-funding-pledges.md), [Tickets](19-tickets.md). Wizard: Dates & Tickets before Funding.
 - **Triggers / side effects:** Capacity per tier; total still event-level.
 
+## Prompt
+
+Implement **Tier-Linked Funding** for the Crowd Funding Event app. Backend: pledge with tier_reservations (tier_id, spots); get_reserved_spots_for_tier, consume_reserved_spots_for_tier on purchase; validate amount >= sum(spots times tier price). Frontend: Funding Card pledge with tier-specific spot selectors; purchase shows using X of Y reserved. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

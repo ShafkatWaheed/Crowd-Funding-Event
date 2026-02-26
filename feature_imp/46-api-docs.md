@@ -29,6 +29,10 @@
 - **Requires:** None (docs are read-only view of API). All feature endpoints appear in docs if registered on app.
 - **Triggers / side effects:** None.
 
+## Prompt
+
+Implement **API Documentation** for the Crowd Funding Event app. Backend: Serve OpenAPI and Swagger UI at /api/v1/docs (or /docs redirect); schema from route decorators and Pydantic; Bearer auth in Swagger if supported. No frontend; developer-facing only. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

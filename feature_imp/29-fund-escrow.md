@@ -31,6 +31,10 @@
 - **Requires:** [Funding](09-funding-pledges.md) (pledge creates/updates escrow), [Event lifecycle](04-event-lifecycle-state-machine.md) (stage release triggers), [Organizer Trust Score](18-organizer-trust-score.md) (Stage 1 bump), [Admin](28-admin-dashboard.md).
 - **Triggers / side effects:** Payout to organizer (logical; actual payout may be manual or future integration). Freeze blocks all releases until unfreeze.
 
+## Prompt
+
+Implement **Fund Escrow** for the Crowd Funding Event app. Backend: get_or_create on first pledge; refresh_total; release_stage1 (30% or 40% if trust > 0.8), stage2, stage3; freeze/unfreeze; GET `/events/{id}/escrow`, admin GET/POST escrows, release, freeze, freeze-payouts. Frontend: Event Detail Funding Card escrow message; Admin Escrow tab. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

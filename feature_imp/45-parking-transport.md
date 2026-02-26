@@ -31,6 +31,10 @@
 - **Requires:** [Events CRUD](03-events-crud-lifecycle.md), [Venues](02-venues.md) (for address/lat-lng for directions).
 - **Triggers / side effects:** None.
 
+## Prompt
+
+Implement **Parking and Transport** for the Crowd Funding Event app. Backend: Event create/update accept parking_info, transit_info, rideshare_info, accessibility_info; response includes them and directions_url from venue address or lat/lng. Frontend: Create/Edit transport section; Event Detail Getting There card with icon rows and Get Directions. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

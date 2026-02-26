@@ -31,6 +31,10 @@
 - **Requires:** Redis (optional; same URL as ARQ). [Feature Flags](12-feature-flags.md), [Events](03-events-crud-lifecycle.md), [Admin Dashboard](28-admin-dashboard.md). [Cache TTL and toggle](50-cache-ttl-admin-toggle.md) control TTLs and enable/disable.
 - **Triggers / side effects:** Admin settings list (get_all_with_descriptions) is not cached.
 
+## Prompt
+
+Implement **Redis Caching Layer** for the Crowd Funding Event app. Backend: init_cache/close_cache in lifespan; cache_get, cache_set, cache_delete, cache_delete_pattern, cache_json_get, cache_json_set; guard by _enabled; use for featured events, event detail, organizer dashboard, platform_settings _get_raw; invalidate on event update/lifecycle and set_value. No frontend change. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

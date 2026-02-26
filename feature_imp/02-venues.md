@@ -31,6 +31,10 @@
 - **Requires:** [Auth](01-auth-users.md) for organizer/admin (create/update/delete); optional auth for list/get (customers see all).
 - **Triggers / side effects:** Events reference venue_id; no cascade delete (blocked if events use venue).
 
+## Prompt
+
+Implement the **Venues** feature for the Crowd Funding Event app. Backend: CRUD for venues (name, address, capacity, etc.) under `/api/v1/venues`; organizer or admin only. Frontend: venue picker in event create/edit; list and map views as needed. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

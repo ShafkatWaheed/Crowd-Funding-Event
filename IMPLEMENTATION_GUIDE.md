@@ -4,6 +4,30 @@ This document describes the **exact** implementation for each feature: new files
 
 ---
 
+## Single Prompt to Generate This Whole Project
+
+Copy-paste the prompt below into an AI assistant (e.g. Cursor, Claude, ChatGPT) to generate or recreate the **Crowd Funding Event** project. The AI should use this repo’s docs (especially this Implementation Guide, `docs/ARCHITECTURE.md`, and the `feature_imp/` feature index) as the source of truth and implement the system end-to-end.
+
+```
+Build the full "Crowd Funding Event" product as specified in this repository.
+
+Product: A crowd-funded event platform with four roles — Admin, Organizer, Customer, Sponsor. Organizers create events with funding goals, ticket tiers, and optional sponsorship categories. Customers discover events, pledge funds, reserve spots, and buy tickets. Sponsors place bids on categories and receive sponsor tickets. Admins approve events, manage platform settings, and control escrow. The app includes event lifecycle (draft → approved → selling tickets → live → completed), refunds, waitlist, co-organizers, milestones, schedule, ratings, bookmarks, in-app notifications, organizer/sponsor public profiles, sponsorship prerequisites, and fund escrow with stage-based release.
+
+Stack:
+- Frontend: Flutter Web (Dart), Provider for state, GoRouter, Firebase Auth (ID token), Dio for API.
+- Backend: FastAPI (async Python), SQLAlchemy 2 async ORM, PostgreSQL, Redis (ARQ task queue + optional cache), Pydantic schemas. Auth: verify Firebase ID token and enforce role (admin, organizer, customer, sponsor).
+- Infra: Alembic migrations, rate limiting (slowapi), CORS, health probes (/healthz, /health), advisory locks for capacity-sensitive operations.
+
+Deliverables:
+1. Backend: Full API under /api/v1 (auth, events, funding, tickets, registration, sponsors, milestones, schedule, venues, admin, notifications, ratings, public-profiles, etc.), 40 SQLAlchemy models and tables, 21 service modules, ARQ workers for email and refunds. Follow docs/ARCHITECTURE.md and the backend layout in this repo.
+2. Frontend: Flutter Web app with Home (Explore, Manage, Profile), event discovery and detail, pledge and ticket purchase flows, organizer dashboard and KPI cards (with genre/event filters), sponsor bid and payment flows, admin dashboard (settings, approvals, escrow), notifications, bookmarks, ratings, dark mode. Follow the existing screen and router structure.
+3. Implementation order: Apply IMPLEMENTATION_GUIDE.md in order (Privacy rules, then Feature 1 Notifications through Feature 7 Multi-Role, plus any later sections). Use feature_imp/ README and individual feature docs (01–51) for end-to-end flow and dependencies. Add Redis caching (featured, event detail, dashboard, platform settings) with TTL and cache_enabled in admin settings; add backend query improvements (indexes, consolidated dashboard queries, N+1 fixes) and organizer dashboard filters (genre, event_id) as in FEATURE_IMPACT_ANALYSIS.md “Recently Implemented” section.
+
+Output: A complete, runnable codebase that matches this repo’s structure (Backend/, FrontEnd/, docs/, feature_imp/), with migrations, env example, and README. Prefer implementing from this Implementation Guide and ARCHITECTURE.md step-by-step rather than inventing new designs.
+```
+
+---
+
 ## Table of Contents
 
 1. [Privacy Rules (Cross-Cutting)](#0-privacy-rules-cross-cutting)

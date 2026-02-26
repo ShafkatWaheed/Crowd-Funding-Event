@@ -31,6 +31,10 @@
 - **Requires:** [Auth](01-auth-users.md), [Sponsors](36-sponsor-info-organizers.md). Bid acceptance guard.
 - **Triggers / side effects:** accept_bid blocked when required prerequisite not approved.
 
+## Prompt
+
+Implement **Sponsorship Category Prerequisites** for the Crowd Funding Event app. Backend: CRUD prerequisites per category; POST upload, GET uploads, PATCH review; accept_bid blocked if required prerequisite not approved. Frontend: Prerequisite CRUD in categories; bid cards with approve/reject upload; sponsor upload sheet and status. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

@@ -31,6 +31,10 @@
 - **Requires:** [Events CRUD](03-events-crud-lifecycle.md), [Registration](08-registration-waitlist.md), [Tickets](19-tickets.md), [Refund Processing](43-refund-processing.md).
 - **Triggers / side effects:** [Email](21-email-notifications.md) (refund confirmations); ARQ refund jobs.
 
+## Prompt
+
+Implement the **Refund Policy** for the Crowd Funding Event app. Backend: event refund_deadline (capped at 20% of funding duration); unregister before cutoff triggers pledge refund; ticket refund request/approve/reject with state machine and ARQ. Frontend: refund deadline in create/edit event; unregister and ticket refund request flows; organizer refund-requests screen. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

@@ -31,6 +31,10 @@
 - **Requires:** [Funding & Pledges](09-funding-pledges.md), [Event lifecycle](04-event-lifecycle-state-machine.md) (spot release on live), [Tickets](19-tickets.md) (consume on purchase).
 - **Triggers / side effects:** Capacity affects waitlist; decrease of max_capacity blocked if would go below tickets_sold + total_reserved_spots.
 
+## Prompt
+
+Implement **Spot Reservation during Funding** for the Crowd Funding Event app. Backend: pledge with reserved_spots or tier_reservations; get_total_reserved_spots, get_reserved_spots_for_tier; capacity-info endpoint (tickets_sold + total_reserved_spots); consume reserved spots on ticket purchase; release unredeemed on event live. Frontend: pledge flow with spot selector or per-tier reservations; capacity display. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

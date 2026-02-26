@@ -31,6 +31,10 @@
 - **Requires:** [Auth](01-auth-users.md) (optional for list; affects include_all_statuses and organizer filter).
 - **Triggers / side effects:** None (read-only discovery).
 
+## Prompt
+
+Implement **Event Discovery & Search** for the Crowd Funding Event app. Backend: GET `/events` with search, genre, status, date, city, capacity, has_funding, has_tickets; GET `/events/featured` (trending, popular, coming soon); GET `/events/map` for map markers; getGenres(). Frontend: Home/Explore with search bar, genre chips, featured carousels, list/map toggle, filters. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

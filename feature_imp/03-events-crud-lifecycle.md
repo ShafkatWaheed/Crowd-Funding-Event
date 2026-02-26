@@ -31,6 +31,10 @@
 - **Requires:** [Auth](01-auth-users.md), [Venues](02-venues.md) (venue_id), [Ticket Strategies](14-ticket-strategies.md) (optional), [Feature Flags](12-feature-flags.md) where used.
 - **Triggers / side effects:** [Notifications](34-in-app-notifications.md), [Email](21-email-notifications.md) (cancel, approve/reject); [Fund Escrow](29-fund-escrow.md) on funding; lifecycle transitions affect [Registration](08-registration-waitlist.md), [Funding](09-funding-pledges.md), [Tickets](19-tickets.md).
 
+## Prompt
+
+Implement **Events CRUD & Lifecycle** for the Crowd Funding Event app. Backend: events router with create, get, list, update, delete, GET calendar.ics; lifecycle router with cancel, extend-funding, set-event-date, start-selling, reactivate, publish, clone, extension-decision, cancellation/approve. Enforce user_can_edit_event and admin for approvals. Frontend: create event wizard, edit screen, event detail with lifecycle actions. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

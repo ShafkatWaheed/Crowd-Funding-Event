@@ -31,6 +31,10 @@
 - **Requires:** [Auth](01-auth-users.md), [Events](03-events-crud-lifecycle.md), [Event lifecycle](04-event-lifecycle-state-machine.md).
 - **Triggers / side effects:** Event moves to selling_tickets; ticket sales and pledge block apply. No notification required (organizer action).
 
+## Prompt
+
+Implement **Set Event Date (Direct Action)** for the Crowd Funding Event app. Backend: POST `/events/{id}/set-event-date` with start_time, end_time; validate status is waiting_event_date; set status to selling_tickets. Frontend: Event Detail Set Event Date dialog (start/end pickers) when status is waiting_event_date. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

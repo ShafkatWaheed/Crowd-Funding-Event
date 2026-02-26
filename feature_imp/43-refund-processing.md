@@ -31,6 +31,10 @@
 - **Requires:** [Auth](01-auth-users.md), [Tickets](19-tickets.md), [Funding](09-funding-pledges.md), [Event lifecycle](03-events-crud-lifecycle.md), [Email](21-email-notifications.md). Redis + ARQ worker.
 - **Triggers / side effects:** Email on approve; bulk on cancel. Frontend polling until completed.
 
+## Prompt
+
+Implement **Refund Processing** for the Crowd Funding Event app. Backend: POST ticket refund request/approve/reject; GET refund-requests and refund-status; ARQ worker for refund and email tasks (3 retries, refund_failed for admin); bulk refund on event cancel. Frontend: My Tickets Request Refund; Refund Requests screen; poll getRefundStatus until completed. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

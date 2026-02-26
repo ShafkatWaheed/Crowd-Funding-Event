@@ -31,6 +31,10 @@
 - **Requires:** [Auth](01-auth-users.md) (organizer or admin). Touches [Tickets](19-tickets.md), [Funding](09-funding-pledges.md), [Enhanced Sponsor Info](36-sponsor-info-organizers.md).
 - **Triggers / side effects:** None. Read-only filtering.
 
+## Prompt
+
+Implement **Organizer Dashboard Filters** for the Crowd Funding Event app. Backend: get_organizer_dashboard, list_organizer_ticket_sales, list_organizer_pledges, get_organizer_sponsors accept optional event_status, genre, event_id and filter via Event join. Frontend: Manage tab dashboard with filter chips (status, genre, event); KPI cards navigate to filtered lists. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

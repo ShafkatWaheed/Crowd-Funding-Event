@@ -31,6 +31,10 @@
 - **Requires:** [Events](03-events-crud-lifecycle.md). Public endpoint (no auth required for .ics so users can share link).
 - **Triggers / side effects:** None.
 
+## Prompt
+
+Implement **Sharing and Calendar** for the Crowd Funding Event app. Backend: GET `/events/{id}/calendar.ics` returning ICS with VEVENT and location. Frontend: Event Detail Quick Action Bar with Share (copy URL) and Add to Calendar (copy or download .ics). Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

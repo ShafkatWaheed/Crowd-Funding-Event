@@ -31,6 +31,10 @@
 - **Requires:** [Events](03-events-crud-lifecycle.md), [Tickets](19-tickets.md) (price computation). [Reusable Discount Strategies](16-reusable-discount-strategies.md) for attach/claim.
 - **Triggers / side effects:** Discounts applied at ticket purchase; see [41-milestone-early-bird-discounts](41-milestone-early-bird-discounts.md) for stacking.
 
+## Prompt
+
+Implement **Event Discounts** for the Crowd Funding Event app. Backend: GET/POST/DELETE `/events/{id}/discounts/rules`, GET my-discounts, POST/DELETE user-specific discount; rules (ticket_percent, pledge_percent, fixed_cents; target all/pledgers/non_pledgers); cap total discount at ticket price. Frontend: Event Detail discounts (organizer rules, customer "Your Discounts"); claim/set selective. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

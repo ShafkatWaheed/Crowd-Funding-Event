@@ -31,6 +31,10 @@
 - **Requires:** [01](01-auth-users.md), [02](02-venues.md), [14](14-ticket-strategies.md), [16](16-reusable-discount-strategies.md), [03](03-events-crud-lifecycle.md), [13](13-event-schedule.md), [45](45-parking-transport.md).
 - **Triggers / side effects:** Draft or publish from step 5.
 
+## Prompt
+
+Implement **Event Creation Wizard** for the Crowd Funding Event app. Frontend: CreateEventScreen 5 steps (Basics, Funding, Dates and Tickets, Location and Sponsors, Review and Publish); step indicator, Next/Back, unsaved dialog; submit POST /events at Review. Backend: create_event with validation (funding_end_at or start_time, funding_goal, refund cap 20%). Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

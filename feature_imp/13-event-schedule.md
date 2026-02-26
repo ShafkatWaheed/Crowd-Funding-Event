@@ -31,6 +31,10 @@
 - **Requires:** [Events](03-events-crud-lifecycle.md), [Feature Flags](12-feature-flags.md).
 - **Triggers / side effects:** None (read-only for public; write organizer only).
 
+## Prompt
+
+Implement **Event Schedule / Agenda** for the Crowd Funding Event app. Backend: GET/POST/PATCH/DELETE `/events/{id}/schedule`, bulk create, GET export (xlsx); list grouped by date with overlap detection; require_feature("feature_schedule_enabled"). Frontend: Create/Edit Event Dates step (schedule builder); Event Detail Schedule Timeline with date pills and Excel download. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

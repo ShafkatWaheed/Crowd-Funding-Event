@@ -31,6 +31,10 @@
 - **Requires:** [Auth](01-auth-users.md), [Sponsorship](37-sponsorship-prerequisites.md), [Ratings](38-ratings.md).
 - **Triggers / side effects:** None.
 
+## Prompt
+
+Implement **Enhanced Sponsor Info for Organizers** for the Crowd Funding Event app. Backend: GET `/users/{id}/sponsor-public-profile` (company, profession, logo, bid stats, average rating). Frontend: Tappable sponsor name in Bid Management and Organizer Sponsors; SponsorProfileScreen. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

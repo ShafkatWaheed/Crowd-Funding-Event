@@ -31,6 +31,10 @@
 - **Requires:** [Redis Caching](49-redis-caching.md), [Feature Flags](12-feature-flags.md), [Admin Dashboard](28-admin-dashboard.md).
 - **Triggers / side effects:** cache_enabled disables or re-enables cache in-process. TTLs affect subsequent cache_set. Admin settings list is not cached.
 
+## Prompt
+
+Implement **Cache TTL and Enable/Disable in Admin Settings** for the Crowd Funding Event app. Backend: platform_settings keys cache_enabled, cache_ttl_settings, cache_ttl_featured, cache_ttl_event_detail, cache_ttl_dashboard; set_value for cache_enabled calls set_cache_enabled(); lifespan loads cache_enabled and applies at startup. Frontend: Admin Settings tab edit these keys. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

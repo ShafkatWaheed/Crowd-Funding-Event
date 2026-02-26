@@ -30,6 +30,10 @@
 - **Requires:** [Events CRUD](03-events-crud-lifecycle.md), [Auth](01-auth-users.md). Depends on platform_settings for grace period, cancel threshold.
 - **Triggers / side effects:** [Spot Reservation](10-spot-reservation-funding.md) (spot release on live); [Tickets](19-tickets.md), [Registration](08-registration-waitlist.md) (which actions allowed per status); [Notifications](34-in-app-notifications.md), [Email](21-email-notifications.md).
 
+## Prompt
+
+Implement the **Event Lifecycle State Machine** (draft, approved, waiting_event_date, selling_tickets, live, completed, cancelled) for the Crowd Funding Event app. Backend: enforce valid transitions in event service and lifecycle endpoints; status and pending_cancellation/pending_extension fields. Frontend: show status and only allow valid actions (publish, set date, start selling, etc.). Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

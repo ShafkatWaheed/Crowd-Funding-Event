@@ -31,6 +31,10 @@
 - **Requires:** [Auth](01-auth-users.md), [Events](03-events-crud-lifecycle.md), [Event Discounts](15-event-discounts.md) (stacking), [Tickets](19-tickets.md) (pricing).
 - **Triggers / side effects:** Attach with auto_apply applies to all eligible; claim creates CustomerDiscountClaim; both considered in compute_ticket_price.
 
+## Prompt
+
+Implement **Reusable Discount Strategies** for the Crowd Funding Event app. Backend: CRUD `/discount-strategies`; GET/POST/DELETE `/events/{id}/discount-strategies` (attach with auto_apply); GET claimable, POST/DELETE claim; EventDiscountStrategyLink, CustomerDiscountClaim; max links per event. Frontend: GlobalDiscountsScreen, attach in Event Detail/Create Event, ClaimDiscountsScreen. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

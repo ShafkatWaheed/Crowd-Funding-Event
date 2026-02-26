@@ -31,6 +31,10 @@
 - **Requires:** Alembic migration `yy02y1z2a3b4_add_missing_indexes` applied. Touches [Tickets](19-tickets.md), [Funding](09-funding-pledges.md), [Enhanced Sponsor Info](36-sponsor-info-organizers.md), [Admin Dashboard](28-admin-dashboard.md) (organizer dashboard). No change to [Redis Caching](49-redis-caching.md) behavior.
 - **Triggers / side effects:** None. Same result sets; fewer queries and better plan usage. Downgrade migration drops only indexes created by this migration (e.g. not ix_bookmarks_user_id, which belongs to bookmarks table migration).
 
+## Prompt
+
+Implement **Backend Query Improvements** for the Crowd Funding Event app. Backend: get_organizer_dashboard with conditional aggregation in fewer queries; ticket sales batch reload with selectinload; pledges batch tier and reserved spots; sponsor batch profiles and users; add composite and single-column indexes via migration (status, FKs, event_id plus status/created_at, bookmarks event_id). No API or frontend change. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

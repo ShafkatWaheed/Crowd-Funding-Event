@@ -31,6 +31,10 @@
 - **Requires:** [Auth](01-auth-users.md), [Event lifecycle](04-event-lifecycle-state-machine.md) (only approved allows pledge). Registration recommended for pledge (guest pledge allowed but no spot reserve).
 - **Triggers / side effects:** [Spot Reservation](10-spot-reservation-funding.md), [Fund Escrow](29-fund-escrow.md), [Notifications](34-in-app-notifications.md), [Email](21-email-notifications.md) (e.g. unpledge refund).
 
+## Prompt
+
+Implement **Funding & Pledges** for the Crowd Funding Event app. Backend: GET funding summary, GET pledge-preview, POST pledge, POST unpledge, GET pledge receipt, GET refund-status; advisory lock for capacity; escrow get_or_create on first pledge. Frontend: FundingCard on event detail with progress, backers, pledge/unpledge flow, receipt. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

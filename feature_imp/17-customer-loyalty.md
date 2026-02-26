@@ -31,6 +31,10 @@
 - **Requires:** [Auth](01-auth-users.md), [Tickets](19-tickets.md) (scan triggers recording). Scan flow creates history entry.
 - **Triggers / side effects:** None (read-only for organizer; write only via scan).
 
+## Prompt
+
+Implement **Customer Loyalty Tracking** for the Crowd Funding Event app. Backend: Record OrganizerCustomerHistory on ticket scan (organizer_id, customer_id, event_id); GET `/me/customers` (organizer) with event count and "Loyal" (2+ events). Frontend: CustomerHistoryScreen (/manage/customers) listing customers who attended organizer events. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

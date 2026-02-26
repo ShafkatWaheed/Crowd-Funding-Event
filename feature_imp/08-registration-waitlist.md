@@ -31,6 +31,10 @@
 - **Requires:** [Auth](01-auth-users.md), [Events](03-events-crud-lifecycle.md), [Refund Policy](05-refund-policy.md) (unregister refund).
 - **Triggers / side effects:** [Notifications](34-in-app-notifications.md) (confirmed, waitlisted, organizer notified); [Email](21-email-notifications.md) (unregister refund).
 
+## Prompt
+
+Implement **Registration & Waitlist** for the Crowd Funding Event app. Backend: POST register/unregister, GET my-registration, GET registrations, POST registrations/{id}/decision (approve/reject); capacity and waitlist when full; unregister triggers refund if before cutoff. Frontend: Event detail register button; WaitlistScreen; organizer approve/reject waitlist. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

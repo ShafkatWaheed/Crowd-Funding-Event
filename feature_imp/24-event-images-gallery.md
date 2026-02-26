@@ -31,6 +31,10 @@
 - **Requires:** [Auth](01-auth-users.md), [Events](03-events-crud-lifecycle.md). Only organizer/admin can add/delete.
 - **Triggers / side effects:** First image used as featured in list/detail (see event _get_first_images).
 
+## Prompt
+
+Implement **Event Images / Gallery** for the Crowd Funding Event app. Backend: GET/POST `/events/{id}/images`, POST upload, DELETE by image_id; add by URL or file; caption and display_order. Frontend: Event Detail gallery; Create/Edit Event add image by URL or upload. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

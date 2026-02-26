@@ -28,6 +28,10 @@
 - **Requires:** None. Independent feature.
 - **Triggers / side effects:** None. All screens and components that use AppTheme automatically respect dark mode.
 
+## Prompt
+
+Implement **Dark Mode** for the Crowd Funding Event app. Frontend only: ThemeProvider (e.g. ChangeNotifier), AppTheme with dark palette and helpers (cardOf, textPrimaryOf, surfaceOf); Profile theme toggle; persist preference (e.g. SharedPreferences isDark); QR on receipt forced white background. No backend. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

@@ -31,6 +31,10 @@
 - **Requires:** [Auth](01-auth-users.md), [Events](03-events-crud-lifecycle.md), [Trust Score](18-organizer-trust-score.md), [Ratings](38-ratings.md).
 - **Triggers / side effects:** None.
 
+## Prompt
+
+Implement **Organizer Public Profile** for the Crowd Funding Event app. Backend: GET `/users/{id}/public-profile`, GET `/{id}/public-events`; return display_name, username, role, trust score, event count, events. Frontend: Event Detail tappable organizer name; OrganizerProfileScreen with stats, event list, average rating. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

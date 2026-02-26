@@ -31,6 +31,10 @@
 - **Requires:** [Auth](01-auth-users.md), [Events](03-events-crud-lifecycle.md), [Event lifecycle](04-event-lifecycle-state-machine.md) (waiting_event_date only), [Admin Dashboard](28-admin-dashboard.md).
 - **Triggers / side effects:** [Notifications](34-in-app-notifications.md) (notify organizer on approve/reject if applicable). Status approved re-opens pledging.
 
+## Prompt
+
+Implement **Extend Funding (with Admin Approval)** for the Crowd Funding Event app. Backend: POST `/events/{id}/extend-funding` (organizer: pending_extension; admin: apply directly); POST `/{id}/extension-decision` (approve/reject); only when status is waiting_event_date. Frontend: Event Detail Extend Funding dialog; Admin Dashboard Extensions tab (pending, approve/reject). Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

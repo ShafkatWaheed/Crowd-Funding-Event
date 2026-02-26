@@ -31,6 +31,10 @@
 - **Requires:** [Auth](01-auth-users.md) (admin role only). Touches [Events](03-events-crud-lifecycle.md), [Fund Escrow](29-fund-escrow.md), [Feature Flags](12-feature-flags.md), [Event lifecycle](04-event-lifecycle-state-machine.md) (cancellation approve).
 - **Triggers / side effects:** Notifications to organizers (approve/reject event, extension, cancellation); email on cancel; escrow state changes.
 
+## Prompt
+
+Implement **Admin Dashboard** for the Crowd Funding Event app. Backend: GET `/admin/users`, `/events`, `/stats`, `/settings`, `/escrows`; POST approve event, extension-decision, escrow release/freeze/unfreeze, freeze-payouts, cancellation/approve; PATCH settings. Frontend: AdminDashboardScreen with tabs (Overview, Pending Approval, Extensions, Drafts, Users, Settings, Escrow, Requests). Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

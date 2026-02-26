@@ -31,6 +31,10 @@
 - **Requires:** [Auth](01-auth-users.md), [Events](03-events-crud-lifecycle.md). Registration may be required to post (per FEATURES: "Please register first" for unregistered).
 - **Triggers / side effects:** None (no notifications for new posts in plan).
 
+## Prompt
+
+Implement **Event Posts / Feed** for the Crowd Funding Event app. Backend: GET/POST/DELETE `/events/{id}/posts`, POST toggle-posts; list with author; create and delete (author or organizer/admin); event posts_enabled. Frontend: Event Detail feed with list, post form, delete, refresh; unregistered see register-first message. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

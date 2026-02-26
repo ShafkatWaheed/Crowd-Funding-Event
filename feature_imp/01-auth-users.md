@@ -31,6 +31,10 @@
 - **Requires:** None (auth is the entry point).
 - **Triggers / side effects:** All other features that require `CurrentUser` or `require_role()` depend on this.
 
+## Prompt
+
+Implement the **Authentication & Users** feature for the Crowd Funding Event app (Flutter Web, FastAPI, PostgreSQL, Firebase Auth). Backend: POST `/auth/verify` to validate Firebase ID token and upsert user (role, display_name, terms); GET/PATCH `/me` for profile. Frontend: Login/Register screens, verify token and call verify API; use current user and Bearer token on all protected requests. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

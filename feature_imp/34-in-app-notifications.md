@@ -31,6 +31,10 @@
 - **Requires:** [Auth](01-auth-users.md). Triggered by Registration, Events, Funding, Tickets, Admin, Sponsors.
 - **Triggers / side effects:** None.
 
+## Prompt
+
+Implement **In-App Notification System** for the Crowd Funding Event app. Backend: GET/PATCH `/me/notifications` (list, unread-count, mark-read, read-all); create_notification at 13 trigger points (register, waitlist, cancel, purchase, refund, bid, approval). Frontend: AppBar notification bell with badge; NotificationScreen list and mark-all-read; 30s polling. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

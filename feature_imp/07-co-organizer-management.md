@@ -31,6 +31,10 @@
 - **Requires:** [Auth](01-auth-users.md), [Events CRUD](03-events-crud-lifecycle.md). Only main organizer can add/remove; co-organizers with full permission can edit event but cannot modify organizer list.
 - **Triggers / side effects:** None (organizer list affects permission checks in event edit, lifecycle, tickets, etc.).
 
+## Prompt
+
+Implement **Co-Organizer Management** for the Crowd Funding Event app. Backend: GET/POST/DELETE `/events/{id}/organizers` and `/{id}/organizers/{user_id}`; add/remove with permission (read/full); only main organizer can modify. Frontend: CoOrganizerScreen linked from event detail; list main + co-organizers, add by user_id, remove. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

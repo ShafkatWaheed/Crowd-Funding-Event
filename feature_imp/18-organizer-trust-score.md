@@ -31,6 +31,10 @@
 - **Requires:** [Events](03-events-crud-lifecycle.md), [Fund Escrow](29-fund-escrow.md).
 - **Triggers / side effects:** Affects only display and Stage 1 release amount; no user-triggered action.
 
+## Prompt
+
+Implement **Organizer Trust Score** for the Crowd Funding Event app. Backend: Compute trust from completed_events / published_events; labels (New/Low/Fair/Good/Excellent) from thresholds; embed organizer_trust in EventResponse; escrow release_stage1 uses 40% if trust > 0.8 else 30%. Frontend: Event Detail trust badge; Funding Card escrow message. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

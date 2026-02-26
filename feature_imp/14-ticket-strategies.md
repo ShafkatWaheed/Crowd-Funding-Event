@@ -31,6 +31,10 @@
 - **Requires:** [Auth](01-auth-users.md). Events reference strategy by copying tiers to event's ticket_tiers on create/link; strategy can be deleted if no events use it (or soft-delete).
 - **Triggers / side effects:** [Tickets](19-tickets.md) — event ticket tiers are copied from strategy; re-selecting same strategy can repopulate tiers.
 
+## Prompt
+
+Implement **Ticket Strategies (Reusable Templates)** for the Crowd Funding Event app. Backend: GET/POST/GET/PATCH/DELETE `/ticket-strategies` and `/{id}`; list_my_strategies, create/update/delete with tiers (name, description, price, order). Frontend: TicketStrategiesScreen, StrategyPickerScreen from event create/edit; inline create. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

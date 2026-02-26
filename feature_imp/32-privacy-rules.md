@@ -31,6 +31,10 @@
 - **Requires:** [Auth](01-auth-users.md). Admin may still see email in user list (dashboard). Other roles do not.
 - **Triggers / side effects:** None. Reduces PII exposure and complies with privacy expectations.
 
+## Prompt
+
+Implement **Privacy Rules** for the Crowd Funding Event app. Backend: Response schemas and builders must omit attendee email in TicketReceiptResponse and PurchaseGroupReceiptResponse; use display_name for organizer and sponsor in events, users, sponsors (email fallback only for admin). Frontend: Do not show attendee email; show display_name. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

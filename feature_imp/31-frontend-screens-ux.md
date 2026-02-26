@@ -28,6 +28,10 @@
 - **Requires:** [Auth](01-auth-users.md) (redirect to login if unauthenticated). All feature screens depend on router and home structure.
 - **Triggers / side effects:** Navigation triggers feature-specific API loads (e.g. event detail loads event, funding, tiers).
 
+## Prompt
+
+Implement **Frontend Screens and UX** for the Crowd Funding Event app. Frontend: GoRouter with tabs (Home, Explore, Manage, Profile); FAB New Event for organizer/admin; 5-step Create Event wizard (IndexedStack); AppToast; close and safe pop; ApiService.extractError for errors. No new backend; ensure all feature screens plug into router and home structure. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

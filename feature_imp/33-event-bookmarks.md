@@ -31,6 +31,10 @@
 - **Requires:** [Auth](01-auth-users.md), [Events](03-events-crud-lifecycle.md).
 - **Triggers / side effects:** None.
 
+## Prompt
+
+Implement **Event Bookmarks** for the Crowd Funding Event app. Backend: POST `/me/bookmarks/{event_id}` toggle, POST `/me/bookmarks/check`, GET `/me/bookmarks`; unique user_id plus event_id. Frontend: Bookmark icon on event cards and Event Detail; BookmarkedEventsScreen with search and status filter; optimistic Set for instant UI. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

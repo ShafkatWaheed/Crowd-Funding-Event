@@ -31,6 +31,10 @@
 - **Requires:** [Auth](01-auth-users.md) (admin only for settings), [Admin Dashboard](28-admin-dashboard.md).
 - **Triggers / side effects:** Disabling a flag returns 403 on all gated endpoints; frontend hides corresponding sections.
 
+## Prompt
+
+Implement **Feature Flags (Admin Toggles)** for the Crowd Funding Event app. Backend: GET/PATCH `/admin/settings` (admin only); platform_settings (key, value, description); require_feature(key) dependency for milestones/schedule/sponsors. Frontend: Admin Dashboard Settings tab with switches for feature_milestones_enabled, feature_schedule_enabled, feature_sponsors_enabled. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

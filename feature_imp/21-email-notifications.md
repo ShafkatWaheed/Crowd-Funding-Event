@@ -31,6 +31,10 @@
 - **Requires:** [Backend scaling](44-backend-scaling-infra.md) (ARQ + Redis). Triggered by: [Events lifecycle](03-events-crud-lifecycle.md) (cancel), [Funding](09-funding-pledges.md) (unpledge), [Registration](08-registration-waitlist.md) (unregister), [Tickets](19-tickets.md) (purchase, waitlist, refund), [Admin](28-admin-dashboard.md), [Sponsors](37-sponsorship-prerequisites.md) (bid accept/reject/refund).
 - **Triggers / side effects:** None (downstream only).
 
+## Prompt
+
+Implement **Email Notifications** for the Crowd Funding Event app. Backend: send_*_email functions (event cancelled, ticket purchased, unpledge/unregister refund, waitlist, ticket refund, sponsor bid); enqueue via ARQ; EmailBackend (SendGrid or console); templates (Uber-themed HTML). No frontend API; emails triggered by lifecycle, pledge, registration, tickets, admin. Follow the flow, dependencies, and diagrams in this document.
+
 ## Flow diagram
 
 ```mermaid

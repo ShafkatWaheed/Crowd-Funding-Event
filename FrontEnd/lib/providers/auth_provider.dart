@@ -96,6 +96,7 @@ class AuthProvider extends ChangeNotifier {
     String? displayName,
     String? phone,
     String? termsAcceptedAt,
+    String? birthday,
   }) async {
     _errorMessage = null;
     _isLoading = true;
@@ -119,7 +120,8 @@ class AuthProvider extends ChangeNotifier {
       _log('signUp: got ID token (length=${idToken?.length}), calling backend /auth/verify...');
 
       final verifyResp = await _api.verifyToken(idToken!, role,
-          displayName: displayName, termsAcceptedAt: termsAcceptedAt);
+          displayName: displayName, termsAcceptedAt: termsAcceptedAt,
+          birthday: birthday);
       _log('signUp: backend verify response: $verifyResp');
 
       // Update phone if provided

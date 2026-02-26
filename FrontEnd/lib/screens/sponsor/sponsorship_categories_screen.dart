@@ -1026,15 +1026,60 @@ class _MyBidActionsState extends State<_MyBidActions> {
     );
     if (confirmed != true || !mounted) return;
     setState(() => _busy = true);
+    _showPaymentProcessing();
     try {
       final api = context.read<ApiService>();
       await api.payBid(widget.eventId, widget.categoryId, _bidId);
+      _dismissPaymentProcessing();
       if (mounted) AppToast.success(context, 'Payment successful!');
       widget.onDone();
     } catch (e) {
+      _dismissPaymentProcessing();
       if (mounted) AppToast.error(context, ApiService.extractError(e));
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  void _showPaymentProcessing() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => PopScope(
+        canPop: false,
+        child: Center(
+          child: Container(
+            margin: const EdgeInsets.all(32),
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 28),
+            decoration: BoxDecoration(
+              color: AppTheme.cardOf(context),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 20)],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 48, height: 48,
+                  child: CircularProgressIndicator(strokeWidth: 3, color: AppTheme.accentColor),
+                ),
+                const SizedBox(height: 20),
+                Text('Processing payment...', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppTheme.textPrimaryOf(context))),
+                const SizedBox(height: 8),
+                Text('Please wait while we process your transaction',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryOf(context))),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _dismissPaymentProcessing() {
+    if (mounted && Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
     }
   }
 

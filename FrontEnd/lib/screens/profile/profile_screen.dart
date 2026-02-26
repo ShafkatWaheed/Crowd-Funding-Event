@@ -44,6 +44,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _loadingSponsorProfile = false;
   bool _hasSponsorProfile = false;
 
+  // Payment info
+  bool _paymentInfoLoading = false;
+  Map<String, dynamic>? _paymentInfo;
+  final _cardHolderCtrl = TextEditingController();
+  final _billingAddressCtrl = TextEditingController();
+
+  // Bank account (organizer)
+  bool _bankLoading = false;
+  Map<String, dynamic>? _bankData;
+  final _bankNameCtrl = TextEditingController();
+  final _accountNumberCtrl = TextEditingController();
+  final _routingNumberCtrl = TextEditingController();
+  final _accountHolderCtrl = TextEditingController();
+  final _swiftCodeCtrl = TextEditingController();
+  bool _bankEditing = false;
+
   List<GeocodingResult> _addressSuggestions = [];
   bool _showAddressSuggestions = false;
   bool _geocoding = false;
@@ -80,6 +96,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (user != null && user.isSponsor) {
       _loadSponsorProfile();
+    }
+    _loadPaymentInfo();
+    if (user != null && user.isOrganizer) {
+      _loadBankAccount();
     }
   }
 
@@ -129,6 +149,88 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _loadPaymentInfo() async {
+    setState(() => _paymentInfoLoading = true);
+    try {
+      final api = context.read<ApiService>();
+      final data = await api.getPaymentInfo();
+      if (mounted) {
+        setState(() {
+          _paymentInfo = data;
+          _cardHolderCtrl.text = data['card_holder_name'] ?? '';
+          _billingAddressCtrl.text = data['billing_address'] ?? '';
+        });
+      }
+    } catch (_) {}
+    finally {
+      if (mounted) setState(() => _paymentInfoLoading = false);
+    }
+  }
+
+  Future<void> _savePaymentInfo() async {
+    try {
+      final api = context.read<ApiService>();
+      await api.updatePaymentInfo({
+        'card_holder_name': _cardHolderCtrl.text.trim(),
+        'billing_address': _billingAddressCtrl.text.trim(),
+      });
+      await _loadPaymentInfo();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: const Text('Payment info updated'), backgroundColor: AppTheme.successColor),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed: ${ApiService.extractError(e)}'), backgroundColor: AppTheme.errorColor),
+        );
+      }
+    }
+  }
+
+  Future<void> _loadBankAccount() async {
+    setState(() => _bankLoading = true);
+    try {
+      final api = context.read<ApiService>();
+      final data = await api.getBankAccount();
+      if (mounted) {
+        setState(() {
+          _bankData = data;
+          _bankEditing = false;
+        });
+      }
+    } catch (_) {}
+    finally {
+      if (mounted) setState(() => _bankLoading = false);
+    }
+  }
+
+  Future<void> _saveBankAccount() async {
+    try {
+      final api = context.read<ApiService>();
+      await api.updateBankAccount({
+        'bank_name': _bankNameCtrl.text.trim(),
+        'account_number': _accountNumberCtrl.text.trim(),
+        'routing_number': _routingNumberCtrl.text.trim(),
+        'account_holder': _accountHolderCtrl.text.trim(),
+        'swift_code': _swiftCodeCtrl.text.trim().isEmpty ? null : _swiftCodeCtrl.text.trim(),
+      });
+      await _loadBankAccount();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: const Text('Bank account updated'), backgroundColor: AppTheme.successColor),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed: ${ApiService.extractError(e)}'), backgroundColor: AppTheme.errorColor),
+        );
+      }
+    }
+  }
+
   @override
   void dispose() {
     _debounce?.cancel();
@@ -143,6 +245,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _logoUrlCtrl.dispose();
     _descriptionCtrl.dispose();
     _websiteUrlCtrl.dispose();
+    _cardHolderCtrl.dispose();
+    _billingAddressCtrl.dispose();
+    _bankNameCtrl.dispose();
+    _accountNumberCtrl.dispose();
+    _routingNumberCtrl.dispose();
+    _accountHolderCtrl.dispose();
+    _swiftCodeCtrl.dispose();
     super.dispose();
   }
 
@@ -210,7 +319,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (_addressCtrl.text.trim() != (user.address ?? '')) {
         data['address'] = _addressCtrl.text.trim();
       }
-      if (user.isCustomer && _selectedBirthday != null) {
+      if (_selectedBirthday != null) {
         final bdStr = DateFormat('yyyy-MM-dd').format(_selectedBirthday!);
         if (bdStr != (user.birthday ?? '')) {
           data['birthday'] = bdStr;
@@ -893,6 +1002,193 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     ],
                             ),
 
+                          // ── Payment Information ──
+                          _SectionCard(
+                            title: 'Payment Information',
+                            icon: Icons.credit_card_rounded,
+                            delay: 250,
+                            children: _paymentInfoLoading
+                                ? [const Center(child: CircularProgressIndicator())]
+                                : [
+                                    if (_paymentInfo != null && (_paymentInfo!['card_last_four'] ?? '').toString().isNotEmpty)
+                                      Container(
+                                        padding: const EdgeInsets.all(12),
+                                        margin: const EdgeInsets.only(bottom: 12),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.accentColor.withValues(alpha: 0.08),
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.credit_card, color: AppTheme.accentColor, size: 24),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    '${(_paymentInfo!['card_brand'] ?? 'Card').toString().toUpperCase()} •••• ${_paymentInfo!['card_last_four']}',
+                                                    style: TextStyle(fontWeight: FontWeight.w600, color: AppTheme.textPrimaryOf(context)),
+                                                  ),
+                                                  if ((_paymentInfo!['card_holder_name'] ?? '').toString().isNotEmpty)
+                                                    Text(_paymentInfo!['card_holder_name'],
+                                                      style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryOf(context))),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    TextFormField(
+                                      controller: _cardHolderCtrl,
+                                      decoration: _fieldDecoration(
+                                        label: 'Cardholder Name',
+                                        icon: Icons.person_outline_rounded,
+                                        hint: 'Name on card',
+                                      ),
+                                    ),
+                                    AppSpacing.vLg,
+                                    TextFormField(
+                                      controller: _billingAddressCtrl,
+                                      decoration: _fieldDecoration(
+                                        label: 'Billing Address',
+                                        icon: Icons.location_on_outlined,
+                                      ),
+                                    ),
+                                    AppSpacing.vLg,
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: OutlinedButton.icon(
+                                        onPressed: _savePaymentInfo,
+                                        icon: const Icon(Icons.save_outlined, size: 18),
+                                        label: const Text('Save Payment Info'),
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: AppTheme.accentColor,
+                                          side: BorderSide(color: AppTheme.accentColor),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                          ),
+
+                          // ── Bank Account (organizer only) ──
+                          if (user.isOrganizer)
+                            _SectionCard(
+                              title: 'Bank Account',
+                              icon: Icons.account_balance_rounded,
+                              delay: 300,
+                              children: _bankLoading
+                                  ? [const Center(child: CircularProgressIndicator())]
+                                  : [
+                                      if (_bankData != null && !_bankEditing) ...[
+                                        _bankDetailRow('Bank', _bankData!['bank_name_masked'] ?? 'Not set'),
+                                        const SizedBox(height: 8),
+                                        _bankDetailRow('Account', _bankData!['account_number_masked'] ?? '••••'),
+                                        const SizedBox(height: 8),
+                                        _bankDetailRow('Routing', _bankData!['routing_number_masked'] ?? '••••'),
+                                        const SizedBox(height: 8),
+                                        _bankDetailRow('Holder', _bankData!['account_holder_masked'] ?? ''),
+                                        const SizedBox(height: 8),
+                                        Row(
+                                          children: [
+                                            Icon(
+                                              _bankData!['verified'] == true ? Icons.verified : Icons.pending,
+                                              size: 16,
+                                              color: _bankData!['verified'] == true ? AppTheme.successColor : AppTheme.warningColor,
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              _bankData!['verified'] == true ? 'Verified' : 'Pending verification',
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                color: _bankData!['verified'] == true ? AppTheme.successColor : AppTheme.warningColor,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        AppSpacing.vLg,
+                                        SizedBox(
+                                          width: double.infinity,
+                                          child: OutlinedButton.icon(
+                                            onPressed: () => setState(() {
+                                              _bankEditing = true;
+                                              _bankNameCtrl.clear();
+                                              _accountNumberCtrl.clear();
+                                              _routingNumberCtrl.clear();
+                                              _accountHolderCtrl.clear();
+                                              _swiftCodeCtrl.clear();
+                                            }),
+                                            icon: const Icon(Icons.edit_outlined, size: 18),
+                                            label: const Text('Edit Bank Details'),
+                                            style: OutlinedButton.styleFrom(
+                                              foregroundColor: AppTheme.accentColor,
+                                              side: BorderSide(color: AppTheme.accentColor),
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                            ),
+                                          ),
+                                        ),
+                                      ] else ...[
+                                        TextFormField(
+                                          controller: _bankNameCtrl,
+                                          decoration: _fieldDecoration(label: 'Bank Name', icon: Icons.account_balance),
+                                        ),
+                                        AppSpacing.vLg,
+                                        TextFormField(
+                                          controller: _accountNumberCtrl,
+                                          decoration: _fieldDecoration(label: 'Account Number', icon: Icons.numbers),
+                                        ),
+                                        AppSpacing.vLg,
+                                        TextFormField(
+                                          controller: _routingNumberCtrl,
+                                          decoration: _fieldDecoration(label: 'Routing Number', icon: Icons.alt_route),
+                                        ),
+                                        AppSpacing.vLg,
+                                        TextFormField(
+                                          controller: _accountHolderCtrl,
+                                          decoration: _fieldDecoration(label: 'Account Holder', icon: Icons.person_outline),
+                                        ),
+                                        AppSpacing.vLg,
+                                        TextFormField(
+                                          controller: _swiftCodeCtrl,
+                                          decoration: _fieldDecoration(label: 'SWIFT Code (optional)', icon: Icons.language),
+                                        ),
+                                        AppSpacing.vLg,
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: OutlinedButton(
+                                                onPressed: () {
+                                                  if (_bankData != null) {
+                                                    setState(() => _bankEditing = false);
+                                                  }
+                                                },
+                                                style: OutlinedButton.styleFrom(
+                                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                                ),
+                                                child: const Text('Cancel'),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: ElevatedButton.icon(
+                                                onPressed: _saveBankAccount,
+                                                icon: const Icon(Icons.save_outlined, size: 18),
+                                                label: const Text('Save'),
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: AppTheme.accentColor,
+                                                  foregroundColor: Colors.white,
+                                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ],
+                            ),
+
                           const SizedBox(height: 28),
 
                           // ── Save button ──
@@ -995,6 +1291,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
     );
   }
+}
+
+Widget _bankDetailRow(String label, String value) {
+  return Builder(builder: (context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryOf(context))),
+        Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimaryOf(context))),
+      ],
+    );
+  });
 }
 
 class _SectionCard extends StatelessWidget {

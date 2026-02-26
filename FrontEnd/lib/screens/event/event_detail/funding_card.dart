@@ -597,11 +597,13 @@ class _FundingCardState extends State<FundingCard> {
   Future<void> _executePledge(int amountCents, int reservedSpots,
       {List<Map<String, dynamic>>? tierReservations}) async {
     setState(() => _pledging = true);
+    _showPaymentProcessing();
     try {
       final api = context.read<ApiService>();
       final result = await api.pledge(widget.eventId, amountCents,
           reservedSpots: reservedSpots,
           tierReservations: tierReservations);
+      _dismissPaymentProcessing();
       if (mounted) {
         final isGuest = result['is_guest'] == true;
         final pledgeId = result['id'] as int;
@@ -609,7 +611,6 @@ class _FundingCardState extends State<FundingCard> {
             ? 'Guest pledge (non-refundable)'
             : 'Pledge confirmed!');
         _loadFunding();
-        // Navigate to receipt
         Navigator.of(context).push(MaterialPageRoute(
           builder: (_) => PledgeReceiptScreen(
             eventId: widget.eventId,
@@ -618,11 +619,54 @@ class _FundingCardState extends State<FundingCard> {
         ));
       }
     } catch (e) {
+      _dismissPaymentProcessing();
       if (mounted) {
         AppToast.fromError(context, e, fallback: 'Pledge failed');
       }
     } finally {
       if (mounted) setState(() => _pledging = false);
+    }
+  }
+
+  void _showPaymentProcessing() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => PopScope(
+        canPop: false,
+        child: Center(
+          child: Container(
+            margin: const EdgeInsets.all(32),
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 28),
+            decoration: BoxDecoration(
+              color: AppTheme.cardOf(context),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 20)],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 48, height: 48,
+                  child: CircularProgressIndicator(strokeWidth: 3, color: AppTheme.accentColor),
+                ),
+                const SizedBox(height: 20),
+                Text('Processing pledge...', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppTheme.textPrimaryOf(context))),
+                const SizedBox(height: 8),
+                Text('Please wait while we process your transaction',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryOf(context))),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _dismissPaymentProcessing() {
+    if (mounted && Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
     }
   }
 

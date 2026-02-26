@@ -74,6 +74,22 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   // Bookmark state
   bool _bookmarked = false;
 
+  bool _isUserAgeBlocked(Event event) {
+    if (!event.ageRestricted) return false;
+    final user = context.read<AuthProvider>().user;
+    if (user == null) return false;
+    if (user.birthday == null) return true;
+    try {
+      final bd = DateTime.parse(user.birthday!);
+      final now = DateTime.now();
+      int age = now.year - bd.year;
+      if (now.month < bd.month || (now.month == bd.month && now.day < bd.day)) age--;
+      return age < event.minAge;
+    } catch (_) {
+      return true;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -674,6 +690,54 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                 AppSpacing.vSm,
                                 _addImageButton(context),
                                 AppSpacing.vXxl,
+                              ],
+
+                              // ── Age Restriction Banner ──
+                              if (event.ageRestricted) ...[
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: _isUserAgeBlocked(event)
+                                        ? AppTheme.errorColor.withValues(alpha: 0.1)
+                                        : AppTheme.warningSurfaceOf(context),
+                                    borderRadius: AppRadius.md,
+                                    border: Border.all(
+                                      color: _isUserAgeBlocked(event)
+                                          ? AppTheme.errorColor.withValues(alpha: 0.3)
+                                          : AppTheme.warningColor.withValues(alpha: 0.3),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.errorColor,
+                                          borderRadius: AppRadius.pill,
+                                        ),
+                                        child: Text('${event.minAge}+',
+                                          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          _isUserAgeBlocked(event)
+                                              ? 'You must be at least ${event.minAge} years old to participate in this event.'
+                                              : 'This event requires attendees to be at least ${event.minAge} years old.',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w500,
+                                            color: _isUserAgeBlocked(event)
+                                                ? AppTheme.errorColor
+                                                : AppTheme.textPrimaryOf(context),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                AppSpacing.vLg,
                               ],
 
                               // ── Description ──
@@ -1569,6 +1633,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   // ── Modern Quick Action Bar ──
   Widget _buildQuickActionBar(BuildContext context, Event event, dynamic user) {
     final isCustomer = user != null && user.isCustomer;
+    final ageBlocked = _isUserAgeBlocked(event);
 
     return Container(
       padding: const EdgeInsets.all(AppSpacing.xs),
@@ -1582,7 +1647,15 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           if (isCustomer && event.canUnregister)
             Expanded(
               flex: 3,
-              child: _isRegistered && _regStatus == 'registered'
+              child: ageBlocked
+                  ? _quickActionBtn(
+                      icon: Icons.block,
+                      label: '${event.minAge}+ Only',
+                      color: AppTheme.errorColor.withValues(alpha: 0.5),
+                      filled: false,
+                      onTap: null,
+                    )
+                  : _isRegistered && _regStatus == 'registered'
                   ? _quickActionBtn(
                       icon: Icons.check_circle,
                       label: 'Registered',

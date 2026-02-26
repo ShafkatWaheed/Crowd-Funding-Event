@@ -76,17 +76,14 @@ class ApiService {
 
   Future<Map<String, dynamic>> verifyToken(
       String idToken, String role,
-      {String? displayName, String? termsAcceptedAt}) async {
+      {String? displayName, String? termsAcceptedAt, String? birthday}) async {
     final data = <String, dynamic>{
       'id_token': idToken,
       'role': role,
     };
-    if (displayName != null) {
-      data['display_name'] = displayName;
-    }
-    if (termsAcceptedAt != null) {
-      data['terms_accepted_at'] = termsAcceptedAt;
-    }
+    if (displayName != null) data['display_name'] = displayName;
+    if (termsAcceptedAt != null) data['terms_accepted_at'] = termsAcceptedAt;
+    if (birthday != null) data['birthday'] = birthday;
     final resp = await dio.post('/auth/verify', data: data);
     return resp.data;
   }
@@ -95,6 +92,37 @@ class ApiService {
 
   Future<Map<String, dynamic>> getMe() async {
     final resp = await dio.get('/me');
+    return resp.data;
+  }
+
+  // ─── Payment Info ───
+
+  Future<Map<String, dynamic>> getPaymentInfo() async {
+    final resp = await dio.get('/me/payment-info');
+    return resp.data;
+  }
+
+  Future<Map<String, dynamic>> updatePaymentInfo(Map<String, dynamic> data) async {
+    final resp = await dio.put('/me/payment-info', data: data);
+    return resp.data;
+  }
+
+  // ─── Bank Account (organizer) ───
+
+  Future<Map<String, dynamic>> getBankAccount() async {
+    final resp = await dio.get('/me/bank-account');
+    return resp.data;
+  }
+
+  Future<Map<String, dynamic>> updateBankAccount(Map<String, dynamic> data) async {
+    final resp = await dio.put('/me/bank-account', data: data);
+    return resp.data;
+  }
+
+  // ─── Payment Status Polling ───
+
+  Future<Map<String, dynamic>> getPaymentStatus(String transactionId) async {
+    final resp = await dio.get('/payments/$transactionId/status');
     return resp.data;
   }
 
@@ -627,12 +655,18 @@ class ApiService {
 
   // ─── Organizer Dashboard ───
 
-  Future<Map<String, dynamic>> getOrganizerDashboard({String? status, int? eventId, String? genre}) async {
+  Future<Map<String, dynamic>> getOrganizerDashboard({String? status, int? eventId, String? genre, String? period}) async {
     final resp = await dio.get('/me/organizer-dashboard', queryParameters: {
       if (status != null) 'status': status,
       if (eventId != null) 'event_id': eventId,
       if (genre != null) 'genre': genre,
+      if (period != null) 'period': period,
     });
+    return resp.data;
+  }
+
+  Future<List<dynamic>> getEventCities() async {
+    final resp = await dio.get('/events/cities');
     return resp.data;
   }
 

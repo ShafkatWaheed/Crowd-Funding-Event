@@ -2,6 +2,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
@@ -28,6 +29,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscureConfirmPassword = true;
   String _selectedRole = 'customer';
   bool _agreedToTerms = false;
+  DateTime? _selectedBirthday;
 
   @override
   void dispose() {
@@ -39,9 +41,45 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
+  int? get _calculatedAge {
+    if (_selectedBirthday == null) return null;
+    final now = DateTime.now();
+    int age = now.year - _selectedBirthday!.year;
+    if (now.month < _selectedBirthday!.month ||
+        (now.month == _selectedBirthday!.month && now.day < _selectedBirthday!.day)) {
+      age--;
+    }
+    return age;
+  }
+
+  Future<void> _pickBirthday() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedBirthday ?? DateTime(now.year - 20),
+      firstDate: DateTime(1920),
+      lastDate: now,
+    );
+    if (picked != null && mounted) {
+      setState(() => _selectedBirthday = picked);
+    }
+  }
+
   Future<void> _handleRegister() async {
     if (!_formKey.currentState!.validate()) return;
     if (!_agreedToTerms) return;
+    if (_selectedBirthday == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select your birthday')),
+      );
+      return;
+    }
+    if (_calculatedAge != null && _calculatedAge! < 13) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('You must be at least 13 years old to register')),
+      );
+      return;
+    }
 
     await context.read<AuthProvider>().signUp(
           email: _emailController.text.trim(),
@@ -52,6 +90,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ? _phoneController.text.trim()
               : null,
           termsAcceptedAt: DateTime.now().toUtc().toIso8601String(),
+          birthday: DateFormat('yyyy-MM-dd').format(_selectedBirthday!),
         );
   }
 
@@ -285,6 +324,50 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               return null;
                             },
                           ),
+                          AppSpacing.vLg,
+
+                          // Birthday
+                          GestureDetector(
+                            onTap: _pickBirthday,
+                            child: AbsorbPointer(
+                              child: TextFormField(
+                                decoration: InputDecoration(
+                                  labelText: 'Birthday *',
+                                  prefixIcon: const Icon(Icons.cake_outlined),
+                                  hintText: 'Select your birthday',
+                                  suffixIcon: _calculatedAge != null
+                                      ? Padding(
+                                          padding: const EdgeInsets.only(right: 12),
+                                          child: Center(
+                                            widthFactor: 1,
+                                            child: Text(
+                                              '${_calculatedAge}y',
+                                              style: TextStyle(
+                                                color: AppTheme.accentColor,
+                                                fontWeight: FontWeight.w700,
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                          ),
+                                        )
+                                      : const Icon(Icons.calendar_today_outlined, size: 20),
+                                ),
+                                controller: TextEditingController(
+                                  text: _selectedBirthday != null
+                                      ? DateFormat('MMM dd, yyyy').format(_selectedBirthday!)
+                                      : '',
+                                ),
+                                validator: (_) {
+                                  if (_selectedBirthday == null) return 'Birthday is required';
+                                  if (_calculatedAge != null && _calculatedAge! < 13) {
+                                    return 'You must be at least 13 years old';
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ),
+                          ),
+
                           AppSpacing.vLg,
 
                           // Terms

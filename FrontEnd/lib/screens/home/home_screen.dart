@@ -2522,26 +2522,26 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          for (final days in [7, 30, 90])
+          for (final entry in {7: '7d', 30: '30d', 90: '90d', 365: '1y'}.entries)
             GestureDetector(
               onTap: () {
-                if (_chartDays != days) {
-                  setState(() => _chartDays = days);
+                if (_chartDays != entry.key) {
+                  setState(() => _chartDays = entry.key);
                   _loadTimeSeries(statusFilter: _dashboardStatusFilter, eventId: _dashboardEventId, genre: _dashboardGenreFilter);
                 }
               },
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: _chartDays == days ? AppTheme.accentColor : Colors.transparent,
+                  color: _chartDays == entry.key ? AppTheme.accentColor : Colors.transparent,
                   borderRadius: AppRadius.pill,
                 ),
                 child: Text(
-                  '${days}d',
+                  entry.value,
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
-                    color: _chartDays == days
+                    color: _chartDays == entry.key
                       ? Colors.white
                       : AppTheme.textSecondaryOf(context),
                   ),

@@ -17,6 +17,10 @@ class StepBasics extends StatelessWidget {
   final VoidCallback onPickSingleImage;
   final ValueChanged<int> onRemoveImage;
   final VoidCallback onMarkDirty;
+  final bool ageRestricted;
+  final int minAge;
+  final ValueChanged<bool> onAgeRestrictedChanged;
+  final ValueChanged<int> onMinAgeChanged;
 
   const StepBasics({
     super.key,
@@ -32,6 +36,10 @@ class StepBasics extends StatelessWidget {
     required this.onPickSingleImage,
     required this.onRemoveImage,
     required this.onMarkDirty,
+    this.ageRestricted = false,
+    this.minAge = 18,
+    required this.onAgeRestrictedChanged,
+    required this.onMinAgeChanged,
   });
 
   @override
@@ -152,6 +160,92 @@ class StepBasics extends StatelessWidget {
                   onChanged: onGenreChanged,
                   validator: (v) =>
                       v == null ? 'Please select a genre' : null,
+                ),
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppTheme.cardOf(context),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppTheme.dividerOf(context)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.shield_outlined,
+                              size: 20, color: ageRestricted ? AppTheme.errorColor : AppTheme.textSecondaryOf(context)),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text('Age Restriction',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.textPrimaryOf(context))),
+                          ),
+                          Switch.adaptive(
+                            value: ageRestricted,
+                            onChanged: (v) {
+                              onAgeRestrictedChanged(v);
+                              onMarkDirty();
+                            },
+                            activeColor: AppTheme.errorColor,
+                          ),
+                        ],
+                      ),
+                      if (ageRestricted) ...[
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Text('Minimum age: ',
+                                style: TextStyle(
+                                    fontSize: 14,
+                                    color: AppTheme.textSecondaryOf(context))),
+                            SizedBox(
+                              width: 70,
+                              child: TextFormField(
+                                initialValue: minAge.toString(),
+                                keyboardType: TextInputType.number,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 16,
+                                    color: AppTheme.textPrimaryOf(context)),
+                                decoration: InputDecoration(
+                                  isDense: true,
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: BorderSide(color: AppTheme.dividerOf(context)),
+                                  ),
+                                ),
+                                onChanged: (v) {
+                                  final age = int.tryParse(v);
+                                  if (age != null && age >= 13 && age <= 99) {
+                                    onMinAgeChanged(age);
+                                    onMarkDirty();
+                                  }
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: AppTheme.errorColor.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text('$minAge+',
+                                  style: TextStyle(
+                                      color: AppTheme.errorColor,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 13)),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ],
             ),

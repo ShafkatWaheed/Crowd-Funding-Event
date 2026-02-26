@@ -73,6 +73,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   int _refundDeadlineDays = 7;
   bool _linkFundingToTiers = false;
   int _maxDiscountPercent = 100;
+  bool _ageRestricted = false;
+  int _minAge = 18;
   bool _publish = true;
   bool _isLoading = false;
   bool _isDirty = false;
@@ -716,6 +718,10 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     if (_maxDiscountPercent != 100) {
       data['max_discount_percent'] = _maxDiscountPercent;
     }
+    if (_ageRestricted) {
+      data['age_restricted'] = true;
+      data['min_age'] = _minAge;
+    }
 
     try {
       final api = context.read<ApiService>();
@@ -1151,6 +1157,10 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       onPickSingleImage: () => _pickImages(singleMode: true),
       onRemoveImage: _removeImage,
       onMarkDirty: () { _markDirty(); setState(() {}); },
+      ageRestricted: _ageRestricted,
+      minAge: _minAge,
+      onAgeRestrictedChanged: (v) => setState(() => _ageRestricted = v),
+      onMinAgeChanged: (v) => setState(() => _minAge = v),
     );
   }
 
@@ -1374,6 +1384,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       venue: venue,
       hasSchedule: _hasSchedule && _scheduleDays.isNotEmpty,
       linkFundingToTiers: _linkFundingToTiers,
+      ageRestricted: _ageRestricted,
+      minAge: _minAge,
       createdAt: DateTime.now(),
     );
   }

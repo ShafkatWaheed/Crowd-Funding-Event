@@ -17,6 +17,13 @@ from app.config import settings
 logger = logging.getLogger("app.cache")
 
 _client: aioredis.Redis | None = None
+_enabled: bool = True
+
+
+def set_cache_enabled(enabled: bool) -> None:
+    global _enabled
+    _enabled = enabled
+    logger.info("Cache %s", "enabled" if enabled else "disabled")
 
 
 async def init_cache() -> None:
@@ -42,7 +49,7 @@ async def close_cache() -> None:
 
 
 async def cache_get(key: str) -> str | None:
-    if _client is None:
+    if not _enabled or _client is None:
         return None
     try:
         return await _client.get(key)
@@ -52,7 +59,7 @@ async def cache_get(key: str) -> str | None:
 
 
 async def cache_set(key: str, value: str, ttl: int = 60) -> None:
-    if _client is None:
+    if not _enabled or _client is None:
         return
     try:
         await _client.set(key, value, ex=ttl)

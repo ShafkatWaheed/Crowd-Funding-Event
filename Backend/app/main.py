@@ -76,6 +76,14 @@ async def lifespan(application: FastAPI):
     except Exception:
         logger.warning("Redis not available — ARQ tasks will be skipped (refunds complete inline)")
     await init_cache()
+    try:
+        from app.cache import set_cache_enabled
+        from app.db.base import async_session_maker
+        from app.services.platform_settings import get_bool
+        async with async_session_maker() as db:
+            set_cache_enabled(await get_bool(db, "cache_enabled"))
+    except Exception:
+        logger.warning("Could not load cache_enabled setting — defaulting to enabled")
     yield
     await close_cache()
     await close_arq_pool()

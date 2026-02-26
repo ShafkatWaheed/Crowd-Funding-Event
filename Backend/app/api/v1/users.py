@@ -440,6 +440,7 @@ async def get_organizer_dashboard(
     """Aggregated dashboard: KPIs with deltas, status breakdown, top events, activity feed."""
     from datetime import datetime, timezone
     from app.cache import cache_json_get, cache_json_set
+    from app.services.platform_settings import get_int as get_setting_int
     from app.services import dashboard as dashboard_service
 
     cache_key = f"dashboard:{current_user.id}:{status or ''}:{event_id or ''}:{genre or ''}"
@@ -494,7 +495,8 @@ async def get_organizer_dashboard(
         popular_events=_build_responses(raw["popular_events"]),
         recent_activity=raw["recent_activity"],
     )
-    await cache_json_set(cache_key, resp.model_dump(mode="json"), ttl=15)
+    ttl = await get_setting_int(db, "cache_ttl_dashboard")
+    await cache_json_set(cache_key, resp.model_dump(mode="json"), ttl=ttl)
     return resp
 
 

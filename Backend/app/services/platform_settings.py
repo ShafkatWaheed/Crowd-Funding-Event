@@ -9,8 +9,6 @@ from app.cache import cache_get, cache_set, cache_delete
 from app.core.exceptions import NotFoundError
 from app.models.platform_settings import PlatformSetting
 
-_SETTINGS_TTL = 300  # 5 minutes
-
 # Default values used when key not yet in DB
 DEFAULTS = {
     # Branding (strings; use get_str in code)
@@ -56,6 +54,13 @@ DEFAULTS = {
     "feature_sponsors_enabled": "true",
     "feature_community_rules_enabled": "true",
     "sponsor_commission_percent": 5,
+    # Cache
+    "cache_enabled": "true",
+    # Cache TTLs (seconds)
+    "cache_ttl_settings": 300,
+    "cache_ttl_featured": 60,
+    "cache_ttl_event_detail": 30,
+    "cache_ttl_dashboard": 15,
 }
 
 DESCRIPTIONS = {
@@ -96,6 +101,11 @@ DESCRIPTIONS = {
     "feature_schedule_enabled": "Enable event schedule",
     "feature_sponsors_enabled": "Enable sponsors",
     "feature_community_rules_enabled": "Allow organizers to enable community rules on new events",
+    "cache_enabled": "Master toggle for Redis caching (true = enabled, false = disabled, all reads become DB-direct)",
+    "cache_ttl_settings": "Redis cache TTL for platform settings (seconds)",
+    "cache_ttl_featured": "Redis cache TTL for featured events endpoint (seconds)",
+    "cache_ttl_event_detail": "Redis cache TTL for event detail endpoint (seconds)",
+    "cache_ttl_dashboard": "Redis cache TTL for organizer dashboard endpoint (seconds)",
 }
 
 
@@ -134,7 +144,7 @@ async def _get_raw(db: AsyncSession, key: str) -> str | None:
     q = select(PlatformSetting).where(PlatformSetting.key == key)
     row = (await db.execute(q)).scalar_one_or_none()
     if row is not None:
-        await cache_set(cache_key, row.value, ttl=_SETTINGS_TTL)
+        await cache_set(cache_key, row.value, ttl=DEFAULTS["cache_ttl_settings"])
         return row.value
     return None
 
@@ -180,4 +190,7 @@ async def set_value(db: AsyncSession, key: str, value: str, description: str | N
         await db.flush()
         await db.refresh(row)
     await cache_delete(f"settings:{key}")
+    if key == "cache_enabled":
+        from app.cache import set_cache_enabled
+        set_cache_enabled(value.lower() == "true")
     return row

@@ -122,6 +122,7 @@ async def list_genres():
 async def get_featured_events(db: ReadDbSession, sponsorship_only: bool = Query(False)):
     """Returns trending, popular, and coming-soon event lists for the discover page."""
     from app.cache import cache_json_get, cache_json_set
+    from app.services.platform_settings import get_int as get_setting_int
 
     cache_key = f"featured:{sponsorship_only}"
     cached = await cache_json_get(cache_key)
@@ -166,7 +167,8 @@ async def get_featured_events(db: ReadDbSession, sponsorship_only: bool = Query(
         "popular": [_to_resp(e).model_dump(mode="json") for e in popular],
         "coming_soon": [_to_resp(e).model_dump(mode="json") for e in coming_soon],
     }
-    await cache_json_set(cache_key, result, ttl=60)
+    ttl = await get_setting_int(db, "cache_ttl_featured")
+    await cache_json_set(cache_key, result, ttl=ttl)
     return result
 
 
@@ -221,6 +223,7 @@ async def create_event(
 async def get_event(event_id: int, db: ReadDbSession, current_user: CurrentUserOptional = None):
     """Event detail (public). Includes venue so everyone can see where the event is."""
     from app.cache import cache_json_get, cache_json_set
+    from app.services.platform_settings import get_int as get_setting_int
 
     is_admin = current_user is not None and current_user.role == UserRole.admin
 
@@ -254,7 +257,8 @@ async def get_event(event_id: int, db: ReadDbSession, current_user: CurrentUserO
     )
 
     if not is_admin:
-        await cache_json_set(f"event:{event_id}", resp.model_dump(mode="json"), ttl=30)
+        ttl = await get_setting_int(db, "cache_ttl_event_detail")
+        await cache_json_set(f"event:{event_id}", resp.model_dump(mode="json"), ttl=ttl)
     return resp
 
 

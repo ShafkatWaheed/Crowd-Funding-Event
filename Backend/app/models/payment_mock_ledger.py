@@ -51,6 +51,7 @@ class PaymentMockLedger(Base):
     failure_reason: Mapped[str | None] = mapped_column(String(64), nullable=True)
     related_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
     related_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    fee_cents: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     processing_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

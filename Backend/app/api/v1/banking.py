@@ -508,6 +508,23 @@ async def fail_next_charge(
 
 
 # ═══════════════════════════════════════════
+#  Admin Mock Reset Defaults
+# ═══════════════════════════════════════════
+
+_MOCK_DEFAULTS = {k: v for k, v in settings_svc.DEFAULTS.items() if k.startswith("mock_")}
+
+
+@router.post("/admin/mock/reset-defaults")
+async def reset_mock_defaults(
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.admin)),
+):
+    for key, default_val in _MOCK_DEFAULTS.items():
+        await settings_svc.set_value(db, key, str(default_val))
+    return {"ok": True, "reset_count": len(_MOCK_DEFAULTS)}
+
+
+# ═══════════════════════════════════════════
 #  Admin Disputes
 # ═══════════════════════════════════════════
 

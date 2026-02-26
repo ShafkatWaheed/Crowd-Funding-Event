@@ -708,7 +708,7 @@ async def admin_release_stage(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
-    """Admin manually releases a specific escrow stage."""
+    """Admin manually releases a specific fund escrow stage. Enqueues ARQ task for payment."""
     if stage == 1:
         escrow = await escrow_service.release_stage1(db, event_id=event_id, released_by="admin")
     elif stage == 2:
@@ -718,6 +718,10 @@ async def admin_release_stage(
     else:
         from fastapi import HTTPException
         raise HTTPException(status_code=400, detail="Stage must be 1, 2, or 3")
+
+    from app.worker.redis_pool import enqueue
+    await enqueue("process_escrow_release", "fund", escrow.id, stage)
+
     return await escrow_service.get_escrow_summary(db, event_id=event_id)
 
 
@@ -741,6 +745,155 @@ async def unfreeze_escrow(
     """Admin unfreezes an event's escrow payouts."""
     await escrow_service.unfreeze(db, event_id=event_id)
     return await escrow_service.get_escrow_summary(db, event_id=event_id)
+
+
+# ----- Ticket Escrow Management -----
+from app.services import ticket_escrow as te_svc
+from app.services import sponsor_escrow as se_svc
+
+
+def _escrow_to_dict(e) -> dict:
+    released = e.stage1_released_cents + e.stage2_released_cents + e.stage3_released_cents
+    return {
+        "id": e.id, "event_id": e.event_id,
+        "total_held_cents": e.total_held_cents, "total_released_cents": released,
+        "remaining_cents": max(0, e.total_held_cents - released),
+        "status": e.status.value,
+        "stage1_released_cents": e.stage1_released_cents,
+        "stage1_released_at": e.stage1_released_at.isoformat() if e.stage1_released_at else None,
+        "stage2_released_cents": e.stage2_released_cents,
+        "stage2_released_at": e.stage2_released_at.isoformat() if e.stage2_released_at else None,
+        "stage3_released_cents": e.stage3_released_cents,
+        "stage3_released_at": e.stage3_released_at.isoformat() if e.stage3_released_at else None,
+    }
+
+
+@router.get("/ticket-escrows")
+async def list_ticket_escrows(
+    db: ReadDbSession,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    search: str | None = Query(None),
+    current_user: User = Depends(require_role(UserRole.admin)),
+):
+    items, total = await te_svc.list_all(db, offset=offset, limit=limit, search=search)
+    return {"items": items, "total": total}
+
+
+@router.post("/ticket-escrows/{event_id}/release/{stage}")
+async def admin_release_ticket_stage(
+    event_id: int, stage: int, db: DbSession,
+    current_user: User = Depends(require_role(UserRole.admin)),
+):
+    if stage == 1:
+        await te_svc.release_stage1(db, event_id=event_id, released_by="admin")
+    elif stage == 2:
+        await te_svc.release_stage2(db, event_id=event_id, released_by="admin")
+    elif stage == 3:
+        await te_svc.release_stage3(db, event_id=event_id, released_by="admin")
+    else:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Stage must be 1, 2, or 3")
+    escrow = await te_svc.get_or_create(db, event_id=event_id)
+
+    from app.worker.redis_pool import enqueue
+    await enqueue("process_escrow_release", "ticket", escrow.id, stage)
+
+    return _escrow_to_dict(escrow)
+
+
+@router.post("/ticket-escrows/{event_id}/freeze")
+async def freeze_ticket_escrow(
+    event_id: int, db: DbSession,
+    current_user: User = Depends(require_role(UserRole.admin)),
+):
+    escrow = await te_svc.freeze(db, event_id=event_id)
+    return _escrow_to_dict(escrow)
+
+
+@router.post("/ticket-escrows/{event_id}/unfreeze")
+async def unfreeze_ticket_escrow(
+    event_id: int, db: DbSession,
+    current_user: User = Depends(require_role(UserRole.admin)),
+):
+    escrow = await te_svc.unfreeze(db, event_id=event_id)
+    return _escrow_to_dict(escrow)
+
+
+# ----- Sponsor Escrow Management -----
+
+@router.get("/sponsor-escrows")
+async def list_sponsor_escrows(
+    db: ReadDbSession,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    search: str | None = Query(None),
+    current_user: User = Depends(require_role(UserRole.admin)),
+):
+    items, total = await se_svc.list_all(db, offset=offset, limit=limit, search=search)
+    return {"items": items, "total": total}
+
+
+@router.post("/sponsor-escrows/{event_id}/release/{stage}")
+async def admin_release_sponsor_stage(
+    event_id: int, stage: int, db: DbSession,
+    current_user: User = Depends(require_role(UserRole.admin)),
+):
+    if stage == 1:
+        await se_svc.release_stage1(db, event_id=event_id, released_by="admin")
+    elif stage == 2:
+        await se_svc.release_stage2(db, event_id=event_id, released_by="admin")
+    elif stage == 3:
+        await se_svc.release_stage3(db, event_id=event_id, released_by="admin")
+    else:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Stage must be 1, 2, or 3")
+    escrow = await se_svc.get_or_create(db, event_id=event_id)
+
+    from app.worker.redis_pool import enqueue
+    await enqueue("process_escrow_release", "sponsor", escrow.id, stage)
+
+    return _escrow_to_dict(escrow)
+
+
+@router.post("/sponsor-escrows/{event_id}/freeze")
+async def freeze_sponsor_escrow(
+    event_id: int, db: DbSession,
+    current_user: User = Depends(require_role(UserRole.admin)),
+):
+    escrow = await se_svc.freeze(db, event_id=event_id)
+    return _escrow_to_dict(escrow)
+
+
+@router.post("/sponsor-escrows/{event_id}/unfreeze")
+async def unfreeze_sponsor_escrow(
+    event_id: int, db: DbSession,
+    current_user: User = Depends(require_role(UserRole.admin)),
+):
+    escrow = await se_svc.unfreeze(db, event_id=event_id)
+    return _escrow_to_dict(escrow)
+
+
+# ----- Unified per-event escrow view -----
+
+@router.get("/escrows/by-event/{event_id}")
+async def get_event_escrows(
+    event_id: int, db: ReadDbSession,
+    current_user: User = Depends(require_role(UserRole.admin)),
+):
+    """Return all 3 escrow types for one event."""
+    from app.models.escrow import FundEscrow, TicketEscrow, SponsorEscrow
+
+    fund = (await db.execute(select(FundEscrow).where(FundEscrow.event_id == event_id))).scalar_one_or_none()
+    ticket = (await db.execute(select(TicketEscrow).where(TicketEscrow.event_id == event_id))).scalar_one_or_none()
+    sponsor = (await db.execute(select(SponsorEscrow).where(SponsorEscrow.event_id == event_id))).scalar_one_or_none()
+
+    return {
+        "event_id": event_id,
+        "fund": _escrow_to_dict(fund) if fund else None,
+        "ticket": _escrow_to_dict(ticket) if ticket else None,
+        "sponsor": _escrow_to_dict(sponsor) if sponsor else None,
+    }
 
 
 @router.post("/organizers/{organizer_id}/freeze-payouts")

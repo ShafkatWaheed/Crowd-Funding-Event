@@ -144,6 +144,13 @@ async def purchase_ticket(
         sales.append(sale)
 
     try:
+        from app.services import ticket_escrow as te_svc
+        await te_svc.get_or_create(db, event_id=event_id)
+        await te_svc.refresh_total(db, event_id)
+    except Exception:
+        pass
+
+    try:
         from app.services import escrow as escrow_svc
         await escrow_svc.check_and_release_stage2(db, event_id=event_id)
     except Exception:
@@ -582,19 +589,30 @@ async def list_refund_requests(
 
 
 async def refund_all_tickets_for_event(db: AsyncSession, *, event_id: int) -> int:
-    """Bulk refund all purchased tickets for a cancelled event. Returns count."""
+    """Bulk refund all purchased tickets for a cancelled event.
+
+    Marks tickets as refund_processing, then enqueues ARQ tasks for actual refund.
+    """
     from sqlalchemy import update
     await db.execute(
         update(TicketSale)
         .where(TicketSale.event_id == event_id, TicketSale.status == TicketSaleStatus.purchased)
         .values(status=TicketSaleStatus.refund_processing)
     )
-    result = await db.execute(
-        update(TicketSale)
-        .where(TicketSale.event_id == event_id, TicketSale.status == TicketSaleStatus.refund_processing)
-        .values(status=TicketSaleStatus.refunded)
-    )
-    return result.rowcount or 0
+    await db.flush()
+
+    ids = (await db.execute(
+        select(TicketSale.id).where(
+            TicketSale.event_id == event_id,
+            TicketSale.status == TicketSaleStatus.refund_processing,
+        )
+    )).scalars().all()
+
+    from app.worker.redis_pool import enqueue
+    for tid in ids:
+        await enqueue("process_ticket_refund", tid)
+
+    return len(ids)
 
 
 async def scan_ticket(

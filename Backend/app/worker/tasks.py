@@ -7,7 +7,7 @@ The pattern: API sets status to *_processing -> enqueues task -> task completes 
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from sqlalchemy import select, update
@@ -380,6 +380,35 @@ async def _mark_sponsor_payment_failed(db, payment_id: int) -> None:
         await session.commit()
 
 
+async def mock_auto_settle(ctx: dict) -> None:
+    """Periodic task: settle mock ledger entries whose settlement delay has elapsed."""
+    async with async_session_maker() as db:
+        try:
+            from app.services import platform_settings as settings_svc
+            delay_seconds = await settings_svc.get_int(db, "mock_settlement_delay_seconds")
+            if delay_seconds <= 0:
+                return
+            from app.models.payment_mock_ledger import PaymentMockLedger, MockLedgerStatus
+            cutoff = datetime.now(timezone.utc) - timedelta(seconds=delay_seconds)
+            pending = (await db.execute(
+                select(PaymentMockLedger).where(
+                    PaymentMockLedger.status == MockLedgerStatus.settlement_pending,
+                    PaymentMockLedger.created_at <= cutoff,
+                )
+            )).scalars().all()
+
+            for entry in pending:
+                entry.status = MockLedgerStatus.settled
+                entry.completed_at = datetime.now(timezone.utc)
+
+            if pending:
+                await db.commit()
+                logger.info("Auto-settled %d mock ledger entries", len(pending))
+        except Exception:
+            await db.rollback()
+            logger.exception("mock_auto_settle failed")
+
+
 async def process_escrow_release(ctx: dict, escrow_type: str, escrow_id: int, stage: int) -> None:
     """Process an escrow stage release via payment gateway."""
     async with async_session_maker() as db:
@@ -497,6 +526,62 @@ async def daily_reconciliation(ctx: dict) -> None:
         except Exception:
             await db.rollback()
             logger.exception("Daily reconciliation failed")
+
+
+async def check_all_ticket_escrows(ctx: dict) -> None:
+    """Periodic task: check and auto-release ticket escrow stages for all active ticket escrows."""
+    async with async_session_maker() as db:
+        try:
+            from app.models.escrow import TicketEscrow, EscrowStatus
+            from app.services import ticket_escrow as te_svc
+
+            escrows = (await db.execute(
+                select(TicketEscrow.event_id).where(
+                    TicketEscrow.status.in_([EscrowStatus.holding, EscrowStatus.partially_released])
+                )
+            )).scalars().all()
+
+            for event_id in escrows:
+                try:
+                    await te_svc.check_and_release_stage1(db, event_id=event_id)
+                    await te_svc.check_and_release_stage2(db, event_id=event_id)
+                    await te_svc.check_and_release_stage3(db, event_id=event_id)
+                except Exception:
+                    logger.exception("Ticket escrow check failed for event %d", event_id)
+
+            await db.commit()
+            logger.info("Checked %d active ticket escrows", len(escrows))
+        except Exception:
+            await db.rollback()
+            logger.exception("check_all_ticket_escrows failed")
+
+
+async def check_all_sponsor_escrows(ctx: dict) -> None:
+    """Periodic task: check and auto-release sponsor escrow stages for all active sponsor escrows."""
+    async with async_session_maker() as db:
+        try:
+            from app.models.escrow import SponsorEscrow, EscrowStatus
+            from app.services import sponsor_escrow as se_svc
+
+            escrows = (await db.execute(
+                select(SponsorEscrow.event_id).where(
+                    SponsorEscrow.status.in_([EscrowStatus.holding, EscrowStatus.partially_released])
+                )
+            )).scalars().all()
+
+            for event_id in escrows:
+                try:
+                    await se_svc.check_and_release_stage1(db, event_id=event_id)
+                    await se_svc.check_and_release_stage2(db, event_id=event_id)
+                    await se_svc.check_and_release_stage3(db, event_id=event_id)
+                except Exception:
+                    logger.exception("Sponsor escrow check failed for event %d", event_id)
+
+            await db.commit()
+            logger.info("Checked %d active sponsor escrows", len(escrows))
+        except Exception:
+            await db.rollback()
+            logger.exception("check_all_sponsor_escrows failed")
 
 
 async def _send_pledge_refund_email(db, funding: Funding) -> None:

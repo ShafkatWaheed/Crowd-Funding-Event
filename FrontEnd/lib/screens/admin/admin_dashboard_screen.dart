@@ -88,6 +88,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   List<dynamic> _emailTemplates = [];
   bool _emailLoading = false;
 
+  // Escrow pipeline state
+  List<dynamic> _ticketEscrows = [];
+  List<dynamic> _sponsorEscrows = [];
+  bool _pipelineLoading = false;
+  String _pipelineSearch = '';
+  String _pipelineTypeFilter = 'all';
+  Map<String, dynamic>? _selectedEventEscrows;
+  int? _selectedPipelineEventId;
+
   // Search/filter state
   String _eventSearch = '';
   int _eventFilterIndex = -1; // auto-detect on load
@@ -2738,6 +2747,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ),
               ),
             ),
+            const SizedBox(height: 16),
+            _buildEscrowConfigUI(),
+            const SizedBox(height: 16),
+            _buildEscrowPipelineUI(),
           ],
         ),
       ),
@@ -2759,6 +2772,384 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             Text('Active: $activeCount', style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryOf(context))),
           ],
         ),
+      ),
+    );
+  }
+
+  // ── Escrow Config UI ──
+
+  Widget _buildEscrowConfigUI() {
+    final fundStages = [
+      {'label': 'Stage 1', 'pct': 'escrow_stage1_percent'},
+      {'label': 'Stage 2', 'pct': 'escrow_stage2_percent'},
+      {'label': 'Stage 3', 'pct': 'escrow_stage3_percent'},
+    ];
+    final ticketStages = [
+      {'label': 'Stage 1', 'pct': 'ticket_escrow_stage1_percent', 'days': 'ticket_escrow_stage1_days_after_event'},
+      {'label': 'Stage 2', 'pct': 'ticket_escrow_stage2_percent', 'days': 'ticket_escrow_stage2_days_after_event', 'extra': 'ticket_escrow_stage2_max_refund_rate'},
+      {'label': 'Stage 3', 'pct': 'ticket_escrow_stage3_percent', 'days': 'ticket_escrow_stage3_days_after_event', 'extra': 'ticket_escrow_stage3_require_no_disputes'},
+    ];
+    final sponsorStages = [
+      {'label': 'Stage 1', 'pct': 'sponsor_escrow_stage1_percent', 'mode': 'sponsor_escrow_stage1_trigger_mode', 'days': 'sponsor_escrow_stage1_days_before_event'},
+      {'label': 'Stage 2', 'pct': 'sponsor_escrow_stage2_percent', 'mode': 'sponsor_escrow_stage2_trigger_mode', 'days': 'sponsor_escrow_stage2_ticket_percent'},
+      {'label': 'Stage 3', 'pct': 'sponsor_escrow_stage3_percent', 'mode': 'sponsor_escrow_stage3_trigger_mode', 'days': 'sponsor_escrow_stage3_days_after_event'},
+    ];
+
+    int fundSum = fundStages.fold(0, (s, st) => s + (int.tryParse(_settingVal(st['pct']!)) ?? 0));
+    int ticketSum = ticketStages.fold(0, (s, st) => s + (int.tryParse(_settingVal(st['pct']!)) ?? 0));
+    int sponsorSum = sponsorStages.fold(0, (s, st) => s + (int.tryParse(_settingVal(st['pct']!)) ?? 0));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Escrow Configuration', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context))),
+        const SizedBox(height: 8),
+        _escrowConfigTile('Fund Escrow', '${_settingVal('escrow_stage1_percent')}% / ${_settingVal('escrow_stage2_percent')}% / ${_settingVal('escrow_stage3_percent')}%',
+          fundSum, AppTheme.fundingAccent, fundStages.map((st) => _escrowStageRow(st['label']!, st['pct']!)).toList()),
+        const SizedBox(height: 8),
+        _escrowConfigTile(
+          'Ticket Escrow',
+          '${_settingVal('ticket_escrow_stage1_percent')}% / ${_settingVal('ticket_escrow_stage2_percent')}% / ${_settingVal('ticket_escrow_stage3_percent')}%',
+          ticketSum, AppTheme.ticketAccent,
+          ticketStages.map((st) {
+            return Column(children: [
+              _escrowStageRow(st['label']!, st['pct']!),
+              if (st['days'] != null) _mockInputRow('Days after event', st['days']!),
+              if (st['extra'] != null && st['extra']!.contains('refund'))
+                _mockInputRow('Max refund rate (%)', st['extra']!),
+              if (st['extra'] != null && st['extra']!.contains('disputes'))
+                _escrowBoolRow('Require no disputes', st['extra']!),
+            ]);
+          }).toList(),
+        ),
+        const SizedBox(height: 8),
+        _escrowConfigTile(
+          'Sponsor Escrow',
+          '${_settingVal('sponsor_escrow_stage1_percent')}% / ${_settingVal('sponsor_escrow_stage2_percent')}% / ${_settingVal('sponsor_escrow_stage3_percent')}%',
+          sponsorSum, AppTheme.sponsorAccent,
+          sponsorStages.map((st) {
+            return Column(children: [
+              _escrowStageRow(st['label']!, st['pct']!),
+              if (st['mode'] != null) _escrowModeRow('Trigger', st['mode']!),
+              if (st['days'] != null) _mockInputRow('Param', st['days']!),
+            ]);
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _escrowConfigTile(String title, String subtitle, int sum, Color color, List<Widget> children) {
+    final valid = sum == 100;
+    return Card(
+      color: AppTheme.cardOf(context),
+      child: ExpansionTile(
+        leading: Icon(Icons.lock_clock, color: color),
+        title: Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context))),
+        subtitle: Text(subtitle, style: TextStyle(color: valid ? AppTheme.textSecondaryOf(context) : AppTheme.errorColor)),
+        trailing: valid
+            ? Icon(Icons.check_circle, color: AppTheme.successColor, size: 20)
+            : Text('$sum% (must = 100)', style: const TextStyle(color: AppTheme.errorColor, fontSize: 12)),
+        children: [
+          Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), child: Column(children: children)),
+        ],
+      ),
+    );
+  }
+
+  Widget _escrowStageRow(String label, String key) {
+    final val = double.tryParse(_settingVal(key)) ?? 0;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          SizedBox(width: 80, child: Text(label, style: TextStyle(fontSize: 13, color: AppTheme.textPrimaryOf(context)))),
+          Expanded(
+            child: Slider(
+              value: val.clamp(0, 100),
+              min: 0, max: 100, divisions: 100,
+              label: '${val.round()}%',
+              activeColor: AppTheme.accentOf(context),
+              onChangeEnd: (v) => _updateSetting(key, v.round().toString()),
+              onChanged: (v) => setState(() {
+                final idx = _settings.indexWhere((s) => s['key'] == key);
+                if (idx != -1) _settings[idx] = Map<String, dynamic>.from(_settings[idx] as Map)..['value'] = v.round().toString();
+              }),
+            ),
+          ),
+          SizedBox(width: 40, child: Text('${val.round()}%', textAlign: TextAlign.end,
+            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppTheme.accentOf(context)))),
+        ],
+      ),
+    );
+  }
+
+  Widget _escrowBoolRow(String label, String key) {
+    final val = _settingVal(key) == 'true';
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          SizedBox(width: 180, child: Text(label, style: TextStyle(fontSize: 13, color: AppTheme.textPrimaryOf(context)))),
+          Switch(value: val, activeColor: AppTheme.successOf(context),
+            onChanged: (on) => _updateSetting(key, on ? 'true' : 'false')),
+        ],
+      ),
+    );
+  }
+
+  Widget _escrowModeRow(String label, String key) {
+    final val = _settingVal(key);
+    final options = const {
+      'sponsor_escrow_stage1_trigger_mode': ['event_live', 'days_before_event'],
+      'sponsor_escrow_stage2_trigger_mode': ['event_started', 'ticket_percent'],
+      'sponsor_escrow_stage3_trigger_mode': ['days_after_event', 'sponsor_confirmed'],
+    };
+    final opts = options[key] ?? [val];
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          SizedBox(width: 80, child: Text(label, style: TextStyle(fontSize: 13, color: AppTheme.textPrimaryOf(context)))),
+          DropdownButton<String>(
+            value: opts.contains(val) ? val : opts.first,
+            underline: const SizedBox.shrink(),
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.accentOf(context)),
+            items: opts.map((o) => DropdownMenuItem(value: o, child: Text(o.replaceAll('_', ' ')))).toList(),
+            onChanged: (v) { if (v != null) _updateSetting(key, v); },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Escrow Pipeline UI ──
+
+  Future<void> _loadEscrowPipeline() async {
+    setState(() => _pipelineLoading = true);
+    try {
+      final fundResp = await ApiService.instance.get('/admin/escrows', queryParams: {'limit': '50'});
+      final ticketResp = await ApiService.instance.get('/admin/ticket-escrows', queryParams: {'limit': '50'});
+      final sponsorResp = await ApiService.instance.get('/admin/sponsor-escrows', queryParams: {'limit': '50'});
+      if (mounted) setState(() {
+        _ticketEscrows = (ticketResp['items'] as List?) ?? [];
+        _sponsorEscrows = (sponsorResp['items'] as List?) ?? [];
+        _pipelineLoading = false;
+      });
+    } catch (e) {
+      if (mounted) setState(() => _pipelineLoading = false);
+    }
+  }
+
+  Future<void> _loadEventEscrowDetail(int eventId) async {
+    try {
+      final data = await ApiService.instance.get('/admin/escrows/by-event/$eventId');
+      if (mounted) setState(() { _selectedEventEscrows = data; _selectedPipelineEventId = eventId; });
+    } catch (_) {}
+  }
+
+  Widget _buildEscrowPipelineUI() {
+    if (_ticketEscrows.isEmpty && _sponsorEscrows.isEmpty && !_pipelineLoading) _loadEscrowPipeline();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(child: Text('Escrow Pipeline', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context)))),
+            IconButton(icon: const Icon(Icons.refresh), onPressed: _loadEscrowPipeline, iconSize: 20),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Wrap(spacing: 8, runSpacing: 4, children: [
+          ChoiceChip(label: const Text('All'), selected: _pipelineTypeFilter == 'all',
+            selectedColor: AppTheme.accentOf(context).withOpacity(0.2),
+            onSelected: (_) => setState(() => _pipelineTypeFilter = 'all')),
+          ChoiceChip(label: const Text('Fund'), selected: _pipelineTypeFilter == 'fund',
+            selectedColor: AppTheme.fundingAccent.withOpacity(0.2),
+            onSelected: (_) => setState(() => _pipelineTypeFilter = 'fund')),
+          ChoiceChip(label: const Text('Ticket'), selected: _pipelineTypeFilter == 'ticket',
+            selectedColor: AppTheme.ticketAccent.withOpacity(0.2),
+            onSelected: (_) => setState(() => _pipelineTypeFilter = 'ticket')),
+          ChoiceChip(label: const Text('Sponsor'), selected: _pipelineTypeFilter == 'sponsor',
+            selectedColor: AppTheme.sponsorAccent.withOpacity(0.2),
+            onSelected: (_) => setState(() => _pipelineTypeFilter = 'sponsor')),
+        ]),
+        const SizedBox(height: 8),
+        if (_pipelineLoading)
+          const Center(child: CircularProgressIndicator())
+        else ...[
+          if (_pipelineTypeFilter == 'all' || _pipelineTypeFilter == 'fund')
+            ..._escrowRows.where((e) => e['_type'] == 'fund').map(_pipelineRow),
+          if (_pipelineTypeFilter == 'all' || _pipelineTypeFilter == 'ticket')
+            ..._escrowRows.where((e) => e['_type'] == 'ticket').map(_pipelineRow),
+          if (_pipelineTypeFilter == 'all' || _pipelineTypeFilter == 'sponsor')
+            ..._escrowRows.where((e) => e['_type'] == 'sponsor').map(_pipelineRow),
+        ],
+        if (_selectedEventEscrows != null && _selectedPipelineEventId != null) ...[
+          const SizedBox(height: 12),
+          _buildEventEscrowDetail(_selectedPipelineEventId!, _selectedEventEscrows!),
+        ],
+      ],
+    );
+  }
+
+  List<Map<String, dynamic>> get _escrowRows {
+    final rows = <Map<String, dynamic>>[];
+    for (final e in _escrows) rows.add({...Map<String, dynamic>.from(e as Map), '_type': 'fund'});
+    for (final e in _ticketEscrows) rows.add({...Map<String, dynamic>.from(e as Map), '_type': 'ticket'});
+    for (final e in _sponsorEscrows) rows.add({...Map<String, dynamic>.from(e as Map), '_type': 'sponsor'});
+    return rows;
+  }
+
+  Widget _pipelineRow(Map<String, dynamic> e) {
+    final type = e['_type'] as String;
+    final color = type == 'fund' ? AppTheme.fundingAccent : type == 'ticket' ? AppTheme.ticketAccent : AppTheme.sponsorAccent;
+    final statusStr = e['status'] ?? 'holding';
+    return Card(
+      color: AppTheme.cardOf(context),
+      margin: const EdgeInsets.only(bottom: 6),
+      child: ListTile(
+        leading: CircleAvatar(backgroundColor: color.withOpacity(0.2), child: Text(type[0].toUpperCase(), style: TextStyle(color: color, fontWeight: FontWeight.bold))),
+        title: Text(e['event_title'] ?? 'Event #${e['event_id']}', style: TextStyle(fontWeight: FontWeight.w600, color: AppTheme.textPrimaryOf(context), fontSize: 14)),
+        subtitle: Row(children: [
+          _stageDot(e['stage1_released_at']),
+          _stageDot(e['stage2_released_at']),
+          _stageDot(e['stage3_released_at']),
+          const SizedBox(width: 8),
+          Text('${_centsToStr(e['total_held_cents'] ?? 0)} held', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context))),
+        ]),
+        trailing: Chip(
+          label: Text(statusStr, style: const TextStyle(fontSize: 11)),
+          backgroundColor: _escrowStatusChipColor(statusStr),
+          padding: EdgeInsets.zero,
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        onTap: () => _loadEventEscrowDetail(e['event_id']),
+      ),
+    );
+  }
+
+  Widget _stageDot(dynamic releasedAt) {
+    final released = releasedAt != null;
+    return Container(
+      width: 12, height: 12,
+      margin: const EdgeInsets.only(right: 4),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: released ? AppTheme.successColor : Colors.grey.shade400,
+      ),
+    );
+  }
+
+  Color _escrowStatusChipColor(String status) {
+    switch (status) {
+      case 'fully_released': return AppTheme.successColor.withOpacity(0.2);
+      case 'partially_released': return AppTheme.warningColor.withOpacity(0.2);
+      case 'frozen': return AppTheme.errorColor.withOpacity(0.2);
+      case 'refunded': return Colors.purple.withOpacity(0.2);
+      default: return AppTheme.accentColor.withOpacity(0.15);
+    }
+  }
+
+  Widget _buildEventEscrowDetail(int eventId, Map<String, dynamic> data) {
+    return Card(
+      color: AppTheme.cardOf(context),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Expanded(child: Text('Event #$eventId — All Escrows', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context)))),
+              IconButton(icon: const Icon(Icons.close, size: 18), onPressed: () => setState(() { _selectedEventEscrows = null; _selectedPipelineEventId = null; })),
+            ]),
+            const SizedBox(height: 8),
+            if (data['fund'] != null) _escrowDetailColumn('Fund', data['fund'], 'fund', eventId),
+            if (data['ticket'] != null) _escrowDetailColumn('Ticket', data['ticket'], 'ticket', eventId),
+            if (data['sponsor'] != null) _escrowDetailColumn('Sponsor', data['sponsor'], 'sponsor', eventId),
+            if (data['fund'] == null && data['ticket'] == null && data['sponsor'] == null)
+              Text('No escrow records for this event.', style: TextStyle(color: AppTheme.textSecondaryOf(context))),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _escrowDetailColumn(String label, Map<String, dynamic> esc, String type, int eventId) {
+    final color = type == 'fund' ? AppTheme.fundingAccent : type == 'ticket' ? AppTheme.ticketAccent : AppTheme.sponsorAccent;
+    final stages = [
+      {'n': 1, 'cents': esc['stage1_released_cents'] ?? 0, 'at': esc['stage1_released_at']},
+      {'n': 2, 'cents': esc['stage2_released_cents'] ?? 0, 'at': esc['stage2_released_at']},
+      {'n': 3, 'cents': esc['stage3_released_cents'] ?? 0, 'at': esc['stage3_released_at']},
+    ];
+    final frozen = esc['status'] == 'frozen';
+    final prefix = type == 'fund' ? '' : '$type-';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('$label — ${esc['status']}', style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 14)),
+          Text('Held: ${_centsToStr(esc['total_held_cents'] ?? 0)} | Released: ${_centsToStr(esc['total_released_cents'] ?? 0)} | Remaining: ${_centsToStr(esc['remaining_cents'] ?? 0)}',
+            style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context))),
+          const SizedBox(height: 4),
+          ...stages.map((st) {
+            final released = st['at'] != null;
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(children: [
+                Icon(released ? Icons.check_circle : Icons.radio_button_unchecked, color: released ? AppTheme.successColor : Colors.grey, size: 16),
+                const SizedBox(width: 6),
+                Text('Stage ${st['n']}: ${_centsToStr(st['cents'] as int)}', style: TextStyle(fontSize: 13, color: AppTheme.textPrimaryOf(context))),
+                if (!released && !frozen) ...[
+                  const Spacer(),
+                  TextButton(
+                    onPressed: () async {
+                      final path = type == 'fund'
+                          ? '/admin/escrows/$eventId/release/${st['n']}'
+                          : '/admin/$type-escrows/$eventId/release/${st['n']}';
+                      try {
+                        await ApiService.instance.post(path, {});
+                        _loadEventEscrowDetail(eventId);
+                        _loadEscrowPipeline();
+                        _loadEscrowsOnly();
+                        _snack('$label Stage ${st['n']} released');
+                      } catch (e) {
+                        _snack('Release failed: ${ApiService.extractError(e)}');
+                      }
+                    },
+                    child: const Text('Release', style: TextStyle(fontSize: 12)),
+                  ),
+                ],
+              ]),
+            );
+          }),
+          const SizedBox(height: 4),
+          Row(children: [
+            if (!frozen)
+              TextButton.icon(
+                icon: const Icon(Icons.ac_unit, size: 14),
+                label: const Text('Freeze', style: TextStyle(fontSize: 12)),
+                onPressed: () async {
+                  final path = type == 'fund' ? '/admin/escrows/$eventId/freeze' : '/admin/$type-escrows/$eventId/freeze';
+                  await ApiService.instance.post(path, {});
+                  _loadEventEscrowDetail(eventId);
+                  _loadEscrowPipeline();
+                },
+              )
+            else
+              TextButton.icon(
+                icon: const Icon(Icons.play_arrow, size: 14),
+                label: const Text('Unfreeze', style: TextStyle(fontSize: 12)),
+                onPressed: () async {
+                  final path = type == 'fund' ? '/admin/escrows/$eventId/unfreeze' : '/admin/$type-escrows/$eventId/unfreeze';
+                  await ApiService.instance.post(path, {});
+                  _loadEventEscrowDetail(eventId);
+                  _loadEscrowPipeline();
+                },
+              ),
+          ]),
+        ],
       ),
     );
   }
@@ -2988,8 +3379,33 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Next charge will fail')));
                   },
                 ),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.restore, size: 18),
+                  label: const Text('Reset to Defaults'),
+                  onPressed: () async {
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Reset Mock Settings?'),
+                        content: const Text('All mock parameters will be reset to their default values.'),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Reset')),
+                        ],
+                      ),
+                    );
+                    if (confirmed == true) {
+                      await ApiService.instance.post('/admin/mock/reset-defaults', {});
+                      _loadSettings();
+                      _loadMockData();
+                      if (mounted) _snack('Mock settings reset to defaults');
+                    }
+                  },
+                ),
               ],
             ),
+            const SizedBox(height: 16),
+            _buildMockTuneables(),
             const SizedBox(height: 16),
             Text('Recent Transactions', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context))),
             const SizedBox(height: 8),
@@ -3043,6 +3459,140 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       case 'processing': case 'settlement_pending': return AppTheme.warningColor;
       default: return AppTheme.accentColor;
     }
+  }
+
+  String _settingVal(String key) {
+    final s = _settings.cast<Map<String, dynamic>?>().firstWhere(
+      (s) => s?['key'] == key, orElse: () => null,
+    );
+    return s?['value']?.toString() ?? '';
+  }
+
+  Widget _buildMockTuneables() {
+    final feePercent = double.tryParse(_settingVal('mock_stripe_fee_percent')) ?? 2.9;
+    final feeFixed = int.tryParse(_settingVal('mock_stripe_fee_fixed_cents')) ?? 30;
+    final sampleFee = (5000 * feePercent / 100).round() + feeFixed;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Payment Simulation', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context))),
+        const SizedBox(height: 8),
+        Card(
+          color: AppTheme.cardOf(context),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _mockSliderRow('Charge Latency Min (ms)', 'mock_charge_latency_min_ms', 0, 10000),
+                _mockSliderRow('Charge Latency Max (ms)', 'mock_charge_latency_max_ms', 100, 15000),
+                const Divider(),
+                _mockSliderRow('Transfer Latency Min (ms)', 'mock_transfer_latency_min_ms', 0, 10000),
+                _mockSliderRow('Transfer Latency Max (ms)', 'mock_transfer_latency_max_ms', 100, 15000),
+                const Divider(),
+                _mockSliderRow('Refund Latency Min (ms)', 'mock_refund_latency_min_ms', 0, 10000),
+                _mockSliderRow('Refund Latency Max (ms)', 'mock_refund_latency_max_ms', 100, 15000),
+                const Divider(),
+                _mockSliderRow('Failure Rate (%)', 'mock_failure_rate_percent', 0, 50),
+                _mockSliderRow('Settlement Delay (s)', 'mock_settlement_delay_seconds', 0, 86400),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text('Fee Simulation', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context))),
+        const SizedBox(height: 8),
+        Card(
+          color: AppTheme.cardOf(context),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _mockInputRow('Fee Percent', 'mock_stripe_fee_percent'),
+                _mockInputRow('Fixed Fee (cents)', 'mock_stripe_fee_fixed_cents'),
+                const SizedBox(height: 8),
+                Text('Preview: on a \$50.00 charge, fee = \$${(sampleFee / 100).toStringAsFixed(2)}, net = \$${((5000 - sampleFee) / 100).toStringAsFixed(2)}',
+                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context), fontStyle: FontStyle.italic)),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text('Email Simulation', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context))),
+        const SizedBox(height: 8),
+        Card(
+          color: AppTheme.cardOf(context),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              children: [
+                _mockSliderRow('Bounce Rate (%)', 'mock_email_bounce_rate_percent', 0, 50),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _mockSliderRow(String label, String key, double min, double max) {
+    final val = double.tryParse(_settingVal(key)) ?? min;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          SizedBox(width: 180, child: Text(label, style: TextStyle(fontSize: 13, color: AppTheme.textPrimaryOf(context)))),
+          Expanded(
+            child: Slider(
+              value: val.clamp(min, max),
+              min: min, max: max,
+              divisions: ((max - min) / (max > 1000 ? 100 : 1)).round().clamp(1, 500),
+              label: val.round().toString(),
+              activeColor: AppTheme.accentOf(context),
+              onChangeEnd: (v) => _updateSetting(key, v.round().toString()),
+              onChanged: (v) {
+                setState(() {
+                  final idx = _settings.indexWhere((s) => s['key'] == key);
+                  if (idx != -1) {
+                    _settings[idx] = Map<String, dynamic>.from(_settings[idx] as Map)..['value'] = v.round().toString();
+                  }
+                });
+              },
+            ),
+          ),
+          SizedBox(width: 50, child: Text(val.round().toString(), textAlign: TextAlign.end,
+            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppTheme.accentOf(context)))),
+        ],
+      ),
+    );
+  }
+
+  Widget _mockInputRow(String label, String key) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          SizedBox(width: 180, child: Text(label, style: TextStyle(fontSize: 13, color: AppTheme.textPrimaryOf(context)))),
+          SizedBox(
+            width: 120,
+            child: TextField(
+              controller: TextEditingController(text: _settingVal(key)),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              style: TextStyle(fontSize: 14, color: AppTheme.textPrimaryOf(context)),
+              decoration: InputDecoration(
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                border: const OutlineInputBorder(),
+                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: AppTheme.accentOf(context))),
+              ),
+              onSubmitted: (v) => _updateSetting(key, v),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   // ===========================================================================

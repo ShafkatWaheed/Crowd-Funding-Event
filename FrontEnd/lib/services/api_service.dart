@@ -5,6 +5,18 @@ import '../config/api_config.dart';
 /// Central Dio client with Firebase auth interceptor.
 class ApiService {
   late final Dio dio;
+  static late ApiService instance;
+
+  Future<Map<String, dynamic>> get(String path, {Map<String, String>? queryParams}) async {
+    final resp = await dio.get(path, queryParameters: queryParams);
+    return Map<String, dynamic>.from(resp.data as Map);
+  }
+
+  Future<Map<String, dynamic>> post(String path, Map<String, dynamic> data) async {
+    final resp = await dio.post(path, data: data);
+    if (resp.data is Map) return Map<String, dynamic>.from(resp.data as Map);
+    return {};
+  }
 
   /// Extract a human-readable error message from any exception.
   /// Pulls the FastAPI `detail` field from DioException responses.
@@ -36,6 +48,7 @@ class ApiService {
   }
 
   ApiService() {
+    instance = this;
     dio = Dio(BaseOptions(
       baseUrl: ApiConfig.apiUrl,
       connectTimeout: const Duration(seconds: 10),

@@ -76,6 +76,9 @@ class PaymentGateway(ABC):
         amount_cents: int,
         description: str,
         idempotency_key: str | None = None,
+        escrow_account: str = "holding_account",
+        commission_cents: int = 0,
+        tax_cents: int = 0,
     ) -> ChargeResult: ...
 
     @abstractmethod
@@ -161,6 +164,9 @@ class MockPaymentGateway(PaymentGateway):
         amount_cents: int,
         description: str,
         idempotency_key: str | None = None,
+        escrow_account: str = "holding_account",
+        commission_cents: int = 0,
+        tax_cents: int = 0,
     ) -> ChargeResult:
         if idempotency_key:
             existing = (await db.execute(
@@ -176,6 +182,10 @@ class MockPaymentGateway(PaymentGateway):
                     receipt_reference=existing.receipt_reference,
                 )
 
+        fee_pct = await settings_svc.get_float(db, "mock_stripe_fee_percent")
+        fee_fixed = await settings_svc.get_int(db, "mock_stripe_fee_fixed_cents")
+        fee_cents = int(amount_cents * fee_pct / 100) + fee_fixed
+
         txn_id = uuid.uuid4().hex
         auth_code = f"auth_{uuid.uuid4().hex[:8]}"
         now = datetime.now(timezone.utc)
@@ -185,8 +195,9 @@ class MockPaymentGateway(PaymentGateway):
             idempotency_key=idempotency_key,
             operation=MockLedgerOperation.charge,
             amount_cents=amount_cents,
+            fee_cents=fee_cents,
             from_account=f"customer_{user_id}",
-            to_account="holding_account",
+            to_account=escrow_account,
             description=description,
             status=MockLedgerStatus.processing,
             authorization_code=auth_code,
@@ -212,6 +223,22 @@ class MockPaymentGateway(PaymentGateway):
         entry.status = MockLedgerStatus.completed
         entry.completed_at = datetime.now(timezone.utc)
         await db.flush()
+
+        escrow_net = amount_cents - commission_cents - fee_cents - tax_cents
+        from app.services import ledger as ledger_svc
+        await ledger_svc.record_charge(
+            db,
+            transaction_id=txn_id,
+            customer_id=user_id,
+            total_cents=amount_cents,
+            escrow_account=escrow_account,
+            escrow_cents=max(0, escrow_net),
+            commission_cents=commission_cents,
+            stripe_fee_cents=fee_cents,
+            tax_cents=tax_cents,
+            description=description,
+        )
+
         return ChargeResult(
             transaction_id=txn_id, status="completed",
             authorization_code=auth_code,
@@ -250,6 +277,15 @@ class MockPaymentGateway(PaymentGateway):
         entry.status = MockLedgerStatus.completed
         entry.completed_at = datetime.now(timezone.utc)
         await db.flush()
+
+        from app.services import ledger as ledger_svc
+        await ledger_svc.record_entries(db, transaction_id=txn_id, entries=[
+            {"type": "debit", "account": from_account, "amount_cents": amount_cents,
+             "description": description},
+            {"type": "credit", "account": to_account, "amount_cents": amount_cents,
+             "description": description},
+        ])
+
         return TransferResult(
             transaction_id=txn_id, status="completed",
             authorization_code=auth_code,
@@ -287,6 +323,15 @@ class MockPaymentGateway(PaymentGateway):
         entry.status = MockLedgerStatus.completed
         entry.completed_at = datetime.now(timezone.utc)
         await db.flush()
+
+        from app.services import ledger as ledger_svc
+        await ledger_svc.record_entries(db, transaction_id=txn_id, entries=[
+            {"type": "debit", "account": "holding_account", "amount_cents": amount_cents,
+             "description": description},
+            {"type": "credit", "account": f"refund_{original_transaction_id}", "amount_cents": amount_cents,
+             "description": description},
+        ])
+
         return RefundResult(
             transaction_id=txn_id, status="completed",
             authorization_code=auth_code,
@@ -319,6 +364,15 @@ class MockPaymentGateway(PaymentGateway):
         )
         db.add(entry)
         await db.flush()
+
+        from app.services import ledger as ledger_svc
+        await ledger_svc.record_entries(db, transaction_id=txn_id, entries=[
+            {"type": "debit", "account": "holding_account", "amount_cents": amount_cents,
+             "description": description},
+            {"type": "credit", "account": account, "amount_cents": amount_cents,
+             "description": description},
+        ])
+
         return HoldResult(
             transaction_id=txn_id, status="completed",
             authorization_code=auth_code,
@@ -351,6 +405,14 @@ class MockPaymentGateway(PaymentGateway):
         db.add(entry)
         await db.flush()
 
+        from app.services import ledger as ledger_svc
+        await ledger_svc.record_entries(db, transaction_id=txn_id, entries=[
+            {"type": "debit", "account": f"hold_{hold_id}", "amount_cents": amount_cents,
+             "description": f"Release hold {hold_id}"},
+            {"type": "credit", "account": to_account, "amount_cents": amount_cents,
+             "description": f"Release hold {hold_id}"},
+        ])
+
         settlement_delay = await settings_svc.get_int(db, "mock_settlement_delay_seconds")
         if settlement_delay <= 0:
             entry.status = MockLedgerStatus.settled
@@ -367,7 +429,8 @@ class MockPaymentGateway(PaymentGateway):
 class StripePaymentGateway(PaymentGateway):
     """Stub for future real Stripe integration."""
 
-    async def charge(self, db, *, user_id, amount_cents, description, idempotency_key=None):
+    async def charge(self, db, *, user_id, amount_cents, description, idempotency_key=None,
+                     escrow_account="holding_account", commission_cents=0, tax_cents=0):
         raise NotImplementedError("Stripe integration not yet implemented")
 
     async def transfer(self, db, *, from_account, to_account, amount_cents, description):

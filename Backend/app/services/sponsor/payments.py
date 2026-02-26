@@ -112,6 +112,13 @@ async def pay_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorPayment:
     cat = await _get_category(db, bid.category_id)
     await _ensure_sponsor_ticket(db, cat.event_id, user.id)
 
+    try:
+        from app.services import sponsor_escrow as se_svc
+        await se_svc.get_or_create(db, event_id=cat.event_id)
+        await se_svc.refresh_total(db, cat.event_id)
+    except Exception:
+        pass
+
     return payment
 
 
@@ -194,6 +201,7 @@ async def refund_all_sponsor_payments_for_event(db: AsyncSession, event_id: int)
     )
     paid_bids = list((await db.execute(paid_bids_q)).scalars().all())
 
+    refund_payment_ids = []
     refunded_count = 0
     for bid in paid_bids:
         payment = (await db.execute(
@@ -201,8 +209,8 @@ async def refund_all_sponsor_payments_for_event(db: AsyncSession, event_id: int)
         )).scalar_one_or_none()
         if payment and payment.status == PaymentStatus.completed:
             payment.status = PaymentStatus.refund_processing
+            refund_payment_ids.append(payment.id)
             refunded_count += 1
-            payment.status = PaymentStatus.refunded
 
         cat = next((c for c in cats if c.id == bid.category_id), None)
         if cat and cat.filled_spots > 0:
@@ -227,4 +235,9 @@ async def refund_all_sponsor_payments_for_event(db: AsyncSession, event_id: int)
     )
 
     await db.flush()
+
+    from app.worker.redis_pool import enqueue
+    for pid in refund_payment_ids:
+        await enqueue("process_sponsor_refund", pid)
+
     return refunded_count

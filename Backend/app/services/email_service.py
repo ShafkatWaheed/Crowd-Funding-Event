@@ -15,6 +15,7 @@ To add a new provider:
 from __future__ import annotations
 
 import logging
+import random
 from abc import ABC, abstractmethod
 from typing import Any
 
@@ -178,19 +179,60 @@ def get_email_backend() -> EmailBackend:
 # Public helpers (what the rest of the codebase imports)
 # ═══════════════════════════════════════════════════════════
 
+async def _log_mock_email(
+    to_email: str,
+    subject: str,
+    body_html: str,
+    template_key: str | None = None,
+) -> str:
+    """Write to EmailMockLog with bounce-rate simulation. Returns status."""
+    from app.db.base import async_session_maker
+    from app.models.email_mock_log import EmailMockLog
+    from app.services import platform_settings as settings_svc
+
+    status = "sent"
+    try:
+        async with async_session_maker() as db:
+            bounce_rate = await settings_svc.get_int(db, "mock_email_bounce_rate_percent")
+            if bounce_rate > 0 and random.randint(1, 100) <= bounce_rate:
+                status = "bounced"
+            log = EmailMockLog(
+                to_email=to_email,
+                subject=subject,
+                body_html=body_html,
+                template_key=template_key,
+                status=status,
+            )
+            db.add(log)
+            await db.commit()
+    except Exception:
+        logger.exception("Failed to log mock email to %s", to_email)
+    return status
+
+
 async def send_email(
     to_email: str,
-    to_name: str,
-    subject: str,
-    html_content: str,
+    to_name: str = "",
+    subject: str = "",
+    html_content: str = "",
+    *,
+    template_key: str | None = None,
+    body_html: str | None = None,
 ) -> bool:
     """Send one email.  Returns False (never raises) if disabled or on error."""
+    html = body_html or html_content
     if not settings.EMAIL_ENABLED:
         logger.debug("EMAIL_ENABLED=False — skipping email to %s", to_email)
         return False
     try:
         backend = get_email_backend()
-        return await backend.send(to_email, to_name, subject, html_content)
+        ok = await backend.send(to_email, to_name, subject, html)
+        if isinstance(backend, ConsoleBackend):
+            mock_status = await _log_mock_email(to_email, subject, html, template_key)
+            if mock_status == "bounced":
+                logger.info("[MockBounce] Simulated bounce for %s", to_email)
+                return False
+        return ok
     except Exception:
         logger.exception("send_email failed for %s", to_email)
         return False
@@ -200,6 +242,8 @@ async def send_email_bulk(
     recipients: list[dict[str, str]],
     subject: str,
     html_content: str,
+    *,
+    template_key: str | None = None,
 ) -> int:
     """Send same email to many recipients.  Returns count sent (never raises)."""
     if not settings.EMAIL_ENABLED:
@@ -209,6 +253,14 @@ async def send_email_bulk(
         return 0
     try:
         backend = get_email_backend()
+        sent = 0
+        if isinstance(backend, ConsoleBackend):
+            for r in recipients:
+                await backend.send(r["email"], r.get("name", ""), subject, html_content)
+                mock_status = await _log_mock_email(r["email"], subject, html_content, template_key)
+                if mock_status == "sent":
+                    sent += 1
+            return sent
         return await backend.send_bulk(recipients, subject, html_content)
     except Exception:
         logger.exception("send_email_bulk failed for %d recipients", len(recipients))

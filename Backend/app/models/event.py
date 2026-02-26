@@ -88,6 +88,8 @@ class Event(Base):
     link_funding_to_tiers: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     ticket_selling_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     max_discount_percent: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
+    age_restricted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    min_age: Mapped[int] = mapped_column(Integer, nullable=False, default=18)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -111,6 +113,8 @@ class Event(Base):
     early_bird_discounts = relationship("EarlyBirdDiscount", back_populates="event", cascade="all, delete-orphan")
     schedule_items = relationship("EventScheduleItem", back_populates="event", cascade="all, delete-orphan")
     sponsorship_categories = relationship("SponsorshipCategory", back_populates="event", cascade="all, delete-orphan")
+    ticket_escrow = relationship("TicketEscrow", back_populates="event", uselist=False, cascade="all, delete-orphan")
+    sponsor_escrow = relationship("SponsorEscrow", back_populates="event", uselist=False, cascade="all, delete-orphan")
 
 
 class EventDiscount(Base):

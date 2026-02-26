@@ -147,6 +147,8 @@ def _event_to_response(
         has_schedule=e.has_schedule,
         link_funding_to_tiers=e.link_funding_to_tiers,
         max_discount_percent=getattr(e, "max_discount_percent", 100),
+        age_restricted=getattr(e, "age_restricted", False),
+        min_age=getattr(e, "min_age", 18),
         directions_url=_directions_url(e),
         first_image_url=first_image_url,
         lat=e.lat,

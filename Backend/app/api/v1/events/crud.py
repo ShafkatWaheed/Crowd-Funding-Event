@@ -214,7 +214,9 @@ async def create_event(
     )
     if body.max_discount_percent is not None:
         event.max_discount_percent = max(0, min(100, body.max_discount_percent))
-        await db.flush()
+    event.age_restricted = body.age_restricted
+    event.min_age = body.min_age
+    await db.flush()
     event = await event_service.get_by_id(db, event.id, load_venue=True)
     return _event_to_response(event)
 
@@ -344,7 +346,11 @@ async def update_event(
 
     if body.max_discount_percent is not None:
         updated.max_discount_percent = max(0, min(100, body.max_discount_percent))
-        await db.flush()
+    if body.age_restricted is not None:
+        updated.age_restricted = body.age_restricted
+    if body.min_age is not None:
+        updated.min_age = body.min_age
+    await db.flush()
 
     if needs_approval:
         updated.status = EventStatus.pending_approval

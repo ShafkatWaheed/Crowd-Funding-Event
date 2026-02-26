@@ -65,6 +65,8 @@ class Event {
   final bool hasSchedule;
   final bool linkFundingToTiers;
   final int maxDiscountPercent;
+  final bool ageRestricted;
+  final int minAge;
   final String? directionsUrl;
   final String? firstImageUrl;
   final Venue? venue;
@@ -119,6 +121,8 @@ class Event {
     this.hasSchedule = false,
     this.linkFundingToTiers = false,
     this.maxDiscountPercent = 100,
+    this.ageRestricted = false,
+    this.minAge = 18,
     this.directionsUrl,
     this.firstImageUrl,
     this.venue,
@@ -189,6 +193,8 @@ class Event {
       hasSchedule: json['has_schedule'] ?? false,
       linkFundingToTiers: json['link_funding_to_tiers'] ?? false,
       maxDiscountPercent: json['max_discount_percent'] ?? 100,
+      ageRestricted: json['age_restricted'] ?? false,
+      minAge: json['min_age'] ?? 18,
       directionsUrl: json['directions_url'],
       firstImageUrl: json['first_image_url'],
       venue: json['venue'] != null ? Venue.fromJson(json['venue']) : null,

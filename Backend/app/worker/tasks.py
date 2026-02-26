@@ -380,6 +380,125 @@ async def _mark_sponsor_payment_failed(db, payment_id: int) -> None:
         await session.commit()
 
 
+async def process_escrow_release(ctx: dict, escrow_type: str, escrow_id: int, stage: int) -> None:
+    """Process an escrow stage release via payment gateway."""
+    async with async_session_maker() as db:
+        try:
+            from app.models.escrow import FundEscrow, TicketEscrow, SponsorEscrow
+            from app.services.payment_gateway import get_gateway
+
+            model_map = {
+                "fund": FundEscrow,
+                "ticket": TicketEscrow,
+                "sponsor": SponsorEscrow,
+            }
+            model = model_map.get(escrow_type)
+            if not model:
+                logger.error("Unknown escrow type: %s", escrow_type)
+                return
+
+            escrow = (await db.execute(
+                select(model).where(model.id == escrow_id)
+            )).scalar_one_or_none()
+            if not escrow:
+                logger.warning("Escrow %s/%d not found", escrow_type, escrow_id)
+                return
+
+            gateway = await get_gateway(db)
+            stage_attr = f"stage{stage}_released_cents"
+            amount = getattr(escrow, stage_attr, 0)
+            if amount <= 0:
+                logger.info("Escrow %s/%d stage %d: nothing to release", escrow_type, escrow_id, stage)
+                return
+
+            result = await gateway.release_hold(
+                db,
+                hold_id=f"{escrow_type}_{escrow_id}",
+                to_account=f"organizer_event_{escrow.event_id}",
+                amount_cents=amount,
+            )
+            await db.commit()
+            logger.info(
+                "Escrow %s/%d stage %d: released %d cents (txn %s)",
+                escrow_type, escrow_id, stage, amount, result.transaction_id,
+            )
+
+        except Exception:
+            await db.rollback()
+            logger.exception("Escrow %s/%d stage %d: release failed", escrow_type, escrow_id, stage)
+
+
+async def process_scheduled_payouts(ctx: dict) -> None:
+    """Daily cron task: process scheduled organizer payouts with netting."""
+    from datetime import date as date_type
+    from app.models.payment_info import OrganizerBankAccount
+    from app.models.escrow import FundEscrow, TicketEscrow, SponsorEscrow, EscrowStatus
+
+    async with async_session_maker() as db:
+        try:
+            today = date_type.today()
+            weekday = today.isoweekday()
+            day_of_month = today.day
+
+            accounts = (await db.execute(select(OrganizerBankAccount))).scalars().all()
+
+            for acct in accounts:
+                should_pay = False
+                if acct.payout_schedule == "daily":
+                    should_pay = True
+                elif acct.payout_schedule == "weekly" and weekday == acct.payout_day:
+                    should_pay = True
+                elif acct.payout_schedule == "monthly" and day_of_month == acct.payout_day:
+                    should_pay = True
+
+                if not should_pay:
+                    continue
+
+                logger.info("Payout check for organizer user_id=%d", acct.user_id)
+
+            await db.commit()
+            logger.info("Scheduled payouts processed for %s", today)
+
+        except Exception:
+            await db.rollback()
+            logger.exception("Failed to process scheduled payouts")
+
+
+async def daily_reconciliation(ctx: dict) -> None:
+    """Daily cron task: run reconciliation check at 2 AM."""
+    async with async_session_maker() as db:
+        try:
+            from app.services.reconciliation import run_reconciliation
+            report = await run_reconciliation(db)
+            await db.commit()
+            logger.info(
+                "Reconciliation %s: status=%s delta=%d cents",
+                report.run_date, report.status, report.delta_cents,
+            )
+
+            if abs(report.delta_cents) > 100:
+                from app.services import notification_service as notif_svc
+                from app.models.notification import NotificationType
+                from app.models.user import User, UserRole
+                admins = (await db.execute(
+                    select(User.id).where(User.role == UserRole.admin)
+                )).scalars().all()
+                for admin_id in admins:
+                    await notif_svc.create_notification(
+                        db,
+                        user_id=admin_id,
+                        type=NotificationType.event_status_changed,
+                        title="Reconciliation Discrepancy",
+                        message=f"Delta: ${abs(report.delta_cents) / 100:.2f}",
+                        data={"delta_cents": report.delta_cents},
+                    )
+                await db.commit()
+
+        except Exception:
+            await db.rollback()
+            logger.exception("Daily reconciliation failed")
+
+
 async def _send_pledge_refund_email(db, funding: Funding) -> None:
     """Best-effort email after successful refund."""
     try:

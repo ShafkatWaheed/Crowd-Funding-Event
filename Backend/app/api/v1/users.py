@@ -436,6 +436,7 @@ async def get_organizer_dashboard(
     status: str | None = Query(None, description="Filter KPIs to events with this status"),
     event_id: int | None = Query(None, description="Filter KPIs to a single event"),
     genre: str | None = Query(None, description="Filter KPIs to events with this genre"),
+    period: str = Query("30d", description="KPI comparison period: 7d, 30d, 90d, 1y"),
 ):
     """Aggregated dashboard: KPIs with deltas, status breakdown, top events, activity feed."""
     from datetime import datetime, timezone
@@ -443,13 +444,16 @@ async def get_organizer_dashboard(
     from app.services.platform_settings import get_int as get_setting_int
     from app.services import dashboard as dashboard_service
 
-    cache_key = f"dashboard:{current_user.id}:{status or ''}:{event_id or ''}:{genre or ''}"
+    period_map = {"7d": 7, "30d": 30, "90d": 90, "1y": 365}
+    delta_days = period_map.get(period, 30)
+
+    cache_key = f"dashboard:{current_user.id}:{status or ''}:{event_id or ''}:{genre or ''}:{period}"
     cached = await cache_json_get(cache_key)
     if cached is not None:
         return cached
 
     raw = await dashboard_service.get_organizer_dashboard(
-        db, current_user.id, status_filter=status, event_id=event_id, genre=genre,
+        db, current_user.id, delta_days=delta_days, status_filter=status, event_id=event_id, genre=genre,
     )
 
     all_event_objs = list({

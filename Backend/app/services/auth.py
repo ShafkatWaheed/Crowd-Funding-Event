@@ -15,6 +15,7 @@ async def verify_and_upsert_user(
     sign_up_role: str | None = None,
     display_name_override: str | None = None,
     terms_accepted_at=None,
+    birthday=None,
 ) -> User:
     """
     Verify Firebase ID token and create or update user in DB.
@@ -50,12 +51,22 @@ async def verify_and_upsert_user(
     if sign_up_role in ("customer", "organizer", "sponsor"):
         role = UserRole(sign_up_role)
 
+    if birthday is not None:
+        from datetime import date as date_type
+        from app.services.age_verification import calculate_age
+        if isinstance(birthday, str):
+            birthday = date_type.fromisoformat(birthday)
+        age = calculate_age(birthday)
+        if age < 13:
+            raise ValueError("You must be at least 13 years old to register")
+
     user = User(
         firebase_uid=uid,
         email=email,
         display_name=display_name,
         role=role,
         terms_accepted_at=terms_accepted_at,
+        birthday=birthday,
     )
     db.add(user)
     await db.flush()

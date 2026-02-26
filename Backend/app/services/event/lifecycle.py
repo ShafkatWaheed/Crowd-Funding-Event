@@ -94,6 +94,15 @@ async def cancel_event(db: AsyncSession, event: Event, user: User, *, reason: st
     await sponsor_service.refund_all_sponsor_payments_for_event(db, event_id=event.id)
     from app.services import ticket as ticket_service
     await ticket_service.refund_all_tickets_for_event(db, event_id=event.id)
+
+    from app.models.escrow import FundEscrow, TicketEscrow, SponsorEscrow, EscrowStatus
+    for model in (FundEscrow, TicketEscrow, SponsorEscrow):
+        esc = (await db.execute(
+            select(model).where(model.event_id == event.id)
+        )).scalar_one_or_none()
+        if esc and esc.status not in (EscrowStatus.fully_released, EscrowStatus.refunded):
+            esc.status = EscrowStatus.refunded
+
     await db.flush()
     await db.refresh(event)
     return event

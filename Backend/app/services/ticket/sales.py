@@ -40,6 +40,10 @@ async def purchase_ticket(
             raise ConflictError(f"Quantity must not exceed {max_qty}")
 
     event = await event_service.get_or_404(db, event_id)
+
+    from app.services.age_verification import enforce_age_limit
+    enforce_age_limit(user.birthday, event.age_restricted, event.min_age, "purchase tickets for this event")
+
     tier = await get_tier_or_404(db, event_id=event_id, tier_id=tier_id)
 
     from sqlalchemy import text

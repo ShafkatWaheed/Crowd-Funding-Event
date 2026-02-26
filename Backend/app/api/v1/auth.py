@@ -23,6 +23,7 @@ async def verify(request: Request, body: VerifyBody, db: DbSession):
             sign_up_role=body.role,
             display_name_override=body.display_name,
             terms_accepted_at=body.terms_accepted_at,
+            birthday=body.birthday,
         )
     except ValueError as e:
         raise HTTPException(status_code=401, detail=str(e))

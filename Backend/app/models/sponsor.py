@@ -3,7 +3,7 @@ Sponsor marketplace models: profiles, categories, bids, payments, tickets.
 """
 import enum
 from datetime import datetime
-from sqlalchemy import Boolean, String, Text, Integer, DateTime, ForeignKey, Index, Enum, UniqueConstraint
+from sqlalchemy import Boolean, Float, String, Text, Integer, DateTime, ForeignKey, Index, Enum, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -93,6 +93,10 @@ class SponsorPayment(Base):
     platform_cut_cents: Mapped[int] = mapped_column(Integer, nullable=False)
     net_to_organizer_cents: Mapped[int] = mapped_column(Integer, nullable=False)
     receipt_number: Mapped[str] = mapped_column(String(100), nullable=False)
+    subtotal_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    tax_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    tax_rate: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    gateway_auth_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
     status: Mapped[PaymentStatus] = mapped_column(Enum(PaymentStatus), nullable=False, default=PaymentStatus.completed, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 

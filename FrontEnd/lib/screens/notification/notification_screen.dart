@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 
@@ -14,6 +15,8 @@ class NotificationScreen extends StatefulWidget {
 }
 
 class _NotificationScreenState extends State<NotificationScreen> {
+  String _category = 'all';
+
   @override
   void initState() {
     super.initState();
@@ -69,6 +72,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
         return Icons.badge;
       case 'new_rating_received':
         return Icons.star_outline;
+      case 'bookmarked_event_update':
+        return Icons.bookmark;
+      case 'event_under_review':
+        return Icons.warning_amber_rounded;
       default:
         return Icons.notifications_outlined;
     }
@@ -86,14 +93,68 @@ class _NotificationScreenState extends State<NotificationScreen> {
     return AppTheme.textSecondary;
   }
 
-  void _onTapNotification(Map<String, dynamic> notif) {
+  String _actionHint(String type) {
+    switch (type) {
+      case 'ticket_purchased':
+        return 'View ticket';
+      case 'pledge_confirmed':
+      case 'funding_goal_reached':
+      case 'milestone_reached':
+        return 'View pledge';
+      case 'bid_received':
+      case 'bid_accepted':
+      case 'bid_rejected':
+        return 'View bid';
+      case 'sponsor_payment_received':
+      case 'sponsor_refunded':
+        return 'View payment';
+      case 'new_rating_received':
+        return 'See ratings';
+      case 'schedule_updated':
+        return 'View schedule';
+      case 'refund_issued':
+        return 'View refund';
+      default:
+        return 'View event';
+    }
+  }
+
+  String _categoryForType(String type) {
+    if (type.contains('ticket') || type.contains('waitlist')) return 'tickets';
+    if (type.contains('pledge') || type.contains('funding') || type.contains('milestone')) return 'funding';
+    if (type.contains('bid') || type.contains('sponsor')) return 'sponsors';
+    if (type.contains('event') || type.contains('schedule') || type.contains('registration') || type.contains('rating') || type.contains('bookmark')) return 'events';
+    return 'events';
+  }
+
+  void _navigateToNotification(Map<String, dynamic> notif) {
     final provider = context.read<NotificationProvider>();
     if (notif['is_read'] != true) {
       provider.markRead(notif['id']);
     }
-    final data = notif['data'] as Map<String, dynamic>?;
-    if (data != null && data['event_id'] != null) {
-      Navigator.pushNamed(context, '/events/${data['event_id']}');
+
+    final type = notif['type'] as String? ?? '';
+    final data = notif['data'] as Map<String, dynamic>? ?? {};
+    final eventId = data['event_id'];
+
+    if (eventId == null) return;
+
+    switch (type) {
+      case 'ticket_purchased':
+        context.push('/events/$eventId');
+      case 'pledge_confirmed':
+      case 'funding_goal_reached':
+        context.push('/events/$eventId');
+      case 'bid_received':
+      case 'bid_accepted':
+      case 'bid_rejected':
+        context.push('/events/$eventId');
+      case 'new_rating_received':
+        context.push('/events/$eventId');
+      case 'schedule_updated':
+        context.push('/events/$eventId');
+      default:
+        context.push('/events/$eventId');
     }
   }
 
@@ -104,10 +165,24 @@ class _NotificationScreenState extends State<NotificationScreen> {
     final now = DateTime.now();
     final diff = now.difference(dt);
     if (diff.inMinutes < 1) return 'now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m';
-    if (diff.inHours < 24) return '${diff.inHours}h';
-    if (diff.inDays < 7) return '${diff.inDays}d';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays == 1) return 'Yesterday';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
     return DateFormat.MMMd().format(dt);
+  }
+
+  String _dateGroup(String? iso) {
+    if (iso == null) return 'Earlier';
+    final dt = DateTime.tryParse(iso);
+    if (dt == null) return 'Earlier';
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final notifDate = DateTime(dt.year, dt.month, dt.day);
+    if (notifDate == today) return 'Today';
+    if (notifDate == today.subtract(const Duration(days: 1))) return 'Yesterday';
+    if (now.difference(dt).inDays < 7) return 'This Week';
+    return 'Earlier';
   }
 
   @override
@@ -137,54 +212,203 @@ class _NotificationScreenState extends State<NotificationScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.notifications_off_outlined, size: 64,
-                      color: AppTheme.textSecondaryOf(context)),
-                  const SizedBox(height: 12),
-                  Text('No notifications yet',
-                      style: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 16)),
+                      color: AppTheme.textSecondaryOf(context).withValues(alpha: 0.5)),
+                  const SizedBox(height: 16),
+                  Text("You're all caught up!",
+                      style: TextStyle(color: AppTheme.textPrimaryOf(context), fontSize: 18, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 4),
+                  Text('No notifications to show',
+                      style: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 14)),
                 ],
               ),
             );
           }
-          return RefreshIndicator(
-            onRefresh: () => provider.loadNotifications(),
-            child: ListView.separated(
-              itemCount: provider.notifications.length,
-              separatorBuilder: (_, __) => Divider(
-                height: 1, color: AppTheme.dividerOf(context),
+
+          final filtered = _category == 'all'
+              ? provider.notifications
+              : provider.notifications.where((n) => _categoryForType(n['type'] ?? '') == _category).toList();
+
+          final grouped = <String, List<Map<String, dynamic>>>{};
+          for (final n in filtered) {
+            final group = _dateGroup(n['created_at']);
+            grouped.putIfAbsent(group, () => []).add(n);
+          }
+          final groupOrder = ['Today', 'Yesterday', 'This Week', 'Earlier'];
+          final orderedGroups = groupOrder.where((g) => grouped.containsKey(g)).toList();
+
+          return Column(
+            children: [
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Row(
+                  children: [
+                    _categoryChip('All', 'all'),
+                    _categoryChip('Events', 'events'),
+                    _categoryChip('Tickets', 'tickets'),
+                    _categoryChip('Funding', 'funding'),
+                    _categoryChip('Sponsors', 'sponsors'),
+                  ],
+                ),
               ),
-              itemBuilder: (ctx, i) {
-                final n = provider.notifications[i];
-                final type = n['type'] ?? '';
-                final isRead = n['is_read'] == true;
-                return ListTile(
-                  tileColor: isRead ? null : AppTheme.accentColor.withValues(alpha: 0.05),
-                  leading: CircleAvatar(
-                    backgroundColor: _colorForType(type).withValues(alpha: 0.15),
-                    child: Icon(_iconForType(type), color: _colorForType(type), size: 20),
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: () => provider.loadNotifications(),
+                  child: ListView.builder(
+                    itemCount: orderedGroups.fold(0, (sum, g) => sum + 1 + grouped[g]!.length),
+                    itemBuilder: (ctx, index) {
+                      int cursor = 0;
+                      for (final group in orderedGroups) {
+                        if (index == cursor) {
+                          return Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+                            child: Text(group, style: TextStyle(
+                              fontWeight: FontWeight.w700, fontSize: 13,
+                              color: AppTheme.textSecondaryOf(context),
+                              letterSpacing: 0.5,
+                            )),
+                          );
+                        }
+                        cursor++;
+                        final items = grouped[group]!;
+                        if (index < cursor + items.length) {
+                          final n = items[index - cursor];
+                          return _buildNotificationCard(n);
+                        }
+                        cursor += items.length;
+                      }
+                      return const SizedBox.shrink();
+                    },
                   ),
-                  title: Text(
-                    n['title'] ?? '',
-                    style: TextStyle(
-                      fontWeight: isRead ? FontWeight.w400 : FontWeight.w600,
-                      color: AppTheme.textPrimaryOf(context),
-                    ),
-                  ),
-                  subtitle: Text(
-                    n['message'] ?? '',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 13),
-                  ),
-                  trailing: Text(
-                    _formatTime(n['created_at']),
-                    style: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 11),
-                  ),
-                  onTap: () => _onTapNotification(n),
-                );
-              },
-            ),
+                ),
+              ),
+            ],
           );
         },
+      ),
+    );
+  }
+
+  Widget _categoryChip(String label, String value) {
+    final selected = _category == value;
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: ChoiceChip(
+        label: Text(label, style: TextStyle(
+          fontSize: 13,
+          color: selected ? Colors.white : AppTheme.textPrimaryOf(context),
+        )),
+        selected: selected,
+        selectedColor: AppTheme.accentColor,
+        backgroundColor: AppTheme.inputFillOf(context),
+        onSelected: (_) => setState(() => _category = value),
+      ),
+    );
+  }
+
+  Widget _buildNotificationCard(Map<String, dynamic> n) {
+    final type = n['type'] ?? '';
+    final isRead = n['is_read'] == true;
+    final color = _colorForType(type);
+
+    return Dismissible(
+      key: ValueKey(n['id']),
+      direction: DismissDirection.horizontal,
+      background: Container(
+        color: AppTheme.accentColor,
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.only(left: 20),
+        child: const Icon(Icons.mark_email_read, color: Colors.white),
+      ),
+      secondaryBackground: Container(
+        color: AppTheme.errorColor,
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        child: const Icon(Icons.delete_outline, color: Colors.white),
+      ),
+      confirmDismiss: (direction) async {
+        if (direction == DismissDirection.startToEnd) {
+          context.read<NotificationProvider>().markRead(n['id']);
+          return false;
+        }
+        return true;
+      },
+      onDismissed: (_) {},
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+        child: Card(
+          color: isRead ? AppTheme.cardOf(context) : AppTheme.accentColor.withValues(alpha: 0.06),
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => _navigateToNotification(n),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 40, height: 40,
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(_iconForType(type), color: color, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          n['title'] ?? '',
+                          style: TextStyle(
+                            fontWeight: isRead ? FontWeight.w500 : FontWeight.w700,
+                            fontSize: 14,
+                            color: AppTheme.textPrimaryOf(context),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          n['message'] ?? '',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 13),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _actionHint(type),
+                          style: TextStyle(color: AppTheme.accentColor, fontSize: 12, fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        _formatTime(n['created_at']),
+                        style: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 11),
+                      ),
+                      if (!isRead) ...[
+                        const SizedBox(height: 6),
+                        Container(
+                          width: 8, height: 8,
+                          decoration: BoxDecoration(
+                            color: AppTheme.accentColor,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

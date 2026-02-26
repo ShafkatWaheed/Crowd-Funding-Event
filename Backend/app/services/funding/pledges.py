@@ -105,6 +105,9 @@ async def create_pledge(
     if event.status == EventStatus.completed:
         raise ConflictError("Cannot pledge to an ended event")
 
+    from app.services.age_verification import enforce_age_limit
+    enforce_age_limit(user.birthday, event.age_restricted, event.min_age, "back this event")
+
     from sqlalchemy import text
     await db.execute(text("SELECT pg_advisory_xact_lock(:eid)"), {"eid": event_id})
 

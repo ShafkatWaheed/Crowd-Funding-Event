@@ -63,6 +63,62 @@ DEFAULTS = {
     "cache_ttl_featured": 60,
     "cache_ttl_event_detail": 30,
     "cache_ttl_dashboard": 15,
+    # ── Mock toggles ──
+    "payment_mock_enabled": "true",
+    "email_mock_enabled": "true",
+    # Mock payment latency (ms)
+    "mock_charge_latency_min_ms": 800,
+    "mock_charge_latency_max_ms": 3000,
+    "mock_transfer_latency_min_ms": 1000,
+    "mock_transfer_latency_max_ms": 5000,
+    "mock_refund_latency_min_ms": 2000,
+    "mock_refund_latency_max_ms": 7000,
+    # Mock failure simulation
+    "mock_failure_rate_percent": 0,
+    "mock_fail_next_charge": "false",
+    # Mock settlement
+    "mock_settlement_delay_seconds": 30,
+    # Mock Stripe fee simulation
+    "mock_stripe_fee_percent": 2.9,
+    "mock_stripe_fee_fixed_cents": 30,
+    # Mock email simulation
+    "mock_email_bounce_rate_percent": 0,
+    # ── Ticket escrow settings ──
+    "ticket_escrow_stage1_percent": 30,
+    "ticket_escrow_stage1_days_after_event": 3,
+    "ticket_escrow_stage2_percent": 40,
+    "ticket_escrow_stage2_days_after_event": 14,
+    "ticket_escrow_stage2_max_refund_rate": 10,
+    "ticket_escrow_stage3_percent": 30,
+    "ticket_escrow_stage3_days_after_event": 30,
+    "ticket_escrow_stage3_require_no_disputes": "true",
+    # ── Sponsor escrow settings ──
+    "sponsor_escrow_stage1_percent": 30,
+    "sponsor_escrow_stage1_trigger_enabled": "true",
+    "sponsor_escrow_stage1_trigger_mode": "event_live",
+    "sponsor_escrow_stage1_days_before_event": 14,
+    "sponsor_escrow_stage2_percent": 40,
+    "sponsor_escrow_stage2_trigger_enabled": "true",
+    "sponsor_escrow_stage2_trigger_mode": "event_started",
+    "sponsor_escrow_stage2_ticket_percent": 60,
+    "sponsor_escrow_stage3_percent": 30,
+    "sponsor_escrow_stage3_trigger_enabled": "true",
+    "sponsor_escrow_stage3_trigger_mode": "days_after_event",
+    "sponsor_escrow_stage3_days_after_event": 14,
+    # ── Tax settings ──
+    "tax_enabled": "false",
+    "default_tax_rate": 0.0,
+    "default_tax_jurisdiction": "",
+    "tax_applies_to_tickets": "true",
+    "tax_applies_to_sponsors": "true",
+    "tax_applies_to_pledges": "false",
+    # ── Email config (stored in platform settings, overridable from env) ──
+    "email_enabled": "false",
+    "email_provider": "console",
+    "email_from_address": "",
+    "email_from_name": "",
+    # ── Platform holding account (encrypted values stored separately) ──
+    "platform_holding_configured": "false",
 }
 
 DESCRIPTIONS = {
@@ -110,6 +166,51 @@ DESCRIPTIONS = {
     "cache_ttl_featured": "Redis cache TTL for featured events endpoint (seconds)",
     "cache_ttl_event_detail": "Redis cache TTL for event detail endpoint (seconds)",
     "cache_ttl_dashboard": "Redis cache TTL for organizer dashboard endpoint (seconds)",
+    "payment_mock_enabled": "Enable mock payment gateway (all payments simulated)",
+    "email_mock_enabled": "Enable mock email backend (all emails logged to console)",
+    "mock_charge_latency_min_ms": "Min simulated charge latency (ms)",
+    "mock_charge_latency_max_ms": "Max simulated charge latency (ms)",
+    "mock_transfer_latency_min_ms": "Min simulated transfer latency (ms)",
+    "mock_transfer_latency_max_ms": "Max simulated transfer latency (ms)",
+    "mock_refund_latency_min_ms": "Min simulated refund latency (ms)",
+    "mock_refund_latency_max_ms": "Max simulated refund latency (ms)",
+    "mock_failure_rate_percent": "% of mock charges that randomly fail (0 = none)",
+    "mock_fail_next_charge": "Force the next charge to fail (one-shot toggle)",
+    "mock_settlement_delay_seconds": "Seconds before settlement completes in mock mode",
+    "mock_stripe_fee_percent": "Simulated Stripe fee percentage (e.g. 2.9)",
+    "mock_stripe_fee_fixed_cents": "Simulated Stripe fixed fee per charge (cents)",
+    "mock_email_bounce_rate_percent": "% of mock emails that simulate bounce (0 = none)",
+    "ticket_escrow_stage1_percent": "Ticket escrow Stage 1 release percentage",
+    "ticket_escrow_stage1_days_after_event": "Days after event to release ticket escrow Stage 1",
+    "ticket_escrow_stage2_percent": "Ticket escrow Stage 2 release percentage",
+    "ticket_escrow_stage2_days_after_event": "Days after event to release ticket escrow Stage 2",
+    "ticket_escrow_stage2_max_refund_rate": "Max refund rate (%) to allow ticket escrow Stage 2",
+    "ticket_escrow_stage3_percent": "Ticket escrow Stage 3 release percentage",
+    "ticket_escrow_stage3_days_after_event": "Days after event to release ticket escrow Stage 3",
+    "ticket_escrow_stage3_require_no_disputes": "Require no open disputes for ticket escrow Stage 3",
+    "sponsor_escrow_stage1_percent": "Sponsor escrow Stage 1 release percentage",
+    "sponsor_escrow_stage1_trigger_enabled": "Auto-release sponsor escrow Stage 1",
+    "sponsor_escrow_stage1_trigger_mode": "Trigger mode for sponsor escrow Stage 1 (event_live, days_before_event)",
+    "sponsor_escrow_stage1_days_before_event": "Days before event to trigger sponsor escrow Stage 1",
+    "sponsor_escrow_stage2_percent": "Sponsor escrow Stage 2 release percentage",
+    "sponsor_escrow_stage2_trigger_enabled": "Auto-release sponsor escrow Stage 2",
+    "sponsor_escrow_stage2_trigger_mode": "Trigger mode for sponsor escrow Stage 2 (event_started, ticket_percent)",
+    "sponsor_escrow_stage2_ticket_percent": "Ticket sales % to trigger sponsor escrow Stage 2",
+    "sponsor_escrow_stage3_percent": "Sponsor escrow Stage 3 release percentage",
+    "sponsor_escrow_stage3_trigger_enabled": "Auto-release sponsor escrow Stage 3",
+    "sponsor_escrow_stage3_trigger_mode": "Trigger mode for sponsor escrow Stage 3 (days_after_event, sponsor_confirmed)",
+    "sponsor_escrow_stage3_days_after_event": "Days after event to trigger sponsor escrow Stage 3",
+    "tax_enabled": "Enable tax collection on transactions",
+    "default_tax_rate": "Default tax rate (e.g. 0.0825 for 8.25%)",
+    "default_tax_jurisdiction": "Default tax jurisdiction code (e.g. US-TX)",
+    "tax_applies_to_tickets": "Apply tax to ticket sales",
+    "tax_applies_to_sponsors": "Apply tax to sponsor payments",
+    "tax_applies_to_pledges": "Apply tax to pledge/funding",
+    "email_enabled": "Enable email sending",
+    "email_provider": "Email provider (console, sendgrid)",
+    "email_from_address": "Email From address",
+    "email_from_name": "Email From display name",
+    "platform_holding_configured": "Whether platform holding bank account is configured",
 }
 
 
@@ -167,6 +268,14 @@ async def get_bool(db: AsyncSession, key: str) -> bool:
     if raw is None:
         return str(DEFAULTS.get(key, "false")).lower() == "true"
     return raw.lower() == "true"
+
+
+async def get_float(db: AsyncSession, key: str) -> float:
+    """Get a setting as float. Falls back to DEFAULTS if missing."""
+    raw = await _get_raw(db, key)
+    if raw is None:
+        return float(DEFAULTS.get(key, 0.0))
+    return float(raw)
 
 
 async def get_str(db: AsyncSession, key: str) -> str:

@@ -60,6 +60,8 @@ class EventCreate(BaseModel):
     has_schedule: bool = False
     link_funding_to_tiers: bool = False
     max_discount_percent: int = 100
+    age_restricted: bool = False
+    min_age: int = 18
     publish: bool = False  # True = approved immediately, False = draft
 
 
@@ -90,6 +92,8 @@ class EventUpdate(BaseModel):
     has_schedule: bool | None = None
     link_funding_to_tiers: bool | None = None
     max_discount_percent: int | None = None
+    age_restricted: bool | None = None
+    min_age: int | None = None
 
 
 class ExtendFundingBody(BaseModel):
@@ -190,6 +194,8 @@ class EventResponse(BaseModel):
     has_schedule: bool = False
     link_funding_to_tiers: bool = False
     max_discount_percent: int = 100
+    age_restricted: bool = False
+    min_age: int = 18
     directions_url: str | None = None  # computed from venue address
     first_image_url: str | None = None
     created_at: datetime

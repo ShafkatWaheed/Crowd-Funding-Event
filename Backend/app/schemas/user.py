@@ -37,6 +37,7 @@ class VerifyBody(BaseModel):
     role: SignUpRole = "customer"
     display_name: str | None = None
     terms_accepted_at: datetime | None = None
+    birthday: date | None = None
 
 
 class VerifyResponse(BaseModel):

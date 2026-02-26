@@ -44,6 +44,9 @@ async def register(
     if event.status == EventStatus.completed:
         raise ConflictError("Cannot register for an ended event")
 
+    from app.services.age_verification import enforce_age_limit
+    enforce_age_limit(user.birthday, event.age_restricted, event.min_age, "register for this event")
+
     # Existing registration?
     existing_q = select(Registration).where(
         Registration.event_id == event_id,

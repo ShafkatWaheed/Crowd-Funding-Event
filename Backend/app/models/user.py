@@ -44,3 +44,5 @@ class User(Base):
     posts = relationship("EventPost", back_populates="user")
     discount_strategies = relationship("DiscountStrategy", back_populates="organizer", foreign_keys="DiscountStrategy.organizer_id")
     sponsor_profile = relationship("SponsorProfile", back_populates="user", uselist=False)
+    payment_info = relationship("UserPaymentInfo", back_populates="user", uselist=False)
+    bank_account = relationship("OrganizerBankAccount", back_populates="user", uselist=False)

@@ -1,0 +1,390 @@
+"""
+Payment gateway abstraction with mock implementation.
+
+PaymentGateway ABC defines the interface. MockPaymentGateway simulates all
+operations with configurable latency, failure rates, and idempotency support.
+Factory function get_gateway() returns the appropriate implementation based on
+the payment_mock_enabled platform setting.
+"""
+from __future__ import annotations
+
+import asyncio
+import logging
+import random
+import uuid
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from datetime import datetime, timezone
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.payment_mock_ledger import (
+    MockLedgerOperation,
+    MockLedgerStatus,
+    PaymentMockLedger,
+)
+from app.services import platform_settings as settings_svc
+
+logger = logging.getLogger(__name__)
+
+FAILURE_REASONS = [
+    ("card_declined", 60),
+    ("gateway_timeout", 25),
+    ("fraud_flagged", 15),
+]
+
+
+@dataclass
+class ChargeResult:
+    transaction_id: str
+    status: str
+    authorization_code: str
+    receipt_reference: str | None = None
+
+
+@dataclass
+class TransferResult:
+    transaction_id: str
+    status: str
+    authorization_code: str
+    receipt_reference: str | None = None
+
+
+@dataclass
+class RefundResult:
+    transaction_id: str
+    status: str
+    authorization_code: str
+    receipt_reference: str | None = None
+
+
+@dataclass
+class HoldResult:
+    transaction_id: str
+    status: str
+    authorization_code: str
+
+
+class PaymentGateway(ABC):
+    @abstractmethod
+    async def charge(
+        self,
+        db: AsyncSession,
+        *,
+        user_id: int,
+        amount_cents: int,
+        description: str,
+        idempotency_key: str | None = None,
+    ) -> ChargeResult: ...
+
+    @abstractmethod
+    async def transfer(
+        self,
+        db: AsyncSession,
+        *,
+        from_account: str,
+        to_account: str,
+        amount_cents: int,
+        description: str,
+    ) -> TransferResult: ...
+
+    @abstractmethod
+    async def refund(
+        self,
+        db: AsyncSession,
+        *,
+        original_transaction_id: str,
+        amount_cents: int,
+        description: str,
+    ) -> RefundResult: ...
+
+    @abstractmethod
+    async def hold(
+        self,
+        db: AsyncSession,
+        *,
+        account: str,
+        amount_cents: int,
+        description: str,
+    ) -> HoldResult: ...
+
+    @abstractmethod
+    async def release_hold(
+        self,
+        db: AsyncSession,
+        *,
+        hold_id: str,
+        to_account: str,
+        amount_cents: int,
+    ) -> TransferResult: ...
+
+
+def _pick_failure_reason() -> str:
+    roll = random.randint(1, 100)
+    cumulative = 0
+    for reason, weight in FAILURE_REASONS:
+        cumulative += weight
+        if roll <= cumulative:
+            return reason
+    return "card_declined"
+
+
+class MockPaymentGateway(PaymentGateway):
+    """Simulates all payment operations with configurable latency and failure."""
+
+    async def _should_fail(self, db: AsyncSession) -> str | None:
+        fail_next = await settings_svc.get_bool(db, "mock_fail_next_charge")
+        if fail_next:
+            await settings_svc.set_value(db, "mock_fail_next_charge", "false")
+            return _pick_failure_reason()
+        rate = await settings_svc.get_int(db, "mock_failure_rate_percent")
+        if rate > 0 and random.randint(1, 100) <= rate:
+            return _pick_failure_reason()
+        return None
+
+    async def _latency(self, db: AsyncSession, min_key: str, max_key: str) -> None:
+        min_ms = await settings_svc.get_int(db, min_key)
+        max_ms = await settings_svc.get_int(db, max_key)
+        if min_ms <= 0:
+            min_ms = 100
+        if max_ms <= min_ms:
+            max_ms = min_ms + 500
+        delay = random.randint(min_ms, max_ms) / 1000.0
+        await asyncio.sleep(delay)
+
+    async def charge(
+        self,
+        db: AsyncSession,
+        *,
+        user_id: int,
+        amount_cents: int,
+        description: str,
+        idempotency_key: str | None = None,
+    ) -> ChargeResult:
+        if idempotency_key:
+            existing = (await db.execute(
+                select(PaymentMockLedger).where(
+                    PaymentMockLedger.idempotency_key == idempotency_key
+                )
+            )).scalar_one_or_none()
+            if existing:
+                return ChargeResult(
+                    transaction_id=existing.transaction_id,
+                    status=existing.status.value,
+                    authorization_code=existing.authorization_code or "",
+                    receipt_reference=existing.receipt_reference,
+                )
+
+        txn_id = uuid.uuid4().hex
+        auth_code = f"auth_{uuid.uuid4().hex[:8]}"
+        now = datetime.now(timezone.utc)
+
+        entry = PaymentMockLedger(
+            transaction_id=txn_id,
+            idempotency_key=idempotency_key,
+            operation=MockLedgerOperation.charge,
+            amount_cents=amount_cents,
+            from_account=f"customer_{user_id}",
+            to_account="holding_account",
+            description=description,
+            status=MockLedgerStatus.processing,
+            authorization_code=auth_code,
+            processing_at=now,
+            created_at=now,
+        )
+        db.add(entry)
+        await db.flush()
+
+        await self._latency(db, "mock_charge_latency_min_ms", "mock_charge_latency_max_ms")
+
+        failure = await self._should_fail(db)
+        if failure:
+            entry.status = MockLedgerStatus.failed
+            entry.failure_reason = failure
+            entry.completed_at = datetime.now(timezone.utc)
+            await db.flush()
+            return ChargeResult(
+                transaction_id=txn_id, status="failed",
+                authorization_code=auth_code,
+            )
+
+        entry.status = MockLedgerStatus.completed
+        entry.completed_at = datetime.now(timezone.utc)
+        await db.flush()
+        return ChargeResult(
+            transaction_id=txn_id, status="completed",
+            authorization_code=auth_code,
+        )
+
+    async def transfer(
+        self,
+        db: AsyncSession,
+        *,
+        from_account: str,
+        to_account: str,
+        amount_cents: int,
+        description: str,
+    ) -> TransferResult:
+        txn_id = uuid.uuid4().hex
+        auth_code = f"auth_{uuid.uuid4().hex[:8]}"
+        now = datetime.now(timezone.utc)
+
+        entry = PaymentMockLedger(
+            transaction_id=txn_id,
+            operation=MockLedgerOperation.transfer,
+            amount_cents=amount_cents,
+            from_account=from_account,
+            to_account=to_account,
+            description=description,
+            status=MockLedgerStatus.processing,
+            authorization_code=auth_code,
+            processing_at=now,
+            created_at=now,
+        )
+        db.add(entry)
+        await db.flush()
+
+        await self._latency(db, "mock_transfer_latency_min_ms", "mock_transfer_latency_max_ms")
+
+        entry.status = MockLedgerStatus.completed
+        entry.completed_at = datetime.now(timezone.utc)
+        await db.flush()
+        return TransferResult(
+            transaction_id=txn_id, status="completed",
+            authorization_code=auth_code,
+        )
+
+    async def refund(
+        self,
+        db: AsyncSession,
+        *,
+        original_transaction_id: str,
+        amount_cents: int,
+        description: str,
+    ) -> RefundResult:
+        txn_id = uuid.uuid4().hex
+        auth_code = f"auth_{uuid.uuid4().hex[:8]}"
+        now = datetime.now(timezone.utc)
+
+        entry = PaymentMockLedger(
+            transaction_id=txn_id,
+            operation=MockLedgerOperation.refund,
+            amount_cents=amount_cents,
+            from_account="holding_account",
+            to_account=f"refund_{original_transaction_id}",
+            description=description,
+            status=MockLedgerStatus.processing,
+            authorization_code=auth_code,
+            processing_at=now,
+            created_at=now,
+        )
+        db.add(entry)
+        await db.flush()
+
+        await self._latency(db, "mock_refund_latency_min_ms", "mock_refund_latency_max_ms")
+
+        entry.status = MockLedgerStatus.completed
+        entry.completed_at = datetime.now(timezone.utc)
+        await db.flush()
+        return RefundResult(
+            transaction_id=txn_id, status="completed",
+            authorization_code=auth_code,
+        )
+
+    async def hold(
+        self,
+        db: AsyncSession,
+        *,
+        account: str,
+        amount_cents: int,
+        description: str,
+    ) -> HoldResult:
+        txn_id = uuid.uuid4().hex
+        auth_code = f"auth_{uuid.uuid4().hex[:8]}"
+        now = datetime.now(timezone.utc)
+
+        entry = PaymentMockLedger(
+            transaction_id=txn_id,
+            operation=MockLedgerOperation.hold,
+            amount_cents=amount_cents,
+            from_account="holding_account",
+            to_account=account,
+            description=description,
+            status=MockLedgerStatus.completed,
+            authorization_code=auth_code,
+            processing_at=now,
+            completed_at=now,
+            created_at=now,
+        )
+        db.add(entry)
+        await db.flush()
+        return HoldResult(
+            transaction_id=txn_id, status="completed",
+            authorization_code=auth_code,
+        )
+
+    async def release_hold(
+        self,
+        db: AsyncSession,
+        *,
+        hold_id: str,
+        to_account: str,
+        amount_cents: int,
+    ) -> TransferResult:
+        txn_id = uuid.uuid4().hex
+        auth_code = f"auth_{uuid.uuid4().hex[:8]}"
+        now = datetime.now(timezone.utc)
+
+        entry = PaymentMockLedger(
+            transaction_id=txn_id,
+            operation=MockLedgerOperation.release,
+            amount_cents=amount_cents,
+            from_account=f"hold_{hold_id}",
+            to_account=to_account,
+            description=f"Release hold {hold_id}",
+            status=MockLedgerStatus.settlement_pending,
+            authorization_code=auth_code,
+            processing_at=now,
+            created_at=now,
+        )
+        db.add(entry)
+        await db.flush()
+
+        settlement_delay = await settings_svc.get_int(db, "mock_settlement_delay_seconds")
+        if settlement_delay <= 0:
+            entry.status = MockLedgerStatus.settled
+            entry.completed_at = datetime.now(timezone.utc)
+            await db.flush()
+
+        return TransferResult(
+            transaction_id=txn_id,
+            status=entry.status.value,
+            authorization_code=auth_code,
+        )
+
+
+class StripePaymentGateway(PaymentGateway):
+    """Stub for future real Stripe integration."""
+
+    async def charge(self, db, *, user_id, amount_cents, description, idempotency_key=None):
+        raise NotImplementedError("Stripe integration not yet implemented")
+
+    async def transfer(self, db, *, from_account, to_account, amount_cents, description):
+        raise NotImplementedError("Stripe integration not yet implemented")
+
+    async def refund(self, db, *, original_transaction_id, amount_cents, description):
+        raise NotImplementedError("Stripe integration not yet implemented")
+
+    async def hold(self, db, *, account, amount_cents, description):
+        raise NotImplementedError("Stripe integration not yet implemented")
+
+    async def release_hold(self, db, *, hold_id, to_account, amount_cents):
+        raise NotImplementedError("Stripe integration not yet implemented")
+
+
+async def get_gateway(db: AsyncSession) -> PaymentGateway:
+    """Factory: returns MockPaymentGateway when mock is enabled, else Stripe stub."""
+    if await settings_svc.get_bool(db, "payment_mock_enabled"):
+        return MockPaymentGateway()
+    return StripePaymentGateway()

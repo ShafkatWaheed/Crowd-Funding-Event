@@ -80,6 +80,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   List<dynamic> get _pendingExtensions =>
       _allEvents.where((e) => e['pending_extension'] != null).toList();
 
+  // Banking / Mock / Email tab data
+  Map<String, dynamic>? _bankingData;
+  bool _bankingLoading = false;
+  Map<String, dynamic>? _mockData;
+  bool _mockLoading = false;
+  List<dynamic> _emailTemplates = [];
+  bool _emailLoading = false;
+
   // Search/filter state
   String _eventSearch = '';
   int _eventFilterIndex = -1; // auto-detect on load
@@ -90,6 +98,42 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   String _pledgeStatusFilter = 'all';
   String _userSearch = '';
   String _userRoleFilter = 'all';
+
+  int get _bottomNavIndex {
+    const mapping = {0: 0, 3: 1, 4: 2};
+    return mapping[_selectedSection] ?? 3;
+  }
+
+  void _onBottomNavTap(int i) {
+    if (i == 3) {
+      _showMoreSheet();
+    } else {
+      const mapping = {0: 0, 1: 3, 2: 4};
+      setState(() => _selectedSection = mapping[i] ?? 0);
+    }
+  }
+
+  void _showMoreSheet() {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[400], borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 12),
+            ListTile(leading: const Icon(Icons.event), title: const Text('Events'), onTap: () { Navigator.pop(ctx); setState(() => _selectedSection = 1); }),
+            ListTile(leading: const Icon(Icons.paid), title: const Text('Financial'), onTap: () { Navigator.pop(ctx); setState(() => _selectedSection = 2); }),
+            ListTile(leading: const Icon(Icons.email_outlined), title: const Text('Email'), onTap: () { Navigator.pop(ctx); setState(() => _selectedSection = 5); }),
+            ListTile(leading: const Icon(Icons.settings), title: const Text('Settings'), onTap: () { Navigator.pop(ctx); setState(() => _selectedSection = 6); }),
+            ListTile(leading: const Icon(Icons.science_outlined), title: const Text('Mock'), onTap: () { Navigator.pop(ctx); setState(() => _selectedSection = 7); }),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -412,17 +456,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         bottomNavigationBar: isWide
             ? null
             : BottomNavigationBar(
-                currentIndex: _selectedSection,
-                onTap: (i) => setState(() => _selectedSection = i),
+                currentIndex: _bottomNavIndex,
+                onTap: _onBottomNavTap,
                 type: BottomNavigationBarType.fixed,
                 selectedItemColor: AppTheme.accentOf(context),
                 unselectedItemColor: AppTheme.textSecondaryOf(context),
                 items: const [
                   BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Home'),
-                  BottomNavigationBarItem(icon: Icon(Icons.event), label: 'Events'),
-                  BottomNavigationBarItem(icon: Icon(Icons.paid), label: 'Financial'),
+                  BottomNavigationBarItem(icon: Icon(Icons.account_balance), label: 'Banking'),
                   BottomNavigationBarItem(icon: Icon(Icons.people), label: 'Users'),
-                  BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
+                  BottomNavigationBarItem(icon: Icon(Icons.more_horiz), label: 'More'),
                 ],
               ),
       ),
@@ -462,8 +505,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 _navItem(1, Icons.event, 'Events',
                     badge: pendingCount > 0 ? pendingCount : null),
                 _navItem(2, Icons.paid, 'Financial'),
-                _navItem(3, Icons.people, 'Users'),
-                _navItem(4, Icons.settings, 'Settings'),
+                _navItem(3, Icons.account_balance, 'Banking'),
+                _navItem(4, Icons.people, 'Users'),
+                _navItem(5, Icons.email_outlined, 'Email'),
+                _navItem(6, Icons.settings, 'Settings'),
+                _navItem(7, Icons.science_outlined, 'Mock'),
               ],
             ),
           ),
@@ -527,8 +573,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       case 0: return 'Home';
       case 1: return 'Events';
       case 2: return 'Financial';
-      case 3: return 'Users';
-      case 4: return 'Settings';
+      case 3: return 'Banking';
+      case 4: return 'Users';
+      case 5: return 'Email';
+      case 6: return 'Settings';
+      case 7: return 'Mock';
       default: return 'Admin';
     }
   }
@@ -538,8 +587,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       case 0: return _buildOverview();
       case 1: return _buildEventsSection();
       case 2: return _buildFinancialSection();
-      case 3: return _buildUsersSection();
-      case 4: return _buildSettingsSection();
+      case 3: return _buildBankingSection();
+      case 4: return _buildUsersSection();
+      case 5: return _buildEmailSection();
+      case 6: return _buildSettingsSection();
+      case 7: return _buildMockSection();
       default: return _buildOverview();
     }
   }
@@ -2564,6 +2616,438 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     'Feature Flags': Icons.toggle_on_rounded,
     'Cache': Icons.cached,
   };
+
+  // ===========================================================================
+  // SECTION: BANKING
+  // ===========================================================================
+
+  Future<void> _loadBankingData() async {
+    setState(() => _bankingLoading = true);
+    try {
+      final data = await ApiService.instance.get('/admin/banking-overview');
+      if (mounted) setState(() { _bankingData = data; _bankingLoading = false; });
+    } catch (e) {
+      if (mounted) setState(() => _bankingLoading = false);
+    }
+  }
+
+  Widget _buildBankingSection() {
+    if (_bankingData == null && !_bankingLoading) _loadBankingData();
+    if (_bankingLoading || _bankingData == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    final d = _bankingData!;
+    final mockActive = d['mock_mode_active'] == true;
+    return RefreshIndicator(
+      onRefresh: _loadBankingData,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (mockActive)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: AppTheme.warningSurface,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning_amber_rounded, color: AppTheme.warningColor, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text('Mock Mode Active — No real money is moving', style: TextStyle(color: AppTheme.textPrimaryOf(context), fontWeight: FontWeight.w600))),
+                  ],
+                ),
+              ),
+            Text('Platform Account', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context))),
+            const SizedBox(height: 8),
+            Card(
+              color: AppTheme.cardOf(context),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Icon(d['platform_account_configured'] == true ? Icons.check_circle : Icons.warning_amber_rounded,
+                      color: d['platform_account_configured'] == true ? AppTheme.successColor : AppTheme.warningColor),
+                    const SizedBox(width: 12),
+                    Text(d['platform_account_configured'] == true ? 'Configured' : 'Not configured',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppTheme.textPrimaryOf(context))),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text('Escrow Summary', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context))),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(child: _escrowSummaryCard('Fund', d['fund_escrow_total_held_cents'] ?? 0, d['fund_escrow_total_released_cents'] ?? 0, d['fund_escrow_active_count'] ?? 0, AppTheme.fundingAccent)),
+                const SizedBox(width: 8),
+                Expanded(child: _escrowSummaryCard('Ticket', d['ticket_escrow_total_held_cents'] ?? 0, d['ticket_escrow_total_released_cents'] ?? 0, d['ticket_escrow_active_count'] ?? 0, AppTheme.ticketAccent)),
+                const SizedBox(width: 8),
+                Expanded(child: _escrowSummaryCard('Sponsor', d['sponsor_escrow_total_held_cents'] ?? 0, d['sponsor_escrow_total_released_cents'] ?? 0, d['sponsor_escrow_active_count'] ?? 0, AppTheme.sponsorAccent)),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text('Commission & Tax', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context))),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(child: _infoCard('Commission Total', _centsToStr(d['commission_total_cents'] ?? 0), Icons.attach_money, AppTheme.accentColor)),
+                const SizedBox(width: 8),
+                Expanded(child: _infoCard('Tax Collected', _centsToStr(d['tax_collected_total_cents'] ?? 0), Icons.receipt_long, AppTheme.warningColor)),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text('Disputes', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context))),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(child: _infoCard('Open Disputes', '${d['disputes_open_count'] ?? 0}', Icons.gavel, AppTheme.errorColor)),
+                const SizedBox(width: 8),
+                Expanded(child: _infoCard('Disputed Amount', _centsToStr(d['disputes_total_amount_cents'] ?? 0), Icons.money_off, AppTheme.errorColor)),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text('Reconciliation', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context))),
+            const SizedBox(height: 8),
+            Card(
+              color: AppTheme.cardOf(context),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Icon(
+                      d['last_reconciliation_status'] == 'balanced' ? Icons.check_circle : Icons.error,
+                      color: d['last_reconciliation_status'] == 'balanced' ? AppTheme.successColor : AppTheme.errorColor,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        d['last_reconciliation_status'] != null
+                          ? 'Last: ${d['last_reconciliation_status']} (delta: ${_centsToStr((d['last_reconciliation_delta_cents'] ?? 0).abs())})'
+                          : 'No reconciliation run yet',
+                        style: TextStyle(color: AppTheme.textPrimaryOf(context)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _escrowSummaryCard(String label, int heldCents, int releasedCents, int activeCount, Color color) {
+    return Card(
+      color: AppTheme.cardOf(context),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 14)),
+            const SizedBox(height: 8),
+            Text('Held: ${_centsToStr(heldCents)}', style: TextStyle(fontSize: 13, color: AppTheme.textPrimaryOf(context))),
+            Text('Released: ${_centsToStr(releasedCents)}', style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryOf(context))),
+            Text('Active: $activeCount', style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryOf(context))),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _infoCard(String title, String value, IconData icon, Color color) {
+    return Card(
+      color: AppTheme.cardOf(context),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 28),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context))),
+                Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context))),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // SECTION: EMAIL
+  // ===========================================================================
+
+  Future<void> _loadEmailTemplates() async {
+    setState(() => _emailLoading = true);
+    try {
+      final data = await ApiService.instance.get('/admin/email-templates');
+      if (mounted) setState(() { _emailTemplates = data is List ? data : []; _emailLoading = false; });
+    } catch (e) {
+      if (mounted) setState(() => _emailLoading = false);
+    }
+  }
+
+  Widget _buildEmailSection() {
+    if (_emailTemplates.isEmpty && !_emailLoading) _loadEmailTemplates();
+    if (_emailLoading) return const Center(child: CircularProgressIndicator());
+
+    return RefreshIndicator(
+      onRefresh: _loadEmailTemplates,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Email Configuration', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context))),
+            const SizedBox(height: 8),
+            Card(
+              color: AppTheme.cardOf(context),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Configure email provider and templates from platform settings.', style: TextStyle(color: AppTheme.textSecondaryOf(context))),
+                    const SizedBox(height: 8),
+                    Text('Provider settings: email_enabled, email_provider, email_from_address, email_from_name',
+                      style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context))),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text('Email Templates (${_emailTemplates.length})', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context))),
+            const SizedBox(height: 8),
+            if (_emailTemplates.isEmpty)
+              Card(
+                color: AppTheme.cardOf(context),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text('No custom templates. All emails use default hardcoded templates.', style: TextStyle(color: AppTheme.textSecondaryOf(context))),
+                ),
+              ),
+            ..._emailTemplates.map((t) => Card(
+              color: AppTheme.cardOf(context),
+              margin: const EdgeInsets.only(bottom: 8),
+              child: ExpansionTile(
+                title: Text(t['template_key'] ?? '', style: TextStyle(fontWeight: FontWeight.w600, color: AppTheme.textPrimaryOf(context))),
+                subtitle: Text(t['subject'] ?? '', style: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 13)),
+                trailing: Icon(t['is_active'] == true ? Icons.check_circle : Icons.cancel, color: t['is_active'] == true ? AppTheme.successColor : AppTheme.errorColor, size: 20),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Variables: ${t['variables'] ?? '[]'}', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context))),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            TextButton.icon(
+                              icon: const Icon(Icons.send, size: 16),
+                              label: const Text('Test Send'),
+                              onPressed: () async {
+                                try {
+                                  await ApiService.instance.post('/admin/email-templates/${t['template_key']}/test-send', {});
+                                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Test email sent')));
+                                } catch (_) {}
+                              },
+                            ),
+                            const SizedBox(width: 8),
+                            TextButton.icon(
+                              icon: const Icon(Icons.restore, size: 16),
+                              label: const Text('Reset'),
+                              onPressed: () async {
+                                try {
+                                  await ApiService.instance.post('/admin/email-templates/${t['template_key']}/reset', {});
+                                  _loadEmailTemplates();
+                                } catch (_) {}
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // SECTION: MOCK
+  // ===========================================================================
+
+  Future<void> _loadMockData() async {
+    setState(() => _mockLoading = true);
+    try {
+      final data = await ApiService.instance.get('/admin/mock-overview');
+      if (mounted) setState(() { _mockData = data; _mockLoading = false; });
+    } catch (e) {
+      if (mounted) setState(() => _mockLoading = false);
+    }
+  }
+
+  Widget _buildMockSection() {
+    if (_mockData == null && !_mockLoading) _loadMockData();
+    if (_mockLoading || _mockData == null) return const Center(child: CircularProgressIndicator());
+    final d = _mockData!;
+
+    return RefreshIndicator(
+      onRefresh: _loadMockData,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(color: AppTheme.warningSurface, borderRadius: BorderRadius.circular(8)),
+              child: Row(
+                children: [
+                  const Icon(Icons.science_outlined, color: AppTheme.warningColor, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text('Mock Mode — All payments and emails are simulated', style: TextStyle(color: AppTheme.textPrimaryOf(context), fontWeight: FontWeight.w600))),
+                ],
+              ),
+            ),
+            Text('Mock Stats', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context))),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8, runSpacing: 8,
+              children: [
+                _infoCard('Transactions', '${d['total_transactions'] ?? 0}', Icons.receipt, AppTheme.accentColor),
+                _infoCard('Volume', _centsToStr(d['total_volume_cents'] ?? 0), Icons.attach_money, AppTheme.successColor),
+                _infoCard('Success Rate', '${d['success_rate'] ?? 100}%', Icons.check_circle, AppTheme.successColor),
+                _infoCard('Emails', '${d['total_emails'] ?? 0}', Icons.email, AppTheme.accentColor),
+                _infoCard('Bounce Rate', '${d['email_bounce_rate'] ?? 0}%', Icons.error_outline, AppTheme.warningColor),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text('Quick Actions', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context))),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8, runSpacing: 8,
+              children: [
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.delete_sweep, size: 18),
+                  label: const Text('Clear All Mock Data'),
+                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorColor, foregroundColor: Colors.white),
+                  onPressed: () async {
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Clear Mock Data?'),
+                        content: const Text('This will delete all mock transactions and emails. This cannot be undone.'),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Clear')),
+                        ],
+                      ),
+                    );
+                    if (confirmed == true) {
+                      await ApiService.instance.post('/admin/mock/clear', {});
+                      _loadMockData();
+                    }
+                  },
+                ),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.done_all, size: 18),
+                  label: const Text('Settle All Pending'),
+                  onPressed: () async {
+                    await ApiService.instance.post('/admin/mock/settle-all', {});
+                    _loadMockData();
+                  },
+                ),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.error_outline, size: 18),
+                  label: const Text('Fail Next Charge'),
+                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.warningColor, foregroundColor: Colors.white),
+                  onPressed: () async {
+                    await ApiService.instance.post('/admin/mock/fail-next', {});
+                    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Next charge will fail')));
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text('Recent Transactions', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context))),
+            const SizedBox(height: 8),
+            ...((d['recent_transactions'] as List? ?? []).map((t) => Card(
+              color: AppTheme.cardOf(context),
+              margin: const EdgeInsets.only(bottom: 6),
+              child: ListTile(
+                leading: Icon(_mockOpIcon(t['operation']), color: _mockStatusColor(t['status']), size: 24),
+                title: Text('${t['operation']} — ${_centsToStr(t['amount_cents'] ?? 0)}', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: AppTheme.textPrimaryOf(context))),
+                subtitle: Text('${t['from_account']} → ${t['to_account']}\n${t['status']}${t['failure_reason'] != null ? ' (${t['failure_reason']})' : ''}',
+                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context))),
+                trailing: Text(t['authorization_code'] ?? '', style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryOf(context))),
+                isThreeLine: true,
+              ),
+            ))),
+            const SizedBox(height: 16),
+            Text('Recent Emails', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context))),
+            const SizedBox(height: 8),
+            ...((d['recent_emails'] as List? ?? []).map((e) => Card(
+              color: AppTheme.cardOf(context),
+              margin: const EdgeInsets.only(bottom: 6),
+              child: ListTile(
+                leading: Icon(e['status'] == 'bounced' ? Icons.error : Icons.check_circle,
+                  color: e['status'] == 'bounced' ? AppTheme.errorColor : AppTheme.successColor, size: 20),
+                title: Text(e['subject'] ?? '', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: AppTheme.textPrimaryOf(context))),
+                subtitle: Text('To: ${e['to_email']} — ${e['template_key'] ?? 'custom'}',
+                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context))),
+              ),
+            ))),
+          ],
+        ),
+      ),
+    );
+  }
+
+  IconData _mockOpIcon(String? op) {
+    switch (op) {
+      case 'charge': return Icons.credit_card;
+      case 'transfer': return Icons.swap_horiz;
+      case 'refund': return Icons.replay;
+      case 'hold': return Icons.lock;
+      case 'release': return Icons.lock_open;
+      default: return Icons.receipt;
+    }
+  }
+
+  Color _mockStatusColor(String? status) {
+    switch (status) {
+      case 'completed': case 'settled': return AppTheme.successColor;
+      case 'failed': return AppTheme.errorColor;
+      case 'processing': case 'settlement_pending': return AppTheme.warningColor;
+      default: return AppTheme.accentColor;
+    }
+  }
+
+  // ===========================================================================
+  // SECTION: SETTINGS
+  // ===========================================================================
 
   Widget _buildSettingsSection() {
     if (_settings.isEmpty) {

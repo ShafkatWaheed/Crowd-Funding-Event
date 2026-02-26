@@ -129,6 +129,21 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
                   ),
                   AppSpacing.hSm,
                   _FrostedStatusBadge(status: event.status),
+                  if (event.ageRestricted) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppTheme.errorColor.withValues(alpha: 0.7),
+                        borderRadius: AppRadius.pill,
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+                      ),
+                      child: Text(
+                        '${event.minAge}+',
+                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.5),
+                      ),
+                    ),
+                  ],
                   if (widget.onBookmarkToggle != null) ...[
                     const SizedBox(width: 6),
                     _BookmarkButton(

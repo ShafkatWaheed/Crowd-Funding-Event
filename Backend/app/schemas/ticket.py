@@ -84,8 +84,8 @@ class TicketPurchaseBody(BaseModel):
     @field_validator("quantity")
     @classmethod
     def quantity_positive(cls, v: int) -> int:
-        if v < 1 or v > 10:
-            raise ValueError("quantity must be between 1 and 10")
+        if v < 1:
+            raise ValueError("quantity must be at least 1")
         return v
 
 

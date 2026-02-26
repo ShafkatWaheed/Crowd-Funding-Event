@@ -30,8 +30,14 @@ async def purchase_ticket(
     extra_perks: str | None = None,
 ) -> list[TicketSale]:
     """Customer purchases one or more tickets. Must be registered."""
-    if quantity < 1 or quantity > 10:
-        raise ConflictError("Quantity must be between 1 and 10")
+    if quantity < 1:
+        raise ConflictError("Quantity must be at least 1")
+
+    from app.services import platform_settings as settings_svc
+    if await settings_svc.get_bool(db, "max_tickets_backend_enabled"):
+        max_qty = await settings_svc.get_int(db, "max_tickets_per_purchase")
+        if quantity > max_qty:
+            raise ConflictError(f"Quantity must not exceed {max_qty}")
 
     event = await event_service.get_or_404(db, event_id)
     tier = await get_tier_or_404(db, event_id=event_id, tier_id=tier_id)
@@ -53,7 +59,6 @@ async def purchase_ticket(
     total_discount = price_info["total_discount_cents"]
     tier_price = price_info["tier_price_cents"]
 
-    from app.services import platform_settings as settings_svc
     commission_cents = 0
     net_to_organizer = final_cents
     if final_cents > 0:

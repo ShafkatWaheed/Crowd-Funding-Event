@@ -21,6 +21,7 @@ class AdminUserDetailScreen extends StatefulWidget {
 
 class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
     with TickerProviderStateMixin {
+  final _messengerKey = GlobalKey<ScaffoldMessengerState>();
   Map<String, dynamic>? _detail;
   bool _loading = true;
   String? _error;
@@ -121,6 +122,23 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
     }
   }
 
+  Future<void> _refreshDetail() async {
+    try {
+      final api = context.read<ApiService>();
+      final data = await api.adminGetUserDetail(widget.userId);
+      if (mounted) {
+        final role = data['role'] as String? ?? 'customer';
+        final oldLength = _tabCtrl?.length ?? 0;
+        final newLength = _tabCountForRole(role);
+        if (newLength != oldLength) {
+          _tabCtrl?.dispose();
+          _tabCtrl = TabController(length: newLength, vsync: this);
+        }
+        setState(() => _detail = data);
+      }
+    } catch (_) {}
+  }
+
   void _debouncedSearch(void Function(String) setter, String value) {
     _searchDebounce?.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 250), () {
@@ -149,39 +167,35 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
 
   @override
   Widget build(BuildContext context) {
+    PreferredSizeWidget? appBar;
+    Widget body;
+
     if (_loading) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('User Detail')),
-        body: const Center(child: CircularProgressIndicator()),
-      );
-    }
-    if (_error != null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('User Detail')),
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(_error!, textAlign: TextAlign.center),
-              const SizedBox(height: 16),
-              ElevatedButton(onPressed: _loadDetail, child: const Text('Retry')),
-            ],
-          ),
+      appBar = AppBar(title: const Text('User Detail'));
+      body = const Center(child: CircularProgressIndicator());
+    } else if (_error != null) {
+      appBar = AppBar(title: const Text('User Detail'));
+      body = Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(_error!, textAlign: TextAlign.center),
+            const SizedBox(height: 16),
+            ElevatedButton(onPressed: _loadDetail, child: const Text('Retry')),
+          ],
         ),
       );
-    }
+    } else {
+      final d = _detail!;
+      final role = d['role'] as String? ?? 'customer';
+      final name = d['display_name'] ?? d['email'] ?? 'User #${widget.userId}';
+      final email = d['email'] ?? '';
+      final initial = (name.toString().isNotEmpty ? name.toString() : email.toString())
+          .substring(0, 1)
+          .toUpperCase();
+      final tabLabels = _tabLabelsForRole(role);
 
-    final d = _detail!;
-    final role = d['role'] as String? ?? 'customer';
-    final name = d['display_name'] ?? d['email'] ?? 'User #${widget.userId}';
-    final email = d['email'] ?? '';
-    final initial = (name.toString().isNotEmpty ? name.toString() : email.toString())
-        .substring(0, 1)
-        .toUpperCase();
-    final tabLabels = _tabLabelsForRole(role);
-
-    return Scaffold(
-      appBar: AppBar(
+      appBar = AppBar(
         title: Row(
           children: [
             CircleAvatar(
@@ -216,13 +230,18 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
                 tabs: tabLabels.map((l) => Tab(text: l)).toList(),
               )
             : null,
-      ),
-      body: _tabCtrl == null
+      );
+      body = _tabCtrl == null
           ? Center(child: AdminEmptyState(icon: Icons.person, message: 'No data'))
           : TabBarView(
               controller: _tabCtrl,
               children: _buildTabViews(role),
-            ),
+            );
+    }
+
+    return ScaffoldMessenger(
+      key: _messengerKey,
+      child: Scaffold(appBar: appBar, body: body),
     );
   }
 
@@ -994,6 +1013,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
       if (_escrowSearch.isEmpty) return true;
       final q = _escrowSearch.toLowerCase();
       return (esc['event_id']?.toString().contains(q) ?? false) ||
+          (esc['event_title']?.toString().toLowerCase().contains(q) ?? false) ||
           (esc['status']?.toString().toLowerCase().contains(q) ?? false);
     }).toList();
 
@@ -1001,7 +1021,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: _searchField(_escrowSearchCtrl, 'Search by event ID or status...',
+          child: _searchField(_escrowSearchCtrl, 'Search by event name, organizer, or status...',
               _escrowSearch, (v) => _escrowSearch = v),
         ),
         _countStrip(filtered.length, allEscrows.length),
@@ -1023,6 +1043,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
 
   Widget _escrowCard(Map<String, dynamic> e) {
     final eventId = e['event_id'] ?? 0;
+    final eventTitle = e['event_title']?.toString() ?? 'Event #$eventId';
     final totalHeld = (e['total_held_cents'] ?? 0) as int;
     final totalReleased = (e['total_released_cents'] ?? 0) as int;
     final remaining = (e['remaining_cents'] ?? 0) as int;
@@ -1051,9 +1072,19 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
               children: [
                 Icon(Icons.account_balance, size: 20, color: statusColor),
                 const SizedBox(width: 8),
-                Text('Event #$eventId',
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-                const Spacer(),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(eventTitle,
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                          overflow: TextOverflow.ellipsis),
+                      Text('Event #$eventId',
+                          style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context))),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
                 _statusBadge(status.toString().toUpperCase().replaceAll('_', ' ')),
               ],
             ),
@@ -1622,39 +1653,27 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
   Future<void> _approveTicketRefund(int eventId, int ticketId) async {
     try {
       await context.read<ApiService>().approveTicketRefund(eventId, ticketId);
-      _loadDetail();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Refund approved')));
-      }
+      _refreshDetail();
+      _snack('Refund approved');
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed: ${ApiService.extractError(e)}')));
-      }
+      _snack('Failed: ${ApiService.extractError(e)}');
     }
   }
 
   Future<void> _refundPledge(int eventId, int fundingId) async {
     try {
       await context.read<ApiService>().adminRefundPledge(eventId, fundingId);
-      _loadDetail();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Pledge refunded')));
-      }
+      _refreshDetail();
+      _snack('Pledge refunded');
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed: ${ApiService.extractError(e)}')));
-      }
+      _snack('Failed: ${ApiService.extractError(e)}');
     }
   }
 
   Future<void> _refundSponsorBid(int eventId, int catId, int bidId) async {
     try {
       await context.read<ApiService>().adminRefundSponsorBid(eventId, catId, bidId);
-      _loadDetail();
+      _refreshDetail();
       _snack('Sponsor bid refunded');
     } catch (e) {
       _snack('Failed: ${ApiService.extractError(e)}');
@@ -1668,7 +1687,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
         'approved': approve,
         if (!approve) 'reason': 'Rejected by admin',
       });
-      _loadDetail();
+      _refreshDetail();
       _snack(approve ? 'Event approved' : 'Event rejected');
     } catch (e) {
       _snack('Action failed: ${ApiService.extractError(e)}');
@@ -1679,7 +1698,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
     try {
       final api = context.read<ApiService>();
       await api.dio.post('/events/$eventId/cancellation/approve', data: {'action': action});
-      _loadDetail();
+      _refreshDetail();
       _snack('Cancellation ${action}d');
     } catch (e) {
       _snack('Action failed: ${ApiService.extractError(e)}');
@@ -1690,7 +1709,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
     try {
       final api = context.read<ApiService>();
       await api.decideExtension(eventId, action);
-      _loadDetail();
+      _refreshDetail();
       _snack('Extension ${action}d');
     } catch (e) {
       _snack('Action failed: ${ApiService.extractError(e)}');
@@ -1704,7 +1723,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
         'target_status': targetStatus,
         if (notes != null && notes.isNotEmpty) 'notes': notes,
       });
-      _loadDetail();
+      _refreshDetail();
       _snack('Review resolved');
     } catch (e) {
       _snack('Action failed: ${ApiService.extractError(e)}');
@@ -1718,7 +1737,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
           ? '/admin/escrows/$eventId/release/$stage'
           : '/admin/escrows/$eventId/$action';
       await api.dio.post(path);
-      _loadDetail();
+      _refreshDetail();
       _snack('Escrow action completed');
     } catch (e) {
       _snack('Escrow action failed: ${ApiService.extractError(e)}');
@@ -1730,9 +1749,9 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
   // ===========================================================================
 
   void _snack(String msg) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-    }
+    if (!mounted) return;
+    _messengerKey.currentState
+        ?.showSnackBar(SnackBar(content: Text(msg)));
   }
 
   void _confirmAction(String title, String message, VoidCallback onConfirm) {

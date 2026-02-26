@@ -29,6 +29,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   static const double _wideBreakpoint = 900;
   static const _dateFormat = 'MMM d, yyyy';
 
+  final _messengerKey = GlobalKey<ScaffoldMessengerState>();
   int _selectedSection = 0;
 
   static const _pageSize = 20;
@@ -227,6 +228,79 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     if (mounted) setState(() => _escrowsLoadingMore = false);
   }
 
+  Future<void> _loadSettings() async {
+    try {
+      final api = context.read<ApiService>();
+      final resp = await api.dio.get('/admin/settings');
+      if (mounted) {
+        setState(() => _settings = (resp.data as List)
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList());
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _loadEvents() async {
+    try {
+      final api = context.read<ApiService>();
+      final results = await Future.wait([
+        api.adminGetEvents(offset: 0, limit: _pageSize, search: _eventSearch.isEmpty ? null : _eventSearch),
+        api.adminGetStats(),
+      ]);
+      final eventsResp = results[0] as Map<String, dynamic>;
+      if (mounted) {
+        setState(() {
+          _allEvents = (eventsResp['items'] as List<dynamic>?) ?? [];
+          _eventsTotal = (eventsResp['total'] as int?) ?? 0;
+          _stats = results[1] as Map<String, dynamic>;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _loadTickets() async {
+    try {
+      final api = context.read<ApiService>();
+      final resp = await api.adminGetTickets(offset: 0, limit: _pageSize, search: _financialSearch.isEmpty ? null : _financialSearch, status: _ticketStatusFilter == 'all' ? null : _ticketStatusFilter);
+      if (mounted) {
+        setState(() {
+          _adminTickets = (resp['items'] as List<dynamic>?) ?? [];
+          _ticketsTotal = (resp['total'] as int?) ?? 0;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _loadPledges() async {
+    try {
+      final api = context.read<ApiService>();
+      final resp = await api.adminGetPledges(offset: 0, limit: _pageSize, search: _financialSearch.isEmpty ? null : _financialSearch, status: _pledgeApiStatus, isDonation: _pledgeApiDonation);
+      if (mounted) {
+        setState(() {
+          _adminPledges = (resp['items'] as List<dynamic>?) ?? [];
+          _pledgesTotal = (resp['total'] as int?) ?? 0;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _loadEscrowsOnly() async {
+    try {
+      final api = context.read<ApiService>();
+      final resp = await api.dio.get('/admin/escrows', queryParameters: {
+        'offset': 0, 'limit': _pageSize,
+        if (_escrowSearch.isNotEmpty) 'search': _escrowSearch,
+      });
+      final data = resp.data as Map<String, dynamic>;
+      if (mounted) {
+        setState(() {
+          _escrows = (data['items'] as List<dynamic>?) ?? [];
+          _escrowsTotal = (data['total'] as int?) ?? 0;
+        });
+      }
+    } catch (_) {}
+  }
+
   int _autoSelectEventFilter() {
     if (_pendingApproval.isNotEmpty) return 0;
     if (_underReviewEvents.isNotEmpty) return 1;
@@ -256,51 +330,54 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     final body = _isLoading ? loadingBody : _bodyForSection(_selectedSection);
 
-    if (isWide) {
-      return Scaffold(
-        body: Row(
-          children: [
-            _buildNavigationRail(context),
-            const VerticalDivider(width: 1, thickness: 1),
-            Expanded(child: body),
-          ],
-        ),
-      );
-    }
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(_sectionTitle(_selectedSection)),
-        automaticallyImplyLeading: false,
-        actions: [
-          IconButton(
-            icon: Icon(context.watch<ThemeProvider>().isDark
-                ? Icons.light_mode
-                : Icons.dark_mode),
-            tooltip: 'Toggle theme',
-            onPressed: () => context.read<ThemeProvider>().toggle(),
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Logout',
-            onPressed: _logout,
-          ),
-        ],
-      ),
-      body: body,
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedSection,
-        onTap: (i) => setState(() => _selectedSection = i),
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: AppTheme.accentOf(context),
-        unselectedItemColor: AppTheme.textSecondaryOf(context),
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.event), label: 'Events'),
-          BottomNavigationBarItem(icon: Icon(Icons.paid), label: 'Financial'),
-          BottomNavigationBarItem(icon: Icon(Icons.people), label: 'Users'),
-          BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
-        ],
+    return ScaffoldMessenger(
+      key: _messengerKey,
+      child: Scaffold(
+        appBar: isWide
+            ? null
+            : AppBar(
+                title: Text(_sectionTitle(_selectedSection)),
+                automaticallyImplyLeading: false,
+                actions: [
+                  IconButton(
+                    icon: Icon(context.watch<ThemeProvider>().isDark
+                        ? Icons.light_mode
+                        : Icons.dark_mode),
+                    tooltip: 'Toggle theme',
+                    onPressed: () => context.read<ThemeProvider>().toggle(),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.logout),
+                    tooltip: 'Logout',
+                    onPressed: _logout,
+                  ),
+                ],
+              ),
+        body: isWide
+            ? Row(
+                children: [
+                  _buildNavigationRail(context),
+                  const VerticalDivider(width: 1, thickness: 1),
+                  Expanded(child: body),
+                ],
+              )
+            : body,
+        bottomNavigationBar: isWide
+            ? null
+            : BottomNavigationBar(
+                currentIndex: _selectedSection,
+                onTap: (i) => setState(() => _selectedSection = i),
+                type: BottomNavigationBarType.fixed,
+                selectedItemColor: AppTheme.accentOf(context),
+                unselectedItemColor: AppTheme.textSecondaryOf(context),
+                items: const [
+                  BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Home'),
+                  BottomNavigationBarItem(icon: Icon(Icons.event), label: 'Events'),
+                  BottomNavigationBarItem(icon: Icon(Icons.paid), label: 'Financial'),
+                  BottomNavigationBarItem(icon: Icon(Icons.people), label: 'Users'),
+                  BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
+                ],
+              ),
       ),
     );
   }
@@ -1070,7 +1147,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ? 'Search by event, attendee, or tier...'
                 : _financialSubTab == 'pledges'
                     ? 'Search by event or user...'
-                    : 'Search by event ID...',
+                    : 'Search by event name or ID...',
             onChanged: _financialSubTab == 'escrow'
                 ? _onEscrowSearchChanged
                 : _onFinancialSearchChanged,
@@ -1347,7 +1424,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       'Approve refund for this ticket?',
                       () async {
                         await context.read<ApiService>().approveTicketRefund(eventId, ticketId);
-                        _loadData();
+                        _loadTickets();
                         _snack('Refund approved');
                       },
                     ),
@@ -1401,7 +1478,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 'Are you sure you want to refund this pledge of \$${(amountCents / 100).toStringAsFixed(2)}?',
                 () async {
                   await context.read<ApiService>().adminRefundPledge(eventId, fundingId);
-                  _loadData();
+                  _loadPledges();
                   _snack('Pledge refunded');
                 },
               ),
@@ -1442,6 +1519,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Widget _escrowCard(Map<String, dynamic> e) {
     final eventId = e['event_id'] ?? 0;
+    final eventTitle = e['event_title'] as String? ?? 'Event #$eventId';
+    final organizerName = e['organizer_name'] as String?;
+    final organizerEmail = e['organizer_email'] as String? ?? '';
     final totalHeld = (e['total_held_cents'] ?? 0) as int;
     final totalReleased = (e['total_released_cents'] ?? 0) as int;
     final remaining = (e['remaining_cents'] ?? 0) as int;
@@ -1470,10 +1550,34 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               children: [
                 Icon(Icons.account_balance, size: 20, color: statusColor),
                 const SizedBox(width: 8),
-                Text('Event #$eventId',
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-                const Spacer(),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(eventTitle,
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                          overflow: TextOverflow.ellipsis),
+                      Text('Event #$eventId',
+                          style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context))),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
                 _statusChip(status.toUpperCase().replaceAll('_', ' '), statusColor),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(Icons.person_outline, size: 16, color: AppTheme.textSecondaryOf(context)),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    '${organizerName ?? 'Unknown'} · $organizerEmail',
+                    style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryOf(context)),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 12),
@@ -1661,8 +1765,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     'Escrow': ['escrow_stage1_percent', 'escrow_stage1_trigger_enabled', 'escrow_stage1_trigger_mode', 'escrow_stage1_ticket_percent', 'escrow_stage2_percent', 'escrow_stage2_trigger_enabled', 'escrow_stage2_trigger_mode', 'escrow_stage2_ticket_percent', 'escrow_stage2_days_percent', 'escrow_stage3_percent', 'escrow_stage3_trigger_enabled', 'escrow_stage3_trigger_mode', 'escrow_stage3_days_after_event', 'scan_threshold_percent', 'stage3_grace_days'],
     'Events': ['cancel_approval_threshold_percent', 'event_date_grace_days', 'event_date_deadline_days', 'default_refund_deadline_days'],
     'Community Rules': ['community_max_duration_days', 'community_max_ticket_price_cents', 'community_listing_fee_cents', 'community_ticket_commission_percent', 'community_funding_commission_percent', 'community_sponsor_commission_percent', 'community_escrow_disabled', 'new_organizer_deposit_cents'],
-    'Rate Limits': ['max_tickets_per_purchase'],
+    'Rate Limits': ['max_tickets_per_purchase', 'max_tickets_backend_enabled', 'max_tickets_frontend_enabled'],
     'Feature Flags': ['feature_milestones_enabled', 'feature_schedule_enabled', 'feature_sponsors_enabled', 'feature_community_rules_enabled'],
+    'Cache': ['cache_enabled', 'cache_ttl_settings', 'cache_ttl_featured', 'cache_ttl_event_detail', 'cache_ttl_dashboard'],
   };
 
   static const _groupIcons = {
@@ -1673,6 +1778,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     'Community Rules': Icons.groups,
     'Rate Limits': Icons.speed,
     'Feature Flags': Icons.toggle_on_rounded,
+    'Cache': Icons.cached,
   };
 
   Widget _buildSettingsSection() {
@@ -1867,9 +1973,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   void _snack(String msg) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-    }
+    if (!mounted) return;
+    _messengerKey.currentState
+        ?.showSnackBar(SnackBar(content: Text(msg)));
   }
 
   void _confirmAction(String title, String message, VoidCallback onConfirm) {
@@ -1936,7 +2042,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         'approved': approve,
         if (!approve) 'reason': 'Rejected by admin',
       });
-      _loadData();
+      _loadEvents();
     } catch (e) {
       _snack('Action failed: ${ApiService.extractError(e)}');
     }
@@ -1946,7 +2052,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     try {
       final api = context.read<ApiService>();
       await api.decideExtension(eventId, action);
-      _loadData();
+      _loadEvents();
       _snack('Extension ${action}d');
     } catch (e) {
       _snack('Action failed: ${ApiService.extractError(e)}');
@@ -1957,7 +2063,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     try {
       final api = context.read<ApiService>();
       await api.dio.post('/events/$eventId/cancellation/approve', data: {'action': action});
-      _loadData();
+      _loadEvents();
       _snack('Cancellation ${action}d');
     } catch (e) {
       _snack('Action failed: ${ApiService.extractError(e)}');
@@ -1971,7 +2077,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         'target_status': targetStatus,
         if (notes != null && notes.isNotEmpty) 'notes': notes,
       });
-      _loadData();
+      _loadEvents();
       _snack('Event moved to ${targetStatus.replaceAll('_', ' ')}');
     } catch (e) {
       _snack('Action failed: ${ApiService.extractError(e)}');
@@ -1985,7 +2091,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ? '/admin/escrows/$eventId/release/$stage'
           : '/admin/escrows/$eventId/$action';
       await api.dio.post(path);
-      _loadData();
+      _loadEscrowsOnly();
       _snack('Escrow action completed');
     } catch (e) {
       _snack('Escrow action failed: ${ApiService.extractError(e)}');
@@ -1993,12 +2099,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Future<void> _updateSetting(String key, String newValue) async {
+    setState(() {
+      final idx = _settings.indexWhere((s) => s['key'] == key);
+      if (idx != -1) {
+        _settings[idx] = Map<String, dynamic>.from(_settings[idx])
+          ..['value'] = newValue;
+      }
+    });
     try {
       final api = context.read<ApiService>();
       await api.dio.patch('/admin/settings/$key', data: {'value': newValue});
-      _loadData();
+      _loadSettings();
       _snack('Setting "$key" updated');
     } catch (e) {
+      _loadSettings();
       _snack('Failed to update: ${ApiService.extractError(e)}');
     }
   }

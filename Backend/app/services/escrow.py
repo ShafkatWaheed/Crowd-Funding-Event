@@ -3,7 +3,7 @@ Fund escrow service: create, release stages, freeze, get status.
 """
 from datetime import datetime, timezone
 
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,6 +12,7 @@ from app.models.escrow import EscrowRelease, EscrowStatus, FundEscrow
 from app.models.event import Event, EventStatus
 from app.models.funding import Funding, FundingStatus
 from app.models.ticket import TicketSale, TicketSaleStatus
+from app.models.user import User
 from app.services import platform_settings as settings_svc
 
 
@@ -387,27 +388,45 @@ async def list_all_escrows(
     limit: int = 20,
     search: str | None = None,
 ) -> tuple[list[dict], int]:
-    """List all escrows for admin dashboard. Returns (items, total)."""
-    base = select(FundEscrow)
+    """List all escrows for admin dashboard. Returns (items, total).
+
+    Single query with JOINs to Event and User to avoid N+1.
+    """
+    base = (
+        select(
+            FundEscrow,
+            Event.title.label("event_title"),
+            User.display_name.label("organizer_name"),
+            User.email.label("organizer_email"),
+        )
+        .join(Event, FundEscrow.event_id == Event.id)
+        .join(User, Event.organizer_id == User.id)
+    )
     if search:
         eid = None
         try:
             eid = int(search)
         except ValueError:
             pass
+        filters = [Event.title.ilike(f"%{search}%")]
         if eid is not None:
-            base = base.where(FundEscrow.event_id == eid)
-        else:
-            base = base.where(FundEscrow.event_id == -1)
+            filters.append(FundEscrow.event_id == eid)
+        base = base.where(or_(*filters))
+
     total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar_one()
+
     q = base.order_by(FundEscrow.updated_at.desc()).offset(offset).limit(limit)
-    rows = (await db.execute(q)).scalars().all()
+    rows = (await db.execute(q)).all()
     result = []
-    for e in rows:
+    for row in rows:
+        e = row[0]  # FundEscrow
         total_released = e.stage1_released_cents + e.stage2_released_cents + e.stage3_released_cents
         result.append({
             "id": e.id,
             "event_id": e.event_id,
+            "event_title": row.event_title,
+            "organizer_name": row.organizer_name,
+            "organizer_email": row.organizer_email,
             "total_held_cents": e.total_held_cents,
             "total_released_cents": total_released,
             "remaining_cents": max(0, e.total_held_cents - total_released),

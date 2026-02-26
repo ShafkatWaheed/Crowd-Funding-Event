@@ -770,6 +770,13 @@ class ApiService {
     await dio.post('/admin/events/$eventId/pledges/$fundingId/refund');
   }
 
+  // ─── Public Config ───
+
+  Future<Map<String, dynamic>> getPublicConfig() async {
+    final resp = await dio.get('/config');
+    return Map<String, dynamic>.from(resp.data as Map);
+  }
+
   // ─── Feature Flags ───
 
   Future<Map<String, bool>> getFeatureFlags() async {

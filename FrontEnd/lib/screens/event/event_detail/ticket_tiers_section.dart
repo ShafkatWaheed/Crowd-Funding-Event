@@ -349,6 +349,7 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
 
   Future<void> _showInvoiceDialog(
       Map<String, dynamic> tier, Map<String, dynamic>? preview) async {
+    final api = context.read<ApiService>();
     final event = widget.event;
     final tierName = tier['name'] ?? 'Ticket';
     final tierId = tier['id'] as int;
@@ -364,7 +365,18 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
     final tierSold = (tier['tickets_sold'] ?? 0) as int;
     final tierReserved = (tier['spots_reserved'] ?? 0) as int;
     final spotsLeft = maxSpots > 0 ? maxSpots - tierSold - tierReserved : 0;
-    final maxQty = maxSpots > 0 ? spotsLeft.clamp(0, 10) : 10;
+
+    int configMax = 10;
+    try {
+      final cfg = await api.getPublicConfig();
+      final feEnabled = cfg['max_tickets_frontend_enabled'] == true;
+      if (feEnabled) {
+        configMax = (cfg['max_tickets_per_purchase'] as num?)?.toInt() ?? 10;
+      } else {
+        configMax = 999;
+      }
+    } catch (_) {}
+    final maxQty = maxSpots > 0 ? spotsLeft.clamp(0, configMax) : configMax;
 
     if (maxSpots > 0 && spotsLeft <= 0) {
       if (mounted) AppToast.error(context, 'This tier is sold out');

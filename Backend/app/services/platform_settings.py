@@ -16,6 +16,8 @@ DEFAULTS = {
     "support_email": "",
     # Rate limits
     "max_tickets_per_purchase": 10,
+    "max_tickets_backend_enabled": "true",
+    "max_tickets_frontend_enabled": "true",
     # Refund
     "default_refund_deadline_days": 7,
     "ticket_commission_percent": 5,
@@ -67,6 +69,8 @@ DESCRIPTIONS = {
     "platform_name": "Platform name shown in UI and emails",
     "support_email": "Support contact email for users (UI and emails)",
     "max_tickets_per_purchase": "Max tickets per single purchase (rate limit)",
+    "max_tickets_backend_enabled": "Enforce max ticket limit on the backend (API rejects purchases exceeding the limit)",
+    "max_tickets_frontend_enabled": "Enforce max ticket limit on the frontend (UI prevents selecting more than the limit)",
     "default_refund_deadline_days": "Default refund deadline: X days before event start (refund eligible until then)",
     "ticket_commission_percent": "Platform commission on ticket sales (%)",
     "funding_commission_percent": "Platform commission on pledges (%)",

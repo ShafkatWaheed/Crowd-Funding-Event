@@ -284,9 +284,10 @@ async def admin_get_user_detail(
                     )
                 )
 
-        # Escrows for this organizer's events
+        # Escrows for this organizer's events (title from already-loaded events)
         escrows_list: list[dict] = []
         if event_ids:
+            event_title_map = {e.id: e.title for e in events}
             escrow_q = (
                 select(FundEscrow)
                 .where(FundEscrow.event_id.in_(event_ids))
@@ -298,6 +299,9 @@ async def admin_get_user_detail(
                 escrows_list.append({
                     "id": esc.id,
                     "event_id": esc.event_id,
+                    "event_title": event_title_map.get(esc.event_id),
+                    "organizer_name": user.display_name,
+                    "organizer_email": user.email,
                     "total_held_cents": esc.total_held_cents,
                     "total_released_cents": total_released,
                     "remaining_cents": max(0, esc.total_held_cents - total_released),

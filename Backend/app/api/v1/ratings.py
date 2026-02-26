@@ -4,7 +4,7 @@ from pydantic import BaseModel, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
-from app.dependencies import CurrentUser, DbSession
+from app.dependencies import CurrentUser, DbSession, ReadDbSession
 from app.models.event import Event, EventStatus
 from app.models.rating import Rating, RatingDirection
 
@@ -74,7 +74,7 @@ async def create_rating(event_id: int, body: RatingCreate, db: DbSession, curren
 
 
 @router.get("/events/{event_id}/ratings/summary")
-async def get_event_ratings_summary(event_id: int, db: DbSession, current_user: CurrentUser):
+async def get_event_ratings_summary(event_id: int, db: ReadDbSession, current_user: CurrentUser):
     """
     Event rating summary: aggregate + top 5 best + top 5 worst reviews.
     Direction: customer_to_event only.
@@ -132,7 +132,7 @@ async def get_event_ratings_summary(event_id: int, db: DbSession, current_user: 
 
 @router.get("/events/{event_id}/ratings")
 async def list_event_ratings(
-    event_id: int, db: DbSession, current_user: CurrentUser,
+    event_id: int, db: ReadDbSession, current_user: CurrentUser,
     direction: str | None = Query(None),
 ):
     """List ALL individual ratings for an event. Organizer only."""
@@ -156,7 +156,7 @@ async def list_event_ratings(
 
 
 @router.get("/users/{user_id}/ratings-received")
-async def get_user_ratings_summary(user_id: int, db: DbSession, current_user: CurrentUser):
+async def get_user_ratings_summary(user_id: int, db: ReadDbSession, current_user: CurrentUser):
     """
     User rating summary: aggregate + top 5 best + top 5 worst reviews.
     For organizer profiles: customer_to_organizer + sponsor_to_organizer.

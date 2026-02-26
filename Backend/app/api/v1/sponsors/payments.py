@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from app.dependencies import DbSession, CurrentUser, require_feature
+from app.dependencies import DbSession, ReadDbSession, CurrentUser, require_feature
 from app.models.user import UserRole
 from app.models.sponsor import SponsorPayment, SponsorBid, SponsorshipCategory
 from app.models.event import Event
@@ -103,7 +103,7 @@ async def refund_bid(
 @router.get("/payments/{payment_id}/receipt")
 async def get_sponsor_payment_receipt(
     payment_id: int,
-    db: DbSession,
+    db: ReadDbSession,
     current_user: CurrentUser,
 ):
     payment = (await db.execute(

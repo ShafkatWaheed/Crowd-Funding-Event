@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Query
 
-from app.dependencies import DbSession
+from app.dependencies import ReadDbSession
 from app.models.event import Event
 from app.schemas import MapEventMarker
 from app.services import event as event_service
@@ -42,7 +42,7 @@ def _event_to_marker(e: Event) -> MapEventMarker:
 
 @router.get("/map", response_model=list[MapEventMarker])
 async def map_events(
-    db: DbSession,
+    db: ReadDbSession,
     lat: float | None = Query(None),
     lng: float | None = Query(None),
     radius_km: float | None = Query(None),

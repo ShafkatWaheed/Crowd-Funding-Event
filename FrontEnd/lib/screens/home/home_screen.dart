@@ -823,7 +823,7 @@ class _HomeScreenState extends State<HomeScreen> {
   // ════════════════════════════════════════════
 
   Widget _buildHomeTab() {
-    final auth = context.watch<AuthProvider>();
+    final auth = context.read<AuthProvider>();
     final user = auth.user;
     final isDark = AppTheme.isDark(context);
 
@@ -1493,7 +1493,7 @@ class _HomeScreenState extends State<HomeScreen> {
   // ════════════════════════════════════════════
 
   Widget _buildExploreTab() {
-    final auth = context.watch<AuthProvider>();
+    final auth = context.read<AuthProvider>();
     final events = context.watch<EventProvider>();
     final user = auth.user;
     final isDark = AppTheme.isDark(context);
@@ -3699,12 +3699,72 @@ class _HomeScreenState extends State<HomeScreen> {
   // ════════════════════════════════════════════
 
   Widget _buildProfileTab() {
-    final auth = context.watch<AuthProvider>();
+    final auth = context.read<AuthProvider>();
     final user = auth.user;
     final isDark = AppTheme.isDark(context);
 
     if (user == null) {
-      return const Center(child: Text('Not signed in'));
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: AppTheme.accentColor.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.logout_rounded,
+                size: 36,
+                color: AppTheme.accentColor,
+              ),
+            )
+                .animate()
+                .scale(
+                  begin: const Offset(0.0, 0.0),
+                  end: const Offset(1.0, 1.0),
+                  duration: 500.ms,
+                  curve: Curves.elasticOut,
+                )
+                .fadeIn(duration: 300.ms),
+            const SizedBox(height: 24),
+            Text(
+              'Signing out…',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: AppTheme.textPrimaryOf(context),
+              ),
+            )
+                .animate(delay: 200.ms)
+                .fadeIn(duration: 400.ms)
+                .slideY(begin: 0.3, end: 0, duration: 400.ms, curve: AppCurve.enter),
+            const SizedBox(height: 12),
+            Text(
+              'See you next time!',
+              style: TextStyle(
+                fontSize: 14,
+                color: AppTheme.textSecondaryOf(context),
+              ),
+            )
+                .animate(delay: 400.ms)
+                .fadeIn(duration: 400.ms)
+                .slideY(begin: 0.3, end: 0, duration: 400.ms, curve: AppCurve.enter),
+            const SizedBox(height: 32),
+            SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: AppTheme.accentColor,
+              ),
+            )
+                .animate(delay: 500.ms)
+                .fadeIn(duration: 300.ms),
+          ],
+        ),
+      );
     }
 
     Widget sectionCard(Widget child) => Container(

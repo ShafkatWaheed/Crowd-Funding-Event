@@ -4,7 +4,7 @@ Venues: each organizer owns their venues; customers see all. Organizers cannot s
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select, func
 
-from app.dependencies import DbSession, require_role, CurrentUserOptional
+from app.dependencies import DbSession, ReadDbSession, require_role, CurrentUserOptional
 from app.models.event import Event
 from app.models.user import User, UserRole
 from app.schemas import VenueCreate, VenueResponse, VenueUpdate
@@ -16,7 +16,7 @@ router = APIRouter()
 
 @router.get("", response_model=list[VenueResponse])
 async def list_venues(
-    db: DbSession,
+    db: ReadDbSession,
     current_user: CurrentUserOptional,
     city: str | None = Query(None, description="e.g. Ottawa"),
 ):
@@ -50,7 +50,7 @@ async def create_venue(
 @router.get("/{venue_id}", response_model=VenueResponse)
 async def get_venue(
     venue_id: int,
-    db: DbSession,
+    db: ReadDbSession,
     current_user: CurrentUserOptional,
 ):
     """Venue detail. Customers can see any; organizers can see only their own."""

@@ -4,7 +4,7 @@ Event reactions: like/dislike, my-reaction.
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 
-from app.dependencies import DbSession, require_role
+from app.dependencies import DbSession, ReadDbSession, require_role
 from app.models.event import EventReaction
 from app.models.user import User, UserRole
 from app.services import event as event_service
@@ -70,7 +70,7 @@ async def react_to_event(
 @router.get("/{event_id}/my-reaction")
 async def get_my_reaction(
     event_id: int,
-    db: DbSession,
+    db: ReadDbSession,
     current_user: User = Depends(require_role(UserRole.customer, UserRole.organizer, UserRole.admin, UserRole.sponsor)),
 ):
     """Check the current user's reaction on an event."""

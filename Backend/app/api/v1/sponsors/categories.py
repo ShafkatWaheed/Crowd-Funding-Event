@@ -1,7 +1,7 @@
 """Sponsorship categories (per-event)."""
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.dependencies import DbSession, CurrentUser, require_feature
+from app.dependencies import DbSession, ReadDbSession, CurrentUser, require_feature
 from app.models.user import UserRole
 from app.schemas.sponsor import CategoryCreate, CategoryUpdate, CategoryResponse
 from app.services import sponsor as sponsor_svc
@@ -14,7 +14,7 @@ router = APIRouter(dependencies=[Depends(require_feature("feature_sponsors_enabl
 @router.get("/events/{event_id}/sponsorships")
 async def list_categories(
     event_id: int,
-    db: DbSession,
+    db: ReadDbSession,
     current_user: CurrentUser,
 ):
     if current_user.role not in (UserRole.sponsor, UserRole.organizer, UserRole.admin):

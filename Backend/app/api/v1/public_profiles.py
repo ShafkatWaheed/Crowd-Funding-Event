@@ -7,7 +7,7 @@ from fastapi import APIRouter, Query
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
-from app.dependencies import CurrentUser, DbSession
+from app.dependencies import CurrentUser, ReadDbSession
 from app.models.user import User
 from app.models.event import Event, EventStatus
 
@@ -17,7 +17,7 @@ router = APIRouter()
 @router.get("/{user_id}/public-profile")
 async def get_public_profile(
     user_id: int,
-    db: DbSession,
+    db: ReadDbSession,
     current_user: CurrentUser,
 ):
     """Public profile for any user. No email/phone."""
@@ -76,7 +76,7 @@ async def get_public_profile(
 @router.get("/{user_id}/sponsor-public-profile")
 async def get_sponsor_public_profile(
     user_id: int,
-    db: DbSession,
+    db: ReadDbSession,
     current_user: CurrentUser,
 ):
     """Public sponsor profile with bid statistics. No email/phone."""
@@ -133,7 +133,7 @@ async def get_sponsor_public_profile(
 @router.get("/{user_id}/public-events")
 async def get_public_events(
     user_id: int,
-    db: DbSession,
+    db: ReadDbSession,
     current_user: CurrentUser,
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),

@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
 from sqlalchemy import select
 
-from app.dependencies import CurrentUserOptional, DbSession, require_role
+from app.dependencies import CurrentUserOptional, DbSession, ReadDbSession, require_role
 from app.models.event import Event, EventStatus, RegistrationType
 from app.models.registration import Registration, RegistrationStatus
 from app.models.user import User, UserRole
@@ -37,7 +37,7 @@ router = APIRouter()
 
 
 async def list_events(
-    db: DbSession,
+    db: ReadDbSession,
     search: str | None = Query(None, description="Search in event title and description"),
     city: str | None = Query(None, description="e.g. Ottawa"),
     status: str | None = Query(None),
@@ -119,7 +119,7 @@ async def list_genres():
 
 
 @router.get("/featured")
-async def get_featured_events(db: DbSession, sponsorship_only: bool = Query(False)):
+async def get_featured_events(db: ReadDbSession, sponsorship_only: bool = Query(False)):
     """Returns trending, popular, and coming-soon event lists for the discover page."""
     trending = await event_service.get_trending_events(db, limit=10, sponsorship_only=sponsorship_only)
     popular = await event_service.get_popular_events(db, limit=10, sponsorship_only=sponsorship_only)
@@ -209,7 +209,7 @@ async def create_event(
 
 
 @router.get("/{event_id}", response_model=EventResponse)
-async def get_event(event_id: int, db: DbSession, current_user: CurrentUserOptional = None):
+async def get_event(event_id: int, db: ReadDbSession, current_user: CurrentUserOptional = None):
     """Event detail (public). Includes venue so everyone can see where the event is."""
     event = await event_service.get_by_id(db, event_id, load_venue=True, load_organizer=True)
     if not event:
@@ -238,7 +238,7 @@ async def get_event(event_id: int, db: DbSession, current_user: CurrentUserOptio
 
 
 @router.get("/{event_id}/calendar.ics")
-async def get_event_calendar(event_id: int, db: DbSession):
+async def get_event_calendar(event_id: int, db: ReadDbSession):
     """Add to calendar: returns iCalendar (.ics) file for the event. Public."""
     event = await event_service.get_by_id(db, event_id, load_venue=True)
     if not event:

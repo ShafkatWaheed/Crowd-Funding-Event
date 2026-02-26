@@ -3,7 +3,7 @@ Ticket Strategy CRUD endpoints (reusable ticketing templates, like venues).
 """
 from fastapi import APIRouter, Depends
 
-from app.dependencies import DbSession, require_role
+from app.dependencies import DbSession, ReadDbSession, require_role
 from app.models.user import User, UserRole
 from app.schemas.ticket_strategy import (
     TicketStrategyCreate,
@@ -17,7 +17,7 @@ router = APIRouter()
 
 @router.get("", response_model=list[TicketStrategyResponse])
 async def list_my_strategies(
-    db: DbSession,
+    db: ReadDbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
     """List ticket strategies owned by the current organizer."""
@@ -47,7 +47,7 @@ async def create_strategy(
 @router.get("/{strategy_id}", response_model=TicketStrategyResponse)
 async def get_strategy(
     strategy_id: int,
-    db: DbSession,
+    db: ReadDbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
     """Get a ticket strategy by ID."""

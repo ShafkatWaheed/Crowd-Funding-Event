@@ -5,7 +5,7 @@ All endpoints gated by the feature_schedule_enabled flag.
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 
-from app.dependencies import DbSession, require_role, require_feature
+from app.dependencies import DbSession, ReadDbSession, require_role, require_feature
 from app.models.user import User, UserRole
 from app.schemas.schedule import (
     ScheduleItemCreate,
@@ -27,7 +27,7 @@ _feature_guard = Depends(require_feature("feature_schedule_enabled"))
     response_model=list[ScheduleDayGroup],
     dependencies=[_feature_guard],
 )
-async def list_schedule(event_id: int, db: DbSession):
+async def list_schedule(event_id: int, db: ReadDbSession):
     return await schedule_service.list_schedule(db, event_id)
 
 
@@ -196,7 +196,7 @@ async def delete_schedule_image(
     "/{event_id}/schedule/export",
     dependencies=[_feature_guard],
 )
-async def export_schedule(event_id: int, db: DbSession):
+async def export_schedule(event_id: int, db: ReadDbSession):
     buf = await schedule_service.export_schedule_xlsx(db, event_id)
     return StreamingResponse(
         buf,

@@ -3,7 +3,7 @@ In-app notification endpoints.
 """
 from fastapi import APIRouter, Query
 
-from app.dependencies import CurrentUser, DbSession
+from app.dependencies import CurrentUser, DbSession, ReadDbSession
 from app.services import notification_service as notif_svc
 
 router = APIRouter()
@@ -11,7 +11,7 @@ router = APIRouter()
 
 @router.get("/notifications")
 async def list_notifications(
-    db: DbSession,
+    db: ReadDbSession,
     current_user: CurrentUser,
     unread_only: bool = Query(False),
     offset: int = Query(0, ge=0),
@@ -37,7 +37,7 @@ async def list_notifications(
 
 
 @router.get("/notifications/unread-count")
-async def get_unread_count(db: DbSession, current_user: CurrentUser):
+async def get_unread_count(db: ReadDbSession, current_user: CurrentUser):
     """Get the number of unread notifications."""
     count = await notif_svc.unread_count(db, user_id=current_user.id)
     return {"unread_count": count}

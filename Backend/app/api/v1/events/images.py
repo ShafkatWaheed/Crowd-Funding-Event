@@ -7,7 +7,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from sqlalchemy import select
 
-from app.dependencies import DbSession, require_role
+from app.dependencies import DbSession, ReadDbSession, require_role
 from app.models.image import EventImage
 from app.models.user import User, UserRole
 from app.schemas import EventImageResponse
@@ -18,7 +18,7 @@ router = APIRouter()
 
 
 @router.get("/{event_id}/images", response_model=list[EventImageResponse])
-async def list_event_images(event_id: int, db: DbSession):
+async def list_event_images(event_id: int, db: ReadDbSession):
     """List images for an event (public)."""
     q = (
         select(EventImage)

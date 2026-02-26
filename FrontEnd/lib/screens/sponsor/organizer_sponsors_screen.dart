@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -282,8 +283,10 @@ class _SponsorCard extends StatelessWidget {
               child: logo != null && logo.toString().isNotEmpty
                   ? ClipRRect(
                       borderRadius: BorderRadius.circular(14),
-                      child: Image.network(ApiConfig.imageUrl(logo), fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Icon(
+                      child: CachedNetworkImage(
+                          imageUrl: ApiConfig.imageUrl(logo),
+                          fit: BoxFit.cover,
+                          errorWidget: (_, __, ___) => Icon(
                               Icons.business_rounded,
                               color: AppTheme.accentColor,
                               size: 26)),

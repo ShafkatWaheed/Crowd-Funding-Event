@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, Form, HTTPException
 from sqlalchemy import select
 
-from app.dependencies import DbSession, CurrentUser, require_feature
+from app.dependencies import DbSession, ReadDbSession, CurrentUser, require_feature
 from app.models.user import UserRole
 from app.models.prerequisite import CategoryPrerequisite
 from app.models.sponsor import SponsorshipCategory
@@ -15,7 +15,7 @@ router = APIRouter(dependencies=[Depends(require_feature("feature_sponsors_enabl
 
 
 @router.get("/me/sponsor-category-templates")
-async def list_templates(db: DbSession, current_user: CurrentUser):
+async def list_templates(db: ReadDbSession, current_user: CurrentUser):
     templates = await sponsor_svc.list_templates(db, current_user)
     return [_template_to_response(t) for t in templates]
 
@@ -78,7 +78,7 @@ async def copy_template_to_event(
 @router.get("/me/sponsor-category-templates/{template_id}/prerequisites")
 async def list_template_prerequisites(
     template_id: int,
-    db: DbSession,
+    db: ReadDbSession,
     current_user: CurrentUser,
 ):
     q = select(CategoryPrerequisite).where(CategoryPrerequisite.category_id == template_id)

@@ -1,4 +1,4 @@
-import 'dart:ui';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../config/api_config.dart';
@@ -28,6 +28,7 @@ class EventCard extends StatefulWidget {
 }
 
 class _EventCardState extends State<EventCard> with SingleTickerProviderStateMixin {
+  static final _dateFormat = DateFormat('EEE, MMM d, y \u2022 h:mm a');
   bool _pressed = false;
 
   int get _attendeeCount =>
@@ -83,10 +84,10 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
       children: [
         if (hasImage)
           Positioned.fill(
-            child: Image.network(
-              ApiConfig.imageUrl(url),
+            child: CachedNetworkImage(
+              imageUrl: ApiConfig.imageUrl(url),
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
+              errorWidget: (_, __, ___) => Container(
                 decoration: BoxDecoration(gradient: _statusGradient(event.status)),
               ),
             ),
@@ -153,8 +154,7 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
           _InfoRow(
             icon: Icons.schedule_rounded,
             text: event.startTime != null
-                ? DateFormat('EEE, MMM d, y \u2022 h:mm a')
-                    .format(event.startTime!)
+                ? _dateFormat.format(event.startTime!)
                 : 'Event date: TBD',
           ),
           const SizedBox(height: 6),
@@ -339,26 +339,20 @@ class _FrostedStatusBadge extends StatelessWidget {
       EventStatus.under_review => 'Review',
     };
 
-    return ClipRRect(
-      borderRadius: AppRadius.pill,
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.15),
-            borderRadius: AppRadius.pill,
-            border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
-          ),
-          child: Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.5,
-            ),
-          ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.35),
+        borderRadius: AppRadius.pill,
+        border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.5,
         ),
       ),
     );

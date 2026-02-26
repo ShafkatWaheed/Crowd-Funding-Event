@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -371,11 +372,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                           if (hasPreviewImages)
                                             Image.memory(widget.previewImages!.first, fit: BoxFit.cover)
                                           else
-                                            Image.network(
-                                              ApiConfig.imageUrl(heroUrl!),
+                                            CachedNetworkImage(
+                                              imageUrl: ApiConfig.imageUrl(heroUrl!),
                                               fit: BoxFit.cover,
-                                              loadingBuilder: (context, child, progress) {
-                                                if (progress == null) return child;
+                                              progressIndicatorBuilder: (context, url, progress) {
                                                 return Container(
                                                   color: AppTheme.cardOf(context),
                                                   child: const Center(
@@ -383,7 +383,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                                   ),
                                                 );
                                               },
-                                              errorBuilder: (_, __, ___) => Container(
+                                              errorWidget: (_, __, ___) => Container(
                                                 decoration: BoxDecoration(
                                                   gradient: LinearGradient(
                                                     begin: Alignment.topLeft,
@@ -563,13 +563,12 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                             children: [
                                               Hero(
                                                 tag: 'event-image-$i',
-                                                child: Image.network(
-                                                  ApiConfig.imageUrl(img.imageUrl),
+                                                child: CachedNetworkImage(
+                                                  imageUrl: ApiConfig.imageUrl(img.imageUrl),
                                                   height: 180,
                                                   width: 260,
                                                   fit: BoxFit.cover,
-                                                  loadingBuilder: (context, child, progress) {
-                                                    if (progress == null) return child;
+                                                  progressIndicatorBuilder: (context, url, progress) {
                                                     return Container(
                                                       height: 180,
                                                       width: 260,
@@ -579,7 +578,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                                       ),
                                                     );
                                                   },
-                                                  errorBuilder:
+                                                  errorWidget:
                                                       (_, __, ___) =>
                                                           Container(
                                                     height: 180,

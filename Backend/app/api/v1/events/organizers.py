@@ -3,7 +3,7 @@ Event co-organizers: list, add, remove.
 """
 from fastapi import APIRouter, Depends
 
-from app.dependencies import DbSession, require_role
+from app.dependencies import DbSession, ReadDbSession, require_role
 from app.models.user import User, UserRole
 from app.schemas import AddEventOrganizerBody, EventOrganizerItem
 from app.core.exceptions import ForbiddenError
@@ -15,7 +15,7 @@ router = APIRouter()
 @router.get("/{event_id}/organizers", response_model=list[EventOrganizerItem])
 async def list_event_organizers(
     event_id: int,
-    db: DbSession,
+    db: ReadDbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
     """List main + co-organizers for the event."""

@@ -19,6 +19,7 @@ class Settings(BaseSettings):
 
     # Database
     DATABASE_URL: str = "postgresql+asyncpg://user:password@localhost:5432/event_db"
+    DATABASE_REPLICA_URL: str | None = None  # read-replica; falls back to DATABASE_URL
     DATABASE_ECHO: bool = False
     # Optional: use a separate DB for pytest so tests never truncate real data. If unset, tests use DATABASE_URL (risky).
     TEST_DATABASE_URL: str | None = None

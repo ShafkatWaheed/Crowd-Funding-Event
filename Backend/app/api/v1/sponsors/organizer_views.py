@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, UploadFile, File
 from sqlalchemy import select
 
-from app.dependencies import DbSession, CurrentUser, require_feature
+from app.dependencies import DbSession, ReadDbSession, CurrentUser, require_feature
 from app.models.user import UserRole
 from app.models.prerequisite import CategoryPrerequisite, BidPrerequisiteUpload, UploadStatus
 from app.models.sponsor import SponsorBid, BidStatus
@@ -18,7 +18,7 @@ router = APIRouter(dependencies=[Depends(require_feature("feature_sponsors_enabl
 
 
 @router.get("/me/sponsor-bid-events")
-async def list_sponsor_bid_events(db: DbSession, current_user: CurrentUser):
+async def list_sponsor_bid_events(db: ReadDbSession, current_user: CurrentUser):
     events = await sponsor_svc.get_sponsor_bid_events(db, current_user.id)
     event_ids = [e.id for e in events]
     pledged = await funding_service.get_pledged_totals_for_events(db, event_ids=event_ids) if event_ids else {}
@@ -48,7 +48,7 @@ async def list_sponsor_bid_events(db: DbSession, current_user: CurrentUser):
 
 @router.get("/events/sponsorship-available")
 async def list_sponsorship_available_events(
-    db: DbSession,
+    db: ReadDbSession,
     current_user: CurrentUser,
     exclude_my_bids: bool = Query(False),
 ):
@@ -87,7 +87,7 @@ async def list_sponsorship_available_events(
 
 @router.get("/me/organizer-sponsors")
 async def list_organizer_sponsors(
-    db: DbSession,
+    db: ReadDbSession,
     current_user: CurrentUser,
     event_status: str | None = Query(None, description="Filter to events with this status"),
     genre: str | None = Query(None, description="Filter to events with this genre"),
@@ -103,7 +103,7 @@ async def list_organizer_sponsors(
 @router.get("/me/organizer-sponsors/{sponsor_user_id}/events")
 async def list_sponsor_events_for_organizer(
     sponsor_user_id: int,
-    db: DbSession,
+    db: ReadDbSession,
     current_user: CurrentUser,
 ):
     if current_user.role not in (UserRole.organizer, UserRole.admin):
@@ -147,7 +147,7 @@ async def create_prerequisite(
 async def list_prerequisites(
     event_id: int,
     cat_id: int,
-    db: DbSession = None,
+    db: ReadDbSession = None,
     current_user: CurrentUser = None,
 ):
     q = select(CategoryPrerequisite).where(CategoryPrerequisite.category_id == cat_id)
@@ -266,7 +266,7 @@ async def upload_category_prerequisite(
 @router.get("/bids/{bid_id}/prerequisites")
 async def list_bid_prerequisite_uploads(
     bid_id: int,
-    db: DbSession = None,
+    db: ReadDbSession = None,
     current_user: CurrentUser = None,
 ):
     q = select(BidPrerequisiteUpload).where(BidPrerequisiteUpload.bid_id == bid_id)
@@ -316,6 +316,6 @@ async def review_prerequisite_upload(
 
 
 @router.get("/events/{event_id}/sponsors")
-async def list_event_sponsors(event_id: int, db: DbSession):
+async def list_event_sponsors(event_id: int, db: ReadDbSession):
     sponsors = await sponsor_svc.get_paid_sponsors(db, event_id)
     return sponsors

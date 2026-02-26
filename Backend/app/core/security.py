@@ -7,7 +7,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from app.core.firebase import verify_id_token
-from app.db.base import get_db_session
+from app.db.base import get_read_db_session
 from app.models.user import User
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -36,7 +36,7 @@ async def verify_firebase_token(
 
 
 async def get_current_user(
-    db: AsyncSession = Depends(get_db_session),
+    db: AsyncSession = Depends(get_read_db_session),
     firebase_uid: Optional[str] = Depends(verify_firebase_token),
 ) -> User:
     """Load current user from DB by firebase_uid. Requires valid Firebase token."""
@@ -58,7 +58,7 @@ async def get_current_user(
 
 
 async def get_current_user_optional(
-    db: AsyncSession = Depends(get_db_session),
+    db: AsyncSession = Depends(get_read_db_session),
     firebase_uid: Optional[str] = Depends(verify_firebase_token),
 ) -> Optional[User]:
     """

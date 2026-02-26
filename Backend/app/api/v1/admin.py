@@ -6,7 +6,7 @@ from sqlalchemy.orm import selectinload
 
 from fastapi import APIRouter, Depends, Query
 
-from app.dependencies import DbSession, require_role
+from app.dependencies import DbSession, ReadDbSession, require_role
 from app.models.event import Event
 from app.models.ticket import UserEventDiscount
 from app.models.user import User, UserRole
@@ -42,7 +42,7 @@ router = APIRouter()
 
 @router.get("/users")
 async def admin_list_users(
-    db: DbSession,
+    db: ReadDbSession,
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     search: str | None = Query(None),
@@ -70,7 +70,7 @@ async def admin_list_users(
 @router.get("/users/{user_id}/detail", response_model=AdminUserDetailResponse)
 async def admin_get_user_detail(
     user_id: int,
-    db: DbSession,
+    db: ReadDbSession,
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
     """Get role-based user detail (tickets, pledges, events, sponsors, etc.)."""
@@ -452,7 +452,7 @@ async def admin_get_user_detail(
 
 @router.get("/events")
 async def admin_list_events(
-    db: DbSession,
+    db: ReadDbSession,
     status: str | None = None,
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
@@ -519,7 +519,7 @@ async def approve_event(
 
 @router.get("/stats", response_model=AdminStats)
 async def admin_stats(
-    db: DbSession,
+    db: ReadDbSession,
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
     """Platform stats including commission totals."""
@@ -530,7 +530,7 @@ async def admin_stats(
 # ----- Platform Settings -----
 @router.get("/settings", response_model=list[PlatformSettingItem])
 async def get_settings(
-    db: DbSession,
+    db: ReadDbSession,
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
     """List all platform settings (admin only)."""
@@ -556,7 +556,7 @@ from app.services import escrow as escrow_service
 
 @router.get("/tickets")
 async def admin_list_tickets(
-    db: DbSession,
+    db: ReadDbSession,
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     search: str | None = Query(None),
@@ -590,7 +590,7 @@ async def admin_list_tickets(
 
 @router.get("/pledges")
 async def admin_list_pledges(
-    db: DbSession,
+    db: ReadDbSession,
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     search: str | None = Query(None),
@@ -669,7 +669,7 @@ async def admin_refund_pledge(
 
 @router.get("/escrows")
 async def list_escrows(
-    db: DbSession,
+    db: ReadDbSession,
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     search: str | None = Query(None),

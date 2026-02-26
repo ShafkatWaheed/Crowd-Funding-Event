@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
-from app.dependencies import CurrentUser, DbSession, require_role
+from app.dependencies import CurrentUser, DbSession, ReadDbSession, require_role
 from app.models.funding import Funding, FundingStatus
 from app.models.user import User, UserRole
 from app.schemas import (
@@ -105,7 +105,7 @@ async def pledge_event(
 async def get_pledge_receipt(
     event_id: int,
     pledge_id: int,
-    db: DbSession,
+    db: ReadDbSession,
     current_user: CurrentUser,
 ):
     """Get a pledge receipt."""
@@ -164,7 +164,7 @@ async def unpledge_event(
 @router.get("/{event_id}/refund-status")
 async def get_refund_status(
     event_id: int,
-    db: DbSession,
+    db: ReadDbSession,
     current_user: User = Depends(require_role(UserRole.customer, UserRole.sponsor)),
 ):
     """Poll refund status for the current user's pledges on this event."""
@@ -217,6 +217,6 @@ async def get_event_funding(event_id: int, db: DbSession):
 
 
 @router.get("/{event_id}/escrow")
-async def get_event_escrow(event_id: int, db: DbSession):
+async def get_event_escrow(event_id: int, db: ReadDbSession):
     """Escrow summary for event (public)."""
     return await escrow_service.get_escrow_summary(db, event_id=event_id)

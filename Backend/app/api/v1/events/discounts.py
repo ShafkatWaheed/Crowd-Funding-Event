@@ -4,7 +4,7 @@ Event discounts: user discounts, rules CRUD, discount strategies, claimable disc
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from app.dependencies import DbSession, require_role
+from app.dependencies import DbSession, ReadDbSession, require_role
 from app.models.user import User, UserRole
 from app.schemas import EventDiscountCreate, EventDiscountResponse, UserDiscountBody
 from app.core.exceptions import ForbiddenError
@@ -49,7 +49,7 @@ async def remove_user_discount(
 @router.get("/{event_id}/discounts/rules", response_model=list[EventDiscountResponse])
 async def list_event_discounts(
     event_id: int,
-    db: DbSession,
+    db: ReadDbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
     event = await event_service.get_or_404(db, event_id)
@@ -97,7 +97,7 @@ async def get_my_discounts(
 @router.get("/{event_id}/discount-strategies")
 async def list_event_discount_strategies(
     event_id: int,
-    db: DbSession,
+    db: ReadDbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
     return await ds_service.list_event_strategies(db, event_id=event_id)

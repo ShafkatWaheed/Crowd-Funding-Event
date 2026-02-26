@@ -4,7 +4,7 @@ Event tickets: tiers CRUD, price, purchase, refund, scan, receipts, stats, waitl
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func, select
 
-from app.dependencies import CurrentUser, DbSession, require_role
+from app.dependencies import CurrentUser, DbSession, ReadDbSession, require_role
 from app.models.funding import Funding, FundingStatus, PledgeSpotReservation
 from app.models.ticket import TicketSale, TicketSaleStatus
 from app.models.user import User, UserRole
@@ -266,7 +266,7 @@ async def request_ticket_refund(
 @router.get("/{event_id}/refund-requests", response_model=list[TicketSaleResponse])
 async def list_refund_requests(
     event_id: int,
-    db: DbSession,
+    db: ReadDbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
     """List tickets with pending refund requests (organizer/admin)."""
@@ -365,7 +365,7 @@ async def scan_ticket(
 async def get_ticket_receipt(
     event_id: int,
     sale_id: int,
-    db: DbSession,
+    db: ReadDbSession,
     current_user: User = Depends(require_role(UserRole.customer, UserRole.organizer, UserRole.admin)),
 ):
     """Get full receipt for a ticket purchase."""
@@ -433,7 +433,7 @@ async def get_ticket_receipt(
 async def get_purchase_group_receipt(
     event_id: int,
     group_id: str,
-    db: DbSession,
+    db: ReadDbSession,
     current_user: User = Depends(require_role(UserRole.customer, UserRole.organizer, UserRole.admin)),
 ):
     """Get aggregated receipt for a multi-ticket purchase group."""
@@ -508,7 +508,7 @@ async def get_purchase_group_receipt(
 @router.get("/{event_id}/ticket-sales-stats", response_model=TicketSalesStatsResponse)
 async def get_ticket_sales_stats(
     event_id: int,
-    db: DbSession,
+    db: ReadDbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
     """Get ticket sold vs scanned stats for an event."""
@@ -522,7 +522,7 @@ async def get_ticket_sales_stats(
 @router.get("/{event_id}/ticket-sales", response_model=list[TicketSaleResponse])
 async def list_event_ticket_sales(
     event_id: int,
-    db: DbSession,
+    db: ReadDbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
@@ -538,7 +538,7 @@ async def list_event_ticket_sales(
 @router.get("/{event_id}/scanned-tickets", response_model=list[TicketSaleResponse])
 async def list_event_scanned_tickets(
     event_id: int,
-    db: DbSession,
+    db: ReadDbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),

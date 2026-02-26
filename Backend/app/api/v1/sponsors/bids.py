@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
 
-from app.dependencies import DbSession, CurrentUser, require_feature
+from app.dependencies import DbSession, ReadDbSession, CurrentUser, require_feature
 from app.models.user import User
 from app.schemas.sponsor import BidCreate, BidUpdate, BidResponse
 from app.services import sponsor as sponsor_svc
@@ -133,7 +133,7 @@ async def withdraw_bid(
 async def list_bids(
     event_id: int,
     cat_id: int,
-    db: DbSession,
+    db: ReadDbSession,
     current_user: CurrentUser,
 ):
     bids = await sponsor_svc.list_bids(db, cat_id, current_user)

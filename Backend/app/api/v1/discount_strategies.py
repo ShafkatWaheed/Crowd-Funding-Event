@@ -3,7 +3,7 @@ Discount Strategies: CRUD for reusable discount templates + attach/detach to eve
 """
 from fastapi import APIRouter, Depends
 
-from app.dependencies import DbSession, require_role
+from app.dependencies import DbSession, ReadDbSession, require_role
 from app.models.user import User, UserRole
 from app.schemas.discount_strategy import (
     DiscountStrategyCreate,
@@ -17,7 +17,7 @@ router = APIRouter()
 
 @router.get("", response_model=list[DiscountStrategyResponse])
 async def list_strategies(
-    db: DbSession,
+    db: ReadDbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
     """List the current organizer's discount strategies."""
@@ -40,7 +40,7 @@ async def create_strategy(
 @router.get("/{strategy_id}", response_model=DiscountStrategyResponse)
 async def get_strategy(
     strategy_id: int,
-    db: DbSession,
+    db: ReadDbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
     return await ds_service.get_or_404(db, strategy_id)

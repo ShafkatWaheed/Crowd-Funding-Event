@@ -3,7 +3,7 @@ Event posts: list, create, delete, toggle.
 """
 from fastapi import APIRouter, Depends
 
-from app.dependencies import DbSession, require_role
+from app.dependencies import DbSession, ReadDbSession, require_role
 from app.models.user import User, UserRole
 from app.schemas import EventPostCreate, EventPostResponse
 from app.services import post as post_service
@@ -12,7 +12,7 @@ router = APIRouter()
 
 
 @router.get("/{event_id}/posts", response_model=list[EventPostResponse])
-async def list_event_posts(event_id: int, db: DbSession):
+async def list_event_posts(event_id: int, db: ReadDbSession):
     posts = await post_service.list_posts(db, event_id=event_id)
     return [
         EventPostResponse(

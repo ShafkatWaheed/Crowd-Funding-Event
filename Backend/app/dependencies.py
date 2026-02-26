@@ -6,7 +6,7 @@ from typing import Annotated
 from fastapi import Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.base import get_db_session
+from app.db.base import get_db_session, get_read_db_session
 from app.models.user import User
 from app.core.security import get_current_user, get_current_user_optional as _get_current_user_optional
 from app.models.user import UserRole
@@ -34,5 +34,6 @@ def require_feature(key: str):
 
 # Type aliases for cleaner route signatures
 DbSession = Annotated[AsyncSession, Depends(get_db_session)]
+ReadDbSession = Annotated[AsyncSession, Depends(get_read_db_session)]
 CurrentUser = Annotated[User, Depends(get_current_user)]
 CurrentUserOptional = Annotated[User | None, Depends(_get_current_user_optional)]

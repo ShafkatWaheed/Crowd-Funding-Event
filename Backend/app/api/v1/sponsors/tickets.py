@@ -1,7 +1,7 @@
 """Sponsor ticket endpoints."""
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.dependencies import DbSession, CurrentUser, require_feature
+from app.dependencies import DbSession, ReadDbSession, CurrentUser, require_feature
 from app.schemas.sponsor import SponsorTicketResponse
 from app.services import sponsor as sponsor_svc
 
@@ -12,7 +12,7 @@ router = APIRouter(dependencies=[Depends(require_feature("feature_sponsors_enabl
     "/me/sponsor-tickets",
     response_model=list[SponsorTicketResponse],
 )
-async def list_my_sponsor_tickets(db: DbSession, current_user: CurrentUser):
+async def list_my_sponsor_tickets(db: ReadDbSession, current_user: CurrentUser):
     tickets = await sponsor_svc.list_sponsor_tickets(db, current_user.id)
     result = []
     for t in tickets:

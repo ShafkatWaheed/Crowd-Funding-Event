@@ -4,7 +4,7 @@ All milestone endpoints gated by the feature_milestones_enabled flag.
 """
 from fastapi import APIRouter, Depends, Query
 
-from app.dependencies import DbSession, CurrentUserOptional, require_role, require_feature
+from app.dependencies import DbSession, ReadDbSession, CurrentUserOptional, require_role, require_feature
 from app.models.user import User, UserRole
 from app.schemas.milestone import (
     MilestoneCreate,
@@ -30,7 +30,7 @@ _feature_guard = Depends(require_feature("feature_milestones_enabled"))
     response_model=list[MilestoneResponse],
     dependencies=[_feature_guard],
 )
-async def list_milestones(event_id: int, db: DbSession):
+async def list_milestones(event_id: int, db: ReadDbSession):
     return await milestone_service.list_milestones(db, event_id)
 
 
@@ -112,7 +112,7 @@ async def react_to_milestone(
 async def get_my_milestone_reaction(
     event_id: int,
     milestone_id: int,
-    db: DbSession,
+    db: ReadDbSession,
     current_user: User = Depends(require_role(UserRole.customer, UserRole.organizer, UserRole.admin, UserRole.sponsor)),
 ):
     return await milestone_service.get_my_reaction(db, milestone_id, current_user.id)
@@ -125,7 +125,7 @@ async def get_my_milestone_reaction(
     response_model=list[MilestoneSnapshotResponse],
     dependencies=[_feature_guard],
 )
-async def list_milestone_snapshots(event_id: int, db: DbSession):
+async def list_milestone_snapshots(event_id: int, db: ReadDbSession):
     return await milestone_service.list_snapshots(db, event_id)
 
 
@@ -135,7 +135,7 @@ async def list_milestone_snapshots(event_id: int, db: DbSession):
     "/{event_id}/early-bird-discounts",
     response_model=list[EarlyBirdDiscountResponse],
 )
-async def list_early_bird_discounts(event_id: int, db: DbSession):
+async def list_early_bird_discounts(event_id: int, db: ReadDbSession):
     return await milestone_service.list_early_bird_discounts(db, event_id)
 
 

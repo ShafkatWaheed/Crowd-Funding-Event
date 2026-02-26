@@ -17,7 +17,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from app.api.v1.router import api_router
 from app.config import settings
 from app.core.exceptions import AppException
-from app.db.base import async_engine
+from app.db.base import async_engine, read_engine
 from app.rate_limit import setup_rate_limiting
 from app.worker.redis_pool import get_arq_pool, close_arq_pool
 
@@ -76,6 +76,7 @@ async def lifespan(application: FastAPI):
         logger.warning("Redis not available — ARQ tasks will be skipped (refunds complete inline)")
     yield
     await close_arq_pool()
+    await read_engine.dispose()
 
 
 app = FastAPI(
@@ -121,13 +122,22 @@ def healthz():
 
 @app.get("/health")
 async def health():
-    """Readiness probe -- confirms the app can reach the database."""
+    """Readiness probe -- confirms the app can reach primary and replica databases."""
+    result: dict = {"status": "ok"}
     try:
         async with async_engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
-        return {"status": "ok", "db": "connected"}
+        result["db_primary"] = "connected"
     except Exception as exc:
-        return JSONResponse(
-            status_code=503,
-            content={"status": "unhealthy", "db": str(exc)},
-        )
+        result.update(status="unhealthy", db_primary=str(exc))
+
+    try:
+        async with read_engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+        result["db_replica"] = "connected"
+    except Exception as exc:
+        result.update(status="unhealthy", db_replica=str(exc))
+
+    if result["status"] != "ok":
+        return JSONResponse(status_code=503, content=result)
+    return result

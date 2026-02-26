@@ -3,7 +3,7 @@ Users: profile (GET/PATCH /me), my pledges (GET /me/pledges), my tickets (GET /m
 """
 from fastapi import APIRouter, Depends
 
-from app.dependencies import CurrentUser, DbSession, require_role
+from app.dependencies import CurrentUser, DbSession, ReadDbSession, require_role
 from app.models.user import User, UserRole
 from app.schemas import (
     EventResponse, MeResponse, MeUpdate, MyPledgeItem, OrganizerPledgeItem,
@@ -63,7 +63,7 @@ async def update_me(
 
 @router.get("/pledges", response_model=list[MyPledgeItem])
 async def get_my_pledges(
-    db: DbSession,
+    db: ReadDbSession,
     current_user: User = Depends(require_role(UserRole.customer, UserRole.sponsor)),
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
@@ -92,7 +92,7 @@ async def get_my_pledges(
 @router.get("/pledges/{pledge_id}/receipt", response_model=PledgeReceiptResponse)
 async def get_my_pledge_receipt(
     pledge_id: int,
-    db: DbSession,
+    db: ReadDbSession,
     current_user: User = Depends(require_role(UserRole.customer, UserRole.sponsor)),
 ):
     """Get a pledge receipt for the current user."""
@@ -130,7 +130,7 @@ async def get_my_pledge_receipt(
 
 @router.get("/organizer-pledges", response_model=list[OrganizerPledgeItem])
 async def get_organizer_pledges(
-    db: DbSession,
+    db: ReadDbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
     status: str | None = Query(None, description="Filter by pledge status (pledged, refunded, etc.)"),
     event_status: str | None = Query(None, description="Filter to events with this status"),
@@ -165,7 +165,7 @@ async def get_organizer_pledges(
 
 @router.get("/tickets", response_model=list[TicketSaleResponse])
 async def get_my_tickets(
-    db: DbSession,
+    db: ReadDbSession,
     current_user: User = Depends(require_role(UserRole.customer)),
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
@@ -202,7 +202,7 @@ async def get_my_tickets(
 @router.get("/tickets/{sale_id}/receipt", response_model=TicketReceiptResponse)
 async def get_my_ticket_receipt(
     sale_id: int,
-    db: DbSession,
+    db: ReadDbSession,
     current_user: User = Depends(require_role(UserRole.customer)),
 ):
     """Get receipt for a specific ticket the current user purchased."""
@@ -262,7 +262,7 @@ async def get_my_ticket_receipt(
 
 @router.get("/organizer-ticket-sales", response_model=list[TicketSaleResponse])
 async def get_my_organizer_ticket_sales(
-    db: DbSession,
+    db: ReadDbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
     scanned_only: bool = Query(False, description="If true, return only scanned tickets"),
     event_status: str | None = Query(None, description="Filter to events with this status"),
@@ -282,7 +282,7 @@ async def get_my_organizer_ticket_sales(
 
 @router.get("/events", response_model=list[EventResponse])
 async def get_my_events(
-    db: DbSession,
+    db: ReadDbSession,
     current_user: CurrentUser,
     offset: int = Query(0, ge=0, description="Pagination offset"),
     limit: int = Query(20, ge=1, le=100, description="Page size (max 100)"),
@@ -307,7 +307,7 @@ async def get_my_events(
 
 @router.get("/customers")
 async def list_my_customers(
-    db: DbSession,
+    db: ReadDbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
@@ -347,7 +347,7 @@ async def toggle_bookmark(
 
 @router.get("/bookmarks/check")
 async def check_bookmarks(
-    db: DbSession,
+    db: ReadDbSession,
     current_user: CurrentUser,
     event_ids: str = Query("", description="Comma-separated event IDs"),
 ):
@@ -373,7 +373,7 @@ async def check_bookmarks(
 
 @router.get("/bookmarks", response_model=list[EventResponse])
 async def list_bookmarked_events(
-    db: DbSession,
+    db: ReadDbSession,
     current_user: CurrentUser,
     search: str | None = Query(None, description="Search title/venue"),
     status: str | None = Query(None, description="Filter by event status"),
@@ -431,7 +431,7 @@ async def list_bookmarked_events(
 
 @router.get("/organizer-dashboard", response_model=OrganizerDashboardResponse)
 async def get_organizer_dashboard(
-    db: DbSession,
+    db: ReadDbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
     status: str | None = Query(None, description="Filter KPIs to events with this status"),
     event_id: int | None = Query(None, description="Filter KPIs to a single event"),
@@ -492,7 +492,7 @@ async def get_organizer_dashboard(
 
 @router.get("/organizer-dashboard/time-series", response_model=OrganizerTimeSeriesResponse)
 async def get_organizer_time_series(
-    db: DbSession,
+    db: ReadDbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
     days: int = Query(30, ge=7, le=90, description="Number of days (7, 30, or 90)"),
     status: str | None = Query(None, description="Filter to events with this status"),

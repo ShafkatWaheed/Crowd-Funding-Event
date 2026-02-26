@@ -4,7 +4,7 @@ Event registration: register, unregister, my-registration, registrations list, d
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 
-from app.dependencies import CurrentUser, DbSession, require_role
+from app.dependencies import CurrentUser, DbSession, ReadDbSession, require_role
 from app.models.event import EventStatus
 from app.models.registration import Registration, RegistrationStatus
 from app.models.user import User, UserRole
@@ -65,7 +65,7 @@ async def register_event(
 @router.get("/{event_id}/my-registration")
 async def get_my_registration(
     event_id: int,
-    db: DbSession,
+    db: ReadDbSession,
     current_user: User = Depends(require_role(UserRole.customer, UserRole.organizer, UserRole.admin, UserRole.sponsor)),
 ):
     """Check if the current user is registered for this event."""
@@ -117,7 +117,7 @@ async def unregister_event(
 @router.get("/{event_id}/registrations")
 async def list_registrations(
     event_id: int,
-    db: DbSession,
+    db: ReadDbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
     """List registrations for event (organizer/admin)."""

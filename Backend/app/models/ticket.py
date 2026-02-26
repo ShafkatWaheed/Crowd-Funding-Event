@@ -69,6 +69,7 @@ class TicketSale(Base):
     tax_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     tax_rate: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     tax_jurisdiction: Mapped[str] = mapped_column(String(32), nullable=False, default="")
+    gateway_transaction_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     gateway_auth_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
     extra_perks: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[TicketSaleStatus] = mapped_column(Enum(TicketSaleStatus), nullable=False, default=TicketSaleStatus.purchased, index=True)

@@ -262,7 +262,14 @@ async def check_and_release_stage1(db: AsyncSession, *, event_id: int) -> FundEs
         if pct < threshold:
             return None
 
-    return await release_stage1(db, event_id=event_id, released_by="system")
+    escrow = await get_or_create(db, event_id=event_id)
+    result = await release_stage1(db, event_id=event_id, released_by="system")
+    try:
+        from app.worker.redis_pool import enqueue
+        await enqueue("process_escrow_release", escrow_type="fund", escrow_id=result.id, stage=1)
+    except Exception:
+        pass
+    return result
 
 
 async def check_and_release_stage2(db: AsyncSession, *, event_id: int) -> FundEscrow | None:
@@ -315,7 +322,13 @@ async def check_and_release_stage2(db: AsyncSession, *, event_id: int) -> FundEs
         if percent_elapsed < threshold:
             return None
 
-    return await release_stage2(db, event_id=event_id, released_by="system")
+    result = await release_stage2(db, event_id=event_id, released_by="system")
+    try:
+        from app.worker.redis_pool import enqueue
+        await enqueue("process_escrow_release", escrow_type="fund", escrow_id=result.id, stage=2)
+    except Exception:
+        pass
+    return result
 
 
 async def check_and_release_stage3(db: AsyncSession, *, event_id: int) -> FundEscrow | None:
@@ -378,7 +391,13 @@ async def check_and_release_stage3(db: AsyncSession, *, event_id: int) -> FundEs
         if days_since_end < days_after_cfg:
             return None
 
-    return await release_stage3(db, event_id=event_id, released_by="system")
+    result = await release_stage3(db, event_id=event_id, released_by="system")
+    try:
+        from app.worker.redis_pool import enqueue
+        await enqueue("process_escrow_release", escrow_type="fund", escrow_id=result.id, stage=3)
+    except Exception:
+        pass
+    return result
 
 
 async def list_all_escrows(

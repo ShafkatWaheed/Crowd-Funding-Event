@@ -100,6 +100,8 @@ class _SponsorPaymentReceiptScreenState
     final venueName = r['venue_name'];
     final venueCity = r['venue_city'];
 
+    final taxCents = (r['tax_cents'] ?? 0) as int;
+    final taxRate = (r['tax_rate'] ?? 0.0) as num;
     final headerColor = isRefund ? AppTheme.errorColor : context.sponsorAccent;
     final commissionPct = amountCents > 0
         ? ((platformCutCents / amountCents) * 100).round()
@@ -243,6 +245,16 @@ class _SponsorPaymentReceiptScreenState
                               : _formatCents(platformCutCents),
                           subtle: true,
                         ),
+                        if (taxCents > 0) ...[
+                          const SizedBox(height: 6),
+                          _priceRow(
+                            'Tax${taxRate > 0 ? ' (${taxRate.toStringAsFixed(1)}%)' : ''}',
+                            isRefund
+                                ? '-${_formatCents(taxCents)}'
+                                : _formatCents(taxCents),
+                            subtle: true,
+                          ),
+                        ],
                         const SizedBox(height: 6),
                         Divider(color: AppTheme.dividerOf(context)),
                         _priceRow(

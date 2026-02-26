@@ -142,6 +142,10 @@ class TicketReceiptResponse(BaseModel):
     discount_applied_cents: int
     commission_cents: int = 0
     net_to_organizer_cents: int = 0
+    subtotal_cents: int = 0
+    tax_cents: int = 0
+    tax_rate: float = 0.0
+    tax_jurisdiction: str | None = None
     extra_perks: str | None = None
     encrypted_qr_payload: str | None = None  # AES-256-GCM encrypted QR data
     # Timestamps
@@ -202,6 +206,10 @@ class PurchaseGroupReceiptResponse(BaseModel):
     total_discount_applied_cents: int
     total_commission_cents: int = 0
     total_net_to_organizer_cents: int = 0
+    total_subtotal_cents: int = 0
+    total_tax_cents: int = 0
+    tax_rate: float = 0.0
+    tax_jurisdiction: str | None = None
     # Tickets
     tickets: list[TicketSummaryItem]
     # Timestamps

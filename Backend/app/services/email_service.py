@@ -152,27 +152,41 @@ class ConsoleBackend(EmailBackend):
 # Factory
 # ═══════════════════════════════════════════════════════════
 
-_backend_cache: EmailBackend | None = None
+_backend_cache: dict[str, EmailBackend] = {}
 
 
-def get_email_backend() -> EmailBackend:
-    """Return the configured email backend (cached after first call)."""
-    global _backend_cache
-    if _backend_cache is not None:
-        return _backend_cache
+def get_email_backend(provider_override: str | None = None) -> EmailBackend:
+    """Return the configured email backend (cached per provider name)."""
+    provider = (provider_override or settings.EMAIL_PROVIDER).lower().strip()
 
-    provider = settings.EMAIL_PROVIDER.lower().strip()
+    if provider in _backend_cache:
+        return _backend_cache[provider]
+
     if provider == "sendgrid":
-        _backend_cache = SendGridBackend()
+        _backend_cache[provider] = SendGridBackend()
     elif provider == "console":
-        _backend_cache = ConsoleBackend()
+        _backend_cache[provider] = ConsoleBackend()
     else:
         raise ValueError(
             f"Unknown EMAIL_PROVIDER '{provider}'. "
             "Supported: sendgrid, console"
         )
     logger.info("Email backend initialised: %s", provider)
-    return _backend_cache
+    return _backend_cache[provider]
+
+
+async def _resolve_backend() -> EmailBackend:
+    """Resolve backend from platform settings first, env vars as fallback."""
+    try:
+        from app.db.base import async_session_maker
+        from app.services import platform_settings as settings_svc
+        async with async_session_maker() as db:
+            provider = await settings_svc.get_str(db, "email_provider")
+            if provider and provider.strip():
+                return get_email_backend(provider_override=provider)
+    except Exception:
+        logger.debug("Platform settings email config unavailable, using env vars")
+    return get_email_backend()
 
 
 # ═══════════════════════════════════════════════════════════
@@ -225,7 +239,7 @@ async def send_email(
         logger.debug("EMAIL_ENABLED=False — skipping email to %s", to_email)
         return False
     try:
-        backend = get_email_backend()
+        backend = await _resolve_backend()
         ok = await backend.send(to_email, to_name, subject, html)
         if isinstance(backend, ConsoleBackend):
             mock_status = await _log_mock_email(to_email, subject, html, template_key)
@@ -252,7 +266,7 @@ async def send_email_bulk(
     if not recipients:
         return 0
     try:
-        backend = get_email_backend()
+        backend = await _resolve_backend()
         sent = 0
         if isinstance(backend, ConsoleBackend):
             for r in recipients:

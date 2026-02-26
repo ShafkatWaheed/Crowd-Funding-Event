@@ -3,9 +3,46 @@ HTML email templates for transactional notifications.
 
 All templates return a styled HTML string (inline CSS, mobile-friendly,
 Uber-inspired black / white / green accent design).
+
+Each template function accepts an optional ``db`` parameter. When supplied,
+the function queries the ``EmailTemplate`` table for a matching
+``template_key``. If an active row exists, its ``body_html`` is returned
+(with variable substitution). Otherwise the hardcoded template is used.
 """
 
 from __future__ import annotations
+
+import logging
+import re
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+_logger = logging.getLogger(__name__)
+
+
+async def _try_db_template(
+    db: AsyncSession | None,
+    template_key: str,
+    variables: dict[str, str],
+) -> str | None:
+    """Return rendered HTML from DB template if available, else None."""
+    if db is None:
+        return None
+    try:
+        from sqlalchemy import select
+        from app.models.email_template import EmailTemplate
+
+        tmpl = (await db.execute(
+            select(EmailTemplate).where(EmailTemplate.template_key == template_key)
+        )).scalar_one_or_none()
+        if tmpl and tmpl.is_active:
+            html = tmpl.body_html
+            for k, v in variables.items():
+                html = html.replace(f"{{{{{k}}}}}", str(v))
+            return html
+    except Exception:
+        _logger.debug("DB template lookup failed for %s, using hardcoded", template_key)
+    return None
 
 # ═══════════════════════════════════════════════════════════
 # Shared layout wrapper
@@ -110,11 +147,17 @@ def _badge(text: str, *, color: str = _ACCENT) -> str:
 # 1. Event Cancelled (no refund — registrants / ticket buyers)
 # ═══════════════════════════════════════════════════════════
 
-def event_cancelled_template(
+async def event_cancelled_template(
     event_title: str,
     reason: str,
     event_date: str | None = None,
+    db: AsyncSession | None = None,
 ) -> str:
+    db_html = await _try_db_template(db, "event_cancelled", {
+        "event_title": event_title, "reason": reason or "", "event_date": event_date or "",
+    })
+    if db_html:
+        return db_html
     date_row = f"<p style='margin:4px 0;font-size:13px;color:{_TEXT_SECONDARY};'>Event date: {event_date}</p>" if event_date else ""
     body = f"""\
 {_heading("Event Cancelled")}
@@ -135,7 +178,7 @@ def event_cancelled_template(
 # 2. Ticket Purchased (receipt email)
 # ═══════════════════════════════════════════════════════════
 
-def ticket_purchased_template(
+async def ticket_purchased_template(
     event_title: str,
     tier_name: str,
     ticket_code: str,
@@ -145,7 +188,15 @@ def ticket_purchased_template(
     event_date: str | None = None,
     discount_cents: int = 0,
     commission_cents: int = 0,
+    db: AsyncSession | None = None,
 ) -> str:
+    db_html = await _try_db_template(db, "ticket_purchased", {
+        "event_title": event_title, "tier_name": tier_name, "ticket_code": ticket_code,
+        "receipt_number": receipt_number, "amount_cents": str(amount_cents),
+        "quantity": str(quantity),
+    })
+    if db_html:
+        return db_html
     is_free = amount_cents == 0
     amount_str = "FREE" if is_free else _cents_to_dollars(amount_cents)
     total_str = "FREE" if is_free else _cents_to_dollars(amount_cents * quantity)
@@ -189,11 +240,17 @@ def ticket_purchased_template(
 # 3. Unpledge Refund
 # ═══════════════════════════════════════════════════════════
 
-def unpledge_refund_template(
+async def unpledge_refund_template(
     event_title: str,
     refunded_cents: int,
     pledges_count: int = 1,
+    db: AsyncSession | None = None,
 ) -> str:
+    db_html = await _try_db_template(db, "unpledge_refund", {
+        "event_title": event_title, "refunded_cents": str(refunded_cents),
+    })
+    if db_html:
+        return db_html
     body = f"""\
 {_heading("Pledge Refunded")}
 {_subheading("Your pledge has been successfully refunded.")}
@@ -214,10 +271,16 @@ def unpledge_refund_template(
 # 4. Unregister Refund
 # ═══════════════════════════════════════════════════════════
 
-def unregister_refund_template(
+async def unregister_refund_template(
     event_title: str,
     refunded_cents: int,
+    db: AsyncSession | None = None,
 ) -> str:
+    db_html = await _try_db_template(db, "unregister_refund", {
+        "event_title": event_title, "refunded_cents": str(refunded_cents),
+    })
+    if db_html:
+        return db_html
     body = f"""\
 {_heading("Unregistered & Refunded")}
 {_subheading("You have been unregistered from the event and your pledge has been refunded.")}
@@ -237,12 +300,19 @@ def unregister_refund_template(
 # 5. Event Cancelled + Pledge Refund (combined)
 # ═══════════════════════════════════════════════════════════
 
-def cancellation_refund_template(
+async def cancellation_refund_template(
     event_title: str,
     reason: str,
     refunded_cents: int,
     event_date: str | None = None,
+    db: AsyncSession | None = None,
 ) -> str:
+    db_html = await _try_db_template(db, "cancellation_refund", {
+        "event_title": event_title, "reason": reason or "",
+        "refunded_cents": str(refunded_cents),
+    })
+    if db_html:
+        return db_html
     date_row = f"<p style='margin:4px 0;font-size:13px;color:{_TEXT_SECONDARY};'>Event date: {event_date}</p>" if event_date else ""
     body = f"""\
 {_heading("Event Cancelled — Refund Issued")}
@@ -268,11 +338,17 @@ def cancellation_refund_template(
 # 6. Waitlisted Ticket Rejected
 # ═══════════════════════════════════════════════════════════
 
-def waitlist_ticket_rejected_template(
+async def waitlist_ticket_rejected_template(
     event_title: str,
     tier_name: str,
     amount_cents: int,
+    db: AsyncSession | None = None,
 ) -> str:
+    db_html = await _try_db_template(db, "waitlist_ticket_rejected", {
+        "event_title": event_title, "tier_name": tier_name,
+    })
+    if db_html:
+        return db_html
     body = f"""\
 {_heading("Ticket Waitlist — Not Approved")}
 {_subheading("Unfortunately, your waitlisted ticket was not approved by the organizer.")}
@@ -296,12 +372,18 @@ def waitlist_ticket_rejected_template(
 # 7. Ticket Refund Approved
 # ═══════════════════════════════════════════════════════════
 
-def ticket_refund_approved_template(
+async def ticket_refund_approved_template(
     event_title: str,
     tier_name: str,
     amount_cents: int,
     receipt_number: str | None = None,
+    db: AsyncSession | None = None,
 ) -> str:
+    db_html = await _try_db_template(db, "ticket_refund_approved", {
+        "event_title": event_title, "tier_name": tier_name,
+    })
+    if db_html:
+        return db_html
     rows: list[tuple[str, str]] = [
         ("Event", event_title),
         ("Tier", tier_name),
@@ -327,13 +409,19 @@ def ticket_refund_approved_template(
 # 8. Waitlisted Ticket Approved
 # ═══════════════════════════════════════════════════════════
 
-def waitlist_ticket_approved_template(
+async def waitlist_ticket_approved_template(
     event_title: str,
     tier_name: str,
     amount_cents: int,
     ticket_code: str | None = None,
     event_date: str | None = None,
+    db: AsyncSession | None = None,
 ) -> str:
+    db_html = await _try_db_template(db, "waitlist_ticket_approved", {
+        "event_title": event_title, "tier_name": tier_name,
+    })
+    if db_html:
+        return db_html
     rows: list[tuple[str, str]] = [
         ("Event", event_title),
         ("Tier", tier_name),
@@ -361,11 +449,17 @@ def waitlist_ticket_approved_template(
 # 9. Sponsor Bid Approved
 # ═══════════════════════════════════════════════════════════
 
-def sponsor_bid_approved_template(
+async def sponsor_bid_approved_template(
     event_title: str,
     category_name: str,
     bid_amount_cents: int,
+    db: AsyncSession | None = None,
 ) -> str:
+    db_html = await _try_db_template(db, "sponsor_bid_approved", {
+        "event_title": event_title, "category_name": category_name,
+    })
+    if db_html:
+        return db_html
     body = f"""\
 {_heading("Sponsorship Bid Accepted!")}
 {_subheading("The event organizer has accepted your sponsorship bid.")}
@@ -387,11 +481,17 @@ def sponsor_bid_approved_template(
 # 10. Sponsor Bid Rejected
 # ═══════════════════════════════════════════════════════════
 
-def sponsor_bid_rejected_template(
+async def sponsor_bid_rejected_template(
     event_title: str,
     category_name: str,
     bid_amount_cents: int,
+    db: AsyncSession | None = None,
 ) -> str:
+    db_html = await _try_db_template(db, "sponsor_bid_rejected", {
+        "event_title": event_title, "category_name": category_name,
+    })
+    if db_html:
+        return db_html
     body = f"""\
 {_heading("Sponsorship Bid Not Accepted")}
 {_subheading("Unfortunately, the organizer did not accept your sponsorship bid.")}
@@ -415,12 +515,18 @@ def sponsor_bid_rejected_template(
 # 11. Sponsor Payment Refunded
 # ═══════════════════════════════════════════════════════════
 
-def sponsor_refund_template(
+async def sponsor_refund_template(
     event_title: str,
     category_name: str,
     refunded_cents: int,
     receipt_number: str | None = None,
+    db: AsyncSession | None = None,
 ) -> str:
+    db_html = await _try_db_template(db, "sponsor_refund", {
+        "event_title": event_title, "category_name": category_name,
+    })
+    if db_html:
+        return db_html
     rows: list[tuple[str, str]] = [
         ("Event", event_title),
         ("Category", category_name),

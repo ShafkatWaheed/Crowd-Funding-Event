@@ -219,7 +219,13 @@ async def check_and_release_stage1(db: AsyncSession, *, event_id: int) -> Sponso
     else:
         return None
 
-    return await release_stage1(db, event_id=event_id, released_by="system")
+    result = await release_stage1(db, event_id=event_id, released_by="system")
+    try:
+        from app.worker.redis_pool import enqueue
+        await enqueue("process_escrow_release", escrow_type="sponsor", escrow_id=result.id, stage=1)
+    except Exception:
+        pass
+    return result
 
 
 async def check_and_release_stage2(db: AsyncSession, *, event_id: int) -> SponsorEscrow | None:
@@ -253,7 +259,13 @@ async def check_and_release_stage2(db: AsyncSession, *, event_id: int) -> Sponso
     else:
         return None
 
-    return await release_stage2(db, event_id=event_id, released_by="system")
+    result = await release_stage2(db, event_id=event_id, released_by="system")
+    try:
+        from app.worker.redis_pool import enqueue
+        await enqueue("process_escrow_release", escrow_type="sponsor", escrow_id=result.id, stage=2)
+    except Exception:
+        pass
+    return result
 
 
 async def check_and_release_stage3(db: AsyncSession, *, event_id: int) -> SponsorEscrow | None:
@@ -286,4 +298,10 @@ async def check_and_release_stage3(db: AsyncSession, *, event_id: int) -> Sponso
     else:
         return None
 
-    return await release_stage3(db, event_id=event_id, released_by="system")
+    result = await release_stage3(db, event_id=event_id, released_by="system")
+    try:
+        from app.worker.redis_pool import enqueue
+        await enqueue("process_escrow_release", escrow_type="sponsor", escrow_id=result.id, stage=3)
+    except Exception:
+        pass
+    return result

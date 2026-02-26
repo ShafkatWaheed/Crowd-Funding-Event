@@ -229,6 +229,29 @@ async def create_pledge(
     platform_cut = amount_cents * funding_pct // 100
     net_to_organizer = amount_cents - platform_cut
 
+    gateway_txn_id: str | None = None
+    gateway_auth: str | None = None
+    if amount_cents > 0:
+        try:
+            from app.services.payment_gateway import get_gateway
+            gw = await get_gateway(db)
+            result = await gw.charge(
+                db,
+                user_id=user.id,
+                amount_cents=amount_cents,
+                description=f"Pledge for event {event_id}",
+                idempotency_key=f"pledge-{event_id}-{user.id}-{amount_cents}",
+                commission_cents=platform_cut,
+            )
+            if result.status == "failed":
+                raise ConflictError(f"Payment failed: {getattr(result, 'failure_reason', 'card declined')}")
+            gateway_txn_id = result.transaction_id
+            gateway_auth = result.authorization_code
+        except ConflictError:
+            raise
+        except Exception as exc:
+            raise ConflictError(f"Payment processing error: {exc}")
+
     pledge = Funding(
         event_id=event_id,
         user_id=user.id,
@@ -238,6 +261,8 @@ async def create_pledge(
         status=FundingStatus.pledged,
         is_guest=is_guest,
         reserved_spots=reserved_spots,
+        gateway_transaction_id=gateway_txn_id,
+        gateway_auth_code=gateway_auth,
     )
     db.add(pledge)
     await db.flush()

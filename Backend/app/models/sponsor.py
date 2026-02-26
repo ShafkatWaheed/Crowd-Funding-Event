@@ -96,6 +96,7 @@ class SponsorPayment(Base):
     subtotal_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     tax_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     tax_rate: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    gateway_transaction_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     gateway_auth_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
     status: Mapped[PaymentStatus] = mapped_column(Enum(PaymentStatus), nullable=False, default=PaymentStatus.completed, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)

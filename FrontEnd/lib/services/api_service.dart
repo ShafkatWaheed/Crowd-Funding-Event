@@ -18,6 +18,12 @@ class ApiService {
     return {};
   }
 
+  Future<Map<String, dynamic>> put(String path, {Map<String, dynamic>? data}) async {
+    final resp = await dio.put(path, data: data);
+    if (resp.data is Map) return Map<String, dynamic>.from(resp.data as Map);
+    return {};
+  }
+
   /// Extract a human-readable error message from any exception.
   /// Pulls the FastAPI `detail` field from DioException responses.
   static String extractError(Object e, {String fallback = 'Something went wrong'}) {
@@ -665,9 +671,12 @@ class ApiService {
     return resp.data;
   }
 
-  Future<List<dynamic>> getEventCities() async {
+  Future<List<String>> getEventCities() async {
     final resp = await dio.get('/events/cities');
-    return resp.data;
+    final data = resp.data;
+    if (data is Map) return List<String>.from(data['cities'] ?? []);
+    if (data is List) return List<String>.from(data);
+    return [];
   }
 
   Future<Map<String, dynamic>> getOrganizerTimeSeries({int days = 30, String? status, int? eventId, String? genre}) async {

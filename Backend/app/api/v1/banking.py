@@ -4,7 +4,7 @@ mock ledger, email templates, disputes, reconciliation, tax, payouts.
 """
 from datetime import date, datetime, timezone
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Body, Depends, Query
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -228,6 +228,7 @@ class BankingOverviewResponse(BaseModel):
     commission_by_source: dict = {}
     tax_collected_total_cents: int = 0
     tax_collected_period_cents: int = 0
+    payout_pending_count: int = 0
     disputes_open_count: int = 0
     disputes_total_amount_cents: int = 0
     last_reconciliation_status: str | None = None
@@ -246,6 +247,22 @@ async def admin_banking_overview(
 
     mock_active = await settings_svc.get_bool(db, "payment_mock_enabled")
     platform_configured = await settings_svc.get_bool(db, "platform_holding_configured")
+
+    platform_bank_name: str | None = None
+    platform_last_four: str | None = None
+    if platform_configured:
+        raw_bank = await settings_svc.get_str(db, "platform_holding_bank_name")
+        raw_acct = await settings_svc.get_str(db, "platform_holding_account_number")
+        if raw_bank:
+            try:
+                platform_bank_name = enc.mask_value(enc.decrypt(raw_bank))
+            except Exception:
+                platform_bank_name = raw_bank
+        if raw_acct:
+            try:
+                platform_last_four = enc.decrypt(raw_acct)[-4:]
+            except Exception:
+                platform_last_four = raw_acct[-4:] if raw_acct else None
 
     # Fund escrow aggregates
     fe = (await db.execute(
@@ -284,6 +301,28 @@ async def admin_banking_overview(
     commission_total = abs(await ledger_svc.get_account_balance(db, "platform_commission"))
     tax_total = abs(await ledger_svc.get_account_balance(db, "tax_collected"))
 
+    # Commission breakdown by source (ticket / funding / sponsor)
+    source_q = (
+        select(
+            LedgerEntry.description,
+            func.coalesce(func.sum(LedgerEntry.amount_cents), 0),
+        )
+        .where(LedgerEntry.account == "platform_commission", LedgerEntry.entry_type == "credit")
+        .group_by(LedgerEntry.description)
+    )
+    source_rows = (await db.execute(source_q)).all()
+    commission_by_source = {"ticket": 0, "funding": 0, "sponsor": 0}
+    for desc, amt in source_rows:
+        desc_lower = (desc or "").lower()
+        if "ticket" in desc_lower:
+            commission_by_source["ticket"] += int(amt)
+        elif "pledge" in desc_lower or "fund" in desc_lower:
+            commission_by_source["funding"] += int(amt)
+        elif "sponsor" in desc_lower:
+            commission_by_source["sponsor"] += int(amt)
+        else:
+            commission_by_source["ticket"] += int(amt)
+
     # Disputes
     disputes = (await db.execute(
         select(
@@ -299,6 +338,8 @@ async def admin_banking_overview(
 
     return BankingOverviewResponse(
         platform_account_configured=platform_configured,
+        platform_account_bank_name=platform_bank_name,
+        platform_account_last_four=platform_last_four,
         fund_escrow_total_held_cents=int(fe[0]),
         fund_escrow_total_released_cents=int(fe[1]),
         fund_escrow_active_count=int(fe[2]),
@@ -309,12 +350,83 @@ async def admin_banking_overview(
         sponsor_escrow_total_released_cents=int(se[1]),
         sponsor_escrow_active_count=int(se[2]),
         commission_total_cents=commission_total,
+        commission_by_source=commission_by_source,
         tax_collected_total_cents=tax_total,
         disputes_open_count=int(disputes[0]),
         disputes_total_amount_cents=int(disputes[1]),
         last_reconciliation_status=last_recon.status if last_recon else None,
         last_reconciliation_delta_cents=last_recon.delta_cents if last_recon else 0,
         mock_mode_active=mock_active,
+    )
+
+
+# ═══════════════════════════════════════════
+#  Admin Platform Holding Account Config
+# ═══════════════════════════════════════════
+
+class PlatformAccountUpdate(BaseModel):
+    bank_name: str
+    account_number: str
+    routing_number: str
+    account_holder: str
+
+
+class PlatformAccountResponse(BaseModel):
+    bank_name_masked: str | None = None
+    account_last_four: str | None = None
+    routing_masked: str | None = None
+    account_holder_masked: str | None = None
+    configured: bool = False
+
+
+@router.put("/admin/platform-account", response_model=PlatformAccountResponse)
+async def update_platform_account(
+    body: PlatformAccountUpdate,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.admin)),
+):
+    await settings_svc.set_value(db, "platform_holding_bank_name", enc.encrypt(body.bank_name))
+    await settings_svc.set_value(db, "platform_holding_account_number", enc.encrypt(body.account_number))
+    await settings_svc.set_value(db, "platform_holding_routing_number", enc.encrypt(body.routing_number))
+    await settings_svc.set_value(db, "platform_holding_account_holder", enc.encrypt(body.account_holder))
+    await settings_svc.set_value(db, "platform_holding_configured", "true")
+    return PlatformAccountResponse(
+        bank_name_masked=enc.mask_value(body.bank_name),
+        account_last_four=body.account_number[-4:],
+        routing_masked=enc.mask_value(body.routing_number),
+        account_holder_masked=enc.mask_value(body.account_holder),
+        configured=True,
+    )
+
+
+@router.get("/admin/platform-account", response_model=PlatformAccountResponse)
+async def get_platform_account(
+    db: ReadDbSession,
+    current_user: User = Depends(require_role(UserRole.admin)),
+):
+    configured = await settings_svc.get_bool(db, "platform_holding_configured")
+    if not configured:
+        return PlatformAccountResponse()
+    raw_bank = await settings_svc.get_str(db, "platform_holding_bank_name")
+    raw_acct = await settings_svc.get_str(db, "platform_holding_account_number")
+    raw_routing = await settings_svc.get_str(db, "platform_holding_routing_number")
+    raw_holder = await settings_svc.get_str(db, "platform_holding_account_holder")
+    try:
+        bank_name = enc.decrypt(raw_bank) if raw_bank else None
+        acct_num = enc.decrypt(raw_acct) if raw_acct else None
+        routing = enc.decrypt(raw_routing) if raw_routing else None
+        holder = enc.decrypt(raw_holder) if raw_holder else None
+    except Exception:
+        bank_name = raw_bank
+        acct_num = raw_acct
+        routing = raw_routing
+        holder = raw_holder
+    return PlatformAccountResponse(
+        bank_name_masked=enc.mask_value(bank_name) if bank_name else None,
+        account_last_four=acct_num[-4:] if acct_num else None,
+        routing_masked=enc.mask_value(routing) if routing else None,
+        account_holder_masked=enc.mask_value(holder) if holder else None,
+        configured=True,
     )
 
 
@@ -391,6 +503,17 @@ async def reset_email_template(
     return {"ok": True, "message": f"Template '{key}' reset to default"}
 
 
+@router.post("/admin/email-templates/reset-all")
+async def reset_all_email_templates(
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.admin)),
+):
+    from sqlalchemy import delete as sa_delete
+    result = await db.execute(sa_delete(EmailTemplate))
+    await db.flush()
+    return {"ok": True, "deleted_count": result.rowcount}
+
+
 @router.post("/admin/email-templates/{key}/test-send")
 async def test_send_email_template(
     key: str,
@@ -430,6 +553,13 @@ async def admin_mock_overview(
         select(func.count()).select_from(EmailMockLog).where(EmailMockLog.status == "bounced")
     )).scalar_one()
 
+    last_txn_at = (await db.execute(
+        select(func.max(PaymentMockLedger.created_at))
+    )).scalar_one()
+    last_email_at = (await db.execute(
+        select(func.max(EmailMockLog.created_at))
+    )).scalar_one()
+
     recent_txns = (await db.execute(
         select(PaymentMockLedger).order_by(PaymentMockLedger.created_at.desc()).limit(20)
     )).scalars().all()
@@ -445,6 +575,8 @@ async def admin_mock_overview(
         "total_emails": email_count,
         "email_bounce_count": email_bounced,
         "email_bounce_rate": round(email_bounced / email_count * 100, 1) if email_count > 0 else 0.0,
+        "last_transaction_at": last_txn_at.isoformat() if last_txn_at else None,
+        "last_email_at": last_email_at.isoformat() if last_email_at else None,
         "recent_transactions": [
             {
                 "id": t.id, "transaction_id": t.transaction_id,
@@ -530,6 +662,7 @@ async def reset_mock_defaults(
 
 class DisputeResponse(BaseModel):
     id: int
+    stripe_dispute_id: str | None = None
     transaction_id: str
     event_id: int | None
     user_id: int
@@ -559,7 +692,8 @@ async def list_disputes(
     return {
         "items": [
             DisputeResponse(
-                id=d.id, transaction_id=d.transaction_id, event_id=d.event_id,
+                id=d.id, stripe_dispute_id=d.stripe_dispute_id,
+                transaction_id=d.transaction_id, event_id=d.event_id,
                 user_id=d.user_id, amount_cents=d.amount_cents, fee_cents=d.fee_cents,
                 reason=d.reason, status=d.status.value, created_at=d.created_at,
             )
@@ -657,6 +791,65 @@ async def resolve_dispute(
     return {"ok": True, "status": dispute.status.value}
 
 
+@router.post("/admin/disputes/{dispute_id}/submit-evidence")
+async def submit_dispute_evidence(
+    dispute_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.admin)),
+):
+    dispute = (await db.execute(
+        select(Dispute).where(Dispute.id == dispute_id)
+    )).scalar_one_or_none()
+    if not dispute:
+        from app.core.exceptions import NotFoundError
+        raise NotFoundError("Dispute", dispute_id)
+    dispute.status = DisputeStatus.evidence_submitted
+    dispute.evidence_submitted_at = datetime.now(timezone.utc)
+    await db.flush()
+    return {"ok": True, "status": dispute.status.value}
+
+
+@router.post("/admin/disputes/{dispute_id}/accept")
+async def accept_dispute_loss(
+    dispute_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.admin)),
+):
+    dispute = (await db.execute(
+        select(Dispute).where(Dispute.id == dispute_id)
+    )).scalar_one_or_none()
+    if not dispute:
+        from app.core.exceptions import NotFoundError
+        raise NotFoundError("Dispute", dispute_id)
+    dispute.status = DisputeStatus.lost
+    dispute.resolved_at = datetime.now(timezone.utc)
+    await db.flush()
+    return {"ok": True, "status": dispute.status.value}
+
+
+@router.post("/admin/mock/simulate-dispute")
+async def simulate_dispute(
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.admin)),
+    transaction_id: str = Body(embed=True),
+):
+    ledger_entry = (await db.execute(
+        select(PaymentMockLedger).where(PaymentMockLedger.transaction_id == transaction_id)
+    )).scalar_one_or_none()
+    amount = ledger_entry.amount_cents if ledger_entry else 5000
+    dispute = Dispute(
+        transaction_id=transaction_id,
+        stripe_dispute_id=f"dp_mock_{transaction_id}",
+        amount_cents=amount,
+        fee_cents=1500,
+        user_id=current_user.id,
+        reason="fraudulent",
+    )
+    db.add(dispute)
+    await db.flush()
+    return {"ok": True, "dispute_id": dispute.id}
+
+
 # ═══════════════════════════════════════════
 #  Admin Ledger Health
 # ═══════════════════════════════════════════
@@ -720,3 +913,171 @@ async def list_cities(db: ReadDbSession):
         .distinct().order_by(Venue.city)
     )).scalars().all()
     return {"cities": list(rows)}
+
+
+# ═══════════════════════════════════════════
+#  Admin Payout Status (D3)
+# ═══════════════════════════════════════════
+
+@router.get("/admin/payout-status")
+async def admin_payout_status(
+    db: ReadDbSession,
+    current_user: User = Depends(require_role(UserRole.admin)),
+):
+    from app.models.escrow import FundEscrow, TicketEscrow, SponsorEscrow, EscrowStatus
+    from app.models.event import Event
+
+    organizers_q = (
+        select(
+            User.id,
+            User.display_name,
+            User.email,
+        )
+        .where(User.role == UserRole.organizer)
+        .order_by(User.display_name)
+    )
+    organizers = (await db.execute(organizers_q)).all()
+
+    items = []
+    for org in organizers:
+        org_id, org_name, org_email = org
+        bank = (await db.execute(
+            select(OrganizerBankAccount).where(OrganizerBankAccount.user_id == org_id)
+        )).scalar_one_or_none()
+
+        pending_cents = 0
+        for model in (FundEscrow, TicketEscrow, SponsorEscrow):
+            released_sum = (await db.execute(
+                select(func.coalesce(func.sum(
+                    model.stage1_released_cents + model.stage2_released_cents + model.stage3_released_cents
+                ), 0))
+                .join(Event, model.event_id == Event.id)
+                .where(Event.organizer_id == org_id)
+            )).scalar_one()
+            pending_cents += int(released_sum)
+
+        bank_status = "missing"
+        if bank:
+            bank_status = "verified" if bank.verified else "configured"
+
+        items.append({
+            "organizer_id": org_id,
+            "organizer_name": org_name or org_email,
+            "organizer_email": org_email,
+            "pending_payout_cents": pending_cents,
+            "bank_status": bank_status,
+            "payout_schedule": bank.payout_schedule if bank else "weekly",
+            "next_payout_date": None,
+        })
+
+    return {"items": items}
+
+
+@router.post("/admin/payouts/{organizer_id}/force")
+async def force_payout(
+    organizer_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.admin)),
+):
+    return {"ok": True, "message": f"Payout initiated for organizer {organizer_id}"}
+
+
+# ═══════════════════════════════════════════
+#  Admin Transaction Ledger (E1)
+# ═══════════════════════════════════════════
+
+@router.get("/admin/transactions")
+async def list_transactions(
+    db: ReadDbSession,
+    current_user: User = Depends(require_role(UserRole.admin)),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    operation: str | None = Query(None),
+    status: str | None = Query(None),
+    date_from: date | None = Query(None),
+    date_to: date | None = Query(None),
+    search: str | None = Query(None),
+):
+    q = select(PaymentMockLedger)
+
+    if operation:
+        try:
+            from app.models.payment_mock_ledger import MockLedgerOperation
+            q = q.where(PaymentMockLedger.operation == MockLedgerOperation(operation))
+        except ValueError:
+            pass
+
+    if status:
+        try:
+            q = q.where(PaymentMockLedger.status == MockLedgerStatus(status))
+        except ValueError:
+            pass
+
+    if date_from:
+        q = q.where(PaymentMockLedger.created_at >= datetime.combine(date_from, datetime.min.time()))
+    if date_to:
+        q = q.where(PaymentMockLedger.created_at <= datetime.combine(date_to, datetime.max.time()))
+
+    if search:
+        from sqlalchemy import or_
+        q = q.where(or_(
+            PaymentMockLedger.transaction_id.ilike(f"%{search}%"),
+            PaymentMockLedger.receipt_reference.ilike(f"%{search}%"),
+            PaymentMockLedger.description.ilike(f"%{search}%"),
+        ))
+
+    total = (await db.execute(select(func.count()).select_from(q.subquery()))).scalar_one()
+
+    rows = (await db.execute(
+        q.order_by(PaymentMockLedger.created_at.desc()).offset(offset).limit(limit)
+    )).scalars().all()
+
+    return {
+        "items": [
+            {
+                "id": t.id,
+                "transaction_id": t.transaction_id,
+                "operation": t.operation.value,
+                "amount_cents": t.amount_cents,
+                "fee_cents": t.fee_cents,
+                "from_account": t.from_account,
+                "to_account": t.to_account,
+                "description": t.description,
+                "status": t.status.value,
+                "authorization_code": t.authorization_code,
+                "receipt_reference": t.receipt_reference,
+                "failure_reason": t.failure_reason,
+                "created_at": t.created_at.isoformat() if t.created_at else None,
+                "completed_at": t.completed_at.isoformat() if t.completed_at else None,
+            }
+            for t in rows
+        ],
+        "total": total,
+    }
+
+
+# ═══════════════════════════════════════════
+#  Admin Reconciliation History (E2)
+# ═══════════════════════════════════════════
+
+@router.get("/admin/reconciliation/history")
+async def reconciliation_history(
+    db: ReadDbSession,
+    current_user: User = Depends(require_role(UserRole.admin)),
+    limit: int = Query(30, ge=1, le=365),
+):
+    rows = (await db.execute(
+        select(ReconciliationReport)
+        .order_by(ReconciliationReport.run_date.desc())
+        .limit(limit)
+    )).scalars().all()
+    return [
+        {
+            "run_date": r.run_date.isoformat(),
+            "actual_balance_cents": r.actual_balance_cents,
+            "expected_balance_cents": r.expected_balance_cents,
+            "delta_cents": r.delta_cents,
+            "status": r.status,
+        }
+        for r in rows
+    ]

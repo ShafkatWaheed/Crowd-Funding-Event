@@ -255,7 +255,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                 child: RefreshIndicator(
                   onRefresh: () => provider.loadNotifications(),
                   child: ListView.builder(
-                    itemCount: orderedGroups.fold(0, (sum, g) => sum + 1 + grouped[g]!.length),
+                    itemCount: orderedGroups.fold<int>(0, (sum, g) => sum + 1 + grouped[g]!.length),
                     itemBuilder: (ctx, index) {
                       int cursor = 0;
                       for (final group in orderedGroups) {
@@ -333,7 +333,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
         }
         return true;
       },
-      onDismissed: (_) {},
+      onDismissed: (_) {
+        context.read<NotificationProvider>().deleteNotification(n['id']);
+      },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
         child: Card(

@@ -75,11 +75,12 @@ async def notify_event_cancelled(
 
         # Send individual emails to pledgers (each has different refund amount)
         for pr in pledger_recipients:
-            html = tpl.cancellation_refund_template(
+            html = await tpl.cancellation_refund_template(
                 event_title=event_title,
                 reason=reason or "No reason provided.",
                 refunded_cents=pr["amount_cents"],
                 event_date=date_str,
+                db=db,
             )
             await send_email(pr["email"], pr["name"], f"Event Cancelled — {event_title}", html)
 
@@ -109,10 +110,11 @@ async def notify_event_cancelled(
                 non_pledger_recipients.append({"email": u.email, "name": u.display_name or ""})
 
         if non_pledger_recipients:
-            html = tpl.event_cancelled_template(
+            html = await tpl.event_cancelled_template(
                 event_title=event_title,
                 reason=reason or "No reason provided.",
                 event_date=date_str,
+                db=db,
             )
             await send_email_bulk(
                 non_pledger_recipients,
@@ -148,7 +150,7 @@ async def notify_ticket_purchased(
 ) -> None:
     """Send ticket purchase confirmation/receipt to the buyer."""
     try:
-        html = tpl.ticket_purchased_template(
+        html = await tpl.ticket_purchased_template(
             event_title=event_title,
             tier_name=tier_name,
             ticket_code=ticket_code,
@@ -180,7 +182,7 @@ async def notify_unpledge_refund(
     try:
         if refunded_cents <= 0:
             return
-        html = tpl.unpledge_refund_template(
+        html = await tpl.unpledge_refund_template(
             event_title=event_title,
             refunded_cents=refunded_cents,
             pledges_count=pledges_count,
@@ -205,7 +207,7 @@ async def notify_unregister_refund(
     try:
         if refunded_cents <= 0:
             return
-        html = tpl.unregister_refund_template(
+        html = await tpl.unregister_refund_template(
             event_title=event_title,
             refunded_cents=refunded_cents,
         )
@@ -228,7 +230,7 @@ async def notify_waitlist_ticket_rejected(
 ) -> None:
     """Send waitlisted ticket rejection notice to the buyer."""
     try:
-        html = tpl.waitlist_ticket_rejected_template(
+        html = await tpl.waitlist_ticket_rejected_template(
             event_title=event_title,
             tier_name=tier_name,
             amount_cents=amount_cents,
@@ -253,7 +255,7 @@ async def notify_ticket_refund_approved(
 ) -> None:
     """Send ticket refund approval confirmation to the buyer."""
     try:
-        html = tpl.ticket_refund_approved_template(
+        html = await tpl.ticket_refund_approved_template(
             event_title=event_title,
             tier_name=tier_name,
             amount_cents=amount_cents,
@@ -280,7 +282,7 @@ async def notify_waitlist_ticket_approved(
 ) -> None:
     """Send waitlisted ticket approval notice to the buyer."""
     try:
-        html = tpl.waitlist_ticket_approved_template(
+        html = await tpl.waitlist_ticket_approved_template(
             event_title=event_title,
             tier_name=tier_name,
             amount_cents=amount_cents,
@@ -306,7 +308,7 @@ async def notify_sponsor_bid_approved(
 ) -> None:
     """Send bid acceptance email to the sponsor."""
     try:
-        html = tpl.sponsor_bid_approved_template(
+        html = await tpl.sponsor_bid_approved_template(
             event_title=event_title,
             category_name=category_name,
             bid_amount_cents=bid_amount_cents,
@@ -330,7 +332,7 @@ async def notify_sponsor_bid_rejected(
 ) -> None:
     """Send bid rejection email to the sponsor."""
     try:
-        html = tpl.sponsor_bid_rejected_template(
+        html = await tpl.sponsor_bid_rejected_template(
             event_title=event_title,
             category_name=category_name,
             bid_amount_cents=bid_amount_cents,
@@ -355,7 +357,7 @@ async def notify_sponsor_refund(
 ) -> None:
     """Send sponsorship refund confirmation to the sponsor."""
     try:
-        html = tpl.sponsor_refund_template(
+        html = await tpl.sponsor_refund_template(
             event_title=event_title,
             category_name=category_name,
             refunded_cents=refunded_cents,

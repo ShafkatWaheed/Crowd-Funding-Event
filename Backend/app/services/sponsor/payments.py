@@ -83,15 +83,42 @@ async def pay_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorPayment:
     cat = (await db.execute(
         select(SponsorshipCategory).where(SponsorshipCategory.id == bid.category_id)
     )).scalar_one_or_none()
+
     if cat and cat.event_id:
         from app.models.event import Event
         event = (await db.execute(select(Event).where(Event.id == cat.event_id))).scalar_one_or_none()
-        if event and getattr(event, "community_rules", False):
-            override = await settings_svc.get_str(db, "community_sponsor_commission_percent")
-            if override is not None and override != "":
-                commission_pct = int(override)
+        if event:
+            from app.services.age_verification import enforce_age_limit
+            enforce_age_limit(user.birthday, event.age_restricted, event.min_age, "sponsor this event")
+            if getattr(event, "community_rules", False):
+                override = await settings_svc.get_str(db, "community_sponsor_commission_percent")
+                if override is not None and override != "":
+                    commission_pct = int(override)
     platform_cut = (bid.amount_cents * commission_pct) // 100
     net = bid.amount_cents - platform_cut
+
+    gateway_txn_id: str | None = None
+    gateway_auth: str | None = None
+    if bid.amount_cents > 0:
+        try:
+            from app.services.payment_gateway import get_gateway
+            gw = await get_gateway(db)
+            result = await gw.charge(
+                db,
+                user_id=user.id,
+                amount_cents=bid.amount_cents,
+                description=f"Sponsor payment for bid {bid_id}",
+                idempotency_key=f"sponsor-bid-{bid_id}",
+                commission_cents=platform_cut,
+            )
+            if result.status == "failed":
+                raise HTTPException(status_code=402, detail=f"Payment failed: {getattr(result, 'failure_reason', 'card declined')}")
+            gateway_txn_id = result.transaction_id
+            gateway_auth = result.authorization_code
+        except HTTPException:
+            raise
+        except Exception as exc:
+            raise HTTPException(status_code=402, detail=f"Payment processing error: {exc}")
 
     now = datetime.utcnow()
     receipt = f"SP-{now.strftime('%Y%m%d')}-{bid.category_id}-{bid_id}"
@@ -102,6 +129,8 @@ async def pay_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorPayment:
         platform_cut_cents=platform_cut,
         net_to_organizer_cents=net,
         receipt_number=receipt,
+        gateway_transaction_id=gateway_txn_id,
+        gateway_auth_code=gateway_auth,
     )
     db.add(payment)
 

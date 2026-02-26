@@ -94,6 +94,9 @@ class PledgeReceiptResponse(BaseModel):
     platform_cut_cents: int = 0
     net_to_organizer_cents: int = 0
     funding_commission_percent: int = 0
+    subtotal_cents: int = 0
+    tax_cents: int = 0
+    tax_rate: float = 0.0
     status: str
     is_guest: bool = False
     created_at: datetime

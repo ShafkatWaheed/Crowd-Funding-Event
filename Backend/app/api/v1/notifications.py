@@ -1,7 +1,7 @@
 """
 In-app notification endpoints.
 """
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Response
 
 from app.dependencies import CurrentUser, DbSession, ReadDbSession
 from app.services import notification_service as notif_svc
@@ -59,3 +59,13 @@ async def mark_all_notifications_read(db: DbSession, current_user: CurrentUser):
     """Mark all notifications as read for the current user."""
     count = await notif_svc.mark_all_read(db, user_id=current_user.id)
     return {"marked_read": count}
+
+
+@router.delete("/notifications/{notification_id}", status_code=204)
+async def delete_notification(
+    notification_id: int,
+    db: DbSession,
+    current_user: CurrentUser,
+):
+    """Delete a single notification. Only the owner can delete."""
+    await notif_svc.delete_notification(db, notification_id=notification_id, user_id=current_user.id)

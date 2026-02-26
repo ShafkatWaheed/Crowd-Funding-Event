@@ -79,6 +79,17 @@ class NotificationProvider extends ChangeNotifier {
     } catch (_) {}
   }
 
+  Future<void> deleteNotification(int notificationId) async {
+    try {
+      await _api.dio.delete('/me/notifications/$notificationId');
+      final wasUnread = _notifications.any(
+          (n) => n['id'] == notificationId && n['is_read'] != true);
+      _notifications.removeWhere((n) => n['id'] == notificationId);
+      if (wasUnread) _unreadCount = (_unreadCount - 1).clamp(0, 999);
+      notifyListeners();
+    } catch (_) {}
+  }
+
   @override
   void dispose() {
     stopPolling();

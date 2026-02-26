@@ -116,6 +116,30 @@ async def purchase_ticket(
 
     purchase_group_id = secrets.token_urlsafe(16) if quantity > 1 else None
 
+    gateway_txn_id: str | None = None
+    gateway_auth: str | None = None
+    total_charge = final_cents * quantity
+    if total_charge > 0 and ticket_status == TicketSaleStatus.purchased:
+        try:
+            from app.services.payment_gateway import get_gateway
+            gw = await get_gateway(db)
+            result = await gw.charge(
+                db,
+                user_id=user.id,
+                amount_cents=total_charge,
+                description=f"Ticket purchase: {quantity}x {tier.name} for event {event_id}",
+                idempotency_key=purchase_group_id or f"ticket-{event_id}-{user.id}-{tier_id}",
+                commission_cents=commission_cents * quantity,
+            )
+            if result.status == "failed":
+                raise ConflictError(f"Payment failed: {getattr(result, 'failure_reason', 'card declined')}")
+            gateway_txn_id = result.transaction_id
+            gateway_auth = result.authorization_code
+        except ConflictError:
+            raise
+        except Exception as exc:
+            raise ConflictError(f"Payment processing error: {exc}")
+
     now = datetime.now(timezone.utc)
 
     sales: list[TicketSale] = []
@@ -133,6 +157,8 @@ async def purchase_ticket(
             net_to_organizer_cents=net_to_organizer,
             extra_perks=extra_perks if extra_perks else (None if total_discount < tier_price else ""),
             status=ticket_status,
+            gateway_transaction_id=gateway_txn_id,
+            gateway_auth_code=gateway_auth,
         )
         db.add(sale)
         await db.flush()

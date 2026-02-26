@@ -87,6 +87,8 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
     final platformCutCents = (r['platform_cut_cents'] ?? 0) as int;
     final netToOrganizerCents = (r['net_to_organizer_cents'] ?? 0) as int;
     final commissionPct = (r['funding_commission_percent'] ?? 0) as int;
+    final taxCents = (r['tax_cents'] ?? 0) as int;
+    final taxRate = (r['tax_rate'] ?? 0.0) as num;
     final status = r['status'] ?? 'pledged';
     final isGuest = r['is_guest'] == true;
     final isDonation = isGuest;
@@ -180,10 +182,22 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
 
                       _sectionLabel('FEE BREAKDOWN'),
                       const SizedBox(height: 8),
+                      if (r['subtotal_cents'] != null && taxCents > 0) ...[
+                        _priceRow('Subtotal', _formatCents((r['subtotal_cents'] as int?) ?? amountCents)),
+                        const SizedBox(height: 6),
+                      ],
                       _priceRow('$typeLabel Amount', _formatCents(amountCents)),
                       const SizedBox(height: 6),
                       _priceRow('Platform Fee ($commissionPct%)',
                           _formatCents(platformCutCents), subtle: true),
+                      if (taxCents > 0) ...[
+                        const SizedBox(height: 6),
+                        _priceRow(
+                          'Tax${taxRate > 0 ? ' (${taxRate.toStringAsFixed(1)}%)' : ''}',
+                          _formatCents(taxCents),
+                          subtle: true,
+                        ),
+                      ],
                       const SizedBox(height: 6),
                       Divider(color: AppTheme.dividerOf(context)),
                       _priceRow('Net to Organizer',

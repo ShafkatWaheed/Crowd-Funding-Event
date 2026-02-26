@@ -97,6 +97,22 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Map<String, dynamic>? _selectedEventEscrows;
   int? _selectedPipelineEventId;
 
+  // Disputes detail state (D4)
+  List<dynamic> _disputes = [];
+  bool _disputesLoading = false;
+
+  // Payout status state (D3)
+  List<dynamic> _payoutItems = [];
+  bool _payoutLoading = false;
+
+  // Transaction ledger state (E1)
+  List<dynamic> _transactions = [];
+  int _txnTotal = 0;
+  int _txnPage = 0;
+  bool _txnLoading = false;
+  String _txnSearch = '';
+  String _txnStatusFilter = 'all';
+
   // Search/filter state
   String _eventSearch = '';
   int _eventFilterIndex = -1; // auto-detect on load
@@ -130,7 +146,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const SizedBox(height: 8),
-            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[400], borderRadius: BorderRadius.circular(2))),
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: AppTheme.dividerOf(ctx), borderRadius: BorderRadius.circular(2))),
             const SizedBox(height: 12),
             ListTile(leading: const Icon(Icons.event), title: const Text('Events'), onTap: () { Navigator.pop(ctx); setState(() => _selectedSection = 1); }),
             ListTile(leading: const Icon(Icons.paid), title: const Text('Financial'), onTap: () { Navigator.pop(ctx); setState(() => _selectedSection = 2); }),
@@ -149,6 +165,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     super.initState();
     _loadData();
     _loadDashboard();
+    _loadMockData();
     _usersScrollCtrl.addListener(() => _onScroll(_usersScrollCtrl, _loadMoreUsers));
     _eventsScrollCtrl.addListener(() => _onScroll(_eventsScrollCtrl, _loadMoreEvents));
     _ticketsScrollCtrl.addListener(() => _onScroll(_ticketsScrollCtrl, _loadMoreTickets));
@@ -428,7 +445,24 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       ),
     );
 
-    final body = _isLoading ? loadingBody : _bodyForSection(_selectedSection);
+    final sectionBody = _isLoading ? loadingBody : _bodyForSection(_selectedSection);
+    final body = (_mockData != null && _selectedSection != 7) ? Column(
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          color: AppTheme.warningSurface,
+          child: Row(
+            children: [
+              const Icon(Icons.science_outlined, color: AppTheme.warningColor, size: 16),
+              const SizedBox(width: 6),
+              Text('Mock Mode Active', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textPrimaryOf(context))),
+            ],
+          ),
+        ),
+        Expanded(child: sectionBody),
+      ],
+    ) : sectionBody;
 
     return ScaffoldMessenger(
       key: _messengerKey,
@@ -2438,11 +2472,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             const SizedBox(height: 12),
             Row(
               children: [
-                _stageDot('S1', s1 != null, context.feedAccent),
+                _escrowStageDot('S1', s1 != null, context.feedAccent),
                 _stageLine(s1 != null && s2 != null),
-                _stageDot('S2', s2 != null, context.fundingAccent),
+                _escrowStageDot('S2', s2 != null, context.fundingAccent),
                 _stageLine(s2 != null && s3 != null),
-                _stageDot('S3', s3 != null, AppTheme.successOf(context)),
+                _escrowStageDot('S3', s3 != null, AppTheme.successOf(context)),
               ],
             ),
             const SizedBox(height: 12),
@@ -2674,31 +2708,22 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ),
             Text('Platform Account', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context))),
             const SizedBox(height: 8),
-            Card(
-              color: AppTheme.cardOf(context),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Icon(d['platform_account_configured'] == true ? Icons.check_circle : Icons.warning_amber_rounded,
-                      color: d['platform_account_configured'] == true ? AppTheme.successColor : AppTheme.warningColor),
-                    const SizedBox(width: 12),
-                    Text(d['platform_account_configured'] == true ? 'Configured' : 'Not configured',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppTheme.textPrimaryOf(context))),
-                  ],
-                ),
-              ),
+            _PlatformAccountCard(
+              configured: d['platform_account_configured'] == true,
+              bankName: d['platform_account_bank_name'] as String?,
+              lastFour: d['platform_account_last_four'] as String?,
+              onSaved: () => _loadBankingData(),
             ),
             const SizedBox(height: 16),
             Text('Escrow Summary', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context))),
             const SizedBox(height: 8),
             Row(
               children: [
-                Expanded(child: _escrowSummaryCard('Fund', d['fund_escrow_total_held_cents'] ?? 0, d['fund_escrow_total_released_cents'] ?? 0, d['fund_escrow_active_count'] ?? 0, AppTheme.fundingAccent)),
+                Expanded(child: _escrowSummaryCard('Fund', d['fund_escrow_total_held_cents'] ?? 0, d['fund_escrow_total_released_cents'] ?? 0, d['fund_escrow_active_count'] ?? 0, context.fundingAccent)),
                 const SizedBox(width: 8),
-                Expanded(child: _escrowSummaryCard('Ticket', d['ticket_escrow_total_held_cents'] ?? 0, d['ticket_escrow_total_released_cents'] ?? 0, d['ticket_escrow_active_count'] ?? 0, AppTheme.ticketAccent)),
+                Expanded(child: _escrowSummaryCard('Ticket', d['ticket_escrow_total_held_cents'] ?? 0, d['ticket_escrow_total_released_cents'] ?? 0, d['ticket_escrow_active_count'] ?? 0, context.ticketAccent)),
                 const SizedBox(width: 8),
-                Expanded(child: _escrowSummaryCard('Sponsor', d['sponsor_escrow_total_held_cents'] ?? 0, d['sponsor_escrow_total_released_cents'] ?? 0, d['sponsor_escrow_active_count'] ?? 0, AppTheme.sponsorAccent)),
+                Expanded(child: _escrowSummaryCard('Sponsor', d['sponsor_escrow_total_held_cents'] ?? 0, d['sponsor_escrow_total_released_cents'] ?? 0, d['sponsor_escrow_active_count'] ?? 0, context.sponsorAccent)),
               ],
             ),
             const SizedBox(height: 16),
@@ -2711,6 +2736,32 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 Expanded(child: _infoCard('Tax Collected', _centsToStr(d['tax_collected_total_cents'] ?? 0), Icons.receipt_long, AppTheme.warningColor)),
               ],
             ),
+            // Commission breakdown by source (C4)
+            if (d['commission_by_source'] is Map) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  for (final entry in (d['commission_by_source'] as Map).entries) ...[
+                    if (entry != (d['commission_by_source'] as Map).entries.first) const SizedBox(width: 6),
+                    Expanded(
+                      child: Card(
+                        color: AppTheme.cardOf(context),
+                        child: Padding(
+                          padding: const EdgeInsets.all(10),
+                          child: Column(
+                            children: [
+                              Text(entry.key.toString().toUpperCase(), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 0.5, color: AppTheme.textSecondaryOf(context))),
+                              const SizedBox(height: 4),
+                              Text(_centsToStr(entry.value ?? 0), style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.textPrimaryOf(context))),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
             const SizedBox(height: 16),
             Text('Disputes', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context))),
             const SizedBox(height: 8),
@@ -2721,6 +2772,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 Expanded(child: _infoCard('Disputed Amount', _centsToStr(d['disputes_total_amount_cents'] ?? 0), Icons.money_off, AppTheme.errorColor)),
               ],
             ),
+            // Disputes detail list (D4)
+            const SizedBox(height: 8),
+            _buildDisputesDetail(),
             const SizedBox(height: 16),
             Text('Reconciliation', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context))),
             const SizedBox(height: 8),
@@ -2743,10 +2797,34 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         style: TextStyle(color: AppTheme.textPrimaryOf(context)),
                       ),
                     ),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.play_arrow, size: 18),
+                      label: const Text('Run Now'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        textStyle: const TextStyle(fontSize: 13),
+                      ),
+                      onPressed: () async {
+                        try {
+                          await ApiService.instance.post('/admin/reconciliation/run', {});
+                          _loadBankingData();
+                          if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Reconciliation completed')));
+                        } catch (e) {
+                          if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: ${ApiService.extractError(e)}')));
+                        }
+                      },
+                    ),
                   ],
                 ),
               ),
             ),
+            // Organizer Payout Status (D3)
+            const SizedBox(height: 16),
+            _buildPayoutStatusSection(),
+            // Transaction Ledger (E1)
+            const SizedBox(height: 16),
+            _buildTransactionLedger(),
             const SizedBox(height: 16),
             _buildEscrowConfigUI(),
             const SizedBox(height: 16),
@@ -2805,12 +2883,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         Text('Escrow Configuration', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context))),
         const SizedBox(height: 8),
         _escrowConfigTile('Fund Escrow', '${_settingVal('escrow_stage1_percent')}% / ${_settingVal('escrow_stage2_percent')}% / ${_settingVal('escrow_stage3_percent')}%',
-          fundSum, AppTheme.fundingAccent, fundStages.map((st) => _escrowStageRow(st['label']!, st['pct']!)).toList()),
+          fundSum, context.fundingAccent, fundStages.map((st) => _escrowStageRow(st['label']!, st['pct']!)).toList()),
         const SizedBox(height: 8),
         _escrowConfigTile(
           'Ticket Escrow',
           '${_settingVal('ticket_escrow_stage1_percent')}% / ${_settingVal('ticket_escrow_stage2_percent')}% / ${_settingVal('ticket_escrow_stage3_percent')}%',
-          ticketSum, AppTheme.ticketAccent,
+          ticketSum, context.ticketAccent,
           ticketStages.map((st) {
             return Column(children: [
               _escrowStageRow(st['label']!, st['pct']!),
@@ -2826,7 +2904,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         _escrowConfigTile(
           'Sponsor Escrow',
           '${_settingVal('sponsor_escrow_stage1_percent')}% / ${_settingVal('sponsor_escrow_stage2_percent')}% / ${_settingVal('sponsor_escrow_stage3_percent')}%',
-          sponsorSum, AppTheme.sponsorAccent,
+          sponsorSum, context.sponsorAccent,
           sponsorStages.map((st) {
             return Column(children: [
               _escrowStageRow(st['label']!, st['pct']!),
@@ -2948,6 +3026,235 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     } catch (_) {}
   }
 
+  // ---- Disputes Detail (D4) ----
+
+  Future<void> _loadDisputes() async {
+    setState(() => _disputesLoading = true);
+    try {
+      final resp = await ApiService.instance.get('/admin/disputes');
+      setState(() => _disputes = (resp is List) ? resp : (resp['items'] ?? []));
+    } catch (_) {}
+    setState(() => _disputesLoading = false);
+  }
+
+  Widget _buildDisputesDetail() {
+    if (_disputes.isEmpty && !_disputesLoading) _loadDisputes();
+    if (_disputesLoading) return const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()));
+    if (_disputes.isEmpty) return Card(color: AppTheme.cardOf(context), child: Padding(padding: const EdgeInsets.all(16), child: Text('No disputes found.', style: TextStyle(color: AppTheme.textSecondaryOf(context)))));
+    return Column(
+      children: _disputes.map<Widget>((d) {
+        final status = d['status'] ?? 'open';
+        final isOpen = status == 'open' || status == 'evidence_submitted';
+        return Card(
+          color: AppTheme.cardOf(context),
+          child: ExpansionTile(
+            leading: Icon(Icons.gavel, color: isOpen ? AppTheme.errorColor : AppTheme.textSecondaryOf(context), size: 20),
+            title: Text('Dispute ${d['stripe_dispute_id'] ?? '#${d['id']}'}', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimaryOf(context))),
+            subtitle: Text('${_centsToStr(d['amount_cents'] ?? 0)} · $status', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context))),
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (d['reason'] != null) Text('Reason: ${d['reason']}', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context))),
+                    if (d['created_at'] != null) Text('Opened: ${d['created_at']}', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context))),
+                    const SizedBox(height: 8),
+                    if (isOpen) Row(
+                      children: [
+                        OutlinedButton.icon(
+                          icon: const Icon(Icons.upload_file, size: 16),
+                          label: const Text('Submit Evidence'),
+                          style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), textStyle: const TextStyle(fontSize: 12)),
+                          onPressed: () async {
+                            try {
+                              await ApiService.instance.post('/admin/disputes/${d['id']}/submit-evidence', {});
+                              _loadDisputes();
+                              if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Evidence submitted')));
+                            } catch (e) {
+                              if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: ${ApiService.extractError(e)}')));
+                            }
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        TextButton.icon(
+                          icon: const Icon(Icons.cancel, size: 16),
+                          label: const Text('Accept Loss'),
+                          style: TextButton.styleFrom(foregroundColor: AppTheme.errorColor, padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), textStyle: const TextStyle(fontSize: 12)),
+                          onPressed: () async {
+                            try {
+                              await ApiService.instance.post('/admin/disputes/${d['id']}/accept', {});
+                              _loadDisputes();
+                              _loadBankingData();
+                              if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Loss accepted')));
+                            } catch (e) {
+                              if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: ${ApiService.extractError(e)}')));
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  // ---- Payout Status (D3) ----
+
+  Future<void> _loadPayoutStatus() async {
+    setState(() => _payoutLoading = true);
+    try {
+      final resp = await ApiService.instance.get('/admin/payout-status');
+      setState(() => _payoutItems = (resp is List) ? resp : (resp['items'] ?? []));
+    } catch (_) {}
+    setState(() => _payoutLoading = false);
+  }
+
+  Widget _buildPayoutStatusSection() {
+    if (_payoutItems.isEmpty && !_payoutLoading) _loadPayoutStatus();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Payout Status', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context))),
+        const SizedBox(height: 8),
+        if (_payoutLoading) const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator())),
+        if (!_payoutLoading && _payoutItems.isEmpty) Card(color: AppTheme.cardOf(context), child: Padding(padding: const EdgeInsets.all(16), child: Text('No pending payouts.', style: TextStyle(color: AppTheme.textSecondaryOf(context))))),
+        ..._payoutItems.map<Widget>((p) => Card(
+          color: AppTheme.cardOf(context),
+          child: ListTile(
+            leading: CircleAvatar(
+              backgroundColor: (p['has_bank_account'] == true) ? AppTheme.successColor.withValues(alpha: 0.15) : AppTheme.warningColor.withValues(alpha: 0.15),
+              child: Icon(Icons.person, color: (p['has_bank_account'] == true) ? AppTheme.successColor : AppTheme.warningColor, size: 20),
+            ),
+            title: Text(p['organizer_name'] ?? 'Organizer #${p['organizer_id']}', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimaryOf(context))),
+            subtitle: Text('Pending: ${_centsToStr(p['pending_amount_cents'] ?? 0)}${p['has_bank_account'] != true ? ' · No bank account' : ''}', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context))),
+            trailing: (p['has_bank_account'] == true && (p['pending_amount_cents'] ?? 0) > 0) ? ElevatedButton(
+              style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), textStyle: const TextStyle(fontSize: 12)),
+              onPressed: () async {
+                try {
+                  await ApiService.instance.post('/admin/payouts/${p['organizer_id']}/force', {});
+                  _loadPayoutStatus();
+                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Payout initiated')));
+                } catch (e) {
+                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: ${ApiService.extractError(e)}')));
+                }
+              },
+              child: const Text('Force Payout'),
+            ) : null,
+          ),
+        )),
+      ],
+    );
+  }
+
+  // ---- Transaction Ledger (E1) ----
+
+  Future<void> _loadTransactions({int page = 0}) async {
+    setState(() => _txnLoading = true);
+    try {
+      final params = <String, String>{'limit': '20', 'offset': '${page * 20}'};
+      if (_txnSearch.isNotEmpty) params['search'] = _txnSearch;
+      if (_txnStatusFilter != 'all') params['status'] = _txnStatusFilter;
+      final qs = params.entries.map((e) => '${e.key}=${Uri.encodeComponent(e.value)}').join('&');
+      final resp = await ApiService.instance.get('/admin/transactions?$qs');
+      setState(() {
+        _transactions = resp['items'] ?? [];
+        _txnTotal = resp['total'] ?? 0;
+        _txnPage = page;
+      });
+    } catch (_) {}
+    setState(() => _txnLoading = false);
+  }
+
+  Widget _buildTransactionLedger() {
+    if (_transactions.isEmpty && !_txnLoading && _txnTotal == 0) _loadTransactions();
+    final totalPages = (_txnTotal / 20).ceil();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Transaction Ledger', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context))),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                decoration: InputDecoration(hintText: 'Search transactions…', prefixIcon: const Icon(Icons.search, size: 18), isDense: true, contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
+                onChanged: (v) {
+                  _txnSearch = v;
+                  _loadTransactions();
+                },
+              ),
+            ),
+            const SizedBox(width: 8),
+            DropdownButton<String>(
+              value: _txnStatusFilter,
+              underline: const SizedBox(),
+              items: const [
+                DropdownMenuItem(value: 'all', child: Text('All')),
+                DropdownMenuItem(value: 'settled', child: Text('Settled')),
+                DropdownMenuItem(value: 'pending', child: Text('Pending')),
+                DropdownMenuItem(value: 'failed', child: Text('Failed')),
+                DropdownMenuItem(value: 'refunded', child: Text('Refunded')),
+              ],
+              onChanged: (v) { _txnStatusFilter = v ?? 'all'; _loadTransactions(); },
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (_txnLoading) const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator())),
+        if (!_txnLoading) ..._transactions.map<Widget>((t) => Card(
+          color: AppTheme.cardOf(context),
+          child: ListTile(
+            dense: true,
+            leading: Icon(_txnIcon(t['operation']), size: 20, color: AppTheme.accentColor),
+            title: Text('${t['operation'] ?? ''} · ${_centsToStr(t['amount_cents'] ?? 0)}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimaryOf(context))),
+            subtitle: Text('${t['status'] ?? ''} · ${t['description'] ?? ''}'.trim(), style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context)), maxLines: 1, overflow: TextOverflow.ellipsis),
+            trailing: _mockData != null ? IconButton(
+              icon: const Icon(Icons.report_problem, size: 18),
+              tooltip: 'Simulate Dispute',
+              color: AppTheme.warningColor,
+              onPressed: () async {
+                try {
+                  await ApiService.instance.post('/admin/mock/simulate-dispute', {'transaction_id': t['transaction_id']});
+                  _loadBankingData();
+                  _loadDisputes();
+                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Dispute simulated')));
+                } catch (e) {
+                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: ${ApiService.extractError(e)}')));
+                }
+              },
+            ) : null,
+          ),
+        )),
+        if (!_txnLoading && totalPages > 1) Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              IconButton(icon: const Icon(Icons.chevron_left), onPressed: _txnPage > 0 ? () => _loadTransactions(page: _txnPage - 1) : null),
+              Text('Page ${_txnPage + 1} of $totalPages', style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryOf(context))),
+              IconButton(icon: const Icon(Icons.chevron_right), onPressed: _txnPage < totalPages - 1 ? () => _loadTransactions(page: _txnPage + 1) : null),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  IconData _txnIcon(String? op) {
+    switch (op) {
+      case 'charge': return Icons.arrow_downward;
+      case 'refund': return Icons.undo;
+      case 'transfer': return Icons.swap_horiz;
+      default: return Icons.receipt;
+    }
+  }
+
   Widget _buildEscrowPipelineUI() {
     if (_ticketEscrows.isEmpty && _sponsorEscrows.isEmpty && !_pipelineLoading) _loadEscrowPipeline();
     return Column(
@@ -2965,13 +3272,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             selectedColor: AppTheme.accentOf(context).withOpacity(0.2),
             onSelected: (_) => setState(() => _pipelineTypeFilter = 'all')),
           ChoiceChip(label: const Text('Fund'), selected: _pipelineTypeFilter == 'fund',
-            selectedColor: AppTheme.fundingAccent.withOpacity(0.2),
+            selectedColor: context.fundingAccent.withOpacity(0.2),
             onSelected: (_) => setState(() => _pipelineTypeFilter = 'fund')),
           ChoiceChip(label: const Text('Ticket'), selected: _pipelineTypeFilter == 'ticket',
-            selectedColor: AppTheme.ticketAccent.withOpacity(0.2),
+            selectedColor: context.ticketAccent.withOpacity(0.2),
             onSelected: (_) => setState(() => _pipelineTypeFilter = 'ticket')),
           ChoiceChip(label: const Text('Sponsor'), selected: _pipelineTypeFilter == 'sponsor',
-            selectedColor: AppTheme.sponsorAccent.withOpacity(0.2),
+            selectedColor: context.sponsorAccent.withOpacity(0.2),
             onSelected: (_) => setState(() => _pipelineTypeFilter = 'sponsor')),
         ]),
         const SizedBox(height: 8),
@@ -3003,7 +3310,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Widget _pipelineRow(Map<String, dynamic> e) {
     final type = e['_type'] as String;
-    final color = type == 'fund' ? AppTheme.fundingAccent : type == 'ticket' ? AppTheme.ticketAccent : AppTheme.sponsorAccent;
+    final color = type == 'fund' ? context.fundingAccent : type == 'ticket' ? context.ticketAccent : context.sponsorAccent;
     final statusStr = e['status'] ?? 'holding';
     return Card(
       color: AppTheme.cardOf(context),
@@ -3036,7 +3343,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       margin: const EdgeInsets.only(right: 4),
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: released ? AppTheme.successColor : Colors.grey.shade400,
+        color: released ? AppTheme.successColor : AppTheme.textSecondaryOf(context),
       ),
     );
   }
@@ -3076,7 +3383,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _escrowDetailColumn(String label, Map<String, dynamic> esc, String type, int eventId) {
-    final color = type == 'fund' ? AppTheme.fundingAccent : type == 'ticket' ? AppTheme.ticketAccent : AppTheme.sponsorAccent;
+    final color = type == 'fund' ? context.fundingAccent : type == 'ticket' ? context.ticketAccent : context.sponsorAccent;
     final stages = [
       {'n': 1, 'cents': esc['stage1_released_cents'] ?? 0, 'at': esc['stage1_released_at']},
       {'n': 2, 'cents': esc['stage2_released_cents'] ?? 0, 'at': esc['stage2_released_at']},
@@ -3098,7 +3405,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 2),
               child: Row(children: [
-                Icon(released ? Icons.check_circle : Icons.radio_button_unchecked, color: released ? AppTheme.successColor : Colors.grey, size: 16),
+                Icon(released ? Icons.check_circle : Icons.radio_button_unchecked, color: released ? AppTheme.successColor : AppTheme.textSecondaryOf(context), size: 16),
                 const SizedBox(width: 6),
                 Text('Stage ${st['n']}: ${_centsToStr(st['cents'] as int)}', style: TextStyle(fontSize: 13, color: AppTheme.textPrimaryOf(context))),
                 if (!released && !frozen) ...[
@@ -3183,8 +3490,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Future<void> _loadEmailTemplates() async {
     setState(() => _emailLoading = true);
     try {
-      final data = await ApiService.instance.get('/admin/email-templates');
-      if (mounted) setState(() { _emailTemplates = data is List ? data : []; _emailLoading = false; });
+      final resp = await ApiService.instance.dio.get('/admin/email-templates');
+      final data = resp.data;
+      if (mounted) setState(() { _emailTemplates = data is List ? List<dynamic>.from(data) : []; _emailLoading = false; });
     } catch (e) {
       if (mounted) setState(() => _emailLoading = false);
     }
@@ -3228,6 +3536,41 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Text('No custom templates. All emails use default hardcoded templates.', style: TextStyle(color: AppTheme.textSecondaryOf(context))),
+                ),
+              ),
+            if (_emailTemplates.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.restart_alt, size: 18),
+                    label: const Text('Reset All to Defaults'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.errorColor,
+                      side: BorderSide(color: AppTheme.errorColor.withValues(alpha: 0.4)),
+                    ),
+                    onPressed: () async {
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('Reset All Templates?'),
+                          content: const Text('This will delete all custom email templates and revert to built-in defaults.'),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                            TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text('Reset All', style: TextStyle(color: AppTheme.errorColor))),
+                          ],
+                        ),
+                      );
+                      if (confirm == true) {
+                        try {
+                          await ApiService.instance.post('/admin/email-templates/reset-all', {});
+                          _loadEmailTemplates();
+                          if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('All templates reset to defaults')));
+                        } catch (_) {}
+                      }
+                    },
+                  ),
                 ),
               ),
             ..._emailTemplates.map((t) => Card(
@@ -3333,6 +3676,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 _infoCard('Emails', '${d['total_emails'] ?? 0}', Icons.email, AppTheme.accentColor),
                 _infoCard('Bounce Rate', '${d['email_bounce_rate'] ?? 0}%', Icons.error_outline, AppTheme.warningColor),
               ],
+            ),
+            const SizedBox(height: 8),
+            Card(
+              color: AppTheme.cardOf(context),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    Expanded(child: Text('Last Transaction: ${d['last_transaction_at'] ?? 'N/A'}', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context)))),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text('Last Email: ${d['last_email_at'] ?? 'N/A'}', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context)))),
+                  ],
+                ),
+              ),
             ),
             const SizedBox(height: 16),
             Text('Quick Actions', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context))),
@@ -3997,7 +4354,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Widget _stageDot(String label, bool done, Color color) {
+  Widget _escrowStageDot(String label, bool done, Color color) {
     return Column(
       children: [
         Container(
@@ -4043,6 +4400,174 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           foregroundColor: color,
           side: BorderSide(color: color.withValues(alpha: 0.3)),
           padding: const EdgeInsets.symmetric(horizontal: 10),
+        ),
+      ),
+    );
+  }
+}
+
+class _PlatformAccountCard extends StatefulWidget {
+  final bool configured;
+  final String? bankName;
+  final String? lastFour;
+  final VoidCallback onSaved;
+
+  const _PlatformAccountCard({
+    required this.configured,
+    this.bankName,
+    this.lastFour,
+    required this.onSaved,
+  });
+
+  @override
+  State<_PlatformAccountCard> createState() => _PlatformAccountCardState();
+}
+
+class _PlatformAccountCardState extends State<_PlatformAccountCard> {
+  bool _editing = false;
+  bool _saving = false;
+  final _bankNameCtrl = TextEditingController();
+  final _accountNumberCtrl = TextEditingController();
+  final _routingNumberCtrl = TextEditingController();
+  final _accountHolderCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _bankNameCtrl.dispose();
+    _accountNumberCtrl.dispose();
+    _routingNumberCtrl.dispose();
+    _accountHolderCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (_bankNameCtrl.text.isEmpty ||
+        _accountNumberCtrl.text.isEmpty ||
+        _routingNumberCtrl.text.isEmpty ||
+        _accountHolderCtrl.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('All fields are required')),
+      );
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      await ApiService.instance.put('/admin/platform-account', data: {
+        'bank_name': _bankNameCtrl.text,
+        'account_number': _accountNumberCtrl.text,
+        'routing_number': _routingNumberCtrl.text,
+        'account_holder': _accountHolderCtrl.text,
+      });
+      if (mounted) {
+        setState(() { _editing = false; _saving = false; });
+        widget.onSaved();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(ApiService.extractError(e, fallback: 'Failed to save'))),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_editing) {
+      return Card(
+        color: AppTheme.cardOf(context),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Configure Platform Account',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700,
+                      color: AppTheme.textPrimaryOf(context))),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _bankNameCtrl,
+                decoration: const InputDecoration(
+                    labelText: 'Bank Name', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _accountNumberCtrl,
+                decoration: const InputDecoration(
+                    labelText: 'Account Number', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _routingNumberCtrl,
+                decoration: const InputDecoration(
+                    labelText: 'Routing Number', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _accountHolderCtrl,
+                decoration: const InputDecoration(
+                    labelText: 'Account Holder', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: _saving ? null : () => setState(() => _editing = false),
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: _saving ? null : _save,
+                    child: _saving
+                        ? const SizedBox(width: 18, height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Text('Save'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Card(
+      color: AppTheme.cardOf(context),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Icon(
+              widget.configured ? Icons.check_circle : Icons.warning_amber_rounded,
+              color: widget.configured ? AppTheme.successColor : AppTheme.warningColor,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.configured ? 'Configured' : 'Not configured',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600,
+                        color: AppTheme.textPrimaryOf(context)),
+                  ),
+                  if (widget.configured && widget.bankName != null)
+                    Text(
+                      '${widget.bankName} \u2022\u2022\u2022\u2022${widget.lastFour ?? ''}',
+                      style: TextStyle(fontSize: 13,
+                          color: AppTheme.textSecondaryOf(context)),
+                    ),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.edit_outlined, size: 20),
+              onPressed: () => setState(() => _editing = true),
+              tooltip: 'Edit',
+            ),
+          ],
         ),
       ),
     );

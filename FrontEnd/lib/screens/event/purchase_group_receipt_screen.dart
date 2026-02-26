@@ -109,6 +109,10 @@ class _PurchaseGroupReceiptScreenState
     final totalAmountPaid = (r['total_amount_paid_cents'] ?? 0) as int;
     final totalDiscount = (r['total_discount_applied_cents'] ?? 0) as int;
     final totalCommission = (r['total_commission_cents'] ?? 0) as int;
+    final totalSubtotal = (r['total_subtotal_cents'] ?? 0) as int;
+    final totalTax = (r['total_tax_cents'] ?? 0) as int;
+    final taxRate = (r['tax_rate'] ?? 0.0) as num;
+    final taxJurisdiction = r['tax_jurisdiction'] as String?;
     final purchasedAt = r['purchased_at'] != null
         ? DateTime.parse(r['purchased_at']).toLocal()
         : null;
@@ -301,6 +305,15 @@ class _PurchaseGroupReceiptScreenState
                               _priceRow(context, 'Platform Fee',
                                   _formatCents(totalCommission),
                                   valueColor: AppTheme.textSecondaryOf(context)),
+                            ],
+                            if (totalTax > 0) ...[
+                              const SizedBox(height: 8),
+                              _priceRow(
+                                context,
+                                'Tax${taxRate > 0 ? ' (${taxRate.toStringAsFixed(1)}%)' : ''}${taxJurisdiction != null && taxJurisdiction.isNotEmpty ? ' \u2022 $taxJurisdiction' : ''}',
+                                _formatCents(totalTax),
+                                valueColor: AppTheme.textSecondaryOf(context),
+                              ),
                             ],
                             const SizedBox(height: 10),
                             Container(height: 1,

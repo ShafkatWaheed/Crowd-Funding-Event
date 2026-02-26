@@ -99,3 +99,17 @@ async def mark_all_read(db: AsyncSession, *, user_id: int) -> int:
         .values(is_read=True)
     )
     return result.rowcount
+
+
+async def delete_notification(db: AsyncSession, *, notification_id: int, user_id: int) -> None:
+    from app.core.exceptions import NotFoundError, ForbiddenError
+    notif = (await db.execute(
+        select(Notification).where(Notification.id == notification_id)
+    )).scalar_one_or_none()
+    if not notif:
+        raise NotFoundError("Notification not found")
+    if notif.user_id != user_id:
+        raise ForbiddenError("Not your notification")
+    await db.execute(
+        delete(Notification).where(Notification.id == notification_id)
+    )

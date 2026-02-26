@@ -185,13 +185,18 @@ class _HomeScreenState extends State<HomeScreen> {
     ];
   }
 
+  // City filter
+  List<String> _cities = [];
+  String? _selectedCity;       // Explore tab
+  String? _homeCityFilter;     // Home tab
+
   // Home tab search
   final _homeSearchCtrl = TextEditingController();
   String? _homeGenre;
   String? _homeStatus;
   List<Event> _homeSearchResults = [];
   bool get _isHomeFiltered =>
-      _homeSearchCtrl.text.isNotEmpty || _homeGenre != null || _homeStatus != null;
+      _homeSearchCtrl.text.isNotEmpty || _homeGenre != null || _homeStatus != null || _homeCityFilter != null;
 
   // Featured sections
   List<Event> _trending = [];
@@ -226,6 +231,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Map<String, dynamic>? _timeSeriesData;
   bool _timeSeriesLoading = false;
   int _chartDays = 30;
+  String _dashboardPeriod = '30d';
   int? _activityFilterEventId;
   String? _dashboardStatusFilter;
   String? _dashboardGenreFilter;
@@ -254,6 +260,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _loadSponsorBidEvents();
       _loadDashboard();
       _loadNearMe();
+      _loadCities();
       final ep = context.read<EventProvider>();
       ep.addListener(_onEventsChanged);
     });
@@ -365,7 +372,7 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() { _dashboardLoading = true; _dashboardError = null; });
     try {
       final api = context.read<ApiService>();
-      final data = await api.getOrganizerDashboard(status: statusFilter, eventId: eventId, genre: genre);
+      final data = await api.getOrganizerDashboard(status: statusFilter, eventId: eventId, genre: genre, period: _dashboardPeriod);
       if (mounted) {
         setState(() {
           _dashboardData = data;
@@ -384,6 +391,14 @@ class _HomeScreenState extends State<HomeScreen> {
         });
       }
     }
+  }
+
+  Future<void> _loadCities() async {
+    try {
+      final api = context.read<ApiService>();
+      final cities = await api.getEventCities();
+      if (mounted) setState(() => _cities = cities);
+    } catch (_) {}
   }
 
   Future<void> _loadTimeSeries({String? statusFilter, int? eventId, String? genre}) async {
@@ -607,6 +622,7 @@ class _HomeScreenState extends State<HomeScreen> {
       }
       if (_homeGenre != null && e.genre != _homeGenre) return false;
       if (_homeStatus != null && e.status.name != _homeStatus) return false;
+      if (_homeCityFilter != null && e.venue?.city != _homeCityFilter) return false;
       return true;
     }).toList();
 
@@ -618,6 +634,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _homeSearchCtrl.clear();
       _homeGenre = null;
       _homeStatus = null;
+      _homeCityFilter = null;
       _homeSearchResults = [];
     });
   }
@@ -643,6 +660,9 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_selectedGenre != null) {
       filters['genre'] = _selectedGenre;
     }
+    if (_selectedCity != null) {
+      filters['city'] = _selectedCity;
+    }
 
     final auth = context.read<AuthProvider>();
     final user = auth.user;
@@ -667,6 +687,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _selectedStatus = null;
       _selectedRegType = null;
       _selectedGenre = null;
+      _selectedCity = null;
       _dateFrom = null;
       _dateTo = null;
       _hasFunding = null;
@@ -1036,6 +1057,56 @@ class _HomeScreenState extends State<HomeScreen> {
                       }).toList(),
                     ),
                   ),
+                  if (_cities.isNotEmpty) ...[
+                    AppSpacing.vSm,
+                    SizedBox(
+                      height: 38,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(right: AppSpacing.sm),
+                            child: ChoiceChip(
+                              label: const Text('All Cities'),
+                              selected: _homeCityFilter == null,
+                              onSelected: (_) {
+                                setState(() => _homeCityFilter = null);
+                                _homeSearch();
+                              },
+                              selectedColor: AppTheme.accentColor,
+                              backgroundColor: AppTheme.cardOf(context),
+                              side: BorderSide(color: _homeCityFilter == null ? AppTheme.accentColor : AppTheme.dividerOf(context)),
+                              labelStyle: TextStyle(
+                                fontSize: 13, fontWeight: FontWeight.w600,
+                                color: _homeCityFilter == null ? Colors.white : AppTheme.textPrimaryOf(context),
+                              ),
+                            ),
+                          ),
+                          ..._cities.map((c) {
+                            final isActive = _homeCityFilter == c;
+                            return Padding(
+                              padding: const EdgeInsets.only(right: AppSpacing.sm),
+                              child: ChoiceChip(
+                                label: Text(c),
+                                selected: isActive,
+                                onSelected: (selected) {
+                                  setState(() => _homeCityFilter = selected ? c : null);
+                                  _homeSearch();
+                                },
+                                selectedColor: AppTheme.accentColor,
+                                backgroundColor: AppTheme.cardOf(context),
+                                side: BorderSide(color: isActive ? AppTheme.accentColor : AppTheme.dividerOf(context)),
+                                labelStyle: TextStyle(
+                                  fontSize: 13, fontWeight: FontWeight.w600,
+                                  color: isActive ? Colors.white : AppTheme.textPrimaryOf(context),
+                                ),
+                              ),
+                            );
+                          }),
+                        ],
+                      ),
+                    ),
+                  ],
                   ],
                 ],
               ),
@@ -1067,6 +1138,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           if (_homeGenre != null)
                             _homeGenre![0].toUpperCase() +
                                 _homeGenre!.substring(1),
+                          if (_homeCityFilter != null)
+                            _homeCityFilter!,
                         ].join(' in '),
                         style: TextStyle(
                           fontSize: 15,
@@ -1736,6 +1809,32 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ],
                   ),
+                  if (_cities.isNotEmpty) ...[
+                    AppSpacing.vSm,
+                    DropdownButtonFormField<String>(
+                      value: _selectedCity,
+                      isDense: true,
+                      decoration: InputDecoration(
+                        labelText: 'City',
+                        filled: true,
+                        fillColor: AppTheme.inputFillOf(context),
+                        border: OutlineInputBorder(
+                          borderRadius: AppRadius.sm,
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                      ),
+                      items: [
+                        const DropdownMenuItem(value: null, child: Text('All Cities')),
+                        ..._cities.map((c) => DropdownMenuItem(value: c, child: Text(c))),
+                      ],
+                      onChanged: (v) {
+                        setState(() => _selectedCity = v);
+                        _applyFilters();
+                      },
+                    ),
+                  ],
                   AppSpacing.vSm,
                   Row(
                     children: [
@@ -2081,10 +2180,57 @@ class _HomeScreenState extends State<HomeScreen> {
     final events = d['total_events'] as Map<String, dynamic>;
     final sponsors = d['total_sponsors'] as Map<String, dynamic>?;
 
+    const periodOptions = {'7d': '7d', '30d': '30d', '90d': '90d', '1y': '1y'};
+    const periodToDays = {'7d': 7, '30d': 30, '90d': 90, '1y': 365};
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(AppSpacing.xl, AppSpacing.xl, AppSpacing.xl, 0),
       child: Column(
         children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(
+              children: [
+                Text('Period', style: TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w600,
+                    color: AppTheme.textSecondaryOf(context))),
+                const SizedBox(width: 10),
+                ...periodOptions.entries.map((e) => Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: ChoiceChip(
+                    label: Text(e.value),
+                    selected: _dashboardPeriod == e.key,
+                    onSelected: (_) {
+                      if (_dashboardPeriod != e.key) {
+                        setState(() {
+                          _dashboardPeriod = e.key;
+                          _chartDays = periodToDays[e.key] ?? 30;
+                        });
+                        _loadDashboard(
+                          statusFilter: _dashboardStatusFilter,
+                          eventId: _dashboardEventId,
+                          genre: _dashboardGenreFilter,
+                        );
+                      }
+                    },
+                    labelStyle: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: _dashboardPeriod == e.key
+                          ? Colors.white
+                          : AppTheme.textSecondaryOf(context),
+                    ),
+                    selectedColor: AppTheme.accentColor,
+                    backgroundColor: AppTheme.surfaceOf(context),
+                    side: BorderSide.none,
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                )),
+              ],
+            ),
+          ),
           AnimatedListItem(
             index: 0,
             child: Row(

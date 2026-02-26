@@ -60,3 +60,8 @@ This folder documents each major feature of the Crowd Funding Event product: **e
 | 44 | [44-backend-scaling-infra.md](44-backend-scaling-infra.md) | Backend Scaling & Infra |
 | 45 | [45-parking-transport.md](45-parking-transport.md) | Parking & Transport |
 | 46 | [46-api-docs.md](46-api-docs.md) | API Documentation |
+| 47 | [47-organizer-dashboard-filters.md](47-organizer-dashboard-filters.md) | Organizer Dashboard Filters (Genre and Event) |
+| 48 | [48-sign-out-animation.md](48-sign-out-animation.md) | Sign-Out Animation |
+| 49 | [49-redis-caching.md](49-redis-caching.md) | Redis Caching Layer |
+| 50 | [50-cache-ttl-admin-toggle.md](50-cache-ttl-admin-toggle.md) | Cache TTL and Enable/Disable in Admin Settings |
+| 51 | [51-backend-query-improvements.md](51-backend-query-improvements.md) | Backend Query Improvements |

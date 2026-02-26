@@ -24,7 +24,7 @@ def upgrade() -> None:
     op.create_index("ix_sponsor_tickets_sponsor_user_id", "sponsor_tickets", ["sponsor_user_id"])
     op.create_index("ix_sponsor_payments_status", "sponsor_payments", ["status"])
     op.create_index("ix_sponsorship_categories_organizer_id", "sponsorship_categories", ["organizer_id"])
-    op.create_index("ix_bookmarks_user_id", "bookmarks", ["user_id"])
+    # ix_bookmarks_user_id already created in ii60i0j1k2l3_bookmarks.py
     op.create_index("ix_bookmarks_event_id", "bookmarks", ["event_id"])
 
     # Composite indexes for dashboard aggregate queries
@@ -40,7 +40,6 @@ def downgrade() -> None:
     op.drop_index("ix_ticket_sales_event_created", table_name="ticket_sales")
     op.drop_index("ix_ticket_sales_event_status", table_name="ticket_sales")
     op.drop_index("ix_bookmarks_event_id", table_name="bookmarks")
-    op.drop_index("ix_bookmarks_user_id", table_name="bookmarks")
     op.drop_index("ix_sponsorship_categories_organizer_id", table_name="sponsorship_categories")
     op.drop_index("ix_sponsor_payments_status", table_name="sponsor_payments")
     op.drop_index("ix_sponsor_tickets_sponsor_user_id", table_name="sponsor_tickets")

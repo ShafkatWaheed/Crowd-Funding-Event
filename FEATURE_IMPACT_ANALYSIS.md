@@ -324,6 +324,90 @@ Legend: **[NEW]** = new file created, **[MOD]** = existing file modified, **[DEP
 
 ---
 
+## Recently Implemented (Organizer UX, Performance, Caching)
+
+### Organizer dashboard filters (genre + event_id)
+
+**Scope:** Medium. Full-stack filter propagation so KPI cards and manage screens respect dashboard genre/event selection.
+
+| Layer | File | Change |
+|-------|------|--------|
+| Backend API | `Backend/app/api/v1/users.py` **[MOD]** | `get_my_organizer_ticket_sales`, `get_organizer_pledges`: add `genre`, `event_id` query params; filter via Event join |
+| Backend API | `Backend/app/api/v1/sponsors/organizer_views.py` **[MOD]** | `list_organizer_sponsors`: add `genre`, `event_id`; filter via Event.genre / Event.id |
+| Backend Service | `Backend/app/services/ticket/sales.py`, `pledges.py`, `sponsor/organizer_queries.py` **[MOD]** | Pass genre/event_id into list queries, filter on Event |
+| Frontend API | `FrontEnd/lib/services/api_service.dart` **[MOD]** | `getOrganizerTicketSales`, `getOrganizerPledges`, `getOrganizerSponsors`: optional `genre`, `eventId` params |
+| Frontend Router | `FrontEnd/lib/config/router.dart` **[MOD]** | Extract `genre`, `event_id`, `event_title` from query params for ticket-sales, pledges, sponsors routes |
+| Frontend Screens | `global_ticket_sales_screen.dart`, `organizer_pledges_screen.dart`, `organizer_sponsors_screen.dart` **[MOD]** | Add genre/eventId/eventTitle to constructors; pass to API; show in subtitle |
+| Frontend Home | `FrontEnd/lib/screens/home/home_screen.dart` **[MOD]** | KPI card onTap: include genre + event_id in nav URLs; Total Events card: navigate to event detail when single event selected, else explore with filters |
+
+**Regression risk:** LOW. Additive query params and UI; backward compatible.
+
+---
+
+### Sign-out animation
+
+**Scope:** Small. Replace static "Not signed in" text with an animated sign-out state (icon, "Signing out…", "See you next time!", progress indicator) using `flutter_animate`.
+
+| Layer | File | Change |
+|-------|------|--------|
+| Frontend | `FrontEnd/lib/screens/home/home_screen.dart` **[MOD]** | In `_buildProfileTab()`, when `user == null` show animated Column (scale/fade/slide) instead of plain text |
+
+**Regression risk:** LOW. Visual only.
+
+---
+
+### Redis caching layer
+
+**Scope:** Medium. Cache-aside for high-traffic read paths; graceful degradation when Redis unavailable.
+
+| Layer | File | Change |
+|-------|------|--------|
+| Backend | `Backend/app/cache.py` **[NEW]** | Async Redis client: `cache_get`/`cache_set`/`cache_delete`/`cache_delete_pattern`, `cache_json_get`/`cache_json_set`; `init_cache`/`close_cache`; `_enabled` flag + `set_cache_enabled()` |
+| Backend | `Backend/app/main.py` **[MOD]** | Lifespan: call `init_cache()` after ARQ pool, `close_cache()` before teardown; bootstrap `cache_enabled` from DB |
+| Backend | `Backend/app/config.py` **[MOD]** | Add `CACHE_DEFAULT_TTL` |
+| Backend | `Backend/app/services/platform_settings.py` **[MOD]** | `_get_raw()`: cache-aside with `settings:{key}`, TTL from DEFAULTS; `set_value()` invalidate + `set_cache_enabled()` when key is `cache_enabled` |
+| Backend | `Backend/app/api/v1/events/crud.py` **[MOD]** | `get_featured_events`: cache JSON by `featured:{sponsorship_only}` (TTL from setting); `get_event`: cache by `event:{id}` (TTL from setting), skip cache for admin; invalidate on PATCH + lifecycle |
+| Backend | `Backend/app/api/v1/events/lifecycle.py` **[MOD]** | After each status change: `_invalidate_event_cache(event_id)` (delete `event:{id}` + `featured:*`) |
+| Backend | `Backend/app/api/v1/users.py` **[MOD]** | `get_organizer_dashboard`: cache JSON by `dashboard:{organizer_id}:{filters}` (TTL from setting) |
+
+**Cached:** Platform settings (per-key, 5 min), featured events (1 min), event detail (30 s), organizer dashboard (15 s). Admin settings list (`get_all_with_descriptions`) is **not** cached.
+
+**Regression risk:** LOW. Cache misses fall back to DB; invalidation on write.
+
+---
+
+### Cache TTL and enable/disable in admin settings
+
+**Scope:** Small. All TTLs and a master cache toggle configurable in admin panel.
+
+| Layer | File | Change |
+|-------|------|--------|
+| Backend | `Backend/app/services/platform_settings.py` **[MOD]** | DEFAULTS: `cache_enabled`, `cache_ttl_settings`, `cache_ttl_featured`, `cache_ttl_event_detail`, `cache_ttl_dashboard`; DESCRIPTIONS; `_get_raw()` uses `DEFAULTS["cache_ttl_settings"]` |
+| Backend | `Backend/app/api/v1/events/crud.py` **[MOD]** | Featured and event-detail endpoints: TTL from `get_int(db, "cache_ttl_*")` |
+| Backend | `Backend/app/api/v1/users.py` **[MOD]** | Dashboard endpoint: TTL from `get_int(db, "cache_ttl_dashboard")` |
+
+**Regression risk:** LOW. Admin-only settings; no frontend change (admin UI auto-renders keys).
+
+---
+
+### Backend query improvements
+
+**Scope:** Medium. Fewer queries and no N+1 on dashboard and organizer flows.
+
+| Layer | File | Change |
+|-------|------|--------|
+| Backend Models | `ticket.py`, `funding.py`, `sponsor.py`, `bookmark.py` **[MOD]** | Add indexes on status, FKs, composite (event_id, status), (event_id, created_at) |
+| Backend | `alembic/versions/yy02y1z2a3b4_add_missing_indexes.py` **[NEW]** | Migration for new indexes |
+| Backend | `Backend/app/services/dashboard.py` **[MOD]** | Consolidate ~30 dashboard queries into ~8–10 using conditional aggregation (TicketSale, Funding, SponsorPayment, sponsors, events) |
+| Backend | `Backend/app/services/ticket/sales.py` **[MOD]** | `purchase_ticket`: batch reload sales with `TicketSale.id.in_(sale_ids)` + selectinload |
+| Backend | `Backend/app/services/funding/pledges.py` **[MOD]** | `get_reserved_spots_for_tiers()` batch helper; `pledge_preview`/`create_pledge` use batch fetches |
+| Backend | `Backend/app/services/funding/reservations.py` **[MOD]** | New `get_reserved_spots_for_tiers()` |
+| Backend | `Backend/app/services/sponsor/organizer_queries.py` **[MOD]** | `get_organizer_sponsors`: batch profiles + users; `get_sponsor_events_for_organizer` and `get_sponsor_bids_detail_for_admin`: batch bids/categories |
+
+**Regression risk:** LOW–MEDIUM. Logic unchanged; fewer round-trips and better index usage.
+
+---
+
 ## Impact Summary Table
 
 | Feature | Status | New Files | Modified Files | New DB Tables | Endpoints Added | Endpoints Modified | Risk Level |
@@ -392,6 +476,13 @@ DONE — UI/UX Improvements:
   [x] Event creation wizard redesign (5-step multi-step form)
   [x] Unsaved changes dialog, step error indicators, loading states,
       real-time date validation, character count, contextual Next button
+
+DONE — Organizer UX and performance:
+  [x] Organizer dashboard filters (genre + event_id) — KPI cards and manage screens
+  [x] Sign-out animation (replace "Not signed in" in profile tab)
+  [x] Redis caching — platform settings, featured events, event detail, organizer dashboard
+  [x] Cache TTL and cache_enabled in admin settings
+  [x] Backend query improvements — indexes, consolidated dashboard queries, N+1 fixes
 
 REMAINING — BATCH E (High risk, do last):
   [ ] Step 8: Feature 7 — Multi-Role             (13+ files, HIGH risk)

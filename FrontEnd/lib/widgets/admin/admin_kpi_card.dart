@@ -10,12 +10,14 @@ class AdminKpiCard extends StatelessWidget {
     required this.label,
     required this.value,
     required this.color,
+    this.subtitle,
   });
 
   final IconData icon;
   final String label;
   final String value;
   final Color color;
+  final String? subtitle;
 
   @override
   Widget build(BuildContext context) {
@@ -61,6 +63,15 @@ class AdminKpiCard extends StatelessWidget {
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
+                  if (subtitle != null)
+                    Text(
+                      subtitle!,
+                      style: TextStyle(
+                        color: AppTheme.textSecondaryOf(context),
+                        fontSize: 11,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                 ],
               ),
             ),

@@ -747,6 +747,19 @@ class ApiService {
     return resp.data;
   }
 
+  Future<Map<String, dynamic>> adminGetDashboard({
+    String period = '30d',
+    String? genre,
+    String? status,
+  }) async {
+    final resp = await dio.get('/admin/dashboard', queryParameters: {
+      'period': period,
+      if (genre != null) 'genre': genre,
+      if (status != null) 'status': status,
+    });
+    return Map<String, dynamic>.from(resp.data as Map);
+  }
+
   Future<Map<String, dynamic>> adminGetTickets({int offset = 0, int limit = 20, String? search, String? status}) async {
     final resp = await dio.get('/admin/tickets', queryParameters: {
       'offset': offset, 'limit': limit,

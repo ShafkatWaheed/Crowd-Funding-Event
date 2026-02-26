@@ -531,6 +531,21 @@ async def admin_stats(
     return AdminStats(**stats)
 
 
+@router.get("/dashboard")
+async def admin_dashboard(
+    db: ReadDbSession,
+    current_user: User = Depends(require_role(UserRole.admin)),
+    period: str = Query("30d"),
+    genre: str | None = Query(None),
+    status: str | None = Query(None),
+):
+    """Consolidated dashboard data for admin home tab."""
+    data = await admin_service.get_dashboard(
+        db, period=period, genre=genre, status=status,
+    )
+    return data
+
+
 # ----- Platform Settings -----
 @router.get("/settings", response_model=list[PlatformSettingItem])
 async def get_settings(

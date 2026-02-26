@@ -31,7 +31,7 @@ class SponsorshipCategory(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     event_id: Mapped[int | None] = mapped_column(ForeignKey("events.id"), nullable=True)
-    organizer_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    organizer_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
     is_template: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -63,11 +63,11 @@ class SponsorBid(Base):
     __tablename__ = "sponsor_bids"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    category_id: Mapped[int] = mapped_column(ForeignKey("sponsorship_categories.id"), nullable=False)
-    sponsor_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    category_id: Mapped[int] = mapped_column(ForeignKey("sponsorship_categories.id"), nullable=False, index=True)
+    sponsor_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     amount_cents: Mapped[int] = mapped_column(Integer, nullable=False)
     proposal_text: Mapped[str | None] = mapped_column(Text, nullable=True)
-    status: Mapped[BidStatus] = mapped_column(Enum(BidStatus), nullable=False, default=BidStatus.pending)
+    status: Mapped[BidStatus] = mapped_column(Enum(BidStatus), nullable=False, default=BidStatus.pending, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -93,7 +93,7 @@ class SponsorPayment(Base):
     platform_cut_cents: Mapped[int] = mapped_column(Integer, nullable=False)
     net_to_organizer_cents: Mapped[int] = mapped_column(Integer, nullable=False)
     receipt_number: Mapped[str] = mapped_column(String(100), nullable=False)
-    status: Mapped[PaymentStatus] = mapped_column(Enum(PaymentStatus), nullable=False, default=PaymentStatus.completed)
+    status: Mapped[PaymentStatus] = mapped_column(Enum(PaymentStatus), nullable=False, default=PaymentStatus.completed, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 
     bid = relationship("SponsorBid", back_populates="payment")
@@ -103,8 +103,8 @@ class SponsorTicket(Base):
     __tablename__ = "sponsor_tickets"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    event_id: Mapped[int] = mapped_column(ForeignKey("events.id"), nullable=False)
-    sponsor_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    event_id: Mapped[int] = mapped_column(ForeignKey("events.id"), nullable=False, index=True)
+    sponsor_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     qr_data_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
     receipt_number: Mapped[str] = mapped_column(String(100), nullable=False)
     scanned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

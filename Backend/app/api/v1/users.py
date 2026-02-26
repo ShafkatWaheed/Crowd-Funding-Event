@@ -439,7 +439,13 @@ async def get_organizer_dashboard(
 ):
     """Aggregated dashboard: KPIs with deltas, status breakdown, top events, activity feed."""
     from datetime import datetime, timezone
+    from app.cache import cache_json_get, cache_json_set
     from app.services import dashboard as dashboard_service
+
+    cache_key = f"dashboard:{current_user.id}:{status or ''}:{event_id or ''}:{genre or ''}"
+    cached = await cache_json_get(cache_key)
+    if cached is not None:
+        return cached
 
     raw = await dashboard_service.get_organizer_dashboard(
         db, current_user.id, status_filter=status, event_id=event_id, genre=genre,
@@ -475,7 +481,7 @@ async def get_organizer_dashboard(
             ))
         return result
 
-    return OrganizerDashboardResponse(
+    resp = OrganizerDashboardResponse(
         total_revenue=raw["total_revenue"],
         tickets_sold=raw["tickets_sold"],
         total_backers=raw["total_backers"],
@@ -488,6 +494,8 @@ async def get_organizer_dashboard(
         popular_events=_build_responses(raw["popular_events"]),
         recent_activity=raw["recent_activity"],
     )
+    await cache_json_set(cache_key, resp.model_dump(mode="json"), ttl=15)
+    return resp
 
 
 @router.get("/organizer-dashboard/time-series", response_model=OrganizerTimeSeriesResponse)

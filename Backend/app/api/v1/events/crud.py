@@ -121,6 +121,13 @@ async def list_genres():
 @router.get("/featured")
 async def get_featured_events(db: ReadDbSession, sponsorship_only: bool = Query(False)):
     """Returns trending, popular, and coming-soon event lists for the discover page."""
+    from app.cache import cache_json_get, cache_json_set
+
+    cache_key = f"featured:{sponsorship_only}"
+    cached = await cache_json_get(cache_key)
+    if cached is not None:
+        return cached
+
     trending = await event_service.get_trending_events(db, limit=10, sponsorship_only=sponsorship_only)
     popular = await event_service.get_popular_events(db, limit=10, sponsorship_only=sponsorship_only)
     coming_soon = await event_service.get_coming_soon_events(db, limit=10, sponsorship_only=sponsorship_only)
@@ -154,11 +161,13 @@ async def get_featured_events(db: ReadDbSession, sponsorship_only: bool = Query(
             first_image_url=first_images.get(e.id),
         )
 
-    return {
-        "trending": [_to_resp(e) for e in trending],
-        "popular": [_to_resp(e) for e in popular],
-        "coming_soon": [_to_resp(e) for e in coming_soon],
+    result = {
+        "trending": [_to_resp(e).model_dump(mode="json") for e in trending],
+        "popular": [_to_resp(e).model_dump(mode="json") for e in popular],
+        "coming_soon": [_to_resp(e).model_dump(mode="json") for e in coming_soon],
     }
+    await cache_json_set(cache_key, result, ttl=60)
+    return result
 
 
 async def create_event(
@@ -211,6 +220,15 @@ async def create_event(
 @router.get("/{event_id}", response_model=EventResponse)
 async def get_event(event_id: int, db: ReadDbSession, current_user: CurrentUserOptional = None):
     """Event detail (public). Includes venue so everyone can see where the event is."""
+    from app.cache import cache_json_get, cache_json_set
+
+    is_admin = current_user is not None and current_user.role == UserRole.admin
+
+    if not is_admin:
+        cached = await cache_json_get(f"event:{event_id}")
+        if cached is not None:
+            return cached
+
     event = await event_service.get_by_id(db, event_id, load_venue=True, load_organizer=True)
     if not event:
         raise NotFoundError("Event", event_id)
@@ -222,10 +240,9 @@ async def get_event(event_id: int, db: ReadDbSession, current_user: CurrentUserO
         end = event.funding_end_at if event.funding_end_at.tzinfo else event.funding_end_at.replace(tzinfo=timezone.utc)
         delta = (end - now).days
         days_left = max(0, delta) if delta > 0 else 0
-    is_admin = current_user is not None and current_user.role == UserRole.admin
     trust = await event_service.get_organizer_trust_score(db, organizer_id=event.organizer_id)
     first_images = await _get_first_images(db, [event.id])
-    return _event_to_response(
+    resp = _event_to_response(
         event,
         total_pledged_cents=summary["total_pledged_cents"],
         funding_days_left=days_left,
@@ -235,6 +252,10 @@ async def get_event(event_id: int, db: ReadDbSession, current_user: CurrentUserO
         organizer_trust=trust,
         first_image_url=first_images.get(event.id),
     )
+
+    if not is_admin:
+        await cache_json_set(f"event:{event_id}", resp.model_dump(mode="json"), ttl=30)
+    return resp
 
 
 @router.get("/{event_id}/calendar.ics")
@@ -340,6 +361,10 @@ async def update_event(
                 message=f'"{event.title}" has been updated. Check the latest details.',
                 data={"event_id": event.id},
             )
+
+    from app.cache import cache_delete, cache_delete_pattern
+    await cache_delete(f"event:{event_id}")
+    await cache_delete_pattern("featured:*")
 
     updated = await event_service.get_by_id(db, updated.id, load_venue=True)
     return _event_to_response(updated)

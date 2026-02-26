@@ -19,6 +19,7 @@ from app.config import settings
 from app.core.exceptions import AppException
 from app.db.base import async_engine, read_engine
 from app.rate_limit import setup_rate_limiting
+from app.cache import init_cache, close_cache
 from app.worker.redis_pool import get_arq_pool, close_arq_pool
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
@@ -74,7 +75,9 @@ async def lifespan(application: FastAPI):
         logger.info("ARQ Redis pool connected")
     except Exception:
         logger.warning("Redis not available — ARQ tasks will be skipped (refunds complete inline)")
+    await init_cache()
     yield
+    await close_cache()
     await close_arq_pool()
     await read_engine.dispose()
 

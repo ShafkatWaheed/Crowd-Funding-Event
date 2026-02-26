@@ -3,7 +3,7 @@ Funding / pledge model.
 """
 import enum
 from datetime import datetime
-from sqlalchemy import BigInteger, Boolean, Integer, String, DateTime, ForeignKey, Enum
+from sqlalchemy import BigInteger, Boolean, Integer, String, DateTime, ForeignKey, Enum, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -26,7 +26,7 @@ class Funding(Base):
     amount_cents: Mapped[int] = mapped_column(BigInteger, nullable=False)
     platform_cut_cents: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     net_to_organizer_cents: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
-    status: Mapped[FundingStatus] = mapped_column(Enum(FundingStatus), nullable=False, default=FundingStatus.pledged)
+    status: Mapped[FundingStatus] = mapped_column(Enum(FundingStatus), nullable=False, default=FundingStatus.pledged, index=True)
     is_guest: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)  # guest pledges are non-refundable
     reserved_spots: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # spots reserved for future ticket purchase
     is_early_bird: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
@@ -36,6 +36,11 @@ class Funding(Base):
     event = relationship("Event", back_populates="fundings")
     user = relationship("User", back_populates="fundings")
     spot_reservations = relationship("PledgeSpotReservation", back_populates="funding", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        Index("ix_fundings_event_status", "event_id", "status"),
+        Index("ix_fundings_event_created", "event_id", "created_at"),
+    )
 
 
 class PledgeSpotReservation(Base):

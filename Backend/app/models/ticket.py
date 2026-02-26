@@ -4,7 +4,7 @@ Ticket tiers, sales, and per-user/event discounts.
 import enum
 from datetime import datetime
 
-from sqlalchemy import Integer, String, Text, DateTime, ForeignKey, Enum
+from sqlalchemy import Integer, String, Text, DateTime, ForeignKey, Enum, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -66,7 +66,7 @@ class TicketSale(Base):
     commission_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # platform commission
     net_to_organizer_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # amount_paid - commission
     extra_perks: Mapped[str | None] = mapped_column(Text, nullable=True)  # when discount > price
-    status: Mapped[TicketSaleStatus] = mapped_column(Enum(TicketSaleStatus), nullable=False, default=TicketSaleStatus.purchased)
+    status: Mapped[TicketSaleStatus] = mapped_column(Enum(TicketSaleStatus), nullable=False, default=TicketSaleStatus.purchased, index=True)
     scanned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     scanned_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
@@ -75,3 +75,8 @@ class TicketSale(Base):
     user = relationship("User", back_populates="ticket_sales", foreign_keys=[user_id])
     ticket_tier = relationship("TicketTier", back_populates="ticket_sales")
     scanned_by = relationship("User", foreign_keys=[scanned_by_id])
+
+    __table_args__ = (
+        Index("ix_ticket_sales_event_status", "event_id", "status"),
+        Index("ix_ticket_sales_event_created", "event_id", "created_at"),
+    )

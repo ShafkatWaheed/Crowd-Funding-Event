@@ -17,6 +17,7 @@ from app.models.user import User
 
 from app.services.funding.reservations import (
     get_reserved_spots_for_tier,
+    get_reserved_spots_for_tiers,
     get_total_reserved_spots,
     get_user_reserved_spots,
 )
@@ -49,10 +50,12 @@ async def pledge_preview(
     if event.link_funding_to_tiers:
         tiers_q = select(TicketTier).where(TicketTier.event_id == event_id).order_by(TicketTier.display_order)
         tiers = list((await db.execute(tiers_q)).scalars().all())
+        reservable_ids = [t.id for t in tiers if t.max_reserved_spots > 0]
+        reserved_map = await get_reserved_spots_for_tiers(db, event_id, reservable_ids)
         for t in tiers:
             if t.max_reserved_spots <= 0:
                 continue
-            reserved = await get_reserved_spots_for_tier(db, event_id, t.id)
+            reserved = reserved_map.get(t.id, 0)
             tier_availability.append({
                 "tier_id": t.id,
                 "tier_name": t.name,
@@ -121,20 +124,27 @@ async def create_pledge(
         total_tier_spots = 0
         min_required_cents = 0
 
+        tier_ids_needed = [tr["tier_id"] for tr in tier_reservations]
+        tiers_map = {t.id: t for t in (await db.execute(
+            select(TicketTier).where(
+                TicketTier.id.in_(tier_ids_needed),
+                TicketTier.event_id == event_id,
+            )
+        )).scalars().all()}
+        reserved_map = await get_reserved_spots_for_tiers(db, event_id, tier_ids_needed)
+
         for tr in tier_reservations:
             tid, spots = tr["tier_id"], tr["spots"]
             if spots <= 0:
                 raise ConflictError(f"Spots must be >= 1 for tier {tid}")
 
-            tier = (await db.execute(
-                select(TicketTier).where(TicketTier.id == tid, TicketTier.event_id == event_id)
-            )).scalar_one_or_none()
+            tier = tiers_map.get(tid)
             if tier is None:
                 raise ConflictError(f"Ticket tier {tid} not found for this event")
             if tier.max_reserved_spots <= 0:
                 raise ConflictError(f"Tier '{tier.name}' does not allow spot reservations")
 
-            already_reserved = await get_reserved_spots_for_tier(db, event_id, tid)
+            already_reserved = reserved_map.get(tid, 0)
             if already_reserved + spots > tier.max_reserved_spots:
                 avail = max(0, tier.max_reserved_spots - already_reserved)
                 raise ConflictError(

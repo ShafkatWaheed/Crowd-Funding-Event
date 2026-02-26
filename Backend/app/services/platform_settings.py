@@ -5,8 +5,11 @@ Casts values to int where needed. All values stored as strings.
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.cache import cache_get, cache_set, cache_delete
 from app.core.exceptions import NotFoundError
 from app.models.platform_settings import PlatformSetting
+
+_SETTINGS_TTL = 300  # 5 minutes
 
 # Default values used when key not yet in DB
 DEFAULTS = {
@@ -121,30 +124,42 @@ async def get_all_with_descriptions(db: AsyncSession) -> list[dict]:
     return result
 
 
-async def get_int(db: AsyncSession, key: str) -> int:
-    """Get a setting as integer. Falls back to DEFAULTS if missing."""
+async def _get_raw(db: AsyncSession, key: str) -> str | None:
+    """Fetch the raw setting value, checking Redis cache first."""
+    cache_key = f"settings:{key}"
+    cached = await cache_get(cache_key)
+    if cached is not None:
+        return cached
+
     q = select(PlatformSetting).where(PlatformSetting.key == key)
     row = (await db.execute(q)).scalar_one_or_none()
-    if row is None:
+    if row is not None:
+        await cache_set(cache_key, row.value, ttl=_SETTINGS_TTL)
+        return row.value
+    return None
+
+
+async def get_int(db: AsyncSession, key: str) -> int:
+    """Get a setting as integer. Falls back to DEFAULTS if missing."""
+    raw = await _get_raw(db, key)
+    if raw is None:
         return DEFAULTS.get(key, 0)
-    return int(row.value)
+    return int(raw)
 
 
 async def get_bool(db: AsyncSession, key: str) -> bool:
     """Get a setting as boolean. Falls back to DEFAULTS if missing."""
-    q = select(PlatformSetting).where(PlatformSetting.key == key)
-    row = (await db.execute(q)).scalar_one_or_none()
-    if row is None:
+    raw = await _get_raw(db, key)
+    if raw is None:
         return str(DEFAULTS.get(key, "false")).lower() == "true"
-    return row.value.lower() == "true"
+    return raw.lower() == "true"
 
 
 async def get_str(db: AsyncSession, key: str) -> str:
     """Get a setting as string. Falls back to DEFAULTS if missing."""
-    q = select(PlatformSetting).where(PlatformSetting.key == key)
-    row = (await db.execute(q)).scalar_one_or_none()
-    if row is not None:
-        return row.value
+    raw = await _get_raw(db, key)
+    if raw is not None:
+        return raw
     default = DEFAULTS.get(key)
     return str(default) if default is not None else ""
 
@@ -159,9 +174,10 @@ async def set_value(db: AsyncSession, key: str, value: str, description: str | N
             row.description = description
         await db.flush()
         await db.refresh(row)
-        return row
-    row = PlatformSetting(key=key, value=value, description=description)
-    db.add(row)
-    await db.flush()
-    await db.refresh(row)
+    else:
+        row = PlatformSetting(key=key, value=value, description=description)
+        db.add(row)
+        await db.flush()
+        await db.refresh(row)
+    await cache_delete(f"settings:{key}")
     return row

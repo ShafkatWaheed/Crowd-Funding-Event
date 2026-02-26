@@ -140,16 +140,18 @@ async def purchase_ticket(
     except Exception:
         pass
 
-    loaded_sales: list[TicketSale] = []
-    for sale in sales:
-        q = select(TicketSale).where(TicketSale.id == sale.id).options(
+    sale_ids = [s.id for s in sales]
+    loaded_q = (
+        select(TicketSale)
+        .where(TicketSale.id.in_(sale_ids))
+        .options(
             selectinload(TicketSale.event),
             selectinload(TicketSale.ticket_tier),
             selectinload(TicketSale.user),
         )
-        loaded = (await db.execute(q)).scalar_one()
-        loaded_sales.append(loaded)
-    return loaded_sales
+        .order_by(TicketSale.id.asc())
+    )
+    return list((await db.execute(loaded_q)).scalars().unique().all())
 
 
 async def get_purchase_group_tickets(

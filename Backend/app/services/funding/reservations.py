@@ -68,6 +68,29 @@ async def consume_one_reserved_spot(db: AsyncSession, event_id: int, user_id: in
     await db.flush()
 
 
+async def get_reserved_spots_for_tiers(
+    db: AsyncSession, event_id: int, tier_ids: list[int]
+) -> dict[int, int]:
+    """Total reserved spots per tier across all pledgers. Returns {tier_id: spots}."""
+    from app.models.funding import PledgeSpotReservation
+    if not tier_ids:
+        return {}
+    q = (
+        select(
+            PledgeSpotReservation.ticket_tier_id,
+            func.coalesce(func.sum(PledgeSpotReservation.spots), 0).label("total"),
+        )
+        .join(Funding, PledgeSpotReservation.funding_id == Funding.id)
+        .where(
+            Funding.event_id == event_id,
+            Funding.status == FundingStatus.pledged,
+            PledgeSpotReservation.ticket_tier_id.in_(tier_ids),
+        )
+        .group_by(PledgeSpotReservation.ticket_tier_id)
+    )
+    return {int(r.ticket_tier_id): int(r.total) for r in (await db.execute(q)).all()}
+
+
 async def get_reserved_spots_for_tier(db: AsyncSession, event_id: int, tier_id: int) -> int:
     """Total reserved spots for a specific tier across all pledgers."""
     from app.models.funding import PledgeSpotReservation

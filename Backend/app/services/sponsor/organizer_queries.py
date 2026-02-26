@@ -35,41 +35,42 @@ async def get_sponsor_bids_detail_for_admin(
 ) -> list[dict]:
     """Return events with bid details for a sponsor (admin user detail)."""
     events = await get_sponsor_bid_events(db, sponsor_user_id)
-    result = []
-    for e in events:
-        cats_q = (
-            select(
-                SponsorshipCategory.id.label("cat_id"),
-                SponsorshipCategory.name.label("cat_name"),
-                SponsorBid.id.label("bid_id"),
-                SponsorBid.amount_cents,
-                SponsorBid.status,
-            )
-            .join(SponsorBid, SponsorBid.category_id == SponsorshipCategory.id)
-            .where(
-                SponsorshipCategory.event_id == e.id,
-                SponsorBid.sponsor_user_id == sponsor_user_id,
-                SponsorBid.status.in_([BidStatus.pending, BidStatus.accepted, BidStatus.paid]),
-            )
+    if not events:
+        return []
+
+    event_ids = [e.id for e in events]
+    all_bid_rows = (await db.execute(
+        select(
+            SponsorshipCategory.event_id.label("event_id"),
+            SponsorshipCategory.id.label("cat_id"),
+            SponsorshipCategory.name.label("cat_name"),
+            SponsorBid.id.label("bid_id"),
+            SponsorBid.amount_cents,
+            SponsorBid.status,
         )
-        cat_rows = (await db.execute(cats_q)).all()
-        bids = [
-            {
-                "bid_id": r.bid_id,
-                "category_id": r.cat_id,
-                "category_name": r.cat_name,
-                "amount_cents": r.amount_cents,
-                "status": r.status.value if hasattr(r.status, "value") else str(r.status),
-                "can_refund": r.status == BidStatus.paid,
-            }
-            for r in cat_rows
-        ]
-        result.append({
-            "event_id": e.id,
-            "event_title": e.title,
-            "bids": bids,
+        .join(SponsorBid, SponsorBid.category_id == SponsorshipCategory.id)
+        .where(
+            SponsorshipCategory.event_id.in_(event_ids),
+            SponsorBid.sponsor_user_id == sponsor_user_id,
+            SponsorBid.status.in_([BidStatus.pending, BidStatus.accepted, BidStatus.paid]),
+        )
+    )).all()
+
+    bids_by_event: dict[int, list] = {}
+    for r in all_bid_rows:
+        bids_by_event.setdefault(r.event_id, []).append({
+            "bid_id": r.bid_id,
+            "category_id": r.cat_id,
+            "category_name": r.cat_name,
+            "amount_cents": r.amount_cents,
+            "status": r.status.value if hasattr(r.status, "value") else str(r.status),
+            "can_refund": r.status == BidStatus.paid,
         })
-    return result
+
+    return [
+        {"event_id": e.id, "event_title": e.title, "bids": bids_by_event.get(e.id, [])}
+        for e in events
+    ]
 
 
 async def get_sponsor_bid_summary_for_event(
@@ -190,14 +191,22 @@ async def get_organizer_sponsors(
         .limit(limit)
     )
     rows = (await db.execute(q)).all()
+    if not rows:
+        return []
+
+    user_ids = [r.sponsor_user_id for r in rows]
+    profiles = {p.user_id: p for p in (await db.execute(
+        select(SponsorProfile).where(SponsorProfile.user_id.in_(user_ids))
+    )).scalars().all()}
+    users = {u.id: u for u in (await db.execute(
+        select(User).where(User.id.in_(user_ids))
+    )).scalars().all()}
 
     result = []
     for r in rows:
         uid = r.sponsor_user_id
-        profile = await get_profile(db, uid)
-        user = (await db.execute(
-            select(User).where(User.id == uid)
-        )).scalar_one_or_none()
+        profile = profiles.get(uid)
+        user = users.get(uid)
 
         if profile:
             name = profile.company_name
@@ -243,27 +252,41 @@ async def get_sponsor_events_for_organizer(
         .order_by(Event.created_at.desc())
     )).scalars().all())
 
+    if not events:
+        return []
+
+    event_ids = [e.id for e in events]
+    all_bids = (await db.execute(
+        select(
+            SponsorshipCategory.event_id.label("event_id"),
+            SponsorshipCategory.name,
+            SponsorBid.amount_cents,
+            SponsorBid.status,
+        )
+        .join(SponsorBid, SponsorBid.category_id == SponsorshipCategory.id)
+        .where(
+            SponsorshipCategory.event_id.in_(event_ids),
+            SponsorBid.sponsor_user_id == sponsor_user_id,
+        )
+    )).all()
+
+    summary_by_event: dict[int, dict] = {}
+    bids_by_event: dict[int, list] = {}
+    for r in all_bids:
+        eid = r.event_id
+        status_val = r.status.value if hasattr(r.status, "value") else str(r.status)
+        if eid not in summary_by_event:
+            summary_by_event[eid] = {"pending": 0, "accepted": 0, "rejected": 0, "paid": 0, "withdrawn": 0}
+        if status_val in summary_by_event[eid]:
+            summary_by_event[eid][status_val] += 1
+        if r.status in active:
+            bids_by_event.setdefault(eid, []).append(
+                {"category": r.name, "amount_cents": r.amount_cents, "status": status_val}
+            )
+
     result = []
     for e in events:
-        summary = await get_sponsor_bid_summary_for_event(db, e.id, sponsor_user_id)
-        cats_q = (
-            select(
-                SponsorshipCategory.name,
-                SponsorBid.amount_cents,
-                SponsorBid.status,
-            )
-            .join(SponsorBid, SponsorBid.category_id == SponsorshipCategory.id)
-            .where(
-                SponsorshipCategory.event_id == e.id,
-                SponsorBid.sponsor_user_id == sponsor_user_id,
-                SponsorBid.status.in_(active),
-            )
-        )
-        cat_rows = (await db.execute(cats_q)).all()
-        bids_detail = [
-            {"category": r.name, "amount_cents": r.amount_cents, "status": r.status.value}
-            for r in cat_rows
-        ]
+        bids_detail = bids_by_event.get(e.id, [])
         total_cents = sum(b["amount_cents"] for b in bids_detail)
         venue = e.venue
         result.append({
@@ -273,7 +296,7 @@ async def get_sponsor_events_for_organizer(
             "start_time": e.start_time.isoformat() if e.start_time else None,
             "venue_name": venue.name if venue else None,
             "venue_city": venue.city if venue else None,
-            "bid_summary": summary,
+            "bid_summary": summary_by_event.get(e.id, {"pending": 0, "accepted": 0, "rejected": 0, "paid": 0, "withdrawn": 0}),
             "bids": bids_detail,
             "total_amount_cents": total_cents,
         })

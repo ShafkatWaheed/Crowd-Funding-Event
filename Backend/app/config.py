@@ -38,8 +38,9 @@ class Settings(BaseSettings):
     EMAIL_FROM_ADDRESS: str = "noreply@crowdfundevent.com"
     EMAIL_FROM_NAME: str = "CrowdFund Event"
 
-    # Redis (ARQ task queue + future caching)
+    # Redis (ARQ task queue + caching)
     REDIS_URL: str = "redis://localhost:6379/0"
+    CACHE_DEFAULT_TTL: int = 60  # seconds
 
     # ── Ticket QR Encryption (AES-256-GCM) ──
     TICKET_ENCRYPTION_KEY: str = ""  # 64-char hex string (32 bytes); empty = plaintext fallback (dev mode)

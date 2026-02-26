@@ -16,9 +16,16 @@ from app.services import notification_service as notif_svc
 from app.worker.redis_pool import enqueue as arq_enqueue
 from app.models.notification import NotificationType
 
+from app.cache import cache_delete, cache_delete_pattern
+
 from ._helpers import _event_to_response, _parse_iso_datetime
 
 router = APIRouter()
+
+
+async def _invalidate_event_cache(event_id: int) -> None:
+    await cache_delete(f"event:{event_id}")
+    await cache_delete_pattern("featured:*")
 
 
 @router.post("/{event_id}/cancel", response_model=EventResponse)
@@ -63,6 +70,7 @@ async def cancel_event(
             message=f'"{event.title}" has been cancelled. {body.reason or ""}',
             data={"event_id": event.id},
         )
+    await _invalidate_event_cache(event_id)
     event = await event_service.get_by_id(db, event.id, load_venue=True)
     return _event_to_response(event)
 
@@ -84,6 +92,7 @@ async def extend_funding_endpoint(
         new_funding_end_at=new_funding_end_at,
         new_funding_goal_cents=body.funding_goal_cents,
     )
+    await _invalidate_event_cache(event_id)
     event = await event_service.get_by_id(db, event.id, load_venue=True)
     return _event_to_response(event)
 
@@ -106,6 +115,7 @@ async def set_event_date_endpoint(
         new_start_time=new_start,
         new_end_time=new_end,
     )
+    await _invalidate_event_cache(event_id)
     event = await event_service.get_by_id(db, event.id, load_venue=True)
     return _event_to_response(event)
 
@@ -119,6 +129,7 @@ async def start_selling_tickets_endpoint(
     """Manually transition event to selling_tickets."""
     event = await event_service.get_or_404(db, event_id)
     event = await event_service.start_selling_tickets(db, event, current_user)
+    await _invalidate_event_cache(event_id)
     event = await event_service.get_by_id(db, event.id, load_venue=True)
     return _event_to_response(event)
 
@@ -134,6 +145,7 @@ async def reactivate_event(
     if not await event_service.user_can_edit_event(db, event, current_user):
         raise ForbiddenError("You cannot reactivate this event")
     event = await event_service.reactivate_event(db, event, current_user)
+    await _invalidate_event_cache(event_id)
     event = await event_service.get_by_id(db, event.id, load_venue=True)
     return _event_to_response(event)
 
@@ -153,6 +165,7 @@ async def publish_event(
         message=f'Your event "{event.title}" is now live.',
         data={"event_id": event.id},
     )
+    await _invalidate_event_cache(event_id)
     event = await event_service.get_by_id(db, event.id, load_venue=True)
     return _event_to_response(event)
 
@@ -185,6 +198,7 @@ async def decide_extension(
         event = await event_service.reject_extension(db, event, current_user)
     else:
         raise HTTPException(status_code=400, detail="action must be 'approve' or 'reject'")
+    await _invalidate_event_cache(event_id)
     event = await event_service.get_by_id(db, event.id, load_venue=True)
     return _event_to_response(event)
 
@@ -221,5 +235,6 @@ async def approve_cancellation(
         await db.flush()
     else:
         raise HTTPException(status_code=400, detail="action must be 'approve' or 'reject'")
+    await _invalidate_event_cache(event_id)
     event = await event_service.get_by_id(db, event.id, load_venue=True)
     return _event_to_response(event)

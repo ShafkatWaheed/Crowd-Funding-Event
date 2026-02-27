@@ -22,6 +22,7 @@ from app.worker.tasks import (
     send_sponsor_bid_rejected_email,
     send_sponsor_refund_email,
     mock_auto_settle,
+    mock_verify_bank_account,
     process_escrow_release,
     process_scheduled_payouts,
     daily_reconciliation,
@@ -86,6 +87,7 @@ class WorkerSettings:
         send_sponsor_bid_approved_email,
         send_sponsor_bid_rejected_email,
         send_sponsor_refund_email,
+        mock_verify_bank_account,
         process_escrow_release,
         cleanup_old_records,
     ]

@@ -5,15 +5,19 @@ Each service still provides its own get_or_create (different total calculation),
 auto-trigger logic, and refresh_total. This module reduces duplication for
 freeze, unfreeze, release_stage, and list_all.
 """
+import logging
 from datetime import datetime, timezone
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ConflictError
-from app.models.escrow import EscrowStatus
+from app.models.escrow import EscrowRelease, EscrowStatus
 from app.models.event import Event
-from app.models.user import User
+from app.models.payment_info import BankVerificationStatus, OrganizerBankAccount
+from app.models.user import User, UserRole
+
+logger = logging.getLogger("escrow")
 
 
 def reject_if_frozen(escrow, *, label: str = "Escrow") -> None:
@@ -39,6 +43,9 @@ async def generic_unfreeze(db: AsyncSession, model_class, *, event_id: int, get_
     else:
         escrow.status = EscrowStatus.holding
     await db.flush()
+
+    await _warn_admins_if_no_bank(db, event_id, label=label)
+
     return escrow
 
 
@@ -142,3 +149,99 @@ async def generic_list_all(
             "stage3_released_at": e.stage3_released_at.isoformat() if e.stage3_released_at else None,
         })
     return result, int(total)
+
+
+# ---------------------------------------------------------------------------
+# Bank account helpers
+# ---------------------------------------------------------------------------
+
+async def organizer_has_verified_bank(db: AsyncSession, organizer_id: int) -> bool:
+    """True if the organizer has a bank account with verification_status='verified'."""
+    q = select(OrganizerBankAccount).where(
+        OrganizerBankAccount.user_id == organizer_id,
+        OrganizerBankAccount.verified == True,  # noqa: E712
+    )
+    return (await db.execute(q)).scalar_one_or_none() is not None
+
+
+async def get_organizer_for_event(db: AsyncSession, event_id: int) -> int | None:
+    """Return the organizer_id for a given event, or None."""
+    q = select(Event.organizer_id).where(Event.id == event_id)
+    return (await db.execute(q)).scalar_one_or_none()
+
+
+async def get_all_admin_ids(db: AsyncSession) -> list[int]:
+    """Return IDs of all admin users."""
+    q = select(User.id).where(User.role == UserRole.admin)
+    return list((await db.execute(q)).scalars().all())
+
+
+async def _warn_admins_if_no_bank(db: AsyncSession, event_id: int, *, label: str = "Escrow") -> None:
+    """After unfreezing, warn all admins if organizer has no verified bank account."""
+    organizer_id = await get_organizer_for_event(db, event_id)
+    if organizer_id is None:
+        return
+    if await organizer_has_verified_bank(db, organizer_id):
+        return
+
+    from app.services import notification_service as notif_svc
+    from app.models.notification import NotificationType
+
+    admin_ids = await get_all_admin_ids(db)
+    if admin_ids:
+        await notif_svc.create_bulk_notifications(
+            db, user_ids=admin_ids,
+            type=NotificationType.escrow_unfreeze_warning,
+            title="Escrow Unfrozen Without Bank Account",
+            message=(
+                f"{label} unfrozen for Event #{event_id} but the organizer "
+                "does not have a verified bank account."
+            ),
+            data={"event_id": event_id},
+        )
+    logger.warning(
+        "%s unfrozen for event %d without verified bank account", label, event_id,
+    )
+
+
+async def has_active_escrow(db: AsyncSession, organizer_id: int) -> bool:
+    """True if organizer has any event with escrow in holding/partially_released."""
+    from app.models.escrow import FundEscrow, TicketEscrow, SponsorEscrow
+
+    event_ids_q = select(Event.id).where(Event.organizer_id == organizer_id)
+    for model in (FundEscrow, TicketEscrow, SponsorEscrow):
+        q = select(func.count()).select_from(model).where(
+            model.event_id.in_(event_ids_q),
+            model.status.in_([EscrowStatus.holding, EscrowStatus.partially_released]),
+        )
+        if (await db.execute(q)).scalar_one() > 0:
+            return True
+    return False
+
+
+# ---------------------------------------------------------------------------
+# Rollback release (called when payout fails)
+# ---------------------------------------------------------------------------
+
+async def rollback_release(
+    db: AsyncSession, escrow, *, stage: int, reason: str,
+) -> None:
+    """Reverse a stage release after a payout failure."""
+    setattr(escrow, f"stage{stage}_released_cents", 0)
+    setattr(escrow, f"stage{stage}_released_at", None)
+
+    if escrow.stage1_released_at:
+        escrow.status = EscrowStatus.partially_released
+    else:
+        escrow.status = EscrowStatus.holding
+
+    log = EscrowRelease(
+        escrow_id=escrow.id, stage=stage, amount_cents=0,
+        released_by="system", reason=f"Rollback: {reason}",
+        release_status="rolled_back",
+    )
+    db.add(log)
+    await db.flush()
+    logger.warning(
+        "Escrow %d stage %d rolled back: %s", escrow.id, stage, reason,
+    )

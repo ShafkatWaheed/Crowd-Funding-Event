@@ -65,8 +65,15 @@ async def approve_or_reject_event(
     Approve event (set status to approved) or reject (set back to draft).
     Returns the updated event. Raises NotFoundError if event not found.
     """
+    from app.core.exceptions import ConflictError
+    from app.services.escrow_base import organizer_has_verified_bank
+
     event = await event_service.get_or_404(db, event_id)
     if approved:
+        if not await organizer_has_verified_bank(db, event.organizer_id):
+            raise ConflictError(
+                "Organizer must have a verified bank account before the event can be approved"
+            )
         event.status = EventStatus.approved
     else:
         event.status = EventStatus.draft

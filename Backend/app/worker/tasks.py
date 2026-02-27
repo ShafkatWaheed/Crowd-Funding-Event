@@ -397,6 +397,7 @@ async def _mark_funding_failed(db, funding_id: int) -> None:
             .values(status=FundingStatus.refund_failed)
         )
         await session.commit()
+        await _notify_refund_failure(session, "pledge", funding_id)
 
 
 async def _mark_ticket_failed(db, ticket_sale_id: int) -> None:
@@ -407,6 +408,7 @@ async def _mark_ticket_failed(db, ticket_sale_id: int) -> None:
             .values(status=TicketSaleStatus.refund_failed)
         )
         await session.commit()
+        await _notify_refund_failure(session, "ticket", ticket_sale_id)
 
 
 async def _mark_sponsor_payment_failed(db, payment_id: int) -> None:
@@ -417,6 +419,99 @@ async def _mark_sponsor_payment_failed(db, payment_id: int) -> None:
             .values(status=PaymentStatus.refund_failed)
         )
         await session.commit()
+        await _notify_refund_failure(session, "sponsor", payment_id)
+
+
+async def _notify_refund_failure(db, item_type: str, item_id: int) -> None:
+    """Send failure notifications to admins (technical) and organizer (soft)."""
+    try:
+        from app.services import notification_service as notif_svc
+        from app.services.escrow_base import get_all_admin_ids
+        from app.models.notification import NotificationType
+        from app.models.event import Event
+        from app.models.user import UserRole, User
+
+        type_map = {
+            "ticket": NotificationType.ticket_refund_failed,
+            "pledge": NotificationType.pledge_refund_failed,
+            "sponsor": NotificationType.sponsor_refund_failed,
+        }
+
+        event_id = None
+        organizer_id = None
+        event_title = "Unknown"
+        amount_cents = 0
+
+        if item_type == "ticket":
+            sale = (await db.execute(
+                select(TicketSale).where(TicketSale.id == item_id)
+            )).scalar_one_or_none()
+            if sale:
+                event_id = sale.event_id
+                amount_cents = sale.amount_paid_cents
+        elif item_type == "pledge":
+            funding = (await db.execute(
+                select(Funding).where(Funding.id == item_id)
+            )).scalar_one_or_none()
+            if funding:
+                event_id = funding.event_id
+                amount_cents = funding.amount_cents
+        elif item_type == "sponsor":
+            payment = (await db.execute(
+                select(SponsorPayment).where(SponsorPayment.id == item_id)
+            )).scalar_one_or_none()
+            if payment:
+                bid = (await db.execute(
+                    select(SponsorBid).where(SponsorBid.id == payment.bid_id)
+                )).scalar_one_or_none()
+                if bid:
+                    cat = (await db.execute(
+                        select(SponsorshipCategory).where(SponsorshipCategory.id == bid.category_id)
+                    )).scalar_one_or_none()
+                    if cat:
+                        event_id = cat.event_id
+                amount_cents = payment.amount_cents
+
+        if event_id:
+            event = (await db.execute(
+                select(Event).where(Event.id == event_id)
+            )).scalar_one_or_none()
+            if event:
+                event_title = event.title
+                organizer_id = event.organizer_id
+
+        admin_ids = await get_all_admin_ids(db)
+        if admin_ids:
+            await notif_svc.create_bulk_notifications(
+                db, user_ids=admin_ids,
+                type=type_map[item_type],
+                title=f"{item_type.title()} Refund Failed",
+                message=(
+                    f"{item_type.title()} refund failed: #{item_id} for "
+                    f"'{event_title}' (${amount_cents / 100:.2f}). "
+                    "Manual intervention may be required."
+                ),
+                data={
+                    "item_type": item_type, "item_id": item_id,
+                    "event_id": event_id, "amount_cents": amount_cents,
+                },
+            )
+
+        if organizer_id:
+            await notif_svc.create_notification(
+                db, user_id=organizer_id,
+                type=NotificationType.refund_delayed_organizer,
+                title="Refund Delayed",
+                message=(
+                    f"A refund for your event '{event_title}' is delayed. "
+                    "Our team has been notified and is working on it."
+                ),
+                data={"event_id": event_id, "item_type": item_type},
+            )
+
+        await db.commit()
+    except Exception:
+        logger.exception("Failed to send refund failure notifications for %s %d", item_type, item_id)
 
 
 async def send_push_notification(
@@ -455,6 +550,39 @@ async def send_push_notification_bulk(
         except Exception:
             await db.rollback()
             logger.exception("Bulk push notification failed for %d users", len(user_ids))
+
+
+async def mock_verify_bank_account(ctx: dict, bank_account_id: int) -> None:
+    """Mock: auto-verify a bank account after the configured delay."""
+    async with async_session_maker() as db:
+        try:
+            from app.models.payment_info import OrganizerBankAccount, BankVerificationStatus
+            from app.services import notification_service as notif_svc
+            from app.models.notification import NotificationType
+
+            acct = (await db.execute(
+                select(OrganizerBankAccount).where(OrganizerBankAccount.id == bank_account_id)
+            )).scalar_one_or_none()
+
+            if not acct or acct.verification_status != BankVerificationStatus.pending:
+                logger.info("Bank account %d: skip mock verify (not pending)", bank_account_id)
+                return
+
+            acct.verified = True
+            acct.verification_status = BankVerificationStatus.verified
+
+            await notif_svc.create_notification(
+                db, user_id=acct.user_id,
+                type=NotificationType.bank_verified,
+                title="Bank Account Verified",
+                message="Your bank account has been verified. Payouts can now proceed.",
+                data={"bank_account_id": acct.id},
+            )
+            await db.commit()
+            logger.info("Bank account %d: mock verified for user %d", bank_account_id, acct.user_id)
+        except Exception:
+            await db.rollback()
+            logger.exception("Bank account %d: mock verify failed", bank_account_id)
 
 
 async def mock_auto_settle(ctx: dict) -> None:

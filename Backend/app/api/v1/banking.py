@@ -104,6 +104,8 @@ class BankAccountResponse(BaseModel):
     routing_masked: str | None = None
     swift_masked: str | None = None
     verified: bool = False
+    verification_status: str = "pending"
+    rejection_reason: str | None = None
     payout_schedule: str = "weekly"
     payout_day: int = 1
     min_payout_cents: int = 2500
@@ -138,6 +140,8 @@ async def get_bank_account(
         routing_masked=enc.mask_value(enc.decrypt(acct.routing_number_encrypted)),
         swift_masked=enc.mask_value(enc.decrypt(acct.swift_code_encrypted)) if acct.swift_code_encrypted else None,
         verified=acct.verified,
+        verification_status=acct.verification_status.value,
+        rejection_reason=acct.rejection_reason,
         payout_schedule=acct.payout_schedule,
         payout_day=acct.payout_day,
         min_payout_cents=acct.min_payout_cents,
@@ -153,6 +157,10 @@ async def update_bank_account(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.organizer)),
 ):
+    from app.models.payment_info import BankVerificationStatus
+    from app.services import notification_service as notif_svc
+    from app.models.notification import NotificationType
+
     acct = (await db.execute(
         select(OrganizerBankAccount).where(OrganizerBankAccount.user_id == current_user.id)
     )).scalar_one_or_none()
@@ -168,6 +176,11 @@ async def update_bank_account(
         acct.account_number_encrypted = enc.encrypt(body.account_number)
         acct.routing_number_encrypted = enc.encrypt(body.routing_number)
         acct.account_holder_encrypted = enc.encrypt(body.account_holder)
+
+    acct.verified = False
+    acct.verification_status = BankVerificationStatus.pending
+    acct.rejection_reason = None
+
     if body.swift_code:
         acct.swift_code_encrypted = enc.encrypt(body.swift_code)
     if body.payout_schedule:
@@ -177,6 +190,22 @@ async def update_bank_account(
     if body.min_payout_cents is not None:
         acct.min_payout_cents = body.min_payout_cents
     await db.flush()
+
+    await notif_svc.create_notification(
+        db, user_id=current_user.id,
+        type=NotificationType.bank_verification_pending,
+        title="Bank Account Submitted",
+        message="Your bank account details have been submitted for verification.",
+        data={"bank_account_id": acct.id},
+    )
+
+    try:
+        from app.worker.redis_pool import enqueue
+        delay = await settings_svc.get_int(db, "bank_verification_delay_seconds")
+        await enqueue("mock_verify_bank_account", acct.id, _defer_by=delay)
+    except Exception:
+        pass
+
     return BankAccountResponse(
         bank_name_masked=enc.mask_value(body.bank_name),
         account_last_four=body.account_number[-4:],
@@ -184,11 +213,90 @@ async def update_bank_account(
         routing_masked=enc.mask_value(body.routing_number),
         swift_masked=enc.mask_value(body.swift_code) if body.swift_code else None,
         verified=acct.verified,
+        verification_status=acct.verification_status.value,
+        rejection_reason=acct.rejection_reason,
         payout_schedule=acct.payout_schedule,
         payout_day=acct.payout_day,
         min_payout_cents=acct.min_payout_cents,
         has_bank_account=True,
     )
+
+
+@router.delete("/me/bank-account")
+@limiter.limit(dynamic_limit("payment_action", "10/minute"))
+async def delete_bank_account(
+    request: Request,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer)),
+):
+    """Delete bank account. Blocked if organizer has active escrow."""
+    from app.services.escrow_base import has_active_escrow
+    from app.core.exceptions import ConflictError, NotFoundError
+
+    acct = (await db.execute(
+        select(OrganizerBankAccount).where(OrganizerBankAccount.user_id == current_user.id)
+    )).scalar_one_or_none()
+    if not acct:
+        raise NotFoundError("Bank account not found")
+
+    if await has_active_escrow(db, current_user.id):
+        raise ConflictError(
+            "Cannot remove bank account while you have events with active escrow. "
+            "All escrow stages must be fully released first."
+        )
+
+    await db.delete(acct)
+    await db.flush()
+    return {"ok": True, "message": "Bank account removed"}
+
+
+# ═══════════════════════════════════════════
+#  Organizer: Request Refund Retry
+# ═══════════════════════════════════════════
+
+@router.post("/me/events/{event_id}/request-refund-retry")
+@limiter.limit("1/hour")
+async def request_refund_retry(
+    request: Request,
+    event_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.organizer)),
+):
+    """Organizer requests admins to retry failed refunds for their event."""
+    from app.core.exceptions import ForbiddenError, NotFoundError
+    from app.services import refund_retry
+    from app.services import notification_service as notif_svc
+    from app.services.escrow_base import get_all_admin_ids, get_organizer_for_event
+    from app.models.notification import NotificationType
+    from app.models.event import Event
+
+    event = (await db.execute(
+        select(Event).where(Event.id == event_id)
+    )).scalar_one_or_none()
+    if not event:
+        raise NotFoundError("Event", event_id)
+    if event.organizer_id != current_user.id:
+        raise ForbiddenError("You are not the organizer of this event")
+
+    count = await refund_retry.count_failed_refunds_for_event(db, event_id)
+    if count == 0:
+        raise NotFoundError("No failed refunds found for this event")
+
+    admin_ids = await get_all_admin_ids(db)
+    if admin_ids:
+        await notif_svc.create_bulk_notifications(
+            db, user_ids=admin_ids,
+            type=NotificationType.refund_retry_requested,
+            title="Refund Retry Requested",
+            message=(
+                f"Organizer '{current_user.display_name or current_user.email}' "
+                f"is requesting a retry of {count} failed refund(s) "
+                f"for Event #{event_id} '{event.title}'."
+            ),
+            data={"event_id": event_id, "organizer_id": current_user.id, "count": count},
+        )
+
+    return {"ok": True, "requested": count}
 
 
 # ═══════════════════════════════════════════
@@ -455,6 +563,90 @@ async def get_platform_account(
         account_holder_masked=enc.mask_value(holder) if holder else None,
         configured=True,
     )
+
+
+# ═══════════════════════════════════════════
+#  Admin Bank Account Verification
+# ═══════════════════════════════════════════
+
+@router.post("/admin/bank-accounts/{user_id}/verify")
+async def admin_verify_bank_account(
+    user_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.admin)),
+):
+    """Admin marks an organizer's bank account as verified."""
+    from app.models.payment_info import BankVerificationStatus
+    from app.services import notification_service as notif_svc
+    from app.models.notification import NotificationType
+    from app.core.exceptions import NotFoundError
+
+    acct = (await db.execute(
+        select(OrganizerBankAccount).where(OrganizerBankAccount.user_id == user_id)
+    )).scalar_one_or_none()
+    if not acct:
+        raise NotFoundError("Bank account not found for user", user_id)
+
+    acct.verified = True
+    acct.verification_status = BankVerificationStatus.verified
+    acct.rejection_reason = None
+    await db.flush()
+
+    await notif_svc.create_notification(
+        db, user_id=user_id,
+        type=NotificationType.bank_verified,
+        title="Bank Account Verified",
+        message="Your bank account has been verified. Payouts can now proceed.",
+        data={"bank_account_id": acct.id},
+    )
+    await audit_svc.log_action(
+        db, admin_id=current_user.id, action="bank_account_verify",
+        target_type="bank_account", target_id=user_id,
+    )
+    return {"ok": True, "user_id": user_id, "verification_status": "verified"}
+
+
+class BankRejectBody(BaseModel):
+    reason: str = "Bank account details could not be verified"
+
+
+@router.post("/admin/bank-accounts/{user_id}/reject")
+async def admin_reject_bank_account(
+    user_id: int,
+    body: BankRejectBody,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.admin)),
+):
+    """Admin rejects an organizer's bank account verification."""
+    from app.models.payment_info import BankVerificationStatus
+    from app.services import notification_service as notif_svc
+    from app.models.notification import NotificationType
+    from app.core.exceptions import NotFoundError
+
+    acct = (await db.execute(
+        select(OrganizerBankAccount).where(OrganizerBankAccount.user_id == user_id)
+    )).scalar_one_or_none()
+    if not acct:
+        raise NotFoundError("Bank account not found for user", user_id)
+
+    acct.verified = False
+    acct.verification_status = BankVerificationStatus.rejected
+    acct.rejection_reason = body.reason
+    await db.flush()
+
+    await notif_svc.create_notification(
+        db, user_id=user_id,
+        type=NotificationType.bank_verification_pending,
+        title="Bank Account Rejected",
+        message=f"Your bank account verification was rejected: {body.reason}. Please update your details.",
+        data={"bank_account_id": acct.id, "reason": body.reason},
+    )
+    await audit_svc.log_action(
+        db, admin_id=current_user.id, action="bank_account_reject",
+        target_type="bank_account", target_id=user_id,
+        details={"reason": body.reason},
+    )
+    return {"ok": True, "user_id": user_id, "verification_status": "rejected"}
 
 
 # ═══════════════════════════════════════════

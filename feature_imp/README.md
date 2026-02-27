@@ -79,6 +79,7 @@ This folder documents each major feature of the Crowd Funding Event product: **e
 | 65 | [65-arq-worker-control.md](65-arq-worker-control.md) | ARQ Worker Control |
 | 66 | [66-admin-settings-expansion.md](66-admin-settings-expansion.md) | Admin Settings Expansion |
 | 67 | [67-sponsor-delegates.md](67-sponsor-delegates.md) | Sponsor Delegates |
+| 68 | [68-escrow-bank-account-guard.md](68-escrow-bank-account-guard.md) | Escrow Bank Account Guard |
 
 ### Planned (not yet implemented)
 

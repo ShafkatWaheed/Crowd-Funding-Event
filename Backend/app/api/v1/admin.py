@@ -698,6 +698,72 @@ async def admin_refund_pledge(
     return {"ok": True, "event_id": event_id, "funding_id": funding_id}
 
 
+# ----- Refund Retry (failed refunds) -----
+
+@router.post("/refunds/ticket/{ticket_sale_id}/retry")
+async def admin_retry_ticket_refund(
+    ticket_sale_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.admin)),
+):
+    """Re-enqueue a failed ticket refund."""
+    from app.services import refund_retry
+    await refund_retry.retry_ticket_refund(db, ticket_sale_id)
+    await audit_svc.log_action(
+        db, admin_id=current_user.id, action="refund_retry",
+        target_type="ticket_sale", target_id=ticket_sale_id,
+    )
+    return {"ok": True, "status": "re-enqueued", "ticket_sale_id": ticket_sale_id}
+
+
+@router.post("/refunds/pledge/{funding_id}/retry")
+async def admin_retry_pledge_refund(
+    funding_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.admin)),
+):
+    """Re-enqueue a failed pledge refund."""
+    from app.services import refund_retry
+    await refund_retry.retry_pledge_refund(db, funding_id)
+    await audit_svc.log_action(
+        db, admin_id=current_user.id, action="refund_retry",
+        target_type="funding", target_id=funding_id,
+    )
+    return {"ok": True, "status": "re-enqueued", "funding_id": funding_id}
+
+
+@router.post("/refunds/sponsor/{payment_id}/retry")
+async def admin_retry_sponsor_refund(
+    payment_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.admin)),
+):
+    """Re-enqueue a failed sponsor payment refund."""
+    from app.services import refund_retry
+    await refund_retry.retry_sponsor_refund(db, payment_id)
+    await audit_svc.log_action(
+        db, admin_id=current_user.id, action="refund_retry",
+        target_type="sponsor_payment", target_id=payment_id,
+    )
+    return {"ok": True, "status": "re-enqueued", "payment_id": payment_id}
+
+
+@router.post("/refunds/retry-all/{event_id}")
+async def admin_retry_all_refunds(
+    event_id: int,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.admin)),
+):
+    """Re-enqueue all failed refunds for an event."""
+    from app.services import refund_retry
+    counts = await refund_retry.retry_all_for_event(db, event_id)
+    await audit_svc.log_action(
+        db, admin_id=current_user.id, action="refund_retry_all",
+        target_type="event", target_id=event_id, details=counts,
+    )
+    return {"ok": True, "event_id": event_id, **counts}
+
+
 @router.get("/escrows")
 async def list_escrows(
     db: ReadDbSession,

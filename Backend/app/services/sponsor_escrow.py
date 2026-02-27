@@ -6,6 +6,7 @@ Mirrors FundEscrow but tracks sponsor payment funds with sponsor-specific trigge
   Stage 2: event_started or ticket_percent
   Stage 3: days_after_event or sponsor_confirmed
 """
+import logging
 from datetime import datetime, timezone
 
 from sqlalchemy import func, or_, select
@@ -20,6 +21,8 @@ from app.models.ticket import TicketSale, TicketSaleStatus
 from app.models.user import User
 from app.services import escrow_base
 from app.services import platform_settings as settings_svc
+
+logger = logging.getLogger("escrow")
 
 _LABEL = "Sponsor escrow"
 
@@ -153,6 +156,9 @@ async def check_and_release_stage1(db: AsyncSession, *, event_id: int) -> Sponso
     else:
         return None
 
+    if not await _check_bank_guard(db, event_id, stage=1):
+        return None
+
     result = await release_stage1(db, event_id=event_id, released_by="system")
     try:
         from app.worker.redis_pool import enqueue
@@ -193,6 +199,9 @@ async def check_and_release_stage2(db: AsyncSession, *, event_id: int) -> Sponso
         if pct < threshold:
             return None
     else:
+        return None
+
+    if not await _check_bank_guard(db, event_id, stage=2):
         return None
 
     result = await release_stage2(db, event_id=event_id, released_by="system")
@@ -236,6 +245,9 @@ async def check_and_release_stage3(db: AsyncSession, *, event_id: int) -> Sponso
     else:
         return None
 
+    if not await _check_bank_guard(db, event_id, stage=3):
+        return None
+
     result = await release_stage3(db, event_id=event_id, released_by="system")
     try:
         from app.worker.redis_pool import enqueue
@@ -243,3 +255,35 @@ async def check_and_release_stage3(db: AsyncSession, *, event_id: int) -> Sponso
     except Exception:
         pass
     return result
+
+
+# ---------------------------------------------------------------------------
+# Bank account guard helper
+# ---------------------------------------------------------------------------
+
+async def _check_bank_guard(db: AsyncSession, event_id: int, *, stage: int) -> bool:
+    """Return True if organizer has a verified bank account, else notify and skip."""
+    organizer_id = await escrow_base.get_organizer_for_event(db, event_id)
+    if organizer_id is None:
+        return False
+    if await escrow_base.organizer_has_verified_bank(db, organizer_id):
+        return True
+
+    from app.services import notification_service as notif_svc
+    from app.models.notification import NotificationType
+
+    await notif_svc.create_notification(
+        db, user_id=organizer_id,
+        type=NotificationType.escrow_payout_blocked,
+        title="Payout On Hold",
+        message=(
+            f"Sponsor escrow stage {stage} payout for Event #{event_id} is on hold "
+            "because your bank account is not verified. Please update your bank details."
+        ),
+        data={"event_id": event_id, "stage": stage, "escrow_type": "sponsor"},
+    )
+    logger.info(
+        "Sponsor escrow stage %d skipped for event %d: no verified bank account",
+        stage, event_id,
+    )
+    return False

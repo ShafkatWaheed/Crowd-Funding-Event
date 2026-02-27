@@ -60,6 +60,19 @@ class NotificationType(str, enum.Enum):
     # Admin review
     event_under_review = "event_under_review"
 
+    # Escrow & bank account
+    escrow_payout_blocked = "escrow_payout_blocked"
+    escrow_unfreeze_warning = "escrow_unfreeze_warning"
+    bank_verification_pending = "bank_verification_pending"
+    bank_verified = "bank_verified"
+
+    # Refund failures
+    ticket_refund_failed = "ticket_refund_failed"
+    pledge_refund_failed = "pledge_refund_failed"
+    sponsor_refund_failed = "sponsor_refund_failed"
+    refund_delayed_organizer = "refund_delayed_organizer"
+    refund_retry_requested = "refund_retry_requested"
+
 
 class Notification(Base):
     __tablename__ = "notifications"

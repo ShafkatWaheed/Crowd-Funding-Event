@@ -4,12 +4,19 @@ User payment info and organizer bank account models.
 UserPaymentInfo: stores tokenized payment method (card on file) for customers.
 OrganizerBankAccount: stores encrypted bank details for organizer payouts.
 """
+import enum
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, LargeBinary, String
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Integer, LargeBinary, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+
+
+class BankVerificationStatus(str, enum.Enum):
+    pending = "pending"
+    verified = "verified"
+    rejected = "rejected"
 
 
 class UserPaymentInfo(Base):
@@ -41,6 +48,11 @@ class OrganizerBankAccount(Base):
     account_holder_encrypted: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     swift_code_encrypted: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
     verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    verification_status: Mapped[BankVerificationStatus] = mapped_column(
+        Enum(BankVerificationStatus, name="bankverificationstatus"),
+        nullable=False, default=BankVerificationStatus.pending,
+    )
+    rejection_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
     payout_schedule: Mapped[str] = mapped_column(String(16), nullable=False, default="weekly")
     payout_day: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     min_payout_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=2500)

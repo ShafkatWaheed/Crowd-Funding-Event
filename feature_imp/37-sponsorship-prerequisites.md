@@ -9,7 +9,7 @@
 
 - **Screen/Widget:** Categories (prerequisite CRUD sheet); Bid cards (approve/reject upload + notes); Sponsor (upload sheet, status: pending/approved/rejected).
 - **User action:** Organizer: add/delete prerequisite, review uploads. Sponsor: upload doc per prerequisite.
-- **API calls:** Create/list/delete prerequisites; upload; list uploads per bid; review. Endpoints in sponsors/organizer_views.py (events/{id}/sponsorships/{cat_id}/prerequisites, bids/{id}/prerequisites).
+- **API calls:** Create/list/delete prerequisites; upload; list uploads per bid; review. Endpoints in sponsors/organizer_views.py (events/{id}/sponsorships/{cat_id}/prerequisites, bids/{id}/prerequisites). Prerequisite document uploads use [63-admin-configurable-file-upload-validation.md](63-admin-configurable-file-upload-validation.md) for type and size limits.
 
 ## Backend routing
 

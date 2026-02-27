@@ -5,7 +5,7 @@ Casts values to int where needed. All values stored as strings.
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.cache import cache_get, cache_set, cache_delete
+from app.cache import cache_get, cache_set, cache_delete, safe_cache_key
 from app.core.exceptions import NotFoundError
 from app.models.platform_settings import PlatformSetting
 
@@ -118,6 +118,11 @@ DEFAULTS = {
     "email_provider": "console",
     "email_from_address": "",
     "email_from_name": "",
+    # ── File upload limits ──
+    "upload_max_image_size_mb": 10,
+    "upload_max_document_size_mb": 25,
+    "upload_allowed_image_types": "image/jpeg,image/png,image/webp,image/gif",
+    "upload_allowed_document_types": "application/pdf,image/jpeg,image/png,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     # ── Platform holding account (encrypted values stored separately) ──
     "platform_holding_configured": "false",
     # ── API rate limits (format: "N/minute", "N/second", or "N/hour") ──
@@ -226,6 +231,10 @@ DESCRIPTIONS = {
     "email_provider": "Email provider (console, sendgrid)",
     "email_from_address": "Email From address",
     "email_from_name": "Email From display name",
+    "upload_max_image_size_mb": "Max image upload size in MB (event images, schedule images)",
+    "upload_max_document_size_mb": "Max document upload size in MB (prerequisite documents)",
+    "upload_allowed_image_types": "Comma-separated MIME types allowed for image uploads (e.g. image/jpeg,image/png)",
+    "upload_allowed_document_types": "Comma-separated MIME types allowed for document uploads (e.g. application/pdf,image/jpeg)",
     "platform_holding_configured": "Whether platform holding bank account is configured",
     "rate_limit_global_default": "Global default rate limit for all endpoints without a specific limit (e.g. 120/minute)",
     "rate_limit_auth_verify": "Rate limit for POST /auth/verify (e.g. 10/minute)",
@@ -270,7 +279,7 @@ async def get_all_with_descriptions(db: AsyncSession) -> list[dict]:
 
 async def _get_raw(db: AsyncSession, key: str) -> str | None:
     """Fetch the raw setting value, checking Redis cache first."""
-    cache_key = f"settings:{key}"
+    cache_key = safe_cache_key("settings", key)
     cached = await cache_get(cache_key)
     if cached is not None:
         return cached
@@ -331,7 +340,7 @@ async def set_value(db: AsyncSession, key: str, value: str, description: str | N
         db.add(row)
         await db.flush()
         await db.refresh(row)
-    await cache_delete(f"settings:{key}")
+    await cache_delete(safe_cache_key("settings", key))
     if key == "cache_enabled":
         from app.cache import set_cache_enabled
         set_cache_enabled(value.lower() == "true")

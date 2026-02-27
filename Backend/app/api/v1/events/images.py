@@ -9,6 +9,7 @@ from sqlalchemy import select
 
 from app.dependencies import DbSession, ReadDbSession, require_role
 from app.rate_limit import limiter, dynamic_limit
+from app.services.upload_validation import validate_upload
 from app.models.image import EventImage
 from app.models.user import User, UserRole
 from app.schemas import EventImageResponse
@@ -71,14 +72,7 @@ async def upload_event_image(
     if not await event_service.user_can_edit_event(db, event, current_user):
         raise ForbiddenError("You cannot manage this event")
 
-    ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
-    if file.content_type not in ALLOWED_TYPES:
-        raise HTTPException(400, f"Unsupported file type: {file.content_type}. Allowed: JPEG, PNG, WebP, GIF")
-
-    MAX_SIZE = 10 * 1024 * 1024  # 10 MB
-    contents = await file.read()
-    if len(contents) > MAX_SIZE:
-        raise HTTPException(400, "Image file too large (max 10 MB)")
+    contents = await validate_upload(db, file, "image")
 
     ext = Path(file.filename or "img.jpg").suffix.lower() or ".jpg"
     if ext not in {".jpg", ".jpeg", ".png", ".webp", ".gif"}:

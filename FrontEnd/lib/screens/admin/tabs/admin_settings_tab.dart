@@ -33,6 +33,7 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
     'API Rate Limits': ['rate_limit_global_default', 'rate_limit_auth_verify', 'rate_limit_public_config', 'rate_limit_event_register', 'rate_limit_ticket_purchase', 'rate_limit_pledge', 'rate_limit_file_upload', 'rate_limit_payment_action', 'rate_limit_event_create', 'rate_limit_content_create', 'rate_limit_public_search', 'rate_limit_social_action', 'rate_limit_qr_scan'],
     'Feature Flags': ['feature_milestones_enabled', 'feature_schedule_enabled', 'feature_sponsors_enabled', 'feature_community_rules_enabled'],
     'Push Notifications': ['push_notifications_enabled'],
+    'File Uploads': ['upload_max_image_size_mb', 'upload_max_document_size_mb', 'upload_allowed_image_types', 'upload_allowed_document_types'],
     'Cache': ['cache_enabled', 'cache_ttl_settings', 'cache_ttl_featured', 'cache_ttl_event_detail', 'cache_ttl_dashboard'],
   };
 
@@ -46,6 +47,7 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
     'API Rate Limits': Icons.speed,
     'Feature Flags': Icons.toggle_on_rounded,
     'Push Notifications': Icons.notifications_active,
+    'File Uploads': Icons.upload_file,
     'Cache': Icons.cached,
   };
 

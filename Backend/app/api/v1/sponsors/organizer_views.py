@@ -8,6 +8,7 @@ from sqlalchemy import select
 
 from app.dependencies import DbSession, ReadDbSession, CurrentUser, require_feature
 from app.rate_limit import limiter, dynamic_limit
+from app.services.upload_validation import validate_upload
 from app.models.user import UserRole
 from app.models.prerequisite import CategoryPrerequisite, BidPrerequisiteUpload, UploadStatus
 from app.models.sponsor import SponsorBid, BidStatus
@@ -191,12 +192,12 @@ async def upload_prerequisite_document(
     bid = (await db.execute(select(SponsorBid).where(SponsorBid.id == bid_id))).scalar_one_or_none()
     if not bid or bid.sponsor_user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not your bid")
+    content = await validate_upload(db, file, "document")
     upload_dir = "static/uploads/prerequisites"
     os.makedirs(upload_dir, exist_ok=True)
     ext = os.path.splitext(file.filename)[1] if file.filename else ".pdf"
     filename = f"{uuid.uuid4().hex}{ext}"
     filepath = os.path.join(upload_dir, filename)
-    content = await file.read()
     with open(filepath, "wb") as f:
         f.write(content)
     upload = BidPrerequisiteUpload(
@@ -249,12 +250,12 @@ async def upload_category_prerequisite(
     if existing:
         await db.delete(existing)
         await db.flush()
+    content = await validate_upload(db, file, "document")
     upload_dir = "static/uploads/prerequisites"
     os.makedirs(upload_dir, exist_ok=True)
     ext = os.path.splitext(file.filename)[1] if file.filename else ".pdf"
     filename = f"{uuid.uuid4().hex}{ext}"
     filepath = os.path.join(upload_dir, filename)
-    content = await file.read()
     with open(filepath, "wb") as f:
         f.write(content)
     upload = BidPrerequisiteUpload(

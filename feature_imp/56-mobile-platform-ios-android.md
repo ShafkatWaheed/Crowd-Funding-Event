@@ -70,7 +70,7 @@ flowchart LR
 
 - Set up CI/CD (Codemagic or GitHub Actions) for automated Android and iOS builds on push to main.
 - Add platform-specific UI adaptations: `CupertinoAlertDialog` on iOS vs `AlertDialog` on Android using `Platform.isIOS` checks for native feel.
-- Add push notifications via Firebase Cloud Messaging (FCM) to replace or supplement the current polling-based `NotificationProvider`.
+- Push notifications: FCM is implemented in [FCM Push Notifications](62-fcm-push-notifications.md) (device tokens, ARQ push, tap-to-navigate). For native iOS/Android builds, ensure Firebase config and permissions are set per platform (see 62).
 - Add app icons and splash screens using `flutter_launcher_icons` and `flutter_native_splash` packages.
 - Consider adaptive layouts: the current UI is designed for web/tablet; add responsive breakpoints for small phone screens (< 360dp width).
 

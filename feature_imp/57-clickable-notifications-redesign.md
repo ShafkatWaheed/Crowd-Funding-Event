@@ -67,7 +67,7 @@ flowchart LR
 
 ## Improvements
 
-- Add push notification support (FCM) for real-time delivery instead of 30s polling.
+- ~~Add push notification support (FCM) for real-time delivery instead of 30s polling.~~ **Resolved:** [FCM Push Notifications](62-fcm-push-notifications.md) implemented; push is sent alongside in-app notifications, 30s polling retained for list refresh.
 - Add mark-unread endpoint for full swipe-right toggle behavior.
 - Batch delete support (`DELETE /me/notifications` with body `{"ids": [...]}`) for bulk cleanup.
 - Sound/vibration on new notification arrival (mobile only).

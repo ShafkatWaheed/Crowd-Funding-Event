@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from typing import Any
 
 import redis.asyncio as aioredis
@@ -100,6 +101,24 @@ async def cache_json_get(key: str) -> Any | None:
         return json.loads(raw)
     except (json.JSONDecodeError, TypeError):
         return None
+
+
+_UNSAFE_CHARS = re.compile(r"[:\*\?\n\r\x00]")
+
+
+def safe_cache_key(*parts: str | int) -> str:
+    """Build a colon-separated cache key, sanitizing string parts.
+
+    Strips characters that could cause key collisions or interact with
+    cache_delete_pattern (colons, wildcards, newlines, nulls).
+    Each segment is truncated to 64 chars.
+    """
+    sanitized = []
+    for p in parts:
+        s = str(p)
+        s = _UNSAFE_CHARS.sub("_", s)
+        sanitized.append(s[:64])
+    return ":".join(sanitized)
 
 
 async def cache_json_set(key: str, data: Any, ttl: int = 60) -> None:

@@ -9,22 +9,22 @@
 
 - **Screen/Widget:** Home AppBar (notification bell, unread badge); `NotificationScreen` (list, mark-all-read, tap to event).
 - **User action:** Tap bell; pull-to-refresh; mark all read; tap to navigate.
-- **API calls:** GET `/api/v1/me/notifications`, GET unread-count, PATCH mark-read, PATCH read-all. NotificationProvider 30s polling.
+- **API calls:** GET `/api/v1/me/notifications`, GET unread-count, PATCH mark-read, PATCH read-all; POST/DELETE `/me/device-tokens` for FCM. NotificationProvider 30s polling; FCM push when enabled (see [FCM Push Notifications](62-fcm-push-notifications.md)).
 
 ## Backend routing
 
 - **Entry:** `api_router` → `notifications.router` prefix `/me`.
-- **Handler:** `notifications.py` → GET list, GET unread-count, PATCH read, PATCH read-all.
+- **Handler:** `notifications.py` → GET list, GET unread-count, PATCH read, PATCH read-all; POST/DELETE device-tokens for FCM registration.
 
 ## Service layer
 
 - **Module(s):** `app.services.notification_service`.
-- **Main functions:** create_notification, create_bulk_notifications, list_notifications, unread_count, mark_read, mark_all_read. 13 trigger points across events, registration, tickets, admin, sponsors.
+- **Main functions:** create_notification, create_bulk_notifications (both enqueue FCM push via ARQ when push_notifications_enabled), list_notifications, unread_count, mark_read, mark_all_read. 13 trigger points across events, registration, tickets, admin, sponsors.
 
 ## Models and DB
 
-- **Models:** `Notification` (user_id, type, title, message, data, is_read, created_at). 23 NotificationType enum values.
-- **Tables updated/read:** `notifications`.
+- **Models:** `Notification` (user_id, type, title, message, data, is_read, created_at). 23 NotificationType enum values. `DeviceToken` (user_id, token, platform) for FCM — see [62-fcm-push-notifications.md](62-fcm-push-notifications.md).
+- **Tables updated/read:** `notifications`, `device_tokens` (for push).
 
 ## Dependencies
 
@@ -62,7 +62,7 @@ flowchart LR
 
 ## Improvements
 
-- data JSON for event_id navigation. Per-type icons/colors in frontend. For planned deep-link navigation and modern notification UI, see [Clickable Notifications Redesign](57-clickable-notifications-redesign.md).
+- data JSON for event_id navigation. Per-type icons/colors in frontend. Deep-link and modern UI: see [Clickable Notifications Redesign](57-clickable-notifications-redesign.md). ~~Push notification support~~ **Resolved:** [FCM Push Notifications](62-fcm-push-notifications.md) delivers push to devices alongside in-app notifications; admin toggle `push_notifications_enabled`.
 
 ## Feedback
 

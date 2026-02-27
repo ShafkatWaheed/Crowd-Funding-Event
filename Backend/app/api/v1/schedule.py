@@ -7,6 +7,7 @@ from fastapi.responses import StreamingResponse
 
 from app.dependencies import DbSession, ReadDbSession, require_role, require_feature
 from app.rate_limit import limiter, dynamic_limit
+from app.services.upload_validation import validate_upload
 from app.models.user import User, UserRole
 from app.schemas.schedule import (
     ScheduleItemCreate,
@@ -121,14 +122,7 @@ async def upload_schedule_image(
     import uuid
     from app.services import event as event_service
 
-    ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
-    if file.content_type not in ALLOWED_TYPES:
-        raise HTTPException(400, f"Unsupported file type: {file.content_type}")
-
-    MAX_SIZE = 5 * 1024 * 1024
-    contents = await file.read()
-    if len(contents) > MAX_SIZE:
-        raise HTTPException(400, "Image file too large (max 5 MB)")
+    contents = await validate_upload(db, file, "image")
 
     item = await schedule_service._get_or_404(db, item_id)
     event = await event_service.get_or_404(db, item.event_id)

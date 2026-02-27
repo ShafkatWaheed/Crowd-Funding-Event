@@ -54,11 +54,11 @@ flowchart LR
 ## Vulnerabilities
 
 - Upload: validate file type and size; store outside web root or serve via safe path. URL add: validate URL scheme (https) and optionally domain allowlist to prevent SSRF or malicious redirects.
-- Delete: ensure image_id belongs to event and user has permission; orphaned files if delete only from DB.
+- Delete: ensure image_id belongs to event and user has permission; orphaned files if delete only from DB. Image upload type/size validation is admin-configurable: see [63-admin-configurable-file-upload-validation.md](63-admin-configurable-file-upload-validation.md).
 
 ## Improvements
 
-- FEATURES says "File upload for images" is Phase 21 (unimplemented); current may be URL-only. When adding upload, use S3 or dedicated storage and presigned URLs for production.
+- FEATURES says "File upload for images" is Phase 21 (unimplemented); current may be URL-only. When adding upload, use S3 or dedicated storage and presigned URLs for production. Upload limits and allowed types are configurable via [63-admin-configurable-file-upload-validation.md](63-admin-configurable-file-upload-validation.md).
 - Gallery order: display_order in model; ensure consistent sort in list.
 
 ## Feedback

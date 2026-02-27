@@ -52,7 +52,7 @@ flowchart LR
 
 ## Vulnerabilities
 
-- Use TLS for Redis in production if remote. Avoid user-controlled input in cache keys. Admin-only data keyed by organizer_id.
+- Use TLS for Redis in production if remote. Avoid user-controlled input in cache keys; where keys include query params or user-derived segments, use [64-cache-key-injection-hardening.md](64-cache-key-injection-hardening.md) (`safe_cache_key`). Admin-only data keyed by organizer_id.
 
 ## Improvements
 

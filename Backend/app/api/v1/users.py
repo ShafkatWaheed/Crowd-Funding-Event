@@ -443,14 +443,14 @@ async def get_organizer_dashboard(
 ):
     """Aggregated dashboard: KPIs with deltas, status breakdown, top events, activity feed."""
     from datetime import datetime, timezone
-    from app.cache import cache_json_get, cache_json_set
+    from app.cache import cache_json_get, cache_json_set, safe_cache_key
     from app.services.platform_settings import get_int as get_setting_int
     from app.services import dashboard as dashboard_service
 
     period_map = {"7d": 7, "30d": 30, "90d": 90, "1y": 365}
     delta_days = period_map.get(period, 30)
 
-    cache_key = f"dashboard:{current_user.id}:{status or ''}:{event_id or ''}:{genre or ''}:{period}"
+    cache_key = safe_cache_key("dashboard", current_user.id, status or "", event_id or "", genre or "", period)
     cached = await cache_json_get(cache_key)
     if cached is not None:
         return cached

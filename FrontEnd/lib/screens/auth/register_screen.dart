@@ -326,7 +326,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                           AppSpacing.vLg,
 
-                          // Birthday
+                          // Birthday (required for all roles for age verification)
                           GestureDetector(
                             onTap: _pickBirthday,
                             child: AbsorbPointer(
@@ -462,7 +462,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               width: double.infinity,
                               height: 52,
                               child: ElevatedButton(
-                                onPressed: auth.isLoading || !_agreedToTerms
+                                onPressed: auth.isLoading || !_agreedToTerms || _selectedBirthday == null
                                     ? null
                                     : _handleRegister,
                                 style: ElevatedButton.styleFrom(

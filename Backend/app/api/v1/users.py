@@ -1,22 +1,30 @@
 """
-Users: profile (GET/PATCH /me), my pledges (GET /me/pledges), my tickets (GET /me/tickets), my events (GET /me/events).
+Users: profile (GET/PATCH /me), my pledges (GET /me/pledges), my tickets (GET /me/tickets), my events (GET /me/events), KYC.
 """
-from fastapi import APIRouter, Depends, Request
+import uuid
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 
 from app.dependencies import CurrentUser, DbSession, ReadDbSession, require_role
 from app.rate_limit import limiter, dynamic_limit
 from app.models.user import User, UserRole
+from app.models.kyc_document import KycDocumentType
 from app.schemas import (
     EventResponse, MeResponse, MeUpdate, MyPledgeItem, OrganizerPledgeItem,
     OrganizerDashboardResponse, OrganizerTimeSeriesResponse,
     PledgeReceiptResponse, TicketReceiptResponse, TicketSaleResponse,
 )
+from app.schemas.kyc import KycDocumentResponse, KycStatusResponse, KycSubmitResponse
 from fastapi import Query
 
 from app.api.v1.events import _event_to_response, _get_first_images, _ticket_sale_to_response
 from app.services import event as event_service
 from app.services import funding as funding_service
 from app.services import ticket as ticket_service
+from app.services import kyc_verification as kyc_svc
+from app.services import platform_settings as settings_svc
+from app.services.upload_validation import validate_upload
 
 router = APIRouter()
 
@@ -31,6 +39,9 @@ def _me_response(u) -> MeResponse:
         address=u.address,
         birthday=u.birthday,
         years_of_experience=u.years_of_experience,
+        kyc_status=u.kyc_status,
+        kyc_verified=u.kyc_verified,
+        kyc_verified_at=u.kyc_verified_at,
     )
 
 
@@ -574,4 +585,112 @@ async def get_organizer_time_series(
     from app.services import dashboard as dashboard_service
     return await dashboard_service.get_organizer_time_series(
         db, current_user.id, days=days, status_filter=status, event_id=event_id, genre=genre,
+    )
+
+
+# ── KYC (Know Your Customer) ──
+
+
+def _kyc_doc_response(doc) -> KycDocumentResponse:
+    return KycDocumentResponse(
+        id=doc.id,
+        document_type=doc.document_type.value,
+        file_url=f"/static/uploads/kyc/{Path(doc.file_path).name}",
+        mime_type=doc.mime_type,
+        original_filename=doc.original_filename,
+        status=doc.status.value,
+        rejection_reason=doc.rejection_reason,
+        submitted_at=doc.submitted_at,
+    )
+
+
+@router.get("/kyc-status", response_model=KycStatusResponse)
+async def get_kyc_status(db: ReadDbSession, current_user: CurrentUser):
+    """Get current user's KYC verification status and documents."""
+    docs = await kyc_svc.list_documents(db, current_user.id)
+    role_key = f"kyc_required_{current_user.role.value}"
+    required = await settings_svc.get_bool(db, role_key)
+    return KycStatusResponse(
+        kyc_status=current_user.kyc_status,
+        kyc_verified=current_user.kyc_verified,
+        kyc_verified_at=current_user.kyc_verified_at,
+        kyc_required_for_role=required,
+        documents=[_kyc_doc_response(d) for d in docs],
+    )
+
+
+@router.post("/kyc-documents", response_model=KycDocumentResponse)
+@limiter.limit(dynamic_limit("file_upload", "10/minute"))
+async def upload_kyc_document(
+    request: Request,
+    db: DbSession,
+    current_user: CurrentUser,
+    file: UploadFile = File(...),
+    document_type: str = Form(...),
+):
+    """Upload a KYC document (ID front, ID back, proof of address, selfie, tax ID)."""
+    try:
+        doc_type = KycDocumentType(document_type)
+    except ValueError:
+        valid = ", ".join(t.value for t in KycDocumentType)
+        raise HTTPException(400, f"Invalid document_type. Valid: {valid}")
+
+    if current_user.kyc_status == "verified":
+        raise HTTPException(400, "Already verified")
+    if current_user.kyc_status == "submitted":
+        raise HTTPException(400, "KYC already submitted and under review")
+
+    file_bytes = await validate_upload(db, file, "document")
+
+    upload_dir = Path("static/uploads/kyc")
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    ext = Path(file.filename or "file").suffix
+    filename = f"{current_user.id}_{doc_type.value}_{uuid.uuid4().hex[:8]}{ext}"
+    dest = upload_dir / filename
+    dest.write_bytes(file_bytes)
+
+    doc = await kyc_svc.upload_document(
+        db,
+        user_id=current_user.id,
+        document_type=doc_type,
+        file_path=str(dest),
+        mime_type=file.content_type or "application/octet-stream",
+        original_filename=file.filename or "unknown",
+    )
+    await db.commit()
+    return _kyc_doc_response(doc)
+
+
+@router.delete("/kyc-documents/{document_id}")
+async def delete_kyc_document(
+    document_id: int,
+    db: DbSession,
+    current_user: CurrentUser,
+):
+    """Delete a pending KYC document."""
+    try:
+        await kyc_svc.delete_document(db, current_user.id, document_id)
+        await db.commit()
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return {"ok": True}
+
+
+@router.post("/kyc-submit", response_model=KycSubmitResponse)
+async def submit_kyc(db: DbSession, current_user: CurrentUser):
+    """Submit uploaded documents for KYC verification."""
+    try:
+        result = await kyc_svc.submit_for_review(db, current_user.id)
+        await db.commit()
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+    status_msg = {
+        "verified": "Identity verified successfully.",
+        "rejected": f"Verification rejected: {result.reason}",
+        "pending": "Documents submitted for admin review.",
+    }
+    return KycSubmitResponse(
+        kyc_status=result.status if result.status != "pending" else "submitted",
+        message=status_msg.get(result.status, "Submitted"),
     )

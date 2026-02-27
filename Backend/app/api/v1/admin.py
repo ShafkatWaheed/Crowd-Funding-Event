@@ -4,9 +4,10 @@ Admin: approve/reject events, list pending, stats, platform settings.
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel as _BaseModel
 
+from app.rate_limit import limiter
 from app.services import audit as audit_svc
 
 from app.dependencies import DbSession, ReadDbSession, require_role
@@ -677,7 +678,7 @@ async def admin_refund_sponsor_bid(
             db, user_id=sponsor_user_id,
             type=NotificationType.sponsor_refunded,
             title="Sponsorship Refunded",
-            message="Your sponsorship payment has been refunded by an administrator.",
+            message="Your sponsorship refund is being processed by an administrator.",
             data={"event_id": event_id, "category_id": cat_id, "bid_id": bid_id, "payment_id": payment.id},
         )
     return {"ok": True, "event_id": event_id, "bid_id": bid_id, "payment_id": payment.id}
@@ -701,7 +702,9 @@ async def admin_refund_pledge(
 # ----- Refund Retry (failed refunds) -----
 
 @router.post("/refunds/ticket/{ticket_sale_id}/retry")
+@limiter.limit("60/minute")
 async def admin_retry_ticket_refund(
+    request: Request,
     ticket_sale_id: int,
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.admin)),
@@ -717,7 +720,9 @@ async def admin_retry_ticket_refund(
 
 
 @router.post("/refunds/pledge/{funding_id}/retry")
+@limiter.limit("60/minute")
 async def admin_retry_pledge_refund(
+    request: Request,
     funding_id: int,
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.admin)),
@@ -733,7 +738,9 @@ async def admin_retry_pledge_refund(
 
 
 @router.post("/refunds/sponsor/{payment_id}/retry")
+@limiter.limit("60/minute")
 async def admin_retry_sponsor_refund(
+    request: Request,
     payment_id: int,
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.admin)),
@@ -749,7 +756,9 @@ async def admin_retry_sponsor_refund(
 
 
 @router.post("/refunds/retry-all/{event_id}")
+@limiter.limit("60/minute")
 async def admin_retry_all_refunds(
+    request: Request,
     event_id: int,
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.admin)),
@@ -1341,3 +1350,88 @@ async def admin_set_policy_overrides(
         },
         "effective": policy,
     }
+
+
+# ═══════════════════════════════════════
+#  KYC Review
+# ═══════════════════════════════════════
+
+from app.schemas.kyc import KycDocumentResponse, KycPendingUser, KycVerifyBody
+from app.services import kyc_verification as kyc_svc
+from pathlib import Path
+
+
+def _kyc_doc_response(doc) -> KycDocumentResponse:
+    return KycDocumentResponse(
+        id=doc.id,
+        document_type=doc.document_type.value,
+        file_url=f"/static/uploads/kyc/{Path(doc.file_path).name}",
+        mime_type=doc.mime_type,
+        original_filename=doc.original_filename,
+        status=doc.status.value,
+        rejection_reason=doc.rejection_reason,
+        submitted_at=doc.submitted_at,
+    )
+
+
+@router.get("/kyc-pending", response_model=list[KycPendingUser])
+async def admin_list_kyc_pending(
+    db: ReadDbSession,
+    current_user: User = Depends(require_role(UserRole.admin)),
+):
+    """List users with KYC status 'submitted' awaiting admin review."""
+    users = await kyc_svc.list_pending_users(db)
+    result = []
+    for u in users:
+        docs = await kyc_svc.list_documents(db, u.id)
+        result.append(KycPendingUser(
+            user_id=u.id,
+            email=u.email,
+            display_name=u.display_name,
+            role=u.role.value,
+            kyc_status=u.kyc_status,
+            submitted_at=u.updated_at,
+            document_count=len(docs),
+        ))
+    return result
+
+
+@router.get("/users/{user_id}/kyc-documents", response_model=list[KycDocumentResponse])
+async def admin_get_kyc_documents(
+    user_id: int,
+    db: ReadDbSession,
+    current_user: User = Depends(require_role(UserRole.admin)),
+):
+    """Get all KYC documents for a user (admin only)."""
+    docs = await kyc_svc.list_documents(db, user_id)
+    return [_kyc_doc_response(d) for d in docs]
+
+
+@router.post("/users/{user_id}/kyc-verify")
+async def admin_verify_kyc(
+    user_id: int,
+    body: KycVerifyBody,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.admin)),
+):
+    """Approve or reject a user's KYC submission."""
+    try:
+        new_status = await kyc_svc.admin_verify(
+            db,
+            user_id=user_id,
+            approved=body.approved,
+            rejection_reason=body.rejection_reason,
+            reviewed_by_id=current_user.id,
+        )
+        await audit_svc.log_action(
+            db,
+            user_id=current_user.id,
+            action="kyc_verify" if body.approved else "kyc_reject",
+            resource_type="user",
+            resource_id=user_id,
+            details={"approved": body.approved, "reason": body.rejection_reason},
+        )
+        await db.commit()
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"user_id": user_id, "kyc_status": new_status}

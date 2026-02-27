@@ -3,7 +3,7 @@ User model and role enum.
 """
 import enum
 from datetime import date, datetime
-from sqlalchemy import Date, Integer, String, Text, Enum, DateTime
+from sqlalchemy import Boolean, Date, Integer, String, Text, Enum, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -29,8 +29,14 @@ class User(Base):
     birthday: Mapped[date | None] = mapped_column(Date, nullable=True)
     years_of_experience: Mapped[int | None] = mapped_column(Integer, nullable=True)
     terms_accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    kyc_status: Mapped[str] = mapped_column(String(20), nullable=False, default="not_started")
+    kyc_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    @property
+    def kyc_verified(self) -> bool:
+        return self.kyc_status == "verified"
 
     # relationships
     events = relationship("Event", back_populates="organizer", foreign_keys="Event.organizer_id")

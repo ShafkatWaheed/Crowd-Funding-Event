@@ -1594,4 +1594,54 @@ class ApiService {
     final resp = await dio.patch('/admin/events/$eventId/policy-overrides', data: overrides);
     return resp.data as Map<String, dynamic>;
   }
+
+  // ─── KYC (Know Your Customer) ───
+
+  Future<Map<String, dynamic>> getKycStatus() async {
+    final resp = await dio.get('/me/kyc-status');
+    return resp.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> uploadKycDocument(
+    String filePath,
+    String documentType,
+  ) async {
+    final formData = FormData.fromMap({
+      'file': await MultipartFile.fromFile(filePath),
+      'document_type': documentType,
+    });
+    final resp = await dio.post('/me/kyc-documents', data: formData);
+    return resp.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> deleteKycDocument(int documentId) async {
+    final resp = await dio.delete('/me/kyc-documents/$documentId');
+    return resp.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> submitKyc() async {
+    final resp = await dio.post('/me/kyc-submit', data: {});
+    return resp.data as Map<String, dynamic>;
+  }
+
+  Future<List<dynamic>> adminGetKycPending() async {
+    final resp = await dio.get('/admin/kyc-pending');
+    return resp.data as List<dynamic>;
+  }
+
+  Future<List<dynamic>> adminGetUserKycDocuments(int userId) async {
+    final resp = await dio.get('/admin/users/$userId/kyc-documents');
+    return resp.data as List<dynamic>;
+  }
+
+  Future<Map<String, dynamic>> adminVerifyKyc(
+    int userId, {
+    required bool approved,
+    String? rejectionReason,
+  }) async {
+    final data = <String, dynamic>{'approved': approved};
+    if (rejectionReason != null) data['rejection_reason'] = rejectionReason;
+    final resp = await dio.post('/admin/users/$userId/kyc-verify', data: data);
+    return resp.data as Map<String, dynamic>;
+  }
 }

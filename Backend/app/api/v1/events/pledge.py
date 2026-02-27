@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
-from app.dependencies import CurrentUser, DbSession, ReadDbSession, require_role
+from app.dependencies import CurrentUser, DbSession, ReadDbSession, require_role, require_kyc
 from app.models.funding import Funding, FundingStatus
 from app.models.user import User, UserRole
 from app.schemas import (
@@ -57,6 +57,7 @@ async def pledge_event(
     body: PledgeBody,
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.customer, UserRole.sponsor)),
+    _kyc=Depends(require_kyc()),
 ):
     """Pledge/donate to event. Only allowed during approved (funding active) status."""
     from app.models.event import EventStatus

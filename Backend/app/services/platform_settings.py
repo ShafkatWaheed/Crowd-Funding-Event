@@ -160,6 +160,14 @@ DEFAULTS = {
     "max_sponsor_delegates_per_ticket": 5,
     # ── Bank verification ──
     "bank_verification_delay_seconds": 10,
+    # ── KYC (Know Your Customer) ──
+    "kyc_required_organizer": "false",
+    "kyc_required_customer": "false",
+    "kyc_required_sponsor": "false",
+    "kyc_mock_enabled": "true",
+    "mock_kyc_latency_min_ms": 500,
+    "mock_kyc_latency_max_ms": 2000,
+    "mock_kyc_failure_rate_percent": 0,
     # ── API rate limits (format: "N/minute", "N/second", or "N/hour") ──
     "rate_limit_global_default": "120/minute",
     "rate_limit_auth_verify": "10/minute",
@@ -296,6 +304,13 @@ DESCRIPTIONS = {
     "max_co_organizers_limit": "Platform-wide ceiling for max co-organizers per event",
     "refund_deadline_percent_min": "Minimum allowed refund deadline percentage of funding duration",
     "refund_deadline_percent_max": "Maximum allowed refund deadline percentage of funding duration",
+    "kyc_required_organizer": "Require KYC verification for organizers before creating events",
+    "kyc_required_customer": "Require KYC verification for customers before purchasing tickets",
+    "kyc_required_sponsor": "Require KYC verification for sponsors before placing bids",
+    "kyc_mock_enabled": "Enable mock KYC verification (auto-approve; disable for manual admin review)",
+    "mock_kyc_latency_min_ms": "Min simulated KYC verification latency (ms)",
+    "mock_kyc_latency_max_ms": "Max simulated KYC verification latency (ms)",
+    "mock_kyc_failure_rate_percent": "% of mock KYC verifications that randomly fail (0 = none)",
     "rate_limit_global_default": "Global default rate limit for all endpoints without a specific limit (e.g. 120/minute)",
     "rate_limit_auth_verify": "Rate limit for POST /auth/verify (e.g. 10/minute)",
     "rate_limit_public_config": "Rate limit for GET /config (e.g. 60/minute)",

@@ -51,14 +51,16 @@ async def verify_and_upsert_user(
     if sign_up_role in ("customer", "organizer", "sponsor"):
         role = UserRole(sign_up_role)
 
-    if birthday is not None:
-        from datetime import date as date_type
-        from app.services.age_verification import calculate_age
-        if isinstance(birthday, str):
-            birthday = date_type.fromisoformat(birthday)
-        age = calculate_age(birthday)
-        if age < 13:
-            raise ValueError("You must be at least 13 years old to register")
+    # Birthday is mandatory for all signups (customer, organizer, sponsor) for age verification
+    if birthday is None:
+        raise ValueError("Birthday is required for registration (age verification)")
+    from datetime import date as date_type
+    from app.services.age_verification import calculate_age
+    if isinstance(birthday, str):
+        birthday = date_type.fromisoformat(birthday)
+    age = calculate_age(birthday)
+    if age < 13:
+        raise ValueError("You must be at least 13 years old to register")
 
     user = User(
         firebase_uid=uid,

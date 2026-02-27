@@ -30,6 +30,7 @@ from app.models.reconciliation import ReconciliationReport
 from app.models.audit_log import AuditLog
 from app.models.device_token import DeviceToken
 from app.models.worker_run_log import WorkerRunLog
+from app.models.kyc_document import KycDocument, KycDocumentType, KycDocumentStatus
 
 __all__ = [
     "User",
@@ -99,4 +100,7 @@ __all__ = [
     "AuditLog",
     "DeviceToken",
     "WorkerRunLog",
+    "KycDocument",
+    "KycDocumentType",
+    "KycDocumentStatus",
 ]

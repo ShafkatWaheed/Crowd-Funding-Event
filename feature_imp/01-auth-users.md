@@ -8,8 +8,8 @@
 ## Frontend flow
 
 - **Screen/Widget:** `LoginScreen` (`/login`), `RegisterScreen` (`/register`), `ProfileScreen` (profile tab or `/profile`).
-- **User action:** Enter email/password → sign in with Firebase; or register with role (customer/organizer/sponsor), display name, terms checkbox → then backend verify.
-- **API calls:** `verifyToken()` (POST `/api/v1/auth/verify` with `id_token`, `role`, `display_name`, `terms_accepted_at`); `getMe()` (GET `/api/v1/me`); `updateMe(data)` (PATCH `/api/v1/me`).
+- **User action:** Enter email/password → sign in with Firebase; or register with role (customer/organizer/sponsor), display name, **birthday** (required for all roles for age verification), terms checkbox → then backend verify. Create Account is disabled until birthday is selected; age must be at least 13.
+- **API calls:** `verifyToken()` (POST `/api/v1/auth/verify` with `id_token`, `role`, `display_name`, `terms_accepted_at`, **`birthday`** required for new signups); `getMe()` (GET `/api/v1/me`); `updateMe(data)` (PATCH `/api/v1/me`).
 
 ## Backend routing
 
@@ -18,13 +18,13 @@
 
 ## Service layer
 
-- **Module(s):** `app.services.auth`, `app.core.security` (get_current_user via Firebase token).
-- **Main functions:** `verify_and_upsert_user()` (validates Firebase ID token, creates or updates user in DB); profile updates in route (direct PATCH on current_user).
+- **Module(s):** `app.services.auth`, `app.services.age_verification` (calculate_age), `app.core.security` (get_current_user via Firebase token).
+- **Main functions:** `verify_and_upsert_user()` (validates Firebase ID token, creates or updates user in DB; **for new users, birthday is required** — raises if missing; parses and validates age ≥ 13); profile updates in route (direct PATCH on current_user).
 
 ## Models and DB
 
-- **Models:** `User`.
-- **Tables updated/read:** `users` (insert on signup, update on verify and profile PATCH).
+- **Models:** `User` (includes `birthday`, optional in DB for backward compatibility; required at signup for new users).
+- **Tables updated/read:** `users` (insert on signup with birthday, update on verify and profile PATCH).
 
 ## Dependencies
 
@@ -33,7 +33,7 @@
 
 ## Prompt
 
-Implement the **Authentication & Users** feature for the Crowd Funding Event app (Flutter Web, FastAPI, PostgreSQL, Firebase Auth). Backend: POST `/auth/verify` to validate Firebase ID token and upsert user (role, display_name, terms); GET/PATCH `/me` for profile. Frontend: Login/Register screens, verify token and call verify API; use current user and Bearer token on all protected requests. Follow the flow, dependencies, and diagrams in this document.
+Implement the **Authentication & Users** feature for the Crowd Funding Event app (Flutter Web, FastAPI, PostgreSQL, Firebase Auth). Backend: POST `/auth/verify` to validate Firebase ID token and upsert user (role, display_name, terms, **birthday required for new users** for age verification; enforce age ≥ 13); GET/PATCH `/me` for profile. Frontend: Login/Register screens; register requires **birthday** for all roles (customer, organizer, sponsor)—disabled submit until selected, validate age; verify token and call verify API; use current user and Bearer token on all protected requests. Follow the flow, dependencies, and diagrams in this document.
 
 ## Flow diagram
 
@@ -63,4 +63,4 @@ flowchart LR
 
 ## Feedback
 
-- Auth and profile are split across `/auth` and `/me`; clear and consistent. Role is set only at signup (no add-role yet per FEATURES).
+- Auth and profile are split across `/auth` and `/me`; clear and consistent. Role is set only at signup (no add-role yet per FEATURES). **Birthday is mandatory at signup for all roles** (customer, organizer, sponsor) for age verification; backend rejects new signups without birthday; frontend disables Create Account until birthday is set and enforces age ≥ 13. Age-restricted actions (tickets, sponsorship, funding, registration) use `app.services.age_verification` and may require profile birthday if missing.

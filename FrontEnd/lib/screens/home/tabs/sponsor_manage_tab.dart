@@ -10,6 +10,7 @@ import '../../../providers/auth_provider.dart';
 import '../../../utils/date_time_utils.dart';
 import '../../../services/api_service.dart';
 import '../../../widgets/animated_list_item.dart';
+import '../../../widgets/kyc_required_banner.dart';
 import '../../../widgets/empty_state.dart';
 import '../../../widgets/shimmer_loaders.dart';
 
@@ -99,8 +100,12 @@ class _SponsorManageTabState extends State<SponsorManageTab> {
       return true;
     }).toList();
 
+    final user = context.read<AuthProvider>().user;
+
     return Column(
       children: [
+        if (user != null && user.kycStatus != 'verified')
+          const KycRequiredBanner(action: 'place sponsorship bids'),
         Container(
           decoration: BoxDecoration(
             color: AppTheme.cardOf(context),

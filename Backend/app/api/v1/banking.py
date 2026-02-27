@@ -5,7 +5,7 @@ mock ledger, email templates, disputes, reconciliation, tax, payouts.
 from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Body, Depends, Query, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -122,6 +122,13 @@ class BankAccountUpdate(BaseModel):
     payout_day: int | None = None
     min_payout_cents: int | None = None
 
+    @field_validator("bank_name", "account_number", "routing_number", "account_holder")
+    @classmethod
+    def bank_fields_non_empty(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("Bank name, account number, routing number, and account holder cannot be empty")
+        return v.strip()
+
 
 @router.get("/me/bank-account", response_model=BankAccountResponse)
 async def get_bank_account(
@@ -229,25 +236,12 @@ async def delete_bank_account(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.organizer)),
 ):
-    """Delete bank account. Blocked if organizer has active escrow."""
-    from app.services.escrow_base import has_active_escrow
-    from app.core.exceptions import ConflictError, NotFoundError
+    """Bank account cannot be deleted once set. Use update to change details."""
+    from app.core.exceptions import ForbiddenError
 
-    acct = (await db.execute(
-        select(OrganizerBankAccount).where(OrganizerBankAccount.user_id == current_user.id)
-    )).scalar_one_or_none()
-    if not acct:
-        raise NotFoundError("Bank account not found")
-
-    if await has_active_escrow(db, current_user.id):
-        raise ConflictError(
-            "Cannot remove bank account while you have events with active escrow. "
-            "All escrow stages must be fully released first."
-        )
-
-    await db.delete(acct)
-    await db.flush()
-    return {"ok": True, "message": "Bank account removed"}
+    raise ForbiddenError(
+        "Bank account cannot be deleted. You can update your bank details via the form."
+    )
 
 
 # ═══════════════════════════════════════════
@@ -570,7 +564,9 @@ async def get_platform_account(
 # ═══════════════════════════════════════════
 
 @router.post("/admin/bank-accounts/{user_id}/verify")
+@limiter.limit("60/minute")
 async def admin_verify_bank_account(
+    request: Request,
     user_id: int,
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.admin)),
@@ -611,7 +607,9 @@ class BankRejectBody(BaseModel):
 
 
 @router.post("/admin/bank-accounts/{user_id}/reject")
+@limiter.limit("60/minute")
 async def admin_reject_bank_account(
+    request: Request,
     user_id: int,
     body: BankRejectBody,
     db: DbSession,

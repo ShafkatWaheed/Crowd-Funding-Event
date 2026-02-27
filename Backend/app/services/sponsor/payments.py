@@ -211,9 +211,12 @@ async def refund_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorPaymen
             )
         )
 
-    payment.status = PaymentStatus.refunded
     await db.flush()
     await db.refresh(payment)
+
+    from app.worker.redis_pool import enqueue
+    await enqueue("process_sponsor_refund", payment.id)
+
     return payment
 
 

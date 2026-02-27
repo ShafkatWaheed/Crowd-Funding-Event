@@ -567,9 +567,13 @@ async def approve_refund(
     if sale.status != TicketSaleStatus.refund_requested:
         raise ConflictError("Only refund-requested tickets can be approved")
 
-    sale.status = TicketSaleStatus.refunded
+    sale.status = TicketSaleStatus.refund_processing
     await db.flush()
     await db.refresh(sale)
+
+    from app.worker.redis_pool import enqueue
+    await enqueue("process_ticket_refund", sale.id)
+
     return sale
 
 

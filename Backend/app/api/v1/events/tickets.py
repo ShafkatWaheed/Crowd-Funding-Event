@@ -4,7 +4,7 @@ Event tickets: tiers CRUD, price, purchase, refund, scan, receipts, stats, waitl
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func, select
 
-from app.dependencies import CurrentUser, DbSession, ReadDbSession, require_role
+from app.dependencies import CurrentUser, DbSession, ReadDbSession, require_role, require_kyc
 from app.models.funding import Funding, FundingStatus, PledgeSpotReservation
 from app.models.ticket import TicketSale, TicketSaleStatus
 from app.models.user import User, UserRole
@@ -207,6 +207,7 @@ async def purchase_ticket(
     body: TicketPurchaseBody,
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.customer)),
+    _kyc=Depends(require_kyc()),
 ):
     """Purchase one or more tickets (customer, must be registered)."""
     sales = await ticket_service.purchase_ticket(
@@ -296,7 +297,7 @@ async def approve_ticket_refund(
             db, user_id=sale.user_id,
             type=NotificationType.refund_issued,
             title="Refund Approved",
-            message=f"Your ticket refund of ${sale.amount_paid_cents / 100:.2f} has been approved.",
+            message=f"Your ticket refund of ${sale.amount_paid_cents / 100:.2f} has been approved and is being processed.",
             data={"event_id": event_id, "ticket_sale_id": ticket_id},
         )
         buyer = sale.user

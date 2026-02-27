@@ -17,6 +17,7 @@ import 'tabs/admin_arq_tab.dart';
 import 'tabs/admin_mock_tab.dart';
 import 'tabs/admin_settings_tab.dart';
 import 'tabs/admin_users_tab.dart';
+import 'tabs/admin_kyc_tab.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -262,6 +263,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ListTile(leading: const Icon(Icons.settings), title: const Text('Settings'), onTap: () { Navigator.pop(ctx); setState(() => _selectedSection = 6); }),
             ListTile(leading: const Icon(Icons.science_outlined), title: const Text('Mock'), onTap: () { Navigator.pop(ctx); setState(() => _selectedSection = 7); }),
             ListTile(leading: const Icon(Icons.schedule_send_rounded), title: const Text('ARQ Control'), onTap: () { Navigator.pop(ctx); setState(() => _selectedSection = 8); }),
+            ListTile(leading: const Icon(Icons.verified_user), title: const Text('KYC Review'), onTap: () { Navigator.pop(ctx); setState(() => _selectedSection = 9); }),
             const SizedBox(height: 8),
           ],
         ),
@@ -406,6 +408,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 _navItem(6, Icons.settings, 'Settings'),
                 _navItem(7, Icons.science_outlined, 'Mock'),
                 _navItem(8, Icons.schedule_send_rounded, 'ARQ'),
+                _navItem(9, Icons.verified_user, 'KYC Review'),
               ],
             ),
           ),
@@ -474,6 +477,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       case 5: return 'Email';
       case 6: return 'Settings';
       case 7: return 'Mock';
+      case 8: return 'ARQ Control';
+      case 9: return 'KYC Review';
       default: return 'Admin';
     }
   }
@@ -546,6 +551,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           settings: _settings,
           onUpdateSetting: _updateSetting,
         );
+      case 9:
+        return AdminKycTab(onSnack: _snack);
       default:
         return AdminHomeTab(
           stats: _stats,

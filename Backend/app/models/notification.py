@@ -66,6 +66,11 @@ class NotificationType(str, enum.Enum):
     bank_verification_pending = "bank_verification_pending"
     bank_verified = "bank_verified"
 
+    # KYC
+    kyc_submitted = "kyc_submitted"
+    kyc_approved = "kyc_approved"
+    kyc_rejected = "kyc_rejected"
+
     # Refund failures
     ticket_refund_failed = "ticket_refund_failed"
     pledge_refund_failed = "pledge_refund_failed"

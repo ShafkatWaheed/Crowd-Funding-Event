@@ -317,8 +317,10 @@ async def process_bulk_pledge_refunds(ctx: dict, event_id: int, guest_refund: bo
 
 async def process_ticket_refund(ctx: dict, ticket_sale_id: int) -> None:
     """
-    Complete a single ticket refund.
+    Complete a single ticket refund via payment gateway.
     """
+    from app.services.payment_gateway import get_gateway
+
     async with async_session_maker() as db:
         try:
             sale = (await db.execute(
@@ -329,11 +331,19 @@ async def process_ticket_refund(ctx: dict, ticket_sale_id: int) -> None:
                 logger.warning("Ticket %d: skip (not in refund_processing)", ticket_sale_id)
                 return
 
-            # --- Payment gateway refund would go here ---
+            gateway = await get_gateway(db)
+            result = await gateway.refund(
+                db,
+                original_transaction_id=sale.gateway_transaction_id or "",
+                amount_cents=sale.amount_paid_cents,
+                description=f"Ticket refund for sale #{ticket_sale_id}",
+            )
+            if result.status != "completed":
+                raise RuntimeError(f"Gateway returned status={result.status}")
 
             sale.status = TicketSaleStatus.refunded
             await db.commit()
-            logger.info("Ticket %d: refunded (%d cents)", ticket_sale_id, sale.amount_paid_cents)
+            logger.info("Ticket %d: refunded (%d cents, txn=%s)", ticket_sale_id, sale.amount_paid_cents, result.transaction_id)
 
         except Exception:
             await db.rollback()
@@ -343,8 +353,10 @@ async def process_ticket_refund(ctx: dict, ticket_sale_id: int) -> None:
 
 async def process_sponsor_refund(ctx: dict, payment_id: int) -> None:
     """
-    Complete a sponsor payment refund.
+    Complete a sponsor payment refund via payment gateway.
     """
+    from app.services.payment_gateway import get_gateway
+
     async with async_session_maker() as db:
         try:
             payment = (await db.execute(
@@ -355,11 +367,19 @@ async def process_sponsor_refund(ctx: dict, payment_id: int) -> None:
                 logger.warning("SponsorPayment %d: skip (not in refund_processing)", payment_id)
                 return
 
-            # --- Payment gateway refund would go here ---
+            gateway = await get_gateway(db)
+            result = await gateway.refund(
+                db,
+                original_transaction_id=payment.gateway_transaction_id or "",
+                amount_cents=payment.amount_cents,
+                description=f"Sponsor refund for payment #{payment_id}",
+            )
+            if result.status != "completed":
+                raise RuntimeError(f"Gateway returned status={result.status}")
 
             payment.status = PaymentStatus.refunded
             await db.commit()
-            logger.info("SponsorPayment %d: refunded (%d cents)", payment_id, payment.amount_cents)
+            logger.info("SponsorPayment %d: refunded (%d cents, txn=%s)", payment_id, payment.amount_cents, result.transaction_id)
 
         except Exception:
             await db.rollback()

@@ -4,7 +4,7 @@ Event registration: register, unregister, my-registration, registrations list, d
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 
-from app.dependencies import CurrentUser, DbSession, ReadDbSession, require_role
+from app.dependencies import CurrentUser, DbSession, ReadDbSession, require_role, require_kyc
 from app.models.event import EventStatus
 from app.models.registration import Registration, RegistrationStatus
 from app.models.user import User, UserRole
@@ -27,6 +27,7 @@ async def register_event(
     event_id: int,
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.customer)),
+    _kyc=Depends(require_kyc()),
 ):
     """Register for event (open: first-come; closed: request)."""
     reg = await registration_service.register(db, event_id=event_id, user=current_user)

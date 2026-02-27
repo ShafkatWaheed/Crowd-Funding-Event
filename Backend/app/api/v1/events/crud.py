@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import Response
 from sqlalchemy import select
 
-from app.dependencies import CurrentUserOptional, DbSession, ReadDbSession, require_role
+from app.dependencies import CurrentUserOptional, DbSession, ReadDbSession, require_role, require_kyc
 from app.rate_limit import limiter, dynamic_limit
 from app.models.event import Event, EventStatus, RegistrationType
 from app.models.registration import Registration, RegistrationStatus
@@ -182,6 +182,7 @@ async def create_event(
     body: EventCreate,
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+    _kyc=Depends(require_kyc()),
 ):
     """Create event (organizer or admin). At least one of event date or funding deadline must be set."""
     start_time = _parse_iso_datetime(body.start_time) if body.start_time else None

@@ -16,6 +16,7 @@ import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../services/mapbox_geocoding_service.dart';
 import '../../widgets/app_toast.dart';
+import '../../widgets/kyc_section.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -950,6 +951,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         ],
                                       ),
                                     ],
+                            ),
+
+                          // ── Identity Verification (KYC) ──
+                          if (!user.isAdmin)
+                            _SectionCard(
+                              title: 'Identity Verification',
+                              icon: Icons.verified_user_outlined,
+                              delay: 240,
+                              children: const [KycSection()],
                             ),
 
                           // ── Payment Information ──

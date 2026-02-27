@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from app.dependencies import DbSession, ReadDbSession, CurrentUser, require_feature
+from app.dependencies import DbSession, ReadDbSession, CurrentUser, require_feature, require_kyc
 from app.rate_limit import limiter, dynamic_limit
 from app.models.user import UserRole
 from app.models.sponsor import SponsorPayment, SponsorBid, SponsorshipCategory
@@ -30,6 +30,7 @@ async def pay_bid(
     bid_id: int,
     db: DbSession,
     current_user: CurrentUser,
+    _kyc=Depends(require_kyc()),
 ):
     payment = await sponsor_svc.pay_bid(db, bid_id, current_user)
     from sqlalchemy import select as sa_select
@@ -73,7 +74,7 @@ async def refund_bid(
             db, user_id=sponsor_user_id,
             type=NotificationType.sponsor_refunded,
             title="Sponsorship Refunded",
-            message=f"Your sponsorship payment of ${payment.amount_cents / 100:.2f} has been refunded by the organizer.",
+            message=f"Your sponsorship refund of ${payment.amount_cents / 100:.2f} is being processed.",
             data={"event_id": event_id, "category_id": cat_id, "bid_id": bid_id, "payment_id": payment.id},
         )
     event_obj = (await db.execute(
@@ -84,7 +85,7 @@ async def refund_bid(
             db, user_id=event_obj.organizer_id,
             type=NotificationType.sponsor_refunded,
             title="Sponsorship Refund Processed",
-            message=f"Refund of ${payment.amount_cents / 100:.2f} has been processed for bid #{bid_id}.",
+            message=f"Refund of ${payment.amount_cents / 100:.2f} is being processed for bid #{bid_id}.",
             data={"event_id": event_id, "category_id": cat_id, "bid_id": bid_id, "payment_id": payment.id},
         )
     await db.commit()

@@ -32,6 +32,24 @@ def require_feature(key: str):
     return _guard
 
 
+def require_kyc():
+    """Dependency factory: blocks if KYC is required for the user's role and they are not verified."""
+    async def _guard(
+        db: Annotated[AsyncSession, Depends(get_db_session)],
+        current_user: Annotated[User, Depends(get_current_user)],
+    ):
+        if current_user.role == UserRole.admin:
+            return
+        from app.services import platform_settings as settings_svc
+        key = f"kyc_required_{current_user.role.value}"
+        if await settings_svc.get_bool(db, key) and not current_user.kyc_verified:
+            raise HTTPException(
+                status_code=403,
+                detail="KYC verification required. Complete identity verification in your profile.",
+            )
+    return _guard
+
+
 # Type aliases for cleaner route signatures
 DbSession = Annotated[AsyncSession, Depends(get_db_session)]
 ReadDbSession = Annotated[AsyncSession, Depends(get_read_db_session)]

@@ -18,6 +18,9 @@ class MeResponse(BaseModel):
     birthday: date | None = None
     years_of_experience: int | None = None
     terms_accepted_at: datetime | None = None
+    kyc_status: str = "not_started"
+    kyc_verified: bool = False
+    kyc_verified_at: datetime | None = None
 
     model_config = {"from_attributes": True}
 
@@ -31,13 +34,13 @@ class MeUpdate(BaseModel):
 
 
 class VerifyBody(BaseModel):
-    """Body for POST /auth/verify. For new users, role sets sign-up type."""
+    """Body for POST /auth/verify. For new users, role sets sign-up type. Birthday is required for new signups (all roles) for age verification."""
 
     id_token: str
     role: SignUpRole = "customer"
     display_name: str | None = None
     terms_accepted_at: datetime | None = None
-    birthday: date | None = None
+    birthday: date | None = None  # Required for new users (customer, organizer, sponsor); used for age verification
 
 
 class VerifyResponse(BaseModel):

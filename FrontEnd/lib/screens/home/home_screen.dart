@@ -10,6 +10,7 @@ import '../../providers/event_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../services/api_service.dart';
 import '../../widgets/press_feedback.dart';
+import '../../widgets/kyc_required_banner.dart';
 import '../notification/notification_screen.dart';
 import 'tabs/explore_tab.dart';
 import 'tabs/home_tab.dart';
@@ -133,6 +134,8 @@ class _HomeScreenState extends State<HomeScreen> {
             Column(
               children: [
                 _orgGreeting(user!, isDark),
+                if (user.kycStatus != 'verified' && !user.isAdmin)
+                  const KycRequiredBanner(action: 'create and manage events'),
                 Expanded(
                   child: OrganizerDashboardTab(
                     bookmarkedIds: _bookmarkedIds,

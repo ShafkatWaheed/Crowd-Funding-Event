@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
 
-from app.dependencies import DbSession, ReadDbSession, CurrentUser, require_feature
+from app.dependencies import DbSession, ReadDbSession, CurrentUser, require_feature, require_kyc
 from app.models.user import User
 from app.schemas.sponsor import BidCreate, BidUpdate, BidResponse
 from app.services import sponsor as sponsor_svc
@@ -62,6 +62,7 @@ async def place_bid(
     data: BidCreate,
     db: DbSession,
     current_user: CurrentUser,
+    _kyc=Depends(require_kyc()),
 ):
     bid = await sponsor_svc.place_bid(db, cat_id, current_user, data)
     from sqlalchemy import select as sel

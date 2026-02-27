@@ -15,13 +15,13 @@
 
 - **Entry:** `banking.router` (PUT/GET/DELETE `/me/bank-account`, request-refund-retry, admin verify/reject); `admin.router` (event approval uses admin service; refund retry endpoints).
 - **Handlers:**
-  - PUT `/me/bank-account`: Save/update bank; set verified=false, verification_status=pending; send `bank_verification_pending`; enqueue `mock_verify_bank_account` with delay from `bank_verification_delay_seconds`.
-  - DELETE `/me/bank-account`: Reject if organizer has active escrow (holding/partially_released); else delete.
-  - POST `/admin/bank-accounts/{user_id}/verify`: Set verified=true, verification_status=verified; notify organizer `bank_verified`.
-  - POST `/admin/bank-accounts/{user_id}/reject`: Body reason; set verified=false, verification_status=rejected, rejection_reason; notify organizer.
+  - PUT `/me/bank-account`: Save/update bank; body fields `bank_name`, `account_number`, `routing_number`, `account_holder` required and validated non-empty (cannot keep bank information empty); set verified=false, verification_status=pending; send `bank_verification_pending`; enqueue `mock_verify_bank_account` with delay from `bank_verification_delay_seconds`.
+  - DELETE `/me/bank-account`: Always returns 403 — bank account cannot be deleted once set; organizer can only update details.
+  - POST `/admin/bank-accounts/{user_id}/verify`: Set verified=true, verification_status=verified; notify organizer `bank_verified`. Rate-limited 60/minute.
+  - POST `/admin/bank-accounts/{user_id}/reject`: Body reason; set verified=false, verification_status=rejected, rejection_reason; notify organizer. Rate-limited 60/minute.
   - POST `/me/events/{event_id}/request-refund-retry`: Organizer only; count refund_failed for event; if > 0, send `refund_retry_requested` to all admins; return `{ requested: count }`; rate limit 1/hour.
-  - POST `/admin/refunds/ticket/{ticket_sale_id}/retry`, `/admin/refunds/pledge/{funding_id}/retry`, `/admin/refunds/sponsor/{payment_id}/retry`: Validate status=refund_failed; set refund_processing; re-enqueue ARQ task; return re-enqueued.
-  - POST `/admin/refunds/retry-all/{event_id}`: Retry all refund_failed (tickets, pledges, sponsors) for event; return counts.
+  - POST `/admin/refunds/ticket/{ticket_sale_id}/retry`, `/admin/refunds/pledge/{funding_id}/retry`, `/admin/refunds/sponsor/{payment_id}/retry`: Validate status=refund_failed; set refund_processing; re-enqueue ARQ task; return re-enqueued. Rate-limited 60/minute each.
+  - POST `/admin/refunds/retry-all/{event_id}`: Retry all refund_failed (tickets, pledges, sponsors) for event; return counts. Rate-limited 60/minute.
 
 ## Service layer
 
@@ -82,7 +82,7 @@ flowchart TD
 
 ## Vulnerabilities
 
-- Bank details encrypted at rest; admin verify/reject does not see raw account numbers. Rate limit on request-refund-retry (1/hour) prevents organizer spam. Retry endpoints validate refund_failed status only. Escrow guard does not block manual admin release (admin can still release; unfreeze warns if no bank).
+- Bank details encrypted at rest; admin verify/reject does not see raw account numbers. Bank account cannot be deleted; bank fields cannot be empty on update (Pydantic validator). Rate limit on organizer request-refund-retry (1/hour) and on admin refund retry + bank verify/reject (60/minute) prevents spam. Retry endpoints validate refund_failed status only. Escrow guard does not block manual admin release (admin can still release; unfreeze warns if no bank).
 
 ## Improvements
 

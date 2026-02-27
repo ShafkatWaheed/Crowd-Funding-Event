@@ -12,6 +12,7 @@ import '../../../services/api_service.dart';
 import '../../../services/location_helper.dart';
 import '../../../widgets/animated_list_item.dart';
 import '../../../widgets/empty_state.dart';
+import '../../../widgets/kyc_required_banner.dart';
 import '../../../widgets/event_card.dart';
 import '../../../widgets/section_header.dart';
 import '../home_shared.dart';
@@ -564,6 +565,11 @@ class _HomeTabState extends State<HomeTab> {
               ),
             ),
           ),
+
+          if (user != null && user.kycStatus != 'verified' && !user.isAdmin)
+            const SliverToBoxAdapter(
+              child: KycRequiredBanner(action: 'purchase tickets and register for events'),
+            ),
 
           if (_isHomeFiltered) ...[
             SliverToBoxAdapter(

@@ -9,6 +9,9 @@ class AppUser {
   final String? address;
   final String? birthday;
   final int? yearsOfExperience;
+  final String kycStatus;
+  final bool kycVerified;
+  final String? kycVerifiedAt;
 
   AppUser({
     required this.id,
@@ -19,6 +22,9 @@ class AppUser {
     this.address,
     this.birthday,
     this.yearsOfExperience,
+    this.kycStatus = 'not_started',
+    this.kycVerified = false,
+    this.kycVerifiedAt,
   });
 
   factory AppUser.fromJson(Map<String, dynamic> json) {
@@ -34,6 +40,9 @@ class AppUser {
       address: json['address'],
       birthday: json['birthday'],
       yearsOfExperience: json['years_of_experience'],
+      kycStatus: json['kyc_status'] ?? 'not_started',
+      kycVerified: json['kyc_verified'] ?? false,
+      kycVerifiedAt: json['kyc_verified_at'],
     );
   }
 

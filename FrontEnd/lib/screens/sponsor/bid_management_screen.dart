@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
@@ -597,6 +598,28 @@ class _BidCardState extends State<_BidCard> {
                   );
                 }),
             ],
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  final name = widget.bid.sponsorProfile?.companyName ?? 'Sponsor';
+                  final writable = widget.bid.status == 'pending' ||
+                      widget.bid.status == 'accepted' ||
+                      widget.bid.status == 'paid';
+                  context.push(
+                    '/chat/bid/${widget.bid.id}?name=${Uri.encodeComponent(name)}&writable=$writable',
+                  );
+                },
+                icon: const Icon(Icons.chat_outlined, size: 18),
+                label: const Text('Chat'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.accentColor,
+                  side: const BorderSide(color: AppTheme.accentColor),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ),
             if (widget.onAccept != null || widget.onReject != null) ...[
               const SizedBox(height: 12),
               Row(

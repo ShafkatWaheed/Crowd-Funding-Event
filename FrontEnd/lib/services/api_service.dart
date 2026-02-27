@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../config/api_config.dart';
+import '../models/chat_message.dart';
 
 /// Central Dio client with Firebase auth interceptor.
 class ApiService {
@@ -1643,5 +1644,23 @@ class ApiService {
     if (rejectionReason != null) data['rejection_reason'] = rejectionReason;
     final resp = await dio.post('/admin/users/$userId/kyc-verify', data: data);
     return resp.data as Map<String, dynamic>;
+  }
+
+  // ── Chat ──
+
+  Future<List<ChatMessage>> getChatMessages(int bidId, {String? before, int limit = 50}) async {
+    final params = <String, String>{'limit': '$limit'};
+    if (before != null) params['before'] = before;
+    final resp = await dio.get('/chat/bids/$bidId/messages', queryParameters: params);
+    return (resp.data as List).map((j) => ChatMessage.fromJson(j as Map<String, dynamic>)).toList();
+  }
+
+  Future<List<ChatConversation>> getChatConversations() async {
+    final resp = await dio.get('/chat/conversations');
+    return (resp.data as List).map((j) => ChatConversation.fromJson(j as Map<String, dynamic>)).toList();
+  }
+
+  Future<void> markChatRead(int bidId, String messageId) async {
+    await dio.post('/chat/bids/$bidId/read', queryParameters: {'message_id': messageId});
   }
 }

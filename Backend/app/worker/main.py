@@ -33,6 +33,8 @@ from app.worker.tasks import (
     check_all_ticket_escrows,
     check_all_sponsor_escrows,
     cleanup_old_records,
+    archive_resolved_chats,
+    purge_old_chat_archives,
 )
 
 
@@ -74,6 +76,8 @@ def _build_cron_jobs():
         cron(process_scheduled_payouts, hour={cfg["payout_h"]}, minute={0}),
         cron(daily_reconciliation, hour={cfg["recon_h"]}, minute={0}),
         cron(cleanup_old_records, hour={3}, minute={30}),
+        cron(archive_resolved_chats, hour={3}, minute={0}),
+        cron(purge_old_chat_archives, hour={3}, minute={45}),
     ]
 
 
@@ -95,6 +99,8 @@ class WorkerSettings:
         mock_verify_bank_account,
         process_escrow_release,
         cleanup_old_records,
+        archive_resolved_chats,
+        purge_old_chat_archives,
     ]
     cron_jobs = _build_cron_jobs()
     redis_settings = RedisSettings.from_dsn(settings.REDIS_URL)

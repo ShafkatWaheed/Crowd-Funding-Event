@@ -37,6 +37,8 @@ import '../screens/sponsor/sponsor_dashboard_screen.dart';
 import '../screens/sponsor/organizer_sponsors_screen.dart';
 import '../screens/sponsor/sponsor_category_templates_screen.dart';
 import '../screens/bookmark/bookmarked_events_screen.dart';
+import '../screens/chat/bid_chat_screen.dart';
+import '../screens/chat/conversations_screen.dart';
 import '../screens/profile/organizer_profile_screen.dart';
 import '../screens/profile/sponsor_profile_screen.dart';
 import 'page_transitions.dart';
@@ -360,6 +362,28 @@ GoRouter createRouter(AuthProvider authProvider) {
           return sharedAxisPage(
             child: BidManagementScreen(
                 eventId: id, categoryId: catId, categoryName: catName),
+          );
+        },
+      ),
+
+      // ─── Chat (fade-through) ───
+      GoRoute(
+        path: '/chat',
+        pageBuilder: (context, state) =>
+            fadeThroughPage(child: const ConversationsScreen()),
+      ),
+      GoRoute(
+        path: '/chat/bid/:bidId',
+        pageBuilder: (context, state) {
+          final bidId = int.parse(state.pathParameters['bidId']!);
+          final name = state.uri.queryParameters['name'];
+          final writable = state.uri.queryParameters['writable'] != 'false';
+          return sharedAxisPage(
+            child: BidChatScreen(
+              bidId: bidId,
+              participantName: name,
+              isWritable: writable,
+            ),
           );
         },
       ),

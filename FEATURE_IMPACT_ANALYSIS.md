@@ -326,6 +326,31 @@ Legend: **[NEW]** = new file created, **[MOD]** = existing file modified, **[DEP
 
 ## Recently Implemented (Organizer UX, Performance, Caching)
 
+### Structured JSON logging (stdout, OpenSearch-ready)
+
+**Scope:** Large. Cross-cutting: one new module, config change, and logging added or migrated across ~45 API/service/core files. Output is stdout-only; OpenSearch/Fluent Bit is a later upgrade.
+
+| Layer | File | Change |
+|-------|------|--------|
+| Backend | `Backend/app/logger.py` **[NEW]** | `JSONFormatter`, `setup_logging(level)`, `get_logger(name)`, `log_step(logger, msg, *args, **extra)`; single JSON line per record to stdout |
+| Backend | `Backend/app/config.py` **[MOD]** | Add `LOG_LEVEL` (default INFO) |
+| Backend | `Backend/app/main.py` **[MOD]** | Replace `logging.basicConfig` with `setup_logging(settings.LOG_LEVEL)`; use `get_logger("app")` |
+| Backend | `Backend/app/core/firebase.py`, `core/security.py` **[MOD]** | Add logger, log_step and debug/warning for init and token verification |
+| Backend | `Backend/app/dependencies.py` **[MOD]** | Add logger; log permission denials and feature-gate blocks |
+| Backend | `Backend/app/db/base.py` **[MOD]** | Add logger; debug on session rollback |
+| Backend | `Backend/app/worker/main.py` **[MOD]** | Call `setup_logging(settings.LOG_LEVEL)`; add logger; warning when cron config load fails |
+| Backend API | `Backend/app/api/v1/auth.py`, `admin.py`, `banking.py`, `milestones.py`, `users.py`, `ratings.py`, `notifications.py` **[MOD]** | Add `get_logger`, `log_step`; step at mutation entry, warning on errors |
+| Backend API | `Backend/app/api/v1/events/*.py` (crud, lifecycle, pledge, tickets, registration, images, organizers) **[MOD]** | Same: step + warning/debug |
+| Backend API | `Backend/app/api/v1/sponsors/*.py` (bids, payments, delegates, profile, tickets) **[MOD]** | Same |
+| Backend Service | auth, admin, registration, ledger, reconciliation, event/lifecycle, attendance, permissions, queries; funding/pledges, reservations; ticket/sales, pricing, tiers; sponsor/bids, payments, delegates, profile; milestone, discount_strategy, audit, venue **[MOD]** | Add get_logger/log_step; step at mutations, info/warning/debug as appropriate |
+| Backend | cache, rate_limit, email_*, escrow*, kyc_verification, notification_service, payment_gateway, push_notification, refund_retry, ticket_crypto, ticket_escrow, sponsor_escrow; event/organizers, event/crud; worker/tasks, worker/redis_pool; api/v1/webhooks **[MOD]** | Migrate from `logging.getLogger` to `get_logger` from `app.logger` |
+
+**Log format:** One JSON object per line: `time`, `level`, `logger`, `msg`, plus `extra` fields (e.g. `user_id`, `event_id`) and optional `exception`. Ready for Fluent Bit → OpenSearch.
+
+**Regression risk:** LOW. Additive logging; no change to request/response or business logic. LOG_LEVEL=DEBUG can increase volume.
+
+---
+
 ### Organizer dashboard filters (genre + event_id)
 
 **Scope:** Medium. Full-stack filter propagation so KPI cards and manage screens respect dashboard genre/event selection.

@@ -194,10 +194,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     }
   }
 
-  void _snack(String msg) {
+  void _snack(String msg, {bool isError = false}) {
     if (!mounted) return;
-    _messengerKey.currentState
-        ?.showSnackBar(SnackBar(content: Text(msg)));
+    _messengerKey.currentState?.showSnackBar(SnackBar(
+      content: Text(msg),
+      backgroundColor: isError ? Colors.red.shade700 : null,
+    ));
   }
 
   void _confirmAction(String title, String message, VoidCallback onConfirm) {

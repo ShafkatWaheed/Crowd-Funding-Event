@@ -71,6 +71,11 @@ class SponsorBid(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    # Chat metadata (content lives in Redis Streams, not PostgreSQL)
+    last_message_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    unread_count_organizer: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    unread_count_sponsor: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
     category = relationship("SponsorshipCategory", back_populates="bids")
     sponsor = relationship("User")
     payment = relationship("SponsorPayment", back_populates="bid", uselist=False)

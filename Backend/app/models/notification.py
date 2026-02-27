@@ -71,6 +71,9 @@ class NotificationType(str, enum.Enum):
     kyc_approved = "kyc_approved"
     kyc_rejected = "kyc_rejected"
 
+    # Chat
+    chat_message = "chat_message"
+
     # Refund failures
     ticket_refund_failed = "ticket_refund_failed"
     pledge_refund_failed = "pledge_refund_failed"

@@ -877,6 +877,79 @@ async def cleanup_old_records(ctx: dict) -> None:
         await _log_cron_run("cleanup_old_records", status="error", started_at=started_at, duration_ms=(time.monotonic() - t0) * 1000, error=traceback.format_exc()[-500:])
 
 
+async def archive_resolved_chats(ctx: dict) -> None:
+    """Archive Redis chat streams for resolved bids / completed events, then clear metadata."""
+    t0 = time.monotonic()
+    started_at = datetime.now(timezone.utc)
+    try:
+        from app.services import chat_service
+        from app.services import platform_settings as settings_svc
+        from app.models.event import Event, EventStatus
+        from app.models.sponsor import SponsorBid, BidStatus, SponsorshipCategory
+
+        async with async_session_maker() as db:
+            retention_days = await settings_svc.get_int(db, "chat_archive_retention_days")
+            cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
+
+            # 1) Bids whose events are completed/cancelled with end_date past cutoff
+            q_event = (
+                select(SponsorBid.id)
+                .join(SponsorshipCategory, SponsorBid.category_id == SponsorshipCategory.id)
+                .join(Event, SponsorshipCategory.event_id == Event.id)
+                .where(
+                    SponsorBid.last_message_at.isnot(None),
+                    Event.status.in_([EventStatus.completed, EventStatus.cancelled]),
+                    Event.end_date < cutoff,
+                )
+            )
+            # 2) Rejected/withdrawn bids past cutoff
+            q_bid = select(SponsorBid.id).where(
+                SponsorBid.last_message_at.isnot(None),
+                SponsorBid.status.in_([BidStatus.rejected, BidStatus.withdrawn]),
+                SponsorBid.last_message_at < cutoff,
+            )
+
+            event_ids = list((await db.execute(q_event)).scalars().all())
+            bid_ids = list((await db.execute(q_bid)).scalars().all())
+            all_ids = set(event_ids + bid_ids)
+
+            archived = 0
+            for bid_id in all_ids:
+                if await chat_service.archive_stream(bid_id):
+                    archived += 1
+                bid = await db.get(SponsorBid, bid_id)
+                if bid:
+                    bid.last_message_at = None
+                    bid.unread_count_organizer = 0
+                    bid.unread_count_sponsor = 0
+
+            await db.commit()
+            logger.info("archive_resolved_chats: archived %d / %d streams", archived, len(all_ids))
+
+        await _log_cron_run("archive_resolved_chats", status="success", started_at=started_at, duration_ms=(time.monotonic() - t0) * 1000, items_processed=archived)
+    except Exception:
+        logger.exception("archive_resolved_chats failed")
+        await _log_cron_run("archive_resolved_chats", status="error", started_at=started_at, duration_ms=(time.monotonic() - t0) * 1000, error=traceback.format_exc()[-500:])
+
+
+async def purge_old_chat_archives(ctx: dict) -> None:
+    """Delete archived chat JSON files older than the retention period."""
+    t0 = time.monotonic()
+    started_at = datetime.now(timezone.utc)
+    try:
+        from app.services import chat_service
+        from app.services import platform_settings as settings_svc
+
+        async with async_session_maker() as db:
+            retention_days = await settings_svc.get_int(db, "chat_archive_retention_days")
+
+        purged = await chat_service.purge_old_archives(retention_days)
+        await _log_cron_run("purge_old_chat_archives", status="success", started_at=started_at, duration_ms=(time.monotonic() - t0) * 1000, items_processed=purged)
+    except Exception:
+        logger.exception("purge_old_chat_archives failed")
+        await _log_cron_run("purge_old_chat_archives", status="error", started_at=started_at, duration_ms=(time.monotonic() - t0) * 1000, error=traceback.format_exc()[-500:])
+
+
 async def _send_pledge_refund_email(db, funding: Funding) -> None:
     """Best-effort email after successful refund."""
     try:

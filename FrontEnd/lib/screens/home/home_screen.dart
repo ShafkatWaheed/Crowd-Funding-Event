@@ -7,6 +7,7 @@ import '../../config/design_tokens.dart';
 import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/event_provider.dart';
+import '../../providers/chat_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../services/api_service.dart';
 import '../../widgets/press_feedback.dart';
@@ -288,6 +289,33 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
+              Consumer<ChatProvider>(
+                builder: (ctx, chatProv, _) {
+                  final unread = chatProv.totalUnreadCount;
+                  return GestureDetector(
+                    onTap: () => context.push('/chat'),
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: AppTheme.surfaceOf(context),
+                        borderRadius: AppRadius.md,
+                      ),
+                      child: Badge(
+                        isLabelVisible: unread > 0,
+                        label: Text(
+                          unread > 99 ? '99+' : '$unread',
+                          style: const TextStyle(fontSize: 10, color: Colors.white),
+                        ),
+                        backgroundColor: AppTheme.accentColor,
+                        child: Icon(Icons.chat_outlined,
+                            color: AppTheme.textPrimaryOf(context)),
+                      ),
+                    ),
+                  );
+                },
+              ),
+              AppSpacing.hSm,
               Consumer<NotificationProvider>(
                 builder: (ctx, notifProv, _) {
                   return GestureDetector(

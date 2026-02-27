@@ -29,6 +29,7 @@ from app.models.dispute import Dispute, DisputeStatus
 from app.models.reconciliation import ReconciliationReport
 from app.models.audit_log import AuditLog
 from app.models.device_token import DeviceToken
+from app.models.worker_run_log import WorkerRunLog
 
 __all__ = [
     "User",
@@ -96,4 +97,5 @@ __all__ = [
     "ReconciliationReport",
     "AuditLog",
     "DeviceToken",
+    "WorkerRunLog",
 ]

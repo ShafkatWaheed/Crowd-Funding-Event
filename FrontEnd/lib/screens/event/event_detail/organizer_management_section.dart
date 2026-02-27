@@ -23,6 +23,7 @@ class OrganizerManagementSection extends StatefulWidget {
   final Event event;
   final bool isAdmin;
   final bool isOrganizer;
+  final String? coOrganizerPermission;
   final int? revenueCents;
   final VoidCallback onRefresh;
 
@@ -31,9 +32,13 @@ class OrganizerManagementSection extends StatefulWidget {
     required this.event,
     required this.isAdmin,
     required this.isOrganizer,
+    this.coOrganizerPermission,
     this.revenueCents,
     required this.onRefresh,
   });
+
+  bool get isReadOnlyCoOrganizer => coOrganizerPermission == 'read';
+  bool get canEdit => isOrganizer || isAdmin;
 
   @override
   State<OrganizerManagementSection> createState() =>
@@ -50,18 +55,20 @@ class _OrganizerManagementSectionState
     final user = context.watch<AuthProvider>().user;
     final isDark = AppTheme.isDark(context);
 
+    final _canEdit = widget.canEdit;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         AppSpacing.vXxl,
-        _sectionTitle(context, 'Organizer Actions',
+        _sectionTitle(context, widget.isReadOnlyCoOrganizer ? 'Event Management (View Only)' : 'Organizer Actions',
             icon: Icons.admin_panel_settings_rounded,
             iconColor: AppTheme.accentColor),
         AppSpacing.vMd,
 
         // ── Primary Action Card (status-specific) ──
         // Draft → Publish
-        if (_event.status == EventStatus.draft)
+        if (_canEdit && _event.status == EventStatus.draft)
           _primaryActionCard(
             icon: Icons.publish_rounded,
             color: AppTheme.accentColor,
@@ -81,7 +88,7 @@ class _OrganizerManagementSectionState
           ),
 
         // Cancelled → Reactivate
-        if (_event.status == EventStatus.cancelled)
+        if (_canEdit && _event.status == EventStatus.cancelled)
           _primaryActionCard(
             icon: Icons.restore_rounded,
             color: AppTheme.warningColor,
@@ -94,7 +101,7 @@ class _OrganizerManagementSectionState
           ),
 
         // waiting_event_date → Start Selling
-        if (_event.status == EventStatus.waiting_event_date)
+        if (_canEdit && _event.status == EventStatus.waiting_event_date)
           _primaryActionCard(
             icon: Icons.storefront_rounded,
             color: context.ticketAccent,
@@ -114,7 +121,7 @@ class _OrganizerManagementSectionState
           ),
 
         // Completed → Clone
-        if (_event.status == EventStatus.completed)
+        if (_canEdit && _event.status == EventStatus.completed)
           _primaryActionCard(
             icon: Icons.copy_all_rounded,
             color: AppTheme.accentColor,
@@ -125,7 +132,7 @@ class _OrganizerManagementSectionState
           ),
 
         // ── Setup Grid (waiting_event_date only) ──
-        if (_event.status == EventStatus.waiting_event_date) ...[
+        if (_canEdit && _event.status == EventStatus.waiting_event_date) ...[
           AppSpacing.vLg,
           GridView.count(
             crossAxisCount: 2,
@@ -189,10 +196,10 @@ class _OrganizerManagementSectionState
             ),
             child: Column(
               children: [
-                // Edit (draft, pending, approved only)
-                if (_event.status == EventStatus.draft ||
+                // Edit (draft, pending, approved only — write access)
+                if (_canEdit && (_event.status == EventStatus.draft ||
                     _event.status == EventStatus.pending_approval ||
-                    _event.status == EventStatus.approved)
+                    _event.status == EventStatus.approved))
                   _menuTile(
                     icon: Icons.edit_rounded,
                     iconColor: AppTheme.secondaryColor,
@@ -203,18 +210,18 @@ class _OrganizerManagementSectionState
                     onTap: () => context.push('/events/${_event.id}/edit'),
                   ),
 
-                // Manage Schedule (all statuses)
+                // Manage Schedule (all statuses — read co-organizers can view)
                 _menuTile(
                   icon: Icons.calendar_month_rounded,
                   iconColor: AppTheme.accentColor,
-                  label: 'Manage Schedule',
+                  label: _canEdit ? 'Manage Schedule' : 'View Schedule',
                   onTap: () =>
                       ScheduleMilestoneDialogs.showManageScheduleSheet(
                           context, _event, widget.onRefresh),
                 ),
 
-                // Manage Milestones (funding phase only)
-                if (_event.status == EventStatus.approved)
+                // Manage Milestones (funding phase only — write access)
+                if (_canEdit && _event.status == EventStatus.approved)
                   _menuTile(
                     icon: Icons.flag_rounded,
                     iconColor: context.fundingAccent,
@@ -224,22 +231,23 @@ class _OrganizerManagementSectionState
                             context, _event, widget.onRefresh),
                   ),
 
-                // Toggle posts (all statuses)
-                _menuTile(
-                  icon: _event.postsEnabled
-                      ? Icons.comments_disabled_rounded
-                      : Icons.comment_rounded,
-                  iconColor: _event.postsEnabled
-                      ? AppTheme.textSecondaryOf(context)
-                      : AppTheme.accentColor,
-                  label: _event.postsEnabled ? 'Disable Posts' : 'Enable Posts',
-                  onTap: _togglePosts,
-                ),
+                // Toggle posts (write access)
+                if (_canEdit)
+                  _menuTile(
+                    icon: _event.postsEnabled
+                        ? Icons.comments_disabled_rounded
+                        : Icons.comment_rounded,
+                    iconColor: _event.postsEnabled
+                        ? AppTheme.textSecondaryOf(context)
+                        : AppTheme.accentColor,
+                    label: _event.postsEnabled ? 'Disable Posts' : 'Enable Posts',
+                    onTap: _togglePosts,
+                  ),
 
-                // Change Venue (approved, waiting_event_date, selling_tickets)
-                if (_event.status == EventStatus.approved ||
+                // Change Venue (write access)
+                if (_canEdit && (_event.status == EventStatus.approved ||
                     _event.status == EventStatus.waiting_event_date ||
-                    _event.status == EventStatus.selling_tickets)
+                    _event.status == EventStatus.selling_tickets))
                   _menuTile(
                     icon: Icons.location_on_rounded,
                     iconColor: context.managementAccent,
@@ -248,8 +256,8 @@ class _OrganizerManagementSectionState
                     onTap: () => _selectVenueForEvent(context, _event),
                   ),
 
-                // Assign Ticket Strategy (funding phase only, when none set)
-                if (_event.status == EventStatus.approved &&
+                // Assign Ticket Strategy (write access)
+                if (_canEdit && _event.status == EventStatus.approved &&
                     _event.ticketStrategyId == null)
                   _menuTile(
                     icon: Icons.confirmation_number_rounded,
@@ -259,11 +267,11 @@ class _OrganizerManagementSectionState
                     onTap: () => _selectStrategyForEvent(context, _event),
                   ),
 
-                // Increase Capacity (approved, waiting_event_date, selling_tickets, live)
-                if (_event.status == EventStatus.approved ||
+                // Increase Capacity (write access)
+                if (_canEdit && (_event.status == EventStatus.approved ||
                     _event.status == EventStatus.waiting_event_date ||
                     _event.status == EventStatus.selling_tickets ||
-                    _event.status == EventStatus.live)
+                    _event.status == EventStatus.live))
                   _menuTile(
                     icon: Icons.group_add_rounded,
                     iconColor: context.ticketAccent,
@@ -272,8 +280,8 @@ class _OrganizerManagementSectionState
                     onTap: () => _showChangeCapacityDialog(context, _event),
                   ),
 
-                // Extend Funding (waiting_event_date)
-                if (_event.status == EventStatus.waiting_event_date)
+                // Extend Funding (write access)
+                if (_canEdit && _event.status == EventStatus.waiting_event_date)
                   _menuTile(
                     icon: Icons.more_time_rounded,
                     iconColor: AppTheme.accentColor,
@@ -283,10 +291,10 @@ class _OrganizerManagementSectionState
                             context, _event, widget.onRefresh),
                   ),
 
-                // Cancel — organizer or admin for pre-selling
-                if (_event.status == EventStatus.pending_approval ||
+                // Cancel — organizer or admin for pre-selling (write access)
+                if (_canEdit && (_event.status == EventStatus.pending_approval ||
                     _event.status == EventStatus.approved ||
-                    _event.status == EventStatus.waiting_event_date)
+                    _event.status == EventStatus.waiting_event_date))
                   _menuTile(
                     icon: Icons.cancel_rounded,
                     iconColor: AppTheme.errorColor,
@@ -310,8 +318,8 @@ class _OrganizerManagementSectionState
                     isDanger: true,
                   ),
 
-                // Request Cancellation — organizer (not admin) during selling
-                if (_event.status == EventStatus.selling_tickets &&
+                // Request Cancellation — organizer (not admin, not co-org) during selling
+                if (_canEdit && _event.status == EventStatus.selling_tickets &&
                     user != null &&
                     !user.isAdmin &&
                     _event.pendingCancellation == null)
@@ -323,9 +331,9 @@ class _OrganizerManagementSectionState
                         context, eventProvider, _event.id),
                   ),
 
-                // Delete (draft or cancelled only)
-                if (_event.status == EventStatus.draft ||
-                    _event.status == EventStatus.cancelled)
+                // Delete (draft or cancelled only — write access)
+                if (_canEdit && (_event.status == EventStatus.draft ||
+                    _event.status == EventStatus.cancelled))
                   _menuTile(
                     icon: Icons.delete_forever_rounded,
                     iconColor: AppTheme.errorColor,

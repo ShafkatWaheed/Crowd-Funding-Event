@@ -51,6 +51,11 @@ async def scan_sponsor_ticket(
     db: DbSession,
     current_user: CurrentUser,
 ):
+    from app.services import event as event_service
+    from app.core.exceptions import ForbiddenError as Forbidden
+    event = await event_service.get_or_404(db, event_id)
+    if not await event_service.user_can_scan_tickets(db, event, current_user):
+        raise Forbidden("You cannot scan tickets for this event")
     payload = body.get("encrypted_payload", "")
     if not payload:
         raise HTTPException(status_code=400, detail="encrypted_payload required")

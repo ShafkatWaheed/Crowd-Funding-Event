@@ -155,6 +155,21 @@ class ApiService {
     return resp.data;
   }
 
+  Future<List<dynamic>> getCoOrganizedEvents({
+    String? status,
+    String? search,
+    int offset = 0,
+    int limit = 20,
+  }) async {
+    final resp = await dio.get('/me/co-organized-events', queryParameters: {
+      if (status != null) 'status': status,
+      if (search != null && search.isNotEmpty) 'search': search,
+      'offset': offset,
+      'limit': limit,
+    });
+    return resp.data;
+  }
+
   Future<List<dynamic>> getOrganizerTicketSales({bool scannedOnly = false, String? eventStatus, String? genre, int? eventId, int offset = 0, int limit = 20}) async {
     final resp = await dio.get('/me/organizer-ticket-sales', queryParameters: {
       if (scannedOnly) 'scanned_only': true,
@@ -600,8 +615,31 @@ class ApiService {
     return resp.data;
   }
 
+  Future<Map<String, dynamic>> updateOrganizerPermission(
+      int eventId, int userId, String permission) async {
+    final resp = await dio.patch('/events/$eventId/organizers/$userId',
+        data: {'permission': permission});
+    return resp.data;
+  }
+
+  Future<Map<String, dynamic>> respondToInvitation(
+      int eventId, int userId, bool accept) async {
+    final resp = await dio.post('/events/$eventId/organizers/$userId/respond',
+        data: {'accept': accept});
+    return resp.data;
+  }
+
+  Future<void> selfRemoveFromEvent(int eventId) async {
+    await dio.delete('/events/$eventId/organizers/me');
+  }
+
   Future<void> removeEventOrganizer(int eventId, int userId) async {
     await dio.delete('/events/$eventId/organizers/$userId');
+  }
+
+  Future<List<dynamic>> searchOrganizers(String query) async {
+    final resp = await dio.get('/users/search-organizers', queryParameters: {'q': query});
+    return resp.data is List ? resp.data : [];
   }
 
   // ─── Event Discounts ───
@@ -1386,6 +1424,19 @@ class ApiService {
     return resp.data as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> adminToggleAutoRelease(
+    int eventId, String escrowType, {
+    bool? stage1, bool? stage2, bool? stage3,
+  }) async {
+    final path = '/admin/$escrowType-escrows/$eventId/auto-release';
+    final body = <String, dynamic>{};
+    if (stage1 != null) body['stage1_auto_release'] = stage1;
+    if (stage2 != null) body['stage2_auto_release'] = stage2;
+    if (stage3 != null) body['stage3_auto_release'] = stage3;
+    final resp = await dio.patch(path, data: body);
+    return resp.data as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> adminGetDisputes({String? status, int offset = 0, int limit = 50}) async {
     final resp = await dio.get('/admin/disputes', queryParameters: {
       if (status != null) 'status': status,
@@ -1479,6 +1530,26 @@ class ApiService {
       'limit': limit,
       if (action != null) 'action': action,
       if (targetType != null) 'target_type': targetType,
+    });
+    return resp.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> adminGetWorkerSummary() async {
+    final resp = await dio.get('/admin/worker-summary');
+    return resp.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> adminGetWorkerRuns({
+    String? taskName,
+    String? status,
+    int offset = 0,
+    int limit = 50,
+  }) async {
+    final resp = await dio.get('/admin/worker-runs', queryParameters: {
+      if (taskName != null) 'task_name': taskName,
+      if (status != null) 'status': status,
+      'offset': offset,
+      'limit': limit,
     });
     return resp.data as Map<String, dynamic>;
   }

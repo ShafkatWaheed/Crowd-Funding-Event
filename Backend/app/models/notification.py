@@ -51,6 +51,12 @@ class NotificationType(str, enum.Enum):
     # Bookmarks (used by Feature 6)
     bookmarked_event_update = "bookmarked_event_update"
 
+    # Co-organizer
+    co_organizer_invited = "co_organizer_invited"
+    co_organizer_accepted = "co_organizer_accepted"
+    co_organizer_declined = "co_organizer_declined"
+    co_organizer_removed = "co_organizer_removed"
+
     # Admin review
     event_under_review = "event_under_review"
 

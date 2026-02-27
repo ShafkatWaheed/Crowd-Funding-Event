@@ -10,7 +10,8 @@ from app.schemas.event import (
     EventImageResponse, EventListResponse, EventOrganizerItem,
     EventPostCreate, EventPostResponse, EventResponse, EventUpdate,
     EventVenueInfo, ExtendFundingBody, ExtensionApprovalAction,
-    MapEventMarker, OrganizerTrustInfo, SetEventDateBody, UnregisterResponse,
+    MapEventMarker, OrganizerTrustInfo, RespondToInvitationBody,
+    SetEventDateBody, UnregisterResponse, UpdateOrganizerPermissionBody,
 )
 from app.schemas.funding import (
     FundingSummaryResponse, MyPledgeItem, OrganizerPledgeItem, PledgeBody,
@@ -109,7 +110,9 @@ __all__ = [
     "VenueCreate",
     "VenueResponse",
     "VenueUpdate",
+    "RespondToInvitationBody",
     "UnregisterResponse",
+    "UpdateOrganizerPermissionBody",
     "VerifyBody",
     "VerifyResponse",
     "ActivityFeedItem",

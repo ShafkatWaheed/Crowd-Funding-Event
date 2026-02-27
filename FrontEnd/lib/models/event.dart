@@ -69,6 +69,7 @@ class Event {
   final int minAge;
   final String? directionsUrl;
   final String? firstImageUrl;
+  final String? viewerCoOrganizerPermission;
   final Venue? venue;
   final DateTime createdAt;
 
@@ -125,6 +126,7 @@ class Event {
     this.minAge = 18,
     this.directionsUrl,
     this.firstImageUrl,
+    this.viewerCoOrganizerPermission,
     this.venue,
     required this.createdAt,
   });
@@ -197,6 +199,7 @@ class Event {
       minAge: json['min_age'] ?? 18,
       directionsUrl: json['directions_url'],
       firstImageUrl: json['first_image_url'],
+      viewerCoOrganizerPermission: json['viewer_co_organizer_permission'],
       venue: json['venue'] != null ? Venue.fromJson(json['venue']) : null,
       createdAt: DateTime.parse(json['created_at']),
     );
@@ -252,6 +255,12 @@ class Event {
 
   /// Whether pledging is allowed (only during approved/funding phase).
   bool get canPledge => status == EventStatus.approved && fundingEndAt != null;
+
+  /// Whether the viewer is an accepted co-organizer (any permission).
+  bool get viewerIsCoOrganizer => viewerCoOrganizerPermission != null;
+
+  /// Whether the viewer is an accepted co-organizer with full permission.
+  bool get viewerHasFullCoOrganizerAccess => viewerCoOrganizerPermission == 'full';
 
   /// Whether any transport/parking info is set.
   bool get hasTransportInfo =>

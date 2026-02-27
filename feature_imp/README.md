@@ -76,6 +76,7 @@ This folder documents each major feature of the Crowd Funding Event product: **e
 | 62 | [62-fcm-push-notifications.md](62-fcm-push-notifications.md) | FCM Push Notifications |
 | 63 | [63-admin-configurable-file-upload-validation.md](63-admin-configurable-file-upload-validation.md) | Admin-Configurable File Upload Validation |
 | 64 | [64-cache-key-injection-hardening.md](64-cache-key-injection-hardening.md) | Cache Key Injection Hardening |
+| 65 | [65-arq-worker-control.md](65-arq-worker-control.md) | ARQ Worker Control |
 
 ### Planned (not yet implemented)
 

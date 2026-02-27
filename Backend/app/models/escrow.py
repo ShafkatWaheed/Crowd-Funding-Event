@@ -39,6 +39,10 @@ class FundEscrow(Base):
     stage3_released_cents: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     stage3_released_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    stage1_auto_release: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true", default=True)
+    stage2_auto_release: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true", default=True)
+    stage3_auto_release: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true", default=True)
+
     status: Mapped[EscrowStatus] = mapped_column(
         Enum(EscrowStatus, name="escrow_status"), nullable=False, default=EscrowStatus.holding
     )
@@ -83,6 +87,10 @@ class TicketEscrow(Base):
     stage3_released_cents: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     stage3_released_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    stage1_auto_release: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true", default=True)
+    stage2_auto_release: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true", default=True)
+    stage3_auto_release: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true", default=True)
+
     status: Mapped[EscrowStatus] = mapped_column(
         Enum(EscrowStatus, name="escrow_status", create_type=False), nullable=False, default=EscrowStatus.holding,
     )
@@ -109,6 +117,10 @@ class SponsorEscrow(Base):
 
     stage3_released_cents: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     stage3_released_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    stage1_auto_release: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true", default=True)
+    stage2_auto_release: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true", default=True)
+    stage3_auto_release: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true", default=True)
 
     status: Mapped[EscrowStatus] = mapped_column(
         Enum(EscrowStatus, name="escrow_status", create_type=False), nullable=False, default=EscrowStatus.holding,

@@ -14,6 +14,7 @@ import '../screens/event/ticket_sales_screen.dart';
 import '../screens/event/refund_requests_screen.dart';
 import '../screens/event/co_organizer_screen.dart';
 import '../screens/event/claim_discounts_screen.dart';
+import '../screens/manage/co_organized_events_screen.dart';
 import '../screens/manage/global_ticket_sales_screen.dart';
 import '../screens/manage/global_waitlist_screen.dart';
 import '../screens/manage/global_discounts_screen.dart';
@@ -267,6 +268,11 @@ GoRouter createRouter(AuthProvider authProvider) {
         path: '/manage/discounts',
         pageBuilder: (context, state) =>
             fadeThroughPage(child: const GlobalDiscountsScreen()),
+      ),
+      GoRoute(
+        path: '/manage/co-organized',
+        pageBuilder: (context, state) =>
+            fadeThroughPage(child: const CoOrganizedEventsScreen()),
       ),
       GoRoute(
         path: '/manage/pledges',

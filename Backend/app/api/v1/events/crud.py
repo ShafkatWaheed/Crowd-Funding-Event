@@ -238,6 +238,11 @@ async def get_event(event_id: int, db: ReadDbSession, current_user: CurrentUserO
     if not is_admin:
         cached = await cache_json_get(f"event:{event_id}")
         if cached is not None:
+            if current_user is not None:
+                event_obj = await event_service.get_by_id(db, event_id)
+                if event_obj:
+                    co_perm = await event_service.get_co_organizer_role(db, event_obj, current_user)
+                    cached["viewer_co_organizer_permission"] = co_perm
             return cached
 
     event = await event_service.get_by_id(db, event_id, load_venue=True, load_organizer=True)
@@ -267,6 +272,11 @@ async def get_event(event_id: int, db: ReadDbSession, current_user: CurrentUserO
     if not is_admin:
         ttl = await get_setting_int(db, "cache_ttl_event_detail")
         await cache_json_set(f"event:{event_id}", resp.model_dump(mode="json"), ttl=ttl)
+
+    if current_user is not None:
+        co_perm = await event_service.get_co_organizer_role(db, event, current_user)
+        resp.viewer_co_organizer_permission = co_perm
+
     return resp
 
 

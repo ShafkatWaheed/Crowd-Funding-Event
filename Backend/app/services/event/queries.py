@@ -1,14 +1,15 @@
 """
-Event queries: get_my_registered_events, get_trending, get_coming_soon, get_popular, clone_event.
+Event queries: get_my_registered_events, get_co_organized_events,
+get_trending, get_coming_soon, get_popular, clone_event.
 """
 from datetime import datetime, timezone
 from typing import Sequence
 
-from sqlalchemy import select, func, and_, exists
+from sqlalchemy import select, func, and_, exists, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.event import Event, EventStatus
+from app.models.event import Event, EventOrganizer, EventStatus
 from app.models.registration import Registration, RegistrationStatus
 from app.models.user import User
 from app.core.exceptions import ForbiddenError, ConflictError
@@ -146,6 +147,45 @@ async def clone_event(db: AsyncSession, event: Event, user: User) -> Event:
     await db.flush()
     await db.refresh(new_event)
     return new_event
+
+
+async def get_co_organized_events(
+    db: AsyncSession,
+    *,
+    user_id: int,
+    status: str | None = None,
+    search: str | None = None,
+    offset: int = 0,
+    limit: int = 20,
+) -> Sequence[Event]:
+    """Events where the user is an accepted co-organizer."""
+    q = (
+        select(Event)
+        .join(EventOrganizer, EventOrganizer.event_id == Event.id)
+        .where(
+            EventOrganizer.user_id == user_id,
+            EventOrganizer.invitation_status == "accepted",
+        )
+        .options(
+            selectinload(Event.venue),
+            selectinload(Event.ticket_strategy),
+            selectinload(Event.organizer),
+        )
+        .order_by(Event.created_at.desc())
+    )
+    if status is not None:
+        try:
+            status_enum = EventStatus(status)
+        except ValueError:
+            return []
+        q = q.where(Event.status == status_enum)
+    if search is not None and search.strip():
+        q = q.where(Event.title.ilike(f"%{search.strip()}%"))
+    if offset:
+        q = q.offset(offset)
+    q = q.limit(limit)
+    result = await db.execute(q)
+    return result.scalars().unique().all()
 
 
 # ----- Event co-organizers (main organizer only can add/remove) -----

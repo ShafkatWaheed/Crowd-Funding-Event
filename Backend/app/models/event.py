@@ -34,6 +34,7 @@ class EventOrganizer(Base):
     event_id: Mapped[int] = mapped_column(ForeignKey("events.id"), nullable=False, index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     permission: Mapped[str] = mapped_column(String(10), nullable=False, default="read")  # 'read' | 'full'
+    invitation_status: Mapped[str] = mapped_column(String(10), nullable=False, default="accepted")  # 'pending' | 'accepted' | 'declined'
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 
     event = relationship("Event", back_populates="event_organizers")

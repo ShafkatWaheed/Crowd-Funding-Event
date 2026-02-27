@@ -121,9 +121,9 @@ async def list_registrations(
     db: ReadDbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
-    """List registrations for event (organizer/admin)."""
+    """List registrations for event (organizer/admin/co-organizer)."""
     event = await event_service.get_or_404(db, event_id)
-    if not await event_service.user_can_edit_event(db, event, current_user):
+    if not await event_service.user_can_read_event_mgmt(db, event, current_user):
         raise ForbiddenError("You cannot view registrations for this event")
     regs = await registration_service.list_registrations(db, event_id=event_id)
     return [

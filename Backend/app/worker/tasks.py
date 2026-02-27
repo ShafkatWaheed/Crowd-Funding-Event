@@ -7,6 +7,8 @@ The pattern: API sets status to *_processing -> enqueues task -> task completes 
 from __future__ import annotations
 
 import logging
+import time
+import traceback
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -19,6 +21,43 @@ from app.models.sponsor import SponsorBid, SponsorPayment, PaymentStatus, BidSta
 from app.services import email_notifications as email_notify
 
 logger = logging.getLogger("arq.tasks")
+
+
+async def _log_cron_run(
+    task_name: str,
+    *,
+    status: str,
+    started_at: datetime,
+    duration_ms: float,
+    items_processed: int | None = None,
+    error: str | None = None,
+) -> None:
+    """Persist a cron run record to worker_run_logs."""
+    try:
+        from app.models.worker_run_log import WorkerRunLog
+        async with async_session_maker() as db:
+            db.add(WorkerRunLog(
+                task_name=task_name,
+                status=status,
+                started_at=started_at,
+                finished_at=datetime.now(timezone.utc),
+                duration_ms=duration_ms,
+                items_processed=items_processed,
+                error=error,
+            ))
+            await db.commit()
+    except Exception:
+        logger.exception("Failed to log cron run for %s", task_name)
+
+
+async def _is_cron_enabled(setting_key: str) -> bool:
+    """Check if a cron job is enabled via platform settings."""
+    try:
+        from app.services import platform_settings as settings_svc
+        async with async_session_maker() as db:
+            return await settings_svc.get_bool(db, setting_key)
+    except Exception:
+        return True
 
 
 # ═══════════════════════════════════════════
@@ -420,11 +459,17 @@ async def send_push_notification_bulk(
 
 async def mock_auto_settle(ctx: dict) -> None:
     """Periodic task: settle mock ledger entries whose settlement delay has elapsed."""
-    async with async_session_maker() as db:
-        try:
+    if not await _is_cron_enabled("arq_mock_auto_settle_enabled"):
+        return
+    started_at = datetime.now(timezone.utc)
+    t0 = time.monotonic()
+    count = 0
+    try:
+        async with async_session_maker() as db:
             from app.services import platform_settings as settings_svc
             delay_seconds = await settings_svc.get_int(db, "mock_settlement_delay_seconds")
             if delay_seconds <= 0:
+                await _log_cron_run("mock_auto_settle", status="skipped", started_at=started_at, duration_ms=(time.monotonic() - t0) * 1000)
                 return
             from app.models.payment_mock_ledger import PaymentMockLedger, MockLedgerStatus
             cutoff = datetime.now(timezone.utc) - timedelta(seconds=delay_seconds)
@@ -438,13 +483,15 @@ async def mock_auto_settle(ctx: dict) -> None:
             for entry in pending:
                 entry.status = MockLedgerStatus.settled
                 entry.completed_at = datetime.now(timezone.utc)
+            count = len(pending)
 
             if pending:
                 await db.commit()
-                logger.info("Auto-settled %d mock ledger entries", len(pending))
-        except Exception:
-            await db.rollback()
-            logger.exception("mock_auto_settle failed")
+                logger.info("Auto-settled %d mock ledger entries", count)
+        await _log_cron_run("mock_auto_settle", status="success", started_at=started_at, duration_ms=(time.monotonic() - t0) * 1000, items_processed=count)
+    except Exception:
+        logger.exception("mock_auto_settle failed")
+        await _log_cron_run("mock_auto_settle", status="error", started_at=started_at, duration_ms=(time.monotonic() - t0) * 1000, error=traceback.format_exc()[-500:])
 
 
 async def process_escrow_release(ctx: dict, escrow_type: str, escrow_id: int, stage: int) -> None:
@@ -497,12 +544,16 @@ async def process_escrow_release(ctx: dict, escrow_type: str, escrow_id: int, st
 
 async def process_scheduled_payouts(ctx: dict) -> None:
     """Daily cron task: process scheduled organizer payouts with netting."""
-    from datetime import date as date_type
-    from app.models.payment_info import OrganizerBankAccount
-    from app.models.escrow import FundEscrow, TicketEscrow, SponsorEscrow, EscrowStatus
+    if not await _is_cron_enabled("arq_scheduled_payouts_enabled"):
+        return
+    started_at = datetime.now(timezone.utc)
+    t0 = time.monotonic()
+    count = 0
+    try:
+        from datetime import date as date_type
+        from app.models.payment_info import OrganizerBankAccount
 
-    async with async_session_maker() as db:
-        try:
+        async with async_session_maker() as db:
             today = date_type.today()
             weekday = today.isoweekday()
             day_of_month = today.day
@@ -521,20 +572,25 @@ async def process_scheduled_payouts(ctx: dict) -> None:
                 if not should_pay:
                     continue
 
+                count += 1
                 logger.info("Payout check for organizer user_id=%d", acct.user_id)
 
             await db.commit()
             logger.info("Scheduled payouts processed for %s", today)
-
-        except Exception:
-            await db.rollback()
-            logger.exception("Failed to process scheduled payouts")
+        await _log_cron_run("process_scheduled_payouts", status="success", started_at=started_at, duration_ms=(time.monotonic() - t0) * 1000, items_processed=count)
+    except Exception:
+        logger.exception("Failed to process scheduled payouts")
+        await _log_cron_run("process_scheduled_payouts", status="error", started_at=started_at, duration_ms=(time.monotonic() - t0) * 1000, error=traceback.format_exc()[-500:])
 
 
 async def daily_reconciliation(ctx: dict) -> None:
     """Daily cron task: run reconciliation check at 2 AM."""
-    async with async_session_maker() as db:
-        try:
+    if not await _is_cron_enabled("arq_daily_reconciliation_enabled"):
+        return
+    started_at = datetime.now(timezone.utc)
+    t0 = time.monotonic()
+    try:
+        async with async_session_maker() as db:
             from app.services.reconciliation import run_reconciliation
             report = await run_reconciliation(db)
             await db.commit()
@@ -560,16 +616,21 @@ async def daily_reconciliation(ctx: dict) -> None:
                         data={"delta_cents": report.delta_cents},
                     )
                 await db.commit()
-
-        except Exception:
-            await db.rollback()
-            logger.exception("Daily reconciliation failed")
+        await _log_cron_run("daily_reconciliation", status="success", started_at=started_at, duration_ms=(time.monotonic() - t0) * 1000, items_processed=1)
+    except Exception:
+        logger.exception("Daily reconciliation failed")
+        await _log_cron_run("daily_reconciliation", status="error", started_at=started_at, duration_ms=(time.monotonic() - t0) * 1000, error=traceback.format_exc()[-500:])
 
 
 async def check_all_ticket_escrows(ctx: dict) -> None:
     """Periodic task: check and auto-release ticket escrow stages for all active ticket escrows."""
-    async with async_session_maker() as db:
-        try:
+    if not await _is_cron_enabled("arq_ticket_escrow_check_enabled"):
+        return
+    started_at = datetime.now(timezone.utc)
+    t0 = time.monotonic()
+    count = 0
+    try:
+        async with async_session_maker() as db:
             from app.models.escrow import TicketEscrow, EscrowStatus
             from app.services import ticket_escrow as te_svc
 
@@ -578,6 +639,7 @@ async def check_all_ticket_escrows(ctx: dict) -> None:
                     TicketEscrow.status.in_([EscrowStatus.holding, EscrowStatus.partially_released])
                 )
             )).scalars().all()
+            count = len(escrows)
 
             for event_id in escrows:
                 try:
@@ -588,16 +650,22 @@ async def check_all_ticket_escrows(ctx: dict) -> None:
                     logger.exception("Ticket escrow check failed for event %d", event_id)
 
             await db.commit()
-            logger.info("Checked %d active ticket escrows", len(escrows))
-        except Exception:
-            await db.rollback()
-            logger.exception("check_all_ticket_escrows failed")
+            logger.info("Checked %d active ticket escrows", count)
+        await _log_cron_run("check_all_ticket_escrows", status="success", started_at=started_at, duration_ms=(time.monotonic() - t0) * 1000, items_processed=count)
+    except Exception:
+        logger.exception("check_all_ticket_escrows failed")
+        await _log_cron_run("check_all_ticket_escrows", status="error", started_at=started_at, duration_ms=(time.monotonic() - t0) * 1000, error=traceback.format_exc()[-500:])
 
 
 async def check_all_sponsor_escrows(ctx: dict) -> None:
     """Periodic task: check and auto-release sponsor escrow stages for all active sponsor escrows."""
-    async with async_session_maker() as db:
-        try:
+    if not await _is_cron_enabled("arq_sponsor_escrow_check_enabled"):
+        return
+    started_at = datetime.now(timezone.utc)
+    t0 = time.monotonic()
+    count = 0
+    try:
+        async with async_session_maker() as db:
             from app.models.escrow import SponsorEscrow, EscrowStatus
             from app.services import sponsor_escrow as se_svc
 
@@ -606,6 +674,7 @@ async def check_all_sponsor_escrows(ctx: dict) -> None:
                     SponsorEscrow.status.in_([EscrowStatus.holding, EscrowStatus.partially_released])
                 )
             )).scalars().all()
+            count = len(escrows)
 
             for event_id in escrows:
                 try:
@@ -616,10 +685,11 @@ async def check_all_sponsor_escrows(ctx: dict) -> None:
                     logger.exception("Sponsor escrow check failed for event %d", event_id)
 
             await db.commit()
-            logger.info("Checked %d active sponsor escrows", len(escrows))
-        except Exception:
-            await db.rollback()
-            logger.exception("check_all_sponsor_escrows failed")
+            logger.info("Checked %d active sponsor escrows", count)
+        await _log_cron_run("check_all_sponsor_escrows", status="success", started_at=started_at, duration_ms=(time.monotonic() - t0) * 1000, items_processed=count)
+    except Exception:
+        logger.exception("check_all_sponsor_escrows failed")
+        await _log_cron_run("check_all_sponsor_escrows", status="error", started_at=started_at, duration_ms=(time.monotonic() - t0) * 1000, error=traceback.format_exc()[-500:])
 
 
 async def _send_pledge_refund_email(db, funding: Funding) -> None:

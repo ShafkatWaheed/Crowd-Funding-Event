@@ -346,7 +346,10 @@ async def scan_ticket(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
-    """Scan a ticket by QR code (organizer/admin)."""
+    """Scan a ticket by QR code (organizer/admin/co-organizer including read)."""
+    event = await event_service.get_or_404(db, event_id)
+    if not await event_service.user_can_scan_tickets(db, event, current_user):
+        raise ForbiddenError("You cannot scan tickets for this event")
     ticket_code: str | None = None
     if body.encrypted_payload:
         try:
@@ -526,7 +529,7 @@ async def get_ticket_sales_stats(
 ):
     """Get ticket sold vs scanned stats for an event."""
     event = await event_service.get_or_404(db, event_id)
-    if not await event_service.user_can_edit_event(db, event, current_user):
+    if not await event_service.user_can_read_event_mgmt(db, event, current_user):
         raise ForbiddenError("You cannot view stats for this event")
     stats = await ticket_service.get_ticket_sales_stats(db, event_id=event_id)
     return TicketSalesStatsResponse(**stats)
@@ -540,9 +543,9 @@ async def list_event_ticket_sales(
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
 ):
-    """List ticket sales for event (organizer/admin)."""
+    """List ticket sales for event (organizer/admin/co-organizer)."""
     event = await event_service.get_or_404(db, event_id)
-    if not await event_service.user_can_edit_event(db, event, current_user):
+    if not await event_service.user_can_read_event_mgmt(db, event, current_user):
         raise ForbiddenError("You cannot view ticket sales for this event")
     sales = await ticket_service.list_event_ticket_sales(db, event_id=event_id, offset=offset, limit=limit)
     return [_ticket_sale_to_response(s) for s in sales]
@@ -556,9 +559,9 @@ async def list_event_scanned_tickets(
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
 ):
-    """List only scanned tickets for event (organizer/admin)."""
+    """List only scanned tickets for event (organizer/admin/co-organizer)."""
     event = await event_service.get_or_404(db, event_id)
-    if not await event_service.user_can_edit_event(db, event, current_user):
+    if not await event_service.user_can_read_event_mgmt(db, event, current_user):
         raise ForbiddenError("You cannot view scanned tickets for this event")
     sales = await ticket_service.list_event_scanned_ticket_sales(db, event_id=event_id, offset=offset, limit=limit)
     return [_ticket_sale_to_response(s) for s in sales]
@@ -570,9 +573,9 @@ async def list_event_waitlisted_tickets(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
-    """List waitlisted tickets for event (organizer/admin)."""
+    """List waitlisted tickets for event (organizer/admin/co-organizer)."""
     event = await event_service.get_or_404(db, event_id)
-    if not await event_service.user_can_edit_event(db, event, current_user):
+    if not await event_service.user_can_read_event_mgmt(db, event, current_user):
         raise ForbiddenError("You cannot view waitlisted tickets for this event")
     sales = await ticket_service.list_event_waitlisted_tickets(db, event_id=event_id)
     return [_ticket_sale_to_response(s) for s in sales]

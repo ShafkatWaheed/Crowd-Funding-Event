@@ -3,9 +3,11 @@ Event service: re-export all public functions so "from app.services import event
 """
 from app.services.event.permissions import (
     _event_can_edit,
+    get_co_organizer_role,
     is_main_organizer,
     user_can_edit_event,
     user_can_read_event_mgmt,
+    user_can_scan_tickets,
 )
 from app.services.event.crud import (
     auto_transition_status,
@@ -31,6 +33,9 @@ from app.services.event.organizers import (
     add_event_organizer,
     list_event_organizers,
     remove_event_organizer,
+    respond_to_invitation,
+    self_remove_from_event,
+    update_event_organizer_permission,
 )
 from app.services.event.discounts import (
     compute_event_discounts_for_user,
@@ -40,6 +45,7 @@ from app.services.event.discounts import (
 )
 from app.services.event.queries import (
     clone_event,
+    get_co_organized_events,
     get_coming_soon_events,
     get_my_registered_events,
     get_popular_events,
@@ -54,6 +60,7 @@ from app.services.event.attendance import (
 __all__ = [
     "_event_can_edit",
     "add_event_organizer",
+    "get_co_organizer_role",
     "approve_extension",
     "auto_transition_status",
     "cancel_event",
@@ -65,6 +72,7 @@ __all__ = [
     "delete_or_cancel",
     "extend_funding",
     "get_by_id",
+    "get_co_organized_events",
     "get_coming_soon_events",
     "get_my_registered_events",
     "get_or_404",
@@ -82,9 +90,13 @@ __all__ = [
     "record_customer_attendance",
     "reject_extension",
     "remove_event_organizer",
+    "respond_to_invitation",
+    "self_remove_from_event",
     "set_event_date",
     "start_selling_tickets",
     "update",
+    "update_event_organizer_permission",
     "user_can_edit_event",
     "user_can_read_event_mgmt",
+    "user_can_scan_tickets",
 ]

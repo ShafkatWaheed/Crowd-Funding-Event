@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel as _BaseModel
 
 from app.services import audit as audit_svc
 
@@ -783,10 +784,13 @@ def _escrow_to_dict(e) -> dict:
         "status": e.status.value,
         "stage1_released_cents": e.stage1_released_cents,
         "stage1_released_at": e.stage1_released_at.isoformat() if e.stage1_released_at else None,
+        "stage1_auto_release": e.stage1_auto_release,
         "stage2_released_cents": e.stage2_released_cents,
         "stage2_released_at": e.stage2_released_at.isoformat() if e.stage2_released_at else None,
+        "stage2_auto_release": e.stage2_auto_release,
         "stage3_released_cents": e.stage3_released_cents,
         "stage3_released_at": e.stage3_released_at.isoformat() if e.stage3_released_at else None,
+        "stage3_auto_release": e.stage3_auto_release,
     }
 
 
@@ -918,6 +922,50 @@ async def unfreeze_sponsor_escrow(
     return _escrow_to_dict(escrow)
 
 
+# ----- Per-escrow auto-release toggles -----
+
+class _AutoReleaseBody(_BaseModel):
+    stage1_auto_release: bool | None = None
+    stage2_auto_release: bool | None = None
+    stage3_auto_release: bool | None = None
+
+
+@router.patch("/{escrow_type}-escrows/{event_id}/auto-release")
+async def toggle_auto_release(
+    escrow_type: str,
+    event_id: int,
+    body: _AutoReleaseBody,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.admin)),
+):
+    """Toggle per-stage auto-release for a specific escrow record."""
+    from app.models.escrow import FundEscrow, TicketEscrow, SponsorEscrow
+
+    model_map = {"fund": FundEscrow, "ticket": TicketEscrow, "sponsor": SponsorEscrow}
+    svc_map = {"fund": escrow_service, "ticket": te_svc, "sponsor": se_svc}
+    model_cls = model_map.get(escrow_type)
+    svc = svc_map.get(escrow_type)
+    if not model_cls or not svc:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="escrow_type must be fund, ticket, or sponsor")
+
+    escrow = await svc.get_or_create(db, event_id=event_id)
+    changed = {}
+    for field in ("stage1_auto_release", "stage2_auto_release", "stage3_auto_release"):
+        val = getattr(body, field)
+        if val is not None:
+            setattr(escrow, field, val)
+            changed[field] = val
+    await db.flush()
+    await db.refresh(escrow)
+
+    await audit_svc.log_action(
+        db, admin_id=current_user.id, action="escrow_auto_release_toggle",
+        target_type=f"{escrow_type}_escrow", target_id=event_id, details=changed,
+    )
+    return _escrow_to_dict(escrow)
+
+
 # ----- Unified per-event escrow view -----
 
 @router.get("/escrows/by-event/{event_id}")
@@ -957,8 +1005,6 @@ async def freeze_organizer_payouts(
     await db.flush()
     return {"ok": True, "events_frozen": result.rowcount or 0}
 
-
-from pydantic import BaseModel as _BaseModel
 
 class ResolveReviewBody(_BaseModel):
     target_status: str
@@ -1043,3 +1089,125 @@ async def get_audit_log(
         "offset": offset,
         "limit": limit,
     }
+
+
+# ----- ARQ Worker Run Logs -----
+
+@router.get("/worker-runs")
+async def list_worker_runs(
+    db: ReadDbSession,
+    task_name: str | None = Query(None, description="Filter by task name"),
+    status: str | None = Query(None, description="Filter by status (success/error/skipped)"),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    current_user: User = Depends(require_role(UserRole.admin)),
+):
+    """List ARQ cron job run logs with optional filters."""
+    from sqlalchemy import func
+    from app.models.worker_run_log import WorkerRunLog
+
+    conditions = []
+    if task_name:
+        conditions.append(WorkerRunLog.task_name == task_name)
+    if status:
+        conditions.append(WorkerRunLog.status == status)
+
+    count_q = select(func.count(WorkerRunLog.id))
+    if conditions:
+        count_q = count_q.where(*conditions)
+    total = (await db.execute(count_q)).scalar() or 0
+
+    q = (
+        select(WorkerRunLog)
+        .order_by(WorkerRunLog.started_at.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    if conditions:
+        q = q.where(*conditions)
+    rows = (await db.execute(q)).scalars().all()
+
+    return {
+        "items": [
+            {
+                "id": r.id,
+                "task_name": r.task_name,
+                "status": r.status,
+                "duration_ms": r.duration_ms,
+                "items_processed": r.items_processed,
+                "error": r.error,
+                "started_at": r.started_at.isoformat() if r.started_at else None,
+                "finished_at": r.finished_at.isoformat() if r.finished_at else None,
+            }
+            for r in rows
+        ],
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+    }
+
+
+@router.get("/worker-summary")
+async def worker_summary(
+    db: ReadDbSession,
+    current_user: User = Depends(require_role(UserRole.admin)),
+):
+    """Summary of each cron job: last run time, last status, total runs, total errors."""
+    from sqlalchemy import func, case
+    from app.models.worker_run_log import WorkerRunLog
+
+    q = (
+        select(
+            WorkerRunLog.task_name,
+            func.count(WorkerRunLog.id).label("total_runs"),
+            func.count(case((WorkerRunLog.status == "error", 1))).label("total_errors"),
+            func.max(WorkerRunLog.started_at).label("last_run_at"),
+        )
+        .group_by(WorkerRunLog.task_name)
+    )
+    rows = (await db.execute(q)).all()
+
+    task_names = [
+        "mock_auto_settle",
+        "check_all_ticket_escrows",
+        "check_all_sponsor_escrows",
+        "process_scheduled_payouts",
+        "daily_reconciliation",
+    ]
+
+    setting_keys = {
+        "mock_auto_settle": "arq_mock_auto_settle_enabled",
+        "check_all_ticket_escrows": "arq_ticket_escrow_check_enabled",
+        "check_all_sponsor_escrows": "arq_sponsor_escrow_check_enabled",
+        "process_scheduled_payouts": "arq_scheduled_payouts_enabled",
+        "daily_reconciliation": "arq_daily_reconciliation_enabled",
+    }
+
+    by_name = {r.task_name: r for r in rows}
+
+    last_status_q = (
+        select(WorkerRunLog.task_name, WorkerRunLog.status)
+        .distinct(WorkerRunLog.task_name)
+        .order_by(WorkerRunLog.task_name, WorkerRunLog.started_at.desc())
+    )
+    last_rows = (await db.execute(last_status_q)).all()
+    last_status_map = {r.task_name: r.status for r in last_rows}
+
+    enabled_map = {}
+    for tn, sk in setting_keys.items():
+        enabled_map[tn] = await settings_service.get_bool(db, sk)
+
+    items = []
+    for tn in task_names:
+        r = by_name.get(tn)
+        items.append({
+            "task_name": tn,
+            "enabled": enabled_map.get(tn, True),
+            "setting_key": setting_keys[tn],
+            "total_runs": r.total_runs if r else 0,
+            "total_errors": r.total_errors if r else 0,
+            "last_run_at": r.last_run_at.isoformat() if r and r.last_run_at else None,
+            "last_status": last_status_map.get(tn),
+        })
+
+    return {"tasks": items}

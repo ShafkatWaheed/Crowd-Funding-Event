@@ -201,6 +201,9 @@ async def get_escrow_summary(db: AsyncSession, *, event_id: int) -> dict:
         "total_released_cents": total_released,
         "remaining_cents": max(0, escrow.total_held_cents - total_released),
         "status": escrow.status.value,
+        "stage1_auto_release": escrow.stage1_auto_release,
+        "stage2_auto_release": escrow.stage2_auto_release,
+        "stage3_auto_release": escrow.stage3_auto_release,
     }
 
 
@@ -238,6 +241,8 @@ async def check_and_release_stage1(db: AsyncSession, *, event_id: int) -> FundEs
     if escrow.stage1_released_at:
         return None
     if escrow.status in (EscrowStatus.frozen, EscrowStatus.waived):
+        return None
+    if not escrow.stage1_auto_release:
         return None
 
     mode = await settings_svc.get_str(db, "escrow_stage1_trigger_mode")
@@ -291,6 +296,8 @@ async def check_and_release_stage2(db: AsyncSession, *, event_id: int) -> FundEs
     if escrow.stage2_released_at or not escrow.stage1_released_at:
         return None
     if escrow.status in (EscrowStatus.frozen, EscrowStatus.waived):
+        return None
+    if not escrow.stage2_auto_release:
         return None
 
     mode = await settings_svc.get_str(db, "escrow_stage2_trigger_mode")
@@ -350,6 +357,8 @@ async def check_and_release_stage3(db: AsyncSession, *, event_id: int) -> FundEs
     if escrow.stage3_released_at or not escrow.stage2_released_at:
         return None
     if escrow.status in (EscrowStatus.frozen, EscrowStatus.waived):
+        return None
+    if not escrow.stage3_auto_release:
         return None
 
     mode = await settings_svc.get_str(db, "escrow_stage3_trigger_mode")

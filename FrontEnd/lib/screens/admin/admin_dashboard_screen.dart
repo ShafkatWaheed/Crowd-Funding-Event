@@ -13,6 +13,7 @@ import 'tabs/admin_email_tab.dart';
 import 'tabs/admin_events_tab.dart';
 import 'tabs/admin_home_tab.dart';
 import 'tabs/admin_financial_tab.dart';
+import 'tabs/admin_arq_tab.dart';
 import 'tabs/admin_mock_tab.dart';
 import 'tabs/admin_settings_tab.dart';
 import 'tabs/admin_users_tab.dart';
@@ -260,6 +261,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ListTile(leading: const Icon(Icons.email_outlined), title: const Text('Email'), onTap: () { Navigator.pop(ctx); setState(() => _selectedSection = 5); }),
             ListTile(leading: const Icon(Icons.settings), title: const Text('Settings'), onTap: () { Navigator.pop(ctx); setState(() => _selectedSection = 6); }),
             ListTile(leading: const Icon(Icons.science_outlined), title: const Text('Mock'), onTap: () { Navigator.pop(ctx); setState(() => _selectedSection = 7); }),
+            ListTile(leading: const Icon(Icons.schedule_send_rounded), title: const Text('ARQ Control'), onTap: () { Navigator.pop(ctx); setState(() => _selectedSection = 8); }),
             const SizedBox(height: 8),
           ],
         ),
@@ -403,6 +405,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 _navItem(5, Icons.email_outlined, 'Email'),
                 _navItem(6, Icons.settings, 'Settings'),
                 _navItem(7, Icons.science_outlined, 'Mock'),
+                _navItem(8, Icons.schedule_send_rounded, 'ARQ'),
               ],
             ),
           ),
@@ -536,6 +539,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           settings: _settings,
           onUpdateSetting: _updateSetting,
           onSettingsReload: _loadSettings,
+        );
+      case 8:
+        return AdminArqTab(
+          onSnack: _snack,
+          settings: _settings,
+          onUpdateSetting: _updateSetting,
         );
       default:
         return AdminHomeTab(

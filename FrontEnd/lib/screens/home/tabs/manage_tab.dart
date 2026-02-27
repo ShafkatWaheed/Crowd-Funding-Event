@@ -174,6 +174,13 @@ class _ManageTabState extends State<ManageTab> {
                   color: AppTheme.warningColor,
                   onTap: () => context.push('/bookmarks'),
                 ),
+                AppSpacing.hMd,
+                _quickActionCard(
+                  icon: Icons.group_work_rounded,
+                  label: 'Co-Organized',
+                  color: context.managementAccent,
+                  onTap: () => context.push('/manage/co-organized'),
+                ),
               ],
             ),
           ),

@@ -121,11 +121,20 @@ class EventOrganizerItem(BaseModel):
     email: str
     is_main: bool
     permission: str = "full"  # 'read' or 'full'; main organizer always 'full'
+    invitation_status: str = "accepted"  # 'pending' | 'accepted' | 'declined'
 
 
 class AddEventOrganizerBody(BaseModel):
     user_id: int
     permission: str = "read"  # 'read' | 'full'
+
+
+class UpdateOrganizerPermissionBody(BaseModel):
+    permission: str  # 'read' | 'full'
+
+
+class RespondToInvitationBody(BaseModel):
+    accept: bool
 
 
 class CancelBody(BaseModel):
@@ -198,6 +207,7 @@ class EventResponse(BaseModel):
     min_age: int = 18
     directions_url: str | None = None  # computed from venue address
     first_image_url: str | None = None
+    viewer_co_organizer_permission: str | None = None  # null | 'read' | 'full' for the requesting user
     created_at: datetime
     updated_at: datetime
 

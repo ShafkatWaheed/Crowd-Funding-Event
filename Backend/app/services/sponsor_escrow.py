@@ -134,6 +134,8 @@ async def check_and_release_stage1(db: AsyncSession, *, event_id: int) -> Sponso
     escrow = await get_or_create(db, event_id=event_id)
     if escrow.stage1_released_at or escrow.status in (EscrowStatus.frozen, EscrowStatus.refunded):
         return None
+    if not escrow.stage1_auto_release:
+        return None
 
     mode = await settings_svc.get_str(db, "sponsor_escrow_stage1_trigger_mode")
 
@@ -174,6 +176,8 @@ async def check_and_release_stage2(db: AsyncSession, *, event_id: int) -> Sponso
         return None
     if escrow.status in (EscrowStatus.frozen, EscrowStatus.refunded):
         return None
+    if not escrow.stage2_auto_release:
+        return None
 
     mode = await settings_svc.get_str(db, "sponsor_escrow_stage2_trigger_mode")
 
@@ -213,6 +217,8 @@ async def check_and_release_stage3(db: AsyncSession, *, event_id: int) -> Sponso
     if escrow.stage3_released_at or not escrow.stage2_released_at:
         return None
     if escrow.status in (EscrowStatus.frozen, EscrowStatus.refunded):
+        return None
+    if not escrow.stage3_auto_release:
         return None
 
     mode = await settings_svc.get_str(db, "sponsor_escrow_stage3_trigger_mode")

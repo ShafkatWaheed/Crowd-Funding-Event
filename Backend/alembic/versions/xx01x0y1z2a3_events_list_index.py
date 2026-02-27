@@ -1,14 +1,14 @@
 """Add composite index for event list queries (status, start_time, id).
 
 Revision ID: xx01x0y1z2a3
-Revises: vv90v7w8x9y0
+Revises: ww00w8x9y0z1
 Create Date: 2026-02-25
 
 """
 from alembic import op
 
 revision = "xx01x0y1z2a3"
-down_revision = "vv90v7w8x9y0"
+down_revision = "ww00w8x9y0z1"
 branch_labels = None
 depends_on = None
 

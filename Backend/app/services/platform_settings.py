@@ -68,6 +68,13 @@ DEFAULTS = {
     "payment_mock_enabled": "true",
     "email_mock_enabled": "true",
     # Mock payment latency (ms)
+    # ARQ worker cron toggles
+    "arq_mock_auto_settle_enabled": "true",
+    "arq_ticket_escrow_check_enabled": "true",
+    "arq_sponsor_escrow_check_enabled": "true",
+    "arq_scheduled_payouts_enabled": "true",
+    "arq_daily_reconciliation_enabled": "true",
+    # Mock payment latency (ms)
     "mock_charge_latency_min_ms": 800,
     "mock_charge_latency_max_ms": 3000,
     "mock_transfer_latency_min_ms": 1000,
@@ -221,6 +228,11 @@ DESCRIPTIONS = {
     "sponsor_escrow_stage3_trigger_enabled": "Auto-release sponsor escrow Stage 3",
     "sponsor_escrow_stage3_trigger_mode": "Trigger mode for sponsor escrow Stage 3 (days_after_event, sponsor_confirmed)",
     "sponsor_escrow_stage3_days_after_event": "Days after event to trigger sponsor escrow Stage 3",
+    "arq_mock_auto_settle_enabled": "Enable mock auto-settle cron job (settles pending mock ledger entries periodically)",
+    "arq_ticket_escrow_check_enabled": "Enable ticket escrow auto-release cron job (checks and releases ticket escrow stages every 15 min)",
+    "arq_sponsor_escrow_check_enabled": "Enable sponsor escrow auto-release cron job (checks and releases sponsor escrow stages every 15 min)",
+    "arq_scheduled_payouts_enabled": "Enable scheduled payouts cron job (processes organizer payouts daily at midnight)",
+    "arq_daily_reconciliation_enabled": "Enable daily reconciliation cron job (runs ledger reconciliation at 2 AM)",
     "tax_enabled": "Enable tax collection on transactions",
     "default_tax_rate": "Default tax rate (e.g. 0.0825 for 8.25%)",
     "default_tax_jurisdiction": "Default tax jurisdiction code (e.g. US-TX)",

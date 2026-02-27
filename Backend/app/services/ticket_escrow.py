@@ -116,6 +116,8 @@ async def check_and_release_stage1(db: AsyncSession, *, event_id: int) -> Ticket
     escrow = await get_or_create(db, event_id=event_id)
     if escrow.stage1_released_at or escrow.status in (EscrowStatus.frozen, EscrowStatus.refunded):
         return None
+    if not escrow.stage1_auto_release:
+        return None
 
     days_required = await settings_svc.get_int(db, "ticket_escrow_stage1_days_after_event")
     if not event.end_time:
@@ -143,6 +145,8 @@ async def check_and_release_stage2(db: AsyncSession, *, event_id: int) -> Ticket
     if escrow.stage2_released_at or not escrow.stage1_released_at:
         return None
     if escrow.status in (EscrowStatus.frozen, EscrowStatus.refunded):
+        return None
+    if not escrow.stage2_auto_release:
         return None
 
     days_required = await settings_svc.get_int(db, "ticket_escrow_stage2_days_after_event")
@@ -191,6 +195,8 @@ async def check_and_release_stage3(db: AsyncSession, *, event_id: int) -> Ticket
     if escrow.stage3_released_at or not escrow.stage2_released_at:
         return None
     if escrow.status in (EscrowStatus.frozen, EscrowStatus.refunded):
+        return None
+    if not escrow.stage3_auto_release:
         return None
 
     days_required = await settings_svc.get_int(db, "ticket_escrow_stage3_days_after_event")

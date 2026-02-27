@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -21,13 +23,27 @@ class _CoOrganizerScreenState extends State<CoOrganizerScreen> {
   List<Map<String, dynamic>> _organizers = [];
   bool _loading = true;
   bool _isMainOrganizer = false;
-  final _userIdCtrl = TextEditingController();
+  bool _isCoOrganizer = false;
+
+  final _searchCtrl = TextEditingController();
   String _selectedPermission = 'read';
+  List<Map<String, dynamic>> _searchResults = [];
+  bool _searching = false;
+  Timer? _debounce;
+  int? _selectedUserId;
+  String? _selectedUserLabel;
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _searchCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -38,6 +54,8 @@ class _CoOrganizerScreenState extends State<CoOrganizerScreen> {
       final mainOrg = list.firstWhere((o) => o['is_main'] == true, orElse: () => {});
       _isMainOrganizer = user != null &&
           (mainOrg['user_id'] == user.id || user.isAdmin);
+      _isCoOrganizer = user != null &&
+          list.any((o) => o['user_id'] == user.id && o['is_main'] != true);
       setState(() {
         _organizers = list.cast<Map<String, dynamic>>();
         _loading = false;
@@ -50,25 +68,127 @@ class _CoOrganizerScreenState extends State<CoOrganizerScreen> {
     }
   }
 
+  void _onSearchChanged(String value) {
+    _debounce?.cancel();
+    if (value.trim().length < 2) {
+      setState(() => _searchResults = []);
+      return;
+    }
+    _debounce = Timer(const Duration(milliseconds: 400), () async {
+      if (!mounted) return;
+      setState(() => _searching = true);
+      try {
+        final results = await _api.searchOrganizers(value.trim());
+        if (mounted) {
+          setState(() {
+            _searchResults = results.cast<Map<String, dynamic>>();
+            _searching = false;
+          });
+        }
+      } catch (_) {
+        if (mounted) setState(() => _searching = false);
+      }
+    });
+  }
+
+  void _selectUser(Map<String, dynamic> user) {
+    setState(() {
+      _selectedUserId = user['id'];
+      _selectedUserLabel = user['display_name'] ?? user['email'] ?? 'User ${user['id']}';
+      _searchCtrl.text = _selectedUserLabel!;
+      _searchResults = [];
+    });
+  }
+
   Future<void> _addOrganizer() async {
-    final id = int.tryParse(_userIdCtrl.text.trim());
-    if (id == null) {
-      AppToast.error(context, 'Enter a valid user ID');
+    if (_selectedUserId == null) {
+      AppToast.error(context, 'Search and select a user first');
       return;
     }
     try {
       await _api.addEventOrganizer(widget.eventId, {
-        'user_id': id,
+        'user_id': _selectedUserId,
         'permission': _selectedPermission,
       });
-      _userIdCtrl.clear();
+      _searchCtrl.clear();
+      _selectedUserId = null;
+      _selectedUserLabel = null;
+      _load();
+      if (mounted) AppToast.success(context, 'Invitation sent');
+    } catch (e) {
+      if (mounted) {
+        AppToast.fromError(context, e, fallback: 'Failed to invite co-organizer');
+      }
+    }
+  }
+
+  Future<void> _updatePermission(int userId, String currentPerm) async {
+    final newPerm = currentPerm == 'read' ? 'full' : 'read';
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Change Permission?'),
+        content: Text('Change to ${newPerm == "full" ? "Full Access" : "Read Only"}?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Update')),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    try {
+      await _api.updateOrganizerPermission(widget.eventId, userId, newPerm);
+      _load();
+      if (mounted) AppToast.success(context, 'Permission updated');
+    } catch (e) {
+      if (mounted) {
+        AppToast.fromError(context, e, fallback: 'Failed to update permission');
+      }
+    }
+  }
+
+  Future<void> _respondToInvitation(bool accept) async {
+    final user = context.read<AuthProvider>().user;
+    if (user == null) return;
+    try {
+      await _api.respondToInvitation(widget.eventId, user.id, accept);
       _load();
       if (mounted) {
-        AppToast.success(context, 'Co-organizer added');
+        AppToast.success(context, accept ? 'Invitation accepted' : 'Invitation declined');
       }
     } catch (e) {
       if (mounted) {
-        AppToast.fromError(context, e, fallback: 'Failed to add co-organizer');
+        AppToast.fromError(context, e, fallback: 'Failed to respond');
+      }
+    }
+  }
+
+  Future<void> _selfRemove() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Leave Event?'),
+        content: const Text('You will lose co-organizer access to this event.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: AppTheme.errorColor),
+            child: const Text('Leave'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    try {
+      await _api.selfRemoveFromEvent(widget.eventId);
+      if (mounted) {
+        AppToast.success(context, 'You have left this event');
+        context.pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        AppToast.fromError(context, e, fallback: 'Failed to leave event');
       }
     }
   }
@@ -100,8 +220,29 @@ class _CoOrganizerScreenState extends State<CoOrganizerScreen> {
     }
   }
 
+  Color _statusColor(String status) {
+    switch (status) {
+      case 'accepted':
+        return AppTheme.successColor;
+      case 'pending':
+        return AppTheme.warningColor;
+      case 'declined':
+        return AppTheme.errorColor;
+      default:
+        return AppTheme.accentColor;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final user = context.watch<AuthProvider>().user;
+    final myPendingInvite = user != null
+        ? _organizers.where((o) =>
+            o['user_id'] == user.id &&
+            o['is_main'] != true &&
+            o['invitation_status'] == 'pending').firstOrNull
+        : null;
+
     return Scaffold(
       backgroundColor: AppTheme.surfaceOf(context),
       appBar: AppBar(
@@ -117,6 +258,14 @@ class _CoOrganizerScreenState extends State<CoOrganizerScreen> {
         ),
         title: const Text('Co-Organizers'),
         centerTitle: true,
+        actions: [
+          if (_isCoOrganizer)
+            IconButton(
+              icon: const Icon(Icons.exit_to_app_rounded),
+              tooltip: 'Leave Event',
+              onPressed: _selfRemove,
+            ),
+        ],
       ),
       body: RefreshIndicator(
         onRefresh: _load,
@@ -130,6 +279,52 @@ class _CoOrganizerScreenState extends State<CoOrganizerScreen> {
             : ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
+                  // Pending invitation banner
+                  if (myPendingInvite != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppTheme.warningColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppTheme.warningColor.withValues(alpha: 0.4)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('You have a pending invitation',
+                              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTheme.textPrimaryOf(context))),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Permission: ${myPendingInvite['permission'] == 'full' ? 'Full Access' : 'Read Only'}',
+                            style: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 13),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: () => _respondToInvitation(false),
+                                  style: OutlinedButton.styleFrom(foregroundColor: AppTheme.errorColor),
+                                  child: const Text('Decline'),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: FilledButton(
+                                  onPressed: () => _respondToInvitation(true),
+                                  child: const Text('Accept'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
                   // Add form (main organizer only)
                   if (_isMainOrganizer) ...[
                     Container(
@@ -148,18 +343,30 @@ class _CoOrganizerScreenState extends State<CoOrganizerScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Add Co-Organizer',
+                          Text('Invite Co-Organizer',
                               style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
                           const SizedBox(height: 12),
                           TextField(
-                            controller: _userIdCtrl,
-                            keyboardType: TextInputType.number,
+                            controller: _searchCtrl,
                             style: TextStyle(color: AppTheme.textPrimaryOf(context)),
+                            onChanged: (v) {
+                              _selectedUserId = null;
+                              _onSearchChanged(v);
+                            },
                             decoration: InputDecoration(
-                              labelText: 'User ID',
+                              labelText: 'Search by email or name',
                               labelStyle: TextStyle(color: AppTheme.textSecondaryOf(context)),
-                              hintText: 'Enter user ID',
+                              hintText: 'Type to search organizers...',
                               hintStyle: TextStyle(color: AppTheme.textSecondaryOf(context)),
+                              prefixIcon: Icon(Icons.search, color: AppTheme.textSecondaryOf(context)),
+                              suffixIcon: _searching
+                                  ? const Padding(
+                                      padding: EdgeInsets.all(12),
+                                      child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                                    )
+                                  : _selectedUserId != null
+                                      ? Icon(Icons.check_circle, color: AppTheme.successColor)
+                                      : null,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
                                 borderSide: BorderSide(color: AppTheme.dividerOf(context)),
@@ -172,6 +379,40 @@ class _CoOrganizerScreenState extends State<CoOrganizerScreen> {
                               fillColor: AppTheme.surfaceOf(context),
                             ),
                           ),
+                          if (_searchResults.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Container(
+                              constraints: const BoxConstraints(maxHeight: 180),
+                              decoration: BoxDecoration(
+                                color: AppTheme.cardOf(context),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: AppTheme.dividerOf(context)),
+                              ),
+                              child: ListView.builder(
+                                shrinkWrap: true,
+                                itemCount: _searchResults.length,
+                                itemBuilder: (ctx, i) {
+                                  final r = _searchResults[i];
+                                  return ListTile(
+                                    dense: true,
+                                    leading: CircleAvatar(
+                                      radius: 16,
+                                      backgroundColor: AppTheme.accentColor.withValues(alpha: 0.2),
+                                      child: Text(
+                                        (r['display_name'] ?? r['email'] ?? '?')[0].toUpperCase(),
+                                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                      ),
+                                    ),
+                                    title: Text(r['display_name'] ?? 'User #${r['id']}',
+                                        style: TextStyle(color: AppTheme.textPrimaryOf(context), fontSize: 14)),
+                                    subtitle: Text(r['email'] ?? '',
+                                        style: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 12)),
+                                    onTap: () => _selectUser(r),
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
                           const SizedBox(height: 12),
                           Text('Permission',
                               style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -201,8 +442,8 @@ class _CoOrganizerScreenState extends State<CoOrganizerScreen> {
                           const SizedBox(height: 6),
                           Text(
                             _selectedPermission == 'read'
-                                ? 'Can view event info, management stats, and scan tickets.'
-                                : 'Full organizer access — can edit, manage discounts, etc.',
+                                ? 'Can view management data, scan tickets, but cannot edit.'
+                                : 'Full organizer access — edit, manage discounts, images, etc.',
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                 color: AppTheme.textSecondaryOf(context)),
                           ),
@@ -210,9 +451,9 @@ class _CoOrganizerScreenState extends State<CoOrganizerScreen> {
                           SizedBox(
                             width: double.infinity,
                             child: FilledButton.icon(
-                              onPressed: _addOrganizer,
-                              icon: const Icon(Icons.person_add_rounded),
-                              label: const Text('Add'),
+                              onPressed: _selectedUserId != null ? _addOrganizer : null,
+                              icon: const Icon(Icons.send_rounded),
+                              label: const Text('Send Invitation'),
                             ),
                           ),
                         ],
@@ -228,6 +469,7 @@ class _CoOrganizerScreenState extends State<CoOrganizerScreen> {
                   ..._organizers.map((o) {
                     final isMain = o['is_main'] == true;
                     final perm = o['permission'] ?? 'full';
+                    final status = o['invitation_status'] ?? 'accepted';
                     return Container(
                       margin: const EdgeInsets.only(bottom: 8),
                       decoration: BoxDecoration(
@@ -257,27 +499,73 @@ class _CoOrganizerScreenState extends State<CoOrganizerScreen> {
                               fontWeight: FontWeight.w600,
                               color: AppTheme.textPrimaryOf(context)),
                         ),
-                        subtitle: Text(
-                          isMain ? 'Main Organizer' : 'Co-Organizer  •  $perm',
-                          style: TextStyle(
-                            color: isMain ? AppTheme.successColor : AppTheme.textSecondaryOf(context),
-                            fontSize: 13,
-                          ),
+                        subtitle: Row(
+                          children: [
+                            Text(
+                              isMain ? 'Main Organizer' : 'Co-Organizer',
+                              style: TextStyle(
+                                color: isMain ? AppTheme.successColor : AppTheme.textSecondaryOf(context),
+                                fontSize: 13,
+                              ),
+                            ),
+                            if (!isMain) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: _statusColor(status).withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  status,
+                                  style: TextStyle(fontSize: 11, color: _statusColor(status), fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.surfaceOf(context),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  perm,
+                                  style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context)),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
-                        trailing: (!isMain && _isMainOrganizer)
-                            ? IconButton(
-                                icon: const Icon(Icons.remove_circle_outline, color: AppTheme.errorColor),
-                                onPressed: () => _removeOrganizer(o['user_id']),
+                        trailing: isMain
+                            ? Chip(
+                                label: Text('Owner',
+                                    style: TextStyle(
+                                        fontSize: 11,
+                                        color: AppTheme.textPrimaryOf(context))),
+                                backgroundColor: AppTheme.surfaceOf(context),
+                                side: BorderSide.none,
+                                padding: EdgeInsets.zero,
                               )
-                            : isMain
-                                ? Chip(
-                                    label: Text('Owner',
-                                        style: TextStyle(
-                                            fontSize: 11,
-                                            color: AppTheme.textPrimaryOf(context))),
-                                    backgroundColor: AppTheme.surfaceOf(context),
-                                    side: BorderSide.none,
-                                    padding: EdgeInsets.zero,
+                            : _isMainOrganizer
+                                ? PopupMenuButton<String>(
+                                    icon: Icon(Icons.more_vert, color: AppTheme.textSecondaryOf(context)),
+                                    onSelected: (action) {
+                                      if (action == 'permission') {
+                                        _updatePermission(o['user_id'], perm);
+                                      } else if (action == 'remove') {
+                                        _removeOrganizer(o['user_id']);
+                                      }
+                                    },
+                                    itemBuilder: (_) => [
+                                      PopupMenuItem(
+                                        value: 'permission',
+                                        child: Text(perm == 'read' ? 'Set Full Access' : 'Set Read Only'),
+                                      ),
+                                      const PopupMenuItem(
+                                        value: 'remove',
+                                        child: Text('Remove', style: TextStyle(color: Colors.red)),
+                                      ),
+                                    ],
                                   )
                                 : null,
                       ),

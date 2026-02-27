@@ -639,9 +639,9 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
   Widget _escrowDetailColumn(String label, Map<String, dynamic> esc, String type, int eventId) {
     final color = type == 'fund' ? context.fundingAccent : type == 'ticket' ? context.ticketAccent : context.sponsorAccent;
     final stages = [
-      {'n': 1, 'cents': esc['stage1_released_cents'] ?? 0, 'at': esc['stage1_released_at']},
-      {'n': 2, 'cents': esc['stage2_released_cents'] ?? 0, 'at': esc['stage2_released_at']},
-      {'n': 3, 'cents': esc['stage3_released_cents'] ?? 0, 'at': esc['stage3_released_at']},
+      {'n': 1, 'cents': esc['stage1_released_cents'] ?? 0, 'at': esc['stage1_released_at'], 'auto': esc['stage1_auto_release'] ?? true},
+      {'n': 2, 'cents': esc['stage2_released_cents'] ?? 0, 'at': esc['stage2_released_at'], 'auto': esc['stage2_auto_release'] ?? true},
+      {'n': 3, 'cents': esc['stage3_released_cents'] ?? 0, 'at': esc['stage3_released_at'], 'auto': esc['stage3_auto_release'] ?? true},
     ];
     final frozen = esc['status'] == 'frozen';
     return Padding(
@@ -655,30 +655,55 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
           const SizedBox(height: 4),
           ...stages.map((st) {
             final released = st['at'] != null;
+            final autoRelease = st['auto'] as bool;
+            final stageNum = st['n'] as int;
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 2),
               child: Row(children: [
                 Icon(released ? Icons.check_circle : Icons.radio_button_unchecked, color: released ? AppTheme.successColor : AppTheme.textSecondaryOf(context), size: 16),
                 const SizedBox(width: 6),
-                Text('Stage ${st['n']}: ${centsToStr(st['cents'] as int)}', style: TextStyle(fontSize: 13, color: AppTheme.textPrimaryOf(context))),
-                if (!released && !frozen) ...[
+                Text('Stage $stageNum: ${centsToStr(st['cents'] as int)}', style: TextStyle(fontSize: 13, color: AppTheme.textPrimaryOf(context))),
+                if (!released) ...[
                   const Spacer(),
-                  TextButton(
-                    onPressed: () async {
-                      final path = type == 'fund'
-                          ? '/admin/escrows/$eventId/release/${st['n']}'
-                          : '/admin/$type-escrows/$eventId/release/${st['n']}';
-                      try {
-                        await ApiService.instance.adminReleaseEscrowStage(eventId, type, st['n'] as int);
-                        _loadEventEscrowDetail(eventId);
-                        _loadEscrowPipeline();
-                        _snack('$label Stage ${st['n']} released');
-                      } catch (e) {
-                        _snack('Release failed: ${ApiService.extractError(e)}');
-                      }
-                    },
-                    child: const Text('Release', style: TextStyle(fontSize: 12)),
+                  Tooltip(
+                    message: autoRelease ? 'Auto-release ON' : 'Auto-release OFF (manual only)',
+                    child: SizedBox(
+                      height: 28,
+                      child: Switch(
+                        value: autoRelease,
+                        activeColor: color,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        onChanged: (val) async {
+                          try {
+                            await ApiService.instance.adminToggleAutoRelease(
+                              eventId, type,
+                              stage1: stageNum == 1 ? val : null,
+                              stage2: stageNum == 2 ? val : null,
+                              stage3: stageNum == 3 ? val : null,
+                            );
+                            _loadEventEscrowDetail(eventId);
+                            _snack('Stage $stageNum auto-release ${val ? 'enabled' : 'disabled'}');
+                          } catch (e) {
+                            _snack('Toggle failed: ${ApiService.extractError(e)}');
+                          }
+                        },
+                      ),
+                    ),
                   ),
+                  if (!frozen)
+                    TextButton(
+                      onPressed: () async {
+                        try {
+                          await ApiService.instance.adminReleaseEscrowStage(eventId, type, stageNum);
+                          _loadEventEscrowDetail(eventId);
+                          _loadEscrowPipeline();
+                          _snack('$label Stage $stageNum released');
+                        } catch (e) {
+                          _snack('Release failed: ${ApiService.extractError(e)}');
+                        }
+                      },
+                      child: const Text('Release', style: TextStyle(fontSize: 12)),
+                    ),
                 ],
               ]),
             );

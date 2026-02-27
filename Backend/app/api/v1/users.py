@@ -62,6 +62,30 @@ async def update_me(
     return _me_response(current_user)
 
 
+@router.get("/search-organizers")
+async def search_organizers(
+    db: ReadDbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+    q: str = Query("", min_length=1, description="Search by email or display name"),
+    limit: int = Query(10, ge=1, le=20),
+):
+    """Search users with organizer role by email or display name. For co-organizer invite."""
+    from sqlalchemy import select, or_
+    query = select(User).where(
+        User.role == UserRole.organizer,
+        User.id != current_user.id,
+        or_(
+            User.email.ilike(f"%{q}%"),
+            User.display_name.ilike(f"%{q}%"),
+        ),
+    ).limit(limit)
+    results = (await db.execute(query)).scalars().all()
+    return [
+        {"id": u.id, "email": u.email, "display_name": u.display_name}
+        for u in results
+    ]
+
+
 @router.get("/pledges", response_model=list[MyPledgeItem])
 async def get_my_pledges(
     db: ReadDbSession,
@@ -291,6 +315,36 @@ async def get_my_events(
     """Events the current user is registered to (includes cancelled events so the user can see cancellation reasons)."""
     from datetime import datetime, timezone
     events = await event_service.get_my_registered_events(db, user_id=current_user.id, offset=offset, limit=limit)
+    event_ids = [e.id for e in events]
+    pledged = await funding_service.get_pledged_totals_for_events(db, event_ids=event_ids) if event_ids else {}
+    now = datetime.now(timezone.utc)
+    out = []
+    for e in events:
+        total_cents = pledged.get(e.id, 0)
+        days_left = None
+        if e.funding_end_at is not None:
+            end = e.funding_end_at if e.funding_end_at.tzinfo else e.funding_end_at.replace(tzinfo=timezone.utc)
+            delta = (end - now).days
+            days_left = max(0, delta) if delta > 0 else 0
+        out.append(_event_to_response(e, total_pledged_cents=total_cents, funding_days_left=days_left))
+    return out
+
+
+@router.get("/co-organized-events", response_model=list[EventResponse])
+async def get_co_organized_events(
+    db: ReadDbSession,
+    current_user: CurrentUser,
+    status: str | None = Query(None, description="Filter by event status"),
+    search: str | None = Query(None, description="Search by event title"),
+    offset: int = Query(0, ge=0, description="Pagination offset"),
+    limit: int = Query(20, ge=1, le=100, description="Page size (max 100)"),
+):
+    """Events the current user is an accepted co-organizer of."""
+    from datetime import datetime, timezone
+    events = await event_service.get_co_organized_events(
+        db, user_id=current_user.id, status=status, search=search,
+        offset=offset, limit=limit,
+    )
     event_ids = [e.id for e in events]
     pledged = await funding_service.get_pledged_totals_for_events(db, event_ids=event_ids) if event_ids else {}
     now = datetime.now(timezone.utc)

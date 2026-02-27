@@ -208,7 +208,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   Future<void> _loadRevenue() async {
     final auth = context.read<AuthProvider>();
     final user = auth.user;
-    if (user == null || (!user.isOrganizer && !user.isAdmin)) return;
+    if (user == null || (!user.isOrganizer && !user.isAdmin)) {
+      final event = context.read<EventProvider>().getEvent(widget.eventId);
+      if (event == null || !event.viewerIsCoOrganizer) return;
+    }
     try {
       final api = context.read<ApiService>();
       final sales = await api.getTicketSales(widget.eventId);
@@ -497,7 +500,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                     child: _trustBadgePill(context, event),
                                   ),
                                   if (_revenueCents > 0 && user != null &&
-                                      (user.isOrganizer || user.isAdmin) &&
+                                      (user.isOrganizer || user.isAdmin || event.viewerIsCoOrganizer) &&
                                       !widget.readOnly)
                                     _tagPill(
                                       icon: Icons.paid_rounded,
@@ -677,14 +680,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                   ),
                                 ),
                                 if (user != null &&
-                                    (user.isOrganizer || user.isAdmin) &&
+                                    (user.isOrganizer || user.isAdmin || event.viewerHasFullCoOrganizerAccess) &&
                                     !widget.readOnly) ...[
                                   AppSpacing.vSm,
                                   _addImageButton(context),
                                 ],
                                 AppSpacing.vXxl,
                               ] else if (!widget.isPreview && user != null &&
-                                  (user.isOrganizer || user.isAdmin) &&
+                                  (user.isOrganizer || user.isAdmin || event.viewerHasFullCoOrganizerAccess) &&
                                   !widget.readOnly) ...[
                                 _sectionTitle(context, 'Photos', icon: Icons.photo_library_rounded, iconColor: context.photoAccent),
                                 AppSpacing.vSm,
@@ -1180,19 +1183,20 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
                                 // ──────── Organizer Actions + Management ────────
                                 if (user != null &&
-                                    (user.isOrganizer || user.isAdmin) &&
+                                    (user.isOrganizer || user.isAdmin || event.viewerIsCoOrganizer) &&
                                     !widget.readOnly)
                                   OrganizerManagementSection(
                                     event: event,
                                     isAdmin: user.isAdmin,
-                                    isOrganizer: user.isOrganizer,
+                                    isOrganizer: user.isOrganizer || event.viewerHasFullCoOrganizerAccess,
+                                    coOrganizerPermission: event.viewerCoOrganizerPermission,
                                     revenueCents: _revenueCents,
                                     onRefresh: _refreshAll,
                                   ),
 
                                 // ──────── Ticket Tier Management (organizer) ────────
                                 if (user != null &&
-                                    (user.isOrganizer || user.isAdmin) &&
+                                    (user.isOrganizer || user.isAdmin || event.viewerHasFullCoOrganizerAccess) &&
                                     !widget.readOnly &&
                                     event.ticketStrategyId != null)
                                   TicketTierManagement(

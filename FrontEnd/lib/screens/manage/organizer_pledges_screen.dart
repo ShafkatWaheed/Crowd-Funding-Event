@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
+import '../../utils/date_time_utils.dart';
 import '../../services/api_service.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../event/pledge_receipt_screen.dart';
@@ -337,11 +337,7 @@ class _OrganizerPledgesScreenState extends State<OrganizerPledgesScreen> {
     final spots = (pledge['reserved_spots'] ?? 0) as int;
     final status = (pledge['status'] ?? 'pledged').toString();
     final isGuest = pledge['is_guest'] == true;
-    final createdAt = pledge['created_at'] != null
-        ? DateFormat.yMMMd()
-            .add_jm()
-            .format(DateTime.parse(pledge['created_at']).toLocal())
-        : '';
+    final createdAt = AppDateFormat.isoFull(pledge['created_at']);
 
     final statusColor = switch (status) {
       'pledged' => AppTheme.successColor,

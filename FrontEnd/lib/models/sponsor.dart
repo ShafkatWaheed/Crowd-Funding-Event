@@ -237,6 +237,42 @@ class SponsorTicketCategory {
   }
 }
 
+class SponsorDelegate {
+  final int id;
+  final int sponsorTicketId;
+  final String name;
+  final String? email;
+  final String? phone;
+  final bool checkedIn;
+  final String? checkedInAt;
+  final String? createdAt;
+
+  SponsorDelegate({
+    required this.id,
+    required this.sponsorTicketId,
+    required this.name,
+    this.email,
+    this.phone,
+    this.checkedIn = false,
+    this.checkedInAt,
+    this.createdAt,
+  });
+
+  factory SponsorDelegate.fromJson(Map<String, dynamic> json) {
+    return SponsorDelegate(
+      id: json['id'],
+      sponsorTicketId: json['sponsor_ticket_id'] ?? 0,
+      name: json['name'] ?? '',
+      email: json['email'],
+      phone: json['phone'],
+      checkedIn: json['checked_in'] ?? false,
+      checkedInAt: json['checked_in_at'],
+      createdAt: json['created_at'],
+    );
+  }
+}
+
+
 class SponsorTicketModel {
   final int id;
   final int eventId;

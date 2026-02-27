@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 
 import '../../../config/theme.dart';
+import '../../../utils/date_time_utils.dart';
 import '../../../config/design_tokens.dart';
 import '../../../models/event.dart';
 import '../../../models/venue.dart';
@@ -146,7 +146,7 @@ class _OrganizerManagementSectionState
                 icon: Icons.calendar_month_rounded,
                 label: 'Event Date',
                 subtitle: _event.startTime != null
-                    ? DateFormat('MMM d, y – h:mm a').format(_event.startTime!)
+                    ? AppDateFormat.fullDateTime(_event.startTime!)
                     : 'Not set',
                 color: context.fundingAccent,
                 isSet: _event.startTime != null,

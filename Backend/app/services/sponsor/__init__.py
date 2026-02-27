@@ -45,6 +45,12 @@ from app.services.sponsor.profile import (
     get_profile,
     update_profile,
 )
+from app.services.sponsor.delegates import (
+    add_delegate,
+    check_in_delegate,
+    list_delegates,
+    remove_delegate,
+)
 from app.services.sponsor.tickets import (
     get_sponsor_ticket,
     get_won_categories,
@@ -56,6 +62,10 @@ __all__ = [
     "_ensure_sponsor_ticket",
     "_get_category",
     "_require_organizer",
+    "add_delegate",
+    "check_in_delegate",
+    "list_delegates",
+    "remove_delegate",
     "accept_bid",
     "copy_template_to_event",
     "create_category",

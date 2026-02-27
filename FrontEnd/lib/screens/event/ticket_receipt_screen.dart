@@ -1,11 +1,11 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../config/theme.dart';
+import '../../utils/date_time_utils.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/shimmer_loaders.dart';
@@ -134,7 +134,6 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
     final extraPerks = r['extra_perks'];
 
     final isFree = amountPaidCents == 0;
-    final dateFmt = DateFormat.yMMMd().add_jm();
 
     return RefreshIndicator(
       onRefresh: _load,
@@ -246,12 +245,12 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
                       if (eventStartTime != null) ...[
                         const SizedBox(height: 6),
                         _iconRow(context, Icons.calendar_today_rounded,
-                            dateFmt.format(eventStartTime)),
+                            AppDateFormat.fullDateTime(eventStartTime)),
                       ],
                       if (eventEndTime != null) ...[
                         const SizedBox(height: 4),
                         _iconRow(context, Icons.schedule_rounded,
-                            'Ends ${dateFmt.format(eventEndTime)}'),
+                            'Ends ${AppDateFormat.fullDateTime(eventEndTime)}'),
                       ],
                       if (venueName != null) ...[
                         const SizedBox(height: 4),
@@ -294,9 +293,9 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
                       _detailRow(context, 'Tier', tierName),
                       _detailRow(context, 'Ticket Code', ticketCode, copyable: true),
                       if (purchasedAt != null)
-                        _detailRow(context, 'Purchased', dateFmt.format(purchasedAt)),
+                        _detailRow(context, 'Purchased', AppDateFormat.fullDateTime(purchasedAt)),
                       if (scannedAt != null)
-                        _detailRow(context, 'Scanned', dateFmt.format(scannedAt)),
+                        _detailRow(context, 'Scanned', AppDateFormat.fullDateTime(scannedAt)),
                       if (extraPerks != null && extraPerks.toString().isNotEmpty)
                         _detailRow(context, 'Extra Perks', extraPerks.toString()),
 

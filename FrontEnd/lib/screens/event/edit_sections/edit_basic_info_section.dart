@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 import '../../../config/theme.dart';
+import '../../../utils/date_time_utils.dart';
 import '../../../models/venue.dart';
 import '../../../widgets/searchable_dropdown.dart';
 
@@ -347,7 +347,7 @@ class _EditBasicInfoSectionState extends State<EditBasicInfoSection> {
               ),
               child: Text(
                 value != null
-                    ? DateFormat('MMM d, y  h:mm a').format(value)
+                    ? AppDateFormat.fullDateTime(value)
                     : 'Not set',
                 style: TextStyle(
                   color: value != null

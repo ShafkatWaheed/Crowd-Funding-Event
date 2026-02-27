@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 
 import '../../../config/theme.dart';
+import '../../../utils/date_time_utils.dart';
 import '../../../config/design_tokens.dart';
 import '../../../models/event.dart';
 import '../../../providers/event_provider.dart';
@@ -99,8 +99,8 @@ class ScheduleMilestoneDialogs {
                                       color: AppTheme.textPrimaryOf(ctx))),
                               if (eventStart != null)
                                 Text(
-                                  'Event: ${DateFormat('MMM d').format(eventStart)}'
-                                  '${eventEnd != null ? ' – ${DateFormat('MMM d, y').format(eventEnd)}' : ', ${DateFormat('y').format(eventStart)}'}',
+                                  'Event: ${AppDateFormat.dateOnly(eventStart)}'
+                                  '${eventEnd != null ? ' \u2013 ${AppDateFormat.dateOnly(eventEnd)}' : ''}',
                                   style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(ctx)),
                                 ),
                             ],
@@ -231,7 +231,7 @@ class ScheduleMilestoneDialogs {
           String fmtTime(TimeOfDay t) =>
               '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
           String fmtDate(DateTime? d) =>
-              d != null ? DateFormat('MMM d, yyyy').format(d) : 'Pick date';
+              d != null ? AppDateFormat.dateOnly(d) : 'Pick date';
 
           return AlertDialog(
             title: Text(existing != null ? 'Edit Session' : 'Add Session'),
@@ -249,8 +249,8 @@ class ScheduleMilestoneDialogs {
                         borderRadius: AppRadius.sm,
                       ),
                       child: Text(
-                        'Event window: ${DateFormat('MMM d').format(firstDate)}'
-                        ' – ${DateFormat('MMM d, y').format(lastDate)}',
+                        'Event window: ${AppDateFormat.dateOnly(firstDate)}'
+                        ' \u2013 ${AppDateFormat.dateOnly(lastDate)}',
                         style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.accentColor),
                         textAlign: TextAlign.center,
                       ),
@@ -320,7 +320,7 @@ class ScheduleMilestoneDialogs {
                   Navigator.pop(ctx, {
                     'title': titleCtrl.text.trim(),
                     'description': descCtrl.text.trim(),
-                    'date': DateFormat('yyyy-MM-dd').format(date!),
+                    'date': AppDateFormat.apiDate(date!),
                     'start_time': fmtTime(startTime),
                     'end_time': fmtTime(endTime),
                   });
@@ -638,7 +638,7 @@ class ScheduleMilestoneDialogs {
                   leading: const Icon(Icons.calendar_today),
                   title: Text(
                     pickedDeadline != null
-                        ? DateFormat('MMM d, y – h:mm a').format(pickedDeadline!)
+                        ? AppDateFormat.fullDateTime(pickedDeadline!)
                         : 'Pick new funding deadline',
                     style: TextStyle(
                       fontSize: 14,
@@ -771,7 +771,7 @@ class ScheduleMilestoneDialogs {
                       leading: Icon(Icons.play_arrow_rounded, color: ctx.scheduleAccent),
                       title: Text(
                         pickedStart != null
-                            ? DateFormat('MMM d, y – h:mm a').format(pickedStart!)
+                            ? AppDateFormat.fullDateTime(pickedStart!)
                             : 'Pick start time',
                         style: TextStyle(
                           fontSize: 14,
@@ -807,7 +807,7 @@ class ScheduleMilestoneDialogs {
                       leading: Icon(Icons.stop_rounded, color: ctx.discountAccent),
                       title: Text(
                         pickedEnd != null
-                            ? DateFormat('MMM d, y – h:mm a').format(pickedEnd!)
+                            ? AppDateFormat.fullDateTime(pickedEnd!)
                             : 'Pick end time',
                         style: TextStyle(
                           fontSize: 14,

@@ -156,6 +156,8 @@ DEFAULTS = {
     "max_co_organizers_limit": 10,
     "refund_deadline_percent_min": 10,
     "refund_deadline_percent_max": 50,
+    # ── Sponsor delegates ──
+    "max_sponsor_delegates_per_ticket": 5,
     # ── API rate limits (format: "N/minute", "N/second", or "N/hour") ──
     "rate_limit_global_default": "120/minute",
     "rate_limit_auth_verify": "10/minute",

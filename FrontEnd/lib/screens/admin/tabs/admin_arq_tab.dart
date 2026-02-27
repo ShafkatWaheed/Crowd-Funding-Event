@@ -49,7 +49,7 @@ class _AdminArqTabState extends State<AdminArqTab> {
       }
     } catch (e) {
       if (mounted) setState(() => _summaryLoading = false);
-      if (mounted) AppToast.fromError(context, e, 'Failed to load worker summary');
+      if (mounted) AppToast.fromError(context, e, fallback: 'Failed to load worker summary');
     }
   }
 

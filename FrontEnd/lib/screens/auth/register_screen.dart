@@ -2,10 +2,10 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
+import '../../utils/date_time_utils.dart';
 import '../../config/design_tokens.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/press_feedback.dart';
@@ -90,7 +90,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ? _phoneController.text.trim()
               : null,
           termsAcceptedAt: DateTime.now().toUtc().toIso8601String(),
-          birthday: DateFormat('yyyy-MM-dd').format(_selectedBirthday!),
+          birthday: AppDateFormat.apiDate(_selectedBirthday!),
         );
   }
 
@@ -354,7 +354,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 ),
                                 controller: TextEditingController(
                                   text: _selectedBirthday != null
-                                      ? DateFormat('MMM dd, yyyy').format(_selectedBirthday!)
+                                      ? AppDateFormat.dateOnly(_selectedBirthday!)
                                       : '',
                                 ),
                                 validator: (_) {

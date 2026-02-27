@@ -4,8 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
+
+import '../utils/date_time_utils.dart';
 import 'package:provider/provider.dart';
 
 import '../config/theme.dart';
@@ -307,8 +308,6 @@ class _VenueEventsSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final venueName = events.first.venueName ?? 'Events';
-    final dateFmt = DateFormat('EEE, MMM d \u2022 h:mm a');
-
     return DraggableScrollableSheet(
       initialChildSize: 0.35,
       minChildSize: 0.2,
@@ -464,7 +463,7 @@ class _VenueEventsSheet extends StatelessWidget {
                                       if (startDt != null)
                                         Expanded(
                                           child: Text(
-                                            dateFmt.format(startDt),
+                                            AppDateFormat.eventCard(startDt),
                                             style: TextStyle(
                                               fontSize: 12,
                                               color: AppTheme.textSecondaryOf(context),

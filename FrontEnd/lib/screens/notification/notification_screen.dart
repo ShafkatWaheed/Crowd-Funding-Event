@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 
 import '../../config/theme.dart';
+import '../../utils/date_time_utils.dart';
 import '../../providers/notification_provider.dart';
 import '../../widgets/shimmer_loaders.dart';
 
@@ -169,7 +169,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     if (diff.inHours < 24) return '${diff.inHours}h ago';
     if (diff.inDays == 1) return 'Yesterday';
     if (diff.inDays < 7) return '${diff.inDays}d ago';
-    return DateFormat.MMMd().format(dt);
+    return AppDateFormat.dateOnly(dt);
   }
 
   String _dateGroup(String? iso) {

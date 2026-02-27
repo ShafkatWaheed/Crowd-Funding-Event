@@ -4,10 +4,10 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../home_shared.dart';
+import '../../../utils/date_time_utils.dart';
 import '../../../config/design_tokens.dart';
 import '../../../config/theme.dart';
 import '../../../models/event.dart';
@@ -233,7 +233,7 @@ class _OrganizerDashboardTabState extends State<OrganizerDashboardTab> {
     if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
     if (diff.inHours < 24) return '${diff.inHours}h ago';
     if (diff.inDays < 7) return '${diff.inDays}d ago';
-    return DateFormat.MMMd().format(dt);
+    return AppDateFormat.dateOnly(dt);
   }
 
   static const _periodOptions = {'7d': '7d', '30d': '30d', '90d': '90d', '1y': '1y'};
@@ -1447,7 +1447,7 @@ class _OrganizerDashboardTabState extends State<OrganizerDashboardTab> {
             final dt = DateTime.tryParse(dateStr);
             if (dt == null) return const SizedBox.shrink();
             return Text(
-              DateFormat.MMMd().format(dt),
+              AppDateFormat.dateOnly(dt),
               style: TextStyle(
                   fontSize: 10, color: AppTheme.textSecondaryOf(context)),
             );

@@ -1,11 +1,13 @@
+import 'dart:typed_data';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+import '../../utils/date_time_utils.dart';
 
 import 'package:flutter_animate/flutter_animate.dart';
 
@@ -24,6 +26,8 @@ import '../../widgets/event_lifecycle_bar.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/fullscreen_image_viewer.dart';
+import '../../widgets/share_bottom_sheet.dart';
+import '../../widgets/calendar_bottom_sheet.dart';
 import '../../services/api_service.dart';
 import 'event_detail/event_detail.dart';
 
@@ -209,7 +213,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     final auth = context.read<AuthProvider>();
     final user = auth.user;
     if (user == null || (!user.isOrganizer && !user.isAdmin)) {
-      final event = context.read<EventProvider>().getEvent(widget.eventId);
+      final event = context.read<EventProvider>().selectedEvent;
       if (event == null || !event.viewerIsCoOrganizer) return;
     }
     try {
@@ -234,7 +238,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     final event = widget.isPreview ? widget.previewEvent : eventProvider!.selectedEvent;
     final user = widget.isPreview ? null : auth.user;
     final isDark = AppTheme.isDark(context);
-    final dateFormat = DateFormat('MMM dd, yyyy h:mm a');
 
     final hasPreviewImages = widget.isPreview && widget.previewImages != null && widget.previewImages!.isNotEmpty;
     final heroUrl = !widget.isPreview && _images.isNotEmpty ? _images.first.imageUrl : null;
@@ -860,9 +863,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                     ),
                                     AppSpacing.vMd,
                                     if (event.startTime != null)
-                                      _modernInfoRow(Icons.event_rounded, 'Starts', dateFormat.format(event.startTime!)),
+                                      _modernInfoRow(Icons.event_rounded, 'Starts', AppDateFormat.fullDateTime(event.startTime!)),
                                     if (event.endTime != null)
-                                      _modernInfoRow(Icons.event_available_rounded, 'Ends', dateFormat.format(event.endTime!)),
+                                      _modernInfoRow(Icons.event_available_rounded, 'Ends', AppDateFormat.fullDateTime(event.endTime!)),
                                     if (event.startTime == null && event.endTime == null)
                                       _modernInfoRow(Icons.schedule_rounded, 'Date', 'Announced after funding milestone', valueColor: context.fundingAccent),
                                     _modernInfoRow(
@@ -877,7 +880,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                     ),
                                     _modernInfoRow(Icons.badge_rounded, 'Registration', event.registrationType.name.replaceAll('_', ' ')),
                                     if (event.eventDateDeadline != null)
-                                      _modernInfoRow(Icons.hourglass_bottom_rounded, 'Set Event Date By', dateFormat.format(event.eventDateDeadline!)),
+                                      _modernInfoRow(Icons.hourglass_bottom_rounded, 'Set Event Date By', AppDateFormat.fullDateTime(event.eventDateDeadline!)),
                                     if (event.ticketStrategyName != null)
                                       _modernInfoRow(Icons.confirmation_number_rounded, 'Ticket Strategy', event.ticketStrategyName!),
                                     if (event.refundDeadlineDays != null)
@@ -1935,13 +1938,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   // _unpledge moved into _FundingCard widget
 
   Future<void> _shareEvent(BuildContext context, Event event) async {
-    final uri = Uri.base.resolve('/events/${event.id}');
-    final shareText = '${event.title}\n$uri';
-
-    await Clipboard.setData(ClipboardData(text: shareText));
-    if (context.mounted) {
-      AppToast.success(context, 'Event link copied to clipboard!');
-    }
+    await showShareSheet(context, event);
   }
 
   // _showPledgeDialog moved into _FundingCard widget
@@ -1951,12 +1948,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   // ═══════════════════════════════════════════
 
   Future<void> _downloadCalendar(BuildContext context, Event event) async {
-    final api = context.read<ApiService>();
-    final url = api.calendarUrl(event.id);
-    await Clipboard.setData(ClipboardData(text: url));
-    if (context.mounted) {
-      AppToast.success(context, 'Calendar link copied! Paste in browser to download .ics file.');
-    }
+    await showCalendarSheet(context, event);
   }
 
   // ═══════════════════════════════════════════

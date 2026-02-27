@@ -122,7 +122,7 @@ class _CoOrganizedEventsScreenState extends State<CoOrganizedEventsScreen> {
     final isDark = AppTheme.isDark(context);
 
     return Scaffold(
-      backgroundColor: AppTheme.scaffoldBgOf(context),
+      backgroundColor: AppTheme.surfaceOf(context),
       appBar: AppBar(
         title: const Text('Co-Organized Events'),
         centerTitle: true,

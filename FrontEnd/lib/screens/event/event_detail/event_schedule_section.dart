@@ -1,10 +1,10 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../config/api_config.dart';
+import '../../../utils/date_time_utils.dart';
 import '../../../config/theme.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../config/design_tokens.dart';
@@ -64,14 +64,7 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
     }
   }
 
-  String _formatDate(String isoDate) {
-    try {
-      final d = DateTime.parse(isoDate);
-      return DateFormat('MMM d, yyyy').format(d);
-    } catch (_) {
-      return isoDate;
-    }
-  }
+  String _formatDate(String isoDate) => AppDateFormat.isoDateOnly(isoDate);
 
   String _formatTime24to12(String hhmm) {
     try {

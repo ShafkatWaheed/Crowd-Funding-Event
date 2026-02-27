@@ -7,6 +7,7 @@ from sqlalchemy.orm import selectinload
 from app.models.event import Event
 from app.models.sponsor import (
     SponsorBid,
+    SponsorDelegate,
     SponsorPayment,
     SponsorTicket,
     SponsorshipCategory,
@@ -132,20 +133,38 @@ async def scan_sponsor_ticket(
         raise HTTPException(status_code=400, detail="QR does not belong to this event")
 
     ticket = (await db.execute(
-        select(SponsorTicket).where(SponsorTicket.id == ticket_id)
+        select(SponsorTicket)
+        .options(selectinload(SponsorTicket.delegates))
+        .where(SponsorTicket.id == ticket_id)
     )).scalar_one_or_none()
     if not ticket:
         raise HTTPException(status_code=404, detail="Sponsor ticket not found")
 
     from datetime import datetime
     already_scanned = ticket.scanned_at is not None
-    if not ticket.scanned_at:
-        ticket.scanned_at = datetime.utcnow()
-    ticket.scan_count = (ticket.scan_count or 0) + 1
-    await db.flush()
+    delegates = ticket.delegates or []
+    has_delegates = len(delegates) > 0
+
+    if not has_delegates:
+        if not ticket.scanned_at:
+            ticket.scanned_at = datetime.utcnow()
+        ticket.scan_count = (ticket.scan_count or 0) + 1
+        await db.flush()
 
     profile = await get_profile(db, ticket.sponsor_user_id)
     cats = await get_won_categories(db, event_id, ticket.sponsor_user_id)
+
+    delegate_list = [
+        {
+            "id": d.id,
+            "name": d.name,
+            "email": d.email,
+            "phone": d.phone,
+            "checked_in": d.checked_in,
+            "checked_in_at": d.checked_in_at.isoformat() if d.checked_in_at else None,
+        }
+        for d in sorted(delegates, key=lambda d: (d.checked_in, d.created_at))
+    ]
 
     return {
         "ticket_id": ticket.id,
@@ -156,5 +175,9 @@ async def scan_sponsor_ticket(
         "category_names": [c["name"] for c in cats],
         "category_count": len(cats),
         "already_scanned": already_scanned,
-        "scan_count": ticket.scan_count,
+        "scan_count": ticket.scan_count or 0,
+        "delegates": delegate_list,
+        "total_delegates": len(delegates),
+        "checked_in_count": sum(1 for d in delegates if d.checked_in),
+        "unchecked_count": sum(1 for d in delegates if not d.checked_in),
     }

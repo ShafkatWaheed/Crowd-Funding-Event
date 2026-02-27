@@ -118,7 +118,27 @@ class SponsorTicket(Base):
 
     event = relationship("Event")
     sponsor = relationship("User")
+    delegates = relationship("SponsorDelegate", back_populates="ticket", cascade="all, delete-orphan")
 
     __table_args__ = (
         UniqueConstraint("event_id", "sponsor_user_id", name="uq_sponsor_tickets_event_user"),
+    )
+
+
+class SponsorDelegate(Base):
+    __tablename__ = "sponsor_delegates"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    sponsor_ticket_id: Mapped[int] = mapped_column(ForeignKey("sponsor_tickets.id"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    checked_in: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    checked_in_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+
+    ticket = relationship("SponsorTicket", back_populates="delegates")
+
+    __table_args__ = (
+        UniqueConstraint("sponsor_ticket_id", "email", name="uq_sponsor_delegate_ticket_email"),
     )

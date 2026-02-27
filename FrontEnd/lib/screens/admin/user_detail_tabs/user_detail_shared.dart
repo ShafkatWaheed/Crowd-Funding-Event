@@ -1,10 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../../config/design_tokens.dart';
+import '../../../utils/date_time_utils.dart';
 import '../../../config/theme.dart';
 import '../../../services/api_service.dart';
 
@@ -457,15 +457,7 @@ Color eventStatusColor(BuildContext context, String status) {
   }
 }
 
-String formatIsoDateShort(String? iso) {
-  if (iso == null || iso.isEmpty) return '';
-  try {
-    final dt = DateTime.parse(iso);
-    return DateFormat('MMM d, h:mm a').format(dt);
-  } catch (_) {
-    return iso;
-  }
-}
+String formatIsoDateShort(String? iso) => AppDateFormat.isoShort(iso);
 
 // ---------------------------------------------------------------------------
 // Shared action helpers

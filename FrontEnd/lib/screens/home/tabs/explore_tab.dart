@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../home_shared.dart';
+import '../../../utils/date_time_utils.dart';
 import '../../../config/design_tokens.dart';
 import '../../../config/theme.dart';
 import '../../../models/event.dart';
@@ -257,7 +257,7 @@ class _ExploreTabState extends State<ExploreTab> {
     final events = context.watch<EventProvider>();
     final user = auth.user;
     final isDark = AppTheme.isDark(context);
-    final dateFmt = DateFormat('MMM d');
+    
 
     return NotificationListener<ScrollNotification>(
       onNotification: (notification) {
@@ -571,7 +571,7 @@ class _ExploreTabState extends State<ExploreTab> {
                         Expanded(
                           child: _dateChip(
                             label: _dateFrom != null
-                                ? 'From: ${dateFmt.format(_dateFrom!)}'
+                                ? 'From: ${AppDateFormat.dateOnly(_dateFrom!)}'
                                 : 'Start date',
                             onTap: () => _pickDate(true),
                           ),
@@ -580,7 +580,7 @@ class _ExploreTabState extends State<ExploreTab> {
                         Expanded(
                           child: _dateChip(
                             label: _dateTo != null
-                                ? 'To: ${dateFmt.format(_dateTo!)}'
+                                ? 'To: ${AppDateFormat.dateOnly(_dateTo!)}'
                                 : 'End date',
                             onTap: () => _pickDate(false),
                           ),

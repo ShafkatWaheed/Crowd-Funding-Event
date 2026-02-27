@@ -1173,6 +1173,39 @@ class ApiService {
     return resp.data;
   }
 
+  // ── Sponsor Delegates ──
+
+  Future<List<dynamic>> listDelegates(int ticketId) async {
+    final resp = await dio.get('/me/sponsor-tickets/$ticketId/delegates');
+    return resp.data as List;
+  }
+
+  Future<Map<String, dynamic>> addDelegate(
+      int ticketId, String name, {String? email, String? phone}) async {
+    final resp = await dio.post('/me/sponsor-tickets/$ticketId/delegates', data: {
+      'name': name,
+      if (email != null) 'email': email,
+      if (phone != null) 'phone': phone,
+    });
+    return resp.data;
+  }
+
+  Future<void> removeDelegate(int ticketId, int delegateId) async {
+    await dio.delete('/me/sponsor-tickets/$ticketId/delegates/$delegateId');
+  }
+
+  Future<Map<String, dynamic>> checkInDelegate(
+      int eventId, int delegateId) async {
+    final resp = await dio
+        .post('/events/$eventId/sponsor-delegates/$delegateId/check-in');
+    return resp.data;
+  }
+
+  Future<List<dynamic>> getScannedSponsorTickets(int eventId) async {
+    final resp = await dio.get('/events/$eventId/scanned-sponsor-tickets');
+    return resp.data as List;
+  }
+
   // ── Public Sponsors ──
 
   Future<List<dynamic>> getEventSponsors(int eventId) async {

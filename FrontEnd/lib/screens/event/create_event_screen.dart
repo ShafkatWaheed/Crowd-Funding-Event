@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
 import '../../models/event.dart';
+import '../../utils/date_time_utils.dart';
 import '../../models/venue.dart';
 import '../../models/ticket_strategy.dart';
 import '../../providers/auth_provider.dart';
@@ -591,8 +592,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     return pass();
   }
 
-  String _fmtDt(DateTime dt) =>
-      '${dt.month}/${dt.day}/${dt.year} ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
+  String _fmtDt(DateTime dt) => AppDateFormat.fullDateTime(dt);
 
   Widget _buildLoadingChip(String label) {
     return Padding(

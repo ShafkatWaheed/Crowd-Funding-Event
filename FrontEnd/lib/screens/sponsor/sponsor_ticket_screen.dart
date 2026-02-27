@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
+import '../../config/design_tokens.dart';
 import '../../config/theme.dart';
+import '../../utils/date_time_utils.dart';
 import '../../models/sponsor.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_toast.dart';
@@ -268,7 +269,7 @@ class _SponsorTicketCardState extends State<_SponsorTicketCard>
                                   size: 12, color: Colors.white60),
                               const SizedBox(width: 4),
                               Text(
-                                DateFormat('MMM d, y').format(startDt),
+                                AppDateFormat.dateOnly(startDt),
                                 style: const TextStyle(
                                     fontSize: 11, color: Colors.white60),
                               ),
@@ -586,10 +587,107 @@ class _SponsorTicketCardState extends State<_SponsorTicketCard>
 
 // ── Receipt Detail Page ──
 
-class _SponsorTicketReceiptPage extends StatelessWidget {
+class _SponsorTicketReceiptPage extends StatefulWidget {
   final SponsorTicketModel ticket;
 
   const _SponsorTicketReceiptPage({required this.ticket});
+
+  @override
+  State<_SponsorTicketReceiptPage> createState() => _SponsorTicketReceiptPageState();
+}
+
+class _SponsorTicketReceiptPageState extends State<_SponsorTicketReceiptPage> {
+  List<SponsorDelegate> _delegates = [];
+  bool _delegatesLoading = true;
+
+  SponsorTicketModel get ticket => widget.ticket;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadDelegates());
+  }
+
+  Future<void> _loadDelegates() async {
+    try {
+      final api = context.read<ApiService>();
+      final data = await api.listDelegates(ticket.id);
+      if (mounted) {
+        setState(() {
+          _delegates = data.map((j) => SponsorDelegate.fromJson(j)).toList();
+          _delegatesLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _delegatesLoading = false);
+    }
+  }
+
+  Future<void> _addDelegate() async {
+    final nameCtrl = TextEditingController();
+    final emailCtrl = TextEditingController();
+    final phoneCtrl = TextEditingController();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Add Delegate'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameCtrl,
+              decoration: const InputDecoration(labelText: 'Name *'),
+              textCapitalization: TextCapitalization.words,
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: emailCtrl,
+              decoration: const InputDecoration(labelText: 'Email'),
+              keyboardType: TextInputType.emailAddress,
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: phoneCtrl,
+              decoration: const InputDecoration(labelText: 'Phone'),
+              keyboardType: TextInputType.phone,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Add')),
+        ],
+      ),
+    );
+
+    if (confirmed != true || nameCtrl.text.trim().isEmpty) return;
+
+    try {
+      final api = context.read<ApiService>();
+      await api.addDelegate(
+        ticket.id,
+        nameCtrl.text.trim(),
+        email: emailCtrl.text.trim().isNotEmpty ? emailCtrl.text.trim() : null,
+        phone: phoneCtrl.text.trim().isNotEmpty ? phoneCtrl.text.trim() : null,
+      );
+      if (mounted) AppToast.success(context, 'Delegate added');
+      _loadDelegates();
+    } catch (e) {
+      if (mounted) AppToast.error(context, ApiService.extractError(e));
+    }
+  }
+
+  Future<void> _removeDelegate(SponsorDelegate d) async {
+    try {
+      final api = context.read<ApiService>();
+      await api.removeDelegate(ticket.id, d.id);
+      if (mounted) AppToast.success(context, '${d.name} removed');
+      _loadDelegates();
+    } catch (e) {
+      if (mounted) AppToast.error(context, ApiService.extractError(e));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -740,7 +838,7 @@ class _SponsorTicketReceiptPage extends StatelessWidget {
                     ticket.eventTitle ?? 'Event #${ticket.eventId}'),
                 if (startDt != null)
                   _detailRow(context, 'Date',
-                      DateFormat('EEEE, MMMM d, y \u2022 h:mm a').format(startDt)),
+                      AppDateFormat.eventCard(startDt)),
                 if (ticket.venueName != null)
                   _detailRow(context, 'Venue', ticket.venueName!),
                 if (ticket.venueAddress != null)
@@ -1163,7 +1261,7 @@ class _SponsorTicketReceiptPage extends StatelessWidget {
                                           color: AppTheme.textSecondaryOf(context)),
                                       const SizedBox(width: 4),
                                       Text(
-                                        DateFormat('MMM d, y \u2022 h:mm a').format(payDt),
+                                        AppDateFormat.fullDateTime(payDt),
                                         style: TextStyle(
                                           fontSize: 11,
                                           color: AppTheme.textSecondaryOf(context),
@@ -1193,7 +1291,7 @@ class _SponsorTicketReceiptPage extends StatelessWidget {
                 _detailRow(context, 'Receipt', ticket.receiptNumber),
                 if (createdDt != null)
                   _detailRow(context, 'Issued',
-                      DateFormat('MMM d, y \u2022 h:mm a').format(createdDt)),
+                      AppDateFormat.fullDateTime(createdDt)),
                 if (ticket.scanCount > 0)
                   _detailRow(context, 'Entries', '${ticket.scanCount}'),
                 _detailRow(
@@ -1204,6 +1302,10 @@ class _SponsorTicketReceiptPage extends StatelessWidget {
                         : 'Valid — Not Scanned'),
               ],
             ),
+            const SizedBox(height: 16),
+
+            // ── Delegates ──
+            _delegatesSection(context),
             const SizedBox(height: 16),
 
             // ── Copy Receipt Number ──
@@ -1228,6 +1330,139 @@ class _SponsorTicketReceiptPage extends StatelessWidget {
             const SizedBox(height: 40),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _delegatesSection(BuildContext context) {
+    final checkedIn = _delegates.where((d) => d.checkedIn).length;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.cardOf(context),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.dividerOf(context)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.people_outline_rounded, size: 18, color: AppTheme.textSecondaryOf(context)),
+              const SizedBox(width: 8),
+              Text('Delegates', style: TextStyle(
+                fontSize: 13, fontWeight: FontWeight.w700,
+                color: AppTheme.textSecondaryOf(context), letterSpacing: 0.3,
+              )),
+              if (_delegates.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppTheme.accentColor.withValues(alpha: 0.1),
+                    borderRadius: AppRadius.pill,
+                  ),
+                  child: Text('$checkedIn/${_delegates.length}',
+                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppTheme.accentColor)),
+                ),
+              ],
+              const Spacer(),
+              SizedBox(
+                height: 30,
+                child: TextButton.icon(
+                  onPressed: _addDelegate,
+                  icon: const Icon(Icons.person_add_rounded, size: 14),
+                  label: const Text('Add', style: TextStyle(fontSize: 12)),
+                  style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (_delegatesLoading)
+            const Center(child: Padding(
+              padding: EdgeInsets.all(12),
+              child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+            ))
+          else if (_delegates.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceOf(context),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                children: [
+                  Icon(Icons.group_add_rounded, size: 28, color: AppTheme.textSecondaryOf(context).withValues(alpha: 0.5)),
+                  const SizedBox(height: 6),
+                  Text('No delegates added yet',
+                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context))),
+                  const SizedBox(height: 2),
+                  Text('Add people who will attend on your behalf',
+                    style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context).withValues(alpha: 0.7))),
+                ],
+              ),
+            )
+          else
+            ..._delegates.map((d) => Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: d.checkedIn
+                      ? AppTheme.successColor.withValues(alpha: 0.06)
+                      : AppTheme.surfaceOf(context),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: d.checkedIn
+                        ? AppTheme.successColor.withValues(alpha: 0.2)
+                        : AppTheme.dividerOf(context),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      d.checkedIn ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+                      size: 20,
+                      color: d.checkedIn ? AppTheme.successColor : AppTheme.textSecondaryOf(context),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(d.name, style: TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.w600,
+                            color: AppTheme.textPrimaryOf(context),
+                          )),
+                          if (d.email != null || d.phone != null)
+                            Text(
+                              [d.email, d.phone].where((s) => s != null).join(' \u2022 '),
+                              style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context)),
+                              maxLines: 1, overflow: TextOverflow.ellipsis,
+                            ),
+                          if (d.checkedIn && d.checkedInAt != null)
+                            Text('Checked in ${AppDateFormat.isoShort(d.checkedInAt)}',
+                              style: TextStyle(fontSize: 10, color: AppTheme.successColor)),
+                        ],
+                      ),
+                    ),
+                    if (!d.checkedIn)
+                      IconButton(
+                        onPressed: () => _removeDelegate(d),
+                        icon: Icon(Icons.close_rounded, size: 18,
+                          color: AppTheme.errorColor.withValues(alpha: 0.7)),
+                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                        padding: EdgeInsets.zero,
+                        tooltip: 'Remove delegate',
+                      ),
+                  ],
+                ),
+              ),
+            )),
+        ],
       ),
     );
   }

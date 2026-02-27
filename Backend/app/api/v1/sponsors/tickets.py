@@ -1,7 +1,10 @@
 """Sponsor ticket endpoints."""
 from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from app.dependencies import DbSession, ReadDbSession, CurrentUser, require_feature
+from app.models.sponsor import SponsorTicket, SponsorDelegate
 from app.rate_limit import limiter, dynamic_limit
 from app.schemas.sponsor import SponsorTicketResponse
 from app.services import sponsor as sponsor_svc
@@ -62,3 +65,50 @@ async def scan_sponsor_ticket(
     result = await sponsor_svc.scan_sponsor_ticket(db, event_id, payload)
     await db.commit()
     return result
+
+
+@router.get("/events/{event_id}/scanned-sponsor-tickets")
+async def scanned_sponsor_tickets(
+    event_id: int,
+    db: ReadDbSession,
+    current_user: CurrentUser,
+):
+    from app.services import event as event_service
+    from app.core.exceptions import ForbiddenError as Forbidden
+    event = await event_service.get_or_404(db, event_id)
+    if not await event_service.user_can_scan_tickets(db, event, current_user):
+        raise Forbidden("You cannot view scanned tickets for this event")
+
+    q = (
+        select(SponsorTicket)
+        .options(selectinload(SponsorTicket.delegates))
+        .where(SponsorTicket.event_id == event_id, SponsorTicket.scan_count > 0)
+        .order_by(SponsorTicket.scanned_at.desc())
+    )
+    tickets = list((await db.execute(q)).scalars().all())
+
+    results = []
+    for t in tickets:
+        profile = await sponsor_svc.get_profile(db, t.sponsor_user_id)
+        delegates = t.delegates or []
+        results.append({
+            "id": t.id,
+            "event_id": t.event_id,
+            "receipt_number": t.receipt_number,
+            "company_name": profile.company_name if profile else "Unknown",
+            "contact_name": profile.contact_name if profile else "",
+            "scan_count": t.scan_count or 0,
+            "scanned_at": t.scanned_at.isoformat() if t.scanned_at else None,
+            "total_delegates": len(delegates),
+            "checked_in_count": sum(1 for d in delegates if d.checked_in),
+            "delegates": [
+                {
+                    "id": d.id,
+                    "name": d.name,
+                    "checked_in": d.checked_in,
+                    "checked_in_at": d.checked_in_at.isoformat() if d.checked_in_at else None,
+                }
+                for d in sorted(delegates, key=lambda d: (d.checked_in, d.created_at))
+            ],
+        })
+    return results

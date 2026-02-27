@@ -155,20 +155,35 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
             ?.map((e) => e.toString())
             .toList() ??
         [];
+    final delegates = (result['delegates'] as List?) ?? [];
+    final totalDelegates = result['total_delegates'] ?? 0;
+    final checkedInCount = result['checked_in_count'] ?? 0;
 
     if (mounted) {
       setState(() {
         _lastResult = rawData;
         _lastSuccess = true;
-        _scannedCount++;
+        if (totalDelegates == 0) _scannedCount++;
       });
-      _showSponsorScanResult(
-        alreadyScanned: alreadyScanned,
-        companyName: companyName,
-        receiptNumber: receiptNum,
-        scanCount: scanCount,
-        categoryNames: catNames,
-      );
+
+      if (totalDelegates > 0) {
+        _showSponsorDelegatePopup(
+          companyName: companyName,
+          receiptNumber: receiptNum,
+          categoryNames: catNames,
+          delegates: delegates,
+          totalDelegates: totalDelegates,
+          checkedInCount: checkedInCount,
+        );
+      } else {
+        _showSponsorScanResult(
+          alreadyScanned: alreadyScanned,
+          companyName: companyName,
+          receiptNumber: receiptNum,
+          scanCount: scanCount,
+          categoryNames: catNames,
+        );
+      }
     }
   }
 
@@ -383,6 +398,34 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
           ),
         );
       },
+    );
+  }
+
+  void _showSponsorDelegatePopup({
+    required String companyName,
+    required String receiptNumber,
+    required List<String> categoryNames,
+    required List<dynamic> delegates,
+    required int totalDelegates,
+    required int checkedInCount,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isDismissible: true,
+      isScrollControlled: true,
+      builder: (ctx) => _SponsorDelegateSheet(
+        eventId: widget.eventId,
+        companyName: companyName,
+        receiptNumber: receiptNumber,
+        categoryNames: categoryNames,
+        delegates: delegates,
+        totalDelegates: totalDelegates,
+        checkedInCount: checkedInCount,
+        onCheckInDone: () {
+          if (mounted) setState(() => _scannedCount++);
+        },
+      ),
     );
   }
 
@@ -789,4 +832,297 @@ class _OverlayPainter extends CustomPainter {
   @override
   bool shouldRepaint(_OverlayPainter oldDelegate) =>
       oldDelegate.isProcessing != isProcessing;
+}
+
+
+// ═══════════════════════════════════════════════════════
+// Sponsor Delegate Check-in Bottom Sheet
+// ═══════════════════════════════════════════════════════
+
+class _SponsorDelegateSheet extends StatefulWidget {
+  final int eventId;
+  final String companyName;
+  final String receiptNumber;
+  final List<String> categoryNames;
+  final List<dynamic> delegates;
+  final int totalDelegates;
+  final int checkedInCount;
+  final VoidCallback onCheckInDone;
+
+  const _SponsorDelegateSheet({
+    required this.eventId,
+    required this.companyName,
+    required this.receiptNumber,
+    required this.categoryNames,
+    required this.delegates,
+    required this.totalDelegates,
+    required this.checkedInCount,
+    required this.onCheckInDone,
+  });
+
+  @override
+  State<_SponsorDelegateSheet> createState() => _SponsorDelegateSheetState();
+}
+
+class _SponsorDelegateSheetState extends State<_SponsorDelegateSheet> {
+  late List<Map<String, dynamic>> _delegates;
+  late int _checkedIn;
+
+  @override
+  void initState() {
+    super.initState();
+    _delegates = widget.delegates.map((d) => Map<String, dynamic>.from(d as Map)).toList();
+    _checkedIn = widget.checkedInCount;
+  }
+
+  Future<void> _checkIn(Map<String, dynamic> delegate) async {
+    if (delegate['checked_in'] == true) return;
+
+    try {
+      final api = context.read<ApiService>();
+      final result = await api.checkInDelegate(widget.eventId, delegate['id']);
+
+      if (mounted) {
+        setState(() {
+          delegate['checked_in'] = true;
+          delegate['checked_in_at'] = result['checked_in_at'];
+          _checkedIn++;
+        });
+        widget.onCheckInDone();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(ApiService.extractError(e))),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.7,
+      ),
+      decoration: BoxDecoration(
+        color: AppTheme.cardOf(context),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.15),
+            blurRadius: 20,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ── Header ──
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+            child: Column(
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: AppTheme.accentColor.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.storefront_rounded,
+                      color: AppTheme.accentColor, size: 32),
+                ),
+                const SizedBox(height: 12),
+                Text(widget.companyName,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 4),
+                Text(widget.receiptNumber,
+                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context),
+                    fontFamily: 'monospace', letterSpacing: 0.5)),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _checkedIn == widget.totalDelegates
+                        ? AppTheme.successColor.withValues(alpha: 0.1)
+                        : AppTheme.accentColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    'Checked in: $_checkedIn of ${widget.totalDelegates}',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: _checkedIn == widget.totalDelegates
+                          ? AppTheme.successColor
+                          : AppTheme.accentColor,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
+
+          Divider(height: 1, color: AppTheme.dividerOf(context)),
+
+          // ── Delegate list ──
+          Flexible(
+            child: ListView.separated(
+              shrinkWrap: true,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              itemCount: _delegates.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 6),
+              itemBuilder: (context, index) {
+                final d = _delegates[index];
+                final isCheckedIn = d['checked_in'] == true;
+                return _DelegateRow(
+                  name: d['name'] ?? '',
+                  checkedIn: isCheckedIn,
+                  checkedInAt: d['checked_in_at'],
+                  onTap: isCheckedIn ? null : () => _checkIn(d),
+                );
+              },
+            ),
+          ),
+
+          // ── Categories ──
+          if (widget.categoryNames.isNotEmpty) ...[
+            Divider(height: 1, color: AppTheme.dividerOf(context)),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 4),
+              child: Row(
+                children: [
+                  Icon(Icons.workspace_premium_rounded, size: 14,
+                    color: AppTheme.textSecondaryOf(context)),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      widget.categoryNames.join(', '),
+                      style: TextStyle(fontSize: 12,
+                        color: AppTheme.textSecondaryOf(context)),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          // ── Close button ──
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+            child: SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.accentColor,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text('Continue Scanning',
+                    style: TextStyle(fontWeight: FontWeight.w700)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+class _DelegateRow extends StatelessWidget {
+  final String name;
+  final bool checkedIn;
+  final String? checkedInAt;
+  final VoidCallback? onTap;
+
+  const _DelegateRow({
+    required this.name,
+    required this.checkedIn,
+    this.checkedInAt,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: checkedIn
+          ? AppTheme.successColor.withValues(alpha: 0.06)
+          : AppTheme.surfaceOf(context),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: checkedIn
+                  ? AppTheme.successColor.withValues(alpha: 0.3)
+                  : AppTheme.dividerOf(context),
+            ),
+          ),
+          child: Row(
+            children: [
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: Icon(
+                  checkedIn ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+                  key: ValueKey(checkedIn),
+                  size: 24,
+                  color: checkedIn ? AppTheme.successColor : AppTheme.textSecondaryOf(context),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(name, style: TextStyle(
+                      fontSize: 14, fontWeight: FontWeight.w600,
+                      color: AppTheme.textPrimaryOf(context),
+                    )),
+                    if (checkedIn && checkedInAt != null)
+                      Text(
+                        'Checked in ${_formatTime(checkedInAt!)}',
+                        style: TextStyle(fontSize: 11, color: AppTheme.successColor),
+                      )
+                    else if (!checkedIn)
+                      Text('Tap to check in',
+                        style: TextStyle(fontSize: 11,
+                          color: AppTheme.textSecondaryOf(context).withValues(alpha: 0.7))),
+                  ],
+                ),
+              ),
+              if (!checkedIn)
+                Icon(Icons.touch_app_rounded, size: 18,
+                  color: AppTheme.accentColor.withValues(alpha: 0.5)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatTime(String iso) {
+    try {
+      final dt = DateTime.parse(iso).toLocal();
+      final h = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
+      final amPm = dt.hour >= 12 ? 'PM' : 'AM';
+      return '${h.toString()}:${dt.minute.toString().padLeft(2, '0')} $amPm';
+    } catch (_) {
+      return '';
+    }
+  }
 }

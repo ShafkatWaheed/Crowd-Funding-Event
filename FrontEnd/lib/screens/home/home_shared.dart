@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../config/design_tokens.dart';
 import '../../config/theme.dart';
 import '../../models/event.dart';
+import '../../utils/date_time_utils.dart';
 
 String statusDisplayName(EventStatus s) {
   switch (s) {
@@ -76,15 +77,7 @@ IconData statusChipIcon(EventStatus s) {
 String formatCents(int cents) =>
     '\$${(cents / 100).toStringAsFixed(2)}';
 
-String relativeTime(DateTime dt) {
-  final diff = DateTime.now().difference(dt);
-  if (diff.inDays > 365) return '${diff.inDays ~/ 365}y ago';
-  if (diff.inDays > 30) return '${diff.inDays ~/ 30}mo ago';
-  if (diff.inDays > 0) return '${diff.inDays}d ago';
-  if (diff.inHours > 0) return '${diff.inHours}h ago';
-  if (diff.inMinutes > 0) return '${diff.inMinutes}m ago';
-  return 'just now';
-}
+String relativeTime(DateTime dt) => AppDateFormat.relativeTime(dt);
 
 class SponsorBidEvent {
   final Event event;

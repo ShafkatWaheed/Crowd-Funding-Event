@@ -2,8 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+
+import '../../utils/date_time_utils.dart';
 
 import '../../config/theme.dart';
 import '../../models/event.dart';
@@ -264,7 +265,7 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
           if (memberSince != null) ...[
             const SizedBox(height: 8),
             Text(
-              'Member since ${DateFormat.yMMMM().format(memberSince)}',
+              'Member since ${AppDateFormat.monthYear(memberSince)}',
               style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context)),
             ),
           ],
@@ -644,7 +645,7 @@ class _ProfileEventCard extends StatelessWidget {
                         style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.textPrimaryOf(context))),
                     const SizedBox(height: 3),
                     if (event.startTime != null)
-                      Text(DateFormat('MMM d, y').format(event.startTime!),
+                      Text(AppDateFormat.dateOnly(event.startTime!),
                           style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context))),
                   ],
                 ),

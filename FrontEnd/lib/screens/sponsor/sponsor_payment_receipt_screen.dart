@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
+import '../../utils/date_time_utils.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/shimmer_loaders.dart';
@@ -199,8 +199,7 @@ class _SponsorPaymentReceiptScreenState
                         if (eventStartTime != null) ...[
                           const SizedBox(height: 4),
                           Text(
-                            DateFormat('EEE, MMM d, y \u2022 h:mm a')
-                                .format(eventStartTime),
+                            AppDateFormat.eventCard(eventStartTime),
                             style: TextStyle(
                                 fontSize: 13,
                                 color: AppTheme.textSecondaryOf(context)),
@@ -226,7 +225,7 @@ class _SponsorPaymentReceiptScreenState
                             status[0].toUpperCase() + status.substring(1)),
                         if (createdAt != null)
                           _detailRow('Date',
-                              DateFormat('MMM d, yyyy h:mm a').format(createdAt)),
+                              AppDateFormat.fullDateTime(createdAt)),
                         const SizedBox(height: 20),
 
                         _sectionLabel('FEE BREAKDOWN'),

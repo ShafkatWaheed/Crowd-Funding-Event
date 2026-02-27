@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 
 import '../../config/theme.dart';
+import '../../utils/date_time_utils.dart';
 import '../../services/api_service.dart';
 import '../../widgets/shimmer_loaders.dart';
 import 'ticket_receipt_screen.dart';
@@ -37,11 +37,17 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
   int _totalSold = 0;
   int _totalScanned = 0;
 
+  // Scanned-view filter: 0 = All, 1 = Customer, 2 = Sponsor
+  int _scannedFilter = 0;
+  List<dynamic> _sponsorScanned = [];
+  bool _sponsorLoading = false;
+
   @override
   void initState() {
     super.initState();
     _scrollCtrl.addListener(_onScroll);
     _load();
+    if (widget.scannedOnly) _loadSponsorScanned();
   }
 
   @override
@@ -107,6 +113,22 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
       }
     } catch (_) {
       if (mounted) setState(() => _loadingMore = false);
+    }
+  }
+
+  Future<void> _loadSponsorScanned() async {
+    setState(() => _sponsorLoading = true);
+    try {
+      final api = context.read<ApiService>();
+      final data = await api.getScannedSponsorTickets(widget.eventId);
+      if (mounted) {
+        setState(() {
+          _sponsorScanned = data;
+          _sponsorLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _sponsorLoading = false);
     }
   }
 
@@ -186,6 +208,19 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
               onChanged: (_) => setState(() {}),
             ),
           ),
+          if (widget.scannedOnly)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Row(
+                children: [
+                  _filterChip('All', 0),
+                  const SizedBox(width: 8),
+                  _filterChip('Customer', 1),
+                  const SizedBox(width: 8),
+                  _filterChip('Sponsor', 2),
+                ],
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Column(
@@ -341,15 +376,31 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
                               ],
                             ),
                           )
+                        : _scannedFilter == 2
+                        ? _buildSponsorList()
                         : RefreshIndicator(
                             onRefresh: _load,
                             child: ListView.builder(
                               controller: _scrollCtrl,
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 16, vertical: 4),
-                              itemCount: filtered.length +
-                                  (_loadingMore ? 1 : 0),
+                              itemCount: _scannedFilter == 0
+                                  ? filtered.length + _sponsorScanned.length + (_loadingMore ? 1 : 0)
+                                  : filtered.length + (_loadingMore ? 1 : 0),
                               itemBuilder: (context, i) {
+                                if (_scannedFilter == 0) {
+                                  if (i < filtered.length) {
+                                    return _buildCard(filtered[i]);
+                                  }
+                                  final si = i - filtered.length;
+                                  if (si < _sponsorScanned.length) {
+                                    return _buildSponsorCard(_sponsorScanned[si]);
+                                  }
+                                  return const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 20),
+                                    child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                                  );
+                                }
                                 if (i >= filtered.length) {
                                   return const Padding(
                                     padding: EdgeInsets.symmetric(
@@ -382,11 +433,7 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
     final scannedAt = sale['scanned_at'];
     final scannedBy = sale['scanned_by_display_name'];
     final isScanned = scannedAt != null;
-    final createdAt = sale['created_at'] != null
-        ? DateFormat.yMMMd()
-            .add_jm()
-            .format(DateTime.parse(sale['created_at']).toLocal())
-        : '';
+    final createdAt = AppDateFormat.isoFull(sale['created_at']);
 
     return GestureDetector(
       onTap: () => Navigator.of(context).push(
@@ -540,4 +587,193 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
   }
 
   bool _isNearBlack(Color c) => c.r < 0.15 && c.g < 0.15 && c.b < 0.15;
+
+  Widget _filterChip(String label, int value) {
+    final selected = _scannedFilter == value;
+    return ChoiceChip(
+      label: Text(label, style: TextStyle(
+        fontSize: 12,
+        fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+      )),
+      selected: selected,
+      onSelected: (_) {
+        setState(() => _scannedFilter = value);
+      },
+      selectedColor: AppTheme.accentColor.withValues(alpha: 0.15),
+      labelStyle: TextStyle(
+        color: selected ? AppTheme.accentColor : AppTheme.textSecondaryOf(context),
+      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      side: BorderSide(
+        color: selected ? AppTheme.accentColor.withValues(alpha: 0.4) : AppTheme.dividerOf(context),
+      ),
+      visualDensity: VisualDensity.compact,
+    );
+  }
+
+  Widget _buildSponsorList() {
+    if (_sponsorLoading) {
+      return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+    }
+    if (_sponsorScanned.isEmpty) {
+      return Center(
+        child: Text('No scanned sponsor tickets',
+          style: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 15)),
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: _loadSponsorScanned,
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        itemCount: _sponsorScanned.length,
+        itemBuilder: (_, i) => _buildSponsorCard(_sponsorScanned[i]),
+      ),
+    );
+  }
+
+  Widget _buildSponsorCard(dynamic ticket) {
+    final companyName = ticket['company_name'] ?? 'Sponsor';
+    final contactName = ticket['contact_name'] ?? '';
+    final receipt = ticket['receipt_number'] ?? '';
+    final scanCount = ticket['scan_count'] ?? 0;
+    final totalDelegates = ticket['total_delegates'] ?? 0;
+    final checkedIn = ticket['checked_in_count'] ?? 0;
+    final scannedAt = ticket['scanned_at'];
+    final delegates = (ticket['delegates'] as List?) ?? [];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: AppTheme.cardOf(context),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: const Color(0xFF1B5E8A).withValues(alpha: 0.25),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF0D3B66), Color(0xFF1B5E8A)],
+              ),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(14),
+                topRight: Radius.circular(14),
+              ),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.storefront_rounded, color: Colors.white70, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(companyName,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700, fontSize: 14, color: Colors.white)),
+                      if (contactName.isNotEmpty)
+                        Text(contactName,
+                          style: TextStyle(fontSize: 11,
+                            color: Colors.white.withValues(alpha: 0.6))),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Text('SPONSOR',
+                    style: TextStyle(
+                      fontSize: 9, fontWeight: FontWeight.w800,
+                      color: Colors.white, letterSpacing: 0.5)),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.receipt_outlined, size: 14,
+                      color: AppTheme.textSecondaryOf(context)),
+                    const SizedBox(width: 6),
+                    Text(receipt,
+                      style: TextStyle(fontSize: 12,
+                        color: AppTheme.textSecondaryOf(context),
+                        fontFamily: 'monospace')),
+                    const Spacer(),
+                    if (scannedAt != null)
+                      Text(AppDateFormat.isoShort(scannedAt),
+                        style: TextStyle(fontSize: 11,
+                          color: AppTheme.textSecondaryOf(context))),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(Icons.qr_code_scanner_rounded, size: 14,
+                      color: AppTheme.successColor),
+                    const SizedBox(width: 6),
+                    Text('$scanCount scan${scanCount == 1 ? '' : 's'}',
+                      style: TextStyle(fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.successColor)),
+                    if (totalDelegates > 0) ...[
+                      const SizedBox(width: 12),
+                      Icon(Icons.people_rounded, size: 14,
+                        color: AppTheme.accentColor),
+                      const SizedBox(width: 4),
+                      Text('$checkedIn/$totalDelegates delegates',
+                        style: TextStyle(fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.accentColor)),
+                    ],
+                  ],
+                ),
+                if (delegates.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  ...delegates.map((d) => Padding(
+                    padding: const EdgeInsets.only(bottom: 2),
+                    child: Row(
+                      children: [
+                        Icon(
+                          d['checked_in'] == true
+                              ? Icons.check_circle_rounded
+                              : Icons.radio_button_unchecked_rounded,
+                          size: 14,
+                          color: d['checked_in'] == true
+                              ? AppTheme.successColor
+                              : AppTheme.textSecondaryOf(context),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(d['name'] ?? '',
+                          style: TextStyle(fontSize: 12,
+                            color: AppTheme.textPrimaryOf(context))),
+                        if (d['checked_in'] == true && d['checked_in_at'] != null) ...[
+                          const Spacer(),
+                          Text(AppDateFormat.isoShort(d['checked_in_at']),
+                            style: TextStyle(fontSize: 10,
+                              color: AppTheme.textSecondaryOf(context))),
+                        ],
+                      ],
+                    ),
+                  )),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

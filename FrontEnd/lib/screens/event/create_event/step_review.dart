@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../config/theme.dart';
 import '../../../config/design_tokens.dart';
 import '../../../models/event_form_models.dart';
+import '../../../utils/date_time_utils.dart';
 
 class StepReview extends StatelessWidget {
   final GlobalKey<FormState> formKey;
@@ -62,8 +63,7 @@ class StepReview extends StatelessWidget {
     required this.localCategories,
   });
 
-  static String _fmtDt(DateTime dt) =>
-      '${dt.month}/${dt.day}/${dt.year} ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
+  static String _fmtDt(DateTime dt) => AppDateFormat.fullDateTime(dt);
 
   @override
   Widget build(BuildContext context) {

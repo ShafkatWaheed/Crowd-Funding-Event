@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 
 import '../../config/theme.dart';
+import '../../utils/date_time_utils.dart';
 import '../../services/api_service.dart';
 import '../event/ticket_receipt_screen.dart';
 import '../../widgets/shimmer_loaders.dart';
@@ -316,11 +316,7 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
     final scannedBy = sale['scanned_by_display_name'];
     final isScanned = scannedAt != null;
     final eventTitle = sale['event_title'] ?? '';
-    final createdAt = sale['created_at'] != null
-        ? DateFormat.yMMMd()
-            .add_jm()
-            .format(DateTime.parse(sale['created_at']).toLocal())
-        : '';
+    final createdAt = AppDateFormat.isoFull(sale['created_at']);
 
     return GestureDetector(
       onTap: saleId != null

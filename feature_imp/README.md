@@ -78,6 +78,7 @@ This folder documents each major feature of the Crowd Funding Event product: **e
 | 64 | [64-cache-key-injection-hardening.md](64-cache-key-injection-hardening.md) | Cache Key Injection Hardening |
 | 65 | [65-arq-worker-control.md](65-arq-worker-control.md) | ARQ Worker Control |
 | 66 | [66-admin-settings-expansion.md](66-admin-settings-expansion.md) | Admin Settings Expansion |
+| 67 | [67-sponsor-delegates.md](67-sponsor-delegates.md) | Sponsor Delegates |
 
 ### Planned (not yet implemented)
 

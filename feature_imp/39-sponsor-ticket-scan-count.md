@@ -30,6 +30,7 @@
 
 - **Requires:** [Auth](01-auth-users.md), [37](37-sponsorship-prerequisites.md).
 - **Triggers / side effects:** None.
+- **Related:** When a sponsor ticket has **delegates** ([67 Sponsor Delegates](67-sponsor-delegates.md)), `scan_count` is incremented only when a delegate is checked in via the check-in endpoint; the initial scan returns the delegate list and does not increment the count.
 
 ## Prompt
 

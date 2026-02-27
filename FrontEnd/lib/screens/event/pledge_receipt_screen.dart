@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
+import '../../utils/date_time_utils.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/shimmer_loaders.dart';
@@ -177,7 +177,7 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
                       if (reservedSpots > 0)
                         _detailRow('Reserved Spots', '$reservedSpots'),
                       if (createdAt != null)
-                        _detailRow('Date', DateFormat('MMM d, yyyy h:mm a').format(createdAt)),
+                        _detailRow('Date', AppDateFormat.fullDateTime(createdAt)),
                       const SizedBox(height: 20),
 
                       _sectionLabel('FEE BREAKDOWN'),

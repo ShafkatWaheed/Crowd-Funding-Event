@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/design_tokens.dart';
+import '../../utils/date_time_utils.dart';
 import '../../config/theme.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../models/ticket.dart';
@@ -14,6 +14,7 @@ import '../../widgets/app_toast.dart';
 import '../../widgets/animated_list_item.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/error_state.dart';
+import '../../widgets/share_bottom_sheet.dart';
 import '../event/ticket_receipt_screen.dart';
 
 /// Screen for customers to view all their purchased tickets, grouped by event.
@@ -559,7 +560,6 @@ class _TicketCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dateFmt = DateFormat('MMM d, yyyy \u2022 h:mm a');
     final isFree = ticket.amountPaidCents == 0;
     final statusColor = _statusColor(context, ticket.status);
     final isDark = AppTheme.isDark(context);
@@ -685,14 +685,14 @@ class _TicketCard extends StatelessWidget {
                   _infoRow(
                     Icons.calendar_today_rounded,
                     'Purchased',
-                    dateFmt.format(ticket.createdAt.toLocal()),
+                    AppDateFormat.shortDateTime(ticket.createdAt),
                   ),
                   if (ticket.isScanned) ...[
                     AppSpacing.vSm,
                     _infoRow(
                       Icons.verified_rounded,
                       'Scanned',
-                      dateFmt.format(ticket.scannedAt!.toLocal()),
+                      AppDateFormat.shortDateTime(ticket.scannedAt!),
                       valueColor: AppTheme.successColor,
                     ),
                   ],
@@ -753,7 +753,23 @@ class _TicketCard extends StatelessWidget {
                         ),
                       ],
                       const Spacer(),
-                      // View Receipt button
+                      if (ticket.status == 'purchased')
+                        Padding(
+                          padding: const EdgeInsets.only(right: AppSpacing.sm),
+                          child: GestureDetector(
+                            onTap: () => showTicketShareSheet(context, ticket),
+                            child: Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: AppTheme.textSecondaryOf(context).withValues(alpha: 0.08),
+                                borderRadius: AppRadius.sm,
+                              ),
+                              child: Icon(Icons.share_rounded,
+                                  size: 16, color: AppTheme.textSecondaryOf(context)),
+                            ),
+                          ),
+                        ),
                       Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: AppSpacing.md + 2,

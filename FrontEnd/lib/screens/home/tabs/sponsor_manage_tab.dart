@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../home_shared.dart';
@@ -8,6 +7,7 @@ import '../../../config/design_tokens.dart';
 import '../../../config/theme.dart';
 import '../../../models/event.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../utils/date_time_utils.dart';
 import '../../../services/api_service.dart';
 import '../../../widgets/animated_list_item.dart';
 import '../../../widgets/empty_state.dart';
@@ -379,7 +379,7 @@ class SponsorBidEventCard extends StatelessWidget {
                     _infoRow(
                       context,
                       Icons.schedule_rounded,
-                      DateFormat('EEE, MMM d \u2022 h:mm a').format(e.startTime!),
+                      AppDateFormat.eventCard(e.startTime!),
                     ),
                   if (e.venue != null) ...[
                     const SizedBox(height: 5),

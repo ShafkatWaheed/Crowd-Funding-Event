@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/design_tokens.dart';
+import '../../utils/date_time_utils.dart';
 import '../../config/theme.dart';
 import '../../widgets/animated_list_item.dart';
 import '../../widgets/empty_state.dart';
@@ -431,7 +431,6 @@ class _PledgeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = AppTheme.isDark(context);
-    final dateFmt = DateFormat('MMM d, yyyy \u2022 h:mm a');
     final amountCents = (pledge['amount_cents'] ?? 0) as int;
     final reservedSpots = (pledge['reserved_spots'] ?? 0) as int;
     final receipt = (pledge['receipt_number'] ?? '').toString();
@@ -546,7 +545,7 @@ class _PledgeCard extends StatelessWidget {
                     AppSpacing.vSm,
                   ],
                   if (createdAt != null) ...[
-                    _infoRow(context, Icons.calendar_today_rounded, 'Date', dateFmt.format(createdAt)),
+                    _infoRow(context, Icons.calendar_today_rounded, 'Date', AppDateFormat.shortDateTime(createdAt)),
                     AppSpacing.vSm,
                   ],
                   if (isGuest)

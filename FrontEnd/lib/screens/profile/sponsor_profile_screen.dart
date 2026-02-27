@@ -2,9 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+import '../../utils/date_time_utils.dart';
 
 import '../../config/api_config.dart';
 import '../../config/theme.dart';
@@ -278,7 +279,7 @@ class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
             ),
           if (joinDate != null)
             Text(
-              'Member since ${DateFormat.yMMMM().format(joinDate)}',
+              'Member since ${AppDateFormat.monthYear(joinDate)}',
               style: TextStyle(
                   fontSize: 12, color: AppTheme.textSecondaryOf(context)),
             ),
@@ -652,7 +653,7 @@ class _SponsorEventCard extends StatelessWidget {
     if (startTime != null) {
       try {
         final dt = DateTime.parse(startTime);
-        dateStr = DateFormat('MMM d, yyyy').format(dt);
+        dateStr = AppDateFormat.dateOnly(dt);
       } catch (_) {}
     }
 

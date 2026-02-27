@@ -5,10 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
+import '../../utils/date_time_utils.dart';
 import '../../config/design_tokens.dart';
 import '../../widgets/press_feedback.dart';
 import '../../widgets/shimmer_loaders.dart';
@@ -87,7 +87,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       try {
         _selectedBirthday = DateTime.parse(user!.birthday!);
         _birthdayCtrl = TextEditingController(
-            text: DateFormat('MMM dd, yyyy').format(_selectedBirthday!));
+            text: AppDateFormat.dateOnly(_selectedBirthday!));
       } catch (_) {
         _birthdayCtrl = TextEditingController();
       }
@@ -118,7 +118,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           try {
             _selectedBirthday = DateTime.parse(user.birthday!);
             _birthdayCtrl.text =
-                DateFormat('MMM dd, yyyy').format(_selectedBirthday!);
+                AppDateFormat.dateOnly(_selectedBirthday!);
           } catch (_) {}
         }
       });
@@ -281,7 +281,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (picked != null && mounted) {
       setState(() {
         _selectedBirthday = picked;
-        _birthdayCtrl.text = DateFormat('MMM dd, yyyy').format(picked);
+        _birthdayCtrl.text = AppDateFormat.dateOnly(picked);
       });
     }
   }
@@ -305,7 +305,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         data['address'] = _addressCtrl.text.trim();
       }
       if (_selectedBirthday != null) {
-        final bdStr = DateFormat('yyyy-MM-dd').format(_selectedBirthday!);
+        final bdStr = AppDateFormat.apiDate(_selectedBirthday!);
         if (bdStr != (user.birthday ?? '')) {
           data['birthday'] = bdStr;
         }

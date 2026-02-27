@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
 import '../../models/event.dart';
+import '../../utils/date_time_utils.dart';
 import '../../services/api_service.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../widgets/app_toast.dart';
@@ -350,8 +350,7 @@ class _BookmarkCard extends StatelessWidget {
                     _row(
                         context,
                         Icons.schedule_rounded,
-                        DateFormat('EEE, MMM d \u2022 h:mm a')
-                            .format(event.startTime!)),
+                        AppDateFormat.eventCard(event.startTime!)),
                   if (event.venue != null) ...[
                     const SizedBox(height: 4),
                     _row(context, Icons.location_on_rounded,

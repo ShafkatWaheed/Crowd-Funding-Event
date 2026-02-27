@@ -3,10 +3,10 @@ import 'dart:math' as math;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../admin_shared.dart';
+import '../../../utils/date_time_utils.dart';
 import '../../../config/design_tokens.dart';
 import '../../../config/theme.dart';
 import '../../../providers/auth_provider.dart';
@@ -466,7 +466,7 @@ class _AdminHomeTabState extends State<AdminHomeTab> {
             final dt = DateTime.tryParse(dateStr);
             if (dt == null) return const SizedBox.shrink();
             return Text(
-              DateFormat.MMMd().format(dt),
+              AppDateFormat.dateOnly(dt),
               style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryOf(context)),
             );
           },

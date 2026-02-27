@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 
 import '../../../config/theme.dart';
+import '../../../utils/date_time_utils.dart';
 import '../../../config/design_tokens.dart';
 import '../../../models/event.dart';
 import '../../../providers/auth_provider.dart';
@@ -885,7 +885,7 @@ class _FundingCardState extends State<FundingCard> {
                     size: AppIconSize.sm, color: AppTheme.textSecondaryOf(context)),
                 AppSpacing.hXs,
                 Text(
-                  'Deadline: ${DateFormat('MMM d, y – h:mm a').format(event.fundingEndAt!.toLocal())}',
+                  'Deadline: ${AppDateFormat.fullDateTime(event.fundingEndAt!)}',
                   style: TextStyle(
                       fontSize: 12,
                       color: AppTheme.textSecondaryOf(context),

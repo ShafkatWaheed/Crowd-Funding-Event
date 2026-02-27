@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../config/theme.dart';
+import '../../../utils/date_time_utils.dart';
 import '../../../config/design_tokens.dart';
 import '../../../models/event.dart';
 import '../../../providers/auth_provider.dart';
@@ -853,7 +853,7 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
 
   Widget _buildYourTicketsSection() {
     final scannedCount = widget.myEventTickets.where((t) => t['scanned_at'] != null).length;
-    final dateFmt = DateFormat('MMM d \u2022 h:mm a');
+    
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -903,7 +903,7 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
             final isScanned = t['scanned_at'] != null;
             final saleId = t['id'] as int;
             final createdAt = t['created_at'] != null
-                ? dateFmt.format(DateTime.parse(t['created_at']).toLocal())
+                ? AppDateFormat.isoShort(t['created_at'])
                 : '';
             return GestureDetector(
               onTap: () => Navigator.of(context).push(

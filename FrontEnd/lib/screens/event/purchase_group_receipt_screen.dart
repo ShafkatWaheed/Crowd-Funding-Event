@@ -1,9 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+
+import '../../utils/date_time_utils.dart';
 
 import '../../config/theme.dart';
 import '../../services/api_service.dart';
@@ -130,7 +131,6 @@ class _PurchaseGroupReceiptScreenState
     final attendeeName = r['attendee_name'] ?? 'Unknown';
     final tickets = (r['tickets'] as List? ?? []);
     final isFree = totalAmountPaid == 0;
-    final dateFmt = DateFormat.yMMMd().add_jm();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -227,12 +227,12 @@ class _PurchaseGroupReceiptScreenState
                       if (eventStartTime != null) ...[
                         const SizedBox(height: 6),
                         _iconRow(context, Icons.calendar_today_rounded,
-                            dateFmt.format(eventStartTime)),
+                            AppDateFormat.fullDateTime(eventStartTime)),
                       ],
                       if (eventEndTime != null) ...[
                         const SizedBox(height: 4),
                         _iconRow(context, Icons.schedule_rounded,
-                            'Ends ${dateFmt.format(eventEndTime)}'),
+                            'Ends ${AppDateFormat.fullDateTime(eventEndTime)}'),
                       ],
                       if (venueName != null) ...[
                         const SizedBox(height: 4),
@@ -274,7 +274,7 @@ class _PurchaseGroupReceiptScreenState
                       _detailRow(context, 'Tier', tierName),
                       _detailRow(context, 'Quantity', '$quantity'),
                       if (purchasedAt != null)
-                        _detailRow(context, 'Purchased', dateFmt.format(purchasedAt)),
+                        _detailRow(context, 'Purchased', AppDateFormat.fullDateTime(purchasedAt)),
 
                       const SizedBox(height: 20),
 
@@ -436,7 +436,6 @@ class _PurchaseGroupReceiptScreenState
     final scannedAt = ticket['scanned_at'];
     final saleId = ticket['sale_id'] as int;
     final isScanned = scannedAt != null;
-    final dateFmt = DateFormat.yMMMd().add_jm();
 
     // Use encrypted QR payload if available (AES-256-GCM), fall back to plaintext JSON
     final qrData = ticket['encrypted_qr_payload'] ?? jsonEncode({
@@ -596,7 +595,7 @@ class _PurchaseGroupReceiptScreenState
                       size: 14, color: AppTheme.successColor),
                   const SizedBox(width: 4),
                   Text(
-                    'Scanned ${dateFmt.format(DateTime.parse(scannedAt).toLocal())}',
+                    'Scanned ${AppDateFormat.isoFull(scannedAt)}',
                     style: TextStyle(
                         fontSize: 12, color: AppTheme.successColor),
                   ),

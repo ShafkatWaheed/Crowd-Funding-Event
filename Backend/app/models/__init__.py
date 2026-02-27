@@ -15,7 +15,7 @@ from app.models.platform_settings import PlatformSetting
 from app.models.escrow import FundEscrow, EscrowRelease, EscrowStatus, TicketEscrow, SponsorEscrow
 from app.models.milestone import FundingMilestone, MilestoneReaction, FundingMilestoneSnapshot, FundingMilestoneUser, EarlyBirdDiscount
 from app.models.schedule import EventScheduleItem
-from app.models.sponsor import SponsorProfile, SponsorshipCategory, SponsorBid, BidStatus, SponsorPayment, PaymentStatus, SponsorTicket
+from app.models.sponsor import SponsorProfile, SponsorshipCategory, SponsorBid, BidStatus, SponsorPayment, PaymentStatus, SponsorTicket, SponsorDelegate
 from app.models.bookmark import Bookmark
 from app.models.prerequisite import CategoryPrerequisite, BidPrerequisiteUpload, UploadStatus
 from app.models.rating import Rating, RatingDirection
@@ -76,6 +76,7 @@ __all__ = [
     "SponsorPayment",
     "PaymentStatus",
     "SponsorTicket",
+    "SponsorDelegate",
     "Bookmark",
     "CategoryPrerequisite",
     "BidPrerequisiteUpload",

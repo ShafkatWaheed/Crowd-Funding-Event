@@ -1,10 +1,10 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../config/api_config.dart';
 import '../config/theme.dart';
 import '../config/design_tokens.dart';
 import '../models/event.dart';
+import '../utils/date_time_utils.dart';
 import 'event_lifecycle_bar.dart';
 
 class EventCard extends StatefulWidget {
@@ -28,7 +28,6 @@ class EventCard extends StatefulWidget {
 }
 
 class _EventCardState extends State<EventCard> with SingleTickerProviderStateMixin {
-  static final _dateFormat = DateFormat('EEE, MMM d, y \u2022 h:mm a');
   bool _pressed = false;
 
   int get _attendeeCount =>
@@ -169,7 +168,7 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
           _InfoRow(
             icon: Icons.schedule_rounded,
             text: event.startTime != null
-                ? _dateFormat.format(event.startTime!)
+                ? AppDateFormat.eventCard(event.startTime!)
                 : 'Event date: TBD',
           ),
           const SizedBox(height: 6),

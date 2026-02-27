@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 
 import '../../config/theme.dart';
+import '../../utils/date_time_utils.dart';
 import '../../config/design_tokens.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_toast.dart';
@@ -113,14 +113,13 @@ class _RefundRequestsScreenState extends State<RefundRequestsScreen> {
   }
 
   Widget _buildCard(Map<String, dynamic> ticket) {
-    final dateFmt = DateFormat('MMM d, yyyy \u2022 h:mm a');
     final amountCents = ticket['amount_paid_cents'] ?? 0;
     final price = '\$${(amountCents / 100).toStringAsFixed(2)}';
     final tierName = ticket['tier_name'] ?? 'General';
     final attendee = ticket['attendee_display_name'] ?? 'Unknown';
     final receiptNo = ticket['receipt_number'] ?? ticket['ticket_code'] ?? '';
     final createdAt = ticket['created_at'] != null
-        ? dateFmt.format(DateTime.parse(ticket['created_at']).toLocal())
+        ? AppDateFormat.isoShort(ticket['created_at'])
         : '';
     final ticketId = ticket['id'] as int;
     final isDark = AppTheme.isDark(context);

@@ -57,8 +57,28 @@ _BORDER = "#e5e5e5"
 _BG = "#f7f7f7"
 
 
+_branding_cache: dict[str, str] = {}
+
+
+async def load_branding(db) -> None:
+    """Cache email branding from platform settings. Call once per email send batch."""
+    from app.services import platform_settings as s
+    _branding_cache["logo_url"] = await s.get_str(db, "email_template_logo_url")
+    _branding_cache["footer_text"] = await s.get_str(db, "email_template_footer_text")
+
+
 def _wrap(title: str, body_html: str) -> str:
     """Wrap body content in the standard email shell."""
+    logo_url = _branding_cache.get("logo_url", "")
+    footer_text = _branding_cache.get(
+        "footer_text",
+        "You received this email because of your activity on CrowdFund Event.",
+    )
+    header_content = (
+        f'<img src="{logo_url}" alt="CrowdFund Event" style="max-height:40px;margin-bottom:8px;display:block;margin-left:auto;margin-right:auto;"/>'
+        if logo_url
+        else ""
+    ) + '<span style="font-size:20px;font-weight:800;color:#ffffff;letter-spacing:0.5px;">CrowdFund Event</span>'
     return f"""\
 <!DOCTYPE html>
 <html lang="en">
@@ -74,7 +94,7 @@ def _wrap(title: str, body_html: str) -> str:
   <!-- Header -->
   <tr>
     <td style="background:{_PRIMARY};padding:28px 32px;text-align:center;">
-      <span style="font-size:20px;font-weight:800;color:#ffffff;letter-spacing:0.5px;">CrowdFund Event</span>
+      {header_content}
     </td>
   </tr>
   <!-- Body -->
@@ -87,7 +107,7 @@ def _wrap(title: str, body_html: str) -> str:
   <tr>
     <td style="padding:16px 32px 28px;border-top:1px solid {_BORDER};text-align:center;">
       <p style="margin:0;font-size:12px;color:{_TEXT_SECONDARY};">
-        You received this email because of your activity on CrowdFund Event.<br/>
+        {footer_text}<br/>
         Please do not reply to this message.
       </p>
     </td>

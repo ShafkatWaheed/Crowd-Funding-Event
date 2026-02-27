@@ -217,6 +217,12 @@ async def create_event(
         accessibility_info=body.accessibility_info,
         has_schedule=body.has_schedule,
         link_funding_to_tiers=body.link_funding_to_tiers,
+        waitlist_max_size=body.waitlist_max_size,
+        waitlist_auto_approve=body.waitlist_auto_approve,
+        event_max_images=body.event_max_images,
+        max_posts_per_day=body.max_posts_per_day,
+        max_co_organizers=body.max_co_organizers,
+        refund_deadline_percent=body.refund_deadline_percent,
     )
     if body.max_discount_percent is not None:
         event.max_discount_percent = max(0, min(100, body.max_discount_percent))
@@ -258,6 +264,7 @@ async def get_event(event_id: int, db: ReadDbSession, current_user: CurrentUserO
         days_left = max(0, delta) if delta > 0 else 0
     trust = await event_service.get_organizer_trust_score(db, organizer_id=event.organizer_id)
     first_images = await _get_first_images(db, [event.id])
+    eff_policy = await event_service.get_effective_policy(db, event)
     resp = _event_to_response(
         event,
         total_pledged_cents=summary["total_pledged_cents"],
@@ -267,6 +274,7 @@ async def get_event(event_id: int, db: ReadDbSession, current_user: CurrentUserO
         include_dislike=is_admin,
         organizer_trust=trust,
         first_image_url=first_images.get(event.id),
+        effective_policy=eff_policy,
     )
 
     if not is_admin:
@@ -358,6 +366,12 @@ async def update_event(
         accessibility_info=body.accessibility_info,
         has_schedule=body.has_schedule,
         link_funding_to_tiers=body.link_funding_to_tiers,
+        waitlist_max_size=body.waitlist_max_size,
+        waitlist_auto_approve=body.waitlist_auto_approve,
+        event_max_images=body.event_max_images,
+        max_posts_per_day=body.max_posts_per_day,
+        max_co_organizers=body.max_co_organizers,
+        refund_deadline_percent=body.refund_deadline_percent,
     )
 
     if body.max_discount_percent is not None:

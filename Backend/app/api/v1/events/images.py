@@ -44,6 +44,15 @@ async def add_event_image(
     event = await event_service.get_or_404(db, event_id)
     if not await event_service.user_can_edit_event(db, event, current_user):
         raise ForbiddenError("You cannot manage this event")
+    policy = await event_service.get_effective_policy(db, event)
+    max_imgs = policy.get("event_max_images")
+    if max_imgs and max_imgs > 0:
+        from sqlalchemy import func as _fn
+        current = (await db.execute(
+            select(_fn.count()).where(EventImage.event_id == event_id)
+        )).scalar_one()
+        if int(current) >= max_imgs:
+            raise HTTPException(status_code=409, detail=f"Max {max_imgs} images per event")
     img = EventImage(
         event_id=event_id,
         image_url=image_url,
@@ -71,6 +80,15 @@ async def upload_event_image(
     event = await event_service.get_or_404(db, event_id)
     if not await event_service.user_can_edit_event(db, event, current_user):
         raise ForbiddenError("You cannot manage this event")
+    policy = await event_service.get_effective_policy(db, event)
+    max_imgs = policy.get("event_max_images")
+    if max_imgs and max_imgs > 0:
+        from sqlalchemy import func as _fn
+        current = (await db.execute(
+            select(_fn.count()).where(EventImage.event_id == event_id)
+        )).scalar_one()
+        if int(current) >= max_imgs:
+            raise HTTPException(status_code=409, detail=f"Max {max_imgs} images per event")
 
     contents = await validate_upload(db, file, "image")
 

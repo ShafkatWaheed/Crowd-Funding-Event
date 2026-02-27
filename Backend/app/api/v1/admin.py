@@ -1211,3 +1211,67 @@ async def worker_summary(
         })
 
     return {"tasks": items}
+
+
+# ═══════════════════════════════════════
+#  Per-Event Policy Overrides
+# ═══════════════════════════════════════
+
+class _PolicyOverrideBody(_BaseModel):
+    admin_override_waitlist_max_size: int | None = None
+    admin_override_event_max_images: int | None = None
+    admin_override_max_posts_per_day: int | None = None
+    admin_override_max_co_organizers: int | None = None
+    admin_override_refund_deadline_percent: int | None = None
+
+
+@router.patch("/events/{event_id}/policy-overrides")
+async def admin_set_policy_overrides(
+    event_id: int,
+    body: _PolicyOverrideBody,
+    db: DbSession,
+    current_user: User = Depends(require_role(UserRole.admin)),
+):
+    """Set or clear admin per-event policy overrides. Null values clear the override."""
+    from app.services import event as event_svc
+
+    event = await event_svc.get_or_404(db, event_id)
+
+    changes: dict[str, dict] = {}
+    for field in [
+        "admin_override_waitlist_max_size",
+        "admin_override_event_max_images",
+        "admin_override_max_posts_per_day",
+        "admin_override_max_co_organizers",
+        "admin_override_refund_deadline_percent",
+    ]:
+        new_val = getattr(body, field)
+        old_val = getattr(event, field, None)
+        if new_val != old_val:
+            changes[field] = {"old": old_val, "new": new_val}
+            setattr(event, field, new_val)
+
+    if changes:
+        await db.flush()
+        await audit_svc.log_action(
+            db,
+            user_id=current_user.id,
+            action="admin_policy_override",
+            resource_type="event",
+            resource_id=event_id,
+            details=changes,
+        )
+        await db.refresh(event)
+
+    policy = await event_svc.get_effective_policy(db, event)
+    return {
+        "event_id": event_id,
+        "overrides": {
+            "admin_override_waitlist_max_size": event.admin_override_waitlist_max_size,
+            "admin_override_event_max_images": event.admin_override_event_max_images,
+            "admin_override_max_posts_per_day": event.admin_override_max_posts_per_day,
+            "admin_override_max_co_organizers": event.admin_override_max_co_organizers,
+            "admin_override_refund_deadline_percent": event.admin_override_refund_deadline_percent,
+        },
+        "effective": policy,
+    }

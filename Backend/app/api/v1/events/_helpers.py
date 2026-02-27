@@ -101,6 +101,7 @@ def _event_to_response(
     include_dislike: bool = False,
     organizer_trust: dict | None = None,
     first_image_url: str | None = None,
+    effective_policy: dict | None = None,
 ) -> EventResponse:
     """Build response; e.venue must be loaded so everyone can see venue info when viewing an event."""
     venue_info = EventVenueInfo.model_validate(e.venue) if e.venue else None
@@ -169,6 +170,17 @@ def _event_to_response(
         first_image_url=first_image_url,
         lat=e.lat,
         lng=e.lng,
+        waitlist_max_size=getattr(e, "waitlist_max_size", None),
+        waitlist_auto_approve=getattr(e, "waitlist_auto_approve", True),
+        event_max_images=getattr(e, "event_max_images", None),
+        max_posts_per_day=getattr(e, "max_posts_per_day", None),
+        max_co_organizers=getattr(e, "max_co_organizers", None),
+        refund_deadline_percent=getattr(e, "refund_deadline_percent", None),
+        effective_waitlist_max_size=effective_policy.get("waitlist_max_size") if effective_policy else None,
+        effective_event_max_images=effective_policy.get("event_max_images") if effective_policy else None,
+        effective_max_posts_per_day=effective_policy.get("max_posts_per_day") if effective_policy else None,
+        effective_max_co_organizers=effective_policy.get("max_co_organizers") if effective_policy else None,
+        effective_refund_deadline_percent=effective_policy.get("refund_deadline_percent") if effective_policy else None,
         created_at=e.created_at,
         updated_at=e.updated_at,
     )

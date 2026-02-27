@@ -72,6 +72,21 @@ async def register(
             else RegistrationStatus.waitlist
         )
 
+    # Enforce waitlist size limit
+    if target_status == RegistrationStatus.waitlist:
+        from app.services.event.crud import get_effective_policy
+        policy = await get_effective_policy(db, event)
+        max_waitlist = policy.get("waitlist_max_size")
+        if max_waitlist and max_waitlist > 0:
+            wl_count = (await db.execute(
+                select(func.count()).where(
+                    Registration.event_id == event_id,
+                    Registration.status == RegistrationStatus.waitlist,
+                )
+            )).scalar_one()
+            if int(wl_count) >= max_waitlist:
+                raise ConflictError(f"Waitlist is full ({max_waitlist} max)")
+
     if existing:
         if existing.status == RegistrationStatus.cancelled:
             existing.status = target_status

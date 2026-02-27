@@ -62,6 +62,13 @@ class EventCreate(BaseModel):
     max_discount_percent: int = 100
     age_restricted: bool = False
     min_age: int = 18
+    # Per-event policy settings
+    waitlist_max_size: int | None = None
+    waitlist_auto_approve: bool = True
+    event_max_images: int | None = None
+    max_posts_per_day: int | None = None
+    max_co_organizers: int | None = None
+    refund_deadline_percent: int | None = None
     publish: bool = False  # True = approved immediately, False = draft
 
 
@@ -94,6 +101,13 @@ class EventUpdate(BaseModel):
     max_discount_percent: int | None = None
     age_restricted: bool | None = None
     min_age: int | None = None
+    # Per-event policy settings
+    waitlist_max_size: int | None = None
+    waitlist_auto_approve: bool | None = None
+    event_max_images: int | None = None
+    max_posts_per_day: int | None = None
+    max_co_organizers: int | None = None
+    refund_deadline_percent: int | None = None
 
 
 class ExtendFundingBody(BaseModel):
@@ -208,6 +222,19 @@ class EventResponse(BaseModel):
     directions_url: str | None = None  # computed from venue address
     first_image_url: str | None = None
     viewer_co_organizer_permission: str | None = None  # null | 'read' | 'full' for the requesting user
+    # Per-event policy (organizer values)
+    waitlist_max_size: int | None = None
+    waitlist_auto_approve: bool = True
+    event_max_images: int | None = None
+    max_posts_per_day: int | None = None
+    max_co_organizers: int | None = None
+    refund_deadline_percent: int | None = None
+    # Effective (resolved) policy values
+    effective_waitlist_max_size: int | None = None
+    effective_event_max_images: int | None = None
+    effective_max_posts_per_day: int | None = None
+    effective_max_co_organizers: int | None = None
+    effective_refund_deadline_percent: int | None = None
     created_at: datetime
     updated_at: datetime
 

@@ -7,6 +7,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from sqlalchemy import func as sa_func
+
 from app.core.exceptions import ConflictError, ForbiddenError, NotFoundError
 from app.models.event import Event
 from app.models.post import EventPost
@@ -51,6 +53,20 @@ async def create_post(
         reg = (await db.execute(reg_q)).scalar_one_or_none()
         if not reg:
             raise ForbiddenError("You must be registered for this event to post")
+
+    policy = await event_service.get_effective_policy(db, event)
+    max_posts = policy.get("max_posts_per_day")
+    if max_posts and max_posts > 0:
+        from datetime import datetime, timezone, timedelta
+        today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        posts_today = (await db.execute(
+            select(sa_func.count()).where(
+                EventPost.event_id == event_id,
+                EventPost.created_at >= today_start,
+            )
+        )).scalar_one()
+        if int(posts_today) >= max_posts:
+            raise ConflictError(f"Max {max_posts} posts per day for this event")
 
     post = EventPost(event_id=event_id, user_id=user.id, content=content.strip())
     db.add(post)

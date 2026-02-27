@@ -3,7 +3,7 @@ Event co-organizers: list, add (invite), remove, update permission, respond, sel
 """
 import logging
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -84,6 +84,19 @@ async def add_event_organizer(
             )
             return existing
         raise ConflictError("User is already a co-organizer for this event")
+    from app.services.event.crud import get_effective_policy
+    policy = await get_effective_policy(db, event)
+    max_co = policy.get("max_co_organizers")
+    if max_co and max_co > 0:
+        co_count = (await db.execute(
+            select(func.count()).where(
+                EventOrganizer.event_id == event_id,
+                EventOrganizer.invitation_status != "declined",
+            )
+        )).scalar_one()
+        if int(co_count) >= max_co:
+            raise ConflictError(f"Max {max_co} co-organizers per event")
+
     eo = EventOrganizer(event_id=event_id, user_id=user_id, permission=permission, invitation_status="pending")
     db.add(eo)
     await db.flush()

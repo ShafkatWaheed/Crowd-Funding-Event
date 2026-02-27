@@ -100,7 +100,8 @@ async def release_stage1(db: AsyncSession, *, event_id: int, released_by: str = 
     from app.services import event as event_svc
     event = await event_svc.get_or_404(db, event_id)
     trust = await event_svc.get_organizer_trust_score(db, organizer_id=event.organizer_id)
-    if trust["trust_score"] > 0.8 and pct < 40:
+    threshold = await settings_svc.get_int(db, "escrow_trust_score_threshold") / 100
+    if trust["trust_score"] > threshold and pct < 40:
         pct = 40
 
     amount = escrow.total_held_cents * pct // 100

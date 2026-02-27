@@ -692,6 +692,43 @@ async def check_all_sponsor_escrows(ctx: dict) -> None:
         await _log_cron_run("check_all_sponsor_escrows", status="error", started_at=started_at, duration_ms=(time.monotonic() - t0) * 1000, error=traceback.format_exc()[-500:])
 
 
+async def cleanup_old_records(ctx: dict) -> None:
+    """Periodic task: purge old WorkerRunLog and Notification rows past retention."""
+    started_at = datetime.now(timezone.utc)
+    t0 = time.monotonic()
+    total_deleted = 0
+    try:
+        async with async_session_maker() as db:
+            from app.services import platform_settings as settings_svc
+            from app.models.worker_run_log import WorkerRunLog
+            from app.models.notification import Notification
+            from sqlalchemy import delete
+
+            log_days = await settings_svc.get_int(db, "worker_run_log_retention_days")
+            notif_days = await settings_svc.get_int(db, "notification_retention_days")
+
+            if log_days > 0:
+                cutoff = datetime.now(timezone.utc) - timedelta(days=log_days)
+                result = await db.execute(
+                    delete(WorkerRunLog).where(WorkerRunLog.started_at < cutoff)
+                )
+                total_deleted += result.rowcount
+
+            if notif_days > 0:
+                cutoff = datetime.now(timezone.utc) - timedelta(days=notif_days)
+                result = await db.execute(
+                    delete(Notification).where(Notification.created_at < cutoff)
+                )
+                total_deleted += result.rowcount
+
+            await db.commit()
+            logger.info("Cleanup: deleted %d old records", total_deleted)
+        await _log_cron_run("cleanup_old_records", status="success", started_at=started_at, duration_ms=(time.monotonic() - t0) * 1000, items_processed=total_deleted)
+    except Exception:
+        logger.exception("cleanup_old_records failed")
+        await _log_cron_run("cleanup_old_records", status="error", started_at=started_at, duration_ms=(time.monotonic() - t0) * 1000, error=traceback.format_exc()[-500:])
+
+
 async def _send_pledge_refund_email(db, funding: Funding) -> None:
     """Best-effort email after successful refund."""
     try:

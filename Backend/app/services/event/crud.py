@@ -475,9 +475,28 @@ async def create(
     accessibility_info: str | None = None,
     has_schedule: bool = False,
     link_funding_to_tiers: bool = False,
+    waitlist_max_size: int | None = None,
+    waitlist_auto_approve: bool = True,
+    event_max_images: int | None = None,
+    max_posts_per_day: int | None = None,
+    max_co_organizers: int | None = None,
+    refund_deadline_percent: int | None = None,
 ) -> Event:
     """Create event. At least one of funding_end_at or start_time must be provided."""
     from datetime import timedelta
+    from app.services import platform_settings as settings_svc
+
+    max_events = await settings_svc.get_int(db, "max_events_per_organizer")
+    if max_events > 0:
+        active_count = (await db.execute(
+            select(func.count()).select_from(Event).where(
+                Event.organizer_id == organizer_id,
+                Event.status.notin_(["cancelled", "completed"]),
+            )
+        )).scalar_one()
+        if active_count >= max_events:
+            raise ConflictError(f"You can have at most {max_events} active events")
+
     venue_result = await db.execute(select(Venue).where(Venue.id == venue_id))
     venue = venue_result.scalar_one_or_none()
     if not venue:
@@ -550,18 +569,40 @@ async def create(
                         f"Tier '{t.name}' is ${t.price_cents / 100:.2f}."
                     )
 
-    # Refund deadline: auto-calculate as 20% of funding duration, and cap at that max
+    refund_pct_max = await settings_svc.get_int(db, "refund_deadline_percent_max")
+    if refund_pct_max <= 0:
+        refund_pct_max = 50
+    refund_pct = refund_pct_max / 100
+
     if funding_end_at is not None:
         now = datetime.now(timezone.utc)
         funding_duration_days = max(1, (funding_end_at - now).days)
-        max_refund_days = max(1, int(math.ceil(funding_duration_days * 0.2)))
+        max_refund_days = max(1, int(math.ceil(funding_duration_days * refund_pct)))
         if refund_deadline_days is None:
             refund_deadline_days = max_refund_days
         elif refund_deadline_days > max_refund_days:
             raise ConflictError(
                 f"Refund deadline cannot exceed {max_refund_days} days "
-                f"(20% of {funding_duration_days}-day funding period)"
+                f"({refund_pct_max}% of {funding_duration_days}-day funding period)"
             )
+
+    # Clamp per-event policy fields to platform ceilings
+    if waitlist_max_size is not None:
+        ceil = await settings_svc.get_int(db, "waitlist_max_size_limit")
+        waitlist_max_size = min(waitlist_max_size, ceil) if ceil > 0 else waitlist_max_size
+    if event_max_images is not None:
+        ceil = await settings_svc.get_int(db, "event_max_images_limit")
+        event_max_images = min(event_max_images, ceil) if ceil > 0 else event_max_images
+    if max_posts_per_day is not None:
+        ceil = await settings_svc.get_int(db, "max_posts_per_event_limit")
+        max_posts_per_day = min(max_posts_per_day, ceil) if ceil > 0 else max_posts_per_day
+    if max_co_organizers is not None:
+        ceil = await settings_svc.get_int(db, "max_co_organizers_limit")
+        max_co_organizers = min(max_co_organizers, ceil) if ceil > 0 else max_co_organizers
+    if refund_deadline_percent is not None:
+        pct_min = await settings_svc.get_int(db, "refund_deadline_percent_min")
+        pct_max_val = await settings_svc.get_int(db, "refund_deadline_percent_max")
+        refund_deadline_percent = max(pct_min, min(refund_deadline_percent, pct_max_val))
 
     use_lat = lat if lat is not None else venue.lat
     use_lng = lng if lng is not None else venue.lng
@@ -593,6 +634,12 @@ async def create(
         accessibility_info=accessibility_info,
         has_schedule=has_schedule,
         link_funding_to_tiers=link_funding_to_tiers,
+        waitlist_max_size=waitlist_max_size,
+        waitlist_auto_approve=waitlist_auto_approve,
+        event_max_images=event_max_images,
+        max_posts_per_day=max_posts_per_day,
+        max_co_organizers=max_co_organizers,
+        refund_deadline_percent=refund_deadline_percent,
         status=EventStatus.approved if publish else EventStatus.draft,
     )
     db.add(event)
@@ -629,6 +676,12 @@ async def update(
     accessibility_info: str | None = None,
     has_schedule: bool | None = None,
     link_funding_to_tiers: bool | None = None,
+    waitlist_max_size: int | None = None,
+    waitlist_auto_approve: bool | None = None,
+    event_max_images: int | None = None,
+    max_posts_per_day: int | None = None,
+    max_co_organizers: int | None = None,
+    refund_deadline_percent: int | None = None,
 ) -> Event:
     """Update event fields (only provided ones). When switching closed→open, auto-approve waitlist up to capacity."""
     old_registration_type = event.registration_type
@@ -691,16 +744,20 @@ async def update(
     if posts_enabled is not None:
         event.posts_enabled = posts_enabled
     if refund_deadline_days is not None:
-        # Enforce 20% cap of funding duration
+        from app.services import platform_settings as settings_svc
+        upd_pct_max = await settings_svc.get_int(db, "refund_deadline_percent_max")
+        if upd_pct_max <= 0:
+            upd_pct_max = 50
+        upd_pct = upd_pct_max / 100
         effective_funding_end = funding_end_at if funding_end_at is not None else event.funding_end_at
         if effective_funding_end is not None:
             now = datetime.now(timezone.utc)
             funding_duration_days = max(1, (effective_funding_end - now).days)
-            max_refund_days = max(1, int(math.ceil(funding_duration_days * 0.2)))
+            max_refund_days = max(1, int(math.ceil(funding_duration_days * upd_pct)))
             if refund_deadline_days > max_refund_days:
                 raise ConflictError(
                     f"Refund deadline cannot exceed {max_refund_days} days "
-                    f"(20% of {funding_duration_days}-day funding period)"
+                    f"({upd_pct_max}% of {funding_duration_days}-day funding period)"
                 )
         event.refund_deadline_days = refund_deadline_days
     if ticket_strategy_id is not None:
@@ -740,6 +797,27 @@ async def update(
         event.has_schedule = has_schedule
     if link_funding_to_tiers is not None:
         event.link_funding_to_tiers = link_funding_to_tiers
+    # Per-event policy updates with ceiling clamping
+    if any(v is not None for v in [waitlist_max_size, waitlist_auto_approve, event_max_images, max_posts_per_day, max_co_organizers, refund_deadline_percent]):
+        from app.services import platform_settings as _ps
+        if waitlist_max_size is not None:
+            ceil = await _ps.get_int(db, "waitlist_max_size_limit")
+            event.waitlist_max_size = min(waitlist_max_size, ceil) if ceil > 0 else waitlist_max_size
+        if waitlist_auto_approve is not None:
+            event.waitlist_auto_approve = waitlist_auto_approve
+        if event_max_images is not None:
+            ceil = await _ps.get_int(db, "event_max_images_limit")
+            event.event_max_images = min(event_max_images, ceil) if ceil > 0 else event_max_images
+        if max_posts_per_day is not None:
+            ceil = await _ps.get_int(db, "max_posts_per_event_limit")
+            event.max_posts_per_day = min(max_posts_per_day, ceil) if ceil > 0 else max_posts_per_day
+        if max_co_organizers is not None:
+            ceil = await _ps.get_int(db, "max_co_organizers_limit")
+            event.max_co_organizers = min(max_co_organizers, ceil) if ceil > 0 else max_co_organizers
+        if refund_deadline_percent is not None:
+            pct_min = await _ps.get_int(db, "refund_deadline_percent_min")
+            pct_max_val = await _ps.get_int(db, "refund_deadline_percent_max")
+            event.refund_deadline_percent = max(pct_min, min(refund_deadline_percent, pct_max_val))
     # Validate dates if both are set
     if event.start_time is not None and event.end_time is not None and event.end_time <= event.start_time:
         raise ConflictError("end_time must be after start_time")
@@ -756,3 +834,43 @@ async def update(
         )
     await db.refresh(event)
     return event
+
+
+async def get_effective_policy(db: AsyncSession, event: "Event") -> dict:
+    """Resolve per-event settings: admin_override > organizer value > global default."""
+    from app.services import platform_settings as s
+
+    def _resolve(admin_override, organizer_val, global_default):
+        if admin_override is not None:
+            return admin_override
+        if organizer_val is not None:
+            return organizer_val
+        return global_default
+
+    return {
+        "waitlist_max_size": _resolve(
+            event.admin_override_waitlist_max_size,
+            event.waitlist_max_size,
+            await s.get_int(db, "waitlist_max_size_limit"),
+        ),
+        "event_max_images": _resolve(
+            event.admin_override_event_max_images,
+            event.event_max_images,
+            await s.get_int(db, "event_max_images_limit"),
+        ),
+        "max_posts_per_day": _resolve(
+            event.admin_override_max_posts_per_day,
+            event.max_posts_per_day,
+            await s.get_int(db, "max_posts_per_event_limit"),
+        ),
+        "max_co_organizers": _resolve(
+            event.admin_override_max_co_organizers,
+            event.max_co_organizers,
+            await s.get_int(db, "max_co_organizers_limit"),
+        ),
+        "refund_deadline_percent": _resolve(
+            event.admin_override_refund_deadline_percent,
+            event.refund_deadline_percent,
+            await s.get_int(db, "refund_deadline_percent_max"),
+        ),
+    }

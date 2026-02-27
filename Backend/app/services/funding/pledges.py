@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from typing import Sequence
 
 from sqlalchemy import func, select
+from app.logger import get_logger, log_step
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -21,6 +22,8 @@ from app.services.funding.reservations import (
     get_total_reserved_spots,
     get_user_reserved_spots,
 )
+
+logger = get_logger("svc.funding.pledges")
 
 
 async def pledge_preview(
@@ -93,7 +96,10 @@ async def create_pledge(
     tier_reservations: list of {"tier_id": int, "spots": int} when
     event.link_funding_to_tiers is True.
     """
+    log_step(logger, "Creating pledge", event_id=event_id, user_id=user.id, amount_cents=amount_cents, reserved_spots=reserved_spots)
+    logger.debug("create_pledge params", extra={"tier_reservations": tier_reservations})
     if amount_cents <= 0:
+        logger.warning("Pledge rejected: invalid amount", extra={"event_id": event_id, "user_id": user.id, "amount_cents": amount_cents})
         raise ConflictError("amount_cents must be greater than 0")
     if reserved_spots < 0:
         raise ConflictError("reserved_spots cannot be negative")
@@ -101,8 +107,10 @@ async def create_pledge(
     from app.services import event as event_service
     event = await event_service.get_or_404(db, event_id)
     if event.status == EventStatus.cancelled:
+        logger.warning("Pledge rejected: event cancelled", extra={"event_id": event_id, "user_id": user.id})
         raise ConflictError("Cannot pledge to a cancelled event")
     if event.status == EventStatus.completed:
+        logger.warning("Pledge rejected: event ended", extra={"event_id": event_id, "user_id": user.id})
         raise ConflictError("Cannot pledge to an ended event")
 
     from app.services.age_verification import enforce_age_limit
@@ -244,12 +252,15 @@ async def create_pledge(
                 commission_cents=platform_cut,
             )
             if result.status == "failed":
-                raise ConflictError(f"Payment failed: {getattr(result, 'failure_reason', 'card declined')}")
+                reason = getattr(result, "failure_reason", "card declined")
+                logger.warning("Pledge payment failed", extra={"event_id": event_id, "user_id": user.id, "amount_cents": amount_cents, "reason": reason})
+                raise ConflictError(f"Payment failed: {reason}")
             gateway_txn_id = result.transaction_id
             gateway_auth = result.authorization_code
         except ConflictError:
             raise
         except Exception as exc:
+            logger.warning("Pledge payment processing error", extra={"event_id": event_id, "user_id": user.id, "error": str(exc)})
             raise ConflictError(f"Payment processing error: {exc}")
 
     pledge = Funding(
@@ -311,6 +322,7 @@ async def create_pledge(
     except Exception:
         pass
 
+    logger.info("Pledge created", extra={"event_id": event_id, "user_id": user.id, "pledge_id": pledge.id, "amount_cents": amount_cents})
     return pledge
 
 
@@ -324,6 +336,7 @@ async def unpledge(
     Unpledge: mark all pledged fundings for this user+event as refund_processing,
     release reserved spots immediately, and enqueue ARQ jobs for completion.
     """
+    log_step(logger, "Unpledging", event_id=event_id, user_id=user.id)
     q_refund = (
         select(Funding)
         .where(
@@ -357,6 +370,7 @@ async def unpledge(
         f.status = FundingStatus.refunded
     await db.flush()
 
+    logger.info("Unpledge completed", extra={"event_id": event_id, "user_id": user.id, "refunded_cents": refunded_cents, "pledges_refunded": len(refundable)})
     return {
         "refunded_cents": refunded_cents,
         "pledges_refunded": len(refundable),
@@ -416,6 +430,7 @@ async def _check_milestone_snapshots(db: AsyncSession, event) -> None:
             continue
         if current_pct < pct:
             continue
+        log_step(logger, "Milestone crossed", event_id=event.id, milestone_percent=pct, current_pct=round(current_pct, 2))
         snapshot = FundingMilestoneSnapshot(
             event_id=event.id,
             milestone_percent=pct,
@@ -430,6 +445,7 @@ async def _check_milestone_snapshots(db: AsyncSession, event) -> None:
 
 async def refund_all_pledges_for_event(db: AsyncSession, *, event_id: int, guest_refund: bool = True) -> int:
     """When an event is cancelled, mark all pledged fundings as refunded. Returns count."""
+    log_step(logger, "Refunding all pledges for event", event_id=event_id, guest_refund=guest_refund)
     from sqlalchemy import update
     conditions = [
         Funding.event_id == event_id,
@@ -445,7 +461,9 @@ async def refund_all_pledges_for_event(db: AsyncSession, *, event_id: int, guest
         .where(Funding.event_id == event_id, Funding.status == FundingStatus.refund_processing)
         .values(status=FundingStatus.refunded)
     )
-    return result.rowcount or 0
+    count = result.rowcount or 0
+    logger.info("Refund all pledges completed", extra={"event_id": event_id, "count": count})
+    return count
 
 
 async def refund_pledges_for_user_event(
@@ -455,6 +473,7 @@ async def refund_pledges_for_user_event(
     user_id: int,
 ) -> int:
     """Mark all pledged fundings for this user+event as refunded. Returns count."""
+    log_step(logger, "Refunding pledges for user", event_id=event_id, user_id=user_id)
     from sqlalchemy import update
     await db.execute(
         update(Funding)
@@ -588,6 +607,7 @@ async def refund_pledge_by_id(
 
     Idempotent: returns 1 if the pledge is already refunded or in refund_processing.
     """
+    log_step(logger, "Refunding pledge by id", event_id=event_id, funding_id=funding_id)
     existing = (await db.execute(
         select(Funding).where(Funding.id == funding_id, Funding.event_id == event_id)
     )).scalar_one_or_none()

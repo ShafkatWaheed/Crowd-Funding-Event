@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.logger import get_logger, log_step
 from app.models.event import Event, EventOrganizer, EventDiscount, EventStatus
 from app.models.ticket import TicketTier, TicketSale, UserEventDiscount
 from app.models.funding import Funding
@@ -13,6 +14,9 @@ from app.models.user import User
 from app.core.exceptions import ForbiddenError, ConflictError
 
 from app.services.event.permissions import user_can_edit_event
+
+logger = get_logger("svc.event.lifecycle")
+
 
 async def _check_cancel_threshold(db: AsyncSession, event: Event, user: User, reason: str | None = None) -> bool:
     """
@@ -32,6 +36,10 @@ async def _check_cancel_threshold(db: AsyncSession, event: Event, user: User, re
         threshold = await settings_svc.get_int(db, "cancel_approval_threshold_percent")
         pledge_pct = (total_pledged * 100) // event.funding_goal_cents if event.funding_goal_cents > 0 else 0
         if pledge_pct >= threshold:
+            logger.warning(
+                "Cancellation blocked; pending admin approval",
+                extra={"event_id": event.id, "pledge_percent": pledge_pct, "threshold": threshold, "user_id": user.id},
+            )
             from datetime import datetime, timezone
             event.pending_cancellation = {
                 "reason": reason or "Organizer requested cancellation",
@@ -54,7 +62,9 @@ async def cancel_event(db: AsyncSession, event: Event, user: User, *, reason: st
     - Other statuses: organizer can cancel directly (subject to funding threshold check).
     - If >=80% funded (any status), routes to admin approval queue.
     """
+    log_step(logger, "Cancel event", event_id=event.id, user_id=user.id, current_status=event.status.value)
     if not await user_can_edit_event(db, event, user):
+        logger.warning("Cancel denied: no edit permission", extra={"event_id": event.id, "user_id": user.id})
         raise ForbiddenError("You cannot cancel this event")
     if event.status == EventStatus.cancelled:
         raise ConflictError("Event is already cancelled")
@@ -88,6 +98,7 @@ async def cancel_event(db: AsyncSession, event: Event, user: User, *, reason: st
 
     event.status = EventStatus.cancelled
     event.cancellation_reason = reason
+    logger.info("Event cancelled", extra={"event_id": event.id, "user_id": user.id})
     from app.services import funding as funding_service
     await funding_service.refund_all_pledges_for_event(db, event_id=event.id)
     from app.services import sponsor as sponsor_service
@@ -113,11 +124,14 @@ async def reactivate_event(db: AsyncSession, event: Event, user: User) -> Event:
     Move a cancelled event back to draft so the organizer can edit and republish it.
     Only allowed when status is cancelled.
     """
+    log_step(logger, "Reactivate event", event_id=event.id, user_id=user.id)
     if not await user_can_edit_event(db, event, user):
+        logger.warning("Reactivate denied: no edit permission", extra={"event_id": event.id, "user_id": user.id})
         raise ForbiddenError("You cannot reactivate this event")
     if event.status != EventStatus.cancelled:
         raise ConflictError("Only cancelled events can be moved back to draft")
     event.status = EventStatus.draft
+    logger.info("Event reactivated to draft", extra={"event_id": event.id, "user_id": user.id})
     await db.flush()
     await db.refresh(event)
     return event
@@ -135,6 +149,7 @@ async def extend_funding(
     Request to extend funding period with a new deadline and/or goal.
     Admin can apply directly; organizer request goes to pending approval.
     """
+    log_step(logger, "Extend funding", event_id=event.id, user_id=user.id)
     if not await user_can_edit_event(db, event, user):
         raise ForbiddenError("You cannot update this event")
     if event.status in (EventStatus.cancelled, EventStatus.completed):
@@ -148,6 +163,7 @@ async def extend_funding(
     if user.role.value == "admin":
         return await _apply_funding_extension(db, event, new_funding_end_at, new_funding_goal_cents)
 
+    logger.debug("Storing pending extension for admin", extra={"event_id": event.id})
     # Organizer: store as pending extension requiring admin approval
     pending: dict = {}
     if new_funding_end_at is not None:
@@ -172,6 +188,7 @@ async def set_event_date(
     Applies directly (no admin approval). Does NOT auto-transition — organizer must
     manually start selling tickets via the dedicated action.
     """
+    log_step(logger, "Set event date", event_id=event.id, user_id=user.id)
     if not await user_can_edit_event(db, event, user):
         raise ForbiddenError("You cannot update this event")
     if event.status in (EventStatus.cancelled, EventStatus.completed):
@@ -200,6 +217,7 @@ async def start_selling_tickets(
     Manually transition event to selling_tickets.
     Requires: event date set, ticket strategy set, event in waiting_event_date or approved (with funding ended).
     """
+    log_step(logger, "Start selling tickets", event_id=event.id, user_id=user.id)
     if not await user_can_edit_event(db, event, user):
         raise ForbiddenError("You cannot update this event")
     if event.status not in (EventStatus.waiting_event_date, EventStatus.approved):
@@ -222,12 +240,14 @@ async def start_selling_tickets(
 
     event.status = EventStatus.selling_tickets
     event.ticket_selling_started_at = datetime.now(timezone.utc)
+    logger.info("Event transitioned to selling_tickets", extra={"event_id": event.id})
     await db.flush()
     return event
 
 
 async def approve_extension(db: AsyncSession, event: Event, admin: User) -> Event:
     """Admin approves a pending funding extension."""
+    log_step(logger, "Approve extension", event_id=event.id, admin_id=admin.id)
     if admin.role.value != "admin":
         raise ForbiddenError("Only admin can approve extensions")
     ext = event.pending_extension
@@ -241,6 +261,7 @@ async def approve_extension(db: AsyncSession, event: Event, admin: User) -> Even
 
 async def reject_extension(db: AsyncSession, event: Event, admin: User) -> Event:
     """Admin rejects a pending funding extension."""
+    log_step(logger, "Reject extension", event_id=event.id, admin_id=admin.id)
     if admin.role.value != "admin":
         raise ForbiddenError("Only admin can reject extensions")
     if not event.pending_extension:
@@ -313,9 +334,12 @@ async def delete_or_cancel(db: AsyncSession, event: Event, user: User) -> None:
     If >=80% funded, routes to admin approval queue instead.
     Raises ForbiddenError if user cannot edit.
     """
+    log_step(logger, "Delete or cancel event", event_id=event.id, user_id=user.id, status=event.status.value)
     if not await user_can_edit_event(db, event, user):
+        logger.warning("Delete/cancel denied: no edit permission", extra={"event_id": event.id, "user_id": user.id})
         raise ForbiddenError("You cannot delete this event")
     if event.status in (EventStatus.draft, EventStatus.cancelled):
+        logger.info("Event hard deleted", extra={"event_id": event.id})
         await _purge_event_children(db, event.id)
         await db.delete(event)
         await db.flush()

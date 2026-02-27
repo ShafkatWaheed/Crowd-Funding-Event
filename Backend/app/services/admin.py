@@ -7,11 +7,14 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import select, func, or_, case, cast, Date, literal_column
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.logger import get_logger, log_step
 from app.models.event import Event, EventStatus
 from app.models.funding import Funding, FundingStatus
 from app.models.ticket import TicketSale, TicketSaleStatus
 from app.models.user import User
 from app.services import event as event_service
+
+logger = get_logger("svc.admin")
 
 
 async def list_users(
@@ -41,6 +44,7 @@ async def list_events_for_admin(
     search: str | None = None,
 ) -> tuple[list[Event], int]:
     """List events for admin view with pagination + search. Returns (items, total)."""
+    log_step(logger, "List events for admin", status=status, offset=offset, limit=limit, search=search)
     base = select(Event)
     if status:
         try:
@@ -65,18 +69,22 @@ async def approve_or_reject_event(
     Approve event (set status to approved) or reject (set back to draft).
     Returns the updated event. Raises NotFoundError if event not found.
     """
+    log_step(logger, "Approve or reject event", event_id=event_id, approved=approved)
     from app.core.exceptions import ConflictError
     from app.services.escrow_base import organizer_has_verified_bank
 
     event = await event_service.get_or_404(db, event_id)
     if approved:
         if not await organizer_has_verified_bank(db, event.organizer_id):
+            logger.warning("Approve rejected: organizer lacks verified bank", extra={"event_id": event_id, "organizer_id": event.organizer_id})
             raise ConflictError(
                 "Organizer must have a verified bank account before the event can be approved"
             )
         event.status = EventStatus.approved
+        logger.info("Event approved", extra={"event_id": event_id})
     else:
         event.status = EventStatus.draft
+        logger.info("Event rejected", extra={"event_id": event_id})
     await db.flush()
     await db.refresh(event)
     return event

@@ -3,9 +3,13 @@ ARQ worker entry point.
 Run with: arq app.worker.main.WorkerSettings
 """
 from arq.connections import RedisSettings
+from arq.cron import cron
 
 from app.config import settings
-from arq.cron import cron
+from app.logger import setup_logging, get_logger
+
+setup_logging(settings.LOG_LEVEL)
+logger = get_logger("arq.main")
 
 from app.worker.tasks import (
     process_pledge_refund,
@@ -54,6 +58,7 @@ def _load_cron_config() -> dict:
                 }
         return asyncio.get_event_loop().run_until_complete(_read())
     except Exception:
+        logger.warning("Could not load cron config from DB, using defaults")
         return defaults
 
 

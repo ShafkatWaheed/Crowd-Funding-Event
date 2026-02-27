@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.dependencies import DbSession, ReadDbSession, CurrentUser, require_feature, require_kyc
+from app.logger import get_logger, log_step
 from app.rate_limit import limiter, dynamic_limit
 from app.models.user import UserRole
 from app.models.sponsor import SponsorPayment, SponsorBid, SponsorshipCategory
@@ -15,6 +16,7 @@ from app.services import notification_service as notif_svc
 from app.models.notification import NotificationType
 from app.worker.redis_pool import enqueue as arq_enqueue
 
+logger = get_logger("api.sponsors.payments")
 router = APIRouter(dependencies=[Depends(require_feature("feature_sponsors_enabled"))])
 
 
@@ -32,6 +34,8 @@ async def pay_bid(
     current_user: CurrentUser,
     _kyc=Depends(require_kyc()),
 ):
+    log_step(logger, "Paying bid", event_id=event_id, cat_id=cat_id, bid_id=bid_id, user_id=current_user.id)
+    logger.debug("Payment initiated", extra={"bid_id": bid_id})
     payment = await sponsor_svc.pay_bid(db, bid_id, current_user)
     from sqlalchemy import select as sa_select
     event_obj = (await db.execute(
@@ -63,6 +67,7 @@ async def refund_bid(
     db: DbSession,
     current_user: CurrentUser,
 ):
+    log_step(logger, "Refunding bid", event_id=event_id, cat_id=cat_id, bid_id=bid_id, user_id=current_user.id)
     from sqlalchemy import select as sa_select
     bid_obj = (await db.execute(
         sa_select(SponsorBid).where(SponsorBid.id == bid_id)
@@ -116,22 +121,26 @@ async def get_sponsor_payment_receipt(
         select(SponsorPayment).where(SponsorPayment.id == payment_id)
     )).scalar_one_or_none()
     if not payment:
+        logger.warning("Payment not found", extra={"payment_id": payment_id, "user_id": current_user.id})
         raise HTTPException(status_code=404, detail="Payment not found")
     bid = (await db.execute(
         select(SponsorBid).where(SponsorBid.id == payment.bid_id)
     )).scalar_one_or_none()
     if not bid:
+        logger.warning("Bid not found for receipt", extra={"payment_id": payment_id, "bid_id": payment.bid_id})
         raise HTTPException(status_code=404, detail="Bid not found")
     if bid.sponsor_user_id != current_user.id and current_user.role != UserRole.admin:
         cat_check = (await db.execute(
             select(SponsorshipCategory).where(SponsorshipCategory.id == bid.category_id)
         )).scalar_one_or_none()
         if not cat_check:
+            logger.warning("Not authorized to view receipt", extra={"payment_id": payment_id, "user_id": current_user.id})
             raise HTTPException(status_code=403, detail="Not authorized")
         evt_check = (await db.execute(
             select(Event).where(Event.id == cat_check.event_id)
         )).scalar_one_or_none()
         if not evt_check or evt_check.organizer_id != current_user.id:
+            logger.warning("Not authorized to view receipt", extra={"payment_id": payment_id, "user_id": current_user.id})
             raise HTTPException(status_code=403, detail="Not authorized")
     cat = (await db.execute(
         select(SponsorshipCategory).where(SponsorshipCategory.id == bid.category_id)

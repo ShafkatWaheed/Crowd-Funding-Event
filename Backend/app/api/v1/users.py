@@ -7,6 +7,9 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 
 from app.dependencies import CurrentUser, DbSession, ReadDbSession, require_role
+from app.logger import get_logger, log_step
+
+logger = get_logger("api.users")
 from app.rate_limit import limiter, dynamic_limit
 from app.models.user import User, UserRole
 from app.models.kyc_document import KycDocumentType
@@ -58,6 +61,7 @@ async def update_me(
     db: DbSession,
 ):
     """Update current user profile."""
+    log_step(logger, "Updating profile", user_id=current_user.id)
     if body.display_name is not None:
         current_user.display_name = body.display_name
     if body.phone is not None:

@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 
 from app.dependencies import DbSession, ReadDbSession, CurrentUser, require_feature, require_kyc
+from app.logger import get_logger, log_step
 from app.models.user import User
 from app.schemas.sponsor import BidCreate, BidUpdate, BidResponse
 from app.services import sponsor as sponsor_svc
@@ -12,6 +13,7 @@ from app.models.sponsor import SponsorshipCategory
 from app.models.event import Event
 from app.worker.redis_pool import enqueue as arq_enqueue
 
+logger = get_logger("api.sponsors.bids")
 router = APIRouter(dependencies=[Depends(require_feature("feature_sponsors_enabled"))])
 
 
@@ -64,6 +66,8 @@ async def place_bid(
     current_user: CurrentUser,
     _kyc=Depends(require_kyc()),
 ):
+    log_step(logger, "Placing bid", event_id=event_id, cat_id=cat_id, user_id=current_user.id, amount_cents=data.amount_cents)
+    logger.debug("Bid proposal", extra={"proposal_length": len(data.proposal_text or "")})
     bid = await sponsor_svc.place_bid(db, cat_id, current_user, data)
     from sqlalchemy import select as sel
     cat = (await db.execute(sel(SponsorshipCategory).where(SponsorshipCategory.id == cat_id))).scalar_one()
@@ -92,6 +96,7 @@ async def update_bid(
     db: DbSession,
     current_user: CurrentUser,
 ):
+    log_step(logger, "Updating bid", event_id=event_id, cat_id=cat_id, bid_id=bid_id, user_id=current_user.id)
     bid = await sponsor_svc.update_bid(db, bid_id, current_user, data)
     await db.commit()
     await db.refresh(bid)
@@ -109,6 +114,7 @@ async def withdraw_bid(
     db: DbSession,
     current_user: CurrentUser,
 ):
+    log_step(logger, "Withdrawing bid", event_id=event_id, cat_id=cat_id, bid_id=bid_id, user_id=current_user.id)
     bid = await sponsor_svc.withdraw_bid(db, bid_id, current_user)
     from sqlalchemy import select as sa_select
     event_obj = (await db.execute(
@@ -152,6 +158,7 @@ async def accept_bid(
     db: DbSession,
     current_user: CurrentUser,
 ):
+    log_step(logger, "Accepting bid", event_id=event_id, cat_id=cat_id, bid_id=bid_id, user_id=current_user.id)
     bid = await sponsor_svc.accept_bid(db, bid_id, current_user)
     await notif_svc.create_notification(
         db, user_id=bid.sponsor_user_id,
@@ -188,6 +195,7 @@ async def reject_bid(
     db: DbSession,
     current_user: CurrentUser,
 ):
+    log_step(logger, "Rejecting bid", event_id=event_id, cat_id=cat_id, bid_id=bid_id, user_id=current_user.id)
     bid = await sponsor_svc.reject_bid(db, bid_id, current_user)
     await notif_svc.create_notification(
         db, user_id=bid.sponsor_user_id,

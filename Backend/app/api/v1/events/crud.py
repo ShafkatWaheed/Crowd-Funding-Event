@@ -9,6 +9,7 @@ from fastapi.responses import Response
 from sqlalchemy import select
 
 from app.dependencies import CurrentUserOptional, DbSession, ReadDbSession, require_role, require_kyc
+from app.logger import get_logger, log_step
 from app.rate_limit import limiter, dynamic_limit
 from app.models.event import Event, EventStatus, RegistrationType
 from app.models.registration import Registration, RegistrationStatus
@@ -35,6 +36,7 @@ from ._helpers import (
 )
 
 router = APIRouter()
+logger = get_logger("api.events.crud")
 
 
 @limiter.limit(dynamic_limit("public_search", "60/minute"))
@@ -185,6 +187,7 @@ async def create_event(
     _kyc=Depends(require_kyc()),
 ):
     """Create event (organizer or admin). At least one of event date or funding deadline must be set."""
+    log_step(logger, "Creating event", user_id=current_user.id)
     start_time = _parse_iso_datetime(body.start_time) if body.start_time else None
     end_time = _parse_iso_datetime(body.end_time) if body.end_time else None
     funding_end_at = _parse_iso_datetime(body.funding_end_at) if body.funding_end_at else None
@@ -317,8 +320,10 @@ async def update_event(
     - Approved/live events: substantive edits move status to pending_approval.
     - Admin edits always apply without status change.
     """
+    log_step(logger, "Updating event", user_id=current_user.id, event_id=event_id)
     event = await event_service.get_or_404(db, event_id)
     if not await event_service.user_can_edit_event(db, event, current_user):
+        logger.warning("Update rejected: user cannot edit event", extra={"user_id": current_user.id, "event_id": event_id})
         raise ForbiddenError("You cannot update this event")
 
     _SUBSTANTIVE_FIELDS = {
@@ -418,6 +423,7 @@ async def delete_event(
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
     """Delete (draft/pending) or cancel event (main organizer, co-organizer, or admin)."""
+    log_step(logger, "Deleting event", user_id=current_user.id, event_id=event_id)
     event = await event_service.get_or_404(db, event_id)
     await event_service.delete_or_cancel(db, event, current_user)
     return {"ok": True}

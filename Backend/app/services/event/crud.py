@@ -11,6 +11,7 @@ from sqlalchemy import func, nulls_last, select, and_, or_, exists
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.logger import get_logger
 from app.models.event import Event, EventOrganizer, EventDiscount, OrganizerCustomerHistory, EventStatus, RegistrationType
 from app.models.discount_strategy import DiscountStrategy, EventDiscountStrategyLink
 from app.models.registration import Registration, RegistrationStatus
@@ -21,6 +22,9 @@ from app.models.funding import Funding, FundingStatus
 from app.core.exceptions import NotFoundError, ForbiddenError, ConflictError
 
 from app.services.event.permissions import user_can_edit_event
+
+log = get_logger(__name__)
+
 
 async def auto_transition_status(db: AsyncSession, event: Event) -> Event:
     """
@@ -37,11 +41,10 @@ async def auto_transition_status(db: AsyncSession, event: Event) -> Event:
       live → (end_time reaches now) → completed
       waiting_event_date → (event_date_deadline passes, no start_time) → cancelled + refund
     """
-    import logging
     from datetime import timedelta
+
     from app.services import platform_settings as settings_svc
 
-    log = logging.getLogger(__name__)
     now = datetime.now(timezone.utc)
     changed = False
     previous_status = event.status

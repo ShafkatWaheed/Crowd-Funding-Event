@@ -8,7 +8,6 @@ kyc_mock_enabled is true; otherwise returns a StripeIdentityKycService stub.
 from __future__ import annotations
 
 import asyncio
-import logging
 import os
 import random
 import uuid
@@ -24,7 +23,9 @@ from app.models.notification import NotificationType
 from app.models.user import User
 from app.services import platform_settings as settings_svc
 
-logger = logging.getLogger(__name__)
+from app.logger import get_logger
+
+logger = get_logger(__name__)
 
 MOCK_FAILURE_REASONS = [
     "document_unreadable",

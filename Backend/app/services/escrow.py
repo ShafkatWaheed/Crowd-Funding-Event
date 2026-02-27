@@ -1,7 +1,6 @@
 """
 Fund escrow service: create, release stages, freeze, get status.
 """
-import logging
 from datetime import datetime, timezone
 
 from sqlalchemy import select, func, or_
@@ -14,10 +13,11 @@ from app.models.event import Event, EventStatus
 from app.models.funding import Funding, FundingStatus
 from app.models.ticket import TicketSale, TicketSaleStatus
 from app.models.user import User
+from app.logger import get_logger
 from app.services import escrow_base
 from app.services import platform_settings as settings_svc
 
-logger = logging.getLogger("escrow")
+logger = get_logger("escrow")
 
 
 async def get_or_create(db: AsyncSession, *, event_id: int) -> FundEscrow:

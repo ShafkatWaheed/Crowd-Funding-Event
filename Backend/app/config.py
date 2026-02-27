@@ -42,6 +42,9 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379/0"
     CACHE_DEFAULT_TTL: int = 60  # seconds
 
+    # Logging
+    LOG_LEVEL: str = "INFO"  # DEBUG | INFO | WARNING | ERROR
+
     # ── Ticket QR Encryption (AES-256-GCM) ──
     TICKET_ENCRYPTION_KEY: str = ""  # 64-char hex string (32 bytes); empty = plaintext fallback (dev mode)
 

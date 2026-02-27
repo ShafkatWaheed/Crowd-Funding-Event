@@ -9,6 +9,9 @@ from firebase_admin import auth as firebase_auth
 from firebase_admin.credentials import Certificate
 
 from app.config import settings
+from app.logger import get_logger, log_step
+
+logger = get_logger("core.firebase")
 
 _firebase_app: Optional[firebase_admin.App] = None
 
@@ -37,6 +40,7 @@ def get_firebase_app() -> firebase_admin.App:
         )
     try:
         _firebase_app = firebase_admin.get_app()
+        logger.debug("Reusing existing Firebase app")
         return _firebase_app
     except ValueError:
         _firebase_app = None
@@ -46,8 +50,10 @@ def get_firebase_app() -> firebase_admin.App:
             cred,
             options={"projectId": settings.FIREBASE_PROJECT_ID.strip()},
         )
+        log_step(logger, "Firebase app initialized", project_id=settings.FIREBASE_PROJECT_ID.strip())
         return _firebase_app
     except Exception as e:
+        logger.error("Firebase initialization failed: %s", e)
         raise ValueError(
             f"Firebase is not configured: failed to initialize ({e!s}). "
             "Check that the credentials JSON is valid and FIREBASE_PROJECT_ID matches your Firebase project."
@@ -64,9 +70,13 @@ def verify_id_token(token: str) -> dict:
     try:
         decoded = firebase_auth.verify_id_token(token, check_revoked=True)
     except firebase_auth.RevokedIdTokenError:
+        logger.warning("Token verification failed: revoked")
         raise ValueError("Token has been revoked")
     except firebase_auth.ExpiredIdTokenError:
+        logger.warning("Token verification failed: expired")
         raise ValueError("Token has expired")
     except firebase_auth.InvalidIdTokenError:
+        logger.warning("Token verification failed: invalid")
         raise ValueError("Invalid token")
+    logger.debug("Token verified for uid=%s", decoded.get("uid"))
     return decoded

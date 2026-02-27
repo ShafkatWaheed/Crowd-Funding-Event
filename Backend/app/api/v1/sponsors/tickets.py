@@ -4,11 +4,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.dependencies import DbSession, ReadDbSession, CurrentUser, require_feature
+from app.logger import get_logger, log_step
 from app.models.sponsor import SponsorTicket, SponsorDelegate
 from app.rate_limit import limiter, dynamic_limit
 from app.schemas.sponsor import SponsorTicketResponse
 from app.services import sponsor as sponsor_svc
 
+logger = get_logger("api.sponsors.tickets")
 router = APIRouter(dependencies=[Depends(require_feature("feature_sponsors_enabled"))])
 
 
@@ -56,11 +58,16 @@ async def scan_sponsor_ticket(
 ):
     from app.services import event as event_service
     from app.core.exceptions import ForbiddenError as Forbidden
+
+    log_step(logger, "Scanning sponsor ticket", event_id=event_id, user_id=current_user.id)
+    logger.debug("Scan request", extra={"payload_length": len(body.get("encrypted_payload", ""))})
     event = await event_service.get_or_404(db, event_id)
     if not await event_service.user_can_scan_tickets(db, event, current_user):
+        logger.warning("User cannot scan tickets for event", extra={"event_id": event_id, "user_id": current_user.id})
         raise Forbidden("You cannot scan tickets for this event")
     payload = body.get("encrypted_payload", "")
     if not payload:
+        logger.warning("Missing encrypted_payload in scan request", extra={"event_id": event_id, "user_id": current_user.id})
         raise HTTPException(status_code=400, detail="encrypted_payload required")
     result = await sponsor_svc.scan_sponsor_ticket(db, event_id, payload)
     await db.commit()
@@ -75,8 +82,10 @@ async def scanned_sponsor_tickets(
 ):
     from app.services import event as event_service
     from app.core.exceptions import ForbiddenError as Forbidden
+
     event = await event_service.get_or_404(db, event_id)
     if not await event_service.user_can_scan_tickets(db, event, current_user):
+        logger.warning("User cannot view scanned tickets", extra={"event_id": event_id, "user_id": current_user.id})
         raise Forbidden("You cannot view scanned tickets for this event")
 
     q = (

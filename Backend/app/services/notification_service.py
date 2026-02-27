@@ -3,7 +3,6 @@ In-app notification service.
 """
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 from sqlalchemy import delete, func, select, update
@@ -11,7 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.notification import Notification, NotificationType
 
-logger = logging.getLogger("notifications")
+from app.logger import get_logger
+
+logger = get_logger("notifications")
 
 
 async def create_notification(

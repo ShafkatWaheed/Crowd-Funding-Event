@@ -5,6 +5,8 @@ milestone snapshots, and early bird discounts.
 from datetime import datetime, timezone
 
 from sqlalchemy import func, select
+
+from app.logger import get_logger, log_step
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError, ForbiddenError, ConflictError
@@ -28,6 +30,8 @@ from app.schemas.milestone import (
 )
 from app.services import event as event_service
 from app.services import funding as funding_service
+
+logger = get_logger("svc.milestone")
 
 
 async def _get_or_404(db: AsyncSession, milestone_id: int) -> FundingMilestone:
@@ -77,16 +81,20 @@ async def list_milestones(db: AsyncSession, event_id: int) -> list[MilestoneResp
 async def create_milestone(
     db: AsyncSession, event_id: int, data: MilestoneCreate, user: User
 ) -> MilestoneResponse:
+    log_step(logger, "Create milestone", event_id=event_id, user_id=user.id)
     event = await event_service.get_or_404(db, event_id)
     if not await event_service.user_can_edit_event(db, event, user):
+        logger.warning("Create milestone: forbidden", extra={"event_id": event_id})
         raise ForbiddenError("Only the organizer can manage milestones")
     if not event.funding_goal_cents:
+        logger.warning("Create milestone: no funding goal", extra={"event_id": event_id})
         raise ConflictError("Milestones require a funding goal to be set")
     if event.status not in (
         EventStatus.draft,
         EventStatus.pending_approval,
         EventStatus.approved,
     ):
+        logger.warning("Create milestone: invalid event status", extra={"event_id": event_id, "status": event.status.value})
         raise ConflictError("Milestones can only be managed before funding ends")
 
     ms = FundingMilestone(
@@ -101,21 +109,25 @@ async def create_milestone(
     await db.flush()
     await db.refresh(ms)
     pct = await _compute_funding_percent(db, event)
+    logger.info("Milestone created", extra={"milestone_id": ms.id, "event_id": event_id})
     return _milestone_to_response(ms, pct)
 
 
 async def update_milestone(
     db: AsyncSession, milestone_id: int, data: MilestoneUpdate, user: User
 ) -> MilestoneResponse:
+    log_step(logger, "Update milestone", milestone_id=milestone_id, user_id=user.id)
     ms = await _get_or_404(db, milestone_id)
     event = await event_service.get_or_404(db, ms.event_id)
     if not await event_service.user_can_edit_event(db, event, user):
+        logger.warning("Update milestone: forbidden", extra={"milestone_id": milestone_id})
         raise ForbiddenError("Only the organizer can manage milestones")
     if event.status not in (
         EventStatus.draft,
         EventStatus.pending_approval,
         EventStatus.approved,
     ):
+        logger.warning("Update milestone: invalid event status", extra={"milestone_id": milestone_id})
         raise ConflictError("Milestones can only be managed before funding ends")
 
     update_data = data.model_dump(exclude_unset=True)
@@ -124,22 +136,27 @@ async def update_milestone(
     await db.flush()
     await db.refresh(ms)
     pct = await _compute_funding_percent(db, event)
+    logger.info("Milestone updated", extra={"milestone_id": ms.id})
     return _milestone_to_response(ms, pct)
 
 
 async def delete_milestone(db: AsyncSession, milestone_id: int, user: User) -> None:
+    log_step(logger, "Delete milestone", milestone_id=milestone_id, user_id=user.id)
     ms = await _get_or_404(db, milestone_id)
     event = await event_service.get_or_404(db, ms.event_id)
     if not await event_service.user_can_edit_event(db, event, user):
+        logger.warning("Delete milestone: forbidden", extra={"milestone_id": milestone_id})
         raise ForbiddenError("Only the organizer can manage milestones")
     if event.status not in (
         EventStatus.draft,
         EventStatus.pending_approval,
         EventStatus.approved,
     ):
+        logger.warning("Delete milestone: invalid event status", extra={"milestone_id": milestone_id})
         raise ConflictError("Milestones can only be managed before funding ends")
     await db.delete(ms)
     await db.flush()
+    logger.info("Milestone deleted", extra={"milestone_id": milestone_id})
 
 
 async def react_to_milestone(

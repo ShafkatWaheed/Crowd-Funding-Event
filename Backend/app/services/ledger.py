@@ -7,9 +7,13 @@ Provides balance verification and per-account summaries.
 from __future__ import annotations
 
 from sqlalchemy import func, select
+
+from app.logger import get_logger, log_step
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.ledger_entry import LedgerEntry
+
+logger = get_logger("svc.ledger")
 
 
 async def record_entries(
@@ -22,6 +26,7 @@ async def record_entries(
 
     Each entry dict: {"type": "debit"|"credit", "account": str, "amount_cents": int, "description": str}
     """
+    log_step(logger, "Recording ledger entries", transaction_id=transaction_id, entry_count=len(entries))
     rows = []
     for e in entries:
         row = LedgerEntry(
@@ -34,6 +39,7 @@ async def record_entries(
         db.add(row)
         rows.append(row)
     await db.flush()
+    logger.info("Ledger entries recorded", extra={"transaction_id": transaction_id, "entry_count": len(rows)})
     return rows
 
 
@@ -51,6 +57,7 @@ async def record_charge(
     description: str = "",
 ) -> list[LedgerEntry]:
     """Record a full charge with fee/tax breakdown."""
+    log_step(logger, "Recording charge", transaction_id=transaction_id, customer_id=customer_id, total_cents=total_cents)
     entries = [
         {"type": "debit", "account": f"customer_{customer_id}",
          "amount_cents": total_cents, "description": description},
@@ -72,6 +79,7 @@ async def record_charge(
 
 async def verify_balance(db: AsyncSession) -> dict:
     """Verify total debits equal total credits and return per-account balances."""
+    log_step(logger, "Verifying ledger balance")
     total_debits = (await db.execute(
         select(func.coalesce(func.sum(LedgerEntry.amount_cents), 0)).where(
             LedgerEntry.entry_type == "debit"
@@ -99,12 +107,23 @@ async def verify_balance(db: AsyncSession) -> dict:
     )
     rows = (await db.execute(account_balances_q)).all()
     accounts = {row.account: int(row.balance) for row in rows}
-
+    delta = int(total_debits) - int(total_credits)
+    balanced = int(total_debits) == int(total_credits)
+    logger.debug(
+        "Balance verification",
+        extra={
+            "total_debits_cents": int(total_debits),
+            "total_credits_cents": int(total_credits),
+            "balanced": balanced,
+            "delta_cents": delta,
+            "account_count": len(accounts),
+        },
+    )
     return {
         "total_debits_cents": int(total_debits),
         "total_credits_cents": int(total_credits),
-        "balanced": int(total_debits) == int(total_credits),
-        "delta_cents": int(total_debits) - int(total_credits),
+        "balanced": balanced,
+        "delta_cents": delta,
         "accounts": accounts,
     }
 

@@ -12,13 +12,13 @@ from __future__ import annotations
 
 import base64
 import json
-import logging
 import os
 from functools import lru_cache
 
 from app.config import settings
+from app.logger import get_logger
 
-log = logging.getLogger(__name__)
+log = get_logger(__name__)
 
 _PAYLOAD_VERSION = 1
 

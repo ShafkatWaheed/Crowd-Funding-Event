@@ -7,15 +7,15 @@ matching the ARQ pattern in app.worker.redis_pool.
 from __future__ import annotations
 
 import json
-import logging
 import re
 from typing import Any
 
 import redis.asyncio as aioredis
 
 from app.config import settings
+from app.logger import get_logger
 
-logger = logging.getLogger("app.cache")
+logger = get_logger("app.cache")
 
 _client: aioredis.Redis | None = None
 _enabled: bool = True

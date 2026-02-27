@@ -5,9 +5,12 @@ Current user profile: see users router (GET /me).
 from fastapi import APIRouter, HTTPException, Request
 
 from app.dependencies import DbSession
+from app.logger import get_logger, log_step
 from app.rate_limit import limiter, dynamic_limit
 from app.schemas import VerifyBody, VerifyResponse
 from app.services import auth as auth_service
+
+logger = get_logger("api.auth")
 
 router = APIRouter()
 
@@ -16,6 +19,7 @@ router = APIRouter()
 @limiter.limit(dynamic_limit("auth_verify", "10/minute"))
 async def verify(request: Request, body: VerifyBody, db: DbSession):
     """Verify Firebase ID token and create/update user. New users can sign up as customer or organizer via body.role."""
+    log_step(logger, "Verifying Firebase token", role=body.role)
     try:
         user = await auth_service.verify_and_upsert_user(
             db,
@@ -26,6 +30,7 @@ async def verify(request: Request, body: VerifyBody, db: DbSession):
             birthday=body.birthday,
         )
     except ValueError as e:
+        logger.warning("Auth verify failed", extra={"error": str(e)})
         raise HTTPException(status_code=401, detail=str(e))
     return VerifyResponse(
         user_id=user.id,

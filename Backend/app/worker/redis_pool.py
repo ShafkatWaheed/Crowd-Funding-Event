@@ -5,15 +5,15 @@ Use `enqueue()` for fire-and-forget tasks that fall back to inline if Redis is d
 """
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 from arq import create_pool
 from arq.connections import ArqRedis, RedisSettings
 
 from app.config import settings
+from app.logger import get_logger
 
-logger = logging.getLogger("arq.pool")
+logger = get_logger("arq.pool")
 
 _pool: ArqRedis | None = None
 

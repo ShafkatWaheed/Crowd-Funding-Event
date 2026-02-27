@@ -6,9 +6,11 @@ from pydantic import BaseModel
 from sqlalchemy import select, delete as sa_delete
 
 from app.dependencies import CurrentUser, DbSession, ReadDbSession
+from app.logger import get_logger, log_step
 from app.models.device_token import DeviceToken
 from app.services import notification_service as notif_svc
 
+logger = get_logger("api.notifications")
 router = APIRouter()
 
 
@@ -58,6 +60,7 @@ async def mark_notification_read(
     current_user: CurrentUser,
 ):
     """Mark a single notification as read."""
+    log_step(logger, "Marking notification read", notification_id=notification_id, user_id=current_user.id)
     ok = await notif_svc.mark_read(db, notification_id=notification_id, user_id=current_user.id)
     return {"success": ok}
 
@@ -65,6 +68,7 @@ async def mark_notification_read(
 @router.patch("/notifications/read-all")
 async def mark_all_notifications_read(db: DbSession, current_user: CurrentUser):
     """Mark all notifications as read for the current user."""
+    log_step(logger, "Marking all notifications read", user_id=current_user.id)
     count = await notif_svc.mark_all_read(db, user_id=current_user.id)
     return {"marked_read": count}
 

@@ -7,7 +7,6 @@ All are safe to call directly or via BackgroundTasks — they never raise.
 
 from __future__ import annotations
 
-import logging
 from datetime import datetime, timezone
 from typing import Any
 
@@ -15,10 +14,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.logger import get_logger
 from app.services.email_service import send_email, send_email_bulk
 from app.services import email_templates as tpl
 
-logger = logging.getLogger("email_notifications")
+logger = get_logger("email_notifications")
 
 
 def _format_date(dt: datetime | None) -> str | None:

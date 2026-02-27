@@ -4,6 +4,8 @@ from datetime import datetime
 
 from fastapi import HTTPException
 from sqlalchemy import select
+
+from app.logger import get_logger, log_step
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
@@ -17,6 +19,8 @@ from app.models.sponsor import (
 )
 
 from app.services.sponsor.categories import _get_category, list_categories, _require_organizer
+
+logger = get_logger("svc.sponsor.payments")
 
 
 async def _ensure_sponsor_ticket(
@@ -61,21 +65,25 @@ async def _ensure_sponsor_ticket(
 
 
 async def pay_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorPayment:
-    """Sponsor pays for an accepted bid. Creates payment + auto-generates sponsor ticket."""
+    log_step(logger, "Process sponsor payment", bid_id=bid_id, user_id=user.id)
     bid = (await db.execute(
         select(SponsorBid).where(SponsorBid.id == bid_id)
     )).scalar_one_or_none()
     if not bid:
+        logger.warning("Pay bid: not found", extra={"bid_id": bid_id})
         raise HTTPException(status_code=404, detail="Bid not found")
     if bid.sponsor_user_id != user.id:
+        logger.warning("Pay bid: not owner", extra={"bid_id": bid_id, "user_id": user.id})
         raise HTTPException(status_code=403, detail="Not your bid")
     if bid.status != BidStatus.accepted:
+        logger.warning("Pay bid: not accepted", extra={"bid_id": bid_id, "status": bid.status.value})
         raise HTTPException(status_code=400, detail="Can only pay for accepted bids")
 
     existing_payment = (await db.execute(
         select(SponsorPayment).where(SponsorPayment.bid_id == bid_id)
     )).scalar_one_or_none()
     if existing_payment:
+        logger.warning("Pay bid: already paid", extra={"bid_id": bid_id})
         raise HTTPException(status_code=409, detail="Bid already paid")
 
     from app.services import platform_settings as settings_svc
@@ -148,29 +156,34 @@ async def pay_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorPayment:
     except Exception:
         pass
 
+    logger.info("Sponsor payment completed", extra={"payment_id": payment.id, "bid_id": bid_id, "amount_cents": bid.amount_cents})
     return payment
 
 
 async def refund_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorPayment:
-    """Organizer refunds a paid bid."""
+    log_step(logger, "Refund sponsor bid", bid_id=bid_id, user_id=user.id)
     bid = (await db.execute(
         select(SponsorBid).where(SponsorBid.id == bid_id)
     )).scalar_one_or_none()
     if not bid:
+        logger.warning("Refund bid: not found", extra={"bid_id": bid_id})
         raise HTTPException(status_code=404, detail="Bid not found")
 
     cat = await _get_category(db, bid.category_id)
     await _require_organizer(db, cat.event_id, user)
 
     if bid.status != BidStatus.paid:
+        logger.warning("Refund bid: not paid", extra={"bid_id": bid_id, "status": bid.status.value})
         raise HTTPException(status_code=400, detail="Can only refund paid bids")
 
     payment = (await db.execute(
         select(SponsorPayment).where(SponsorPayment.bid_id == bid_id)
     )).scalar_one_or_none()
     if not payment:
+        logger.warning("Refund bid: payment not found", extra={"bid_id": bid_id})
         raise HTTPException(status_code=404, detail="Payment not found")
     if payment.status != PaymentStatus.completed:
+        logger.warning("Refund bid: payment not completed", extra={"bid_id": bid_id})
         raise HTTPException(status_code=400, detail="Payment already refunded")
 
     payment.status = PaymentStatus.refund_processing
@@ -216,6 +229,7 @@ async def refund_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorPaymen
 
     from app.worker.redis_pool import enqueue
     await enqueue("process_sponsor_refund", payment.id)
+    logger.info("Sponsor refund initiated", extra={"payment_id": payment.id, "bid_id": bid_id})
 
     return payment
 

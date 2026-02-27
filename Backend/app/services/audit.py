@@ -1,5 +1,7 @@
 """Admin audit log service."""
 from sqlalchemy import func, select
+
+from app.logger import get_logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.audit_log import AuditLog
@@ -14,6 +16,7 @@ async def log_action(
     target_id: str | int | None = None,
     details: dict | None = None,
 ) -> AuditLog:
+    logger.debug("Audit entry creation", extra={"admin_id": admin_id, "action": action, "target_type": target_type, "target_id": target_id})
     entry = AuditLog(
         admin_id=admin_id,
         action=action,

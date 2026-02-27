@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 
 from app.dependencies import CurrentUser, DbSession, ReadDbSession, require_role, require_kyc
+from app.logger import get_logger, log_step
 from app.models.event import EventStatus
 from app.models.registration import Registration, RegistrationStatus
 from app.models.user import User, UserRole
@@ -18,6 +19,7 @@ from app.models.notification import NotificationType
 from app.rate_limit import limiter, dynamic_limit
 
 router = APIRouter()
+logger = get_logger("api.events.registration")
 
 
 @router.post("/{event_id}/register")
@@ -30,6 +32,7 @@ async def register_event(
     _kyc=Depends(require_kyc()),
 ):
     """Register for event (open: first-come; closed: request)."""
+    log_step(logger, "Registering for event", user_id=current_user.id, event_id=event_id)
     reg = await registration_service.register(db, event_id=event_id, user=current_user)
     if reg.status.value == "registered":
         await notif_svc.create_notification(
@@ -90,12 +93,14 @@ async def unregister_event(
     current_user: User = Depends(require_role(UserRole.customer)),
 ):
     """Customer unregisters from event."""
+    log_step(logger, "Unregistering from event", user_id=current_user.id, event_id=event_id)
     event = await event_service.get_or_404(db, event_id)
     blocked_statuses = (
         EventStatus.selling_tickets, EventStatus.waiting_event_date,
         EventStatus.live, EventStatus.completed,
     )
     if event.status in blocked_statuses:
+        logger.warning("Unregister rejected: event in blocked state", extra={"user_id": current_user.id, "event_id": event_id, "status": event.status.value})
         raise HTTPException(
             status_code=409,
             detail=f"Cannot unregister — event is in '{event.status.value}' state",

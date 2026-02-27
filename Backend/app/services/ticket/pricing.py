@@ -2,6 +2,8 @@
 Ticket price computation (discounts, pledge, milestone, early bird).
 """
 from sqlalchemy import func, select
+
+from app.logger import get_logger, log_step
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.event import EventDiscount
@@ -11,6 +13,8 @@ from app.models.ticket import UserEventDiscount
 from app.services import event as event_service
 
 from app.services.ticket.tiers import get_tier_or_404
+
+logger = get_logger("svc.ticket.pricing")
 
 
 async def compute_ticket_price(
@@ -27,6 +31,7 @@ async def compute_ticket_price(
     event = await event_service.get_or_404(db, event_id)
     tier = await get_tier_or_404(db, event_id=event_id, tier_id=tier_id)
     base = tier.price_cents
+    logger.debug("compute_ticket_price input", extra={"event_id": event_id, "user_id": user_id, "tier_id": tier_id, "base_cents": base})
 
     if base == 0:
         return {
@@ -188,6 +193,19 @@ async def compute_ticket_price(
     cap_cents = base * getattr(event, "max_discount_percent", 100) // 100
     total_discount = min(raw_total, cap_cents, base)
     final = max(0, base - total_discount)
+    logger.debug(
+        "Price calculation result",
+        extra={
+            "event_id": event_id,
+            "user_id": user_id,
+            "tier_id": tier_id,
+            "final_price_cents": final,
+            "total_discount_cents": total_discount,
+            "pledge_discount_cents": pledge_cents,
+            "milestone_discount_cents": milestone_cents,
+            "early_bird_discount_cents": early_bird_cents,
+        },
+    )
     return {
         "tier_price_cents": base,
         "common_discount_cents": common_cents,

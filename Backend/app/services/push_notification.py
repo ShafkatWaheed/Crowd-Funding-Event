@@ -7,15 +7,15 @@ Automatically cleans up stale tokens (UNREGISTERED).
 """
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.logger import get_logger
 from app.models.device_token import DeviceToken
 
-logger = logging.getLogger("push_notification")
+logger = get_logger("push_notification")
 
 
 async def send_push(

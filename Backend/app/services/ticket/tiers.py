@@ -2,6 +2,8 @@
 Ticket tier CRUD and user discount (selective) management.
 """
 from sqlalchemy import func, select
+
+from app.logger import get_logger, log_step
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Sequence
 
@@ -10,6 +12,8 @@ from app.models.event import Event
 from app.models.ticket import TicketSale, TicketTier, UserEventDiscount
 from app.models.user import User
 from app.services import event as event_service
+
+logger = get_logger("svc.ticket.tiers")
 
 
 async def _can_manage_event_tickets(db: AsyncSession, user: User, event: Event) -> bool:
@@ -59,11 +63,14 @@ async def create_tier(
     max_reserved_spots: int = 0,
     display_order: int = 0,
 ) -> TicketTier:
+    log_step(logger, "Creating tier", event_id=event_id, name=name, price_cents=price_cents)
     event = await event_service.get_or_404(db, event_id)
     if not await _can_manage_event_tickets(db, user, event):
+        logger.warning("Create tier rejected: no permission", extra={"event_id": event_id})
         raise ForbiddenError("Only the event organizer or admin can manage ticket tiers")
     from app.models.event import EventStatus
     if event.status in (EventStatus.live, EventStatus.completed):
+        logger.warning("Create tier rejected: event live or completed", extra={"event_id": event_id})
         raise ConflictError("Cannot add tiers while the event is live or completed")
     if price_cents < 0:
         raise ConflictError("price_cents must be >= 0")
@@ -78,6 +85,7 @@ async def create_tier(
     db.add(tier)
     await db.flush()
     await db.refresh(tier)
+    logger.info("Tier created", extra={"event_id": event_id, "tier_id": tier.id, "name": name})
     return tier
 
 
@@ -92,11 +100,13 @@ async def update_tier(
     max_reserved_spots: int | None = None,
     display_order: int | None = None,
 ) -> TicketTier:
+    log_step(logger, "Updating tier", event_id=tier.event_id, tier_id=tier.id)
     event = await event_service.get_or_404(db, tier.event_id)
     if not await _can_manage_event_tickets(db, user, event):
         raise ForbiddenError("Only the event organizer or admin can manage ticket tiers")
     if price_cents is not None and price_cents != tier.price_cents:
         if await _tier_has_sales(db, tier.id):
+            logger.warning("Update tier rejected: price change on tier with sales", extra={"tier_id": tier.id})
             raise ConflictError("Cannot change price after tickets have been sold for this tier")
     if name is not None:
         tier.name = name
@@ -114,6 +124,7 @@ async def update_tier(
         tier.display_order = display_order
     await db.flush()
     await db.refresh(tier)
+    logger.info("Tier updated", extra={"event_id": tier.event_id, "tier_id": tier.id})
     return tier
 
 

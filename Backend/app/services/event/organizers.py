@@ -1,8 +1,6 @@
 """
 Event co-organizers: list, add (invite), remove, update permission, respond, self-remove.
 """
-import logging
-
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -12,10 +10,11 @@ from app.models.notification import NotificationType
 from app.models.user import User
 from app.core.exceptions import NotFoundError, ForbiddenError, ConflictError
 
+from app.logger import get_logger
 from app.services.event.crud import get_by_id, get_or_404
 from app.services.event.permissions import is_main_organizer
 
-logger = logging.getLogger("co_organizers")
+logger = get_logger("co_organizers")
 
 
 async def _notify(db: AsyncSession, user_id: int, type: NotificationType, title: str, message: str, data: dict | None = None):

@@ -12,12 +12,13 @@ the function queries the ``EmailTemplate`` table for a matching
 
 from __future__ import annotations
 
-import logging
 import re
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-_logger = logging.getLogger(__name__)
+from app.logger import get_logger
+
+_logger = get_logger(__name__)
 
 
 async def _try_db_template(

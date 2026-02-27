@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Reques
 from sqlalchemy import select
 
 from app.dependencies import DbSession, ReadDbSession, require_role
+from app.logger import get_logger, log_step
 from app.rate_limit import limiter, dynamic_limit
 from app.services.upload_validation import validate_upload
 from app.models.image import EventImage
@@ -17,6 +18,7 @@ from app.core.exceptions import ForbiddenError, NotFoundError
 from app.services import event as event_service
 
 router = APIRouter()
+logger = get_logger("api.events.images")
 
 
 @router.get("/{event_id}/images", response_model=list[EventImageResponse])
@@ -41,8 +43,10 @@ async def add_event_image(
     display_order: int = Query(0),
 ):
     """Add an image to event by URL (organizer/admin)."""
+    log_step(logger, "Adding event image by URL", user_id=current_user.id, event_id=event_id)
     event = await event_service.get_or_404(db, event_id)
     if not await event_service.user_can_edit_event(db, event, current_user):
+        logger.warning("Image operation rejected: user cannot edit event", extra={"user_id": current_user.id, "event_id": event_id})
         raise ForbiddenError("You cannot manage this event")
     policy = await event_service.get_effective_policy(db, event)
     max_imgs = policy.get("event_max_images")
@@ -52,6 +56,7 @@ async def add_event_image(
             select(_fn.count()).where(EventImage.event_id == event_id)
         )).scalar_one()
         if int(current) >= max_imgs:
+            logger.warning("Add image rejected: max images reached", extra={"event_id": event_id, "max_imgs": max_imgs})
             raise HTTPException(status_code=409, detail=f"Max {max_imgs} images per event")
     img = EventImage(
         event_id=event_id,
@@ -77,8 +82,10 @@ async def upload_event_image(
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
     """Upload an image file for an event (organizer/admin)."""
+    log_step(logger, "Uploading event image", user_id=current_user.id, event_id=event_id)
     event = await event_service.get_or_404(db, event_id)
     if not await event_service.user_can_edit_event(db, event, current_user):
+        logger.warning("Image operation rejected: user cannot edit event", extra={"user_id": current_user.id, "event_id": event_id})
         raise ForbiddenError("You cannot manage this event")
     policy = await event_service.get_effective_policy(db, event)
     max_imgs = policy.get("event_max_images")
@@ -88,6 +95,7 @@ async def upload_event_image(
             select(_fn.count()).where(EventImage.event_id == event_id)
         )).scalar_one()
         if int(current) >= max_imgs:
+            logger.warning("Upload image rejected: max images reached", extra={"event_id": event_id, "max_imgs": max_imgs})
             raise HTTPException(status_code=409, detail=f"Max {max_imgs} images per event")
 
     contents = await validate_upload(db, file, "image")
@@ -123,8 +131,10 @@ async def delete_event_image(
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
     """Delete an image from event (organizer/admin)."""
+    log_step(logger, "Deleting event image", user_id=current_user.id, event_id=event_id, image_id=image_id)
     event = await event_service.get_or_404(db, event_id)
     if not await event_service.user_can_edit_event(db, event, current_user):
+        logger.warning("Image operation rejected: user cannot edit event", extra={"user_id": current_user.id, "event_id": event_id})
         raise ForbiddenError("You cannot manage this event")
     q = select(EventImage).where(EventImage.id == image_id, EventImage.event_id == event_id)
     result = await db.execute(q)

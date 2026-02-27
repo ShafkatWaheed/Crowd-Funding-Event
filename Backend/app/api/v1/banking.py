@@ -6,6 +6,10 @@ from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Body, Depends, Query, Request
 from pydantic import BaseModel, field_validator
+
+from app.logger import get_logger, log_step
+
+logger = get_logger("api.banking")
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -67,6 +71,7 @@ async def get_payment_info(db: ReadDbSession, current_user: CurrentUser):
 @router.put("/me/payment-info", response_model=PaymentInfoResponse)
 @limiter.limit(dynamic_limit("payment_action", "10/minute"))
 async def update_payment_info(request: Request, body: PaymentInfoUpdate, db: DbSession, current_user: CurrentUser):
+    log_step(logger, "Updating payment info", user_id=current_user.id)
     info = (await db.execute(
         select(UserPaymentInfo).where(UserPaymentInfo.user_id == current_user.id)
     )).scalar_one_or_none()
@@ -164,6 +169,7 @@ async def update_bank_account(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.organizer)),
 ):
+    log_step(logger, "Updating bank account", user_id=current_user.id)
     from app.models.payment_info import BankVerificationStatus
     from app.services import notification_service as notif_svc
     from app.models.notification import NotificationType
@@ -239,6 +245,7 @@ async def delete_bank_account(
     """Bank account cannot be deleted once set. Use update to change details."""
     from app.core.exceptions import ForbiddenError
 
+    logger.warning("Bank account delete forbidden", extra={"user_id": current_user.id})
     raise ForbiddenError(
         "Bank account cannot be deleted. You can update your bank details via the form."
     )
@@ -270,6 +277,7 @@ async def request_refund_retry(
     if not event:
         raise NotFoundError("Event", event_id)
     if event.organizer_id != current_user.id:
+        logger.warning("Refund retry forbidden: not organizer", extra={"event_id": event_id, "user_id": current_user.id})
         raise ForbiddenError("You are not the organizer of this event")
 
     count = await refund_retry.count_failed_refunds_for_event(db, event_id)
@@ -514,6 +522,7 @@ async def update_platform_account(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
+    log_step(logger, "Updating platform account", admin_id=current_user.id)
     await settings_svc.set_value(db, "platform_holding_bank_name", enc.encrypt(body.bank_name))
     await settings_svc.set_value(db, "platform_holding_account_number", enc.encrypt(body.account_number))
     await settings_svc.set_value(db, "platform_holding_routing_number", enc.encrypt(body.routing_number))
@@ -948,6 +957,7 @@ async def create_dispute(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
+    log_step(logger, "Creating dispute", transaction_id=body.transaction_id, event_id=body.event_id, admin_id=current_user.id)
     dispute = Dispute(
         transaction_id=body.transaction_id,
         event_id=body.event_id,
@@ -990,6 +1000,7 @@ async def resolve_dispute(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
+    log_step(logger, "Resolving dispute", dispute_id=dispute_id, outcome=body.outcome, admin_id=current_user.id)
     dispute = (await db.execute(
         select(Dispute).where(Dispute.id == dispute_id)
     )).scalar_one_or_none()

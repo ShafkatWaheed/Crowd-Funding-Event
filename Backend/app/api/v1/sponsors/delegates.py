@@ -3,11 +3,13 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 
 from app.dependencies import DbSession, ReadDbSession, CurrentUser, require_feature
+from app.logger import get_logger, log_step
 from app.rate_limit import limiter, dynamic_limit
 from app.services import sponsor as sponsor_svc
 from app.services.platform_settings import get_int
 
 
+logger = get_logger("api.sponsors.delegates")
 router = APIRouter(dependencies=[Depends(require_feature("feature_sponsors_enabled"))])
 
 
@@ -46,6 +48,7 @@ async def add_delegate(
     db: DbSession,
     current_user: CurrentUser,
 ):
+    log_step(logger, "Adding delegate", ticket_id=ticket_id, user_id=current_user.id, delegate_name=body.name)
     max_delegates = await get_int(db, "max_sponsor_delegates_per_ticket")
     delegate = await sponsor_svc.add_delegate(
         db,
@@ -76,6 +79,7 @@ async def remove_delegate(
     db: DbSession,
     current_user: CurrentUser,
 ):
+    log_step(logger, "Removing delegate", ticket_id=ticket_id, delegate_id=delegate_id, user_id=current_user.id)
     await sponsor_svc.remove_delegate(db, delegate_id, current_user.id)
     await db.commit()
     return {"ok": True}
@@ -93,8 +97,10 @@ async def check_in_delegate(
     from app.services import event as event_service
     from app.core.exceptions import ForbiddenError as Forbidden
 
+    log_step(logger, "Checking in delegate", event_id=event_id, delegate_id=delegate_id, user_id=current_user.id)
     event = await event_service.get_or_404(db, event_id)
     if not await event_service.user_can_scan_tickets(db, event, current_user):
+        logger.warning("User cannot scan tickets for event", extra={"event_id": event_id, "user_id": current_user.id})
         raise Forbidden("You cannot scan tickets for this event")
 
     result = await sponsor_svc.check_in_delegate(db, delegate_id)

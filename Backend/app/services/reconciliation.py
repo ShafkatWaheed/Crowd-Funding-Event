@@ -6,6 +6,8 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 
 from sqlalchemy import func, select
+
+from app.logger import get_logger, log_step
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.payment_mock_ledger import MockLedgerStatus, PaymentMockLedger
@@ -13,10 +15,13 @@ from app.models.reconciliation import ReconciliationReport
 from app.services import ledger as ledger_svc
 from app.services import platform_settings as settings_svc
 
+logger = get_logger("svc.reconciliation")
+
 
 async def run_reconciliation(db: AsyncSession) -> ReconciliationReport:
     """Run a reconciliation check and store the result."""
     today = date.today()
+    log_step(logger, "Running reconciliation", run_date=str(today))
 
     existing = (await db.execute(
         select(ReconciliationReport).where(ReconciliationReport.run_date == today)
@@ -51,6 +56,15 @@ async def run_reconciliation(db: AsyncSession) -> ReconciliationReport:
 
     delta = actual_balance - expected
     status = "balanced" if abs(delta) <= 100 else "discrepancy"
+    if status == "discrepancy":
+        logger.warning(
+            "Reconciliation delta mismatch",
+            extra={
+                "actual_balance_cents": actual_balance,
+                "expected_balance_cents": expected,
+                "delta_cents": delta,
+            },
+        )
 
     report = ReconciliationReport(
         run_date=today,
@@ -61,4 +75,5 @@ async def run_reconciliation(db: AsyncSession) -> ReconciliationReport:
     )
     db.add(report)
     await db.flush()
+    logger.info("Reconciliation run completed", extra={"run_date": str(today), "status": status, "delta_cents": delta})
     return report

@@ -11,7 +11,6 @@ Provides:
 """
 from __future__ import annotations
 
-import logging
 import re
 from typing import Callable
 
@@ -20,7 +19,9 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
-logger = logging.getLogger("rate_limit")
+from app.logger import get_logger
+
+logger = get_logger("rate_limit")
 
 _VALID_LIMIT = re.compile(r"^\d+/(second|minute|hour|day)$")
 

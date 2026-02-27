@@ -9,6 +9,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.logger import get_logger, log_step
+
 from app.core.exceptions import ConflictError, ForbiddenError, NotFoundError
 from app.models.event import Event
 from app.models.registration import Registration, RegistrationStatus
@@ -18,6 +20,8 @@ from app.services import event as event_service
 
 from app.services.ticket.pricing import compute_ticket_price
 from app.services.ticket.tiers import _can_manage_event_tickets, get_tier_or_404
+
+logger = get_logger("svc.ticket.sales")
 
 
 async def purchase_ticket(
@@ -30,7 +34,9 @@ async def purchase_ticket(
     extra_perks: str | None = None,
 ) -> list[TicketSale]:
     """Customer purchases one or more tickets. Must be registered."""
+    log_step(logger, "Purchasing tickets", event_id=event_id, user_id=user.id, tier_id=tier_id, quantity=quantity)
     if quantity < 1:
+        logger.warning("Ticket purchase rejected: invalid quantity", extra={"event_id": event_id, "user_id": user.id, "quantity": quantity})
         raise ConflictError("Quantity must be at least 1")
 
     from app.services import platform_settings as settings_svc
@@ -56,6 +62,7 @@ async def purchase_ticket(
     )
     reg = (await db.execute(reg_q)).scalar_one_or_none()
     if not reg:
+        logger.warning("Ticket purchase rejected: not registered", extra={"event_id": event_id, "user_id": user.id})
         raise ConflictError("Only registered attendees can purchase tickets for this event")
 
     price_info = await compute_ticket_price(db, event_id=event_id, user_id=user.id, tier_id=tier_id)
@@ -132,12 +139,15 @@ async def purchase_ticket(
                 commission_cents=commission_cents * quantity,
             )
             if result.status == "failed":
-                raise ConflictError(f"Payment failed: {getattr(result, 'failure_reason', 'card declined')}")
+                reason = getattr(result, "failure_reason", "card declined")
+                logger.warning("Ticket purchase payment failed", extra={"event_id": event_id, "user_id": user.id, "tier_id": tier_id, "reason": reason})
+                raise ConflictError(f"Payment failed: {reason}")
             gateway_txn_id = result.transaction_id
             gateway_auth = result.authorization_code
         except ConflictError:
             raise
         except Exception as exc:
+            logger.warning("Ticket purchase payment error", extra={"event_id": event_id, "user_id": user.id, "error": str(exc)})
             raise ConflictError(f"Payment processing error: {exc}")
 
     now = datetime.now(timezone.utc)
@@ -193,7 +203,11 @@ async def purchase_ticket(
         )
         .order_by(TicketSale.id.asc())
     )
-    return list((await db.execute(loaded_q)).scalars().unique().all())
+    sales_result = list((await db.execute(loaded_q)).scalars().unique().all())
+    purchased_count = sum(1 for s in sales_result if s.status == TicketSaleStatus.purchased)
+    waitlisted_count = sum(1 for s in sales_result if s.status == TicketSaleStatus.waitlisted)
+    logger.info("Ticket purchase completed", extra={"event_id": event_id, "user_id": user.id, "quantity": quantity, "purchased": purchased_count, "waitlisted": waitlisted_count})
+    return sales_result
 
 
 async def get_purchase_group_tickets(
@@ -460,6 +474,7 @@ async def approve_waitlisted_ticket(
     db: AsyncSession, *, event_id: int, ticket_sale_id: int, user: User
 ) -> TicketSale:
     """Organizer approves a waitlisted ticket -> purchased."""
+    log_step(logger, "Approving waitlisted ticket", event_id=event_id, ticket_sale_id=ticket_sale_id)
     event = await event_service.get_or_404(db, event_id)
     if not await _can_manage_event_tickets(db, user, event):
         raise ForbiddenError("Only the event organizer or admin can approve waitlisted tickets")
@@ -475,11 +490,13 @@ async def approve_waitlisted_ticket(
     if not sale:
         raise NotFoundError("TicketSale", ticket_sale_id)
     if sale.status != TicketSaleStatus.waitlisted:
+        logger.warning("Approve waitlist rejected: not waitlisted", extra={"event_id": event_id, "ticket_sale_id": ticket_sale_id})
         raise ConflictError("Only waitlisted tickets can be approved")
 
     sale.status = TicketSaleStatus.purchased
     await db.flush()
     await db.refresh(sale)
+    logger.info("Waitlisted ticket approved", extra={"event_id": event_id, "ticket_sale_id": ticket_sale_id})
     return sale
 
 
@@ -487,6 +504,7 @@ async def reject_waitlisted_ticket(
     db: AsyncSession, *, event_id: int, ticket_sale_id: int, user: User
 ) -> TicketSale:
     """Organizer rejects a waitlisted ticket -> cancelled."""
+    log_step(logger, "Rejecting waitlisted ticket", event_id=event_id, ticket_sale_id=ticket_sale_id)
     event = await event_service.get_or_404(db, event_id)
     if not await _can_manage_event_tickets(db, user, event):
         raise ForbiddenError("Only the event organizer or admin can reject waitlisted tickets")
@@ -502,6 +520,7 @@ async def reject_waitlisted_ticket(
     if not sale:
         raise NotFoundError("TicketSale", ticket_sale_id)
     if sale.status != TicketSaleStatus.waitlisted:
+        logger.warning("Reject waitlist failed: not waitlisted", extra={"event_id": event_id, "ticket_sale_id": ticket_sale_id})
         raise ConflictError("Only waitlisted tickets can be rejected")
 
     sale.status = TicketSaleStatus.cancelled
@@ -514,6 +533,7 @@ async def request_refund(
     db: AsyncSession, *, event_id: int, ticket_sale_id: int, user: User
 ) -> TicketSale:
     """Customer requests a refund for a purchased ticket."""
+    log_step(logger, "Requesting ticket refund", event_id=event_id, ticket_sale_id=ticket_sale_id, user_id=user.id)
     q = select(TicketSale).where(
         TicketSale.id == ticket_sale_id,
         TicketSale.event_id == event_id,
@@ -533,8 +553,10 @@ async def request_refund(
     ):
         return sale
     if sale.status != TicketSaleStatus.purchased:
+        logger.warning("Refund request rejected: not purchased", extra={"event_id": event_id, "ticket_sale_id": ticket_sale_id, "status": sale.status})
         raise ConflictError("Only purchased tickets can be refunded")
     if sale.scanned_at is not None:
+        logger.warning("Refund request rejected: already scanned", extra={"event_id": event_id, "ticket_sale_id": ticket_sale_id})
         raise ConflictError("Scanned tickets cannot be refunded")
 
     sale.status = TicketSaleStatus.refund_requested
@@ -547,6 +569,7 @@ async def approve_refund(
     db: AsyncSession, *, event_id: int, ticket_sale_id: int, user: User
 ) -> TicketSale:
     """Organizer approves a refund request."""
+    log_step(logger, "Approving ticket refund", event_id=event_id, ticket_sale_id=ticket_sale_id)
     event = await event_service.get_or_404(db, event_id)
     if not await _can_manage_event_tickets(db, user, event):
         raise ForbiddenError("Only the event organizer or admin can approve refunds")
@@ -565,6 +588,7 @@ async def approve_refund(
     if sale.status in (TicketSaleStatus.refund_processing, TicketSaleStatus.refunded):
         return sale
     if sale.status != TicketSaleStatus.refund_requested:
+        logger.warning("Approve refund rejected: wrong status", extra={"event_id": event_id, "ticket_sale_id": ticket_sale_id, "status": sale.status})
         raise ConflictError("Only refund-requested tickets can be approved")
 
     sale.status = TicketSaleStatus.refund_processing
@@ -630,6 +654,7 @@ async def refund_all_tickets_for_event(db: AsyncSession, *, event_id: int) -> in
 
     Marks tickets as refund_processing, then enqueues ARQ tasks for actual refund.
     """
+    log_step(logger, "Refunding all tickets for event", event_id=event_id)
     from sqlalchemy import update
     await db.execute(
         update(TicketSale)
@@ -649,6 +674,7 @@ async def refund_all_tickets_for_event(db: AsyncSession, *, event_id: int) -> in
     for tid in ids:
         await enqueue("process_ticket_refund", tid)
 
+    logger.info("Refund all tickets enqueued", extra={"event_id": event_id, "count": len(ids)})
     return len(ids)
 
 

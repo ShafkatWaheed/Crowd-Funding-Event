@@ -6,14 +6,18 @@ from datetime import datetime
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.logger import get_logger, log_step
 from app.models.event import Event, EventStatus, OrganizerCustomerHistory
 from app.models.user import User
+
+logger = get_logger("svc.event.attendance")
 
 
 async def record_customer_attendance(
     db: AsyncSession, *, organizer_id: int, customer_id: int, event_id: int, scanned_at: datetime,
 ) -> None:
     """Record that a customer attended an organizer's event. Idempotent (ignores duplicates)."""
+    log_step(logger, "Record customer attendance", organizer_id=organizer_id, customer_id=customer_id, event_id=event_id)
     existing = (
         await db.execute(
             select(OrganizerCustomerHistory).where(
@@ -24,19 +28,22 @@ async def record_customer_attendance(
         )
     ).scalar_one_or_none()
     if existing:
-        return  # already recorded
+        logger.debug("Attendance already recorded, skipping", extra={"organizer_id": organizer_id, "customer_id": customer_id, "event_id": event_id})
+        return
     h = OrganizerCustomerHistory(
         organizer_id=organizer_id, customer_id=customer_id,
         event_id=event_id, scanned_at=scanned_at,
     )
     db.add(h)
     await db.flush()
+    logger.info("Customer attendance recorded", extra={"organizer_id": organizer_id, "customer_id": customer_id, "event_id": event_id})
 
 
 async def list_organizer_customers(
     db: AsyncSession, *, organizer_id: int, offset: int = 0, limit: int = 20,
 ) -> list[dict]:
     """List all unique customers who attended events organized by this organizer, with event count."""
+    logger.debug("List organizer customers", extra={"organizer_id": organizer_id, "offset": offset, "limit": limit})
     q = (
         select(
             OrganizerCustomerHistory.customer_id,

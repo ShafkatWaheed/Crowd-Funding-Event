@@ -4,6 +4,7 @@ Event lifecycle: cancel, extend-funding, set-event-date, start-selling, reactiva
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.dependencies import DbSession, require_role
+from app.logger import get_logger, log_step
 from app.rate_limit import limiter, dynamic_limit
 from app.models.event import EventStatus
 from app.models.user import User, UserRole
@@ -22,6 +23,7 @@ from app.cache import cache_delete, cache_delete_pattern
 from ._helpers import _event_to_response, _parse_iso_datetime
 
 router = APIRouter()
+logger = get_logger("api.events.lifecycle")
 
 
 async def _invalidate_event_cache(event_id: int) -> None:
@@ -37,12 +39,14 @@ async def cancel_event(
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
     """Organizer (main or co-) cancels the event. A reason is required."""
+    log_step(logger, "Cancelling event", user_id=current_user.id, event_id=event_id)
     from sqlalchemy import select as sel
     from app.models.registration import Registration, RegistrationStatus
     from app.models.funding import Funding, FundingStatus
 
     event = await event_service.get_or_404(db, event_id)
     if not await event_service.user_can_edit_event(db, event, current_user):
+        logger.warning("Cancel rejected: user cannot edit event", extra={"user_id": current_user.id, "event_id": event_id})
         raise ForbiddenError("You cannot cancel this event")
     event = await event_service.cancel_event(db, event, current_user, reason=body.reason)
     await arq_enqueue(
@@ -84,8 +88,10 @@ async def extend_funding_endpoint(
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
     """Extend funding: new deadline and/or new goal. Requires admin approval for organizers."""
+    log_step(logger, "Extending funding", user_id=current_user.id, event_id=event_id)
     event = await event_service.get_or_404(db, event_id)
     if not any([body.funding_end_at, body.funding_goal_cents]):
+        logger.warning("Extend funding rejected: missing params", extra={"event_id": event_id})
         raise HTTPException(status_code=400, detail="At least one of funding_end_at or funding_goal_cents required")
     new_funding_end_at = _parse_iso_datetime(body.funding_end_at)
     event = await event_service.extend_funding(
@@ -106,10 +112,12 @@ async def set_event_date_endpoint(
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
     """Set or update event start/end time."""
+    log_step(logger, "Setting event date", user_id=current_user.id, event_id=event_id)
     event = await event_service.get_or_404(db, event_id)
     new_start = _parse_iso_datetime(body.start_time)
     new_end = _parse_iso_datetime(body.end_time)
     if new_start is None or new_end is None:
+        logger.warning("Set event date rejected: invalid datetime params", extra={"event_id": event_id})
         raise HTTPException(status_code=400, detail="Both start_time and end_time are required as valid ISO datetimes")
     event = await event_service.set_event_date(
         db, event, current_user,
@@ -128,6 +136,7 @@ async def start_selling_tickets_endpoint(
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
     """Manually transition event to selling_tickets."""
+    log_step(logger, "Starting ticket sales", user_id=current_user.id, event_id=event_id)
     event = await event_service.get_or_404(db, event_id)
     event = await event_service.start_selling_tickets(db, event, current_user)
     await _invalidate_event_cache(event_id)
@@ -142,8 +151,10 @@ async def reactivate_event(
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
     """Move a cancelled event back to draft."""
+    log_step(logger, "Reactivating event", user_id=current_user.id, event_id=event_id)
     event = await event_service.get_or_404(db, event_id)
     if not await event_service.user_can_edit_event(db, event, current_user):
+        logger.warning("Reactivate rejected: user cannot edit event", extra={"user_id": current_user.id, "event_id": event_id})
         raise ForbiddenError("You cannot reactivate this event")
     event = await event_service.reactivate_event(db, event, current_user)
     await _invalidate_event_cache(event_id)
@@ -158,6 +169,7 @@ async def publish_event(
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
     """Publish a draft event (draft → approved)."""
+    log_step(logger, "Publishing event", user_id=current_user.id, event_id=event_id)
     event = await event_service.publish_event(db, event_id=event_id, user=current_user)
     await notif_svc.create_notification(
         db, user_id=current_user.id,
@@ -180,6 +192,7 @@ async def clone_event(
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
     """Clone a completed event into a new draft."""
+    log_step(logger, "Cloning event", user_id=current_user.id, event_id=event_id)
     event = await event_service.get_or_404(db, event_id)
     new_event = await event_service.clone_event(db, event, current_user)
     new_event = await event_service.get_by_id(db, new_event.id, load_venue=True)
@@ -194,12 +207,14 @@ async def decide_extension(
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
     """Admin approve/reject a pending funding extension request."""
+    log_step(logger, "Extension decision", user_id=current_user.id, event_id=event_id, action=body.action)
     event = await event_service.get_or_404(db, event_id)
     if body.action == "approve":
         event = await event_service.approve_extension(db, event, current_user)
     elif body.action == "reject":
         event = await event_service.reject_extension(db, event, current_user)
     else:
+        logger.warning("Extension decision rejected: invalid action", extra={"event_id": event_id, "action": body.action})
         raise HTTPException(status_code=400, detail="action must be 'approve' or 'reject'")
     await _invalidate_event_cache(event_id)
     event = await event_service.get_by_id(db, event.id, load_venue=True)
@@ -214,8 +229,10 @@ async def approve_cancellation(
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
     """Admin approve/reject a pending cancellation request."""
+    log_step(logger, "Approving cancellation", user_id=current_user.id, event_id=event_id, action=body.action)
     event = await event_service.get_or_404(db, event_id)
     if not event.pending_cancellation:
+        logger.warning("Approve cancellation rejected: no pending cancellation", extra={"event_id": event_id})
         raise HTTPException(status_code=400, detail="No pending cancellation for this event")
     if body.action == "approve":
         reason = event.pending_cancellation.get("reason", "Admin-approved cancellation")
@@ -237,6 +254,7 @@ async def approve_cancellation(
         event.pending_cancellation = None
         await db.flush()
     else:
+        logger.warning("Approve cancellation rejected: invalid action", extra={"event_id": event_id, "action": body.action})
         raise HTTPException(status_code=400, detail="action must be 'approve' or 'reject'")
     await _invalidate_event_cache(event_id)
     event = await event_service.get_by_id(db, event.id, load_venue=True)

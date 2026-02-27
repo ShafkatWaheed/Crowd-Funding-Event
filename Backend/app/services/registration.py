@@ -19,11 +19,14 @@ Concurrency:
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.logger import get_logger, log_step
 from app.core.exceptions import ConflictError, NotFoundError
 from app.models.event import Event, EventStatus, RegistrationType
 from app.models.registration import Registration, RegistrationStatus
 from app.models.user import User
 from app.services import funding as funding_service
+
+logger = get_logger("svc.registration")
 
 
 async def register(
@@ -32,7 +35,7 @@ async def register(
     event_id: int,
     user: User,
 ) -> Registration:
-    # Lock event row to reduce capacity races
+    log_step(logger, "Register for event", event_id=event_id, user_id=user.id)
     event_q = select(Event).where(Event.id == event_id).with_for_update()
     event_res = await db.execute(event_q)
     event = event_res.scalar_one_or_none()
@@ -40,8 +43,10 @@ async def register(
         raise NotFoundError("Event", event_id)
 
     if event.status == EventStatus.cancelled:
+        logger.warning("Register rejected: event cancelled", extra={"event_id": event_id, "user_id": user.id})
         raise ConflictError("Cannot register for a cancelled event")
     if event.status == EventStatus.completed:
+        logger.warning("Register rejected: event completed", extra={"event_id": event_id, "user_id": user.id})
         raise ConflictError("Cannot register for an ended event")
 
     from app.services.age_verification import enforce_age_limit
@@ -85,6 +90,7 @@ async def register(
                 )
             )).scalar_one()
             if int(wl_count) >= max_waitlist:
+                logger.warning("Register rejected: waitlist full", extra={"event_id": event_id, "user_id": user.id, "max_waitlist": max_waitlist})
                 raise ConflictError(f"Waitlist is full ({max_waitlist} max)")
 
     if existing:
@@ -95,7 +101,7 @@ async def register(
             await db.flush()
             await db.refresh(existing)
             return existing
-        # Already registered or waitlisted
+        logger.warning("Register rejected: already registered", extra={"event_id": event_id, "user_id": user.id, "status": existing.status.value})
         raise ConflictError(f"Already {existing.status.value} for this event")
 
     reg = Registration(event_id=event_id, user_id=user.id, status=target_status)
@@ -104,6 +110,7 @@ async def register(
         event.registration_count = (event.registration_count or 0) + 1
     await db.flush()
     await db.refresh(reg)
+    logger.info("User registered", extra={"event_id": event_id, "user_id": user.id, "status": target_status.value})
     return reg
 
 
@@ -134,6 +141,7 @@ async def approve_waitlist(
     Approve a waitlist request → move to registered if capacity allows.
     Uses row locks to reduce races.
     """
+    log_step(logger, "Approve waitlist", event_id=event_id, registration_id=registration_id)
     # Lock event first (capacity gate)
     event_q = select(Event).where(Event.id == event_id).with_for_update()
     event_res = await db.execute(event_q)
@@ -188,6 +196,7 @@ async def reject_waitlist(
     """
     Reject a waitlist request → mark cancelled.
     """
+    log_step(logger, "Reject waitlist", event_id=event_id, registration_id=registration_id)
     reg = await get_registration_or_404(db, event_id=event_id, registration_id=registration_id)
     if reg.status != RegistrationStatus.waitlist:
         raise ConflictError("Only waitlist registrations can be rejected")
@@ -219,11 +228,13 @@ async def unregister(
     (counted backwards from event start_time).
     Returns {"refunded_cents": int, "pledges_refunded": int, "refund_eligible": bool}.
     """
+    log_step(logger, "Unregister from event", event_id=event_id, user_id=user.id)
     from datetime import datetime, timedelta, timezone
 
     event = await _get_event_for_unregister(db, event_id=event_id)
     reg = await _get_user_registration(db, event_id=event_id, user_id=user.id)
     if reg.status == RegistrationStatus.cancelled:
+        logger.warning("Unregister rejected: not registered", extra={"event_id": event_id, "user_id": user.id})
         raise ConflictError("You are not registered for this event")
 
     # Check if we are still within the refund window
@@ -261,6 +272,7 @@ async def unregister(
     reg.status = RegistrationStatus.cancelled
     event.registration_count = max(0, (event.registration_count or 1) - 1)
     await db.flush()
+    logger.info("User unregistered", extra={"event_id": event_id, "user_id": user.id, "refunded_cents": refunded_cents, "pledges_refunded": pledges_refunded, "refund_eligible": refund_eligible})
     return {"refunded_cents": refunded_cents, "pledges_refunded": pledges_refunded, "refund_eligible": refund_eligible}
 
 

@@ -5,7 +5,6 @@ Each service still provides its own get_or_create (different total calculation),
 auto-trigger logic, and refresh_total. This module reduces duplication for
 freeze, unfreeze, release_stage, and list_all.
 """
-import logging
 from datetime import datetime, timezone
 
 from sqlalchemy import func, or_, select
@@ -17,7 +16,9 @@ from app.models.event import Event
 from app.models.payment_info import BankVerificationStatus, OrganizerBankAccount
 from app.models.user import User, UserRole
 
-logger = logging.getLogger("escrow")
+from app.logger import get_logger
+
+logger = get_logger("escrow")
 
 
 def reject_if_frozen(escrow, *, label: str = "Escrow") -> None:

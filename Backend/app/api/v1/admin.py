@@ -7,10 +7,11 @@ from sqlalchemy.orm import selectinload
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel as _BaseModel
 
+from app.dependencies import DbSession, ReadDbSession, require_role
+from app.logger import get_logger, log_step
 from app.rate_limit import limiter
 from app.services import audit as audit_svc
 
-from app.dependencies import DbSession, ReadDbSession, require_role
 from app.models.event import Event
 from app.models.ticket import UserEventDiscount
 from app.models.user import User, UserRole
@@ -41,6 +42,7 @@ from app.services import ticket as ticket_service
 from app.services import funding as funding_service
 from app.models.notification import NotificationType
 
+logger = get_logger("api.admin")
 router = APIRouter()
 
 
@@ -503,6 +505,7 @@ async def approve_event(
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
     """Approve or reject event (admin). Approved -> status approved; reject -> back to draft."""
+    log_step(logger, "Approving event", event_id=event_id, admin_id=current_user.id, approved=body.approved)
     event = await admin_service.approve_or_reject_event(
         db, event_id=event_id, approved=body.approved
     )
@@ -569,6 +572,7 @@ async def update_setting(
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
     """Update a platform setting by key (admin only)."""
+    log_step(logger, "Updating setting", key=key, admin_id=current_user.id)
     setting = await settings_service.set_value(db, key, body.value)
     from app.api.v1.config import invalidate_public_config
     await invalidate_public_config()
@@ -579,6 +583,7 @@ async def update_setting(
         db, admin_id=current_user.id, action="settings_update",
         target_type="setting", target_id=key, details={"value": body.value},
     )
+    logger.info("Setting updated", extra={"key": key, "admin_id": current_user.id})
     return PlatformSettingItem(key=setting.key, value=setting.value, description=setting.description)
 
 
@@ -664,6 +669,7 @@ async def admin_refund_sponsor_bid(
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
     """Admin refund a paid sponsor bid."""
+    log_step(logger, "Admin refunding sponsor bid", event_id=event_id, bid_id=bid_id, admin_id=current_user.id)
     from app.services import sponsor as sponsor_svc
     from app.services import notification_service as notif_svc
     from app.models.notification import NotificationType
@@ -692,6 +698,7 @@ async def admin_refund_pledge(
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
     """Admin refund a single pledge by id."""
+    log_step(logger, "Admin refunding pledge", event_id=event_id, funding_id=funding_id, admin_id=current_user.id)
     count = await funding_service.refund_pledge_by_id(db, event_id=event_id, funding_id=funding_id)
     if count == 0:
         from app.core.exceptions import NotFoundError
@@ -1093,6 +1100,7 @@ async def resolve_review(
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
     """Resolve an under_review event by moving it to the specified status."""
+    log_step(logger, "Resolving event review", event_id=event_id, target_status=body.target_status, admin_id=current_user.id)
     from app.models.event import Event, EventStatus
     from app.core.exceptions import NotFoundError, ConflictError
     from datetime import datetime, timezone as tz
@@ -1415,6 +1423,7 @@ async def admin_verify_kyc(
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
     """Approve or reject a user's KYC submission."""
+    log_step(logger, "Admin verifying KYC", user_id=user_id, approved=body.approved, admin_id=current_user.id)
     try:
         new_status = await kyc_svc.admin_verify(
             db,
@@ -1433,5 +1442,6 @@ async def admin_verify_kyc(
         )
         await db.commit()
     except ValueError as e:
+        logger.warning("KYC verification failed", extra={"user_id": user_id, "error": str(e)})
         raise HTTPException(status_code=400, detail=str(e))
     return {"user_id": user_id, "kyc_status": new_status}

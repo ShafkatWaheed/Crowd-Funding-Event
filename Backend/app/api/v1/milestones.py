@@ -5,6 +5,9 @@ All milestone endpoints gated by the feature_milestones_enabled flag.
 from fastapi import APIRouter, Depends, Query, Request
 
 from app.dependencies import DbSession, ReadDbSession, CurrentUserOptional, require_role, require_feature
+from app.logger import get_logger, log_step
+
+logger = get_logger("api.milestones")
 from app.rate_limit import limiter, dynamic_limit
 from app.models.user import User, UserRole
 from app.schemas.milestone import (
@@ -49,6 +52,7 @@ async def create_milestone(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
+    log_step(logger, "Creating milestone", event_id=event_id, user_id=current_user.id)
     return await milestone_service.create_milestone(db, event_id, body, current_user)
 
 
@@ -66,6 +70,7 @@ async def update_milestone(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
+    log_step(logger, "Updating milestone", event_id=event_id, milestone_id=milestone_id, user_id=current_user.id)
     return await milestone_service.update_milestone(db, milestone_id, body, current_user)
 
 
@@ -82,6 +87,7 @@ async def delete_milestone(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
+    log_step(logger, "Deleting milestone", event_id=event_id, milestone_id=milestone_id, user_id=current_user.id)
     await milestone_service.delete_milestone(db, milestone_id, current_user)
 
 

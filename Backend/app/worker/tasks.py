@@ -6,7 +6,6 @@ The pattern: API sets status to *_processing -> enqueues task -> task completes 
 """
 from __future__ import annotations
 
-import logging
 import time
 import traceback
 from datetime import datetime, timedelta, timezone
@@ -15,12 +14,13 @@ from typing import Any
 from sqlalchemy import select, update
 
 from app.db.base import async_session_maker
+from app.logger import get_logger
 from app.models.funding import Funding, FundingStatus
 from app.models.ticket import TicketSale, TicketSaleStatus
 from app.models.sponsor import SponsorBid, SponsorPayment, PaymentStatus, BidStatus, SponsorshipCategory
 from app.services import email_notifications as email_notify
 
-logger = logging.getLogger("arq.tasks")
+logger = get_logger("arq.tasks")
 
 
 async def _log_cron_run(

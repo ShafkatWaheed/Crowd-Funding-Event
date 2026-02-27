@@ -9,7 +9,6 @@ the payment_mock_enabled platform setting.
 from __future__ import annotations
 
 import asyncio
-import logging
 import random
 import uuid
 from abc import ABC, abstractmethod
@@ -26,7 +25,9 @@ from app.models.payment_mock_ledger import (
 )
 from app.services import platform_settings as settings_svc
 
-logger = logging.getLogger(__name__)
+from app.logger import get_logger
+
+logger = get_logger(__name__)
 
 FAILURE_REASONS = [
     ("card_declined", 60),

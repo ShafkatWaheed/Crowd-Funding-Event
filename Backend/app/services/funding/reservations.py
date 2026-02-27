@@ -2,10 +2,14 @@
 Spot reservation and tier-linked reservation helpers.
 """
 from sqlalchemy import func, select
+
+from app.logger import get_logger, log_step
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ConflictError
 from app.models.funding import Funding, FundingStatus
+
+logger = get_logger("svc.funding.reservations")
 
 
 async def get_user_reserved_spots(db: AsyncSession, event_id: int, user_id: int) -> int:
@@ -49,6 +53,7 @@ async def get_total_reserved_spots_for_events(
 
 async def consume_one_reserved_spot(db: AsyncSession, event_id: int, user_id: int) -> None:
     """Decrement the oldest pledge's reserved_spots by 1 for this user+event."""
+    log_step(logger, "Consuming one reserved spot", event_id=event_id, user_id=user_id)
     q = (
         select(Funding)
         .where(
@@ -63,6 +68,7 @@ async def consume_one_reserved_spot(db: AsyncSession, event_id: int, user_id: in
     )
     pledge = (await db.execute(q)).scalar_one_or_none()
     if pledge is None:
+        logger.warning("Consume reserved spot failed: none available", extra={"event_id": event_id, "user_id": user_id})
         raise ConflictError("No reserved spots available to consume")
     pledge.reserved_spots -= 1
     await db.flush()
@@ -128,6 +134,7 @@ async def consume_reserved_spots_for_tier(
     db: AsyncSession, event_id: int, user_id: int, tier_id: int, count: int
 ) -> None:
     """Decrement reservation rows for user+tier, consuming from oldest pledge first."""
+    log_step(logger, "Consuming reserved spots for tier", event_id=event_id, user_id=user_id, tier_id=tier_id, count=count)
     from app.models.funding import PledgeSpotReservation
     remaining = count
     q = (

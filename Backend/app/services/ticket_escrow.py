@@ -6,8 +6,9 @@ Mirrors FundEscrow but tracks ticket sales revenue with post-event triggers:
   Stage 2: N days + refund rate < threshold
   Stage 3: N days + no open disputes
 """
-import logging
 from datetime import datetime, timezone
+
+from app.logger import get_logger
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -21,7 +22,7 @@ from app.models.user import User
 from app.services import escrow_base
 from app.services import platform_settings as settings_svc
 
-logger = logging.getLogger("escrow")
+logger = get_logger("escrow")
 
 _LABEL = "Ticket escrow"
 

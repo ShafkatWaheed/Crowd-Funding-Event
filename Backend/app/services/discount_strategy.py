@@ -8,6 +8,8 @@ auto_apply flag on the link:
 from typing import Sequence
 
 from sqlalchemy import select
+
+from app.logger import get_logger
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -18,6 +20,8 @@ from app.models.discount_strategy import (
     EventDiscountStrategyLink,
 )
 from app.models.user import User
+
+logger = get_logger("svc.discount")
 
 
 async def list_strategies(db: AsyncSession, *, organizer_id: int) -> Sequence[DiscountStrategy]:
@@ -41,6 +45,7 @@ async def create_strategy(
     db: AsyncSession, *, user: User,
     name: str, discount_type: str, value: int, target: str = "all",
 ) -> DiscountStrategy:
+    logger.debug("Create discount strategy", extra={"discount_type": discount_type, "value": value, "target": target})
     _validate(discount_type, value, target)
     s = DiscountStrategy(
         organizer_id=user.id, name=name,
@@ -65,6 +70,7 @@ async def update_strategy(
         dt = discount_type or strategy.discount_type
         v = value if value is not None else strategy.value
         t = target or strategy.target
+        logger.debug("Update discount strategy params", extra={"strategy_id": strategy.id, "discount_type": dt, "value": v, "target": t})
         _validate(dt, v, t)
         strategy.discount_type = dt
         strategy.value = v
@@ -190,7 +196,7 @@ async def list_claimable_discounts(
 
 
 async def claim_discount(db: AsyncSession, *, link_id: int, user_id: int) -> CustomerDiscountClaim:
-    """Customer claims a non-auto-apply discount."""
+    logger.debug("Claim discount", extra={"link_id": link_id, "user_id": user_id})
     link = (
         await db.execute(
             select(EventDiscountStrategyLink).where(EventDiscountStrategyLink.id == link_id)

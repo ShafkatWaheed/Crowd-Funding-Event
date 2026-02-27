@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
 from app.dependencies import CurrentUser, DbSession, ReadDbSession, require_role, require_kyc
+from app.logger import get_logger, log_step
 from app.models.funding import Funding, FundingStatus
 from app.models.user import User, UserRole
 from app.schemas import (
@@ -28,6 +29,7 @@ from app.rate_limit import limiter, dynamic_limit
 from ._helpers import _build_tier_reservation_response
 
 router = APIRouter()
+logger = get_logger("api.events.pledge")
 
 
 @router.get("/{event_id}/pledge-preview", response_model=PledgePreviewResponse)
@@ -60,9 +62,11 @@ async def pledge_event(
     _kyc=Depends(require_kyc()),
 ):
     """Pledge/donate to event. Only allowed during approved (funding active) status."""
+    log_step(logger, "Pledging to event", user_id=current_user.id, event_id=event_id, amount_cents=body.amount_cents)
     from app.models.event import EventStatus
     event = await event_service.get_or_404(db, event_id)
     if event.status not in (EventStatus.approved,):
+        logger.warning("Pledge rejected: event not in funding period", extra={"user_id": current_user.id, "event_id": event_id, "status": event.status.value})
         raise HTTPException(status_code=409, detail="Pledging is only allowed during the funding period")
 
     tier_res = None
@@ -159,6 +163,7 @@ async def unpledge_event(
     current_user: User = Depends(require_role(UserRole.customer, UserRole.sponsor)),
 ):
     """Unpledge from event (customer)."""
+    log_step(logger, "Unpledging from event", user_id=current_user.id, event_id=event_id)
     result = await funding_service.unpledge(
         db,
         event_id=event_id,

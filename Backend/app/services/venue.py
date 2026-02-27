@@ -4,10 +4,14 @@ Venue CRUD. Organizers own venues; customers see all.
 from typing import Sequence
 
 from sqlalchemy import select
+
+from app.logger import get_logger, log_step
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.venue import Venue
 from app.core.exceptions import NotFoundError, ConflictError
+
+logger = get_logger("svc.venue")
 
 
 async def list_venues(
@@ -57,7 +61,9 @@ async def create(
     lng: float | None,
     max_capacity: int,
 ) -> Venue:
+    log_step(logger, "Create venue", organizer_id=organizer_id, name=name, max_capacity=max_capacity)
     if max_capacity <= 0:
+        logger.warning("Create venue rejected: invalid capacity", extra={"max_capacity": max_capacity})
         raise ConflictError("max_capacity must be greater than 0")
     venue = Venue(
         organizer_id=organizer_id,
@@ -72,6 +78,7 @@ async def create(
     db.add(venue)
     await db.flush()
     await db.refresh(venue)
+    logger.info("Venue created", extra={"venue_id": venue.id})
     return venue
 
 
@@ -87,7 +94,9 @@ async def update(
     lng: float | None = None,
     max_capacity: int | None = None,
 ) -> Venue:
+    log_step(logger, "Update venue", venue_id=venue.id)
     if max_capacity is not None and max_capacity <= 0:
+        logger.warning("Update venue rejected: invalid capacity", extra={"venue_id": venue.id, "max_capacity": max_capacity})
         raise ConflictError("max_capacity must be greater than 0")
     if name is not None:
         venue.name = name
@@ -105,4 +114,5 @@ async def update(
         venue.max_capacity = max_capacity
     await db.flush()
     await db.refresh(venue)
+    logger.info("Venue updated", extra={"venue_id": venue.id})
     return venue

@@ -14,14 +14,14 @@ To add a new provider:
 
 from __future__ import annotations
 
-import logging
 import random
 from abc import ABC, abstractmethod
 from typing import Any
 
 from app.config import settings
+from app.logger import get_logger
 
-logger = logging.getLogger("email_service")
+logger = get_logger("email_service")
 
 
 # ═══════════════════════════════════════════════════════════

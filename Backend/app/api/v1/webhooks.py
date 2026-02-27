@@ -1,11 +1,10 @@
 """
 Stripe webhook handler for dispute events.
 """
-import logging
-
 from fastapi import APIRouter, Header, Request
 
 from app.dependencies import DbSession
+from app.logger import get_logger
 from app.models.dispute import Dispute, DisputeStatus
 from app.models.escrow import EscrowStatus, FundEscrow, SponsorEscrow, TicketEscrow
 from app.services import platform_settings as settings_svc
@@ -13,7 +12,7 @@ from app.services import platform_settings as settings_svc
 from sqlalchemy import select
 
 router = APIRouter()
-log = logging.getLogger(__name__)
+log = get_logger(__name__)
 
 
 async def _freeze_escrows(db, event_id: int) -> None:

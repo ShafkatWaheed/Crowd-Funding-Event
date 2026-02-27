@@ -9,6 +9,7 @@ from sqlalchemy import select, func, and_, exists, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.logger import get_logger, log_step
 from app.models.event import Event, EventOrganizer, EventStatus
 from app.models.registration import Registration, RegistrationStatus
 from app.models.user import User
@@ -16,11 +17,14 @@ from app.core.exceptions import ForbiddenError, ConflictError
 
 from app.services.event.permissions import user_can_edit_event
 
+logger = get_logger("svc.event.queries")
+
 
 async def get_my_registered_events(
     db: AsyncSession, *, user_id: int, offset: int = 0, limit: int | None = None,
 ) -> Sequence[Event]:
     """Events the user is registered to (any registration status). Useful for 'My Events'."""
+    logger.debug("get_my_registered_events", extra={"user_id": user_id, "offset": offset, "limit": limit})
     q = (
         select(Event)
         .join(Registration, Registration.event_id == Event.id)
@@ -41,6 +45,7 @@ async def get_my_registered_events(
 
 async def get_trending_events(db: AsyncSession, *, limit: int = 10, sponsorship_only: bool = False) -> Sequence[Event]:
     """Events ordered by registration_count DESC. Public-visible statuses."""
+    logger.debug("get_trending_events", extra={"limit": limit, "sponsorship_only": sponsorship_only})
     from app.models.sponsor import SponsorshipCategory
     q = (
         select(Event)
@@ -62,6 +67,7 @@ async def get_trending_events(db: AsyncSession, *, limit: int = 10, sponsorship_
 
 async def get_coming_soon_events(db: AsyncSession, *, limit: int = 10, sponsorship_only: bool = False) -> Sequence[Event]:
     """Approved events starting in the future, ordered by start_time ASC."""
+    logger.debug("get_coming_soon_events", extra={"limit": limit, "sponsorship_only": sponsorship_only})
     from app.models.sponsor import SponsorshipCategory
     now = datetime.now(timezone.utc)
     q = (
@@ -88,6 +94,7 @@ async def get_coming_soon_events(db: AsyncSession, *, limit: int = 10, sponsorsh
 
 async def get_popular_events(db: AsyncSession, *, limit: int = 10, sponsorship_only: bool = False) -> Sequence[Event]:
     """Events with most pledged amount. Public-visible statuses."""
+    logger.debug("get_popular_events", extra={"limit": limit, "sponsorship_only": sponsorship_only})
     from app.models.funding import Funding, FundingStatus
     from app.models.sponsor import SponsorshipCategory
     q = (
@@ -115,6 +122,7 @@ async def clone_event(db: AsyncSession, event: Event, user: User) -> Event:
     Clone a completed event into a new draft. Copies all params except
     start_time, end_time, funding_end_at (those must be set fresh).
     """
+    log_step(logger, "Clone event", event_id=event.id, user_id=user.id)
     if event.status != EventStatus.completed:
         raise ConflictError("Only completed events can be cloned")
     if not await user_can_edit_event(db, event, user):
@@ -159,6 +167,7 @@ async def get_co_organized_events(
     limit: int = 20,
 ) -> Sequence[Event]:
     """Events where the user is an accepted co-organizer."""
+    logger.debug("get_co_organized_events", extra={"user_id": user_id, "status": status, "search": search, "offset": offset, "limit": limit})
     q = (
         select(Event)
         .join(EventOrganizer, EventOrganizer.event_id == Event.id)

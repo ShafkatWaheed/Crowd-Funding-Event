@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func, select
 
 from app.dependencies import CurrentUser, DbSession, ReadDbSession, require_role, require_kyc
+from app.logger import get_logger, log_step
 from app.models.funding import Funding, FundingStatus, PledgeSpotReservation
 from app.models.ticket import TicketSale, TicketSaleStatus
 from app.models.user import User, UserRole
@@ -36,6 +37,7 @@ from app.rate_limit import limiter, dynamic_limit
 from app.api.v1.events._helpers import safe_display_name
 
 router = APIRouter()
+logger = get_logger("api.events.tickets")
 
 
 def _ticket_sale_to_response(sale) -> TicketSaleResponse:
@@ -210,6 +212,7 @@ async def purchase_ticket(
     _kyc=Depends(require_kyc()),
 ):
     """Purchase one or more tickets (customer, must be registered)."""
+    log_step(logger, "Purchasing ticket", user_id=current_user.id, event_id=event_id, tier_id=body.tier_id, quantity=body.quantity)
     sales = await ticket_service.purchase_ticket(
         db, event_id=event_id, user=current_user,
         tier_id=body.tier_id, quantity=body.quantity, extra_perks=body.extra_perks,
@@ -252,6 +255,7 @@ async def request_ticket_refund(
     current_user: User = Depends(require_role(UserRole.customer)),
 ):
     """Customer requests a refund for a purchased ticket."""
+    log_step(logger, "Requesting ticket refund", user_id=current_user.id, event_id=event_id, ticket_id=ticket_id)
     sale = await ticket_service.request_refund(
         db, event_id=event_id, ticket_sale_id=ticket_id, user=current_user,
     )

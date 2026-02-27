@@ -1,17 +1,16 @@
 """
 Refund retry service: validates failed refund items and re-enqueues ARQ tasks.
 """
-import logging
-
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ConflictError, NotFoundError
+from app.logger import get_logger
 from app.models.funding import Funding, FundingStatus
 from app.models.sponsor import SponsorBid, SponsorPayment, SponsorshipCategory, PaymentStatus
 from app.models.ticket import TicketSale, TicketSaleStatus
 
-logger = logging.getLogger("refund_retry")
+logger = get_logger("refund_retry")
 
 
 async def retry_ticket_refund(db: AsyncSession, ticket_sale_id: int) -> None:

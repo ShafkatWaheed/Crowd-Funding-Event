@@ -1,11 +1,17 @@
 export 'customer_discounts_section.dart';
+export 'event_detail_helpers.dart';
+export 'event_details_card.dart';
 export 'event_discount_dropdown.dart';
 export 'event_feed_section.dart';
+export 'event_image_gallery.dart';
 export 'event_schedule_section.dart';
+export 'event_status_banners.dart';
 export 'funding_card.dart';
+export 'getting_there_card.dart';
 export 'live_mgmt_stats.dart';
 export 'milestone_timeline.dart';
 export 'organizer_management_section.dart';
+export 'quick_action_bar.dart';
 export 'reaction_bar.dart';
 export 'reviews_section.dart';
 export 'sponsor_carousel.dart';

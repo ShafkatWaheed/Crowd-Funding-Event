@@ -85,7 +85,7 @@ async def delete_notification(
 
 # ── Device tokens (FCM push) ──
 
-@router.post("/me/device-tokens")
+@router.post("/device-tokens")
 async def register_device_token(
     body: DeviceTokenBody,
     db: DbSession,
@@ -106,7 +106,7 @@ async def register_device_token(
     return {"ok": True}
 
 
-@router.delete("/me/device-tokens/{token}")
+@router.delete("/device-tokens/{token}")
 async def unregister_device_token(
     token: str,
     db: DbSession,

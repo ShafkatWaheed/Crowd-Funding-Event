@@ -76,7 +76,7 @@ limiter = Limiter(key_func=_key_func, default_limits=[_global_limit])
 def dynamic_limit(endpoint_key: str, fallback: str) -> Callable[..., str]:
     """Return a callable that resolves the rate limit for *endpoint_key*
     from the in-memory cache, falling back to *fallback* if missing."""
-    def _resolver(_request: Request) -> str:
+    def _resolver(_request: Request | None = None) -> str:
         return _limits.get(endpoint_key, fallback)
     return _resolver
 

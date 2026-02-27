@@ -580,7 +580,7 @@ async def get_organizer_dashboard(
 async def get_organizer_time_series(
     db: ReadDbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
-    days: int = Query(30, ge=7, le=90, description="Number of days (7, 30, or 90)"),
+    days: int = Query(30, ge=7, le=365, description="Number of days (7, 30, 90, or 365)"),
     status: str | None = Query(None, description="Filter to events with this status"),
     event_id: int | None = Query(None, description="Filter to a single event"),
     genre: str | None = Query(None, description="Filter to events with this genre"),

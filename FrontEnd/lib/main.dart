@@ -16,7 +16,9 @@ import 'providers/auth_provider.dart';
 import 'providers/event_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/config_provider.dart';
+import 'providers/chat_provider.dart';
 import 'providers/notification_provider.dart';
+import 'services/chat_socket_service.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -53,14 +55,17 @@ class CrowdFundApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final apiService = ApiService();
+    final chatSocket = ChatSocketService();
 
     return MultiProvider(
       providers: [
         Provider<ApiService>.value(value: apiService),
+        Provider<ChatSocketService>.value(value: chatSocket),
         ChangeNotifierProvider(create: (_) => AuthProvider(apiService)),
         ChangeNotifierProvider(create: (_) => EventProvider(apiService)),
         ChangeNotifierProvider(create: (_) => ConfigProvider(apiService)..fetchConfig()),
         ChangeNotifierProvider(create: (_) => NotificationProvider(apiService)),
+        ChangeNotifierProvider(create: (_) => ChatProvider(apiService, chatSocket)),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
       ],
       child: const _AppShell(),

@@ -7,6 +7,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from sqlalchemy import select
 
+from app.cache import cache_delete_pattern
 from app.dependencies import DbSession, ReadDbSession, require_role
 from app.logger import get_logger, log_step
 from app.rate_limit import limiter, dynamic_limit
@@ -67,6 +68,7 @@ async def add_event_image(
     db.add(img)
     await db.flush()
     await db.refresh(img)
+    await cache_delete_pattern("featured:*")
     return EventImageResponse.model_validate(img)
 
 
@@ -120,6 +122,7 @@ async def upload_event_image(
     db.add(img)
     await db.flush()
     await db.refresh(img)
+    await cache_delete_pattern("featured:*")
     return EventImageResponse.model_validate(img)
 
 
@@ -143,4 +146,5 @@ async def delete_event_image(
         raise NotFoundError("Image", image_id)
     await db.delete(img)
     await db.flush()
+    await cache_delete_pattern("featured:*")
     return {"ok": True}

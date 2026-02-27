@@ -231,7 +231,7 @@ class _HomeTabState extends State<HomeTab> {
               ),
             ),
             SizedBox(
-              height: 320,
+              height: 330,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),

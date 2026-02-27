@@ -65,7 +65,7 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
             mainAxisSize: MainAxisSize.min,
             children: [
               _buildHeader(context, event, isDark),
-              Flexible(child: _buildBody(context, event)),
+              _buildBody(context, event),
               if (event.maxCapacity > 0)
                 _buildCapacityBar(context),
             ],
@@ -79,89 +79,103 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
     final url = widget.imageUrl;
     final hasImage = url != null && url.isNotEmpty;
 
-    return Stack(
-      children: [
-        if (hasImage)
+    return SizedBox(
+      height: 130,
+      width: double.infinity,
+      child: Stack(
+        children: [
           Positioned.fill(
-            child: CachedNetworkImage(
-              imageUrl: ApiConfig.imageUrl(url),
-              fit: BoxFit.cover,
-              errorWidget: (_, __, ___) => Container(
-                decoration: BoxDecoration(gradient: _statusGradient(event.status)),
+            child: hasImage
+                ? CachedNetworkImage(
+                    imageUrl: ApiConfig.imageUrl(url),
+                    fit: BoxFit.cover,
+                    errorWidget: (_, __, ___) => Container(
+                      decoration: BoxDecoration(gradient: _statusGradient(event.status)),
+                    ),
+                  )
+                : Container(
+                    decoration: BoxDecoration(
+                      gradient: _statusGradient(event.status),
+                      borderRadius: AppRadius.topLg,
+                    ),
+                  ),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg, 20, AppSpacing.lg, AppSpacing.md,
+              ),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.transparent, Colors.black87],
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  EventLifecycleBar(event: event, compact: true),
+                  AppSpacing.vSm,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          event.title,
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                            letterSpacing: -0.3,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      AppSpacing.hSm,
+                      _FrostedStatusBadge(status: event.status),
+                      if (event.ageRestricted) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppTheme.errorColor.withValues(alpha: 0.7),
+                            borderRadius: AppRadius.pill,
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+                          ),
+                          child: Text(
+                            '${event.minAge}+',
+                            style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.5),
+                          ),
+                        ),
+                      ],
+                      if (widget.onBookmarkToggle != null) ...[
+                        const SizedBox(width: 6),
+                        _BookmarkButton(
+                          isBookmarked: widget.isBookmarked,
+                          onTap: widget.onBookmarkToggle!,
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
               ),
             ),
           ),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.lg, 14, AppSpacing.lg, AppSpacing.md,
-          ),
-          decoration: BoxDecoration(
-            gradient: hasImage
-                ? const LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Colors.black38, Colors.black54],
-                  )
-                : _statusGradient(event.status),
-            borderRadius: AppRadius.topLg,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              EventLifecycleBar(event: event, compact: true),
-              AppSpacing.vSm,
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      event.title,
-                      style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                        letterSpacing: -0.3,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  AppSpacing.hSm,
-                  _FrostedStatusBadge(status: event.status),
-                  if (event.ageRestricted) ...[
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppTheme.errorColor.withValues(alpha: 0.7),
-                        borderRadius: AppRadius.pill,
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
-                      ),
-                      child: Text(
-                        '${event.minAge}+',
-                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.5),
-                      ),
-                    ),
-                  ],
-                  if (widget.onBookmarkToggle != null) ...[
-                    const SizedBox(width: 6),
-                    _BookmarkButton(
-                      isBookmarked: widget.isBookmarked,
-                      onTap: widget.onBookmarkToggle!,
-                    ),
-                  ],
-                ],
-              ),
-            ],
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
   Widget _buildBody(BuildContext context, Event event) {
+    final hasFunding = event.fundingGoalCents != null && event.fundingGoalCents! > 0;
+
     return Padding(
-      padding: AppSpacing.paddingLg,
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -171,30 +185,25 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
                 ? AppDateFormat.eventCard(event.startTime!)
                 : 'Event date: TBD',
           ),
-          const SizedBox(height: 6),
-
-          if (event.venue != null)
+          if (event.venue != null) ...[
+            const SizedBox(height: 4),
             _InfoRow(
               icon: Icons.location_on_rounded,
               text: '${event.venue!.name}, ${event.venue!.city}',
             ),
-
+          ],
           if (event.genre != null && event.genre!.isNotEmpty) ...[
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             _InfoRow(
               icon: Icons.label_rounded,
               text: event.genre![0].toUpperCase() + event.genre!.substring(1),
               color: AppTheme.accentColor,
             ),
           ],
-
-          AppSpacing.vMd,
+          const SizedBox(height: 8),
           Row(
             children: [
-              _StatChip(
-                icon: Icons.favorite_rounded,
-                value: '${event.likeCount}',
-              ),
+              _StatChip(icon: Icons.favorite_rounded, value: '${event.likeCount}'),
               if (_attendeeCount > 0)
                 _StatChip(
                   icon: Icons.group_rounded,
@@ -202,57 +211,24 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
                       ? '$_attendeeCount / ${event.maxCapacity}'
                       : '$_attendeeCount going',
                 ),
-            ],
-          ),
-
-          if (event.fundingGoalCents != null &&
-              event.fundingGoalCents! > 0) ...[
-            AppSpacing.vMd,
-            Row(
-              children: [
-                Expanded(
-                  child: ClipRRect(
-                    borderRadius: AppRadius.sm,
-                    child: LinearProgressIndicator(
-                      value: event.fundingProgress.clamp(0.0, 1.0),
-                      minHeight: 5,
-                      backgroundColor: AppTheme.dividerOf(context),
-                      valueColor: AlwaysStoppedAnimation(
-                        event.fundingProgress >= 1.0
-                            ? AppTheme.successColor
-                            : AppTheme.accentColor,
-                      ),
-                    ),
-                  ),
-                ),
-                AppSpacing.hSm,
+              if (hasFunding) ...[
+                const Spacer(),
                 Text(
                   '${(event.fundingProgress * 100).clamp(0, 999).toStringAsFixed(0)}% raised',
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
-                    fontSize: 12,
+                    fontSize: 11,
                     color: event.fundingProgress >= 1.0
                         ? AppTheme.successColor
                         : AppTheme.accentColor,
                   ),
                 ),
                 if (event.fundingEndAt != null) ...[
-                  AppSpacing.hSm,
                   Text(
-                    '·',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppTheme.textSecondaryOf(context),
-                    ),
-                  ),
-                  AppSpacing.hSm,
-                  Text(
-                    event.fundingHasTimeLeft
-                        ? event.fundingTimeLeftFormatted
-                        : 'Ended',
+                    ' · ${event.fundingHasTimeLeft ? event.fundingTimeLeftFormatted : "Ended"}',
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
-                      fontSize: 12,
+                      fontSize: 11,
                       color: event.fundingHasTimeLeft
                           ? AppTheme.textSecondaryOf(context)
                           : AppTheme.errorColor,
@@ -260,6 +236,22 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
                   ),
                 ],
               ],
+            ],
+          ),
+          if (hasFunding) ...[
+            const SizedBox(height: 6),
+            ClipRRect(
+              borderRadius: AppRadius.sm,
+              child: LinearProgressIndicator(
+                value: event.fundingProgress.clamp(0.0, 1.0),
+                minHeight: 4,
+                backgroundColor: AppTheme.dividerOf(context),
+                valueColor: AlwaysStoppedAnimation(
+                  event.fundingProgress >= 1.0
+                      ? AppTheme.successColor
+                      : AppTheme.accentColor,
+                ),
+              ),
             ),
           ],
         ],
@@ -399,7 +391,7 @@ class _BookmarkButtonState extends State<_BookmarkButton>
     _scaleAnim = TweenSequence<double>([
       TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.3), weight: 50),
       TweenSequenceItem(tween: Tween(begin: 1.3, end: 1.0), weight: 50),
-    ]).animate(CurvedAnimation(parent: _controller, curve: AppCurve.overshoot));
+    ]).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override

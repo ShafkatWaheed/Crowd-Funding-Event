@@ -123,6 +123,17 @@ async def list_genres():
     return EVENT_GENRES
 
 
+@router.get("/cities")
+@limiter.limit(dynamic_limit("public_search", "60/minute"))
+async def list_cities(request: Request, db: ReadDbSession):
+    from app.models.venue import Venue
+    rows = (await db.execute(
+        select(Venue.city).where(Venue.city.isnot(None), Venue.city != "")
+        .distinct().order_by(Venue.city)
+    )).scalars().all()
+    return {"cities": list(rows)}
+
+
 @router.get("/featured")
 @limiter.limit(dynamic_limit("public_search", "60/minute"))
 async def get_featured_events(request: Request, db: ReadDbSession, sponsorship_only: bool = Query(False)):

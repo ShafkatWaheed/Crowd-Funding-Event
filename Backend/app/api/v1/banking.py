@@ -1155,21 +1155,6 @@ async def run_reconciliation_now(
 
 
 # ═══════════════════════════════════════════
-#  Cities endpoint (for city filter autocomplete)
-# ═══════════════════════════════════════════
-
-@router.get("/events/cities")
-@limiter.limit(dynamic_limit("public_search", "60/minute"))
-async def list_cities(request: Request, db: ReadDbSession):
-    from app.models.venue import Venue
-    rows = (await db.execute(
-        select(Venue.city).where(Venue.city.isnot(None), Venue.city != "")
-        .distinct().order_by(Venue.city)
-    )).scalars().all()
-    return {"cities": list(rows)}
-
-
-# ═══════════════════════════════════════════
 #  Admin Payout Status (D3)
 # ═══════════════════════════════════════════
 

@@ -33,6 +33,19 @@ async def create_notification(
     )
     db.add(notif)
     await db.flush()
+
+    try:
+        from app.worker.redis_pool import enqueue as arq_enqueue
+        await arq_enqueue(
+            "send_push_notification",
+            user_id=user_id,
+            title=title,
+            body=message,
+            data=data,
+        )
+    except Exception:
+        logger.debug("Could not enqueue push notification for user %d", user_id)
+
     return notif
 
 
@@ -57,6 +70,19 @@ async def create_bulk_notifications(
         ))
     await db.flush()
     logger.info("Created %d notifications of type %s", len(unique_ids), type.value)
+
+    try:
+        from app.worker.redis_pool import enqueue as arq_enqueue
+        await arq_enqueue(
+            "send_push_notification_bulk",
+            user_ids=unique_ids,
+            title=title,
+            body=message,
+            data=data,
+        )
+    except Exception:
+        logger.debug("Could not enqueue bulk push for %d users", len(unique_ids))
+
     return len(unique_ids)
 
 

@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 
@@ -8,6 +10,8 @@ class NotificationProvider extends ChangeNotifier {
   List<Map<String, dynamic>> _notifications = [];
   bool _isLoading = false;
   Timer? _pollTimer;
+  String? _fcmToken;
+  StreamSubscription? _tokenRefreshSub;
 
   NotificationProvider(this._api);
 
@@ -90,9 +94,63 @@ class NotificationProvider extends ChangeNotifier {
     } catch (_) {}
   }
 
+  String? get fcmToken => _fcmToken;
+
+  Future<void> initFcm() async {
+    try {
+      final messaging = FirebaseMessaging.instance;
+      final settings = await messaging.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+      if (settings.authorizationStatus == AuthorizationStatus.denied) {
+        debugPrint('Push notification permission denied');
+        return;
+      }
+
+      String? token;
+      if (kIsWeb) {
+        token = await messaging.getToken(vapidKey: null);
+      } else {
+        token = await messaging.getToken();
+      }
+
+      if (token != null) {
+        _fcmToken = token;
+        await _registerToken(token);
+      }
+
+      _tokenRefreshSub?.cancel();
+      _tokenRefreshSub = messaging.onTokenRefresh.listen((newToken) async {
+        _fcmToken = newToken;
+        await _registerToken(newToken);
+      });
+    } catch (e) {
+      debugPrint('FCM init failed: $e');
+    }
+  }
+
+  Future<void> _registerToken(String token) async {
+    final platform = kIsWeb ? 'web' : (defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android');
+    try {
+      await _api.post('/me/device-tokens', {'token': token, 'platform': platform});
+    } catch (_) {}
+  }
+
+  Future<void> unregisterDevice() async {
+    if (_fcmToken != null) {
+      try {
+        await _api.dio.delete('/me/device-tokens/$_fcmToken');
+      } catch (_) {}
+      _fcmToken = null;
+    }
+  }
+
   @override
   void dispose() {
     stopPolling();
+    _tokenRefreshSub?.cancel();
     super.dispose();
   }
 }

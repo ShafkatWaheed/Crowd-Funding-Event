@@ -55,6 +55,7 @@ DEFAULTS = {
     "feature_schedule_enabled": "true",
     "feature_sponsors_enabled": "true",
     "feature_community_rules_enabled": "true",
+    "push_notifications_enabled": "true",
     "sponsor_commission_percent": 5,
     # Cache
     "cache_enabled": "true",
@@ -175,6 +176,7 @@ DESCRIPTIONS = {
     "feature_schedule_enabled": "Enable event schedule",
     "feature_sponsors_enabled": "Enable sponsors",
     "feature_community_rules_enabled": "Allow organizers to enable community rules on new events",
+    "push_notifications_enabled": "Enable FCM push notifications to user devices (true = send push alongside in-app notifications)",
     "cache_enabled": "Master toggle for Redis caching (true = enabled, false = disabled, all reads become DB-direct)",
     "cache_ttl_settings": "Redis cache TTL for platform settings (seconds)",
     "cache_ttl_featured": "Redis cache TTL for featured events endpoint (seconds)",

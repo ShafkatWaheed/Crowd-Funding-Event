@@ -380,6 +380,44 @@ async def _mark_sponsor_payment_failed(db, payment_id: int) -> None:
         await session.commit()
 
 
+async def send_push_notification(
+    ctx: dict,
+    *,
+    user_id: int,
+    title: str,
+    body: str,
+    data: dict | None = None,
+) -> None:
+    """Send FCM push notification to a single user's devices."""
+    async with async_session_maker() as db:
+        try:
+            from app.services import push_notification as push_svc
+            await push_svc.send_push(db, user_id=user_id, title=title, body=body, data=data)
+            await db.commit()
+        except Exception:
+            await db.rollback()
+            logger.exception("Push notification failed for user %d", user_id)
+
+
+async def send_push_notification_bulk(
+    ctx: dict,
+    *,
+    user_ids: list[int],
+    title: str,
+    body: str,
+    data: dict | None = None,
+) -> None:
+    """Send FCM push notifications to multiple users."""
+    async with async_session_maker() as db:
+        try:
+            from app.services import push_notification as push_svc
+            await push_svc.send_push_bulk(db, user_ids=user_ids, title=title, body=body, data=data)
+            await db.commit()
+        except Exception:
+            await db.rollback()
+            logger.exception("Bulk push notification failed for %d users", len(user_ids))
+
+
 async def mock_auto_settle(ctx: dict) -> None:
     """Periodic task: settle mock ledger entries whose settlement delay has elapsed."""
     async with async_session_maker() as db:

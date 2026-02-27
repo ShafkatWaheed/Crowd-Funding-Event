@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -14,6 +17,12 @@ import 'providers/event_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/config_provider.dart';
 import 'providers/notification_provider.dart';
+
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  debugPrint('Background push: ${message.messageId}');
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,6 +41,8 @@ void main() async {
       measurementId: dotenv.env['FIREBASE_MEASUREMENT_ID'],
     ),
   );
+
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
   runApp(const CrowdFundApp());
 }
@@ -66,10 +77,51 @@ class _AppShell extends StatefulWidget {
 
 class _AppShellState extends State<_AppShell> {
   GoRouter? _router;
+  bool _fcmInitialized = false;
+  StreamSubscription<RemoteMessage>? _foregroundSub;
+  StreamSubscription<RemoteMessage>? _openedAppSub;
+
+  void _setupFcmListeners(NotificationProvider notifProvider) {
+    if (_fcmInitialized) return;
+    _fcmInitialized = true;
+
+    notifProvider.initFcm();
+
+    _foregroundSub = FirebaseMessaging.onMessage.listen((message) {
+      notifProvider.loadNotifications();
+    });
+
+    _openedAppSub = FirebaseMessaging.onMessageOpenedApp.listen((message) {
+      final data = message.data;
+      final eventId = data['event_id'];
+      if (eventId != null && _router != null) {
+        _router!.go('/events/$eventId');
+      }
+    });
+
+    FirebaseMessaging.instance.getInitialMessage().then((message) {
+      if (message != null) {
+        final eventId = message.data['event_id'];
+        if (eventId != null && _router != null) {
+          _router!.go('/events/$eventId');
+        }
+      }
+    });
+  }
+
+  void _teardownFcm(NotificationProvider notifProvider) {
+    if (!_fcmInitialized) return;
+    _fcmInitialized = false;
+    _foregroundSub?.cancel();
+    _openedAppSub?.cancel();
+    notifProvider.unregisterDevice();
+  }
 
   @override
   void dispose() {
     _router?.dispose();
+    _foregroundSub?.cancel();
+    _openedAppSub?.cancel();
     super.dispose();
   }
 
@@ -81,8 +133,10 @@ class _AppShellState extends State<_AppShell> {
     final notifProvider = context.read<NotificationProvider>();
     if (authProvider.isAuthenticated) {
       notifProvider.startPolling();
+      _setupFcmListeners(notifProvider);
     } else {
       notifProvider.stopPolling();
+      _teardownFcm(notifProvider);
     }
 
     _router ??= createRouter(authProvider);

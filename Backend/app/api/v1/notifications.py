@@ -1,12 +1,20 @@
 """
-In-app notification endpoints.
+In-app notification endpoints + device token management for FCM push.
 """
-from fastapi import APIRouter, Query, Response
+from fastapi import APIRouter, HTTPException, Query, Response
+from pydantic import BaseModel
+from sqlalchemy import select, delete as sa_delete
 
 from app.dependencies import CurrentUser, DbSession, ReadDbSession
+from app.models.device_token import DeviceToken
 from app.services import notification_service as notif_svc
 
 router = APIRouter()
+
+
+class DeviceTokenBody(BaseModel):
+    token: str
+    platform: str = "web"
 
 
 @router.get("/notifications")
@@ -69,3 +77,42 @@ async def delete_notification(
 ):
     """Delete a single notification. Only the owner can delete."""
     await notif_svc.delete_notification(db, notification_id=notification_id, user_id=current_user.id)
+
+
+# ── Device tokens (FCM push) ──
+
+@router.post("/me/device-tokens")
+async def register_device_token(
+    body: DeviceTokenBody,
+    db: DbSession,
+    current_user: CurrentUser,
+):
+    """Register or update a device token for push notifications."""
+    if body.platform not in ("android", "ios", "web"):
+        raise HTTPException(status_code=400, detail="platform must be android, ios, or web")
+    existing = (await db.execute(
+        select(DeviceToken).where(DeviceToken.token == body.token)
+    )).scalar_one_or_none()
+    if existing:
+        existing.user_id = current_user.id
+        existing.platform = body.platform
+    else:
+        db.add(DeviceToken(user_id=current_user.id, token=body.token, platform=body.platform))
+    await db.flush()
+    return {"ok": True}
+
+
+@router.delete("/me/device-tokens/{token}")
+async def unregister_device_token(
+    token: str,
+    db: DbSession,
+    current_user: CurrentUser,
+):
+    """Remove a device token (e.g. on logout)."""
+    await db.execute(
+        sa_delete(DeviceToken).where(
+            DeviceToken.token == token,
+            DeviceToken.user_id == current_user.id,
+        )
+    )
+    return {"ok": True}

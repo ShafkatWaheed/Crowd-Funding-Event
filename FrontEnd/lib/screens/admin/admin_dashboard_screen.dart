@@ -105,7 +105,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           _eventFilterIndex = _autoSelectEventFilter();
         }
       });
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
     if (mounted) setState(() => _isLoading = false);
   }
 
@@ -118,7 +118,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             .map((e) => Map<String, dynamic>.from(e as Map))
             .toList());
       }
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
   }
 
   Future<void> _loadEvents() async {
@@ -136,7 +136,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           _stats = results[1] as Map<String, dynamic>;
         });
       }
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
   }
 
   Future<void> _loadMoreEvents() async {
@@ -151,7 +151,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         _allEvents.addAll(items);
         _eventsTotal = (resp['total'] as int?) ?? _eventsTotal;
       });
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
     if (mounted) setState(() => _eventsLoadingMore = false);
   }
 
@@ -159,7 +159,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     try {
       final data = await ApiService.instance.get('/admin/mock-overview');
       if (mounted) setState(() => _mockData = data);
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
   }
 
   int _autoSelectEventFilter() {

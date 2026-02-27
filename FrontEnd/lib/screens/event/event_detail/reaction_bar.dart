@@ -45,7 +45,7 @@ class _ReactionBarState extends State<ReactionBar> {
       final api = context.read<ApiService>();
       final data = await api.getMyReaction(widget.eventId);
       if (mounted) setState(() => _myReaction = data['reaction']);
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
   }
 
   Future<void> _react(String reaction) async {

@@ -47,7 +47,7 @@ class _EditMilestonesSectionState extends State<EditMilestonesSection> {
           if (_milestones.isNotEmpty) _expanded = true;
         });
       }
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
   }
 
   Future<void> _saveMilestone(EditMilestone ms) async {

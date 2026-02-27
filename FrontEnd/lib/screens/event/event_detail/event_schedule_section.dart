@@ -47,7 +47,7 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
             if (mounted) setState(() { _featureEnabled = false; _loading = false; });
             return;
           }
-        } catch (_) {}
+        } catch (e) { debugPrint(e.toString()); }
       }
 
       final list = await api.getSchedule(widget.eventId);

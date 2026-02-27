@@ -97,7 +97,7 @@ class _MyEventsTabState extends State<MyEventsTab> {
       final res = await api.checkBookmarks(eventIds);
       final ids = (res['bookmarked_ids'] as List?)?.cast<int>() ?? [];
       if (mounted) widget.onBookmarksSynced?.call(ids);
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
   }
 
   Future<void> _loadMoreMyEvents() async {

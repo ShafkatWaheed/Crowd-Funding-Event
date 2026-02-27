@@ -113,7 +113,7 @@ class ChatSocketService {
     _subscription = null;
     try {
       _channel?.sink.close();
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
     _channel = null;
   }
 

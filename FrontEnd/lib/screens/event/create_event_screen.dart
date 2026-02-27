@@ -175,7 +175,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
           if (!_communityRulesFeatureEnabled) _communityRules = false;
         });
       }
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
   }
 
   @override
@@ -751,7 +751,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         try {
           await api.attachDiscountStrategy(eventId, entry.key,
               autoApply: entry.value);
-        } catch (_) {}
+        } catch (e) { debugPrint(e.toString()); }
       }
 
       if (_localTiers.isNotEmpty) {
@@ -770,7 +770,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                 'max_reserved_spots': t.maxReservedSpots,
             };
             await api.createTicketTier(eventId, tierData);
-          } catch (_) {}
+          } catch (e) { debugPrint(e.toString()); }
         }
       }
 
@@ -784,7 +784,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
             if (ms.benefitCtrl.text.trim().isNotEmpty)
               'benefit_description': ms.benefitCtrl.text.trim(),
           });
-        } catch (_) {}
+        } catch (e) { debugPrint(e.toString()); }
         // Create milestone discount rule if a discount value is set
         final discVal = int.tryParse(ms.discountValueCtrl.text.trim()) ?? 0;
         if (discVal > 0) {
@@ -797,7 +797,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
               'milestone_percent': ms.unlockPercent,
               'milestone_discount_value': discVal,
             });
-          } catch (_) {}
+          } catch (e) { debugPrint(e.toString()); }
         }
       }
 
@@ -812,7 +812,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
             'value': val,
             'window_end': eb.windowEnd!.toUtc().toIso8601String(),
           });
-        } catch (_) {}
+        } catch (e) { debugPrint(e.toString()); }
       }
 
       if (_hasSchedule && _scheduleDays.isNotEmpty) {
@@ -869,10 +869,10 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                         ? slot.imageCaptionCtrl.text.trim()
                         : null,
                   );
-                } catch (_) {}
+                } catch (e) { debugPrint(e.toString()); }
               }
             }
-          } catch (_) {}
+          } catch (e) { debugPrint(e.toString()); }
         }
       }
 
@@ -891,9 +891,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
             try {
               await api.createPrerequisite(eventId, catId,
                   name: p.name, description: p.description, isRequired: p.isRequired, requiresDocument: p.requiresDocument);
-            } catch (_) {}
+            } catch (e) { debugPrint(e.toString()); }
           }
-        } catch (_) {}
+        } catch (e) { debugPrint(e.toString()); }
       }
 
       for (int i = 0; i < _pickedImages.length; i++) {
@@ -906,7 +906,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
             fileName: _pickedImages[i].name,
             displayOrder: i,
           );
-        } catch (_) {}
+        } catch (e) { debugPrint(e.toString()); }
       }
 
       setState(() => _isLoading = false);
@@ -1412,7 +1412,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
           requiresDocument: p['requires_document'] as bool? ?? false,
         ));
       }
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
     if (!mounted) return;
     setState(() {
       _localCategories.add(cat);

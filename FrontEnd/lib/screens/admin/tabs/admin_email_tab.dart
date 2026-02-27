@@ -135,7 +135,7 @@ class _AdminEmailTabState extends State<AdminEmailTab> {
                           if (mounted) {
                             widget.onSnack('All templates reset to defaults');
                           }
-                        } catch (_) {}
+                        } catch (e) { debugPrint(e.toString()); }
                       }
                     },
                   ),
@@ -237,7 +237,7 @@ class _AdminEmailTabState extends State<AdminEmailTab> {
                                       if (mounted) {
                                         widget.onSnack('Test email sent');
                                       }
-                                    } catch (_) {}
+                                    } catch (e) { debugPrint(e.toString()); }
                                   },
                                 ),
                                 const SizedBox(width: 8),
@@ -250,7 +250,7 @@ class _AdminEmailTabState extends State<AdminEmailTab> {
                                           '/admin/email-templates/${t['template_key']}/reset',
                                           {});
                                       _loadEmailTemplates();
-                                    } catch (_) {}
+                                    } catch (e) { debugPrint(e.toString()); }
                                   },
                                 ),
                               ],

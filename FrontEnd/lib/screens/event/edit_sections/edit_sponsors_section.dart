@@ -113,7 +113,7 @@ class _EditSponsorsSectionState extends State<EditSponsorsSection> {
                 description: p.description,
                 isRequired: p.isRequired,
                 requiresDocument: p.requiresDocument);
-          } catch (_) {}
+          } catch (e) { debugPrint(e.toString()); }
         }
         setState(() => sc.prereqs.clear());
       }
@@ -270,7 +270,7 @@ class _EditSponsorsSectionState extends State<EditSponsorsSection> {
       final data =
           await api.listPrerequisites(widget.eventId, sc.id!);
       prereqs = data.cast<Map<String, dynamic>>();
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
     if (!mounted) return;
 
     final nameCtrl = TextEditingController();

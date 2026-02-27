@@ -114,7 +114,7 @@ class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
       final api = context.read<ApiService>();
       final data = await api.getUserRatingsSummary(widget.userId);
       if (mounted) setState(() => _ratingsSummary = data);
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
   }
 
   Future<void> _loadEvents() async {
@@ -189,7 +189,7 @@ class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
 
     DateTime? joinDate;
     if (memberSince != null) {
-      try { joinDate = DateTime.parse(memberSince); } catch (_) {}
+      try { joinDate = DateTime.parse(memberSince); } catch (e) { debugPrint(e.toString()); }
     }
 
     final initial = companyName.isNotEmpty ? companyName[0].toUpperCase() : '?';
@@ -654,7 +654,7 @@ class _SponsorEventCard extends StatelessWidget {
       try {
         final dt = DateTime.parse(startTime);
         dateStr = AppDateFormat.dateOnly(dt);
-      } catch (_) {}
+      } catch (e) { debugPrint(e.toString()); }
     }
 
     return GestureDetector(

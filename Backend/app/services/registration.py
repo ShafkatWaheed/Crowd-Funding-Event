@@ -11,12 +11,14 @@ refund_deadline_days has not been exceeded (counted backwards from event start_t
 If the deadline has passed, unregister is allowed but pledges are NOT refunded.
 
 Concurrency:
-- Uses SELECT ... FOR UPDATE on the event row when registering to reduce oversubscription.
+- Uses pg_advisory_xact_lock(event_id) + SELECT ... FOR UPDATE on the event row
+  when registering to prevent oversubscription under burst load (same pattern as
+  purchase_ticket and create_pledge).
 """
 
 
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.logger import get_logger, log_step
@@ -36,6 +38,7 @@ async def register(
     user: User,
 ) -> Registration:
     log_step(logger, "Register for event", event_id=event_id, user_id=user.id)
+    await db.execute(text("SELECT pg_advisory_xact_lock(:eid)"), {"eid": event_id})
     event_q = select(Event).where(Event.id == event_id).with_for_update()
     event_res = await db.execute(event_q)
     event = event_res.scalar_one_or_none()

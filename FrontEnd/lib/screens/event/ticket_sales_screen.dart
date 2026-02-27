@@ -82,7 +82,7 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
         final stats = await api.getTicketSalesStats(widget.eventId);
         _totalSold = (stats['total_sold'] ?? 0) as int;
         _totalScanned = (stats['total_scanned'] ?? 0) as int;
-      } catch (_) {}
+      } catch (e) { debugPrint(e.toString()); }
       setState(() {
         _all = data;
         _hasMore = data.length >= _pageSize;

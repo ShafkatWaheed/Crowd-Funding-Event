@@ -82,7 +82,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final api = context.read<ApiService>();
       final cities = await api.getEventCities();
       if (mounted) setState(() => _cities = cities);
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
   }
 
   Future<void> _batchCheckBookmarks(List<int> eventIds) async {
@@ -94,7 +94,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (mounted) setState(() {
         _bookmarkedIds.addAll(ids);
       });
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
   }
 
   Future<void> _toggleBookmark(int eventId) async {
@@ -110,7 +110,7 @@ class _HomeScreenState extends State<HomeScreen> {
           }
         });
       }
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
   }
 
   @override

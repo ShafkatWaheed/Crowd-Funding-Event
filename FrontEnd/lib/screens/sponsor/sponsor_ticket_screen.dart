@@ -210,7 +210,7 @@ class _SponsorTicketCardState extends State<_SponsorTicketCard>
     if (ticket.eventStartTime != null) {
       try {
         startDt = DateTime.parse(ticket.eventStartTime!);
-      } catch (_) {}
+      } catch (e) { debugPrint(e.toString()); }
     }
 
     final paidCount = ticket.categories.where((c) => c.isPaid).length;
@@ -695,13 +695,13 @@ class _SponsorTicketReceiptPageState extends State<_SponsorTicketReceiptPage> {
     if (ticket.eventStartTime != null) {
       try {
         startDt = DateTime.parse(ticket.eventStartTime!);
-      } catch (_) {}
+      } catch (e) { debugPrint(e.toString()); }
     }
     DateTime? createdDt;
     if (ticket.createdAt != null) {
       try {
         createdDt = DateTime.parse(ticket.createdAt!);
-      } catch (_) {}
+      } catch (e) { debugPrint(e.toString()); }
     }
 
     return Scaffold(
@@ -1170,7 +1170,7 @@ class _SponsorTicketReceiptPageState extends State<_SponsorTicketReceiptPage> {
                         .map((cat) {
                       DateTime? payDt;
                       if (cat.paymentCreatedAt != null) {
-                        try { payDt = DateTime.parse(cat.paymentCreatedAt!); } catch (_) {}
+                        try { payDt = DateTime.parse(cat.paymentCreatedAt!); } catch (e) { debugPrint(e.toString()); }
                       }
                       final isRefund = cat.isRefunded;
                       final payColor = isRefund ? AppTheme.errorColor : AppTheme.successColor;

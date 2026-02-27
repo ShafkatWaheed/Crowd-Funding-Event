@@ -737,7 +737,7 @@ class _SponsorUploadSheetState extends State<_SponsorUploadSheet> {
           _uploadsByBid[bidId] = uploads.cast<Map<String, dynamic>>();
         });
       }
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
   }
 
   Future<void> _uploadFile(int prereqId) async {

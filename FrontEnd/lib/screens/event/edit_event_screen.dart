@@ -86,7 +86,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
               flags['feature_community_rules_enabled'] ?? true;
         });
       }
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
   }
 
   Future<void> _loadVenues() async {
@@ -96,7 +96,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
       setState(() {
         _venues = data.map((v) => Venue.fromJson(v)).toList();
       });
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
   }
 
   Future<void> _loadStrategies() async {
@@ -107,7 +107,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
         _strategies =
             data.map((d) => TicketStrategy.fromJson(d)).toList();
       });
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
   }
 
   Future<void> _loadEvent() async {

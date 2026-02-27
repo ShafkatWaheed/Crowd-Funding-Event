@@ -215,13 +215,13 @@ class ScheduleMilestoneDialogs {
     TimeOfDay endTime = const TimeOfDay(hour: 10, minute: 0);
 
     if (existing != null) {
-      try { date = DateTime.parse(existing['date']); } catch (_) {}
+      try { date = DateTime.parse(existing['date']); } catch (e) { debugPrint(e.toString()); }
       try {
         final sp = (existing['start_time'] as String).split(':');
         startTime = TimeOfDay(hour: int.parse(sp[0]), minute: int.parse(sp[1]));
         final ep = (existing['end_time'] as String).split(':');
         endTime = TimeOfDay(hour: int.parse(ep[0]), minute: int.parse(ep[1]));
-      } catch (_) {}
+      } catch (e) { debugPrint(e.toString()); }
     }
 
     final result = await showDialog<Map<String, dynamic>>(

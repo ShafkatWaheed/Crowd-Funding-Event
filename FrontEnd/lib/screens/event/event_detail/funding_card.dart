@@ -62,7 +62,7 @@ class _FundingCardState extends State<FundingCard> {
       final api = context.read<ApiService>();
       final data = await api.getEarlyBirdDiscounts(widget.eventId);
       if (mounted) setState(() => _earlyBirdDiscounts = data);
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
   }
 
   Future<void> _loadFunding() async {
@@ -78,7 +78,7 @@ class _FundingCardState extends State<FundingCard> {
           _totalReservedSpots = data['total_reserved_spots'] ?? 0;
         });
       }
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
   }
 
   Color _trustColor(BuildContext context, String label) {
@@ -748,7 +748,7 @@ class _FundingCardState extends State<FundingCard> {
             _loadFunding();
           }
         }
-      } catch (_) {}
+      } catch (e) { debugPrint(e.toString()); }
     });
   }
 

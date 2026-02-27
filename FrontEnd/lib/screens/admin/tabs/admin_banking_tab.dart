@@ -105,7 +105,7 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
     try {
       final data = await ApiService.instance.adminGetEventEscrows(eventId);
       if (mounted) setState(() { _selectedEventEscrows = data; _selectedPipelineEventId = eventId; });
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
   }
 
   Future<void> _loadReconHistory() async {
@@ -113,7 +113,7 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
     try {
       final resp = await ApiService.instance.adminGetReconciliationHistory();
       setState(() => _reconHistory = resp);
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
     setState(() => _reconHistoryLoading = false);
   }
 
@@ -122,7 +122,7 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
     try {
       final resp = await ApiService.instance.adminGetLedgerHealth();
       setState(() => _ledgerHealth = resp);
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
     setState(() => _ledgerHealthLoading = false);
   }
 
@@ -131,7 +131,7 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
     try {
       final resp = await ApiService.instance.adminGetDisputes();
       setState(() => _disputes = (resp['items'] as List?) ?? []);
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
     setState(() => _disputesLoading = false);
   }
 
@@ -140,7 +140,7 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
     try {
       final resp = await ApiService.instance.adminGetPayoutStatus();
       setState(() => _payoutItems = (resp is List) ? resp : (resp['items'] ?? []));
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
     setState(() => _payoutLoading = false);
   }
 
@@ -157,7 +157,7 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
         _txnTotal = resp['total'] ?? 0;
         _txnPage = page;
       });
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
     setState(() => _txnLoading = false);
   }
 

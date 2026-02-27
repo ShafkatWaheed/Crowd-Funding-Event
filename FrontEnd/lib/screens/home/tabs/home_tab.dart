@@ -157,7 +157,7 @@ class _HomeTabState extends State<HomeTab> {
           setState(() => _nearMeEvents = fullEvents);
         }
       }
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
   }
 
   void _homeSearch() {

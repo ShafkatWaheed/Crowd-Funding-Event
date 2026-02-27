@@ -77,7 +77,7 @@ class _EditScheduleSectionState extends State<EditScheduleSection> {
           if (_items.isNotEmpty) _expanded = true;
         });
       }
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
   }
 
   Future<void> _saveItem(EditScheduleItem si) async {

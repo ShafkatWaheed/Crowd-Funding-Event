@@ -200,7 +200,7 @@ class AuthProvider extends ChangeNotifier {
       final meData = await _api.getMe();
       _user = AppUser.fromJson(meData);
       notifyListeners();
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
   }
 
   /// Sign out of Firebase and clear local state.

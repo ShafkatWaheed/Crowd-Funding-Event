@@ -128,7 +128,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       final res = await api.checkBookmarks([widget.eventId]);
       final ids = (res['bookmarked_ids'] as List?)?.cast<int>() ?? [];
       if (mounted) setState(() => _bookmarked = ids.contains(widget.eventId));
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
   }
 
   Future<void> _toggleBookmark() async {
@@ -136,7 +136,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       final api = context.read<ApiService>();
       final res = await api.toggleBookmark(widget.eventId);
       if (mounted) setState(() => _bookmarked = res['bookmarked'] == true);
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
   }
 
   Future<void> _refreshAll() async {
@@ -160,7 +160,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       setState(() {
         _images = data.map((i) => EventImage.fromJson(i)).toList();
       });
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
   }
 
   Future<void> _checkRegistration() async {
@@ -173,7 +173,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
         _isRegistered = data['registered'] == true;
         _regStatus = data['status'];
       });
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
   }
 
   Future<void> _loadMyTicketCount() async {
@@ -192,7 +192,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           _myEventTickets = myTickets.cast<Map<String, dynamic>>();
         });
       }
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
   }
 
   Future<void> _loadMyReservedSpots() async {
@@ -206,7 +206,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           .where((p) => p['event_id'] == widget.eventId && p['status'] == 'pledged')
           .fold<int>(0, (sum, p) => sum + ((p['reserved_spots'] ?? 0) as int));
       if (mounted) setState(() => _myReservedSpots = spots);
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
   }
 
   Future<void> _loadRevenue() async {
@@ -222,7 +222,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       final total = sales.fold<int>(
           0, (s, e) => s + ((e['amount_paid_cents'] ?? 0) as int));
       if (mounted) setState(() => _revenueCents = total);
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
   }
 
   // _loadMyReaction and _react moved into ReactionBar widget

@@ -146,7 +146,7 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
           _ticketsTotal = (resp['total'] as int?) ?? 0;
         });
       }
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
   }
 
   Future<void> _loadPledges() async {
@@ -165,7 +165,7 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
           _pledgesTotal = (resp['total'] as int?) ?? 0;
         });
       }
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
   }
 
   Future<void> _loadEscrowsOnly() async {
@@ -186,7 +186,7 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
           _escrowsTotal = (data['total'] as int?) ?? 0;
         });
       }
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
   }
 
   Future<void> _loadMoreTickets() async {
@@ -205,7 +205,7 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
         _adminTickets.addAll(items);
         _ticketsTotal = (resp['total'] as int?) ?? _ticketsTotal;
       });
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
     if (mounted) setState(() => _ticketsLoadingMore = false);
   }
 
@@ -226,7 +226,7 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
         _adminPledges.addAll(items);
         _pledgesTotal = (resp['total'] as int?) ?? _pledgesTotal;
       });
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
     if (mounted) setState(() => _pledgesLoadingMore = false);
   }
 
@@ -249,7 +249,7 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
         _escrows.addAll(items);
         _escrowsTotal = (data['total'] as int?) ?? _escrowsTotal;
       });
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
     if (mounted) setState(() => _escrowsLoadingMore = false);
   }
 
@@ -289,7 +289,7 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
           _pledgesTotal = (pledgesResp['total'] as int?) ?? 0;
         });
       }
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
   }
 
   void _onEscrowSearchChanged(String q) {
@@ -321,7 +321,7 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
           _escrowsTotal = (data['total'] as int?) ?? 0;
         });
       }
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
   }
 
   Future<void> _escrowAction(int eventId, String action, {int? stage}) async {

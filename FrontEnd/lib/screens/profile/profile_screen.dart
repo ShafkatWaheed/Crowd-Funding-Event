@@ -120,7 +120,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _selectedBirthday = DateTime.parse(user.birthday!);
             _birthdayCtrl.text =
                 AppDateFormat.dateOnly(_selectedBirthday!);
-          } catch (_) {}
+          } catch (e) { debugPrint(e.toString()); }
         }
       });
     }
@@ -145,7 +145,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _websiteUrlCtrl.text = data['website_url'] ?? '';
         });
       }
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
     finally {
       if (mounted) setState(() => _loadingSponsorProfile = false);
     }
@@ -163,7 +163,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _billingAddressCtrl.text = data['billing_address'] ?? '';
         });
       }
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
     finally {
       if (mounted) setState(() => _paymentInfoLoading = false);
     }
@@ -194,7 +194,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _bankEditing = false;
         });
       }
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
     finally {
       if (mounted) setState(() => _bankLoading = false);
     }

@@ -147,7 +147,7 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
       final api = context.read<ApiService>();
       final data = await api.getUserRatingsSummary(widget.userId);
       if (mounted) setState(() => _ratingsSummary = data);
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
   }
 
   Future<void> _refreshAll() async {
@@ -206,7 +206,7 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
     final initials = name.isNotEmpty ? name[0].toUpperCase() : '?';
     DateTime? memberSince;
     if (createdAt != null) {
-      try { memberSince = DateTime.parse(createdAt); } catch (_) {}
+      try { memberSince = DateTime.parse(createdAt); } catch (e) { debugPrint(e.toString()); }
     }
 
     return Container(

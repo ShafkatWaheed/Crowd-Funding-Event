@@ -49,7 +49,7 @@ class _EventFeedSectionState extends State<EventFeedSection> {
           _posts = data.map((p) => EventPost.fromJson(p)).toList();
         });
       }
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
     if (mounted) setState(() => _loading = false);
   }
 

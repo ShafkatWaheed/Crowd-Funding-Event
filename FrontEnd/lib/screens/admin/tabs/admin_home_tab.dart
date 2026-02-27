@@ -57,7 +57,7 @@ class _AdminHomeTabState extends State<AdminHomeTab> {
             status: _filterStatus,
           );
       if (mounted) setState(() => _dashboardData = data);
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
     if (mounted) setState(() => _dashboardLoading = false);
   }
 

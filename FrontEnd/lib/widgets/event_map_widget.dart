@@ -395,7 +395,7 @@ class _VenueEventsSheet extends StatelessWidget {
                     if (event.startTime != null) {
                       try {
                         startDt = DateTime.parse(event.startTime!);
-                      } catch (_) {}
+                      } catch (e) { debugPrint(e.toString()); }
                     }
 
                     return InkWell(

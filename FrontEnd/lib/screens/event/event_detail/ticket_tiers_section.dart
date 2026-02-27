@@ -188,7 +188,7 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
               queryParameters: {'ticket_tier_id': tierId},
             );
             previews[tierId] = resp.data;
-          } catch (_) {}
+          } catch (e) { debugPrint(e.toString()); }
         }
       }));
       if (!mounted) return;
@@ -375,7 +375,7 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
       } else {
         configMax = 999;
       }
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
     final maxQty = maxSpots > 0 ? spotsLeft.clamp(0, configMax) : configMax;
 
     if (maxSpots > 0 && spotsLeft <= 0) {

@@ -499,7 +499,7 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 | Phase 18a | Feature Flags — `require_feature()` guard, 3 flags, admin toggle switches |
 | Phase 18 | Funding Milestones — percentage-based unlock, like/dislike reactions, timeline widget, organizer builder |
 | Phase 19 | Event Schedule — date/time-slot agenda, overlap detection, Excel export, timeline widget, schedule builder |
-| Phase 20 | Sponsor Marketplace — sponsor role, categories, bidding, payments, sponsor tickets, carousel (chat deferred) |
+| Phase 20 | Sponsor Marketplace — sponsor role, categories, bidding, payments, sponsor tickets, carousel, negotiation chat |
 | Privacy | Attendee email hidden from receipts, organizer name fallback across all endpoints |
 | Bookmarks | Bookmark toggle, bookmark icon on cards/detail, Bookmarked Events screen, batch check |
 | Notifications | 23 notification types, 13 trigger points, 30s polling, notification bell + badge, notification screen |
@@ -514,6 +514,9 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 | Refund Processing | ARQ + Redis task queue, refund_processing/refunded/refund_failed states, customer-initiated ticket refunds with organizer approval, bulk refunds on cancellation |
 | Backend Scaling | Advisory locks on capacity checks, DB connection pooling, health probes, slowapi rate limiting, email migration to ARQ |
 | Email Expansion | 11 email types (added: ticket refund approved, waitlist approved, sponsor bid approved/rejected/refunded) |
+| Redis Caching | `cache.py` with get/set/delete/pattern-delete, JSON helpers, safe key builder, init/close lifecycle; Features 49 & 50 |
+| Sponsor Negotiation Chat | WebSocket + Redis Streams real-time chat between organizer and sponsor per bid, REST fallback, FCM push; Feature 70 |
+| Structured JSON Logging | `logger.py` with structured JSON output, stdout, OpenSearch-ready format; Feature 69 |
 
 ### Detailed Phase Breakdowns (Phases 9–20)
 
@@ -680,7 +683,7 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 - 20.1 `sponsor` role + `SponsorProfile` model + onboarding screen + migration
 - 20.2 `SponsorshipCategory` model with bid stats, CRUD endpoints, categories screen
 - 20.3 `SponsorBid` model with 5 statuses, 6 bid endpoints, Place Bid dialog, Bid Management screen
-- 20.4 Real-Time Negotiation Chat — **DEFERRED** (uses bid proposal text + accept/reject for now)
+- 20.4 Real-Time Negotiation Chat — **IMPLEMENTED** (WebSocket + Redis Streams, REST fallback, FCM push; Feature 70)
 - 20.5 `SponsorPayment` model with commission, pay endpoint, "Pay" button on accepted bids
 - 20.6 `SponsorTicket` with AES-256-GCM QR, auto-generated on payment, scan endpoint
 - 20.7 Sponsor carousel: public endpoint + horizontal logo row on event detail
@@ -770,10 +773,9 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 |---|---------|-------------|----------|
 | 2 | **File Upload for Images** | Replace URL-based image adding with actual file upload to cloud storage (S3/GCS) | Medium — Phase 21 |
 | 3 | **Organizer Verification** | Verification flow for organizers (identity/contact check before they can publish events) | Medium — Phase 22 |
-| 4 | **Real-Time Sponsor Negotiation Chat** | WebSocket-based chat between organizer and sponsor per bid (deferred from Phase 20.4). WhatsApp-style UI, counter-offer amounts, push notifications when offline, read-only after bid resolution | Medium — Phase 20.4 |
-| 5 | **Newcomer / Trending Badges** | Newcomer badge for new organizers, trending indicator on tickets/events | Low — Phase 23 |
-| 6 | **Verify Organizer via External Apps** | Use third-party verification service or app for organizer identity | Low — Phase 23 |
-| 7 | **Chatbot for Support** | In-app chatbot for user support and FAQ | Low — Phase 23 |
+| 4 | **Newcomer / Trending Badges** | Newcomer badge for new organizers, trending indicator on tickets/events | Low — Phase 23 |
+| 5 | **Verify Organizer via External Apps** | Use third-party verification service or app for organizer identity | Low — Phase 23 |
+| 6 | **Chatbot for Support** | In-app chatbot for user support and FAQ | Low — Phase 23 |
 
 ### Infrastructure (When K8s Env Available)
 
@@ -781,8 +783,8 @@ This document lists **implemented features**, **unused endpoints**, **completed 
 |---|---------|-------------|----------|
 | 8 | **Dockerization & K8s Deployment** | Dockerfile (multi-stage), K8s manifests (Deployments, Services, HPA, PDB), nginx-ingress with method-based routing, read/write/worker pod split, ConfigMap/Secrets | Medium — When K8s ready |
 | 9 | **S3 Storage Migration** | Replace local `static/uploads/` with S3-compatible storage (MinIO/AWS S3) for multi-pod; `storage.py` abstraction, presigned URLs, CDN | Medium — Before multi-pod |
-| 10 | **Redis Caching Layer** | Cache featured events (60s TTL), event detail (30s), dashboard stats (30s), map data (120s); time-based + event-driven invalidation | Medium — For read scaling |
-| 11 | **Observability & Monitoring** | Structured JSON logging (structlog), Prometheus metrics (`/metrics`), request ID propagation (`X-Request-ID`), per-service dashboards | Medium — For production |
+| 10 | **Prometheus Metrics** | `prometheus-fastapi-instrumentator`, `/metrics` endpoint, custom metrics (ARQ jobs, cache hit/miss, DB pool) | Medium — For production |
+| 11 | **X-Request-ID Propagation** | Middleware for `X-Request-ID` header generation/forwarding, attached to all log entries for cross-service correlation | Medium — For production |
 
 ### Scaling (When Needed)
 
@@ -871,21 +873,15 @@ Lowest priority. Estimated: **1–2 sessions**.
 
 ### Feature 12 — Redis Caching Layer
 
-**Status:** Deferred — for read scaling. Estimated: **1 session**.
+**Status: IMPLEMENTED** — `Backend/app/cache.py` with `cache_get`, `cache_set`, `cache_delete`, `cache_delete_pattern`, `cache_json_get/set`, `safe_cache_key`, `init_cache/close_cache`. See Features 49 & 50.
+
+### Feature 13 — Observability & Monitoring (Remaining)
+
+**Status:** Structured JSON logging implemented (Feature 69). Prometheus and Request ID still pending.
 
 | # | Feature | Effort | What to Build |
 |---|---------|--------|--------------|
-| 12.1 | **Cache Infrastructure** | Small | `cache.py` with `get_cached()`/`set_cached()`/`invalidate()` using existing Redis connection |
-| 12.2 | **Cache Targets** | Medium | Featured events (60s TTL), event detail (30s), dashboard stats (30s), map data (120s) |
-| 12.3 | **Cache Invalidation** | Medium | Time-based TTL + event-driven invalidation on mutations (update, publish, cancel, pledge, purchase) |
-
-### Feature 13 — Observability & Monitoring
-
-**Status:** Deferred — for production. Estimated: **1 session**.
-
-| # | Feature | Effort | What to Build |
-|---|---------|--------|--------------|
-| 13.1 | **Structured JSON Logging** | Small | `python-json-logger` or `structlog`, fields: timestamp, level, request_id, user_id, duration_ms |
+| 13.1 | ~~**Structured JSON Logging**~~ | ~~Small~~ | **DONE** — `Backend/app/logger.py`, Feature 69 |
 | 13.2 | **Prometheus Metrics** | Small | `prometheus-fastapi-instrumentator`, `/metrics` endpoint, custom metrics (ARQ jobs, cache hit/miss, DB pool) |
 | 13.3 | **Request ID Propagation** | Small | Middleware for `X-Request-ID` header generation/forwarding, attached to all log entries |
 
@@ -984,14 +980,13 @@ Backend/app/
 | 24c.3 | **Inter-Service Communication** | Large | gRPC or HTTP for sync calls, Redis Streams or RabbitMQ for async events (e.g., "bid accepted" triggers sponsor ticket generation) |
 | 24c.4 | **Observability** | Medium | Distributed tracing (OpenTelemetry), per-service logging, health dashboards |
 
-**Completed phases (1–20 + cross-cutting features):** Auth, venues, events, funding, tickets, registration, admin, search, business logic (commission, escrow, trust score), spot reservation, terms, multi-ticket + QR, email notifications (11 types via ARQ), transport info, QR encryption, map view + geocoding, dark mode, feature flags, funding milestones, event schedule, sponsor marketplace, privacy rules, bookmarks, in-app notifications, organizer profiles, sponsor info, prerequisites, ratings, scan count, event creation wizard, milestone discounts + early bird discounts, tier-linked funding, refund processing (ARQ + Redis), backend scaling (advisory locks, rate limiting, connection pooling, health probes). Real-time negotiation chat (20.4) deferred.
+**Completed phases (1–20 + cross-cutting features):** Auth, venues, events, funding, tickets, registration, admin, search, business logic (commission, escrow, trust score), spot reservation, terms, multi-ticket + QR, email notifications (11 types via ARQ), transport info, QR encryption, map view + geocoding, dark mode, feature flags, funding milestones, event schedule, sponsor marketplace (incl. negotiation chat), privacy rules, bookmarks, in-app notifications, organizer profiles, sponsor info, prerequisites, ratings, scan count, event creation wizard, milestone discounts + early bird discounts, tier-linked funding, refund processing (ARQ + Redis), backend scaling (advisory locks, rate limiting, connection pooling, health probes), redis caching, structured JSON logging.
 
 **Recommended order for remaining work:**
 1. **Feature 7 — Multi-Role System** (next — high risk, 13+ files)
 2. **Phase 21 — Media** (file upload for images)
 3. **Phase 22 — Trust & Security** (organizer verification)
-4. **Phase 20.4 — Sponsor Negotiation Chat** (WebSocket real-time chat, deferred)
-5. **Phase 23 — Nice to Have** (badges, external verification, chatbot)
+4. **Phase 23 — Nice to Have** (badges, external verification, chatbot)
 6. **Dockerization & K8s Deployment** (when K8s env available)
 7. **S3 Storage Migration** (required before multi-pod deployment)
 8. **Redis Caching Layer** (for read scaling)

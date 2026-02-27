@@ -81,10 +81,16 @@ This folder documents each major feature of the Crowd Funding Event product: **e
 | 67 | [67-sponsor-delegates.md](67-sponsor-delegates.md) | Sponsor Delegates |
 | 68 | [68-escrow-bank-account-guard.md](68-escrow-bank-account-guard.md) | Escrow Bank Account Guard |
 | 69 | [69-structured-logging.md](69-structured-logging.md) | Structured JSON Logging (stdout, OpenSearch-ready) |
+| 70 | [70-sponsor-negotiation-chat.md](70-sponsor-negotiation-chat.md) | Sponsor-Organizer Negotiation Chat |
+
+### Partially implemented
+
+| # | File | Feature | Note |
+|---|------|---------|------|
+| 52 | [52-kyc-aml-verification.md](52-kyc-aml-verification.md) | KYC/AML Verification | Mock + admin review live; Stripe Identity pending |
 
 ### Planned (not yet implemented)
 
 | # | File | Feature |
 |---|------|---------|
-| 52 | [52-kyc-aml-verification.md](52-kyc-aml-verification.md) | KYC/AML Verification |
 | 56 | [56-mobile-platform-ios-android.md](56-mobile-platform-ios-android.md) | Mobile Platform (iOS & Android) |

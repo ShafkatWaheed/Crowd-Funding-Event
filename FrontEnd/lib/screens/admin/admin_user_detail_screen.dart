@@ -104,7 +104,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
         }
         setState(() => _detail = data);
       }
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
   }
 
   void _snack(String msg) {

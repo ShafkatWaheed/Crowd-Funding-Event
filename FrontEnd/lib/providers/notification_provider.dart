@@ -38,7 +38,7 @@ class NotificationProvider extends ChangeNotifier {
         _unreadCount = count;
         notifyListeners();
       }
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
   }
 
   Future<void> loadNotifications({bool unreadOnly = false, int offset = 0}) async {
@@ -55,7 +55,7 @@ class NotificationProvider extends ChangeNotifier {
       } else {
         _notifications.addAll(List<Map<String, dynamic>>.from(resp.data));
       }
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
     _isLoading = false;
     notifyListeners();
   }
@@ -69,7 +69,7 @@ class NotificationProvider extends ChangeNotifier {
       }
       _unreadCount = (_unreadCount - 1).clamp(0, 999);
       notifyListeners();
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
   }
 
   Future<void> markAllRead() async {
@@ -80,7 +80,7 @@ class NotificationProvider extends ChangeNotifier {
       }
       _unreadCount = 0;
       notifyListeners();
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
   }
 
   Future<void> deleteNotification(int notificationId) async {
@@ -91,7 +91,7 @@ class NotificationProvider extends ChangeNotifier {
       _notifications.removeWhere((n) => n['id'] == notificationId);
       if (wasUnread) _unreadCount = (_unreadCount - 1).clamp(0, 999);
       notifyListeners();
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
   }
 
   String? get fcmToken => _fcmToken;
@@ -135,14 +135,14 @@ class NotificationProvider extends ChangeNotifier {
     final platform = kIsWeb ? 'web' : (defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android');
     try {
       await _api.post('/me/device-tokens', {'token': token, 'platform': platform});
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
   }
 
   Future<void> unregisterDevice() async {
     if (_fcmToken != null) {
       try {
         await _api.dio.delete('/me/device-tokens/$_fcmToken');
-      } catch (_) {}
+      } catch (e) { debugPrint(e.toString()); }
       _fcmToken = null;
     }
   }

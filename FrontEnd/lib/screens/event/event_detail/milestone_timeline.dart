@@ -44,7 +44,7 @@ class _MilestoneTimelineState extends State<MilestoneTimeline> {
             if (mounted) setState(() { _featureEnabled = false; _loading = false; });
             return;
           }
-        } catch (_) {}
+        } catch (e) { debugPrint(e.toString()); }
       }
 
       final list = await api.getMilestones(widget.eventId);
@@ -57,7 +57,7 @@ class _MilestoneTimelineState extends State<MilestoneTimeline> {
           try {
             final r = await api.getMyMilestoneReaction(widget.eventId, ms.id);
             reactions[ms.id] = r['reaction'];
-          } catch (_) {}
+          } catch (e) { debugPrint(e.toString()); }
         }
       }
 
@@ -70,7 +70,7 @@ class _MilestoneTimelineState extends State<MilestoneTimeline> {
               discMap[d['milestone_percent'] as int] = d['milestone_discount_value'] ?? d['value'] ?? 0;
             }
           }
-        } catch (_) {}
+        } catch (e) { debugPrint(e.toString()); }
       }
 
       if (mounted) {

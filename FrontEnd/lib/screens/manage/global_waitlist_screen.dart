@@ -79,7 +79,7 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
               });
             }
           }
-        } catch (_) {}
+        } catch (e) { debugPrint(e.toString()); }
 
         // Ticket waitlist
         try {
@@ -91,7 +91,7 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
               '_event_id': eventId,
             });
           }
-        } catch (_) {}
+        } catch (e) { debugPrint(e.toString()); }
       }
 
       setState(() {

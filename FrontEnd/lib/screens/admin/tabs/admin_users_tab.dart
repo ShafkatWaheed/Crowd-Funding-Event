@@ -100,7 +100,7 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
             _usersTotal = (resp['total'] as int?) ?? 0;
           });
         }
-      } catch (_) {}
+      } catch (e) { debugPrint(e.toString()); }
     });
   }
 
@@ -121,7 +121,7 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
           _usersTotal = (resp['total'] as int?) ?? _usersTotal;
         });
       }
-    } catch (_) {}
+    } catch (e) { debugPrint(e.toString()); }
     if (mounted) setState(() => _usersLoadingMore = false);
   }
 

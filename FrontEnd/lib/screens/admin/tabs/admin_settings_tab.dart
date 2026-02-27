@@ -35,6 +35,10 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
     'Push Notifications': ['push_notifications_enabled'],
     'File Uploads': ['upload_max_image_size_mb', 'upload_max_document_size_mb', 'upload_allowed_image_types', 'upload_allowed_document_types'],
     'Cache': ['cache_enabled', 'cache_ttl_settings', 'cache_ttl_featured', 'cache_ttl_event_detail', 'cache_ttl_dashboard'],
+    'Infrastructure': ['worker_run_log_retention_days', 'notification_retention_days', 'cron_reconciliation_hour', 'cron_payout_hour', 'cron_escrow_check_interval_min'],
+    'Financial Policy': ['payout_minimum_cents', 'max_events_per_organizer', 'escrow_trust_score_threshold', 'max_dispute_days_after_event', 'max_push_notifications_per_hour', 'email_digest_enabled'],
+    'Email Branding': ['email_template_logo_url', 'email_template_footer_text'],
+    'Event Limits': ['waitlist_max_size_limit', 'waitlist_auto_approve_default', 'event_max_images_limit', 'max_posts_per_event_limit', 'max_co_organizers_limit', 'refund_deadline_percent_min', 'refund_deadline_percent_max'],
   };
 
   static const _groupIcons = {
@@ -49,6 +53,10 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
     'Push Notifications': Icons.notifications_active,
     'File Uploads': Icons.upload_file,
     'Cache': Icons.cached,
+    'Infrastructure': Icons.build_circle,
+    'Financial Policy': Icons.account_balance,
+    'Email Branding': Icons.email,
+    'Event Limits': Icons.tune,
   };
 
   static const _triggerModeOptions = <String, List<String>>{

@@ -55,6 +55,7 @@ class StepLocationSponsors extends StatefulWidget {
   final VoidCallback onMarkDirty;
   final Widget Function(String) buildLoadingChip;
   final Widget Function(String, VoidCallback) buildErrorRetry;
+  final Widget? eventPoliciesSection;
 
   const StepLocationSponsors({
     super.key,
@@ -100,6 +101,7 @@ class StepLocationSponsors extends StatefulWidget {
     required this.onMarkDirty,
     required this.buildLoadingChip,
     required this.buildErrorRetry,
+    this.eventPoliciesSection,
   });
 
   @override
@@ -444,6 +446,7 @@ class _StepLocationSponsorsState extends State<StepLocationSponsors> {
                 _buildTransportSection(),
                 const SizedBox(height: 16),
                 _buildSponsorshipSection(),
+                if (widget.eventPoliciesSection != null) widget.eventPoliciesSection!,
                 const SizedBox(height: 16),
                 Container(
                   padding: const EdgeInsets.symmetric(

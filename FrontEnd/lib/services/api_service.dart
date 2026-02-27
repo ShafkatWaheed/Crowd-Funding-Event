@@ -1553,4 +1553,12 @@ class ApiService {
     });
     return resp.data as Map<String, dynamic>;
   }
+
+  Future<Map<String, dynamic>> adminSetPolicyOverrides(
+    int eventId,
+    Map<String, dynamic> overrides,
+  ) async {
+    final resp = await dio.patch('/admin/events/$eventId/policy-overrides', data: overrides);
+    return resp.data as Map<String, dynamic>;
+  }
 }

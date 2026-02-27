@@ -75,6 +75,13 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   int _maxDiscountPercent = 100;
   bool _ageRestricted = false;
   int _minAge = 18;
+  // Event policy fields
+  final _waitlistMaxSizeCtrl = TextEditingController();
+  bool _waitlistAutoApprove = true;
+  final _eventMaxImagesCtrl = TextEditingController();
+  final _maxPostsPerDayCtrl = TextEditingController();
+  final _maxCoOrganizersCtrl = TextEditingController();
+  final _refundDeadlinePercentCtrl = TextEditingController();
   bool _publish = true;
   bool _isLoading = false;
   bool _isDirty = false;
@@ -722,6 +729,18 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       data['age_restricted'] = true;
       data['min_age'] = _minAge;
     }
+    // Event policy fields
+    final wms = int.tryParse(_waitlistMaxSizeCtrl.text.trim());
+    if (wms != null && wms > 0) data['waitlist_max_size'] = wms;
+    data['waitlist_auto_approve'] = _waitlistAutoApprove;
+    final emi = int.tryParse(_eventMaxImagesCtrl.text.trim());
+    if (emi != null && emi > 0) data['event_max_images'] = emi;
+    final mppd = int.tryParse(_maxPostsPerDayCtrl.text.trim());
+    if (mppd != null && mppd > 0) data['max_posts_per_day'] = mppd;
+    final mco = int.tryParse(_maxCoOrganizersCtrl.text.trim());
+    if (mco != null && mco > 0) data['max_co_organizers'] = mco;
+    final rdp = int.tryParse(_refundDeadlinePercentCtrl.text.trim());
+    if (rdp != null && rdp > 0) data['refund_deadline_percent'] = rdp;
 
     try {
       final api = context.read<ApiService>();
@@ -1311,6 +1330,58 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       onMarkDirty: _markDirty,
       buildLoadingChip: _buildLoadingChip,
       buildErrorRetry: _buildErrorRetry,
+      eventPoliciesSection: _buildEventPoliciesSection(),
+    );
+  }
+
+  Widget _buildEventPoliciesSection() {
+    return Card(
+      margin: const EdgeInsets.only(top: 16),
+      child: ExpansionTile(
+        leading: const Icon(Icons.tune, size: 20),
+        title: const Text('Event Policies', style: TextStyle(fontWeight: FontWeight.w600)),
+        initiallyExpanded: false,
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        children: [
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _waitlistMaxSizeCtrl,
+            decoration: const InputDecoration(labelText: 'Waitlist max size', helperText: 'Leave empty for platform default'),
+            keyboardType: TextInputType.number,
+          ),
+          const SizedBox(height: 12),
+          SwitchListTile(
+            title: const Text('Waitlist auto-approve'),
+            subtitle: const Text('Automatically approve waitlisted users when spots open'),
+            value: _waitlistAutoApprove,
+            onChanged: (v) => setState(() => _waitlistAutoApprove = v),
+            contentPadding: EdgeInsets.zero,
+          ),
+          TextFormField(
+            controller: _eventMaxImagesCtrl,
+            decoration: const InputDecoration(labelText: 'Max images', helperText: 'Leave empty for platform default'),
+            keyboardType: TextInputType.number,
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _maxPostsPerDayCtrl,
+            decoration: const InputDecoration(labelText: 'Max posts per day', helperText: 'Leave empty for platform default'),
+            keyboardType: TextInputType.number,
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _maxCoOrganizersCtrl,
+            decoration: const InputDecoration(labelText: 'Max co-organizers', helperText: 'Leave empty for platform default'),
+            keyboardType: TextInputType.number,
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _refundDeadlinePercentCtrl,
+            decoration: const InputDecoration(labelText: 'Refund deadline %', helperText: 'Percentage of funding duration', suffixText: '%'),
+            keyboardType: TextInputType.number,
+          ),
+        ],
+      ),
     );
   }
 

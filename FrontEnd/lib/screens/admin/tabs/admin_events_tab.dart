@@ -330,6 +330,118 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
     }
   }
 
+  Widget _policyOverrideButton(Map<String, dynamic> e) {
+    return IconButton(
+      icon: const Icon(Icons.tune, size: 18),
+      tooltip: 'Policy Overrides',
+      onPressed: () => _showPolicyOverridesDialog(e['id'] as int),
+    );
+  }
+
+  void _showPolicyOverridesDialog(int eventId) {
+    final ctrls = {
+      'admin_override_waitlist_max_size': TextEditingController(),
+      'admin_override_event_max_images': TextEditingController(),
+      'admin_override_max_posts_per_day': TextEditingController(),
+      'admin_override_max_co_organizers': TextEditingController(),
+      'admin_override_refund_deadline_percent': TextEditingController(),
+    };
+    bool loading = true;
+    Map<String, dynamic>? current;
+
+    void loadCurrent(StateSetter setDialogState) async {
+      try {
+        final api = context.read<ApiService>();
+        final eventData = await api.getEvent(eventId);
+        setDialogState(() {
+          for (final key in ctrls.keys) {
+            final v = eventData[key];
+            ctrls[key]!.text = v != null ? v.toString() : '';
+          }
+          current = eventData;
+          loading = false;
+        });
+      } catch (_) {
+        setDialogState(() => loading = false);
+      }
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          if (loading && current == null) {
+            loadCurrent(setDialogState);
+          }
+          final labels = {
+            'admin_override_waitlist_max_size': 'Waitlist max size',
+            'admin_override_event_max_images': 'Max images',
+            'admin_override_max_posts_per_day': 'Max posts/day',
+            'admin_override_max_co_organizers': 'Max co-organizers',
+            'admin_override_refund_deadline_percent': 'Refund deadline %',
+          };
+          return AlertDialog(
+            title: Text('Policy Overrides (Event #$eventId)'),
+            content: loading
+                ? const SizedBox(height: 100, child: Center(child: CircularProgressIndicator()))
+                : SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text('Leave empty to use organizer/platform default.',
+                            style: TextStyle(fontSize: 12, color: Colors.grey)),
+                        const SizedBox(height: 12),
+                        ...ctrls.entries.map((entry) => Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: TextField(
+                                controller: entry.value,
+                                decoration: InputDecoration(
+                                  labelText: labels[entry.key] ?? entry.key,
+                                  isDense: true,
+                                  suffixIcon: IconButton(
+                                    icon: const Icon(Icons.clear, size: 16),
+                                    onPressed: () => entry.value.clear(),
+                                  ),
+                                ),
+                                keyboardType: TextInputType.number,
+                              ),
+                            )),
+                      ],
+                    ),
+                  ),
+            actions: [
+              TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancel')),
+              FilledButton(
+                onPressed: loading
+                    ? null
+                    : () async {
+                        final body = <String, dynamic>{};
+                        for (final entry in ctrls.entries) {
+                          final v = int.tryParse(entry.value.text.trim());
+                          body[entry.key] = v;
+                        }
+                        try {
+                          final api = context.read<ApiService>();
+                          await api.adminSetPolicyOverrides(eventId, body);
+                          if (ctx.mounted) Navigator.of(ctx).pop();
+                          widget.onSnack('Policy overrides saved');
+                        } catch (e) {
+                          widget.onSnack('Failed to save overrides');
+                        }
+                      },
+                child: const Text('Save'),
+              ),
+            ],
+          );
+        },
+      ),
+    ).then((_) {
+      for (final c in ctrls.values) {
+        c.dispose();
+      }
+    });
+  }
+
   Widget _approvalCard(Map<String, dynamic> e) {
     final warnings = getWarnings(e);
     return Card(
@@ -353,6 +465,7 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
                           fontWeight: FontWeight.w700, fontSize: 16),
                     ),
                   ),
+                  _policyOverrideButton(e),
                   if (warnings.isNotEmpty)
                     AdminWarningBadge(count: warnings.length),
                   const SizedBox(width: 8),
@@ -432,6 +545,7 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
                           fontWeight: FontWeight.w700, fontSize: 16),
                     ),
                   ),
+                  _policyOverrideButton(e),
                   if (warnings.isNotEmpty)
                     AdminWarningBadge(count: warnings.length),
                   const SizedBox(width: 8),
@@ -580,6 +694,7 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
                           fontWeight: FontWeight.w700, fontSize: 16),
                     ),
                   ),
+                  _policyOverrideButton(e),
                   if (warnings.isNotEmpty)
                     AdminWarningBadge(count: warnings.length),
                   const SizedBox(width: 8),
@@ -636,6 +751,7 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
                           fontWeight: FontWeight.w700, fontSize: 16),
                     ),
                   ),
+                  _policyOverrideButton(e),
                   statusChip(
                       context, 'CANCELLATION', AppTheme.errorOf(context)),
                 ],
@@ -709,6 +825,7 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
                           fontWeight: FontWeight.w700, fontSize: 16),
                     ),
                   ),
+                  _policyOverrideButton(e),
                   statusChip(
                       context, 'EXTENSION', AppTheme.warningOf(context)),
                 ],

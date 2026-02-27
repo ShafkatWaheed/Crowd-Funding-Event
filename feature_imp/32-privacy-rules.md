@@ -58,7 +58,7 @@ flowchart LR
 
 ## Improvements
 
-- Centralize "safe user display" helper (e.g. get_display_name(user, viewer_role)) so new endpoints do not forget. Optional: audit all response schemas for email fields.
+- ~~Centralize "safe user display" helper (e.g. get_display_name(user, viewer_role)) so new endpoints do not forget.~~ **Resolved:** Centralized `safe_display_name()` helper in `events/_helpers.py` (and equivalent where used) for consistent display name with role-aware fallback; use in response builders to avoid leaking email. Optional: audit all response schemas for email fields.
 - Organizer email/phone on receipts for contact: acceptable per FEATURES; keep minimal.
 
 ## Feedback

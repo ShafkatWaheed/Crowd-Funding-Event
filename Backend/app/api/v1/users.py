@@ -1,9 +1,10 @@
 """
 Users: profile (GET/PATCH /me), my pledges (GET /me/pledges), my tickets (GET /me/tickets), my events (GET /me/events).
 """
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 
 from app.dependencies import CurrentUser, DbSession, ReadDbSession, require_role
+from app.rate_limit import limiter, dynamic_limit
 from app.models.user import User, UserRole
 from app.schemas import (
     EventResponse, MeResponse, MeUpdate, MyPledgeItem, OrganizerPledgeItem,
@@ -319,7 +320,9 @@ async def list_my_customers(
 # ── Bookmarks ──
 
 @router.post("/bookmarks/{event_id}")
+@limiter.limit(dynamic_limit("social_action", "30/minute"))
 async def toggle_bookmark(
+    request: Request,
     event_id: int,
     db: DbSession,
     current_user: CurrentUser,

@@ -4,11 +4,12 @@ Events CRUD: list, featured, genres, create, get, patch, delete, calendar.ics.
 import asyncio
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import Response
 from sqlalchemy import select
 
 from app.dependencies import CurrentUserOptional, DbSession, ReadDbSession, require_role
+from app.rate_limit import limiter, dynamic_limit
 from app.models.event import Event, EventStatus, RegistrationType
 from app.models.registration import Registration, RegistrationStatus
 from app.models.user import User, UserRole
@@ -36,7 +37,9 @@ from ._helpers import (
 router = APIRouter()
 
 
+@limiter.limit(dynamic_limit("public_search", "60/minute"))
 async def list_events(
+    request: Request,
     db: ReadDbSession,
     search: str | None = Query(None, description="Search in event title and description"),
     city: str | None = Query(None, description="e.g. Ottawa"),
@@ -119,7 +122,8 @@ async def list_genres():
 
 
 @router.get("/featured")
-async def get_featured_events(db: ReadDbSession, sponsorship_only: bool = Query(False)):
+@limiter.limit(dynamic_limit("public_search", "60/minute"))
+async def get_featured_events(request: Request, db: ReadDbSession, sponsorship_only: bool = Query(False)):
     """Returns trending, popular, and coming-soon event lists for the discover page."""
     from app.cache import cache_json_get, cache_json_set
     from app.services.platform_settings import get_int as get_setting_int
@@ -172,7 +176,9 @@ async def get_featured_events(db: ReadDbSession, sponsorship_only: bool = Query(
     return result
 
 
+@limiter.limit(dynamic_limit("event_create", "5/minute"))
 async def create_event(
+    request: Request,
     body: EventCreate,
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),

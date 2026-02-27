@@ -12,6 +12,7 @@ import 'services/api_service.dart';
 import 'providers/auth_provider.dart';
 import 'providers/event_provider.dart';
 import 'providers/theme_provider.dart';
+import 'providers/config_provider.dart';
 import 'providers/notification_provider.dart';
 
 void main() async {
@@ -47,6 +48,7 @@ class CrowdFundApp extends StatelessWidget {
         Provider<ApiService>.value(value: apiService),
         ChangeNotifierProvider(create: (_) => AuthProvider(apiService)),
         ChangeNotifierProvider(create: (_) => EventProvider(apiService)),
+        ChangeNotifierProvider(create: (_) => ConfigProvider(apiService)..fetchConfig()),
         ChangeNotifierProvider(create: (_) => NotificationProvider(apiService)),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
       ],

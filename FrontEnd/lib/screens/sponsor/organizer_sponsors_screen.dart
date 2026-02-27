@@ -7,6 +7,7 @@ import '../../config/api_config.dart';
 import '../../config/theme.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../services/api_service.dart';
+import '../../widgets/app_toast.dart';
 
 class OrganizerSponsorsScreen extends StatefulWidget {
   final String? eventStatus;
@@ -70,9 +71,7 @@ class _OrganizerSponsorsScreenState extends State<OrganizerSponsorsScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(ApiService.extractError(e))),
-      );
+      AppToast.fromError(context, e, fallback: 'Failed to load sponsors');
     }
   }
 

@@ -21,6 +21,12 @@
 - **Module(s):** `app.services.event.crud` (or dashboard), `app.services.dashboard` for trending/popular/coming-soon.
 - **Main functions:** `list_events()` (filters, pagination), `get_trending_events()`, `get_popular_events()`, `get_coming_soon_events()`; map aggregates events by venue for markers.
 
+### Map API
+
+- **Path:** `app.api.v1.map_` (router mounted under events prefix; GET `/events/map` or `/map`).
+- **Key functions:** Endpoint `map_events(db, lat, lng, radius_km, city, live, organizer_id, search, genre, status)` — delegates to `event_service.list_events_for_map()` with the same params; maps each event to `MapEventMarker` (id, title, lat, lng, start_time, end_time, status, is_live, venue_id, venue_name). Only events with non-null lat/lng are returned.
+- **Integration:** Frontend map view calls `getMapEvents(bounds)` or equivalent with optional city, live, organizer, search, genre, status; backend returns list of markers for pins. Uses read-only DB session.
+
 ## Models and DB
 
 - **Models:** `Event`, `Venue`; denormalized or joined for registration count, pledge totals, ticket counts, first image.

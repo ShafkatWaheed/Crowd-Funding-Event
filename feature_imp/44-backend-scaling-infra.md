@@ -9,17 +9,17 @@
 
 - **Screen/Widget:** N/A (infrastructure). Frontend may see 429 (rate limit) or 503 (health fail); connection timeouts on network issues.
 - **User action:** N/A.
-- **API calls:** GET `/healthz` (liveness), GET `/health` (readiness, pings DB). Rate limits apply per endpoint (global 120/min, auth 10/min, purchase 15/min, pledge/register 20/min).
+- **API calls:** GET `/healthz` (liveness), GET `/health` (readiness, pings DB). Rate limits apply **per person** (per user ID or per IP); values are configurable in admin. See [Configurable API Rate Limits](61-configurable-rate-limits.md).
 
 ## Backend routing
 
 - **Entry:** `main.py`: mount api_router, rate limit middleware (slowapi), CORS, lifespan (DB pool, Redis pool for ARQ). Health: `/healthz` and `/health` (may be on main app or router).
-- **Handler:** Rate limit key: user_id or IP (from rate_limit.py). Advisory lock: pg_advisory_xact_lock(event_id) in purchase_ticket() and create_pledge() to serialize capacity-sensitive ops per event.
+- **Handler:** Rate limit key: **per person** — user_id (authenticated) or IP (unauthenticated); limits are admin-configurable. Advisory lock: pg_advisory_xact_lock(event_id) in purchase_ticket() and create_pledge() to serialize capacity-sensitive ops per event.
 
 ## Service layer
 
-- **Module(s):** `app.rate_limit`, `app.db.base` (pool: pool_size=10, max_overflow=20, pool_timeout=30, pool_recycle=1800), `app.worker.redis_pool`. Email migrated to ARQ (no BackgroundTasks).
-- **Main functions:** limiter.limit("20/minute") etc. on routes; get_db_session from pool; get_arq_pool/close_arq_pool in lifespan; enqueue() with Redis-down fallback.
+- **Module(s):** `app.rate_limit` (dynamic limits from platform_settings; see [61-configurable-rate-limits.md](61-configurable-rate-limits.md)), `app.db.base` (pool: pool_size=10, max_overflow=20, pool_timeout=30, pool_recycle=1800), `app.worker.redis_pool`. Email migrated to ARQ (no BackgroundTasks).
+- **Main functions:** limiter with dynamic_limit() per route; get_db_session from pool; get_arq_pool/close_arq_pool in lifespan; enqueue() with Redis-down fallback.
 
 ## Models and DB
 

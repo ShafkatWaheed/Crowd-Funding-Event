@@ -2,9 +2,10 @@
 Funding Milestones API — CRUD + per-milestone reactions + early bird discounts.
 All milestone endpoints gated by the feature_milestones_enabled flag.
 """
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 
 from app.dependencies import DbSession, ReadDbSession, CurrentUserOptional, require_role, require_feature
+from app.rate_limit import limiter, dynamic_limit
 from app.models.user import User, UserRole
 from app.schemas.milestone import (
     MilestoneCreate,
@@ -91,7 +92,9 @@ async def delete_milestone(
     response_model=MilestoneReactionResponse,
     dependencies=[_feature_guard],
 )
+@limiter.limit(dynamic_limit("social_action", "30/minute"))
 async def react_to_milestone(
+    request: Request,
     event_id: int,
     milestone_id: int,
     db: DbSession,

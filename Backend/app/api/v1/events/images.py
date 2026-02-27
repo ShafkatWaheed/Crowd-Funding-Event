@@ -4,10 +4,11 @@ Event images: list, add by URL, upload, delete.
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from sqlalchemy import select
 
 from app.dependencies import DbSession, ReadDbSession, require_role
+from app.rate_limit import limiter, dynamic_limit
 from app.models.image import EventImage
 from app.models.user import User, UserRole
 from app.schemas import EventImageResponse
@@ -55,7 +56,9 @@ async def add_event_image(
 
 
 @router.post("/{event_id}/images/upload", response_model=EventImageResponse)
+@limiter.limit(dynamic_limit("file_upload", "10/minute"))
 async def upload_event_image(
+    request: Request,
     event_id: int,
     db: DbSession,
     file: UploadFile = File(...),

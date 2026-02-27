@@ -526,6 +526,12 @@ async def request_refund(
     sale = (await db.execute(q)).scalar_one_or_none()
     if not sale:
         raise NotFoundError("TicketSale", ticket_sale_id)
+    if sale.status in (
+        TicketSaleStatus.refund_requested,
+        TicketSaleStatus.refund_processing,
+        TicketSaleStatus.refunded,
+    ):
+        return sale
     if sale.status != TicketSaleStatus.purchased:
         raise ConflictError("Only purchased tickets can be refunded")
     if sale.scanned_at is not None:
@@ -556,10 +562,11 @@ async def approve_refund(
     sale = (await db.execute(q)).scalar_one_or_none()
     if not sale:
         raise NotFoundError("TicketSale", ticket_sale_id)
+    if sale.status in (TicketSaleStatus.refund_processing, TicketSaleStatus.refunded):
+        return sale
     if sale.status != TicketSaleStatus.refund_requested:
         raise ConflictError("Only refund-requested tickets can be approved")
 
-    sale.status = TicketSaleStatus.refund_processing
     sale.status = TicketSaleStatus.refunded
     await db.flush()
     await db.refresh(sale)

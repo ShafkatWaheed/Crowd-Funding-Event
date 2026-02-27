@@ -119,6 +119,20 @@ DEFAULTS = {
     "email_from_name": "",
     # ── Platform holding account (encrypted values stored separately) ──
     "platform_holding_configured": "false",
+    # ── API rate limits (format: "N/minute", "N/second", or "N/hour") ──
+    "rate_limit_global_default": "120/minute",
+    "rate_limit_auth_verify": "10/minute",
+    "rate_limit_public_config": "60/minute",
+    "rate_limit_event_register": "20/minute",
+    "rate_limit_ticket_purchase": "15/minute",
+    "rate_limit_pledge": "20/minute",
+    "rate_limit_file_upload": "10/minute",
+    "rate_limit_payment_action": "10/minute",
+    "rate_limit_event_create": "5/minute",
+    "rate_limit_content_create": "15/minute",
+    "rate_limit_public_search": "60/minute",
+    "rate_limit_social_action": "30/minute",
+    "rate_limit_qr_scan": "30/minute",
 }
 
 DESCRIPTIONS = {
@@ -211,6 +225,19 @@ DESCRIPTIONS = {
     "email_from_address": "Email From address",
     "email_from_name": "Email From display name",
     "platform_holding_configured": "Whether platform holding bank account is configured",
+    "rate_limit_global_default": "Global default rate limit for all endpoints without a specific limit (e.g. 120/minute)",
+    "rate_limit_auth_verify": "Rate limit for POST /auth/verify (e.g. 10/minute)",
+    "rate_limit_public_config": "Rate limit for GET /config (e.g. 60/minute)",
+    "rate_limit_event_register": "Rate limit for POST /events/{id}/register (e.g. 20/minute)",
+    "rate_limit_ticket_purchase": "Rate limit for POST /events/{id}/purchase-ticket (e.g. 15/minute)",
+    "rate_limit_pledge": "Rate limit for POST /events/{id}/pledge (e.g. 20/minute)",
+    "rate_limit_file_upload": "Rate limit for all file upload endpoints (e.g. 10/minute)",
+    "rate_limit_payment_action": "Rate limit for payment/refund actions (e.g. 10/minute)",
+    "rate_limit_event_create": "Rate limit for event creation and cloning (e.g. 5/minute)",
+    "rate_limit_content_create": "Rate limit for posts and ratings creation (e.g. 15/minute)",
+    "rate_limit_public_search": "Rate limit for public search/discovery endpoints (e.g. 60/minute)",
+    "rate_limit_social_action": "Rate limit for reactions and bookmarks (e.g. 30/minute)",
+    "rate_limit_qr_scan": "Rate limit for ticket/sponsor QR scanning (e.g. 30/minute)",
 }
 
 

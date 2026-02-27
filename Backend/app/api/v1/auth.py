@@ -5,7 +5,7 @@ Current user profile: see users router (GET /me).
 from fastapi import APIRouter, HTTPException, Request
 
 from app.dependencies import DbSession
-from app.rate_limit import limiter
+from app.rate_limit import limiter, dynamic_limit
 from app.schemas import VerifyBody, VerifyResponse
 from app.services import auth as auth_service
 
@@ -13,7 +13,7 @@ router = APIRouter()
 
 
 @router.post("/verify", response_model=VerifyResponse)
-@limiter.limit("10/minute")
+@limiter.limit(dynamic_limit("auth_verify", "10/minute"))
 async def verify(request: Request, body: VerifyBody, db: DbSession):
     """Verify Firebase ID token and create/update user. New users can sign up as customer or organizer via body.role."""
     try:

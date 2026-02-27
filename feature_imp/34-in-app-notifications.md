@@ -62,7 +62,7 @@ flowchart LR
 
 ## Improvements
 
-- data JSON for event_id navigation. Per-type icons/colors in frontend.
+- data JSON for event_id navigation. Per-type icons/colors in frontend. For planned deep-link navigation and modern notification UI, see [Clickable Notifications Redesign](57-clickable-notifications-redesign.md).
 
 ## Feedback
 

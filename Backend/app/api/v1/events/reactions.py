@@ -1,10 +1,11 @@
 """
 Event reactions: like/dislike, my-reaction.
 """
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import select
 
 from app.dependencies import DbSession, ReadDbSession, require_role
+from app.rate_limit import limiter, dynamic_limit
 from app.models.event import EventReaction
 from app.models.user import User, UserRole
 from app.services import event as event_service
@@ -13,7 +14,9 @@ router = APIRouter()
 
 
 @router.post("/{event_id}/react")
+@limiter.limit(dynamic_limit("social_action", "30/minute"))
 async def react_to_event(
+    request: Request,
     event_id: int,
     db: DbSession,
     reaction: str = Query(..., description="'like' or 'dislike'"),

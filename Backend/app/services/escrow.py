@@ -13,6 +13,7 @@ from app.models.event import Event, EventStatus
 from app.models.funding import Funding, FundingStatus
 from app.models.ticket import TicketSale, TicketSaleStatus
 from app.models.user import User
+from app.services import escrow_base
 from app.services import platform_settings as settings_svc
 
 
@@ -165,11 +166,7 @@ async def release_stage3(db: AsyncSession, *, event_id: int, released_by: str = 
 
 async def freeze(db: AsyncSession, *, event_id: int) -> FundEscrow:
     """Admin freezes payouts for an event."""
-    escrow = await get_or_create(db, event_id=event_id)
-    escrow.status = EscrowStatus.frozen
-    await db.flush()
-    await db.refresh(escrow)
-    return escrow
+    return await escrow_base.generic_freeze(db, FundEscrow, event_id=event_id, get_or_create_fn=get_or_create)
 
 
 async def unfreeze(db: AsyncSession, *, event_id: int) -> FundEscrow:
@@ -407,51 +404,5 @@ async def list_all_escrows(
     limit: int = 20,
     search: str | None = None,
 ) -> tuple[list[dict], int]:
-    """List all escrows for admin dashboard. Returns (items, total).
-
-    Single query with JOINs to Event and User to avoid N+1.
-    """
-    base = (
-        select(
-            FundEscrow,
-            Event.title.label("event_title"),
-            User.display_name.label("organizer_name"),
-            User.email.label("organizer_email"),
-        )
-        .join(Event, FundEscrow.event_id == Event.id)
-        .join(User, Event.organizer_id == User.id)
-    )
-    if search:
-        eid = None
-        try:
-            eid = int(search)
-        except ValueError:
-            pass
-        filters = [Event.title.ilike(f"%{search}%")]
-        if eid is not None:
-            filters.append(FundEscrow.event_id == eid)
-        base = base.where(or_(*filters))
-
-    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar_one()
-
-    q = base.order_by(FundEscrow.updated_at.desc()).offset(offset).limit(limit)
-    rows = (await db.execute(q)).all()
-    result = []
-    for row in rows:
-        e = row[0]  # FundEscrow
-        total_released = e.stage1_released_cents + e.stage2_released_cents + e.stage3_released_cents
-        result.append({
-            "id": e.id,
-            "event_id": e.event_id,
-            "event_title": row.event_title,
-            "organizer_name": row.organizer_name,
-            "organizer_email": row.organizer_email,
-            "total_held_cents": e.total_held_cents,
-            "total_released_cents": total_released,
-            "remaining_cents": max(0, e.total_held_cents - total_released),
-            "status": e.status.value,
-            "stage1_released_at": e.stage1_released_at.isoformat() if e.stage1_released_at else None,
-            "stage2_released_at": e.stage2_released_at.isoformat() if e.stage2_released_at else None,
-            "stage3_released_at": e.stage3_released_at.isoformat() if e.stage3_released_at else None,
-        })
-    return result, int(total)
+    """List all fund escrows for admin dashboard."""
+    return await escrow_base.generic_list_all(db, FundEscrow, offset=offset, limit=limit, search=search)

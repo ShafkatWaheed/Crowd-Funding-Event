@@ -23,7 +23,7 @@ from app.services import escrow as escrow_service
 from app.services import platform_settings as settings_svc
 from app.services import notification_service as notif_svc
 from app.models.notification import NotificationType
-from app.rate_limit import limiter
+from app.rate_limit import limiter, dynamic_limit
 
 from ._helpers import _build_tier_reservation_response
 
@@ -50,7 +50,7 @@ async def get_pledge_preview(
 
 
 @router.post("/{event_id}/pledge")
-@limiter.limit("20/minute")
+@limiter.limit(dynamic_limit("pledge", "20/minute"))
 async def pledge_event(
     request: Request,
     event_id: int,
@@ -150,7 +150,9 @@ async def get_pledge_receipt(
 
 
 @router.post("/{event_id}/unpledge", response_model=UnpledgeResponse)
+@limiter.limit(dynamic_limit("payment_action", "10/minute"))
 async def unpledge_event(
+    request: Request,
     event_id: int,
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.customer, UserRole.sponsor)),

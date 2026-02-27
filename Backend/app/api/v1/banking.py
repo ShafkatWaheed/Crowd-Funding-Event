@@ -2,14 +2,15 @@
 Banking & financial APIs: payment info, bank accounts, escrow overview,
 mock ledger, email templates, disputes, reconciliation, tax, payouts.
 """
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
-from fastapi import APIRouter, Body, Depends, Query
+from fastapi import APIRouter, Body, Depends, Query, Request
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import CurrentUser, DbSession, ReadDbSession, require_role
+from app.rate_limit import limiter, dynamic_limit
 from app.models.dispute import Dispute, DisputeStatus
 from app.models.email_mock_log import EmailMockLog
 from app.models.email_template import EmailTemplate
@@ -19,6 +20,7 @@ from app.models.payment_info import OrganizerBankAccount, UserPaymentInfo
 from app.models.payment_mock_ledger import MockLedgerStatus, PaymentMockLedger
 from app.models.reconciliation import ReconciliationReport
 from app.models.user import User, UserRole
+from app.services import audit as audit_svc
 from app.services import encryption as enc
 from app.services import ledger as ledger_svc
 from app.services import platform_settings as settings_svc
@@ -63,7 +65,8 @@ async def get_payment_info(db: ReadDbSession, current_user: CurrentUser):
 
 
 @router.put("/me/payment-info", response_model=PaymentInfoResponse)
-async def update_payment_info(body: PaymentInfoUpdate, db: DbSession, current_user: CurrentUser):
+@limiter.limit(dynamic_limit("payment_action", "10/minute"))
+async def update_payment_info(request: Request, body: PaymentInfoUpdate, db: DbSession, current_user: CurrentUser):
     info = (await db.execute(
         select(UserPaymentInfo).where(UserPaymentInfo.user_id == current_user.id)
     )).scalar_one_or_none()
@@ -143,7 +146,9 @@ async def get_bank_account(
 
 
 @router.put("/me/bank-account", response_model=BankAccountResponse)
+@limiter.limit(dynamic_limit("payment_action", "10/minute"))
 async def update_bank_account(
+    request: Request,
     body: BankAccountUpdate,
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.organizer)),
@@ -301,27 +306,47 @@ async def admin_banking_overview(
     commission_total = abs(await ledger_svc.get_account_balance(db, "platform_commission"))
     tax_total = abs(await ledger_svc.get_account_balance(db, "tax_collected"))
 
-    # Commission breakdown by source (ticket / funding / sponsor)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=delta_days)
+
+    # Commission breakdown by source (ticket / funding / sponsor) within period
     source_q = (
         select(
             LedgerEntry.description,
             func.coalesce(func.sum(LedgerEntry.amount_cents), 0),
         )
-        .where(LedgerEntry.account == "platform_commission", LedgerEntry.entry_type == "credit")
+        .where(
+            LedgerEntry.account == "platform_commission",
+            LedgerEntry.entry_type == "credit",
+            LedgerEntry.created_at >= cutoff,
+        )
         .group_by(LedgerEntry.description)
     )
     source_rows = (await db.execute(source_q)).all()
     commission_by_source = {"ticket": 0, "funding": 0, "sponsor": 0}
+    commission_period_cents = 0
     for desc, amt in source_rows:
+        amt_int = int(amt)
+        commission_period_cents += amt_int
         desc_lower = (desc or "").lower()
         if "ticket" in desc_lower:
-            commission_by_source["ticket"] += int(amt)
+            commission_by_source["ticket"] += amt_int
         elif "pledge" in desc_lower or "fund" in desc_lower:
-            commission_by_source["funding"] += int(amt)
+            commission_by_source["funding"] += amt_int
         elif "sponsor" in desc_lower:
-            commission_by_source["sponsor"] += int(amt)
+            commission_by_source["sponsor"] += amt_int
         else:
-            commission_by_source["ticket"] += int(amt)
+            commission_by_source["ticket"] += amt_int
+
+    # Tax collected within the period
+    tax_period_q = (
+        select(func.coalesce(func.sum(LedgerEntry.amount_cents), 0))
+        .where(
+            LedgerEntry.account == "tax_collected",
+            LedgerEntry.entry_type == "credit",
+            LedgerEntry.created_at >= cutoff,
+        )
+    )
+    tax_collected_period_cents = abs(int((await db.execute(tax_period_q)).scalar_one()))
 
     # Disputes
     disputes = (await db.execute(
@@ -350,8 +375,10 @@ async def admin_banking_overview(
         sponsor_escrow_total_released_cents=int(se[1]),
         sponsor_escrow_active_count=int(se[2]),
         commission_total_cents=commission_total,
+        commission_period_cents=commission_period_cents,
         commission_by_source=commission_by_source,
         tax_collected_total_cents=tax_total,
+        tax_collected_period_cents=tax_collected_period_cents,
         disputes_open_count=int(disputes[0]),
         disputes_total_amount_cents=int(disputes[1]),
         last_reconciliation_status=last_recon.status if last_recon else None,
@@ -603,15 +630,26 @@ async def admin_mock_overview(
 #  Admin Mock Quick Actions
 # ═══════════════════════════════════════════
 
+async def _require_mock_mode(db):
+    if not await settings_svc.get_bool(db, "payment_mock_enabled"):
+        from app.core.exceptions import ForbiddenError
+        raise ForbiddenError("Mock controls are only available when mock mode is enabled")
+
+
 @router.post("/admin/mock/clear")
 async def clear_mock_data(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
+    await _require_mock_mode(db)
     from sqlalchemy import delete
     await db.execute(delete(PaymentMockLedger))
     await db.execute(delete(EmailMockLog))
     await db.flush()
+    await audit_svc.log_action(
+        db, admin_id=current_user.id, action="mock_clear",
+        target_type="mock", target_id=None,
+    )
     return {"ok": True, "message": "All mock data cleared"}
 
 
@@ -620,6 +658,7 @@ async def settle_all_pending(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
+    await _require_mock_mode(db)
     from sqlalchemy import update
     result = await db.execute(
         update(PaymentMockLedger)
@@ -635,6 +674,7 @@ async def fail_next_charge(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
+    await _require_mock_mode(db)
     await settings_svc.set_value(db, "mock_fail_next_charge", "true")
     return {"ok": True}
 
@@ -651,6 +691,7 @@ async def reset_mock_defaults(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
+    await _require_mock_mode(db)
     for key, default_val in _MOCK_DEFAULTS.items():
         await settings_svc.set_value(db, key, str(default_val))
     return {"ok": True, "reset_count": len(_MOCK_DEFAULTS)}
@@ -788,6 +829,11 @@ async def resolve_dispute(
                     esc.status = EscrowStatus.holding
 
     await db.flush()
+    await audit_svc.log_action(
+        db, admin_id=current_user.id, action="dispute_resolve",
+        target_type="dispute", target_id=dispute_id,
+        details={"outcome": body.outcome, "notes": body.notes},
+    )
     return {"ok": True, "status": dispute.status.value}
 
 
@@ -833,6 +879,7 @@ async def simulate_dispute(
     current_user: User = Depends(require_role(UserRole.admin)),
     transaction_id: str = Body(embed=True),
 ):
+    await _require_mock_mode(db)
     ledger_entry = (await db.execute(
         select(PaymentMockLedger).where(PaymentMockLedger.transaction_id == transaction_id)
     )).scalar_one_or_none()
@@ -847,6 +894,11 @@ async def simulate_dispute(
     )
     db.add(dispute)
     await db.flush()
+    await audit_svc.log_action(
+        db, admin_id=current_user.id, action="dispute_create",
+        target_type="dispute", target_id=dispute.id,
+        details={"transaction_id": transaction_id},
+    )
     return {"ok": True, "dispute_id": dispute.id}
 
 
@@ -906,7 +958,8 @@ async def run_reconciliation_now(
 # ═══════════════════════════════════════════
 
 @router.get("/events/cities")
-async def list_cities(db: ReadDbSession):
+@limiter.limit(dynamic_limit("public_search", "60/minute"))
+async def list_cities(request: Request, db: ReadDbSession):
     from app.models.venue import Venue
     rows = (await db.execute(
         select(Venue.city).where(Venue.city.isnot(None), Venue.city != "")
@@ -979,6 +1032,10 @@ async def force_payout(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
+    await audit_svc.log_action(
+        db, admin_id=current_user.id, action="payout_force",
+        target_type="organizer", target_id=organizer_id,
+    )
     return {"ok": True, "message": f"Payout initiated for organizer {organizer_id}"}
 
 

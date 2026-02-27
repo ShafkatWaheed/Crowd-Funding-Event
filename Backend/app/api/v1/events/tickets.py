@@ -32,7 +32,8 @@ from app.services import notification_service as notif_svc
 from app.services.ticket_crypto import encrypt_ticket_qr, decrypt_ticket_qr
 from app.worker.redis_pool import enqueue as arq_enqueue
 from app.models.notification import NotificationType
-from app.rate_limit import limiter
+from app.rate_limit import limiter, dynamic_limit
+from app.api.v1.events._helpers import safe_display_name
 
 router = APIRouter()
 
@@ -41,10 +42,10 @@ def _ticket_sale_to_response(sale) -> TicketSaleResponse:
     """Build TicketSaleResponse from a TicketSale."""
     scanned_by_name = None
     if getattr(sale, "scanned_by", None) and sale.scanned_by:
-        scanned_by_name = sale.scanned_by.display_name
+        scanned_by_name = safe_display_name(sale.scanned_by)
     attendee_name = None
     if getattr(sale, "user", None) and sale.user:
-        attendee_name = sale.user.display_name
+        attendee_name = safe_display_name(sale.user)
     return TicketSaleResponse(
         id=sale.id,
         event_id=sale.event_id,
@@ -199,7 +200,7 @@ async def get_ticket_price(
 
 
 @router.post("/{event_id}/purchase-ticket", response_model=list[TicketSaleResponse])
-@limiter.limit("15/minute")
+@limiter.limit(dynamic_limit("ticket_purchase", "15/minute"))
 async def purchase_ticket(
     request: Request,
     event_id: int,
@@ -235,13 +236,15 @@ async def purchase_ticket(
             type=NotificationType.ticket_purchased,
             title="Ticket Purchased",
             message=f"You purchased {len(sales)} ticket(s) for \"{event.title if event else 'the event'}\".",
-            data={"event_id": event_id},
+            data={"event_id": event_id, "ticket_sale_id": first.id},
         )
     return [_ticket_sale_to_response(s) for s in sales]
 
 
 @router.post("/{event_id}/tickets/{ticket_id}/refund", response_model=TicketSaleResponse)
+@limiter.limit(dynamic_limit("payment_action", "10/minute"))
 async def request_ticket_refund(
+    request: Request,
     event_id: int,
     ticket_id: int,
     db: DbSession,
@@ -257,7 +260,7 @@ async def request_ticket_refund(
             db, user_id=event.organizer_id,
             type=NotificationType.refund_issued,
             title="Refund Requested",
-            message=f"{current_user.display_name or 'A customer'} requested a ticket refund for \"{event.title}\".",
+            message=f"{safe_display_name(current_user)} requested a ticket refund for \"{event.title}\".",
             data={"event_id": event_id, "ticket_sale_id": ticket_id},
         )
     return _ticket_sale_to_response(sale)
@@ -294,7 +297,7 @@ async def approve_ticket_refund(
             type=NotificationType.refund_issued,
             title="Refund Approved",
             message=f"Your ticket refund of ${sale.amount_paid_cents / 100:.2f} has been approved.",
-            data={"event_id": event_id},
+            data={"event_id": event_id, "ticket_sale_id": ticket_id},
         )
         buyer = sale.user
         if buyer and buyer.email:
@@ -329,13 +332,15 @@ async def reject_ticket_refund(
             type=NotificationType.refund_issued,
             title="Refund Rejected",
             message=f"Your ticket refund request for \"{sale.event.title if sale.event else 'the event'}\" was rejected.",
-            data={"event_id": event_id},
+            data={"event_id": event_id, "ticket_sale_id": ticket_id},
         )
     return _ticket_sale_to_response(sale)
 
 
 @router.post("/{event_id}/scan-ticket", response_model=ScanTicketResponse)
+@limiter.limit(dynamic_limit("qr_scan", "30/minute"))
 async def scan_ticket(
+    request: Request,
     event_id: int,
     body: ScanTicketBody,
     db: DbSession,
@@ -589,7 +594,7 @@ async def approve_waitlisted_ticket(
         type=NotificationType.ticket_waitlist_approved,
         title="Ticket Approved",
         message="Your waitlisted ticket has been approved!",
-        data={"event_id": event_id},
+        data={"event_id": event_id, "ticket_sale_id": ticket_id},
     )
     buyer = sale.user
     if buyer and buyer.email:
@@ -634,10 +639,10 @@ async def reject_waitlisted_ticket(
     if sale.user_id:
         await notif_svc.create_notification(
             db, user_id=sale.user_id,
-            type=NotificationType.ticket_waitlist_rejected,
-            title="Ticket Rejected",
-            message="Your waitlisted ticket was not approved.",
-            data={"event_id": event_id},
+        type=NotificationType.ticket_waitlist_rejected,
+        title="Ticket Rejected",
+        message="Your waitlisted ticket was not approved.",
+        data={"event_id": event_id, "ticket_sale_id": ticket_id},
         )
     return _ticket_sale_to_response(sale)
 

@@ -13,14 +13,15 @@ from app.core.exceptions import ForbiddenError
 from app.services import event as event_service
 from app.services import registration as registration_service
 from app.services import notification_service as notif_svc
+from app.api.v1.events._helpers import safe_display_name
 from app.models.notification import NotificationType
-from app.rate_limit import limiter
+from app.rate_limit import limiter, dynamic_limit
 
 router = APIRouter()
 
 
 @router.post("/{event_id}/register")
-@limiter.limit("20/minute")
+@limiter.limit(dynamic_limit("event_register", "20/minute"))
 async def register_event(
     request: Request,
     event_id: int,
@@ -50,7 +51,7 @@ async def register_event(
             db, user_id=event.organizer_id,
             type=NotificationType.registration_waitlisted,
             title="New Waitlist Entry",
-            message=f"{current_user.display_name or current_user.email} joined the waitlist for your event.",
+            message=f"{safe_display_name(current_user)} joined the waitlist for your event.",
             data={"event_id": event_id, "user_id": current_user.id},
         )
     return RegistrationResponse(

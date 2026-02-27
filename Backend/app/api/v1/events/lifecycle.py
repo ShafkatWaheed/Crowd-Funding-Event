@@ -1,9 +1,10 @@
 """
 Event lifecycle: cancel, extend-funding, set-event-date, start-selling, reactivate, publish, clone, extension-decision, cancellation/approve.
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.dependencies import DbSession, require_role
+from app.rate_limit import limiter, dynamic_limit
 from app.models.event import EventStatus
 from app.models.user import User, UserRole
 from app.schemas import CancelBody, EventResponse, ExtendFundingBody, ExtensionApprovalAction, SetEventDateBody
@@ -171,7 +172,9 @@ async def publish_event(
 
 
 @router.post("/{event_id}/clone", response_model=EventResponse)
+@limiter.limit(dynamic_limit("event_create", "5/minute"))
 async def clone_event(
+    request: Request,
     event_id: int,
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),

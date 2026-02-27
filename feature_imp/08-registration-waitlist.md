@@ -63,6 +63,19 @@ flowchart LR
 - Registration count denormalization: ensure it is updated in same transaction as register/unregister/approve to avoid drift.
 - Waitlist approval could trigger email (see FEATURES); ensure notification type is wired.
 
+## Age Verification (subsection)
+
+**Service:** `Backend/app/services/age_verification.py`
+
+Age-restricted events require users to have a birthday set in their profile. The service exposes two functions:
+
+- `calculate_age(birthday: date) -> int` — standard age calculation accounting for month/day.
+- `enforce_age_limit(user_birthday, event_age_restricted, event_min_age, action)` — raises `ForbiddenError` if the user is underage or has no birthday set. Called before registration, ticket purchase, and funding pledge on age-restricted events.
+
+**Model fields:** `Event.age_restricted` (bool), `Event.min_age` (int, default 18). `User.birthday` (date, nullable).
+
+**Flow:** Before any protected action on an age-restricted event, the API handler calls `enforce_age_limit(current_user.birthday, event.age_restricted, event.min_age, "register")`. If the user has no birthday or is underage, a 403 is returned immediately.
+
 ## Feedback
 
 - Clear split: customer register/unregister vs organizer list/decision. Two waitlist types (fund vs ticket) documented in FEATURES; ticket waitlist is in [19-tickets](19-tickets.md).

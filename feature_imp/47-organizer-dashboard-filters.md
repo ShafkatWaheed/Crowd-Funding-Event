@@ -21,6 +21,12 @@
 - **Module(s):** `app.services.ticket.sales`, `app.services.funding.pledges`, `app.services.sponsor.organizer_queries`, `app.services.dashboard`.
 - **Main functions:** `list_organizer_ticket_sales(..., genre=, event_id=)`, `list_organizer_pledges(..., genre=, event_id=)`, `get_organizer_sponsors(..., genre=, event_id=)`, `get_organizer_dashboard(..., genre=, event_id=)`.
 
+### Dashboard Aggregation Service
+
+- **Path:** `app.services.dashboard`
+- **Key functions:** `get_organizer_dashboard(db, organizer_id, delta_days, status_filter, event_id, genre)` — returns KPIs for ticket sales (revenue, sold count, refunded, current vs previous period), funding (pledged, refunded), sponsors (bids, payments), plus top/trending events and recent activity; `get_organizer_time_series(db, ...)` for time-series data. Filters applied via Event join (event_id, genre, status).
+- **Integration:** Manage tab calls `getOrganizerDashboard()` with optional filters; dashboard service runs consolidated queries (e.g. single query for ticket-sale KPIs, single for funding) and returns a dict consumed by the frontend for KPI cards and navigation to filtered lists.
+
 ## Models and DB
 
 - **Models:** `TicketSale`, `Funding`, `SponsorBid`, `Event`. No new tables.

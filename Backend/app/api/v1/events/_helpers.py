@@ -10,7 +10,23 @@ from app.models.event import Event
 from app.models.funding import PledgeSpotReservation
 from app.models.image import EventImage
 from app.models.ticket import TicketTier
+from app.models.user import UserRole
 from app.schemas import EventResponse, EventVenueInfo, OrganizerTrustInfo
+
+
+def safe_display_name(user, *, viewer_role=None) -> str:
+    """Return a privacy-safe display name.
+
+    Shows display_name when set, falls back to email for admins,
+    and returns an opaque identifier for everyone else.
+    """
+    if user is None:
+        return "Unknown"
+    if user.display_name:
+        return user.display_name
+    if viewer_role == UserRole.admin:
+        return user.email or f"User #{user.id}"
+    return f"User #{user.id}"
 
 
 def _parse_iso_datetime(v: str | None) -> datetime | None:

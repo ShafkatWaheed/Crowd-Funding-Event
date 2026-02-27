@@ -1,9 +1,10 @@
 """
 Event posts: list, create, delete, toggle.
 """
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 
 from app.dependencies import DbSession, ReadDbSession, require_role
+from app.rate_limit import limiter, dynamic_limit
 from app.models.user import User, UserRole
 from app.schemas import EventPostCreate, EventPostResponse
 from app.services import post as post_service
@@ -28,7 +29,9 @@ async def list_event_posts(event_id: int, db: ReadDbSession):
 
 
 @router.post("/{event_id}/posts", response_model=EventPostResponse)
+@limiter.limit(dynamic_limit("content_create", "15/minute"))
 async def create_event_post(
+    request: Request,
     event_id: int,
     body: EventPostCreate,
     db: DbSession,

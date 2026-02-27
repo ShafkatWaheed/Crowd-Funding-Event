@@ -3,9 +3,10 @@ Map: events in bounding box or by city (Ottawa), live filter.
 """
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Request
 
 from app.dependencies import ReadDbSession
+from app.rate_limit import limiter, dynamic_limit
 from app.models.event import Event
 from app.schemas import MapEventMarker
 from app.services import event as event_service
@@ -41,7 +42,9 @@ def _event_to_marker(e: Event) -> MapEventMarker:
 
 
 @router.get("/map", response_model=list[MapEventMarker])
+@limiter.limit(dynamic_limit("public_search", "60/minute"))
 async def map_events(
+    request: Request,
     db: ReadDbSession,
     lat: float | None = Query(None),
     lng: float | None = Query(None),

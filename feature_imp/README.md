@@ -65,3 +65,18 @@ This folder documents each major feature of the Crowd Funding Event product: **e
 | 49 | [49-redis-caching.md](49-redis-caching.md) | Redis Caching Layer |
 | 50 | [50-cache-ttl-admin-toggle.md](50-cache-ttl-admin-toggle.md) | Cache TTL and Enable/Disable in Admin Settings |
 | 51 | [51-backend-query-improvements.md](51-backend-query-improvements.md) | Backend Query Improvements |
+| 53 | [53-banking-financial-management.md](53-banking-financial-management.md) | Banking & Financial Management |
+| 54 | [54-ticket-sponsor-escrow.md](54-ticket-sponsor-escrow.md) | Ticket & Sponsor Escrow |
+| 55 | [55-public-config-endpoint.md](55-public-config-endpoint.md) | Public Configuration Endpoint |
+| 57 | [57-clickable-notifications-redesign.md](57-clickable-notifications-redesign.md) | Clickable Notifications Redesign |
+| 58 | [58-admin-audit-logging.md](58-admin-audit-logging.md) | Admin Audit Logging |
+| 59 | [59-payment-gateway-mock.md](59-payment-gateway-mock.md) | Payment Gateway (Mock) |
+| 60 | [60-stripe-webhooks.md](60-stripe-webhooks.md) | Stripe Webhooks |
+| 61 | [61-configurable-rate-limits.md](61-configurable-rate-limits.md) | Configurable API Rate Limits |
+
+### Planned (not yet implemented)
+
+| # | File | Feature |
+|---|------|---------|
+| 52 | [52-kyc-aml-verification.md](52-kyc-aml-verification.md) | KYC/AML Verification |
+| 56 | [56-mobile-platform-ios-android.md](56-mobile-platform-ios-android.md) | Mobile Platform (iOS & Android) |

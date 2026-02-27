@@ -3,10 +3,11 @@ import os
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Query, UploadFile, File
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, UploadFile, File
 from sqlalchemy import select
 
 from app.dependencies import DbSession, ReadDbSession, CurrentUser, require_feature
+from app.rate_limit import limiter, dynamic_limit
 from app.models.user import UserRole
 from app.models.prerequisite import CategoryPrerequisite, BidPrerequisiteUpload, UploadStatus
 from app.models.sponsor import SponsorBid, BidStatus
@@ -178,7 +179,9 @@ async def delete_prerequisite(
 
 
 @router.post("/bids/{bid_id}/prerequisites/{prereq_id}/upload")
+@limiter.limit(dynamic_limit("file_upload", "10/minute"))
 async def upload_prerequisite_document(
+    request: Request,
     bid_id: int,
     prereq_id: int,
     file: UploadFile = File(...),
@@ -208,7 +211,9 @@ async def upload_prerequisite_document(
 
 
 @router.post("/events/{event_id}/sponsorships/{cat_id}/upload-prerequisite/{prereq_id}")
+@limiter.limit(dynamic_limit("file_upload", "10/minute"))
 async def upload_category_prerequisite(
+    request: Request,
     event_id: int,
     cat_id: int,
     prereq_id: int,

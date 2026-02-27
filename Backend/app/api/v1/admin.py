@@ -6,6 +6,8 @@ from sqlalchemy.orm import selectinload
 
 from fastapi import APIRouter, Depends, Query
 
+from app.services import audit as audit_svc
+
 from app.dependencies import DbSession, ReadDbSession, require_role
 from app.models.event import Event
 from app.models.ticket import UserEventDiscount
@@ -566,6 +568,15 @@ async def update_setting(
 ):
     """Update a platform setting by key (admin only)."""
     setting = await settings_service.set_value(db, key, body.value)
+    from app.api.v1.config import invalidate_public_config
+    await invalidate_public_config()
+    if key.startswith("rate_limit_"):
+        from app.rate_limit import reload_rate_limits
+        await reload_rate_limits(db)
+    await audit_svc.log_action(
+        db, admin_id=current_user.id, action="settings_update",
+        target_type="setting", target_id=key, details={"value": body.value},
+    )
     return PlatformSettingItem(key=setting.key, value=setting.value, description=setting.description)
 
 
@@ -721,7 +732,10 @@ async def admin_release_stage(
 
     from app.worker.redis_pool import enqueue
     await enqueue("process_escrow_release", "fund", escrow.id, stage)
-
+    await audit_svc.log_action(
+        db, admin_id=current_user.id, action="escrow_release",
+        target_type="fund_escrow", target_id=event_id, details={"stage": stage},
+    )
     return await escrow_service.get_escrow_summary(db, event_id=event_id)
 
 
@@ -733,6 +747,10 @@ async def freeze_escrow(
 ):
     """Admin freezes an event's escrow payouts."""
     await escrow_service.freeze(db, event_id=event_id)
+    await audit_svc.log_action(
+        db, admin_id=current_user.id, action="escrow_freeze",
+        target_type="fund_escrow", target_id=event_id,
+    )
     return await escrow_service.get_escrow_summary(db, event_id=event_id)
 
 
@@ -744,6 +762,10 @@ async def unfreeze_escrow(
 ):
     """Admin unfreezes an event's escrow payouts."""
     await escrow_service.unfreeze(db, event_id=event_id)
+    await audit_svc.log_action(
+        db, admin_id=current_user.id, action="escrow_unfreeze",
+        target_type="fund_escrow", target_id=event_id,
+    )
     return await escrow_service.get_escrow_summary(db, event_id=event_id)
 
 
@@ -798,7 +820,10 @@ async def admin_release_ticket_stage(
 
     from app.worker.redis_pool import enqueue
     await enqueue("process_escrow_release", "ticket", escrow.id, stage)
-
+    await audit_svc.log_action(
+        db, admin_id=current_user.id, action="escrow_release",
+        target_type="ticket_escrow", target_id=event_id, details={"stage": stage},
+    )
     return _escrow_to_dict(escrow)
 
 
@@ -808,6 +833,10 @@ async def freeze_ticket_escrow(
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
     escrow = await te_svc.freeze(db, event_id=event_id)
+    await audit_svc.log_action(
+        db, admin_id=current_user.id, action="escrow_freeze",
+        target_type="ticket_escrow", target_id=event_id,
+    )
     return _escrow_to_dict(escrow)
 
 
@@ -817,6 +846,10 @@ async def unfreeze_ticket_escrow(
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
     escrow = await te_svc.unfreeze(db, event_id=event_id)
+    await audit_svc.log_action(
+        db, admin_id=current_user.id, action="escrow_unfreeze",
+        target_type="ticket_escrow", target_id=event_id,
+    )
     return _escrow_to_dict(escrow)
 
 
@@ -852,7 +885,10 @@ async def admin_release_sponsor_stage(
 
     from app.worker.redis_pool import enqueue
     await enqueue("process_escrow_release", "sponsor", escrow.id, stage)
-
+    await audit_svc.log_action(
+        db, admin_id=current_user.id, action="escrow_release",
+        target_type="sponsor_escrow", target_id=event_id, details={"stage": stage},
+    )
     return _escrow_to_dict(escrow)
 
 
@@ -862,6 +898,10 @@ async def freeze_sponsor_escrow(
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
     escrow = await se_svc.freeze(db, event_id=event_id)
+    await audit_svc.log_action(
+        db, admin_id=current_user.id, action="escrow_freeze",
+        target_type="sponsor_escrow", target_id=event_id,
+    )
     return _escrow_to_dict(escrow)
 
 
@@ -871,6 +911,10 @@ async def unfreeze_sponsor_escrow(
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
     escrow = await se_svc.unfreeze(db, event_id=event_id)
+    await audit_svc.log_action(
+        db, admin_id=current_user.id, action="escrow_unfreeze",
+        target_type="sponsor_escrow", target_id=event_id,
+    )
     return _escrow_to_dict(escrow)
 
 
@@ -963,3 +1007,39 @@ async def resolve_review(
         data={"event_id": event.id},
     )
     return {"ok": True, "event_id": event.id, "status": event.status.value}
+
+
+# ----- Audit Log -----
+
+@router.get("/audit-log")
+async def get_audit_log(
+    db: ReadDbSession,
+    current_user: User = Depends(require_role(UserRole.admin)),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    action: str | None = Query(None),
+    target_type: str | None = Query(None),
+    admin_id: int | None = Query(None),
+):
+    """Paginated audit log of admin actions."""
+    rows, total = await audit_svc.list_audit_logs(
+        db, offset=offset, limit=limit,
+        action=action, target_type=target_type, admin_id=admin_id,
+    )
+    return {
+        "items": [
+            {
+                "id": r.id,
+                "admin_id": r.admin_id,
+                "action": r.action,
+                "target_type": r.target_type,
+                "target_id": r.target_id,
+                "details": r.details,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            }
+            for r in rows
+        ],
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+    }

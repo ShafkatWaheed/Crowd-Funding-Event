@@ -1,9 +1,10 @@
 """Sponsor payment and receipt endpoints."""
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.dependencies import DbSession, ReadDbSession, CurrentUser, require_feature
+from app.rate_limit import limiter, dynamic_limit
 from app.models.user import UserRole
 from app.models.sponsor import SponsorPayment, SponsorBid, SponsorshipCategory
 from app.models.event import Event
@@ -21,7 +22,9 @@ router = APIRouter(dependencies=[Depends(require_feature("feature_sponsors_enabl
     "/events/{event_id}/sponsorships/{cat_id}/bids/{bid_id}/pay",
     response_model=PaymentResponse,
 )
+@limiter.limit(dynamic_limit("payment_action", "10/minute"))
 async def pay_bid(
+    request: Request,
     event_id: int,
     cat_id: int,
     bid_id: int,
@@ -50,7 +53,9 @@ async def pay_bid(
     "/events/{event_id}/sponsorships/{cat_id}/bids/{bid_id}/refund",
     response_model=PaymentResponse,
 )
+@limiter.limit(dynamic_limit("payment_action", "10/minute"))
 async def refund_bid(
+    request: Request,
     event_id: int,
     cat_id: int,
     bid_id: int,

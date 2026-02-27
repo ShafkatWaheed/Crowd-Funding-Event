@@ -18,7 +18,10 @@ from app.models.event import Event, EventStatus
 from app.models.sponsor import SponsorBid, SponsorPayment, SponsorshipCategory, PaymentStatus
 from app.models.ticket import TicketSale, TicketSaleStatus
 from app.models.user import User
+from app.services import escrow_base
 from app.services import platform_settings as settings_svc
+
+_LABEL = "Sponsor escrow"
 
 
 async def get_or_create(db: AsyncSession, *, event_id: int) -> SponsorEscrow:
@@ -64,114 +67,43 @@ def _reject_if_blocked(escrow: SponsorEscrow) -> None:
 
 
 async def release_stage1(db: AsyncSession, *, event_id: int, released_by: str = "system") -> SponsorEscrow:
-    escrow = await get_or_create(db, event_id=event_id)
-    if escrow.stage1_released_at:
-        raise ConflictError("Sponsor escrow Stage 1 already released")
-    _reject_if_blocked(escrow)
-
-    pct = await settings_svc.get_int(db, "sponsor_escrow_stage1_percent")
-    amount = escrow.total_held_cents * pct // 100
-    now = datetime.now(timezone.utc)
-
-    escrow.stage1_released_cents = amount
-    escrow.stage1_released_at = now
-    escrow.status = EscrowStatus.partially_released
-    await db.flush()
-    return escrow
+    return await escrow_base.generic_release_stage(
+        db, event_id=event_id, stage=1, settings_key="sponsor_escrow_stage1_percent",
+        get_or_create_fn=get_or_create, reject_fn=_reject_if_blocked,
+        released_by=released_by, label=_LABEL,
+    )
 
 
 async def release_stage2(db: AsyncSession, *, event_id: int, released_by: str = "system") -> SponsorEscrow:
-    escrow = await get_or_create(db, event_id=event_id)
-    if escrow.stage2_released_at:
-        raise ConflictError("Sponsor escrow Stage 2 already released")
-    if not escrow.stage1_released_at:
-        raise ConflictError("Sponsor escrow Stage 1 must be released first")
-    _reject_if_blocked(escrow)
-
-    pct = await settings_svc.get_int(db, "sponsor_escrow_stage2_percent")
-    amount = escrow.total_held_cents * pct // 100
-    now = datetime.now(timezone.utc)
-
-    escrow.stage2_released_cents = amount
-    escrow.stage2_released_at = now
-    await db.flush()
-    return escrow
+    return await escrow_base.generic_release_stage(
+        db, event_id=event_id, stage=2, settings_key="sponsor_escrow_stage2_percent",
+        get_or_create_fn=get_or_create, reject_fn=_reject_if_blocked,
+        released_by=released_by, label=_LABEL,
+    )
 
 
 async def release_stage3(db: AsyncSession, *, event_id: int, released_by: str = "system") -> SponsorEscrow:
-    escrow = await get_or_create(db, event_id=event_id)
-    if escrow.stage3_released_at:
-        raise ConflictError("Sponsor escrow Stage 3 already released")
-    if not escrow.stage2_released_at:
-        raise ConflictError("Sponsor escrow Stage 2 must be released first")
-    _reject_if_blocked(escrow)
-
-    pct = await settings_svc.get_int(db, "sponsor_escrow_stage3_percent")
-    amount = escrow.total_held_cents * pct // 100
-    now = datetime.now(timezone.utc)
-
-    escrow.stage3_released_cents = amount
-    escrow.stage3_released_at = now
-    escrow.status = EscrowStatus.fully_released
-    await db.flush()
-    return escrow
+    return await escrow_base.generic_release_stage(
+        db, event_id=event_id, stage=3, settings_key="sponsor_escrow_stage3_percent",
+        get_or_create_fn=get_or_create, reject_fn=_reject_if_blocked,
+        released_by=released_by, label=_LABEL,
+    )
 
 
 async def freeze(db: AsyncSession, *, event_id: int) -> SponsorEscrow:
-    escrow = await get_or_create(db, event_id=event_id)
-    escrow.status = EscrowStatus.frozen
-    await db.flush()
-    return escrow
+    return await escrow_base.generic_freeze(db, SponsorEscrow, event_id=event_id, get_or_create_fn=get_or_create)
 
 
 async def unfreeze(db: AsyncSession, *, event_id: int) -> SponsorEscrow:
-    escrow = await get_or_create(db, event_id=event_id)
-    if escrow.status != EscrowStatus.frozen:
-        raise ConflictError("Sponsor escrow is not frozen")
-    if escrow.stage3_released_at:
-        escrow.status = EscrowStatus.fully_released
-    elif escrow.stage1_released_at:
-        escrow.status = EscrowStatus.partially_released
-    else:
-        escrow.status = EscrowStatus.holding
-    await db.flush()
-    return escrow
+    return await escrow_base.generic_unfreeze(
+        db, SponsorEscrow, event_id=event_id, get_or_create_fn=get_or_create, label=_LABEL,
+    )
 
 
 async def list_all(
     db: AsyncSession, *, offset: int = 0, limit: int = 20, search: str | None = None,
 ) -> tuple[list[dict], int]:
-    base = (
-        select(SponsorEscrow, Event.title.label("event_title"),
-               User.display_name.label("organizer_name"), User.email.label("organizer_email"))
-        .join(Event, SponsorEscrow.event_id == Event.id)
-        .join(User, Event.organizer_id == User.id)
-    )
-    if search:
-        filters = [Event.title.ilike(f"%{search}%")]
-        try:
-            filters.append(SponsorEscrow.event_id == int(search))
-        except ValueError:
-            pass
-        base = base.where(or_(*filters))
-
-    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar_one()
-    rows = (await db.execute(base.order_by(SponsorEscrow.updated_at.desc()).offset(offset).limit(limit))).all()
-    result = []
-    for row in rows:
-        e = row[0]
-        released = e.stage1_released_cents + e.stage2_released_cents + e.stage3_released_cents
-        result.append({
-            "id": e.id, "event_id": e.event_id, "event_title": row.event_title,
-            "organizer_name": row.organizer_name, "organizer_email": row.organizer_email,
-            "total_held_cents": e.total_held_cents, "total_released_cents": released,
-            "remaining_cents": max(0, e.total_held_cents - released),
-            "status": e.status.value,
-            "stage1_released_at": e.stage1_released_at.isoformat() if e.stage1_released_at else None,
-            "stage2_released_at": e.stage2_released_at.isoformat() if e.stage2_released_at else None,
-            "stage3_released_at": e.stage3_released_at.isoformat() if e.stage3_released_at else None,
-        })
-    return result, int(total)
+    return await escrow_base.generic_list_all(db, SponsorEscrow, offset=offset, limit=limit, search=search)
 
 
 # ---------------------------------------------------------------------------

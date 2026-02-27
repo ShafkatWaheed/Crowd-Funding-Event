@@ -27,6 +27,7 @@ from app.models.email_mock_log import EmailMockLog
 from app.models.ledger_entry import LedgerEntry
 from app.models.dispute import Dispute, DisputeStatus
 from app.models.reconciliation import ReconciliationReport
+from app.models.audit_log import AuditLog
 
 __all__ = [
     "User",
@@ -92,4 +93,5 @@ __all__ = [
     "Dispute",
     "DisputeStatus",
     "ReconciliationReport",
+    "AuditLog",
 ]

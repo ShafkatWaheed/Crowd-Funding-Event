@@ -2,10 +2,11 @@
 Event Schedule API — CRUD + bulk create + image upload + Excel export.
 All endpoints gated by the feature_schedule_enabled flag.
 """
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
 
 from app.dependencies import DbSession, ReadDbSession, require_role, require_feature
+from app.rate_limit import limiter, dynamic_limit
 from app.models.user import User, UserRole
 from app.schemas.schedule import (
     ScheduleItemCreate,
@@ -105,7 +106,9 @@ async def delete_schedule_item(
     response_model=ScheduleItemResponse,
     dependencies=[_feature_guard],
 )
+@limiter.limit(dynamic_limit("file_upload", "10/minute"))
 async def upload_schedule_image(
+    request: Request,
     event_id: int,
     item_id: int,
     db: DbSession,

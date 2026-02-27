@@ -80,10 +80,12 @@ async def lifespan(application: FastAPI):
         from app.cache import set_cache_enabled
         from app.db.base import async_session_maker
         from app.services.platform_settings import get_bool
+        from app.rate_limit import reload_rate_limits
         async with async_session_maker() as db:
             set_cache_enabled(await get_bool(db, "cache_enabled"))
+            await reload_rate_limits(db)
     except Exception:
-        logger.warning("Could not load cache_enabled setting — defaulting to enabled")
+        logger.warning("Could not load startup settings — using defaults")
     yield
     await close_cache()
     await close_arq_pool()

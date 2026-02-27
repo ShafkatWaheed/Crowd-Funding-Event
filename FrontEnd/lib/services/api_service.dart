@@ -1341,4 +1341,145 @@ class ApiService {
   Future<void> deleteTemplatePrerequisite(int templateId, int prereqId) async {
     await dio.delete('/me/sponsor-category-templates/$templateId/prerequisites/$prereqId');
   }
+
+  // ─── Admin Banking ───
+
+  Future<Map<String, dynamic>> adminGetBankingOverview({String period = '30d'}) async {
+    final resp = await dio.get('/admin/banking-overview', queryParameters: {'period': period});
+    return resp.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> adminGetEscrows({String type = 'fund', int limit = 50}) async {
+    final path = type == 'fund' ? '/admin/escrows'
+        : type == 'ticket' ? '/admin/ticket-escrows'
+        : '/admin/sponsor-escrows';
+    final resp = await dio.get(path, queryParameters: {'limit': '$limit'});
+    return resp.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> adminGetEventEscrows(int eventId) async {
+    final resp = await dio.get('/admin/escrows/by-event/$eventId');
+    return resp.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> adminReleaseEscrowStage(int eventId, String escrowType, int stage) async {
+    final path = escrowType == 'fund' ? '/admin/escrows/$eventId/release/$stage'
+        : escrowType == 'ticket' ? '/admin/ticket-escrows/$eventId/release/$stage'
+        : '/admin/sponsor-escrows/$eventId/release/$stage';
+    final resp = await dio.post(path, data: {});
+    return resp.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> adminFreezeEscrow(int eventId, String escrowType) async {
+    final path = escrowType == 'fund' ? '/admin/escrows/$eventId/freeze'
+        : escrowType == 'ticket' ? '/admin/ticket-escrows/$eventId/freeze'
+        : '/admin/sponsor-escrows/$eventId/freeze';
+    final resp = await dio.post(path, data: {});
+    return resp.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> adminUnfreezeEscrow(int eventId, String escrowType) async {
+    final path = escrowType == 'fund' ? '/admin/escrows/$eventId/unfreeze'
+        : escrowType == 'ticket' ? '/admin/ticket-escrows/$eventId/unfreeze'
+        : '/admin/sponsor-escrows/$eventId/unfreeze';
+    final resp = await dio.post(path, data: {});
+    return resp.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> adminGetDisputes({String? status, int offset = 0, int limit = 50}) async {
+    final resp = await dio.get('/admin/disputes', queryParameters: {
+      if (status != null) 'status': status,
+      'offset': offset,
+      'limit': limit,
+    });
+    return resp.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> adminSubmitDisputeEvidence(int disputeId) async {
+    final resp = await dio.post('/admin/disputes/$disputeId/submit-evidence', data: {});
+    return resp.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> adminAcceptDisputeLoss(int disputeId) async {
+    final resp = await dio.post('/admin/disputes/$disputeId/accept', data: {});
+    return resp.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> adminResolveDispute(int disputeId, {required String outcome, String? notes}) async {
+    final resp = await dio.post('/admin/disputes/$disputeId/resolve', data: {
+      'outcome': outcome,
+      if (notes != null) 'notes': notes,
+    });
+    return resp.data as Map<String, dynamic>;
+  }
+
+  Future<List<dynamic>> adminGetReconciliationHistory({int limit = 30}) async {
+    final resp = await dio.get('/admin/reconciliation/history', queryParameters: {'limit': limit});
+    return resp.data as List;
+  }
+
+  Future<Map<String, dynamic>> adminRunReconciliation() async {
+    final resp = await dio.post('/admin/reconciliation/run', data: {});
+    return resp.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> adminGetLedgerHealth() async {
+    final resp = await dio.get('/admin/ledger-health');
+    return resp.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> adminGetPayoutStatus() async {
+    final resp = await dio.get('/admin/payout-status');
+    return resp.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> adminForcePayout(int organizerId) async {
+    final resp = await dio.post('/admin/payouts/$organizerId/force', data: {});
+    return resp.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> adminGetTransactions({int offset = 0, int limit = 20, String? search, String? status}) async {
+    final resp = await dio.get('/admin/transactions', queryParameters: {
+      'offset': offset,
+      'limit': limit,
+      if (search != null && search.isNotEmpty) 'search': search,
+      if (status != null && status.isNotEmpty) 'status': status,
+    });
+    return resp.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> adminSimulateDispute(String transactionId) async {
+    final resp = await dio.post('/admin/mock/simulate-dispute', data: {'transaction_id': transactionId});
+    return resp.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> adminClearMockData() async {
+    final resp = await dio.post('/admin/mock/clear', data: {});
+    return resp.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> adminSettleAllPending() async {
+    final resp = await dio.post('/admin/mock/settle-all', data: {});
+    return resp.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> adminGetPlatformAccount() async {
+    final resp = await dio.get('/admin/platform-account');
+    return resp.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> adminUpdatePlatformAccount(Map<String, dynamic> data) async {
+    final resp = await dio.put('/admin/platform-account', data: data);
+    return resp.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> adminGetAuditLog({int offset = 0, int limit = 50, String? action, String? targetType}) async {
+    final resp = await dio.get('/admin/audit-log', queryParameters: {
+      'offset': offset,
+      'limit': limit,
+      if (action != null) 'action': action,
+      if (targetType != null) 'target_type': targetType,
+    });
+    return resp.data as Map<String, dynamic>;
+  }
 }

@@ -66,6 +66,21 @@ flowchart LR
 - Single-query endpoint for organizer ticket sales (GET /me/organizer-ticket-sales) avoids N+1; use for global sales list.
 - Ticket tier edit/delete blocked when sales exist in selling_tickets/live; enforce in service.
 
+## QR Code Encryption (subsection)
+
+**Service:** `Backend/app/services/ticket_crypto.py`
+
+Ticket QR codes are encrypted with AES-256-GCM to prevent forgery. The encrypted payload contains `ticket_code`, `event_id`, and `sale_id`.
+
+- `encrypt_ticket_qr(ticket_code, event_id, sale_id) -> str` — produces a URL-safe base64 string for embedding in a QR code.
+- `decrypt_ticket_qr(encrypted_payload) -> dict` — decrypts and validates the QR payload, raising `ValueError` on tampered data.
+
+**Configuration:** Set `TICKET_ENCRYPTION_KEY` env var to a 64-character hex string (32 bytes). When unset, the module falls back to plaintext JSON for local development.
+
+**Encrypted format:** `base64(nonce_12B || ciphertext || tag_16B)`. Uses `cryptography.hazmat.primitives.ciphers.aead.AESGCM` with a random 96-bit nonce per encryption (NIST SP 800-38D compliant).
+
+**Integration:** Called in `_ticket_sale_to_response()` (tickets.py) to generate `encrypted_qr_payload` on every ticket response, and in `scan_ticket()` to decrypt the scanned payload.
+
 ## Feedback
 
 - Tickets are central: purchase, scan, waitlist, refund. Discount breakdown and free-ticket clamping documented in FEATURES. See [43-refund-processing](43-refund-processing.md) for ARQ refund flow.

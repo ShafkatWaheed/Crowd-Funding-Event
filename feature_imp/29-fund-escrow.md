@@ -21,6 +21,12 @@
 - **Module(s):** `app.services.escrow`.
 - **Main functions:** `get_or_create()` (on first pledge), `refresh_total()`, `release_stage1()` (30% or 40% if trust > 0.8), `release_stage2()`, `release_stage3()`, `freeze()`, `unfreeze()`, `list_all_escrows()`, `check_and_release_stage1/3()` (auto on event fetch or cron).
 
+### Shared Escrow Base
+
+- **Path:** `app.services.escrow_base`
+- **Key functions:** `reject_if_frozen(escrow, label)` (raises if status frozen), `generic_freeze(db, model_class, event_id, get_or_create_fn)`, `generic_unfreeze(db, model_class, event_id, get_or_create_fn, label)` (restores status from stage1/2/3 released flags), `generic_release_stage(db, event_id, stage, settings_key, get_or_create_fn, reject_fn, released_by, label)` (releases one stage using platform percentage), `generic_list_all(db, model_class, offset, limit, search)` (paginated list with event title and organizer name/email).
+- **Integration:** Fund, ticket, and sponsor escrow services keep their own `get_or_create` and `refresh_total` (different total calculation and triggers) but use these helpers for freeze, unfreeze, release_stage, and list_all to avoid duplication. Each service passes its model class and get_or_create function.
+
 ## Models and DB
 
 - **Models:** `FundEscrow` (event_id, total_held_cents, status: active/frozen), `EscrowRelease` (escrow_id, stage, amount_cents, released_by, reason).

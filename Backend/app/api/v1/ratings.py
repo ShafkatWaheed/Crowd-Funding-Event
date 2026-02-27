@@ -1,10 +1,11 @@
 """Rating endpoints."""
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
 from app.dependencies import CurrentUser, DbSession, ReadDbSession
+from app.rate_limit import limiter, dynamic_limit
 from app.models.event import Event, EventStatus
 from app.models.rating import Rating, RatingDirection
 
@@ -37,7 +38,8 @@ def _fmt_rating(r: Rating) -> dict:
 
 
 @router.post("/events/{event_id}/ratings", status_code=201)
-async def create_rating(event_id: int, body: RatingCreate, db: DbSession, current_user: CurrentUser):
+@limiter.limit(dynamic_limit("content_create", "15/minute"))
+async def create_rating(request: Request, event_id: int, body: RatingCreate, db: DbSession, current_user: CurrentUser):
     """Create a rating. Only allowed after event is completed."""
     event = (await db.execute(select(Event).where(Event.id == event_id))).scalar_one_or_none()
     if not event:

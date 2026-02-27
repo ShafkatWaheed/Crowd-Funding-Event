@@ -1,7 +1,8 @@
 """Sponsor ticket endpoints."""
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.dependencies import DbSession, ReadDbSession, CurrentUser, require_feature
+from app.rate_limit import limiter, dynamic_limit
 from app.schemas.sponsor import SponsorTicketResponse
 from app.services import sponsor as sponsor_svc
 
@@ -42,7 +43,9 @@ async def list_my_sponsor_tickets(db: ReadDbSession, current_user: CurrentUser):
 
 
 @router.post("/events/{event_id}/scan-sponsor")
+@limiter.limit(dynamic_limit("qr_scan", "30/minute"))
 async def scan_sponsor_ticket(
+    request: Request,
     event_id: int,
     body: dict,
     db: DbSession,

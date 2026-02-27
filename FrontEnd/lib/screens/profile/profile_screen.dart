@@ -15,6 +15,7 @@ import '../../widgets/shimmer_loaders.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../services/mapbox_geocoding_service.dart';
+import '../../widgets/app_toast.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -175,17 +176,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'billing_address': _billingAddressCtrl.text.trim(),
       });
       await _loadPaymentInfo();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: const Text('Payment info updated'), backgroundColor: AppTheme.successColor),
-        );
-      }
+      if (mounted) AppToast.success(context, 'Payment info updated');
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed: ${ApiService.extractError(e)}'), backgroundColor: AppTheme.errorColor),
-        );
-      }
+      if (mounted) AppToast.fromError(context, e, fallback: 'Failed to update payment info');
     }
   }
 
@@ -217,17 +210,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'swift_code': _swiftCodeCtrl.text.trim().isEmpty ? null : _swiftCodeCtrl.text.trim(),
       });
       await _loadBankAccount();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: const Text('Bank account updated'), backgroundColor: AppTheme.successColor),
-        );
-      }
+      if (mounted) AppToast.success(context, 'Bank account updated');
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed: ${ApiService.extractError(e)}'), backgroundColor: AppTheme.errorColor),
-        );
-      }
+      if (mounted) AppToast.fromError(context, e, fallback: 'Failed to update bank account');
     }
   }
 
@@ -366,33 +351,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
 
       if (!userUpdated && !sponsorUpdated) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('No changes to save')),
-          );
-        }
+        if (mounted) AppToast.info(context, 'No changes to save');
         return;
       }
 
       await context.read<AuthProvider>().refreshUser();
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Profile updated successfully'),
-            backgroundColor: AppTheme.successColor,
-          ),
-        );
-      }
+      if (mounted) AppToast.success(context, 'Profile updated successfully');
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to update: $e'),
-            backgroundColor: AppTheme.errorColor,
-          ),
-        );
-      }
+      if (mounted) AppToast.fromError(context, e, fallback: 'Failed to update profile');
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -530,36 +497,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                         if (ctx.mounted) {
                           Navigator.pop(ctx);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content:
-                                  const Text('Password changed successfully'),
-                              backgroundColor: AppTheme.successColor,
-                            ),
-                          );
+                          AppToast.success(context, 'Password changed successfully');
                         }
                       } on FirebaseAuthException catch (e) {
                         setDialogState(() => loading = false);
                         if (ctx.mounted) {
-                          ScaffoldMessenger.of(ctx).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                  e.code == 'wrong-password'
-                                      ? 'Current password is incorrect'
-                                      : e.message ?? 'Authentication error'),
-                              backgroundColor: AppTheme.errorColor,
-                            ),
-                          );
+                          AppToast.error(ctx, e.code == 'wrong-password'
+                              ? 'Current password is incorrect'
+                              : e.message ?? 'Authentication error');
                         }
                       } catch (e) {
                         setDialogState(() => loading = false);
                         if (ctx.mounted) {
-                          ScaffoldMessenger.of(ctx).showSnackBar(
-                            SnackBar(
-                              content: Text('Error: $e'),
-                              backgroundColor: AppTheme.errorColor,
-                            ),
-                          );
+                          AppToast.fromError(ctx, e, fallback: 'Password change failed');
                         }
                       }
                     },

@@ -584,7 +584,18 @@ async def list_all_pledges_for_admin(
 async def refund_pledge_by_id(
     db: AsyncSession, *, event_id: int, funding_id: int,
 ) -> int:
-    """Admin-only: mark a single pledge as refunded. Returns 1 if found and refunded."""
+    """Admin-only: mark a single pledge as refunded. Returns 1 if found and refunded.
+
+    Idempotent: returns 1 if the pledge is already refunded or in refund_processing.
+    """
+    existing = (await db.execute(
+        select(Funding).where(Funding.id == funding_id, Funding.event_id == event_id)
+    )).scalar_one_or_none()
+    if not existing:
+        return 0
+    if existing.status in (FundingStatus.refunded, FundingStatus.refund_processing):
+        return 1
+
     from sqlalchemy import update
     result = await db.execute(
         update(Funding)
@@ -593,16 +604,6 @@ async def refund_pledge_by_id(
             Funding.event_id == event_id,
             Funding.status == FundingStatus.pledged,
         )
-        .values(status=FundingStatus.refund_processing)
+        .values(status=FundingStatus.refunded)
     )
-    if result.rowcount:
-        await db.execute(
-            update(Funding)
-            .where(
-                Funding.id == funding_id,
-                Funding.event_id == event_id,
-                Funding.status == FundingStatus.refund_processing,
-            )
-            .values(status=FundingStatus.refunded)
-        )
     return result.rowcount or 0

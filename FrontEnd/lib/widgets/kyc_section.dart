@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 
-import '../config/design_tokens.dart';
 import '../config/theme.dart';
 import '../services/api_service.dart';
 import '../widgets/app_toast.dart';
@@ -81,6 +80,7 @@ class _KycSectionState extends State<KycSection> {
     if (file.path == null) return;
 
     setState(() => _uploading = true);
+    if (!mounted) return;
     try {
       await context.read<ApiService>().uploadKycDocument(file.path!, docType);
       await _loadKycStatus();

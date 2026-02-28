@@ -117,7 +117,7 @@ class StepDatesTickets extends StatelessWidget {
                 _buildEventDatesCard(context, needsDates, hasDates, statusColor),
                 const SizedBox(height: 20),
                 DropdownButtonFormField<String>(
-                  value: registrationType,
+                  initialValue: registrationType,
                   decoration: const InputDecoration(
                     labelText: 'Registration Type',
                     prefixIcon: Icon(Icons.how_to_reg_rounded, size: 20),

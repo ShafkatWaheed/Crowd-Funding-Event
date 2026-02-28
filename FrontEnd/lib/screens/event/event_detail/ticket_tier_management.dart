@@ -637,7 +637,7 @@ class _TicketTierManagementState extends State<TicketTierManagement> {
         ],
       ),
     );
-    if (confirmed == true) {
+    if (confirmed == true && mounted) {
       try {
         final api = context.read<ApiService>();
         await api.deleteTicketTier(eventId, tierId);

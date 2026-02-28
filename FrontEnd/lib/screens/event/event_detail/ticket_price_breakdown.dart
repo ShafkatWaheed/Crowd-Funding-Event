@@ -11,6 +11,7 @@ class TicketPriceBreakdown extends StatefulWidget {
   final int basePriceCents;
 
   const TicketPriceBreakdown({
+    super.key,
     required this.eventId,
     required this.tierId,
     required this.basePriceCents,

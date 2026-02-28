@@ -111,7 +111,7 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
 
   Future<void> _loadMoreEvents() async {
     if (widget.eventsLoadingMore ||
-        widget.events.length >= widget.eventsTotal) return;
+        widget.events.length >= widget.eventsTotal) { return; }
     await widget.onLoadMore?.call();
   }
 

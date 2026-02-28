@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../config/theme.dart';
 import '../config/design_tokens.dart';
 
@@ -45,13 +46,21 @@ class EmptyState extends StatelessWidget {
                 size: iconSize,
                 color: AppTheme.accentColor.withValues(alpha: 0.7),
               ),
-            ),
+            )
+                .animate()
+                .fadeIn(duration: AppDuration.normal)
+                .scale(
+                  begin: const Offset(0.8, 0.8),
+                  end: const Offset(1.0, 1.0),
+                  duration: AppDuration.normal,
+                  curve: AppCurve.overshoot,
+                ),
             AppSpacing.vXxl,
             Text(
               title,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.headlineMedium,
-            ),
+            ).animate(delay: 100.ms).fadeIn(duration: AppDuration.normal),
             if (subtitle != null) ...[
               AppSpacing.vSm,
               Text(
@@ -61,14 +70,14 @@ class EmptyState extends StatelessWidget {
                   color: AppTheme.textSecondaryOf(context),
                   height: 1.5,
                 ),
-              ),
+              ).animate(delay: 200.ms).fadeIn(duration: AppDuration.normal),
             ],
             if (actionLabel != null && onAction != null) ...[
               AppSpacing.vXxl,
               ElevatedButton(
                 onPressed: onAction,
                 child: Text(actionLabel!),
-              ),
+              ).animate(delay: 300.ms).fadeIn(duration: AppDuration.normal),
             ],
           ],
         ),

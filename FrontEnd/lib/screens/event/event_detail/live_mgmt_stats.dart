@@ -14,7 +14,7 @@ import '../../../services/api_service.dart';
 
 class LiveMgmtStats extends StatefulWidget {
   final Event event;
-  const LiveMgmtStats({required this.event});
+  const LiveMgmtStats({super.key, required this.event});
 
   @override
   State<LiveMgmtStats> createState() => _LiveMgmtStatsState();

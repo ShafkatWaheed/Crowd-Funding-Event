@@ -12,7 +12,7 @@ import '../../../widgets/star_rating.dart';
 class ReviewsSection extends StatefulWidget {
   final int eventId;
   final int organizerId;
-  const ReviewsSection({required this.eventId, required this.organizerId});
+  const ReviewsSection({super.key, required this.eventId, required this.organizerId});
 
   @override
   State<ReviewsSection> createState() => _ReviewsSectionState();
@@ -372,7 +372,7 @@ class _ReviewsSectionState extends State<ReviewsSection> {
 
 class AllReviewsSheet extends StatefulWidget {
   final int eventId;
-  const AllReviewsSheet({required this.eventId});
+  const AllReviewsSheet({super.key, required this.eventId});
 
   @override
   State<AllReviewsSheet> createState() => _AllReviewsSheetState();

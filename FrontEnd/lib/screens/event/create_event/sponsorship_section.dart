@@ -292,7 +292,7 @@ class _SponsorshipSectionState extends State<SponsorshipSection> {
             if (selected)
               IconButton(
                 onPressed: () => setState(
-                    () => localCat!.expanded = !localCat.expanded),
+                    () => localCat.expanded = !localCat.expanded),
                 icon: Icon(
                     localCat!.expanded
                         ? Icons.expand_less

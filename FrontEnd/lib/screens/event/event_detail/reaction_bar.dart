@@ -14,6 +14,7 @@ class ReactionBar extends StatefulWidget {
   final bool isAdmin;
 
   const ReactionBar({
+    super.key,
     required this.eventId,
     required this.initialLikeCount,
     required this.initialDislikeCount,

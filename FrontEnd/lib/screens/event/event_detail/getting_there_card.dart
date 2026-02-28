@@ -93,7 +93,7 @@ class GettingThereCard extends StatelessWidget {
                       foregroundColor: AppTheme.primaryOf(context),
                       side: BorderSide(
                           color:
-                              AppTheme.primaryOf(context).withOpacity(0.4)),
+                              AppTheme.primaryOf(context).withValues(alpha:0.4)),
                       shape:
                           RoundedRectangleBorder(borderRadius: AppRadius.md),
                       padding: const EdgeInsets.symmetric(vertical: 10),

@@ -89,6 +89,7 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
                 ? CachedNetworkImage(
                     imageUrl: ApiConfig.imageUrl(url),
                     fit: BoxFit.cover,
+                    memCacheHeight: 260,
                     errorWidget: (_, __, ___) => Container(
                       decoration: BoxDecoration(gradient: _statusGradient(event.status)),
                     ),

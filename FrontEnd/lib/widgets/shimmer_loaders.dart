@@ -8,11 +8,9 @@ class _ShimmerBase extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Shimmer.fromColors(
-      baseColor: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFEEEEEE),
-      highlightColor:
-          isDark ? const Color(0xFF3A3A3A) : const Color(0xFFF5F5F5),
+      baseColor: AppTheme.shimmerOf(context),
+      highlightColor: AppTheme.shimmerHighlightOf(context),
       child: child,
     );
   }

@@ -119,8 +119,6 @@ class _CoOrganizedEventsScreenState extends State<CoOrganizedEventsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = AppTheme.isDark(context);
-
     return Scaffold(
       backgroundColor: AppTheme.surfaceOf(context),
       appBar: AppBar(

@@ -85,6 +85,7 @@ class _SponsorCategoryTemplatesScreenState
       ),
     );
     if (confirmed != true) return;
+    if (!mounted) return;
     try {
       final api = context.read<ApiService>();
       await api.deleteSponsorCategoryTemplate(id);
@@ -278,7 +279,7 @@ class _TemplateCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: context.sponsorAccent.withOpacity(0.1),
+                    color: context.sponsorAccent.withValues(alpha:0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(Icons.category_rounded,
@@ -675,6 +676,7 @@ class _TemplatePrerequisiteSheetState
     );
 
     if (confirmed != true || nameCtrl.text.trim().isEmpty) return;
+    if (!mounted) return;
 
     try {
       final api = context.read<ApiService>();

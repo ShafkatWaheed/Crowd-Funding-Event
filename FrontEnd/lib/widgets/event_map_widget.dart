@@ -307,7 +307,7 @@ class _EventMapWidgetState extends State<EventMapWidget> {
 class _VenueEventsSheet extends StatelessWidget {
   final List<EventMarker> events;
 
-  _VenueEventsSheet({required this.events});
+  const _VenueEventsSheet({required this.events});
 
   @override
   Widget build(BuildContext context) {

@@ -378,6 +378,7 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
     } catch (e) { debugPrint(e.toString()); }
     final maxQty = maxSpots > 0 ? spotsLeft.clamp(0, configMax) : configMax;
 
+    if (!mounted) return;
     if (maxSpots > 0 && spotsLeft <= 0) {
       if (mounted) AppToast.error(context, 'This tier is sold out');
       return;

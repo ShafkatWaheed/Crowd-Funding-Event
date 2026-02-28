@@ -48,16 +48,16 @@ class BankingEscrowPipelineSection extends StatelessWidget {
         const SizedBox(height: 8),
         Wrap(spacing: 8, runSpacing: 4, children: [
           ChoiceChip(label: const Text('All'), selected: pipelineTypeFilter == 'all',
-            selectedColor: AppTheme.accentOf(context).withOpacity(0.2),
+            selectedColor: AppTheme.accentOf(context).withValues(alpha:0.2),
             onSelected: (_) => onTypeFilterChanged('all')),
           ChoiceChip(label: const Text('Fund'), selected: pipelineTypeFilter == 'fund',
-            selectedColor: context.fundingAccent.withOpacity(0.2),
+            selectedColor: context.fundingAccent.withValues(alpha:0.2),
             onSelected: (_) => onTypeFilterChanged('fund')),
           ChoiceChip(label: const Text('Ticket'), selected: pipelineTypeFilter == 'ticket',
-            selectedColor: context.ticketAccent.withOpacity(0.2),
+            selectedColor: context.ticketAccent.withValues(alpha:0.2),
             onSelected: (_) => onTypeFilterChanged('ticket')),
           ChoiceChip(label: const Text('Sponsor'), selected: pipelineTypeFilter == 'sponsor',
-            selectedColor: context.sponsorAccent.withOpacity(0.2),
+            selectedColor: context.sponsorAccent.withValues(alpha:0.2),
             onSelected: (_) => onTypeFilterChanged('sponsor')),
         ]),
         const SizedBox(height: 8),
@@ -87,7 +87,7 @@ class BankingEscrowPipelineSection extends StatelessWidget {
       color: AppTheme.cardOf(context),
       margin: const EdgeInsets.only(bottom: 6),
       child: ListTile(
-        leading: CircleAvatar(backgroundColor: color.withOpacity(0.2), child: Text(type[0].toUpperCase(), style: TextStyle(color: color, fontWeight: FontWeight.bold))),
+        leading: CircleAvatar(backgroundColor: color.withValues(alpha:0.2), child: Text(type[0].toUpperCase(), style: TextStyle(color: color, fontWeight: FontWeight.bold))),
         title: Text(e['event_title'] ?? 'Event #${e['event_id']}', style: TextStyle(fontWeight: FontWeight.w600, color: AppTheme.textPrimaryOf(context), fontSize: 14)),
         subtitle: Row(children: [
           _stageDot(context, e['stage1_released_at']),
@@ -121,11 +121,11 @@ class BankingEscrowPipelineSection extends StatelessWidget {
 
   Color _escrowStatusChipColor(String status) {
     switch (status) {
-      case 'fully_released': return AppTheme.successColor.withOpacity(0.2);
-      case 'partially_released': return AppTheme.warningColor.withOpacity(0.2);
-      case 'frozen': return AppTheme.errorColor.withOpacity(0.2);
-      case 'refunded': return Colors.purple.withOpacity(0.2);
-      default: return AppTheme.accentColor.withOpacity(0.15);
+      case 'fully_released': return AppTheme.successColor.withValues(alpha:0.2);
+      case 'partially_released': return AppTheme.warningColor.withValues(alpha:0.2);
+      case 'frozen': return AppTheme.errorColor.withValues(alpha:0.2);
+      case 'refunded': return Colors.purple.withValues(alpha:0.2);
+      default: return AppTheme.accentColor.withValues(alpha:0.15);
     }
   }
 
@@ -209,7 +209,7 @@ class _EscrowDetailColumn extends StatelessWidget {
                       height: 28,
                       child: Switch(
                         value: autoRelease,
-                        activeColor: color,
+                        activeTrackColor: color,
                         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         onChanged: (val) async {
                           try {

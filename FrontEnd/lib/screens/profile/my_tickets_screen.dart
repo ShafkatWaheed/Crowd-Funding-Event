@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../config/design_tokens.dart';
 import '../../utils/date_time_utils.dart';
 import '../../config/theme.dart';
+import '../../widgets/loading_switcher.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../models/ticket.dart';
 import '../../providers/auth_provider.dart';
@@ -163,16 +164,18 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
             ? 'Event Tickets'
             : 'My Tickets'),
       ),
-      body: _loading
-          ? SingleChildScrollView(
-              padding: AppSpacing.paddingLg,
-              child: Column(
-                children: List.generate(4, (_) => const ShimmerListTile()),
-              ),
-            )
-          : _error != null
-              ? ErrorState(message: _error!, onRetry: _load)
-              : _buildContent(),
+      body: LoadingSwitcher(
+        loading: _loading,
+        loadingChild: SingleChildScrollView(
+          padding: AppSpacing.paddingLg,
+          child: Column(
+            children: List.generate(4, (_) => const ShimmerListTile()),
+          ),
+        ),
+        child: _error != null
+            ? ErrorState(message: _error!, onRetry: _load)
+            : _buildContent(),
+      ),
     );
   }
 

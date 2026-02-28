@@ -60,7 +60,7 @@ class CommunityRulesSection extends StatelessWidget {
                   style: const TextStyle(fontSize: 11),
                 ),
                 value: communityRules,
-                activeColor: context.fundingAccent,
+                activeTrackColor: context.fundingAccent,
                 onChanged: communityRulesFeatureEnabled
                     ? onCommunityRulesChanged
                     : null,
@@ -90,7 +90,7 @@ class CommunityRulesSection extends StatelessWidget {
           subtitle:
               const Text('Registered users can post on the event wall'),
           value: postsEnabled,
-          activeColor: AppTheme.accentColor,
+          activeTrackColor: AppTheme.accentColor,
           onChanged: onPostsEnabledChanged,
           contentPadding: EdgeInsets.zero,
         ),

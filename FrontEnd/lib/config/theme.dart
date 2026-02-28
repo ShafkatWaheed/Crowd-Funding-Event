@@ -89,6 +89,11 @@ class AppTheme {
   static Color shimmerOf(BuildContext context) =>
       Theme.of(context).brightness == Brightness.dark ? _dkShimmer : shimmer;
 
+  static Color shimmerHighlightOf(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF3A3A3A)
+          : const Color(0xFFF5F5F5);
+
   static Color inputFillOf(BuildContext context) =>
       Theme.of(context).brightness == Brightness.dark ? _dkInputFill : Colors.white;
 

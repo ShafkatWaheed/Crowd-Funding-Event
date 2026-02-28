@@ -14,7 +14,7 @@ class EventFeedSection extends StatefulWidget {
   final bool postsEnabled;
   final bool isRegistered;
 
-  const EventFeedSection({required this.eventId, required this.postsEnabled, required this.isRegistered});
+  const EventFeedSection({super.key, required this.eventId, required this.postsEnabled, required this.isRegistered});
 
   @override
   State<EventFeedSection> createState() => _EventFeedSectionState();

@@ -214,7 +214,7 @@ class _SpotLimitPerPledgerToggleState
                   });
                   widget.onMarkDirty();
                 },
-                activeColor: context.fundingAccent,
+                activeTrackColor: context.fundingAccent,
               ),
             ],
           ),

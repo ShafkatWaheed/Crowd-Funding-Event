@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../services/api_service.dart';
 import '../../widgets/admin/admin_empty_state.dart';
-import 'user_detail_tabs/user_detail_shared.dart';
 import 'user_detail_tabs/user_discounts_tab.dart';
 import 'user_detail_tabs/user_escrow_tab.dart';
 import 'user_detail_tabs/user_events_tab.dart';

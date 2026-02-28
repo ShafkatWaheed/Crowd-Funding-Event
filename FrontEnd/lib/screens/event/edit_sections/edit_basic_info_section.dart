@@ -145,7 +145,7 @@ class _EditBasicInfoSectionState extends State<EditBasicInfoSection> {
         const SizedBox(height: 16),
 
         DropdownButtonFormField<String>(
-          value: widget.registrationType,
+          initialValue: widget.registrationType,
           decoration: const InputDecoration(labelText: 'Registration Type'),
           items: const [
             DropdownMenuItem(value: 'open', child: Text('Open')),
@@ -156,7 +156,7 @@ class _EditBasicInfoSectionState extends State<EditBasicInfoSection> {
         const SizedBox(height: 16),
 
         DropdownButtonFormField<String>(
-          value: widget.genre,
+          initialValue: widget.genre,
           decoration: const InputDecoration(labelText: 'Genre / Category *'),
           items: _genres
               .map((g) => DropdownMenuItem(
@@ -192,7 +192,7 @@ class _EditBasicInfoSectionState extends State<EditBasicInfoSection> {
           subtitle:
               const Text('Registered users can post on the event wall'),
           value: widget.postsEnabled,
-          activeColor: AppTheme.primaryColor,
+          activeTrackColor: AppTheme.primaryColor,
           onChanged: widget.onPostsEnabledChanged,
           contentPadding: EdgeInsets.zero,
         ),

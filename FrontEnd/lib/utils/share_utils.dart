@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 
-import '../models/event.dart';
 import '../utils/date_time_utils.dart';
 
 class ShareUtils {

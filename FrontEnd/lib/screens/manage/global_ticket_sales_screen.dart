@@ -451,7 +451,7 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
 
   Widget _chip(String label, IconData icon, Color c) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final color = (isDark && c.red < 50 && c.green < 50 && c.blue < 50)
+    final color = (isDark && (c.r * 255.0).round() < 50 && (c.g * 255.0).round() < 50 && (c.b * 255.0).round() < 50)
         ? AppTheme.accentColor
         : c;
     return Container(

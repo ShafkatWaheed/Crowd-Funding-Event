@@ -18,6 +18,13 @@ class ProfileTab extends StatefulWidget {
 }
 
 class _ProfileTabState extends State<ProfileTab> {
+  Future<void> _signOut() async {
+    final auth = context.read<AuthProvider>();
+    await auth.signOut();
+    if (!mounted) return;
+    context.go('/login');
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
@@ -296,7 +303,7 @@ class _ProfileTabState extends State<ProfileTab> {
                                       ),
                                       Switch.adaptive(
                                         value: themeProv.isDark,
-                                        activeColor: AppTheme.accentColor,
+                                        activeTrackColor: AppTheme.accentColor,
                                         onChanged: (_) => themeProv.toggle(),
                                       ),
                                     ],
@@ -332,12 +339,7 @@ class _ProfileTabState extends State<ProfileTab> {
                     width: double.infinity,
                     height: 52,
                     child: OutlinedButton.icon(
-                      onPressed: () async {
-                        await auth.signOut();
-                        if (context.mounted) {
-                          context.go('/login');
-                        }
-                      },
+                      onPressed: _signOut,
                       icon:
                           const Icon(Icons.logout_rounded, color: AppTheme.errorColor),
                       label: const Text('Sign Out',

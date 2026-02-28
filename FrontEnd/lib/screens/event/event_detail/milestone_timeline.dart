@@ -13,7 +13,7 @@ class MilestoneTimeline extends StatefulWidget {
   final int eventId;
   final Event event;
 
-  const MilestoneTimeline({required this.eventId, required this.event});
+  const MilestoneTimeline({super.key, required this.eventId, required this.event});
 
   @override
   State<MilestoneTimeline> createState() => _MilestoneTimelineState();

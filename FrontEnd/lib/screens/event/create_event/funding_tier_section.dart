@@ -66,7 +66,7 @@ class FundingTierLinkCard extends StatelessWidget {
                   onLinkFundingToTiersChanged(v);
                   onMarkDirty();
                 },
-                activeColor: context.ticketAccent,
+                activeTrackColor: context.ticketAccent,
               ),
             ],
           ),
@@ -297,7 +297,7 @@ class _FundingSpotLimitToggleState extends State<FundingSpotLimitToggle> {
                   });
                   widget.onMarkDirty();
                 },
-                activeColor: context.fundingAccent,
+                activeTrackColor: context.fundingAccent,
               ),
             ],
           ),

@@ -7,9 +7,9 @@
 
 ## Frontend flow
 
-- **Screen/Widget:** My Tickets (Request Refund; Refund Pending banner); Refund Requests screen (organizer: list, approve/reject); Funding card (Refund Processing + poll refund-status).
-- **User action:** Customer requests; organizer approves/rejects (approve returns refund_processing; worker completes asynchronously). Poll getRefundStatus(eventId) until completed after cancel.
-- **API calls:** requestTicketRefund, getRefundRequests, approveTicketRefund, rejectTicketRefund, getRefundStatus (poll 3s). Backend enqueues ARQ refund + email tasks.
+- **Screen/Widget:** My Tickets (stats: Pending/Refunded; filter "Refund Pending"; open receipt to request refund); Ticket Receipt screen (customer: "Request Refund" button); Refund Requests screen (organizer: list, approve/reject); Funding card (Refund Processing + poll refund-status).
+- **User action:** Customer opens ticket receipt from My Tickets (or event) and taps "Request Refund" (confirmation dialog → requestTicketRefund); organizer approves/rejects (approve returns refund_processing; worker completes asynchronously). Poll getRefundStatus(eventId) until completed after cancel.
+- **API calls:** requestTicketRefund (invoked from receipt screen), getRefundRequests, approveTicketRefund, rejectTicketRefund, getRefundStatus (poll 3s). Backend enqueues ARQ refund + email tasks.
 
 ## Backend routing
 

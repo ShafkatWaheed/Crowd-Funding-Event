@@ -84,10 +84,10 @@ bool validateCreateEventStep({
         return fail('Set both start & end dates, or set a funding deadline');
       }
       if (startTime != null && endTime == null) return fail('End time is required when start time is set');
-      if (startTime != null && endTime != null && !endTime!.isAfter(startTime!)) {
+      if (startTime != null && endTime != null && !endTime.isAfter(startTime)) {
         return fail('End time must be after start time');
       }
-      if (startTime != null && fundingEndAt != null && !startTime!.isAfter(fundingEndAt!)) {
+      if (startTime != null && fundingEndAt != null && !startTime.isAfter(fundingEndAt)) {
         return fail('Event start must be after funding deadline');
       }
       return pass();

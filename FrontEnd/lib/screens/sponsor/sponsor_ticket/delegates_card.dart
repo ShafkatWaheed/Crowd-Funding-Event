@@ -85,6 +85,7 @@ class _DelegatesCardState extends State<DelegatesCard> {
     );
 
     if (confirmed != true || nameCtrl.text.trim().isEmpty) return;
+    if (!mounted) return;
 
     try {
       final api = context.read<ApiService>();

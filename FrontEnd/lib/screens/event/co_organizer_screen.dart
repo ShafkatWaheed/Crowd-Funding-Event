@@ -50,6 +50,7 @@ class _CoOrganizerScreenState extends State<CoOrganizerScreen> {
     setState(() => _loading = true);
     try {
       final list = await _api.getEventOrganizers(widget.eventId);
+      if (!mounted) return;
       final user = context.read<AuthProvider>().user;
       final mainOrg = list.firstWhere((o) => o['is_main'] == true, orElse: () => {});
       _isMainOrganizer = user != null &&

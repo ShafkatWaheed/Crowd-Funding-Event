@@ -6,6 +6,7 @@ import '../../config/theme.dart';
 import '../../utils/date_time_utils.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_toast.dart';
+import '../../widgets/loading_switcher.dart';
 import '../../widgets/shimmer_loaders.dart';
 
 class PledgeReceiptScreen extends StatefulWidget {
@@ -56,25 +57,27 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
-      body: _loading
-          ? const Center(child: ShimmerReceiptCard())
-          : _error != null
-              ? Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.error_outline, size: 48, color: AppTheme.textSecondaryOf(context)),
-                      const SizedBox(height: 12),
-                      Text(_error!, style: TextStyle(color: AppTheme.textSecondaryOf(context))),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: () { setState(() { _loading = true; _error = null; }); _load(); },
-                        child: const Text('Retry'),
-                      ),
-                    ],
-                  ),
-                )
-              : _buildReceipt(),
+      body: LoadingSwitcher(
+        loading: _loading,
+        loadingChild: const Center(child: ShimmerReceiptCard()),
+        child: _error != null
+            ? Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.error_outline, size: 48, color: AppTheme.textSecondaryOf(context)),
+                    const SizedBox(height: 12),
+                    Text(_error!, style: TextStyle(color: AppTheme.textSecondaryOf(context))),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () { setState(() { _loading = true; _error = null; }); _load(); },
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              )
+            : _buildReceipt(),
+      ),
     );
   }
 

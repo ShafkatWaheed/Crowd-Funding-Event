@@ -7,7 +7,7 @@ import '../../../widgets/app_toast.dart';
 
 class EventDiscountDropdown extends StatefulWidget {
   final int eventId;
-  const EventDiscountDropdown({required this.eventId});
+  const EventDiscountDropdown({super.key, required this.eventId});
 
   @override
   State<EventDiscountDropdown> createState() => _EventDiscountDropdownState();
@@ -112,9 +112,9 @@ class _EventDiscountDropdownState extends State<EventDiscountDropdown> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                         decoration: BoxDecoration(
-                          color: context.discountAccent.withOpacity(0.18),
+                          color: context.discountAccent.withValues(alpha:0.18),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: context.discountAccent.withOpacity(0.4), width: 0.5),
+                          border: Border.all(color: context.discountAccent.withValues(alpha:0.4), width: 0.5),
                         ),
                         child: Row(
                           children: [
@@ -237,12 +237,12 @@ class AddButton extends StatelessWidget {
   final String label;
   final Color color;
   final VoidCallback onTap;
-  const AddButton({required this.label, required this.color, required this.onTap});
+  const AddButton({super.key, required this.label, required this.color, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: color.withOpacity(0.2),
+      color: color.withValues(alpha:0.2),
       borderRadius: BorderRadius.circular(6),
       child: InkWell(
         onTap: onTap,

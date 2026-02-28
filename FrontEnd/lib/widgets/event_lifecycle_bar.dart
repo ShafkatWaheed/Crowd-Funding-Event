@@ -91,7 +91,7 @@ class _CompactBar extends StatelessWidget {
   final List<_Step> steps;
   final int activeIndex;
 
-  _CompactBar({required this.steps, required this.activeIndex});
+  const _CompactBar({required this.steps, required this.activeIndex});
 
   @override
   Widget build(BuildContext context) {
@@ -129,7 +129,7 @@ class _FullBar extends StatelessWidget {
   final List<_Step> steps;
   final int activeIndex;
 
-  _FullBar({required this.steps, required this.activeIndex});
+  const _FullBar({required this.steps, required this.activeIndex});
 
   @override
   Widget build(BuildContext context) {

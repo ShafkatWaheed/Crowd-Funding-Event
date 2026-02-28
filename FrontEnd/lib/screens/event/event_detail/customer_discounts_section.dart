@@ -8,7 +8,7 @@ import '../../../services/api_service.dart';
 class CustomerDiscountsSection extends StatefulWidget {
   final int eventId;
   final VoidCallback? onDiscountsChanged;
-  const CustomerDiscountsSection({required this.eventId, this.onDiscountsChanged});
+  const CustomerDiscountsSection({super.key, required this.eventId, this.onDiscountsChanged});
 
   @override
   State<CustomerDiscountsSection> createState() => _CustomerDiscountsSectionState();
@@ -47,7 +47,7 @@ class _CustomerDiscountsSectionState extends State<CustomerDiscountsSection> {
       case 'pledge_percent':
         final pledged = d['total_pledged_cents'] ?? 0;
         final amount = pledged * val ~/ 100;
-        return '\$${(amount / 100).toStringAsFixed(2)} (${val}% of your pledge)';
+        return '\$${(amount / 100).toStringAsFixed(2)} ($val% of your pledge)';
       case 'fixed_cents':
         return '\$${(val / 100).toStringAsFixed(2)} flat discount';
       default:

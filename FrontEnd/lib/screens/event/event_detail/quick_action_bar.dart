@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
@@ -10,8 +9,6 @@ import '../../../providers/event_provider.dart';
 import '../../../services/api_service.dart';
 import '../../../widgets/app_toast.dart';
 import '../../../widgets/press_feedback.dart';
-import '../../../widgets/share_bottom_sheet.dart';
-import '../../../widgets/calendar_bottom_sheet.dart';
 
 class QuickActionBar extends StatefulWidget {
   final Event event;
@@ -42,27 +39,25 @@ class _QuickActionBarState extends State<QuickActionBar> {
       final api = context.read<ApiService>();
       final result = await api.register(widget.event.id);
       widget.onRegistrationChanged();
-      if (context.mounted) {
-        context.read<EventProvider>().loadEvent(widget.event.id);
-        final status = result['status'] as String?;
-        final event = context.read<EventProvider>().selectedEvent;
-        final isSelling = event?.status == EventStatus.selling_tickets ||
-            event?.status == EventStatus.live;
-        if (status == 'waitlisted') {
-          AppToast.info(
-              context,
-              isSelling
-                  ? 'Event is at capacity. Once the organizer approves, you can buy tickets.'
-                  : 'Event is at capacity. Your registration is waiting for organizer approval.');
-        } else {
-          AppToast.success(context,
-              isSelling ? 'Registered! You can now buy tickets.' : 'Registered successfully!');
-        }
+      if (!mounted) return;
+      context.read<EventProvider>().loadEvent(widget.event.id);
+      final status = result['status'] as String?;
+      final event = context.read<EventProvider>().selectedEvent;
+      final isSelling = event?.status == EventStatus.selling_tickets ||
+          event?.status == EventStatus.live;
+      if (status == 'waitlisted') {
+        AppToast.info(
+            context,
+            isSelling
+                ? 'Event is at capacity. Once the organizer approves, you can buy tickets.'
+                : 'Event is at capacity. Your registration is waiting for organizer approval.');
+      } else {
+        AppToast.success(context,
+            isSelling ? 'Registered! You can now buy tickets.' : 'Registered successfully!');
       }
     } catch (e) {
-      if (context.mounted) {
-        AppToast.fromError(context, e, fallback: 'Registration failed');
-      }
+      if (!mounted) return;
+      AppToast.fromError(context, e, fallback: 'Registration failed');
     }
     if (mounted) setState(() => _loading = false);
   }
@@ -78,7 +73,7 @@ class _QuickActionBarState extends State<QuickActionBar> {
           'Are you sure you want to unregister? Your pledged amount will be fully refunded.';
     } else {
       message =
-          'The refund deadline has passed (${deadlineDays} day${deadlineDays == 1 ? '' : 's'} before event start).\n\n'
+          'The refund deadline has passed ($deadlineDays day${deadlineDays == 1 ? '' : 's'} before event start).\n\n'
           'If you unregister now, your pledged amount will NOT be refunded.\n\n'
           'Are you sure you want to proceed?';
     }
@@ -113,27 +108,25 @@ class _QuickActionBarState extends State<QuickActionBar> {
       final api = context.read<ApiService>();
       final result = await api.unregister(widget.event.id);
       widget.onRegistrationChanged();
-      if (context.mounted) {
-        context.read<EventProvider>().loadEvent(widget.event.id);
-        final refunded = result['refunded_cents'] ?? 0;
-        final pledges = result['pledges_refunded'] ?? 0;
-        final wasRefunded = result['refund_eligible'] ?? true;
-        String msg;
-        if (wasRefunded && pledges > 0) {
-          msg =
-              'Unregistered successfully. Refunded \$${(refunded / 100).toStringAsFixed(2)} from $pledges pledge(s).';
-        } else if (!wasRefunded) {
-          msg =
-              'Unregistered successfully. No refund — the refund deadline had passed.';
-        } else {
-          msg = 'Unregistered successfully.';
-        }
-        AppToast.success(context, msg);
+      if (!mounted) return;
+      context.read<EventProvider>().loadEvent(widget.event.id);
+      final refunded = result['refunded_cents'] ?? 0;
+      final pledges = result['pledges_refunded'] ?? 0;
+      final wasRefunded = result['refund_eligible'] ?? true;
+      String msg;
+      if (wasRefunded && pledges > 0) {
+        msg =
+            'Unregistered successfully. Refunded \$${(refunded / 100).toStringAsFixed(2)} from $pledges pledge(s).';
+      } else if (!wasRefunded) {
+        msg =
+            'Unregistered successfully. No refund — the refund deadline had passed.';
+      } else {
+        msg = 'Unregistered successfully.';
       }
+      AppToast.success(context, msg);
     } catch (e) {
-      if (context.mounted) {
-        AppToast.fromError(context, e, fallback: 'Unregister failed');
-      }
+      if (!mounted) return;
+      AppToast.fromError(context, e, fallback: 'Unregister failed');
     }
     if (mounted) setState(() => _loading = false);
   }
@@ -190,28 +183,6 @@ class _QuickActionBarState extends State<QuickActionBar> {
                               : _register,
                         ),
             ),
-          if (isCustomer && event.canUnregister) AppSpacing.hXs,
-          Expanded(
-            flex: 2,
-            child: _quickActionBtn(
-              icon: Icons.share_rounded,
-              label: 'Share',
-              color: AppTheme.textSecondaryOf(context),
-              filled: false,
-              onTap: () => showShareSheet(context, event),
-            ),
-          ),
-          AppSpacing.hXs,
-          Expanded(
-            flex: 2,
-            child: _quickActionBtn(
-              icon: Icons.calendar_month_rounded,
-              label: 'Calendar',
-              color: AppTheme.textSecondaryOf(context),
-              filled: false,
-              onTap: () => showCalendarSheet(context, event),
-            ),
-          ),
         ],
       ),
     );

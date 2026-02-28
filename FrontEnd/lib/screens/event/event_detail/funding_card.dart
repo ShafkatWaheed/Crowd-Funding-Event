@@ -22,7 +22,7 @@ class FundingCard extends StatefulWidget {
   final Event event;
   final bool isRegistered;
 
-  const FundingCard({required this.eventId, required this.event, required this.isRegistered});
+  const FundingCard({super.key, required this.eventId, required this.event, required this.isRegistered});
 
   @override
   State<FundingCard> createState() => _FundingCardState();
@@ -691,37 +691,34 @@ class _FundingCardState extends State<FundingCard> {
       ),
     );
 
-    if (confirmed == true && context.mounted) {
-      try {
-        final api = context.read<ApiService>();
-        final result = await api.unpledge(widget.eventId);
-        if (context.mounted) {
-          final refunded = result['refunded_cents'] ?? 0;
-          final guest = result['guest_non_refundable_cents'] ?? 0;
-          final status = result['status'] ?? 'completed';
+    if (confirmed != true || !mounted) return;
+    try {
+      final api = context.read<ApiService>();
+      final result = await api.unpledge(widget.eventId);
+      if (!mounted) return;
+      final refunded = result['refunded_cents'] ?? 0;
+      final guest = result['guest_non_refundable_cents'] ?? 0;
+      final status = result['status'] ?? 'completed';
 
-          if (status == 'refund_processing') {
-            setState(() => _refundProcessing = true);
-            var msg = 'Refund of \$${(refunded / 100).toStringAsFixed(2)} is processing';
-            if (guest > 0) {
-              msg += ' (\$${(guest / 100).toStringAsFixed(2)} guest pledges non-refundable)';
-            }
-            AppToast.info(context, msg);
-            _startRefundPolling();
-          } else {
-            var msg = 'Refunded \$${(refunded / 100).toStringAsFixed(2)}';
-            if (guest > 0) {
-              msg += ' (\$${(guest / 100).toStringAsFixed(2)} guest pledges non-refundable)';
-            }
-            AppToast.success(context, msg);
-          }
-          _loadFunding();
+      if (status == 'refund_processing') {
+        setState(() => _refundProcessing = true);
+        var msg = 'Refund of \$${(refunded / 100).toStringAsFixed(2)} is processing';
+        if (guest > 0) {
+          msg += ' (\$${(guest / 100).toStringAsFixed(2)} guest pledges non-refundable)';
         }
-      } catch (e) {
-        if (context.mounted) {
-          AppToast.fromError(context, e, fallback: 'Unpledge failed');
+        AppToast.info(context, msg);
+        _startRefundPolling();
+      } else {
+        var msg = 'Refunded \$${(refunded / 100).toStringAsFixed(2)}';
+        if (guest > 0) {
+          msg += ' (\$${(guest / 100).toStringAsFixed(2)} guest pledges non-refundable)';
         }
+        AppToast.success(context, msg);
       }
+      _loadFunding();
+    } catch (e) {
+      if (!mounted) return;
+      AppToast.fromError(context, e, fallback: 'Unpledge failed');
     }
   }
 

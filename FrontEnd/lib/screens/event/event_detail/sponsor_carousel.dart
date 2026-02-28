@@ -9,7 +9,7 @@ import '../../../services/api_service.dart';
 
 class SponsorCarousel extends StatefulWidget {
   final int eventId;
-  const SponsorCarousel({required this.eventId});
+  const SponsorCarousel({super.key, required this.eventId});
 
   @override
   State<SponsorCarousel> createState() => _SponsorCarouselState();
@@ -45,52 +45,6 @@ class _SponsorCarouselState extends State<SponsorCarousel> {
     if (userId != null) {
       context.push('/users/$userId/sponsor-profile');
     }
-  }
-
-  void _showSponsorSheet(Map<String, dynamic> sponsor) {
-    showModalBottomSheet(
-      context: context,
-      builder: (ctx) => Padding(
-        padding: AppSpacing.paddingXxl,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircleAvatar(
-              radius: AppSpacing.xxxl,
-              backgroundColor: AppTheme.accentColor.withValues(alpha: 0.1),
-              backgroundImage: sponsor['logo_url'] != null
-                  ? NetworkImage(ApiConfig.imageUrl(sponsor['logo_url']))
-                  : null,
-              child: sponsor['logo_url'] == null
-                  ? Text(
-                      (sponsor['company_name'] as String? ?? '?')
-                          .substring(0, 1)
-                          .toUpperCase(),
-                      style: const TextStyle(
-                          fontSize: 24, fontWeight: FontWeight.bold),
-                    )
-                  : null,
-            ),
-            AppSpacing.vMd,
-            Text(
-              sponsor['company_name'] ?? 'Sponsor',
-              style:
-                  const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-            ),
-            if (sponsor['website_url'] != null &&
-                (sponsor['website_url'] as String).isNotEmpty) ...[
-              AppSpacing.vSm,
-              Text(
-                sponsor['website_url'],
-                style: TextStyle(
-                    color: AppTheme.accentColor, fontSize: 13),
-              ),
-            ],
-            AppSpacing.vLg,
-          ],
-        ),
-      ),
-    );
   }
 
   @override

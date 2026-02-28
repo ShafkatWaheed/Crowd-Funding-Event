@@ -55,7 +55,7 @@ class _OrganizerManagementSectionState
     final user = context.watch<AuthProvider>().user;
     final isDark = AppTheme.isDark(context);
 
-    final _canEdit = widget.canEdit;
+    final canEdit = widget.canEdit;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -68,7 +68,7 @@ class _OrganizerManagementSectionState
 
         // ── Primary Action Card (status-specific) ──
         // Draft → Publish
-        if (_canEdit && _event.status == EventStatus.draft)
+        if (canEdit && _event.status == EventStatus.draft)
           _primaryActionCard(
             icon: Icons.publish_rounded,
             color: AppTheme.accentColor,
@@ -82,13 +82,13 @@ class _OrganizerManagementSectionState
               final ok = await eventProvider.publishEvent(_event.id);
               if (!ok && mounted) {
                 AppToast.error(
-                    context, eventProvider.error ?? 'Failed to publish');
+                    this.context, eventProvider.error ?? 'Failed to publish');
               }
             },
           ),
 
         // Cancelled → Reactivate
-        if (_canEdit && _event.status == EventStatus.cancelled)
+        if (canEdit && _event.status == EventStatus.cancelled)
           _primaryActionCard(
             icon: Icons.restore_rounded,
             color: AppTheme.warningColor,
@@ -101,7 +101,7 @@ class _OrganizerManagementSectionState
           ),
 
         // waiting_event_date → Start Selling
-        if (_canEdit && _event.status == EventStatus.waiting_event_date)
+        if (canEdit && _event.status == EventStatus.waiting_event_date)
           _primaryActionCard(
             icon: Icons.storefront_rounded,
             color: context.ticketAccent,
@@ -117,22 +117,22 @@ class _OrganizerManagementSectionState
             buttonEnabled:
                 _event.startTime != null && _event.ticketStrategyId != null,
             onPressed: () =>
-                _confirmStartSelling(context, eventProvider, _event),
+                _confirmStartSelling(eventProvider, _event),
           ),
 
         // Completed → Clone
-        if (_canEdit && _event.status == EventStatus.completed)
+        if (canEdit && _event.status == EventStatus.completed)
           _primaryActionCard(
             icon: Icons.copy_all_rounded,
             color: AppTheme.accentColor,
             title: 'Run this event again?',
             subtitle: 'Clone it into a new draft with all settings pre-filled.',
             buttonLabel: 'Clone Event',
-            onPressed: () => _cloneEvent(context, _event.id),
+            onPressed: () => _cloneEvent(_event.id),
           ),
 
         // ── Setup Grid (waiting_event_date only) ──
-        if (_canEdit && _event.status == EventStatus.waiting_event_date) ...[
+        if (canEdit && _event.status == EventStatus.waiting_event_date) ...[
           AppSpacing.vLg,
           GridView.count(
             crossAxisCount: 2,
@@ -159,7 +159,7 @@ class _OrganizerManagementSectionState
                 subtitle: _event.venue?.name ?? 'Not set',
                 color: context.managementAccent,
                 isSet: _event.venue != null,
-                onTap: () => _selectVenueForEvent(context, _event),
+                onTap: () => _selectVenueForEvent(_event),
               ),
               _setupTile(
                 icon: Icons.confirmation_number_rounded,
@@ -168,7 +168,7 @@ class _OrganizerManagementSectionState
                 color: context.sponsorAccent,
                 isSet: _event.ticketStrategyId != null,
                 onTap: _event.ticketStrategyId == null
-                    ? () => _selectStrategyForEvent(context, _event)
+                    ? () => _selectStrategyForEvent(_event)
                     : () {},
               ),
               _setupTile(
@@ -177,7 +177,7 @@ class _OrganizerManagementSectionState
                 subtitle: '${_event.maxCapacity}',
                 color: context.ticketAccent,
                 isSet: true,
-                onTap: () => _showChangeCapacityDialog(context, _event),
+                onTap: () => _showChangeCapacityDialog(_event),
               ),
             ],
           ),
@@ -197,7 +197,7 @@ class _OrganizerManagementSectionState
             child: Column(
               children: [
                 // Edit (draft, pending, approved only — write access)
-                if (_canEdit && (_event.status == EventStatus.draft ||
+                if (canEdit && (_event.status == EventStatus.draft ||
                     _event.status == EventStatus.pending_approval ||
                     _event.status == EventStatus.approved))
                   _menuTile(
@@ -214,14 +214,14 @@ class _OrganizerManagementSectionState
                 _menuTile(
                   icon: Icons.calendar_month_rounded,
                   iconColor: AppTheme.accentColor,
-                  label: _canEdit ? 'Manage Schedule' : 'View Schedule',
+                  label: canEdit ? 'Manage Schedule' : 'View Schedule',
                   onTap: () =>
                       ScheduleMilestoneDialogs.showManageScheduleSheet(
                           context, _event, widget.onRefresh),
                 ),
 
                 // Manage Milestones (funding phase only — write access)
-                if (_canEdit && _event.status == EventStatus.approved)
+                if (canEdit && _event.status == EventStatus.approved)
                   _menuTile(
                     icon: Icons.flag_rounded,
                     iconColor: context.fundingAccent,
@@ -232,7 +232,7 @@ class _OrganizerManagementSectionState
                   ),
 
                 // Toggle posts (write access)
-                if (_canEdit)
+                if (canEdit)
                   _menuTile(
                     icon: _event.postsEnabled
                         ? Icons.comments_disabled_rounded
@@ -245,7 +245,7 @@ class _OrganizerManagementSectionState
                   ),
 
                 // Change Venue (write access)
-                if (_canEdit && (_event.status == EventStatus.approved ||
+                if (canEdit && (_event.status == EventStatus.approved ||
                     _event.status == EventStatus.waiting_event_date ||
                     _event.status == EventStatus.selling_tickets))
                   _menuTile(
@@ -253,22 +253,22 @@ class _OrganizerManagementSectionState
                     iconColor: context.managementAccent,
                     label: 'Change Venue',
                     trailing: _event.venue?.name,
-                    onTap: () => _selectVenueForEvent(context, _event),
+                    onTap: () => _selectVenueForEvent(_event),
                   ),
 
                 // Assign Ticket Strategy (write access)
-                if (_canEdit && _event.status == EventStatus.approved &&
+                if (canEdit && _event.status == EventStatus.approved &&
                     _event.ticketStrategyId == null)
                   _menuTile(
                     icon: Icons.confirmation_number_rounded,
                     iconColor: context.sponsorAccent,
                     label: 'Assign Ticket Strategy',
                     trailing: 'Not set',
-                    onTap: () => _selectStrategyForEvent(context, _event),
+                    onTap: () => _selectStrategyForEvent(_event),
                   ),
 
                 // Increase Capacity (write access)
-                if (_canEdit && (_event.status == EventStatus.approved ||
+                if (canEdit && (_event.status == EventStatus.approved ||
                     _event.status == EventStatus.waiting_event_date ||
                     _event.status == EventStatus.selling_tickets ||
                     _event.status == EventStatus.live))
@@ -277,11 +277,11 @@ class _OrganizerManagementSectionState
                     iconColor: context.ticketAccent,
                     label: 'Increase Capacity',
                     trailing: '${_event.maxCapacity}',
-                    onTap: () => _showChangeCapacityDialog(context, _event),
+                    onTap: () => _showChangeCapacityDialog(_event),
                   ),
 
                 // Extend Funding (write access)
-                if (_canEdit && _event.status == EventStatus.waiting_event_date)
+                if (canEdit && _event.status == EventStatus.waiting_event_date)
                   _menuTile(
                     icon: Icons.more_time_rounded,
                     iconColor: AppTheme.accentColor,
@@ -292,7 +292,7 @@ class _OrganizerManagementSectionState
                   ),
 
                 // Cancel — organizer or admin for pre-selling (write access)
-                if (_canEdit && (_event.status == EventStatus.pending_approval ||
+                if (canEdit && (_event.status == EventStatus.pending_approval ||
                     _event.status == EventStatus.approved ||
                     _event.status == EventStatus.waiting_event_date))
                   _menuTile(
@@ -300,7 +300,7 @@ class _OrganizerManagementSectionState
                     iconColor: AppTheme.errorColor,
                     label: 'Cancel Event',
                     onTap: () =>
-                        _confirmCancel(context, eventProvider, _event.id),
+                        _confirmCancel(eventProvider, _event.id),
                     isDanger: true,
                   ),
 
@@ -314,12 +314,12 @@ class _OrganizerManagementSectionState
                     iconColor: AppTheme.errorColor,
                     label: 'Cancel Event (Admin)',
                     onTap: () =>
-                        _confirmCancel(context, eventProvider, _event.id),
+                        _confirmCancel(eventProvider, _event.id),
                     isDanger: true,
                   ),
 
                 // Request Cancellation — organizer (not admin, not co-org) during selling
-                if (_canEdit && _event.status == EventStatus.selling_tickets &&
+                if (canEdit && _event.status == EventStatus.selling_tickets &&
                     user != null &&
                     !user.isAdmin &&
                     _event.pendingCancellation == null)
@@ -328,18 +328,18 @@ class _OrganizerManagementSectionState
                     iconColor: AppTheme.warningColor,
                     label: 'Request Cancellation',
                     onTap: () => _requestCancellation(
-                        context, eventProvider, _event.id),
+                        eventProvider, _event.id),
                   ),
 
                 // Delete (draft or cancelled only — write access)
-                if (_canEdit && (_event.status == EventStatus.draft ||
+                if (canEdit && (_event.status == EventStatus.draft ||
                     _event.status == EventStatus.cancelled))
                   _menuTile(
                     icon: Icons.delete_forever_rounded,
                     iconColor: AppTheme.errorColor,
                     label: 'Delete Permanently',
                     onTap: () =>
-                        _confirmDelete(context, eventProvider, _event.id),
+                        _confirmDelete(eventProvider, _event.id),
                     isDanger: true,
                   ),
               ],
@@ -398,7 +398,7 @@ class _OrganizerManagementSectionState
   // Management action methods
   // ═══════════════════════════════════════════
 
-  Future<void> _cloneEvent(BuildContext context, int eventId) async {
+  Future<void> _cloneEvent(int eventId) async {
     try {
       final api = context.read<ApiService>();
       final data = await api.cloneEvent(eventId);
@@ -414,7 +414,8 @@ class _OrganizerManagementSectionState
   }
 
   Future<void> _confirmStartSelling(
-      BuildContext context, EventProvider eventProvider, Event event) async {
+      EventProvider eventProvider, Event event) async {
+    final ticketAccent = context.ticketAccent;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -427,51 +428,46 @@ class _OrganizerManagementSectionState
               child: const Text('Cancel')),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: context.ticketAccent),
+            style: FilledButton.styleFrom(backgroundColor: ticketAccent),
             child: const Text('Start Selling'),
           ),
         ],
       ),
     );
-    if (confirmed == true && mounted) {
-      final ok = await eventProvider.startSellingTickets(event.id);
-      if (ok && mounted) {
-        AppToast.success(context, 'Tickets are now on sale!');
-      } else if (!ok && mounted) {
-        AppToast.error(
-            context,
-            eventProvider.error ?? 'Failed to start selling tickets');
-      }
+    if (confirmed != true || !mounted) return;
+    final ok = await eventProvider.startSellingTickets(event.id);
+    if (!mounted) return;
+    if (ok) {
+      AppToast.success(context, 'Tickets are now on sale!');
+    } else {
+      AppToast.error(
+          context,
+          eventProvider.error ?? 'Failed to start selling tickets');
     }
   }
 
-  Future<void> _selectVenueForEvent(
-      BuildContext context, Event event) async {
+  Future<void> _selectVenueForEvent(Event event) async {
     final selected = await Navigator.push<Venue>(
       context,
       MaterialPageRoute(
         builder: (_) => VenuePickerScreen(currentVenueId: event.venueId),
       ),
     );
-    if (selected != null && mounted) {
-      try {
-        final api = context.read<ApiService>();
-        final eventProvider = context.read<EventProvider>();
-        await api.updateEvent(event.id, {'venue_id': selected.id});
-        await eventProvider.loadEvent(event.id);
-        if (mounted) {
-          AppToast.success(context, 'Venue changed to ${selected.name}');
-        }
-      } catch (e) {
-        if (mounted) {
-          AppToast.fromError(context, e, fallback: 'Failed to change venue');
-        }
-      }
+    if (selected == null || !mounted) return;
+    try {
+      final api = context.read<ApiService>();
+      final eventProvider = context.read<EventProvider>();
+      await api.updateEvent(event.id, {'venue_id': selected.id});
+      await eventProvider.loadEvent(event.id);
+      if (!mounted) return;
+      AppToast.success(context, 'Venue changed to ${selected.name}');
+    } catch (e) {
+      if (!mounted) return;
+      AppToast.fromError(context, e, fallback: 'Failed to change venue');
     }
   }
 
-  Future<void> _selectStrategyForEvent(
-      BuildContext context, Event event) async {
+  Future<void> _selectStrategyForEvent(Event event) async {
     final selected = await Navigator.push<TicketStrategy>(
       context,
       MaterialPageRoute(
@@ -479,32 +475,29 @@ class _OrganizerManagementSectionState
             StrategyPickerScreen(currentStrategyId: event.ticketStrategyId),
       ),
     );
-    if (selected != null && mounted) {
-      try {
-        final api = context.read<ApiService>();
-        final eventProvider = context.read<EventProvider>();
-        await api.updateEvent(
-            event.id, {'ticket_strategy_id': selected.id});
-        await eventProvider.loadEvent(event.id);
-        if (mounted) {
-          AppToast.success(
-              context, 'Strategy changed to ${selected.name}');
-        }
-      } catch (e) {
-        if (mounted) {
-          AppToast.fromError(
-              context, e, fallback: 'Failed to change strategy');
-        }
-      }
+    if (selected == null || !mounted) return;
+    try {
+      final api = context.read<ApiService>();
+      final eventProvider = context.read<EventProvider>();
+      await api.updateEvent(
+          event.id, {'ticket_strategy_id': selected.id});
+      await eventProvider.loadEvent(event.id);
+      if (!mounted) return;
+      AppToast.success(
+          context, 'Strategy changed to ${selected.name}');
+    } catch (e) {
+      if (!mounted) return;
+      AppToast.fromError(
+          context, e, fallback: 'Failed to change strategy');
     }
   }
 
-  Future<void> _showChangeCapacityDialog(
-      BuildContext context, Event event) async {
+  Future<void> _showChangeCapacityDialog(Event event) async {
     final controller =
         TextEditingController(text: event.maxCapacity.toString());
     final api = context.read<ApiService>();
     final eventProvider = context.read<EventProvider>();
+    final secondaryColor = AppTheme.textSecondaryOf(context);
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -514,8 +507,7 @@ class _OrganizerManagementSectionState
           mainAxisSize: MainAxisSize.min,
           children: [
             Text('Current capacity: ${event.maxCapacity}',
-                style: TextStyle(
-                    color: AppTheme.textSecondaryOf(context), fontSize: 13)),
+                style: TextStyle(color: secondaryColor, fontSize: 13)),
             AppSpacing.vMd,
             TextField(
               controller: controller,
@@ -543,26 +535,31 @@ class _OrganizerManagementSectionState
       final val = int.tryParse(controller.text);
       if (val == null || val <= 0) {
         AppToast.error(context, 'Enter a valid number.');
+        controller.dispose();
         return;
       }
       try {
         await api.updateEvent(event.id, {'max_capacity': val});
         await eventProvider.loadEvent(event.id);
-        if (mounted) {
-          AppToast.success(context, 'Capacity updated to $val');
+        if (!mounted) {
+          controller.dispose();
+          return;
         }
+        AppToast.success(context, 'Capacity updated to $val');
       } catch (e) {
-        if (mounted) {
-          AppToast.fromError(
-              context, e, fallback: 'Failed to update capacity');
+        if (!mounted) {
+          controller.dispose();
+          return;
         }
+        AppToast.fromError(
+            context, e, fallback: 'Failed to update capacity');
       }
     }
     controller.dispose();
   }
 
   Future<void> _confirmDelete(
-      BuildContext context, EventProvider eventProvider, int eventId) async {
+      EventProvider eventProvider, int eventId) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -586,16 +583,15 @@ class _OrganizerManagementSectionState
       ),
     );
 
-    if (confirmed == true && context.mounted) {
-      final success = await eventProvider.deleteEvent(eventId);
-      if (success && context.mounted) {
-        context.go('/');
-      }
+    if (confirmed != true || !mounted) return;
+    final success = await eventProvider.deleteEvent(eventId);
+    if (success && mounted) {
+      context.go('/');
     }
   }
 
   Future<void> _confirmCancel(
-      BuildContext context, EventProvider eventProvider, int eventId) async {
+      EventProvider eventProvider, int eventId) async {
     final reasonCtrl = TextEditingController();
     final confirmed = await showDialog<bool>(
       context: context,
@@ -637,17 +633,16 @@ class _OrganizerManagementSectionState
       ),
     );
 
-    if (confirmed == true && context.mounted) {
-      final msg = await eventProvider.cancelEvent(eventId,
-          reason: reasonCtrl.text.trim());
-      if (context.mounted && msg != null) {
-        AppToast.success(context, msg);
-      }
+    if (confirmed != true || !mounted) return;
+    final msg = await eventProvider.cancelEvent(eventId,
+        reason: reasonCtrl.text.trim());
+    if (mounted && msg != null) {
+      AppToast.success(context, msg);
     }
   }
 
   Future<void> _requestCancellation(
-      BuildContext context, EventProvider eventProvider, int eventId) async {
+      EventProvider eventProvider, int eventId) async {
     final reasonCtrl = TextEditingController();
     final confirmed = await showDialog<bool>(
       context: context,
@@ -691,30 +686,27 @@ class _OrganizerManagementSectionState
       ),
     );
 
-    if (confirmed == true && context.mounted) {
-      final msg = await eventProvider.cancelEvent(eventId,
-          reason: reasonCtrl.text.trim());
-      if (context.mounted) {
-        if (msg != null) {
-          AppToast.success(context, msg);
-        } else {
-          AppToast.error(context, 'Failed to send cancellation request.');
-        }
-      }
+    if (confirmed != true || !mounted) return;
+    final msg = await eventProvider.cancelEvent(eventId,
+        reason: reasonCtrl.text.trim());
+    if (!mounted) return;
+    if (msg != null) {
+      AppToast.success(context, msg);
+    } else {
+      AppToast.error(context, 'Failed to send cancellation request.');
     }
   }
 
   Future<void> _togglePosts() async {
+    final api = context.read<ApiService>();
+    final ep = context.read<EventProvider>();
     try {
-      final api = context.read<ApiService>();
       await api.toggleEventPosts(_event.id);
-      if (mounted) {
-        context.read<EventProvider>().loadEvent(_event.id);
-      }
+      if (!mounted) return;
+      ep.loadEvent(_event.id);
     } catch (e) {
-      if (mounted) {
-        AppToast.fromError(context, e, fallback: 'Failed to toggle posts');
-      }
+      if (!mounted) return;
+      AppToast.fromError(context, e, fallback: 'Failed to toggle posts');
     }
   }
 
@@ -1157,15 +1149,13 @@ class _OrganizerManagementSectionState
   Future<void> _decideExtension(int eventId, String action) async {
     try {
       await ApiService().decideExtension(eventId, action);
-      if (mounted) {
-        AppToast.success(context, 'Extension ${action}d');
-        context.read<EventProvider>().loadEvent(eventId);
-      }
+      if (!mounted) return;
+      AppToast.success(context, 'Extension ${action}d');
+      context.read<EventProvider>().loadEvent(eventId);
     } catch (e) {
-      if (mounted) {
-        AppToast.fromError(
-            context, e, fallback: 'Extension decision failed');
-      }
+      if (!mounted) return;
+      AppToast.fromError(
+          context, e, fallback: 'Extension decision failed');
     }
   }
 }

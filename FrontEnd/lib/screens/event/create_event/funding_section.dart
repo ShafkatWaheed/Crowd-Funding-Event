@@ -122,7 +122,7 @@ class TierLinkToggle extends StatelessWidget {
                   onLinkFundingToTiersChanged(v);
                   onMarkDirty();
                 },
-                activeColor: context.ticketAccent,
+                activeTrackColor: context.ticketAccent,
               ),
             ],
           ),

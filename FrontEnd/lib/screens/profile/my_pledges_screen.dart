@@ -9,6 +9,7 @@ import '../../config/theme.dart';
 import '../../widgets/animated_list_item.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/error_state.dart';
+import '../../widgets/loading_switcher.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
@@ -139,16 +140,18 @@ class _MyPledgesScreenState extends State<MyPledgesScreen> {
     return Scaffold(
       backgroundColor: AppTheme.surfaceOf(context),
       appBar: AppBar(title: const Text('My Pledges')),
-      body: _loading
-          ? SingleChildScrollView(
-              padding: AppSpacing.paddingLg,
-              child: Column(
-                children: List.generate(4, (_) => const ShimmerListTile()),
-              ),
-            )
-          : _error != null
-              ? ErrorState(message: _error!, onRetry: _load)
-              : _buildContent(),
+      body: LoadingSwitcher(
+        loading: _loading,
+        loadingChild: SingleChildScrollView(
+          padding: AppSpacing.paddingLg,
+          child: Column(
+            children: List.generate(4, (_) => const ShimmerListTile()),
+          ),
+        ),
+        child: _error != null
+            ? ErrorState(message: _error!, onRetry: _load)
+            : _buildContent(),
+      ),
     );
   }
 

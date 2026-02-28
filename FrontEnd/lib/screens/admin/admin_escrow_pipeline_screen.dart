@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../config/theme.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_toast.dart';
-import 'admin_shared.dart';
 import 'tabs/banking/banking_escrow_pipeline.dart';
 
 class AdminEscrowPipelineScreen extends StatefulWidget {

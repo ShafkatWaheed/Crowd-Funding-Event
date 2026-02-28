@@ -17,7 +17,7 @@ class EventScheduleSection extends StatefulWidget {
   final int eventId;
   final Event event;
 
-  const EventScheduleSection({required this.eventId, required this.event});
+  const EventScheduleSection({super.key, required this.eventId, required this.event});
 
   @override
   State<EventScheduleSection> createState() => _EventScheduleSectionState();

@@ -94,7 +94,7 @@ class StepDatesRegistration extends StatelessWidget {
                 ],
                 const SizedBox(height: 20),
                 DropdownButtonFormField<String>(
-                  value: registrationType,
+                  initialValue: registrationType,
                   decoration: const InputDecoration(
                     labelText: 'Registration Type',
                     prefixIcon: Icon(Icons.how_to_reg_rounded, size: 20),

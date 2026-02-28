@@ -87,11 +87,13 @@ class _SponsorOnboardingScreenState extends State<SponsorOnboardingScreen> {
 
       if (mounted) {
         await context.read<AuthProvider>().refreshUser();
-        AppToast.success(
-          context,
-          _isEdit ? 'Profile updated!' : 'Welcome, Sponsor!',
-        );
-        context.go('/');
+        if (mounted) {
+          AppToast.success(
+            context,
+            _isEdit ? 'Profile updated!' : 'Welcome, Sponsor!',
+          );
+          context.go('/');
+        }
       }
     } catch (e) {
       if (mounted) {

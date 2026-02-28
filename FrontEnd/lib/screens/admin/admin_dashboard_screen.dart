@@ -128,12 +128,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         api.adminGetEvents(offset: 0, limit: adminPageSize),
         api.adminGetStats(),
       ]);
-      final eventsResp = results[0] as Map<String, dynamic>;
+      final eventsResp = results[0];
       if (mounted) {
         setState(() {
           _allEvents = (eventsResp['items'] as List<dynamic>?) ?? [];
           _eventsTotal = (eventsResp['total'] as int?) ?? 0;
-          _stats = results[1] as Map<String, dynamic>;
+          _stats = results[1];
         });
       }
     } catch (e) { debugPrint(e.toString()); }
@@ -200,29 +200,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       content: Text(msg),
       backgroundColor: isError ? Colors.red.shade700 : null,
     ));
-  }
-
-  void _confirmAction(String title, String message, VoidCallback onConfirm) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              onConfirm();
-            },
-            child: const Text('Confirm'),
-          ),
-        ],
-      ),
-    );
   }
 
   void _logout() async {

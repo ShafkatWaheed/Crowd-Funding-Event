@@ -124,7 +124,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   final List<ScheduleDayInput> _scheduleDays = [];
 
   List<Map<String, dynamic>> _sponsorTemplates = [];
-  List<EditableSponsorCategory> _localCategories = [];
+  final List<EditableSponsorCategory> _localCategories = [];
   bool _loadingTemplates = false;
 
   final List<XFile> _pickedImages = [];
@@ -161,9 +161,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     try {
       final api = context.read<ApiService>();
       final config = await api.getPublicConfig();
-      if (mounted) setState(() {
+      if (mounted) { setState(() {
         _communityRulesFeatureEnabled = config['feature_community_rules_enabled'] == true;
-        if (!_communityRulesFeatureEnabled) _communityRules = false;
+        if (!_communityRulesFeatureEnabled) { _communityRules = false; }
         _platformLimits = {
           for (final key in [
             'waitlist_max_size_limit', 'event_max_images_limit',
@@ -171,7 +171,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
           ])
             if (config[key] is int) key: config[key] as int,
         };
-      });
+      }); }
     } catch (e) { debugPrint(e.toString()); }
   }
 
@@ -263,7 +263,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   Future<void> _pickDateTime(bool isStart) async {
     await pickEventDateTime(context,
       isStart: isStart, currentStartTime: _startTime, currentEndTime: _endTime, fundingEndAt: _fundingEndAt,
-      onPicked: (dt, isStartPicked) { _markDirty(); setState(() { if (isStartPicked) _startTime = dt; else _endTime = dt; }); },
+      onPicked: (dt, isStartPicked) { _markDirty(); setState(() { if (isStartPicked) { _startTime = dt; } else { _endTime = dt; } }); },
     );
   }
 
@@ -414,18 +414,20 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     } catch (_) { setState(() => _isLoading = false); }
   }
 
+  Future<void> _handleClose() async {
+    if (!_isDirty && !_hasAnyInput || await confirmDiscardDialog(context)) {
+      if (!mounted) return;
+      Navigator.of(context).canPop() ? context.pop() : context.go('/');
+    }
+  }
+
   // ── Build ──
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(icon: const Icon(Icons.close), onPressed: () async {
-          if (!_isDirty && !_hasAnyInput || await confirmDiscardDialog(context)) {
-            if (!context.mounted) return;
-            Navigator.of(context).canPop() ? context.pop() : context.go('/');
-          }
-        }),
+        leading: IconButton(icon: const Icon(Icons.close), onPressed: _handleClose),
         title: const Text('Create Event'),
       ),
       body: Column(children: [

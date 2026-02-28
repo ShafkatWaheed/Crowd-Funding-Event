@@ -63,6 +63,18 @@ class _AdminPayoutsScreenState extends State<AdminPayoutsScreen> {
     }
   }
 
+  Future<void> _forcePayout(int organizerId) async {
+    try {
+      await ApiService.instance.adminForcePayout(organizerId);
+      _loadPayouts();
+      if (!mounted) return;
+      AppToast.success(context, 'Payout initiated');
+    } catch (e) {
+      if (!mounted) return;
+      AppToast.fromError(context, e, fallback: 'Payout failed');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -215,7 +227,7 @@ class _AdminPayoutsScreenState extends State<AdminPayoutsScreen> {
               children: [
                 CircleAvatar(
                   radius: 18,
-                  backgroundColor: bankColor.withOpacity(0.15),
+                  backgroundColor: bankColor.withValues(alpha:0.15),
                   child: Icon(Icons.person, color: bankColor, size: 20),
                 ),
                 const SizedBox(width: 12),
@@ -243,8 +255,8 @@ class _AdminPayoutsScreenState extends State<AdminPayoutsScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: pendingCents > 0
-                        ? AppTheme.accentColor.withOpacity(0.1)
-                        : AppTheme.successColor.withOpacity(0.1),
+                        ? AppTheme.accentColor.withValues(alpha:0.1)
+                        : AppTheme.successColor.withValues(alpha:0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -286,21 +298,7 @@ class _AdminPayoutsScreenState extends State<AdminPayoutsScreen> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 14, vertical: 8),
                       textStyle: const TextStyle(fontSize: 13)),
-                  onPressed: () async {
-                    try {
-                      await ApiService.instance
-                          .adminForcePayout(p['organizer_id'] as int);
-                      _loadPayouts();
-                      if (context.mounted) {
-                        AppToast.success(context, 'Payout initiated');
-                      }
-                    } catch (e) {
-                      if (context.mounted) {
-                        AppToast.fromError(context, e,
-                            fallback: 'Payout failed');
-                      }
-                    }
-                  },
+                  onPressed: () => _forcePayout(p['organizer_id'] as int),
                 ),
               ),
             ],
@@ -314,7 +312,7 @@ class _AdminPayoutsScreenState extends State<AdminPayoutsScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha:0.1),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(

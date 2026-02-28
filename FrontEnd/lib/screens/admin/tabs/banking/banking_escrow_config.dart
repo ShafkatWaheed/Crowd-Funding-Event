@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../../config/theme.dart';
-import '../../admin_shared.dart';
 
 class BankingEscrowConfigSection extends StatefulWidget {
   final String Function(String key) settingVal;
@@ -20,7 +19,7 @@ class BankingEscrowConfigSection extends StatefulWidget {
 
 class _BankingEscrowConfigSectionState
     extends State<BankingEscrowConfigSection> {
-  Map<String, String> _sliderOverrides = {};
+  final Map<String, String> _sliderOverrides = {};
 
   String _val(String key) {
     if (_sliderOverrides.containsKey(key)) return _sliderOverrides[key]!;
@@ -250,7 +249,7 @@ class _BankingEscrowConfigSectionState
           Row(
             children: [
               SizedBox(width: 180, child: Text(label, style: TextStyle(fontSize: 13, color: AppTheme.textPrimaryOf(context)))),
-              Switch(value: val, activeColor: AppTheme.successOf(context),
+              Switch(value: val, activeTrackColor: AppTheme.successOf(context),
                 onChanged: (on) => widget.onUpdateSetting(key, on ? 'true' : 'false')),
             ],
           ),

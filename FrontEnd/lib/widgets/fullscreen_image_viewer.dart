@@ -126,8 +126,8 @@ class _FullscreenImageViewerState extends State<FullscreenImageViewer>
       final dx = (1 - targetScale) * pos.dx;
       final dy = (1 - targetScale) * pos.dy;
       end = Matrix4.identity()
-        ..translate(dx, dy)
-        ..scale(targetScale);
+        ..translateByDouble(dx, dy, 0, 1)
+        ..scaleByDouble(targetScale, targetScale, 1, 1);
     }
 
     _doubleTapAnim = Matrix4Tween(begin: ctrl.value, end: end).animate(

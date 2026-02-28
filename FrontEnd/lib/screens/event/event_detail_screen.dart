@@ -20,6 +20,8 @@ import '../../widgets/error_state.dart';
 import '../../widgets/event_lifecycle_bar.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../services/api_service.dart';
+import '../../widgets/share_bottom_sheet.dart';
+import '../../widgets/calendar_bottom_sheet.dart';
 import 'event_detail/event_detail.dart';
 
 class EventDetailScreen extends StatefulWidget {
@@ -69,7 +71,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       final now = DateTime.now();
       int age = now.year - bd.year;
       if (now.month < bd.month ||
-          (now.month == bd.month && now.day < bd.day)) age--;
+          (now.month == bd.month && now.day < bd.day)) { age--; }
       return age < event.minAge;
     } catch (_) {
       return true;
@@ -411,6 +413,32 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       ),
       actions: [
         if (!widget.isPreview) ...[
+          IconButton(
+            icon: Container(
+              padding: const EdgeInsets.all(AppSpacing.xs),
+              decoration: BoxDecoration(
+                color: _scrolledPastHero || !hasHero
+                    ? Colors.transparent
+                    : AppTheme.surfaceOf(context).withValues(alpha: 0.7),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.share_rounded, size: AppIconSize.sm),
+            ),
+            onPressed: () => showShareSheet(context, event),
+          ),
+          IconButton(
+            icon: Container(
+              padding: const EdgeInsets.all(AppSpacing.xs),
+              decoration: BoxDecoration(
+                color: _scrolledPastHero || !hasHero
+                    ? Colors.transparent
+                    : AppTheme.surfaceOf(context).withValues(alpha: 0.7),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.calendar_month_rounded, size: AppIconSize.sm),
+            ),
+            onPressed: () => showCalendarSheet(context, event),
+          ),
           IconButton(
             icon: Container(
               padding: const EdgeInsets.all(AppSpacing.xs),

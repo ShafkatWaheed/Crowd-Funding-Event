@@ -210,6 +210,7 @@ class _KycUserCardState extends State<_KycUserCard> {
       },
     );
     if (reason == null || reason.isEmpty) return;
+    if (!mounted) return;
 
     setState(() => _acting = true);
     try {

@@ -71,6 +71,7 @@ class _CategoryRequirementsState extends State<CategoryRequirements> {
     if (file.bytes == null && file.path == null) return;
 
     setState(() => _uploading[prereqId] = true);
+    if (!mounted) return;
     try {
       final api = context.read<ApiService>();
       final resp = await api.uploadCategoryPrerequisite(

@@ -259,7 +259,7 @@ class StepReview extends StatelessWidget {
                         : 'You can publish it later from the event detail page',
                   ),
                   value: publishImmediately,
-                  activeColor: AppTheme.accentColor,
+                  activeTrackColor: AppTheme.accentColor,
                   onChanged: onPublishChanged,
                   contentPadding: EdgeInsets.zero,
                 ),

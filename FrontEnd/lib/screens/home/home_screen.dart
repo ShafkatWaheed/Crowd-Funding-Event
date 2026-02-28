@@ -91,9 +91,9 @@ class _HomeScreenState extends State<HomeScreen> {
       final api = context.read<ApiService>();
       final res = await api.checkBookmarks(eventIds);
       final ids = (res['bookmarked_ids'] as List?)?.cast<int>() ?? [];
-      if (mounted) setState(() {
+      if (mounted) { setState(() {
         _bookmarkedIds.addAll(ids);
-      });
+      }); }
     } catch (e) { debugPrint(e.toString()); }
   }
 
@@ -134,7 +134,7 @@ class _HomeScreenState extends State<HomeScreen> {
           if (isOrg)
             Column(
               children: [
-                _orgGreeting(user!, isDark),
+                _orgGreeting(user, isDark),
                 if (user.kycStatus != 'verified' && !user.isAdmin)
                   const KycRequiredBanner(action: 'create and manage events'),
                 Expanded(

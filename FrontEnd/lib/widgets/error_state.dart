@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../config/theme.dart';
 import '../config/design_tokens.dart';
 
@@ -41,12 +42,20 @@ class ErrorState extends StatelessWidget {
                 size: 48,
                 color: AppTheme.errorColor.withValues(alpha: 0.7),
               ),
-            ),
+            )
+                .animate()
+                .fadeIn(duration: AppDuration.normal)
+                .scale(
+                  begin: const Offset(0.8, 0.8),
+                  end: const Offset(1.0, 1.0),
+                  duration: AppDuration.normal,
+                  curve: AppCurve.overshoot,
+                ),
             AppSpacing.vXxl,
             Text(
               'Oops!',
               style: Theme.of(context).textTheme.headlineMedium,
-            ),
+            ).animate(delay: 100.ms).fadeIn(duration: AppDuration.normal),
             AppSpacing.vSm,
             Text(
               message,
@@ -55,14 +64,14 @@ class ErrorState extends StatelessWidget {
                 color: AppTheme.textSecondaryOf(context),
                 height: 1.5,
               ),
-            ),
+            ).animate(delay: 200.ms).fadeIn(duration: AppDuration.normal),
             if (onRetry != null) ...[
               AppSpacing.vXxl,
               OutlinedButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh_rounded, size: AppIconSize.md),
                 label: Text(retryLabel),
-              ),
+              ).animate(delay: 300.ms).fadeIn(duration: AppDuration.normal),
             ],
           ],
         ),

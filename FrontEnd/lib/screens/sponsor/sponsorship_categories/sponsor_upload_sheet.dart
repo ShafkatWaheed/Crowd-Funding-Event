@@ -25,7 +25,7 @@ class SponsorUploadSheet extends StatefulWidget {
 class _SponsorUploadSheetState extends State<SponsorUploadSheet> {
   List<Map<String, dynamic>> _prereqs = [];
   List<Map<String, dynamic>> _bids = [];
-  Map<int, List<Map<String, dynamic>>> _uploadsByBid = {};
+  final Map<int, List<Map<String, dynamic>>> _uploadsByBid = {};
   bool _loading = true;
   int? _selectedBidId;
 
@@ -83,6 +83,7 @@ class _SponsorUploadSheetState extends State<SponsorUploadSheet> {
     final file = result.files.first;
     if (file.path == null) return;
 
+    if (!mounted) return;
     try {
       final api = context.read<ApiService>();
       await api.uploadPrerequisiteDocument(

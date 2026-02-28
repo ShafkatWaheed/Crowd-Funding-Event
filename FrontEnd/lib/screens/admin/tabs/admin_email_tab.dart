@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:dio/dio.dart';
 
-import '../admin_shared.dart';
 import '../../../config/api_config.dart';
 import '../../../config/theme.dart';
 import '../../../services/api_service.dart';
@@ -221,7 +220,7 @@ class _AdminEmailTabState extends State<AdminEmailTab> {
                       const Spacer(),
                       Switch(
                         value: isActive,
-                        activeColor: AppTheme.successOf(ctx),
+                        activeTrackColor: AppTheme.successOf(ctx),
                         onChanged: (v) =>
                             setDialogState(() => isActive = v),
                       ),
@@ -346,7 +345,7 @@ class _AdminEmailTabState extends State<AdminEmailTab> {
                       fontWeight: FontWeight.w600, fontSize: 13))),
           Switch(
             value: val == 'true',
-            activeColor: AppTheme.successOf(context),
+            activeTrackColor: AppTheme.successOf(context),
             onChanged: (on) =>
                 widget.onUpdateSetting(key, on ? 'true' : 'false'),
           ),

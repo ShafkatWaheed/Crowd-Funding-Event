@@ -461,7 +461,7 @@ class _ExploreTabState extends State<ExploreTab> {
                       children: [
                         Expanded(
                           child: DropdownButtonFormField<String>(
-                            value: _selectedRegType,
+                            initialValue: _selectedRegType,
                             isDense: true,
                             decoration: InputDecoration(
                               labelText: 'Registration',
@@ -496,7 +496,7 @@ class _ExploreTabState extends State<ExploreTab> {
                         AppSpacing.hSm,
                         Expanded(
                           child: DropdownButtonFormField<String>(
-                            value: _selectedGenre,
+                            initialValue: _selectedGenre,
                             isDense: true,
                             decoration: InputDecoration(
                               labelText: 'Genre',
@@ -534,7 +534,7 @@ class _ExploreTabState extends State<ExploreTab> {
                     if (widget.cities.isNotEmpty) ...[
                       AppSpacing.vSm,
                       DropdownButtonFormField<String>(
-                        value: _selectedCity,
+                        initialValue: _selectedCity,
                         isDense: true,
                         decoration: InputDecoration(
                           labelText: 'City',

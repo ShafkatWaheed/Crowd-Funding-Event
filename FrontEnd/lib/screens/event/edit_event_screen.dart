@@ -152,7 +152,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
         _showTransportInitial = event.hasTransportInfo;
         _hasSchedule = event.hasSchedule;
         // Policy fields
-        final raw = data as Map<String, dynamic>;
+        final raw = data;
         if (raw['waitlist_max_size'] != null) _waitlistMaxSizeCtrl.text = raw['waitlist_max_size'].toString();
         _waitlistAutoApprove = raw['waitlist_auto_approve'] ?? true;
         if (raw['event_max_images'] != null) _eventMaxImagesCtrl.text = raw['event_max_images'].toString();

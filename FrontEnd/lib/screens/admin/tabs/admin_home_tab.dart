@@ -2,7 +2,6 @@ import 'dart:math' as math;
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../admin_shared.dart';
@@ -13,7 +12,6 @@ import '../../../providers/auth_provider.dart';
 import '../../../services/api_service.dart';
 import '../../../widgets/admin/admin_action_card.dart';
 import '../../../widgets/admin/admin_kpi_card.dart';
-import '../../../widgets/shimmer_loaders.dart';
 
 const double _wideBreakpoint = 900;
 
@@ -857,7 +855,7 @@ class _AdminHomeTabState extends State<AdminHomeTab> {
             title: '$pa events waiting approval',
             subtitle: 'Review and approve pending events',
             color: AppTheme.accentOf(context),
-            onTap: () { if (onNavigate != null) onNavigate(1, 0); else widget.onSnack('Tap Events tab to view'); },
+            onTap: () { if (onNavigate != null) { onNavigate(1, 0); } else { widget.onSnack('Tap Events tab to view'); } },
           ),
         if (pc > 0)
           AdminActionCard(
@@ -866,7 +864,7 @@ class _AdminHomeTabState extends State<AdminHomeTab> {
             title: '$pc pending cancellations',
             subtitle: 'Review cancellation requests',
             color: AppTheme.errorOf(context),
-            onTap: () { if (onNavigate != null) onNavigate(1, 3); else widget.onSnack('Tap Events tab to view'); },
+            onTap: () { if (onNavigate != null) { onNavigate(1, 3); } else { widget.onSnack('Tap Events tab to view'); } },
           ),
         if (pe > 0)
           AdminActionCard(
@@ -875,7 +873,7 @@ class _AdminHomeTabState extends State<AdminHomeTab> {
             title: '$pe pending extensions',
             subtitle: 'Review extension requests',
             color: AppTheme.warningOf(context),
-            onTap: () { if (onNavigate != null) onNavigate(1, 4); else widget.onSnack('Tap Events tab to view'); },
+            onTap: () { if (onNavigate != null) { onNavigate(1, 4); } else { widget.onSnack('Tap Events tab to view'); } },
           ),
         if (ur > 0)
           AdminActionCard(
@@ -884,7 +882,7 @@ class _AdminHomeTabState extends State<AdminHomeTab> {
             title: '$ur under review',
             subtitle: 'Investigate and resolve flagged events',
             color: AppTheme.warningOf(context),
-            onTap: () { if (onNavigate != null) onNavigate(1, 1); else widget.onSnack('Tap Events tab to view'); },
+            onTap: () { if (onNavigate != null) { onNavigate(1, 1); } else { widget.onSnack('Tap Events tab to view'); } },
           ),
         if (pr > 0)
           AdminActionCard(
@@ -893,7 +891,7 @@ class _AdminHomeTabState extends State<AdminHomeTab> {
             title: '$pr pending refunds',
             subtitle: 'Process ticket refund requests',
             color: AppTheme.errorOf(context),
-            onTap: () { if (onNavigate != null) onNavigate(2, 0); else widget.onSnack('Tap Financial tab to view'); },
+            onTap: () { if (onNavigate != null) { onNavigate(2, 0); } else { widget.onSnack('Tap Financial tab to view'); } },
           ),
       ],
     );

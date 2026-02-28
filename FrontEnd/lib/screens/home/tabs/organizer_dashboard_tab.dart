@@ -53,7 +53,7 @@ class _OrganizerDashboardTabState extends State<OrganizerDashboardTab> {
   List<Event> _statusFilteredEvents = [];
   List<Event> _kpiFilteredEvents = [];
   bool _statusFilterLoading = false;
-  bool _kpiFilterLoading = false;
+  final bool _kpiFilterLoading = false;
 
   @override
   void initState() {
@@ -167,53 +167,6 @@ class _OrganizerDashboardTabState extends State<OrganizerDashboardTab> {
     } catch (e) {
       debugPrint('_loadStatusFilteredEvents error: $e');
       if (mounted) setState(() => _statusFilterLoading = false);
-    }
-  }
-
-  Future<void> _loadKpiFilteredEvents(String kpi) async {
-    setState(() {
-      _kpiFilterLoading = true;
-      _dashboardEventId = null;
-      _dashboardEventTitle = null;
-      _dashboardGenreFilter = null;
-      _dashboardStatusFilter = null;
-      _statusFilteredEvents = [];
-    });
-    try {
-      final api = context.read<ApiService>();
-      final user = context.read<AuthProvider>().user;
-      final result = await api.getEvents(
-        params: {
-          'include_all_statuses': true,
-          if (user != null && user.isOrganizer) 'organizer_id': user.id,
-        },
-        limit: 100,
-      );
-      if (mounted) {
-        final data = (result['items'] as List?) ?? [];
-        final allEvents =
-            data.map((e) => Event.fromJson(e as Map<String, dynamic>)).toList();
-        final List<Event> filtered;
-        switch (kpi) {
-          case 'tickets':
-            filtered =
-                allEvents.where((e) => e.ticketsSoldCount > 0).toList();
-          case 'backers':
-            filtered = allEvents
-                .where((e) => (e.totalPledgedCents ?? 0) > 0)
-                .toList();
-          default:
-            filtered = allEvents;
-        }
-        setState(() {
-          _kpiFilteredEvents = filtered;
-          _kpiFilterLoading = false;
-        });
-        widget.onEventsLoaded?.call(filtered.map((e) => e.id).toList());
-      }
-    } catch (e) {
-      debugPrint('_loadKpiFilteredEvents error: $e');
-      if (mounted) setState(() => _kpiFilterLoading = false);
     }
   }
 

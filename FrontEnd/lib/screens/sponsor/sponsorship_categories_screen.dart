@@ -14,7 +14,6 @@ import 'sponsorship_categories/category_requirements.dart';
 import 'sponsorship_categories/my_bid_actions.dart';
 import 'sponsorship_categories/place_bid_dialog.dart';
 import 'sponsorship_categories/prerequisite_sheet.dart';
-import 'sponsorship_categories/sponsor_upload_sheet.dart';
 
 class SponsorshipCategoriesScreen extends StatefulWidget {
   final int eventId;
@@ -90,22 +89,6 @@ class _SponsorshipCategoriesScreenState
     } catch (e) {
       if (mounted) AppToast.error(context, ApiService.extractError(e));
     }
-  }
-
-  Future<void> _showUploadDocsSheet(SponsorshipCategory cat) async {
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      backgroundColor: AppTheme.cardOf(context),
-      builder: (ctx) => SponsorUploadSheet(
-        eventId: widget.eventId,
-        categoryId: cat.id,
-        categoryName: cat.name,
-      ),
-    );
   }
 
   Future<void> _showPrerequisitesSheet(SponsorshipCategory cat) async {
@@ -186,6 +169,7 @@ class _SponsorshipCategoriesScreenState
       return;
     }
 
+    if (!mounted) return;
     try {
       final api = context.read<ApiService>();
       await api.createSponsorshipCategory(widget.eventId, {

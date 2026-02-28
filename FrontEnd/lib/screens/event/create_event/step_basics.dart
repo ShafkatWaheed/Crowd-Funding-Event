@@ -146,7 +146,7 @@ class StepBasics extends StatelessWidget {
                 _buildImageSection(context),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  value: genre,
+                  initialValue: genre,
                   decoration: const InputDecoration(
                     labelText: 'Genre / Category *',
                     prefixIcon: Icon(Icons.category_rounded, size: 20),
@@ -189,7 +189,7 @@ class StepBasics extends StatelessWidget {
                               onAgeRestrictedChanged(v);
                               onMarkDirty();
                             },
-                            activeColor: AppTheme.errorColor,
+                            activeTrackColor: AppTheme.errorColor,
                           ),
                         ],
                       ),

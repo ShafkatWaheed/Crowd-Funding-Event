@@ -183,7 +183,7 @@ class _AdminArqTabState extends State<AdminArqTab> {
                 ),
                 Switch.adaptive(
                   value: enabled,
-                  activeColor: AppTheme.successColor,
+                  activeTrackColor: AppTheme.successColor,
                   onChanged: (_) => _toggleTask(settingKey, enabled),
                 ),
               ],

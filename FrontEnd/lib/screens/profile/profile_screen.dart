@@ -228,6 +228,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return;
       }
 
+      if (!mounted) return;
       await context.read<AuthProvider>().refreshUser();
       if (mounted) AppToast.success(context, 'Profile updated successfully');
     } catch (e) {

@@ -83,7 +83,7 @@ class BankingTaxConfigSection extends StatelessWidget {
                   color: AppTheme.textPrimaryOf(context))),
           Switch(
             value: enabled,
-            activeColor: AppTheme.accentOf(context),
+            activeTrackColor: AppTheme.accentOf(context),
             onChanged: (v) =>
                 onUpdateSetting(key, v ? 'true' : 'false'),
           ),

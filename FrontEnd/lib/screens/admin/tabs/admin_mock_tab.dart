@@ -121,7 +121,7 @@ class _AdminMockTabState extends State<AdminMockTab> {
                   ),
                   Switch(
                     value: _settingVal('payment_mock_enabled') == 'true',
-                    activeColor: AppTheme.warningColor,
+                    activeTrackColor: AppTheme.warningColor,
                     onChanged: (on) {
                       widget.onUpdateSetting('payment_mock_enabled', on ? 'true' : 'false');
                     },

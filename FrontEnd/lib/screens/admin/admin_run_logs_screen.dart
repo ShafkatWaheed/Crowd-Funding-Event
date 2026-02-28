@@ -184,7 +184,7 @@ class _AdminRunLogsScreenState extends State<AdminRunLogsScreen> {
       children: [
         Expanded(
           child: DropdownButtonFormField<String?>(
-            value: _selectedTask,
+            initialValue: _selectedTask,
             decoration: InputDecoration(
               labelText: 'Task',
               isDense: true,
@@ -210,7 +210,7 @@ class _AdminRunLogsScreenState extends State<AdminRunLogsScreen> {
         const SizedBox(width: 10),
         Expanded(
           child: DropdownButtonFormField<String?>(
-            value: _selectedStatus,
+            initialValue: _selectedStatus,
             decoration: InputDecoration(
               labelText: 'Status',
               isDense: true,

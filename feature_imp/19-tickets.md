@@ -7,14 +7,14 @@
 
 ## Frontend flow
 
-- **Screen/Widget:** Event Detail (ticket tiers section, purchase dialog with quantity, discount breakdown); `MyTicketsScreen`; `TicketSalesScreen`, `TicketScannerScreen`, `RefundRequestsScreen`; receipt screens (single + purchase group).
-- **User action:** Select tier and quantity, confirm purchase; view receipts and QR codes; organizer scans QR; approve/reject waitlisted or refund requests.
-- **API calls:** `getTicketTiers(eventId)`, `getTicketPrice(eventId, tierId, quantity)`, `purchaseTickets(eventId, tierId, quantity)`, `getTicketReceipt()`, `getPurchaseGroupReceipt()`, `scanTicket()`, `getTicketSales()`, `getScannedTickets()`, `getWaitlistedTickets()`, `approveWaitlistedTicket()`, `rejectWaitlistedTicket()`; refund: `requestTicketRefund()`, `approveTicketRefund()`, `rejectTicketRefund()`, `getRefundRequests()`; tier CRUD: create/update/delete ticket tier.
+- **Screen/Widget:** Event Detail (ticket tiers section, purchase dialog with quantity, discount breakdown); `MyTicketsScreen` (stats chips: Total, Active, Pending/Refunded/Waitlist/Cancelled/Scanned; filter “Refund Pending” = refund_requested or refund_processing); `TicketSalesScreen`, `TicketScannerScreen`, `RefundRequestsScreen`; `TicketReceiptScreen` (customer: QR code + copyable ticket code + “Request Refund”; organizer view: no QR, ticket code not copyable).
+- **User action:** Select tier and quantity, confirm purchase; view receipts (customer sees QR and can request refund from receipt; organizer sees receipt without QR); organizer scans QR; approve/reject waitlisted or refund requests.
+- **API calls:** `getTicketTiers(eventId)`, `getTicketPrice(eventId, tierId, quantity)`, `purchaseTickets(eventId, tierId, quantity)`, `getTicketReceipt()` (backend omits `encrypted_qr_payload` when caller is organizer), `getPurchaseGroupReceipt()`, `scanTicket()`, `getTicketSales()` / `getScannedTickets()` / `getWaitlistedTickets()` (organizer responses strip QR payload), `approveWaitlistedTicket()`, `rejectWaitlistedTicket()`; refund: `requestTicketRefund()` (called from receipt screen), `approveTicketRefund()`, `rejectTicketRefund()`, `getRefundRequests()`; tier CRUD: create/update/delete ticket tier.
 
 ## Backend routing
 
 - **Entry:** `events_router` → `tickets.router`.
-- **Handler:** `events/tickets.py` — GET `/{event_id}/ticket-tiers`, POST/PATCH/DELETE for tiers; GET ticket-price, POST purchase-ticket; GET receipts, POST scan-ticket; GET ticket-sales, scanned-tickets, waitlisted; POST approve/reject waitlist and refund; GET capacity-info, refund-requests.
+- **Handler:** `events/tickets.py` — GET `/{event_id}/ticket-tiers`, POST/PATCH/DELETE for tiers; GET ticket-price, POST purchase-ticket; GET receipts (when caller is not customer, `encrypted_qr_payload` is omitted for security), POST scan-ticket; GET ticket-sales, scanned-tickets, waitlisted, refund-requests (organizer-facing list endpoints use `_ticket_sale_to_organizer_response` so `encrypted_qr_payload` is never returned to organizers); POST approve/reject waitlist and refund; GET capacity-info, refund-requests.
 
 ## Service layer
 
@@ -55,10 +55,16 @@ flowchart LR
   Ref[43-Refund] --> E
 ```
 
+## Recently implemented (organizer QR hiding and receipt refund)
+
+- **Organizer never sees QR payload:** Backend uses `_ticket_sale_to_organizer_response()` (strips `encrypted_qr_payload`) for all organizer-facing ticket list and receipt responses: list ticket-sales, refund-requests, scanned-tickets, waitlisted-tickets, approve/reject responses, scan response, and GET receipt when `current_user.role != customer`. GET `/{event_id}/tickets/{sale_id}/receipt` sets `encrypted_qr_payload=None` when `is_organizer_view` so organizers cannot capture QR from receipt view.
+- **Receipt screen:** `TicketReceiptScreen` has `isOrganizer`; when organizer, ticket code is not copyable and QR section is hidden. Customer view shows QR and a "Request Refund" button that calls `requestTicketRefund(eventId, saleId)` after confirmation.
+- **My Tickets UX:** Refund request moved from list to receipt (open receipt → Request Refund). My Tickets stats chips: Total, Active, Pending (refund_requested/refund_processing), Refunded, Waitlist, Cancelled, Scanned (horizontal scroll). New filter "Refund Pending" shows tickets in refund_requested or refund_processing.
+
 ## Vulnerabilities
 
 - Purchase is rate-limited (15/min). Advisory lock (pg_advisory_xact_lock) on purchase and pledge prevents oversell. Ensure capacity check and reserved-spot consumption are atomic.
-- QR payload encrypted (AES-256-GCM) when key set; scan validates and marks ticket. Prevent replay (scanned_at set once) and ensure scan_count for sponsor tickets.
+- QR payload encrypted (AES-256-GCM) when key set; scan validates and marks ticket. Organizers never receive `encrypted_qr_payload` in API responses (organizer-response helper and receipt is_organizer_view). Prevent replay (scanned_at set once) and ensure scan_count for sponsor tickets.
 - Refund request: only ticket owner or organizer can approve; validate sale belongs to event.
 
 ## Improvements
@@ -79,7 +85,7 @@ Ticket QR codes are encrypted with AES-256-GCM to prevent forgery. The encrypted
 
 **Encrypted format:** `base64(nonce_12B || ciphertext || tag_16B)`. Uses `cryptography.hazmat.primitives.ciphers.aead.AESGCM` with a random 96-bit nonce per encryption (NIST SP 800-38D compliant).
 
-**Integration:** Called in `_ticket_sale_to_response()` (tickets.py) to generate `encrypted_qr_payload` on every ticket response, and in `scan_ticket()` to decrypt the scanned payload.
+**Integration:** Called in `_ticket_sale_to_response()` (tickets.py) to generate `encrypted_qr_payload` for **customer** responses only. Organizer-facing endpoints use `_ticket_sale_to_organizer_response()` (same as `_ticket_sale_to_response` but sets `encrypted_qr_payload = None`) so organizers never receive QR payloads (list ticket-sales, refund-requests, scanned-tickets, waitlisted-tickets, and GET receipt when role ≠ customer). Receipt API sets `encrypted_qr_payload=None` when `is_organizer_view` (current_user.role != customer). Frontend: `TicketReceiptScreen` accepts `isOrganizer`; when true, QR section is hidden and ticket code is not copyable; customer can "Request Refund" from the receipt screen. `scan_ticket()` decrypts the scanned payload.
 
 ## Feedback
 

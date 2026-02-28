@@ -6,7 +6,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../../models/event_form_models.dart';
-import '../../../models/ticket_strategy.dart';
 import '../../../services/api_service.dart';
 import '../../../services/mapbox_geocoding_service.dart';
 import '../../../widgets/app_toast.dart';

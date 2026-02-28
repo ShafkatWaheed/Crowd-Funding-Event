@@ -705,6 +705,7 @@ class ScheduleMilestoneDialogs {
       ),
     );
     if (result == null || result.isEmpty) return;
+    if (!context.mounted) return;
     try {
       await context.read<ApiService>().extendFunding(event.id, result);
       if (context.mounted) {

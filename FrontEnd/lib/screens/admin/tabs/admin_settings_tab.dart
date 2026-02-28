@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../admin_shared.dart';
 import '../../../config/design_tokens.dart';
 import '../../../config/theme.dart';
-import '../../../services/api_service.dart';
 import '../../../widgets/admin/admin_empty_state.dart';
 import 'banking/banking_escrow_config.dart';
 
@@ -249,7 +247,7 @@ class _AdminSettingsTabState extends State<AdminSettingsTab>
           if (isBool)
             Switch(
               value: value == 'true',
-              activeColor: AppTheme.successOf(context),
+              activeTrackColor: AppTheme.successOf(context),
               onChanged: (on) => widget.onUpdateSetting(key, on ? 'true' : 'false'),
             )
           else if (isDropdown)

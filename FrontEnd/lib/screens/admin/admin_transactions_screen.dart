@@ -73,6 +73,18 @@ class _AdminTransactionsScreenState extends State<AdminTransactionsScreen> {
     }
   }
 
+  Future<void> _simulateDispute(String transactionId) async {
+    try {
+      await ApiService.instance.adminSimulateDispute(transactionId);
+      _loadTransactions(page: _txnPage);
+      if (!mounted) return;
+      AppToast.success(context, 'Dispute simulated');
+    } catch (e) {
+      if (!mounted) return;
+      AppToast.fromError(context, e, fallback: 'Failed to simulate dispute');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final totalPages = (_txnTotal / 20).ceil();
@@ -216,7 +228,7 @@ class _AdminTransactionsScreenState extends State<AdminTransactionsScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
               decoration: BoxDecoration(
-                color: statusColor.withOpacity(0.15),
+                color: statusColor.withValues(alpha:0.15),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(t['status'] ?? '',
@@ -237,21 +249,7 @@ class _AdminTransactionsScreenState extends State<AdminTransactionsScreen> {
                 icon: const Icon(Icons.report_problem, size: 18),
                 tooltip: 'Simulate Dispute',
                 color: AppTheme.warningColor,
-                onPressed: () async {
-                  try {
-                    await ApiService.instance
-                        .adminSimulateDispute(t['transaction_id'] as String);
-                    _loadTransactions(page: _txnPage);
-                    if (context.mounted) {
-                      AppToast.success(context, 'Dispute simulated');
-                    }
-                  } catch (e) {
-                    if (context.mounted) {
-                      AppToast.fromError(context, e,
-                          fallback: 'Failed to simulate dispute');
-                    }
-                  }
-                },
+                onPressed: () => _simulateDispute(t['transaction_id'] as String),
               )
             : null,
         children: [

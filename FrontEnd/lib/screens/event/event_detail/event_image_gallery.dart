@@ -56,6 +56,7 @@ class _EventImageGalleryState extends State<EventImageGallery> {
       final picker = ImagePicker();
       final picked = await picker.pickMultiImage();
       if (picked.isEmpty) return;
+      if (!mounted) return;
 
       setState(() => _uploading = true);
       final api = context.read<ApiService>();
@@ -151,6 +152,8 @@ class _EventImageGalleryState extends State<EventImageGallery> {
                             imageUrl: ApiConfig.imageUrl(img.imageUrl),
                             height: 180,
                             width: 260,
+                            memCacheHeight: 360,
+                            memCacheWidth: 520,
                             fit: BoxFit.cover,
                             progressIndicatorBuilder:
                                 (context, url, progress) {

@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../admin_shared.dart';
 import '../../../config/theme.dart';
@@ -6,7 +9,6 @@ import '../../../services/api_service.dart';
 import 'banking/banking_escrow_config.dart';
 import 'banking/banking_escrow_pipeline.dart';
 import 'banking/banking_disputes_payout.dart';
-import 'banking/banking_transaction_ledger.dart';
 import 'banking/banking_tax_health.dart';
 
 class AdminBankingTab extends StatefulWidget {
@@ -48,15 +50,11 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
   List<dynamic> _disputes = [];
   bool _disputesLoading = false;
 
-  List<dynamic> _payoutItems = [];
-  bool _payoutLoading = false;
-
-  List<dynamic> _transactions = [];
-  int _txnTotal = 0;
-  int _txnPage = 0;
-  bool _txnLoading = false;
-  String _txnSearch = '';
-  String _txnStatusFilter = 'all';
+  // Auto-refresh
+  bool _autoRefresh = false;
+  int _refreshIntervalSeconds = 30;
+  Timer? _refreshTimer;
+  DateTime? _lastRefreshed;
 
   String _settingVal(String key) {
     final s = widget.settings.cast<Map<String, dynamic>?>().firstWhere(
@@ -135,49 +133,107 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
     setState(() => _disputesLoading = false);
   }
 
-  Future<void> _loadPayoutStatus() async {
-    setState(() => _payoutLoading = true);
-    try {
-      final resp = await ApiService.instance.adminGetPayoutStatus();
-      setState(() => _payoutItems = (resp is List) ? resp : (resp['items'] ?? []));
-    } catch (e) { debugPrint(e.toString()); }
-    setState(() => _payoutLoading = false);
+  Future<void> _refreshAll() async {
+    await Future.wait([
+      _loadBankingData(),
+      _loadDisputes(),
+      _loadReconHistory(),
+      _loadLedgerHealth(),
+      _loadEscrowPipeline(),
+    ]);
+    if (mounted) setState(() => _lastRefreshed = DateTime.now());
   }
 
-  Future<void> _loadTransactions({int page = 0}) async {
-    setState(() => _txnLoading = true);
-    try {
-      final resp = await ApiService.instance.adminGetTransactions(
-        offset: page * 20,
-        search: _txnSearch.isNotEmpty ? _txnSearch : null,
-        status: _txnStatusFilter != 'all' ? _txnStatusFilter : null,
-      );
-      setState(() {
-        _transactions = resp['items'] ?? [];
-        _txnTotal = resp['total'] ?? 0;
-        _txnPage = page;
-      });
-    } catch (e) { debugPrint(e.toString()); }
-    setState(() => _txnLoading = false);
+  void _startTimer() {
+    _refreshTimer?.cancel();
+    _refreshTimer = Timer.periodic(
+      Duration(seconds: _refreshIntervalSeconds),
+      (_) => _refreshAll(),
+    );
+  }
+
+  void _stopTimer() {
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
+  }
+
+  void _toggleAutoRefresh(bool enabled) {
+    setState(() => _autoRefresh = enabled);
+    if (enabled) {
+      _startTimer();
+    } else {
+      _stopTimer();
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshAll();
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  Widget _buildRefreshBar(BuildContext context) {
+    final intervals = [15, 30, 60, 120];
+    final lastFmt = _lastRefreshed == null
+        ? 'Never'
+        : '${_lastRefreshed!.hour.toString().padLeft(2, '0')}:${_lastRefreshed!.minute.toString().padLeft(2, '0')}:${_lastRefreshed!.second.toString().padLeft(2, '0')}';
+
+    return Row(
+      children: [
+        IconButton(
+          icon: const Icon(Icons.refresh, size: 20),
+          tooltip: 'Refresh now',
+          onPressed: _refreshAll,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+        ),
+        const SizedBox(width: 6),
+        Text('Last: $lastFmt', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context))),
+        const Spacer(),
+        Text('Auto-refresh', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context))),
+        const SizedBox(width: 4),
+        Switch(
+          value: _autoRefresh,
+          onChanged: _toggleAutoRefresh,
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        if (_autoRefresh) ...[
+          const SizedBox(width: 4),
+          DropdownButton<int>(
+            value: _refreshIntervalSeconds,
+            isDense: true,
+            underline: const SizedBox(),
+            items: intervals.map((s) => DropdownMenuItem(
+              value: s,
+              child: Text('${s}s', style: const TextStyle(fontSize: 12)),
+            )).toList(),
+            onChanged: (v) {
+              if (v == null) return;
+              setState(() => _refreshIntervalSeconds = v);
+              if (_autoRefresh) _startTimer();
+            },
+          ),
+        ],
+      ],
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_bankingData == null && !_bankingLoading) _loadBankingData();
     if (_bankingLoading || _bankingData == null) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (_disputes.isEmpty && !_disputesLoading) _loadDisputes();
-    if (_payoutItems.isEmpty && !_payoutLoading) _loadPayoutStatus();
-    if (_reconHistory.isEmpty && !_reconHistoryLoading) _loadReconHistory();
-    if (_ledgerHealth == null && !_ledgerHealthLoading) _loadLedgerHealth();
-    if (_transactions.isEmpty && !_txnLoading && _txnTotal == 0) _loadTransactions();
-    if (_fundEscrows.isEmpty && _ticketEscrows.isEmpty && _sponsorEscrows.isEmpty && !_pipelineLoading) _loadEscrowPipeline();
 
     final d = _bankingData!;
     final mockActive = d['mock_mode_active'] == true || widget.mockModeActive;
     return RefreshIndicator(
-      onRefresh: _loadBankingData,
+      onRefresh: _refreshAll,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
@@ -185,6 +241,8 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (mockActive) _buildMockBanner(context),
+            _buildRefreshBar(context),
+            const SizedBox(height: 8),
             Text('Platform Account', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context))),
             const SizedBox(height: 8),
             PlatformAccountCard(
@@ -212,7 +270,7 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
             const SizedBox(height: 16),
             Text('Reconciliation', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context))),
             const SizedBox(height: 8),
-            BankingReconciliationStatus(bankingData: d, onReloadBanking: _loadBankingData),
+            BankingReconciliationStatus(bankingData: d, onReloadBanking: _loadBankingData, onReloadReconHistory: _loadReconHistory),
             const SizedBox(height: 8),
             BankingReconciliationChart(reconHistory: _reconHistory, reconHistoryLoading: _reconHistoryLoading),
             const SizedBox(height: 16),
@@ -220,22 +278,9 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
             const SizedBox(height: 16),
             BankingLedgerHealthCard(ledgerHealth: _ledgerHealth, ledgerHealthLoading: _ledgerHealthLoading),
             const SizedBox(height: 16),
-            BankingPayoutSection(payoutItems: _payoutItems, payoutLoading: _payoutLoading, onReloadPayout: _loadPayoutStatus),
+            _buildPayoutSummaryCard(context, d),
             const SizedBox(height: 16),
-            BankingTransactionLedger(
-              transactions: _transactions,
-              txnTotal: _txnTotal,
-              txnPage: _txnPage,
-              txnLoading: _txnLoading,
-              txnSearch: _txnSearch,
-              txnStatusFilter: _txnStatusFilter,
-              mockModeActive: widget.mockModeActive,
-              onSearchChanged: (v) { setState(() => _txnSearch = v); _loadTransactions(); },
-              onStatusFilterChanged: (v) { setState(() => _txnStatusFilter = v); _loadTransactions(); },
-              onPageChanged: (p) => _loadTransactions(page: p),
-              onReloadBanking: _loadBankingData,
-              onReloadDisputes: _loadDisputes,
-            ),
+            _buildTransactionSummaryCard(context, d),
             const SizedBox(height: 16),
             BankingEscrowConfigSection(settingVal: _settingVal, onUpdateSetting: widget.onUpdateSetting),
             const SizedBox(height: 16),
@@ -256,6 +301,104 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildPayoutSummaryCard(BuildContext context, Map<String, dynamic> d) {
+    final pendingCount = d['payout_pending_count'] ?? 0;
+    final pendingCents = d['payout_pending_total_cents'] ?? 0;
+    return Card(
+      color: AppTheme.cardOf(context),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => context.push('/admin/payouts'),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.account_balance_wallet, color: AppTheme.accentColor, size: 22),
+                  const SizedBox(width: 8),
+                  Text('Payout Status', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context))),
+                  const Spacer(),
+                  Icon(Icons.arrow_forward_ios, size: 14, color: AppTheme.textSecondaryOf(context)),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Pending Payouts', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context))),
+                      Text('$pendingCount organizers', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.textPrimaryOf(context))),
+                    ],
+                  )),
+                  Expanded(child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Total Pending', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context))),
+                      Text(centsToStr(pendingCents), style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.textPrimaryOf(context))),
+                    ],
+                  )),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTransactionSummaryCard(BuildContext context, Map<String, dynamic> d) {
+    final total = d['transaction_total_count'] ?? 0;
+    final settled = d['transaction_settled_count'] ?? 0;
+    final pending = d['transaction_pending_count'] ?? 0;
+    final failed = d['transaction_failed_count'] ?? 0;
+    return Card(
+      color: AppTheme.cardOf(context),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => context.push('/admin/transactions'),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.receipt_long, color: AppTheme.accentColor, size: 22),
+                  const SizedBox(width: 8),
+                  Text('Transaction Ledger', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context))),
+                  const Spacer(),
+                  Icon(Icons.arrow_forward_ios, size: 14, color: AppTheme.textSecondaryOf(context)),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(child: _txnStatCell(context, 'Total', '$total', AppTheme.textPrimaryOf(context))),
+                  Expanded(child: _txnStatCell(context, 'Settled', '$settled', AppTheme.successColor)),
+                  Expanded(child: _txnStatCell(context, 'Pending', '$pending', AppTheme.warningColor)),
+                  Expanded(child: _txnStatCell(context, 'Failed', '$failed', AppTheme.errorColor)),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _txnStatCell(BuildContext context, String label, String value, Color color) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context))),
+        Text(value, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: color)),
+      ],
     );
   }
 

@@ -329,11 +329,13 @@ class BankingReconciliationChart extends StatelessWidget {
 class BankingReconciliationStatus extends StatelessWidget {
   final Map<String, dynamic> bankingData;
   final VoidCallback onReloadBanking;
+  final VoidCallback? onReloadReconHistory;
 
   const BankingReconciliationStatus({
     super.key,
     required this.bankingData,
     required this.onReloadBanking,
+    this.onReloadReconHistory,
   });
 
   @override
@@ -377,6 +379,7 @@ class BankingReconciliationStatus extends StatelessWidget {
                   await ApiService.instance
                       .adminRunReconciliation();
                   onReloadBanking();
+                  onReloadReconHistory?.call();
                   if (context.mounted) {
                     AppToast.success(
                         context, 'Reconciliation completed');

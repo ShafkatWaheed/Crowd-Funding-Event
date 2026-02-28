@@ -1,0 +1,326 @@
+import 'package:flutter/material.dart';
+
+import '../../config/theme.dart';
+import '../../services/api_service.dart';
+import '../../widgets/app_toast.dart';
+import 'admin_shared.dart';
+
+class AdminPayoutsScreen extends StatefulWidget {
+  const AdminPayoutsScreen({super.key});
+
+  @override
+  State<AdminPayoutsScreen> createState() => _AdminPayoutsScreenState();
+}
+
+class _AdminPayoutsScreenState extends State<AdminPayoutsScreen> {
+  List<dynamic> _payoutItems = [];
+  bool _loading = true;
+  String? _error;
+  String _searchText = '';
+  final _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPayouts();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<dynamic> get _filteredItems {
+    if (_searchText.isEmpty) return _payoutItems;
+    final q = _searchText.toLowerCase();
+    return _payoutItems.where((p) {
+      final name = (p['organizer_name'] ?? '').toString().toLowerCase();
+      final email = (p['organizer_email'] ?? '').toString().toLowerCase();
+      final id = (p['organizer_id'] ?? '').toString();
+      return name.contains(q) || email.contains(q) || id.contains(q);
+    }).toList();
+  }
+
+  Future<void> _loadPayouts() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final resp = await ApiService.instance.adminGetPayoutStatus();
+      if (!mounted) return;
+      setState(() {
+        _payoutItems = (resp is List) ? resp : (resp['items'] ?? []);
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Payout Status'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh',
+            onPressed: _loadPayouts,
+          ),
+        ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: _loadPayouts,
+        child: _buildBody(context),
+      ),
+    );
+  }
+
+  Widget _buildBody(BuildContext context) {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.error_outline, size: 48, color: AppTheme.errorColor),
+              const SizedBox(height: 12),
+              Text('Failed to load payouts',
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textPrimaryOf(context))),
+              const SizedBox(height: 8),
+              Text(_error!,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.textSecondaryOf(context))),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.refresh, size: 16),
+                label: const Text('Retry'),
+                onPressed: _loadPayouts,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    final filtered = _filteredItems;
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: TextField(
+            controller: _searchController,
+            decoration: InputDecoration(
+              hintText: 'Search by name, email, or ID...',
+              prefixIcon: const Icon(Icons.search, size: 18),
+              suffixIcon: _searchText.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear, size: 18),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() => _searchText = '');
+                      },
+                    )
+                  : null,
+              isDense: true,
+              contentPadding:
+                  const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onChanged: (v) => setState(() => _searchText = v),
+          ),
+        ),
+        Expanded(
+          child: _payoutItems.isEmpty
+              ? ListView(
+                  children: [
+                    const SizedBox(height: 80),
+                    Center(
+                      child: Column(
+                        children: [
+                          Icon(Icons.check_circle_outline,
+                              size: 48, color: AppTheme.successColor),
+                          const SizedBox(height: 12),
+                          Text('No pending payouts',
+                              style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.textPrimaryOf(context))),
+                          const SizedBox(height: 4),
+                          Text('All organizers are up to date.',
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  color:
+                                      AppTheme.textSecondaryOf(context))),
+                        ],
+                      ),
+                    ),
+                  ],
+                )
+              : filtered.isEmpty
+                  ? Center(
+                      child: Text('No results for "$_searchText"',
+                          style: TextStyle(
+                              color: AppTheme.textSecondaryOf(context))))
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: filtered.length,
+                      itemBuilder: (context, i) =>
+                          _buildPayoutCard(context, filtered[i]),
+                    ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPayoutCard(BuildContext context, Map<String, dynamic> p) {
+    final hasBankAccount = p['has_bank_account'] == true ||
+        p['bank_status'] == 'configured' ||
+        p['bank_status'] == 'verified';
+    final pendingCents = p['pending_payout_cents'] ?? p['pending_amount_cents'] ?? 0;
+    final bankStatus = p['bank_status'] ?? (hasBankAccount ? 'configured' : 'missing');
+
+    final bankColor = switch (bankStatus) {
+      'verified' => AppTheme.successColor,
+      'configured' => AppTheme.warningColor,
+      _ => AppTheme.errorColor,
+    };
+
+    return Card(
+      color: AppTheme.cardOf(context),
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header row
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: bankColor.withOpacity(0.15),
+                  child: Icon(Icons.person, color: bankColor, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        p['organizer_name'] ?? 'Organizer #${p['organizer_id']}',
+                        style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.textPrimaryOf(context)),
+                      ),
+                      if (p['organizer_email'] != null)
+                        Text(p['organizer_email'],
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.textSecondaryOf(context))),
+                    ],
+                  ),
+                ),
+                // Pending amount badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: pendingCents > 0
+                        ? AppTheme.accentColor.withOpacity(0.1)
+                        : AppTheme.successColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    centsToStr(pendingCents),
+                    style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: pendingCents > 0
+                            ? AppTheme.accentColor
+                            : AppTheme.successColor),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            // Detail chips row
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                _chip(context, 'Bank', statusLabel(bankStatus), bankColor),
+                if (p['payout_schedule'] != null)
+                  _chip(context, 'Schedule', capitalize(p['payout_schedule']),
+                      AppTheme.textSecondaryOf(context)),
+                if (p['next_payout_date'] != null)
+                  _chip(context, 'Next', '${p['next_payout_date']}',
+                      AppTheme.textSecondaryOf(context)),
+              ],
+            ),
+            // Force payout button
+            if (hasBankAccount && pendingCents > 0) ...[
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerRight,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.send, size: 16),
+                  label: const Text('Force Payout'),
+                  style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 8),
+                      textStyle: const TextStyle(fontSize: 13)),
+                  onPressed: () async {
+                    try {
+                      await ApiService.instance
+                          .adminForcePayout(p['organizer_id'] as int);
+                      _loadPayouts();
+                      if (context.mounted) {
+                        AppToast.success(context, 'Payout initiated');
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        AppToast.fromError(context, e,
+                            fallback: 'Payout failed');
+                      }
+                    }
+                  },
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _chip(BuildContext context, String label, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        '$label: $value',
+        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color),
+      ),
+    );
+  }
+}

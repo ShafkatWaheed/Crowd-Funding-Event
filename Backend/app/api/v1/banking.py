@@ -344,6 +344,11 @@ class BankingOverviewResponse(BaseModel):
     tax_collected_total_cents: int = 0
     tax_collected_period_cents: int = 0
     payout_pending_count: int = 0
+    payout_pending_total_cents: int = 0
+    transaction_total_count: int = 0
+    transaction_settled_count: int = 0
+    transaction_pending_count: int = 0
+    transaction_failed_count: int = 0
     disputes_open_count: int = 0
     disputes_total_amount_cents: int = 0
     last_reconciliation_status: str | None = None
@@ -471,6 +476,37 @@ async def admin_banking_overview(
         select(ReconciliationReport).order_by(ReconciliationReport.run_date.desc()).limit(1)
     )).scalar_one_or_none()
 
+    # Payout summary (released escrow = pending payout since no payout tracking yet)
+    payout_pending_total = int(fe[1]) + int(te[1]) + int(se[1])
+
+    from app.models.event import Event as _Evt
+    payout_pending_count = 0
+    for _EscrowModel in (FundEscrow, TicketEscrow, SponsorEscrow):
+        _cnt = (await db.execute(
+            select(func.count(func.distinct(_Evt.organizer_id)))
+            .select_from(_EscrowModel)
+            .join(_Evt, _EscrowModel.event_id == _Evt.id)
+            .where(_EscrowModel.status.in_([EscrowStatus.holding, EscrowStatus.partially_released]))
+        )).scalar_one()
+        payout_pending_count = max(payout_pending_count, int(_cnt))
+
+    # Transaction summary counts
+    txn_total = int((await db.execute(
+        select(func.count(PaymentMockLedger.id))
+    )).scalar_one())
+    txn_settled = int((await db.execute(
+        select(func.count(PaymentMockLedger.id)).where(
+            PaymentMockLedger.status == MockLedgerStatus.settled)
+    )).scalar_one())
+    txn_pending = int((await db.execute(
+        select(func.count(PaymentMockLedger.id)).where(
+            PaymentMockLedger.status == MockLedgerStatus.pending)
+    )).scalar_one())
+    txn_failed = int((await db.execute(
+        select(func.count(PaymentMockLedger.id)).where(
+            PaymentMockLedger.status == MockLedgerStatus.failed)
+    )).scalar_one())
+
     return BankingOverviewResponse(
         platform_account_configured=platform_configured,
         platform_account_bank_name=platform_bank_name,
@@ -491,6 +527,12 @@ async def admin_banking_overview(
         tax_collected_period_cents=tax_collected_period_cents,
         disputes_open_count=int(disputes[0]),
         disputes_total_amount_cents=int(disputes[1]),
+        payout_pending_count=payout_pending_count,
+        payout_pending_total_cents=payout_pending_total,
+        transaction_total_count=txn_total,
+        transaction_settled_count=txn_settled,
+        transaction_pending_count=txn_pending,
+        transaction_failed_count=txn_failed,
         last_reconciliation_status=last_recon.status if last_recon else None,
         last_reconciliation_delta_cents=last_recon.delta_cents if last_recon else 0,
         mock_mode_active=mock_active,

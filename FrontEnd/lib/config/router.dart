@@ -23,6 +23,8 @@ import '../screens/venue/venue_list_screen.dart';
 import '../screens/venue/create_venue_screen.dart';
 import '../screens/ticket_strategy/ticket_strategies_screen.dart';
 import '../screens/admin/admin_dashboard_screen.dart';
+import '../screens/admin/admin_payouts_screen.dart';
+import '../screens/admin/admin_transactions_screen.dart';
 import '../screens/admin/admin_user_detail_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import '../screens/profile/my_tickets_screen.dart';
@@ -430,6 +432,16 @@ GoRouter createRouter(AuthProvider authProvider) {
           final id = int.parse(state.pathParameters['id']!);
           return fadeThroughPage(child: AdminUserDetailScreen(userId: id));
         },
+      ),
+      GoRoute(
+        path: '/admin/payouts',
+        pageBuilder: (context, state) =>
+            fadeThroughPage(child: const AdminPayoutsScreen()),
+      ),
+      GoRoute(
+        path: '/admin/transactions',
+        pageBuilder: (context, state) =>
+            fadeThroughPage(child: const AdminTransactionsScreen()),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(

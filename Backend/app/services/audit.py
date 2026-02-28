@@ -4,6 +4,8 @@ from sqlalchemy import func, select
 from app.logger import get_logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
+logger = get_logger("audit")
+
 from app.models.audit_log import AuditLog
 
 

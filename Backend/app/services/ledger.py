@@ -6,7 +6,7 @@ Provides balance verification and per-account summaries.
 """
 from __future__ import annotations
 
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 
 from app.logger import get_logger, log_step
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -96,7 +96,7 @@ async def verify_balance(db: AsyncSession) -> dict:
         select(
             LedgerEntry.account,
             func.sum(
-                func.case(
+                case(
                     (LedgerEntry.entry_type == "debit", LedgerEntry.amount_cents),
                     else_=-LedgerEntry.amount_cents,
                 )
@@ -134,7 +134,7 @@ async def get_account_balance(db: AsyncSession, account: str) -> int:
         select(
             func.coalesce(
                 func.sum(
-                    func.case(
+                    case(
                         (LedgerEntry.entry_type == "debit", LedgerEntry.amount_cents),
                         else_=-LedgerEntry.amount_cents,
                     )

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -26,6 +28,7 @@ String? resolveNotificationRoute(String type, Map<String, dynamic> data) {
       if (eventId != null) return '/events/$eventId';
     case 'ticket_waitlist_rejected':
       if (eventId != null) return '/events/$eventId/ticket-waitlist';
+    case 'refund_requested':
     case 'ticket_refund_failed':
       if (eventId != null) return '/events/$eventId/refund-requests';
 
@@ -34,15 +37,20 @@ String? resolveNotificationRoute(String type, Map<String, dynamic> data) {
       return '/my-pledges';
 
     // ── Sponsors / Bids ──
+    // Organizer receives a new bid → bid management
     case 'bid_received':
-    case 'bid_accepted':
-    case 'bid_rejected':
-    case 'sponsor_payment_received':
-    case 'sponsor_refunded':
       if (eventId != null && catId != null) {
         return '/events/$eventId/sponsorships/$catId/bids';
       }
       if (eventId != null) return '/events/$eventId';
+    // Sponsor-facing: bid outcome & payment → sponsor's sponsorship view
+    case 'bid_accepted':
+    case 'bid_rejected':
+    case 'sponsor_payment_received':
+      if (eventId != null) return '/events/$eventId/sponsorships';
+      return '/sponsor/dashboard';
+    // Sponsor-facing: refund/tickets → sponsor tickets
+    case 'sponsor_refunded':
     case 'sponsor_ticket_generated':
       return '/sponsor/tickets';
 
@@ -115,6 +123,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
         return Icons.check_circle;
       case 'ticket_waitlist_rejected':
         return Icons.cancel_outlined;
+      case 'refund_requested':
+        return Icons.receipt_long;
       case 'refund_issued':
         return Icons.money_off;
       case 'event_cancelled':
@@ -157,6 +167,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
       return AppTheme.successColor;
     }
     if (type == 'sponsor_payment_received') return AppTheme.successColor;
+    if (type == 'refund_requested') return AppTheme.warningColor;
     if (type == 'sponsor_refunded') return AppTheme.warningColor;
     if (type.contains('waitlist')) return AppTheme.warningColor;
     if (type.contains('bid')) return AppTheme.accentColor;
@@ -170,6 +181,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
         return 'View ticket';
       case 'ticket_waitlist_rejected':
         return 'View waitlist';
+      case 'refund_requested':
+        return 'Review refund';
       case 'refund_issued':
       case 'ticket_refund_failed':
         return 'View refund';
@@ -229,8 +242,16 @@ class _NotificationScreenState extends State<NotificationScreen> {
     }
 
     final type = notif['type'] as String? ?? '';
-    final data = notif['data'] as Map<String, dynamic>? ?? {};
+    final rawData = notif['data'];
+    final Map<String, dynamic> data;
+    if (rawData is String) {
+      data = Map<String, dynamic>.from(
+          json.decode(rawData) as Map);
+    } else {
+      data = rawData as Map<String, dynamic>? ?? {};
+    }
     final route = resolveNotificationRoute(type, data);
+    debugPrint('[Notification] type=$type data=$data route=$route');
     if (route != null) context.push(route);
   }
 

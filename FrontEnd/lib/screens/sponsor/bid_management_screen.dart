@@ -344,6 +344,41 @@ class _BidCardState extends State<_BidCard> {
     }
   }
 
+  Widget _circleAction({
+    required IconData icon,
+    required Color color,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Material(
+          color: color.withValues(alpha: 0.1),
+          shape: const CircleBorder(),
+          child: InkWell(
+            onTap: onTap,
+            customBorder: const CircleBorder(),
+            child: SizedBox(
+              width: 48,
+              height: 48,
+              child: Icon(icon, color: color, size: 24),
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: color,
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final bid = widget.bid;
@@ -598,72 +633,49 @@ class _BidCardState extends State<_BidCard> {
                   );
                 }),
             ],
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  final name = widget.bid.sponsorProfile?.companyName ?? 'Sponsor';
-                  final writable = widget.bid.status == 'pending' ||
-                      widget.bid.status == 'accepted' ||
-                      widget.bid.status == 'paid';
-                  context.push(
-                    '/chat/bid/${widget.bid.id}?name=${Uri.encodeComponent(name)}&writable=$writable',
-                  );
-                },
-                icon: const Icon(Icons.chat_outlined, size: 18),
-                label: const Text('Chat'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.accentColor,
-                  side: const BorderSide(color: AppTheme.accentColor),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (widget.onReject != null)
+                  _circleAction(
+                    icon: Icons.close_rounded,
+                    color: AppTheme.errorColor,
+                    label: 'Reject',
+                    onTap: widget.onReject!,
+                  ),
+                if (widget.onReject != null) const SizedBox(width: 24),
+                _circleAction(
+                  icon: Icons.forum_rounded,
+                  color: AppTheme.accentColor,
+                  label: 'Chat',
+                  onTap: () {
+                    final name = widget.bid.sponsorProfile?.companyName ?? 'Sponsor';
+                    final writable = widget.bid.status == 'pending' ||
+                        widget.bid.status == 'accepted' ||
+                        widget.bid.status == 'paid';
+                    context.push(
+                      '/chat/bid/${widget.bid.id}?name=${Uri.encodeComponent(name)}&writable=$writable',
+                    );
+                  },
                 ),
-              ),
+                if (widget.onAccept != null) const SizedBox(width: 24),
+                if (widget.onAccept != null)
+                  _circleAction(
+                    icon: Icons.check_rounded,
+                    color: AppTheme.successColor,
+                    label: 'Accept',
+                    onTap: widget.onAccept!,
+                  ),
+              ],
             ),
-            if (widget.onAccept != null || widget.onReject != null) ...[
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  if (widget.onReject != null)
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: widget.onReject,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppTheme.errorColor,
-                          side: const BorderSide(color: AppTheme.errorColor),
-                        ),
-                        child: const Text('Reject'),
-                      ),
-                    ),
-                  if (widget.onAccept != null && widget.onReject != null)
-                    const SizedBox(width: 12),
-                  if (widget.onAccept != null)
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: widget.onAccept,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.successColor,
-                        ),
-                        child: const Text('Accept'),
-                      ),
-                    ),
-                ],
-              ),
-            ],
             if (widget.onRefund != null) ...[
               const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: widget.onRefund,
-                  icon: const Icon(Icons.undo_rounded, size: 18),
-                  label: const Text('Refund Sponsor'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.errorColor,
-                    side: BorderSide(color: AppTheme.errorColor),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                ),
+              _circleAction(
+                icon: Icons.currency_exchange_rounded,
+                color: AppTheme.warningColor,
+                label: 'Refund',
+                onTap: widget.onRefund!,
               ),
             ],
           ],

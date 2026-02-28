@@ -19,6 +19,7 @@
 
 - Frontend: `GoRouter` (router.dart), `AuthProvider` (redirect, refresh), `ApiService` (extractError). No backend service for "UX" itself.
 - **App root:** `CrowdFundApp` is a **StatefulWidget**; `ApiService`, `ChatSocketService`, `AppDatabase`, and `SyncService` are created in `initState()` and held as instance variables (`_apiService`, `_chatSocket`, `_appDatabase`, `_syncService`). Provider values in `build()` use these instance variables so services are initialized once and survive rebuilds. This improves lifecycle management and avoids recreating services on every build.
+- **AppShell:** Uses `context.watch<AuthProvider>()` and `context.watch<ThemeProvider>()` in `build()` so the shell rebuilds when auth or theme changes. Auth transition side-effects (chat connect/disconnect, sync) and the loading check are performed in `build()`; the router is created from the watched auth provider. Route `/account` uses **_AccountShell** (in router.dart): a Scaffold with an AppBar (close button, title "Account") wrapping **ProfileTab**, so the account view can be closed or popped. Profile screen (when used as main tab) uses a close-style leading button for consistency.
 
 ## Models and DB
 

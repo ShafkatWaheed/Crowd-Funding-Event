@@ -27,6 +27,7 @@ class NotificationType(str, enum.Enum):
     ticket_waitlist_rejected = "ticket_waitlist_rejected"
 
     # Refunds
+    refund_requested = "refund_requested"
     refund_issued = "refund_issued"
 
     # Event lifecycle

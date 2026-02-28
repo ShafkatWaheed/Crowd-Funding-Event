@@ -55,8 +55,9 @@ async def map_events(
     search: str | None = Query(None, description="Search by event title"),
     genre: str | None = Query(None, description="Filter by genre"),
     status: str | None = Query(None, description="Filter by event status"),
+    sponsorship_only: bool = Query(False, description="Only events with sponsorship categories"),
 ):
-    """Events for map view: by bbox/radius or city. Optionally filter by live, organizer, search, genre, or status."""
+    """Events for map view: by bbox/radius or city. Optionally filter by live, organizer, search, genre, status, or sponsorship."""
     from app.cache import cache_get_or_compute, safe_cache_key
     from app.services.platform_settings import get_int as get_setting_int, get_float as get_setting_float
 
@@ -67,11 +68,12 @@ async def map_events(
         events = await event_service.list_events_for_map(
             db, city=city, live=live, lat=lat, lng=lng, radius_km=radius_km,
             organizer_id=organizer_id, search=search, genre=genre, status=status,
+            sponsorship_only=sponsorship_only,
         )
         return [_event_to_marker(e).model_dump(mode="json") for e in events if e.lat is not None and e.lng is not None]
 
     if use_cache:
-        cache_key = safe_cache_key("map", city or "", genre or "", status or "", str(live or ""))
+        cache_key = safe_cache_key("map", city or "", genre or "", status or "", str(live or ""), str(sponsorship_only))
         ttl = await get_setting_int(db, "cache_ttl_map")
         beta = await get_setting_float(db, "cache_beta_map")
         return await cache_get_or_compute(cache_key, _compute, ttl=ttl, beta=beta)

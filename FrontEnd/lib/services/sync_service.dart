@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:dio/dio.dart';
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 
@@ -168,7 +169,9 @@ class SyncService {
       await db.replaceMyTickets(allEntries);
       await db.updateSyncMeta('cached_my_tickets');
     } catch (e) {
-      debugPrint('SyncService.pullMyTickets failed: $e');
+      if (!_isExpectedHttpError(e)) {
+        debugPrint('SyncService.pullMyTickets failed: $e');
+      }
     }
   }
 
@@ -268,7 +271,9 @@ class SyncService {
       await db.replaceSponsorTickets(entries);
       await db.updateSyncMeta('cached_sponsor_tickets');
     } catch (e) {
-      debugPrint('SyncService.pullSponsorTickets failed: $e');
+      if (!_isExpectedHttpError(e)) {
+        debugPrint('SyncService.pullSponsorTickets failed: $e');
+      }
     }
   }
 
@@ -340,18 +345,29 @@ class SyncService {
   // ── App Launch Sync ──
 
   /// Called on app launch — pulls events and bookmarks if online.
-  Future<void> syncOnLaunch() async {
+  /// Pass [role] to skip API calls the user's role doesn't have access to.
+  Future<void> syncOnLaunch({String? role}) async {
     if (!await isOnline) return;
     await Future.wait([
       pullEvents(),
-      pullMyTickets(),
-      pullSponsorTickets(),
+      if (role == 'customer') pullMyTickets(),
+      if (role == 'sponsor' || role == 'organizer') pullSponsorTickets(),
       pullBookmarks(),
       pushOfflineScans(),
     ]);
   }
 
   // ── Helpers ──
+
+  /// 403 (role mismatch) and 404 are expected when a user doesn't have the
+  /// customer or sponsor role — suppress noisy console output for these.
+  bool _isExpectedHttpError(Object e) {
+    if (e is DioException) {
+      final code = e.response?.statusCode;
+      return code == 403 || code == 404;
+    }
+    return false;
+  }
 
   DateTime? _parseDateTime(dynamic value) {
     if (value == null) return null;

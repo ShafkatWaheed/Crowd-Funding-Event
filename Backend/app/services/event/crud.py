@@ -382,6 +382,7 @@ async def list_events_for_map(
     search: str | None = None,
     genre: str | None = None,
     status: str | None = None,
+    sponsorship_only: bool = False,
 ) -> Sequence[Event]:
     """
     List events suitable for map markers: have lat/lng, not draft/pending/cancelled.
@@ -421,6 +422,14 @@ async def list_events_for_map(
         )
     if genre is not None:
         conditions.append(Event.genre == genre)
+    if sponsorship_only:
+        from app.models.sponsor import SponsorshipCategory
+        conditions.append(exists(
+            select(SponsorshipCategory.id).where(
+                SponsorshipCategory.event_id == Event.id,
+                SponsorshipCategory.is_template == False,
+            )
+        ))
     q = select(Event)
     if need_venue_join:
         q = q.outerjoin(Event.venue)

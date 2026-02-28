@@ -151,11 +151,48 @@ class _MyBidActionsState extends State<MyBidActions> {
     _ => _status,
   };
 
+  Widget _circleAction({
+    required IconData icon,
+    required Color color,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Material(
+          color: color.withValues(alpha: 0.1),
+          shape: const CircleBorder(),
+          child: InkWell(
+            onTap: onTap,
+            customBorder: const CircleBorder(),
+            child: SizedBox(
+              width: 44,
+              height: 44,
+              child: Icon(icon, color: color, size: 22),
+            ),
+          ),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            color: color,
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final hasChat = _status == 'pending' || _status == 'accepted' || _status == 'paid';
+
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: _statusColor.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(10),
@@ -173,44 +210,34 @@ class _MyBidActionsState extends State<MyBidActions> {
               ],
             ),
           ),
-          if (_status == 'pending' || _status == 'accepted' || _status == 'paid')
-            IconButton(
-              onPressed: () => context.push(
-                '/chat/bid/$_bidId?name=Organizer&writable=${_status != 'rejected'}',
-              ),
-              icon: const Icon(Icons.chat_outlined, size: 20),
-              color: AppTheme.accentColor,
-              tooltip: 'Chat with Organizer',
-              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-              padding: EdgeInsets.zero,
-            ),
           if (_busy)
             const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
           else ...[
-            if (_status == 'pending')
-              SizedBox(
-                height: 32,
-                child: OutlinedButton(
-                  onPressed: _withdraw,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.errorColor,
-                    side: const BorderSide(color: AppTheme.errorColor),
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                  ),
-                  child: const Text('Withdraw'),
-                ),
+            if (_status == 'pending') ...[
+              _circleAction(
+                icon: Icons.undo_rounded,
+                color: AppTheme.errorColor,
+                label: 'Withdraw',
+                onTap: _withdraw,
               ),
-            if (_status == 'accepted')
-              SizedBox(
-                height: 32,
-                child: ElevatedButton(
-                  onPressed: _pay,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                  ),
-                  child: const Text('Pay Now'),
+              const SizedBox(width: 16),
+            ],
+            if (_status == 'accepted') ...[
+              _circleAction(
+                icon: Icons.payment_rounded,
+                color: AppTheme.successColor,
+                label: 'Pay',
+                onTap: _pay,
+              ),
+              const SizedBox(width: 16),
+            ],
+            if (hasChat)
+              _circleAction(
+                icon: Icons.forum_rounded,
+                color: AppTheme.accentColor,
+                label: 'Message',
+                onTap: () => context.push(
+                  '/chat/bid/$_bidId?name=Organizer&writable=${_status != 'rejected'}',
                 ),
               ),
           ],

@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../config/design_tokens.dart';
 import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/chat_provider.dart';
 import '../../providers/event_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../services/api_service.dart';
@@ -216,7 +217,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 _navItem(1, Icons.explore_rounded, Icons.explore_outlined, 'Explore'),
                 _navItem(2, Icons.dashboard_rounded, Icons.dashboard_outlined, 'Manage'),
                 if (hasChatTab)
-                  _navItem(3, Icons.chat_rounded, Icons.chat_outlined, 'Channel')
+                  _navItem(3, Icons.chat_rounded, Icons.chat_outlined, 'Channel',
+                      badge: context.watch<ChatProvider>().totalUnreadCount)
                 else
                   _navItem(3, Icons.confirmation_number_rounded, Icons.confirmation_number_outlined, 'Tickets'),
               ],
@@ -359,7 +361,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _navItem(int index, IconData activeIcon, IconData icon, String label) {
+  Widget _navItem(int index, IconData activeIcon, IconData icon, String label, {int badge = 0}) {
     final isActive = _navIndex == index;
     final auth = context.read<AuthProvider>();
     final user = auth.user;
@@ -404,10 +406,18 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              isActive ? activeIcon : icon,
-              size: AppIconSize.lg,
-              color: isActive ? AppTheme.accentColor : AppTheme.textSecondaryOf(context),
+            Badge(
+              isLabelVisible: badge > 0,
+              label: Text(
+                badge > 99 ? '99+' : '$badge',
+                style: const TextStyle(fontSize: 10, color: Colors.white),
+              ),
+              backgroundColor: AppTheme.errorColor,
+              child: Icon(
+                isActive ? activeIcon : icon,
+                size: AppIconSize.lg,
+                color: isActive ? AppTheme.accentColor : AppTheme.textSecondaryOf(context),
+              ),
             ),
             const SizedBox(height: 2),
             Text(

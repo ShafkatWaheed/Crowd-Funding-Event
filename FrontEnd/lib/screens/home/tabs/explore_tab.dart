@@ -663,6 +663,9 @@ class _ExploreTabState extends State<ExploreTab> {
                 child: EventMapWidget(
                   organizerId:
                       user != null && user.isOrganizer ? user.id : null,
+                  sponsorshipOnly: user != null &&
+                      user.isSponsor &&
+                      !(user.isOrganizer || user.isAdmin),
                   search: _searchController.text.isNotEmpty
                       ? _searchController.text
                       : null,

@@ -17,7 +17,7 @@
 
 ## Service layer
 
-- N/A. Frontend: ThemeProvider (ChangeNotifier), AppTheme class with dark palette (_dkSurface, _dkCard, _dkTextPrimary, ...) and helpers. SharedPreferences key for theme. Theme loading in ThemeProvider uses a **switch expression** on the stored value (`'dark'` → ThemeMode.dark, `'system'` → ThemeMode.system, `_` → ThemeMode.light) and calls **notifyListeners() only when the resolved mode actually changes**, avoiding unnecessary rebuilds.
+- N/A. Frontend: ThemeProvider (ChangeNotifier), AppTheme class with dark palette (_dkSurface, _dkCard, _dkTextPrimary, ...) and helpers. SharedPreferences key for theme. Theme loading in ThemeProvider uses a **switch expression** on the stored value (`'dark'` → ThemeMode.dark, `'system'` → ThemeMode.system, `_` → ThemeMode.light) and calls **notifyListeners() only when the resolved mode actually changes**. When the mode does change, **notifyListeners() is deferred via `SchedulerBinding.instance.addPostFrameCallback`** so it does not run mid-build (e.g. on web, SharedPreferences can resolve immediately and previously triggered mid-frame rebuilds).
 
 ## Models and DB
 

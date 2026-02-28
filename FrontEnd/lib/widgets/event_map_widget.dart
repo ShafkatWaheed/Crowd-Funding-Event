@@ -25,6 +25,9 @@ class EventMapWidget extends StatefulWidget {
   /// If provided, only show this organizer's events on the map.
   final int? organizerId;
 
+  /// If true, only show events with sponsorship categories.
+  final bool sponsorshipOnly;
+
   final String? search;
   final String? genre;
   final String? status;
@@ -35,6 +38,7 @@ class EventMapWidget extends StatefulWidget {
     this.initialCenter,
     this.initialZoom = 12.0,
     this.organizerId,
+    this.sponsorshipOnly = false,
     this.search,
     this.genre,
     this.status,
@@ -67,7 +71,8 @@ class _EventMapWidgetState extends State<EventMapWidget> {
         oldWidget.genre != widget.genre ||
         oldWidget.status != widget.status ||
         oldWidget.city != widget.city ||
-        oldWidget.organizerId != widget.organizerId) {
+        oldWidget.organizerId != widget.organizerId ||
+        oldWidget.sponsorshipOnly != widget.sponsorshipOnly) {
       _loadEvents();
     }
   }
@@ -97,6 +102,7 @@ class _EventMapWidgetState extends State<EventMapWidget> {
         lng: center.longitude,
         radiusKm: radiusKm,
         organizerId: widget.organizerId,
+        sponsorshipOnly: widget.sponsorshipOnly,
         search: widget.search,
         genre: widget.genre,
         status: widget.status,

@@ -9,7 +9,11 @@
 
 - **Screen/Widget:** Home AppBar (notification bell, unread badge); `NotificationScreen` (list, mark-all-read, tap to event).
 - **User action:** Tap bell; pull-to-refresh; mark all read; tap to navigate.
-- **API calls:** GET `/api/v1/me/notifications`, GET unread-count, PATCH mark-read, PATCH read-all; POST/DELETE `/me/device-tokens` for FCM. NotificationProvider 30s polling; FCM push when enabled (see [FCM Push Notifications](62-fcm-push-notifications.md)).
+- **API calls:** GET `/api/v1/me/notifications`, GET unread-count, PATCH mark-read, PATCH read-all; POST/DELETE `/me/device-tokens` for FCM. NotificationProvider 30s polling; FCM push when enabled (see [FCM Push Notifications](62-fcm-push-notifications.md)). NotificationProvider uses **_safeNotify()** instead of notifyListeners() so updates are deferred when the framework is in a build phase (SchedulerPhase.persistentCallbacks), avoiding mid-build rebuilds.
+
+## Frontend (NotificationProvider)
+
+- **Build-phase-safe updates:** `_safeNotify()` checks `SchedulerBinding.instance.schedulerPhase`; when it is `SchedulerPhase.persistentCallbacks` (build phase), it schedules `notifyListeners()` in a post-frame callback instead of calling it immediately, preventing "setState or markNeedsBuild called during build" and unnecessary mid-frame rebuilds. All state changes (unread count, loadNotifications, markRead, etc.) call `_safeNotify()` instead of `notifyListeners()`.
 
 ## Backend routing
 

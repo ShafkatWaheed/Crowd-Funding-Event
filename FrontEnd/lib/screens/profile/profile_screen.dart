@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -136,6 +137,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _websiteUrlCtrl.text = data['website_url'] ?? '';
         });
       }
+    } on DioException catch (e) {
+      // 404 is expected when sponsor hasn't created a profile yet — ignore
+      if (e.response?.statusCode != 404) debugPrint(e.toString());
     } catch (e) {
       debugPrint(e.toString());
     } finally {

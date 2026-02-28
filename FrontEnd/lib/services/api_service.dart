@@ -300,6 +300,7 @@ class ApiService {
     String? search,
     String? genre,
     String? status,
+    bool sponsorshipOnly = false,
   }) async {
     final params = <String, dynamic>{};
     if (lat != null) params['lat'] = lat;
@@ -311,6 +312,7 @@ class ApiService {
     if (search != null && search.isNotEmpty) params['search'] = search;
     if (genre != null) params['genre'] = genre;
     if (status != null) params['status'] = status;
+    if (sponsorshipOnly) params['sponsorship_only'] = true;
     final resp = await dio.get('/events/map', queryParameters: params);
     return resp.data;
   }

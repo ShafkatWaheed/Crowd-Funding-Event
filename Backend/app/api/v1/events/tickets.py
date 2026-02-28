@@ -270,7 +270,7 @@ async def request_ticket_refund(
     if event:
         await notif_svc.create_notification(
             db, user_id=event.organizer_id,
-            type=NotificationType.refund_issued,
+            type=NotificationType.refund_requested,
             title="Refund Requested",
             message=f"{safe_display_name(current_user)} requested a ticket refund for \"{event.title}\".",
             data={"event_id": event_id, "ticket_sale_id": ticket_id},

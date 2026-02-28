@@ -107,6 +107,7 @@ class _AppShellState extends State<_AppShell> {
   bool _fcmInitialized = false;
   bool _wasAuthenticated = false;
   bool _syncInitialized = false;
+  SyncService? _syncService;
   StreamSubscription<RemoteMessage>? _foregroundSub;
   StreamSubscription<RemoteMessage>? _openedAppSub;
 
@@ -158,9 +159,10 @@ class _AppShellState extends State<_AppShell> {
   void _initSync() {
     if (_syncInitialized) return;
     _syncInitialized = true;
-    final syncService = context.read<SyncService>();
-    syncService.init();
-    syncService.syncOnLaunch();
+    _syncService = context.read<SyncService>();
+    _syncService!.init();
+    final role = context.read<AuthProvider>().user?.role.name;
+    _syncService!.syncOnLaunch(role: role);
   }
 
   void _teardownFcm(NotificationProvider notifProvider) {
@@ -176,9 +178,7 @@ class _AppShellState extends State<_AppShell> {
     _router?.dispose();
     _foregroundSub?.cancel();
     _openedAppSub?.cancel();
-    if (_syncInitialized) {
-      context.read<SyncService>().dispose();
-    }
+    _syncService?.dispose();
     super.dispose();
   }
 

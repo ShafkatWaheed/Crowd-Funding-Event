@@ -371,6 +371,14 @@ class ApiService {
     await dio.delete('/events/$eventId/images/$imageId');
   }
 
+  Future<Map<String, dynamic>> uploadChatImage(int bidId, {required List<int> fileBytes, required String fileName}) async {
+    final formData = FormData.fromMap({
+      'file': MultipartFile.fromBytes(fileBytes, filename: fileName),
+    });
+    final resp = await dio.post('/chat/bids/$bidId/upload', data: formData);
+    return resp.data;
+  }
+
   // ─── Like / Dislike ───
 
   Future<Map<String, dynamic>> reactToEvent(int eventId, String reaction) async {

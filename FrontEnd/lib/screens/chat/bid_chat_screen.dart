@@ -1,24 +1,32 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../../config/api_config.dart';
 import '../../config/theme.dart';
 import '../../models/chat_message.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/chat_provider.dart';
+import '../../services/api_service.dart';
+import '../../widgets/fullscreen_image_viewer.dart';
 
 class BidChatScreen extends StatefulWidget {
   final int bidId;
   final String? participantName;
   final bool isWritable;
+  final int? eventId;
 
   const BidChatScreen({
     super.key,
     required this.bidId,
     this.participantName,
     this.isWritable = true,
+    this.eventId,
   });
 
   @override
@@ -30,6 +38,7 @@ class _BidChatScreenState extends State<BidChatScreen> {
   final _scrollController = ScrollController();
   late final ChatProvider _chat;
   bool _isLoadingHistory = false;
+  bool _isUploading = false;
   Timer? _typingTimer;
   bool _isSendingTyping = false;
 
@@ -101,6 +110,65 @@ class _BidChatScreenState extends State<BidChatScreen> {
     });
   }
 
+  Future<void> _pickAndSendImage(ImageSource source) async {
+    final api = context.read<ApiService>();
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: source,
+      maxWidth: 1280,
+      maxHeight: 1280,
+      imageQuality: 75,
+    );
+    if (picked == null || !mounted) return;
+
+    setState(() => _isUploading = true);
+    try {
+      final bytes = await picked.readAsBytes();
+      await api.uploadChatImage(
+        widget.bidId,
+        fileBytes: bytes,
+        fileName: picked.name,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to send image: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
+    }
+  }
+
+  void _showImageSourceSheet() {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Gallery'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickAndSendImage(ImageSource.gallery);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt_outlined),
+              title: const Text('Camera'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickAndSendImage(ImageSource.camera);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _chat.leaveBid(widget.bidId);
@@ -122,6 +190,20 @@ class _BidChatScreenState extends State<BidChatScreen> {
           style: const TextStyle(fontWeight: FontWeight.w600),
         ),
         elevation: 0.5,
+        actions: [
+          if (widget.eventId != null) ...[
+            IconButton(
+              icon: const Icon(Icons.event_outlined),
+              tooltip: 'View Event',
+              onPressed: () => context.push('/events/${widget.eventId}'),
+            ),
+            IconButton(
+              icon: const Icon(Icons.handshake_outlined),
+              tooltip: 'Sponsorships',
+              onPressed: () => context.push('/events/${widget.eventId}/sponsorships'),
+            ),
+          ],
+        ],
       ),
       body: Column(
         children: [
@@ -259,6 +341,19 @@ class _BidChatScreenState extends State<BidChatScreen> {
       child: SafeArea(
         child: Row(
           children: [
+            IconButton(
+              icon: _isUploading
+                  ? SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppTheme.textSecondaryOf(context),
+                      ),
+                    )
+                  : Icon(Icons.attach_file_rounded, color: AppTheme.textSecondaryOf(context)),
+              onPressed: _isUploading ? null : _showImageSourceSheet,
+            ),
             Expanded(
               child: TextField(
                 controller: _inputController,
@@ -391,7 +486,9 @@ class _MessageBubble extends StatelessWidget {
           maxWidth: MediaQuery.of(context).size.width * 0.75,
         ),
         margin: const EdgeInsets.symmetric(vertical: 2),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        padding: message.isImage
+            ? const EdgeInsets.all(4)
+            : const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
         decoration: BoxDecoration(
           color: isMe
               ? AppTheme.accentColor
@@ -401,34 +498,83 @@ class _MessageBubble extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Text(
-              message.body,
-              style: TextStyle(
-                fontSize: 15,
-                color: isMe ? Colors.white : AppTheme.textPrimaryOf(context),
-                height: 1.35,
+            if (message.isImage)
+              _buildImageContent(context, radius)
+            else
+              Text(
+                message.body,
+                style: TextStyle(
+                  fontSize: 15,
+                  color: isMe ? Colors.white : AppTheme.textPrimaryOf(context),
+                  height: 1.35,
+                ),
+              ),
+            const SizedBox(height: 3),
+            Padding(
+              padding: message.isImage
+                  ? const EdgeInsets.only(right: 6, bottom: 2)
+                  : EdgeInsets.zero,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    DateFormat('HH:mm').format(message.createdAt.toLocal()),
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: isMe
+                          ? Colors.white.withValues(alpha: 0.7)
+                          : AppTheme.textSecondaryOf(context),
+                    ),
+                  ),
+                  if (isMe) ...[
+                    const SizedBox(width: 4),
+                    _tickIcon(message.status),
+                  ],
+                ],
               ),
             ),
-            const SizedBox(height: 3),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  DateFormat('HH:mm').format(message.createdAt.toLocal()),
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: isMe
-                        ? Colors.white.withValues(alpha: 0.7)
-                        : AppTheme.textSecondaryOf(context),
-                  ),
-                ),
-                if (isMe) ...[
-                  const SizedBox(width: 4),
-                  _tickIcon(message.status),
-                ],
-              ],
-            ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImageContent(BuildContext context, BorderRadius radius) {
+    final imageUrl = ApiConfig.imageUrl(message.body);
+    return GestureDetector(
+      onTap: () => FullscreenImageViewer.open(
+        context,
+        imageUrls: [imageUrl],
+      ),
+      child: ClipRRect(
+        borderRadius: radius,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 220, maxHeight: 220),
+          child: CachedNetworkImage(
+            imageUrl: imageUrl,
+            fit: BoxFit.cover,
+            placeholder: (_, __) => Container(
+              width: 180,
+              height: 180,
+              color: Colors.grey.withValues(alpha: 0.15),
+              child: const Center(
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+            errorWidget: (_, __, ___) => Container(
+              width: 180,
+              height: 120,
+              color: Colors.grey.withValues(alpha: 0.15),
+              child: const Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.broken_image_outlined, size: 32, color: Colors.grey),
+                  SizedBox(height: 4),
+                  Text('Image failed', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );

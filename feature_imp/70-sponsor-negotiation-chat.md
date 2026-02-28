@@ -172,7 +172,7 @@ chat_service.send_message()
 | File | Purpose |
 |------|---------|
 | `FrontEnd/lib/models/chat_message.dart` | ChatMessage, ChatConversation models |
-| `FrontEnd/lib/services/chat_socket_service.dart` | WebSocket client with auto-reconnect |
+| `FrontEnd/lib/services/chat_socket_service.dart` | WebSocket client with auto-reconnect; tracks joined bids and re-joins on reconnect |
 | `FrontEnd/lib/providers/chat_provider.dart` | Chat state management (ChangeNotifier) |
 | `FrontEnd/lib/services/api_service.dart` | REST methods: getChatMessages, getChatConversations, markChatRead |
 | `FrontEnd/lib/screens/chat/bid_chat_screen.dart` | WhatsApp-style chat UI |
@@ -180,6 +180,22 @@ chat_service.send_message()
 | `FrontEnd/lib/config/router.dart` | Chat routes (/chat, /chat/bid/:bidId) |
 | `FrontEnd/lib/screens/sponsor/bid_management_screen.dart` | Chat button on bid cards |
 | `FrontEnd/pubspec.yaml` | web_socket_channel dependency |
+
+---
+
+## Error handling and reconnection (recently implemented)
+
+### Backend (`chat.py`)
+
+- **Pub/Sub listener:** Exceptions in the pubsub listener loop are caught and logged (`logger.warning("Pubsub listener crashed for user=%d", user.id)`). A helper `_ensure_pubsub_task()` starts or restarts the listener task if it is not running or has finished, so join can reliably start the listener after subscribe.
+- **Join errors:** Join failures (e.g. validation) are logged (`logger.warning("Join error bid=%s user=%d: %s", ...)`) and the client receives `{"type": "error", "detail": "..."}`. Broad exception handling (not only `ValueError`) so unexpected errors are logged and reported.
+- **Send and offline push:** Send failures are logged with `logger.exception(...)`. Offline FCM push is wrapped in try/except; failures are logged and do not crash the send path.
+
+### Frontend
+
+- **Connection lifecycle:** Chat WebSocket connection and disconnection are driven by user authentication state (e.g. in `main.dart`: connect when authenticated, disconnect when signed out or token invalid). Ensures the socket is not left open when the user is logged out and avoids redundant connects.
+- **Re-join on reconnect:** `ChatSocketService` keeps a set `_joinedBids` of currently joined bid IDs. On `join(bidId)` the bid is added and a join message sent; on `leave(bidId)` the bid is removed and a leave message sent. After a successful WebSocket connect (including auto-reconnect), the service re-sends `join` for every bid in `_joinedBids` so the user is re-subscribed to all active chats without the UI re-calling join. On `disconnect()`, `_joinedBids` is cleared.
+- **BidChatScreen:** Holds a single `ChatProvider` reference (`late final _chat`) read in `initState` and uses it for join, leave, loadHistory, messagesFor, markRead, sendMessage, sendTypingIndicator, clearBid—reducing redundant `context.read<ChatProvider>()` and improving state management. History load uses `if (mounted)` before `setState` after the async load.
 
 ---
 

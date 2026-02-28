@@ -10,8 +10,9 @@ import '../../../widgets/press_feedback.dart';
 
 class ManageTab extends StatefulWidget {
   final VoidCallback? onEventCreated;
+  final Widget? headerIcons;
 
-  const ManageTab({super.key, this.onEventCreated});
+  const ManageTab({super.key, this.onEventCreated, this.headerIcons});
 
   @override
   State<ManageTab> createState() => _ManageTabState();
@@ -38,14 +39,21 @@ class _ManageTabState extends State<ManageTab> {
             padding: const EdgeInsets.fromLTRB(
               AppSpacing.xxl, 56, AppSpacing.xxl, AppSpacing.xl,
             ),
-            child: Text(
-              'Manage',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.5,
-                color: AppTheme.textPrimaryOf(context),
-              ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Manage',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.5,
+                      color: AppTheme.textPrimaryOf(context),
+                    ),
+                  ),
+                ),
+                if (widget.headerIcons != null) widget.headerIcons!,
+              ],
             ),
           ),
         ),

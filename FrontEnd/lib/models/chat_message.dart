@@ -44,6 +44,7 @@ class ChatMessage {
   }
 
   bool get isSystem => msgType == 'system';
+  bool get isImage => msgType == 'image';
 }
 
 class ChatConversation {
@@ -55,6 +56,8 @@ class ChatConversation {
   final String eventStatus;
   final int sponsorUserId;
   final int organizerUserId;
+  final String sponsorName;
+  final String organizerName;
   final DateTime? lastMessageAt;
   final int unreadCount;
   final bool isWritable;
@@ -68,6 +71,8 @@ class ChatConversation {
     required this.eventStatus,
     required this.sponsorUserId,
     required this.organizerUserId,
+    this.sponsorName = '',
+    this.organizerName = '',
     this.lastMessageAt,
     this.unreadCount = 0,
     this.isWritable = true,
@@ -83,6 +88,8 @@ class ChatConversation {
       eventStatus: json['event_status'] ?? '',
       sponsorUserId: json['sponsor_user_id'] ?? 0,
       organizerUserId: json['organizer_user_id'] ?? 0,
+      sponsorName: json['sponsor_name'] ?? '',
+      organizerName: json['organizer_name'] ?? '',
       lastMessageAt: json['last_message_at'] != null
           ? DateTime.tryParse(json['last_message_at'])
           : null,

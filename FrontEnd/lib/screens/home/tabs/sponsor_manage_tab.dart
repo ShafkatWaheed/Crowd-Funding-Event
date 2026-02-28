@@ -15,7 +15,9 @@ import '../../../widgets/empty_state.dart';
 import '../../../widgets/shimmer_loaders.dart';
 
 class SponsorManageTab extends StatefulWidget {
-  const SponsorManageTab({super.key});
+  final Widget? headerIcons;
+
+  const SponsorManageTab({super.key, this.headerIcons});
 
   @override
   State<SponsorManageTab> createState() => _SponsorManageTabState();
@@ -163,6 +165,10 @@ class _SponsorManageTabState extends State<SponsorManageTab> {
                       ],
                     ),
                   ),
+                  if (widget.headerIcons != null) ...[
+                    AppSpacing.hSm,
+                    widget.headerIcons!,
+                  ],
                 ],
               ),
               AppSpacing.vLg,

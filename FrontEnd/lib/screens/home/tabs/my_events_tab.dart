@@ -18,6 +18,7 @@ class MyEventsTab extends StatefulWidget {
   final void Function(int) onToggleBookmark;
   final void Function(List<int>)? onBookmarksSynced;
   final List<String> genres;
+  final Widget? headerIcons;
 
   const MyEventsTab({
     super.key,
@@ -25,6 +26,7 @@ class MyEventsTab extends StatefulWidget {
     required this.onToggleBookmark,
     this.onBookmarksSynced,
     required this.genres,
+    this.headerIcons,
   });
 
   @override
@@ -185,6 +187,10 @@ class _MyEventsTabState extends State<MyEventsTab> {
                       ),
                     ),
                   ),
+                  if (widget.headerIcons != null) ...[
+                    AppSpacing.hSm,
+                    widget.headerIcons!,
+                  ],
                 ],
               ),
               AppSpacing.vLg,

@@ -44,6 +44,7 @@ import '../screens/sponsor/sponsor_category_templates_screen.dart';
 import '../screens/bookmark/bookmarked_events_screen.dart';
 import '../screens/chat/bid_chat_screen.dart';
 import '../screens/chat/conversations_screen.dart';
+import '../screens/home/tabs/profile_tab.dart';
 import '../screens/profile/organizer_profile_screen.dart';
 import '../screens/profile/sponsor_profile_screen.dart';
 import 'page_transitions.dart';
@@ -113,7 +114,7 @@ GoRouter createRouter(AuthProvider authProvider) {
         path: '/',
         pageBuilder: (context, state) {
           final tab = state.uri.queryParameters['tab'];
-          final idx = {'explore': 1, 'manage': 2, 'profile': 3}[tab] ?? 0;
+          final idx = {'explore': 1, 'manage': 2, 'channel': 3, 'profile': 3}[tab] ?? 0;
           return NoTransitionPage(
             key: const ValueKey('home'),
             child: HomeScreen(initialTab: idx),
@@ -126,6 +127,12 @@ GoRouter createRouter(AuthProvider authProvider) {
         path: '/profile',
         pageBuilder: (context, state) =>
             fadeThroughPage(child: const ProfileScreen()),
+      ),
+      GoRoute(
+        path: '/account',
+        pageBuilder: (context, state) => fadeThroughPage(
+          child: const Scaffold(body: ProfileTab()),
+        ),
       ),
       GoRoute(
         path: '/my-tickets',
@@ -388,11 +395,14 @@ GoRouter createRouter(AuthProvider authProvider) {
           final bidId = int.parse(state.pathParameters['bidId']!);
           final name = state.uri.queryParameters['name'];
           final writable = state.uri.queryParameters['writable'] != 'false';
+          final eventIdStr = state.uri.queryParameters['eventId'];
+          final eventId = eventIdStr != null ? int.tryParse(eventIdStr) : null;
           return sharedAxisPage(
             child: BidChatScreen(
               bidId: bidId,
               participantName: name,
               isWritable: writable,
+              eventId: eventId,
             ),
           );
         },

@@ -10,10 +10,11 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid
+from pathlib import Path
 from typing import Any
 
 import redis.asyncio as aioredis
-from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, WebSocket, WebSocketDisconnect
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -26,6 +27,7 @@ from app.models.user import User
 from app.services import chat_service
 from app.services import notification_service as notif_svc
 from app.services import platform_settings as settings_svc
+from app.services.upload_validation import validate_upload
 
 logger = get_logger("chat.ws")
 
@@ -86,8 +88,16 @@ async def ws_chat(ws: WebSocket, token: str = Query(...)):
                         continue
                     try:
                         data = json.loads(raw_msg["data"])
-                        msg = data.get("message", {})
-                        if msg.get("sender_id") != user.id:
+                        # Determine the originator across event types:
+                        #   new_message -> data["message"]["sender_id"]
+                        #   typing      -> data["user_id"]
+                        #   delivered/read -> data["by"]
+                        origin = (
+                            data.get("message", {}).get("sender_id")
+                            or data.get("user_id")
+                            or data.get("by")
+                        )
+                        if origin != user.id:
                             await ws.send_json(data)
                     except Exception:
                         pass
@@ -327,6 +337,45 @@ async def get_conversations(
 ):
     """List bid conversations with unread counts for the current user."""
     return await chat_service.get_conversations(db, current_user.id)
+
+
+@router.post("/bids/{bid_id}/upload")
+async def upload_chat_image(
+    bid_id: int,
+    db: DbSession,
+    current_user: CurrentUser,
+    file: UploadFile = File(...),
+):
+    """Upload an image to a bid chat."""
+    try:
+        ctx = await chat_service.validate_participant(db, bid_id, current_user.id)
+    except ValueError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+
+    if not ctx["is_writable"]:
+        raise HTTPException(status_code=403, detail="Chat is read-only")
+
+    contents = await validate_upload(db, file, "image")
+
+    ext = Path(file.filename or "img.jpg").suffix.lower() or ".jpg"
+    if ext not in {".jpg", ".jpeg", ".png", ".webp", ".gif"}:
+        ext = ".jpg"
+    filename = f"chat_{bid_id}_{uuid.uuid4().hex[:12]}{ext}"
+
+    upload_dir = Path(__file__).resolve().parent.parent.parent.parent / "static" / "uploads" / "chat"
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    dest = upload_dir / filename
+    dest.write_bytes(contents)
+
+    image_url = f"/static/uploads/chat/{filename}"
+    client_id = uuid.uuid4().hex
+    msg = await chat_service.send_message(
+        bid_id, current_user.id, image_url, client_id, msg_type="image",
+    )
+    await chat_service.update_pg_metadata(db, bid_id, ctx["is_sponsor"])
+    await db.commit()
+
+    return msg
 
 
 @router.post("/bids/{bid_id}/read")

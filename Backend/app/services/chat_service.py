@@ -216,10 +216,18 @@ async def clear_unread(db: AsyncSession, bid_id: int, user_is_sponsor: bool) -> 
 
 async def get_conversations(db: AsyncSession, user_id: int) -> list[dict[str, Any]]:
     """List bids with chat activity for the current user."""
+    from sqlalchemy.orm import aliased
+    from app.models.user import User
+
+    SponsorUser = aliased(User)
+    OrganizerUser = aliased(User)
+
     q = (
-        select(SponsorBid, SponsorshipCategory, Event)
+        select(SponsorBid, SponsorshipCategory, Event, SponsorUser, OrganizerUser)
         .join(SponsorshipCategory, SponsorBid.category_id == SponsorshipCategory.id)
         .join(Event, SponsorshipCategory.event_id == Event.id)
+        .join(SponsorUser, SponsorBid.sponsor_user_id == SponsorUser.id)
+        .join(OrganizerUser, Event.organizer_id == OrganizerUser.id)
         .where(
             SponsorBid.last_message_at.isnot(None),
             or_(
@@ -233,7 +241,7 @@ async def get_conversations(db: AsyncSession, user_id: int) -> list[dict[str, An
     rows = result.all()
 
     conversations = []
-    for bid, cat, event in rows:
+    for bid, cat, event, sponsor_user, organizer_user in rows:
         is_sponsor = bid.sponsor_user_id == user_id
         unread = bid.unread_count_sponsor if is_sponsor else bid.unread_count_organizer
         conversations.append({
@@ -245,6 +253,8 @@ async def get_conversations(db: AsyncSession, user_id: int) -> list[dict[str, An
             "event_status": event.status.value,
             "sponsor_user_id": bid.sponsor_user_id,
             "organizer_user_id": event.organizer_id,
+            "sponsor_name": sponsor_user.display_name or sponsor_user.email,
+            "organizer_name": organizer_user.display_name or organizer_user.email,
             "last_message_at": bid.last_message_at.isoformat() if bid.last_message_at else None,
             "unread_count": unread or 0,
             "is_writable": (

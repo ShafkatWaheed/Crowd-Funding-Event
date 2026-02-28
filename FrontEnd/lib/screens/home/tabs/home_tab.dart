@@ -7,7 +7,6 @@ import '../../../config/design_tokens.dart';
 import '../../../config/theme.dart';
 import '../../../models/event.dart';
 import '../../../providers/auth_provider.dart';
-import '../../../providers/notification_provider.dart';
 import '../../../services/api_service.dart';
 import '../../../services/location_helper.dart';
 import '../../../widgets/animated_list_item.dart';
@@ -16,7 +15,6 @@ import '../../../widgets/kyc_required_banner.dart';
 import '../../../widgets/event_card.dart';
 import '../../../widgets/section_header.dart';
 import '../home_shared.dart';
-import '../../notification/notification_screen.dart';
 
 class HomeTab extends StatefulWidget {
   final Set<int> bookmarkedIds;
@@ -24,6 +22,7 @@ class HomeTab extends StatefulWidget {
   final List<String> cities;
   final List<String> genres;
   final VoidCallback onRefresh;
+  final Widget? headerIcons;
 
   const HomeTab({
     super.key,
@@ -32,6 +31,7 @@ class HomeTab extends StatefulWidget {
     required this.cities,
     required this.genres,
     required this.onRefresh,
+    this.headerIcons,
   });
 
   @override
@@ -339,45 +339,7 @@ class _HomeTabState extends State<HomeTab> {
                           ],
                         ),
                       ),
-                      Consumer<NotificationProvider>(
-                        builder: (ctx, notifProv, _) {
-                          return GestureDetector(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => const NotificationScreen(),
-                                ),
-                              );
-                            },
-                            child: Container(
-                              width: 44,
-                              height: 44,
-                              decoration: BoxDecoration(
-                                color: AppTheme.surfaceOf(context),
-                                borderRadius: AppRadius.md,
-                              ),
-                              child: Badge(
-                                isLabelVisible: notifProv.unreadCount > 0,
-                                label: Text(
-                                  notifProv.unreadCount > 99
-                                      ? '99+'
-                                      : '${notifProv.unreadCount}',
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                                backgroundColor: AppTheme.errorColor,
-                                child: Icon(
-                                  Icons.notifications_outlined,
-                                  color: AppTheme.textPrimaryOf(context),
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
+                      if (widget.headerIcons != null) widget.headerIcons!,
                     ],
                   )
                       .animate()

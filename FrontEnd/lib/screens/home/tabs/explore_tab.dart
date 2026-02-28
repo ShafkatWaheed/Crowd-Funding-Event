@@ -24,6 +24,7 @@ class ExploreTab extends StatefulWidget {
   final String? initialStatus;
   final String? initialGenre;
   final void Function(void Function() refresh)? onRefreshReady;
+  final Widget? headerIcons;
 
   const ExploreTab({
     super.key,
@@ -34,6 +35,7 @@ class ExploreTab extends StatefulWidget {
     this.initialStatus,
     this.initialGenre,
     this.onRefreshReady,
+    this.headerIcons,
   });
 
   @override
@@ -337,6 +339,10 @@ class _ExploreTabState extends State<ExploreTab> {
                             ],
                           ),
                         ),
+                      if (widget.headerIcons != null) ...[
+                        AppSpacing.hSm,
+                        widget.headerIcons!,
+                      ],
                     ],
                   ),
                   AppSpacing.vMd,

@@ -7,11 +7,11 @@ import '../../config/design_tokens.dart';
 import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/event_provider.dart';
-import '../../providers/chat_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../services/api_service.dart';
 import '../../widgets/press_feedback.dart';
 import '../../widgets/kyc_required_banner.dart';
+import '../chat/conversations_screen.dart';
 import '../notification/notification_screen.dart';
 import 'tabs/explore_tab.dart';
 import 'tabs/home_tab.dart';
@@ -125,6 +125,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final user = auth.user;
     final isDark = AppTheme.isDark(context);
     final isOrg = user != null && (user.isOrganizer || user.isAdmin);
+    final hasChatTab = isOrg || (user != null && user.isSponsor);
 
     return Scaffold(
       backgroundColor: AppTheme.surfaceOf(context),
@@ -134,7 +135,7 @@ class _HomeScreenState extends State<HomeScreen> {
           if (isOrg)
             Column(
               children: [
-                _orgGreeting(user, isDark),
+                _orgGreeting(user, isDark, _buildHeaderIcons(hasChatTab)),
                 if (user.kycStatus != 'verified' && !user.isAdmin)
                   const KycRequiredBanner(action: 'create and manage events'),
                 Expanded(
@@ -161,6 +162,7 @@ class _HomeScreenState extends State<HomeScreen> {
               cities: _cities,
               genres: _genres,
               onRefresh: () {},
+              headerIcons: _buildHeaderIcons(hasChatTab),
             ),
           ExploreTab(
             bookmarkedIds: _bookmarkedIds,
@@ -170,13 +172,17 @@ class _HomeScreenState extends State<HomeScreen> {
             initialStatus: _exploreInitialStatus,
             initialGenre: _exploreInitialGenre,
             onRefreshReady: (refresh) => _exploreRefresh = refresh,
+            headerIcons: _buildHeaderIcons(hasChatTab),
           ),
           if (isOrg)
             ManageTab(
               onEventCreated: () => _exploreRefresh?.call(),
+              headerIcons: _buildHeaderIcons(hasChatTab),
             )
           else if (user != null && user.isSponsor)
-            const SponsorManageTab()
+            SponsorManageTab(
+              headerIcons: _buildHeaderIcons(hasChatTab),
+            )
           else
             MyEventsTab(
               bookmarkedIds: _bookmarkedIds,
@@ -184,8 +190,12 @@ class _HomeScreenState extends State<HomeScreen> {
               onBookmarksSynced: (ids) =>
                   setState(() => _bookmarkedIds.addAll(ids)),
               genres: _genres,
+              headerIcons: _buildHeaderIcons(hasChatTab),
             ),
-          const ProfileTab(),
+          if (hasChatTab)
+            const ConversationsScreen(embedded: true)
+          else
+            const ProfileTab(),
         ],
       ),
       bottomNavigationBar: Container(
@@ -205,7 +215,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 _navItem(0, Icons.home_rounded, Icons.home_outlined, 'Home'),
                 _navItem(1, Icons.explore_rounded, Icons.explore_outlined, 'Explore'),
                 _navItem(2, Icons.dashboard_rounded, Icons.dashboard_outlined, 'Manage'),
-                _navItem(3, Icons.person_rounded, Icons.person_outline, 'Profile'),
+                if (hasChatTab)
+                  _navItem(3, Icons.chat_rounded, Icons.chat_outlined, 'Channel')
+                else
+                  _navItem(3, Icons.person_rounded, Icons.person_outline, 'Profile'),
               ],
             ),
           ),
@@ -229,7 +242,46 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _orgGreeting(dynamic user, bool isDark) {
+  Widget _buildHeaderIcons(bool hasChatTab) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Consumer<NotificationProvider>(
+          builder: (ctx, notifProv, _) {
+            return GestureDetector(
+              onTap: () {
+                Navigator.push(context, MaterialPageRoute(
+                  builder: (_) => const NotificationScreen(),
+                ));
+              },
+              child: Badge(
+                isLabelVisible: notifProv.unreadCount > 0,
+                label: Text(
+                  notifProv.unreadCount > 99 ? '99+' : '${notifProv.unreadCount}',
+                  style: const TextStyle(fontSize: 10, color: Colors.white),
+                ),
+                backgroundColor: AppTheme.errorColor,
+                child: Icon(Icons.notifications_outlined,
+                    size: AppIconSize.lg,
+                    color: AppTheme.textPrimaryOf(context)),
+              ),
+            );
+          },
+        ),
+        if (hasChatTab) ...[
+          AppSpacing.hMd,
+          GestureDetector(
+            onTap: () => context.push('/account'),
+            child: Icon(Icons.person_outline,
+                size: AppIconSize.lg,
+                color: AppTheme.textPrimaryOf(context)),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _orgGreeting(dynamic user, bool isDark, Widget headerIcons) {
     return Container(
       decoration: BoxDecoration(
         color: AppTheme.cardOf(context),
@@ -289,62 +341,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
-              Consumer<ChatProvider>(
-                builder: (ctx, chatProv, _) {
-                  final unread = chatProv.totalUnreadCount;
-                  return GestureDetector(
-                    onTap: () => context.push('/chat'),
-                    child: Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: AppTheme.surfaceOf(context),
-                        borderRadius: AppRadius.md,
-                      ),
-                      child: Badge(
-                        isLabelVisible: unread > 0,
-                        label: Text(
-                          unread > 99 ? '99+' : '$unread',
-                          style: const TextStyle(fontSize: 10, color: Colors.white),
-                        ),
-                        backgroundColor: AppTheme.accentColor,
-                        child: Icon(Icons.chat_outlined,
-                            color: AppTheme.textPrimaryOf(context)),
-                      ),
-                    ),
-                  );
-                },
-              ),
-              AppSpacing.hSm,
-              Consumer<NotificationProvider>(
-                builder: (ctx, notifProv, _) {
-                  return GestureDetector(
-                    onTap: () {
-                      Navigator.push(context, MaterialPageRoute(
-                        builder: (_) => const NotificationScreen(),
-                      ));
-                    },
-                    child: Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: AppTheme.surfaceOf(context),
-                        borderRadius: AppRadius.md,
-                      ),
-                      child: Badge(
-                        isLabelVisible: notifProv.unreadCount > 0,
-                        label: Text(
-                          notifProv.unreadCount > 99 ? '99+' : '${notifProv.unreadCount}',
-                          style: const TextStyle(fontSize: 10, color: Colors.white),
-                        ),
-                        backgroundColor: AppTheme.errorColor,
-                        child: Icon(Icons.notifications_outlined,
-                            color: AppTheme.textPrimaryOf(context)),
-                      ),
-                    ),
-                  );
-                },
-              ),
+              headerIcons,
             ],
           )
               .animate()
@@ -357,6 +354,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _navItem(int index, IconData activeIcon, IconData icon, String label) {
     final isActive = _navIndex == index;
+    final auth = context.read<AuthProvider>();
+    final user = auth.user;
+    final hasChatTab = (user != null && (user.isOrganizer || user.isAdmin)) ||
+        (user != null && user.isSponsor);
+
     return GestureDetector(
       onTap: () {
         if (_navIndex == index) return;
@@ -367,7 +369,9 @@ class _HomeScreenState extends State<HomeScreen> {
             _exploreInitialGenre = null;
           }
         });
-        const tabNames = ['home', 'explore', 'manage', 'profile'];
+        final tabNames = hasChatTab
+            ? ['home', 'explore', 'manage', 'channel']
+            : ['home', 'explore', 'manage', 'profile'];
         final tab = tabNames[index];
         context.go(tab == 'home' ? '/' : '/?tab=$tab');
       },

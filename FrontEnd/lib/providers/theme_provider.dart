@@ -17,14 +17,15 @@ class ThemeProvider extends ChangeNotifier {
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
     final stored = prefs.getString(_key);
-    if (stored == 'dark') {
-      _mode = ThemeMode.dark;
-    } else if (stored == 'system') {
-      _mode = ThemeMode.system;
-    } else {
-      _mode = ThemeMode.light;
+    final newMode = switch (stored) {
+      'dark' => ThemeMode.dark,
+      'system' => ThemeMode.system,
+      _ => ThemeMode.light,
+    };
+    if (newMode != _mode) {
+      _mode = newMode;
+      notifyListeners();
     }
-    notifyListeners();
   }
 
   Future<void> setMode(ThemeMode mode) async {

@@ -262,6 +262,12 @@ class AppDatabase extends _$AppDatabase {
         .get();
   }
 
+  Future<int> deleteEventsNotInStatuses(Set<String> statuses) {
+    return (delete(cachedEvents)
+          ..where((e) => e.status.isNotIn(statuses)))
+        .go();
+  }
+
   Future<List<CachedEvent>> getAllCachedEvents({int limit = 100}) {
     return (select(cachedEvents)
           ..orderBy([(e) => OrderingTerm.desc(e.startTime)])

@@ -100,7 +100,9 @@ Single WS connection per user, multiplexed across bid channels.
 
 | Path                      | Auth           | Purpose          |
 |---------------------------|----------------|------------------|
-| /chat/ws/chat?token=JWT   | Firebase token | Real-time chat   |
+| /chat/ws/chat             | Firebase token (query param optional, or first message) | Real-time chat   |
+
+**WebSocket authentication:** Connection is accepted first; then the user is authenticated either by the optional query parameter `token` (backward compatibility) or by the **first message**: client sends `{"type": "auth", "token": "<firebase-jwt>"}` within 10 seconds. This keeps the token out of the URL and browser logs. If auth fails, the server closes with code 4001. Frontend `ChatSocketService` connects to `ws/chat` without a query token and sends the auth message immediately after connect.
 
 ---
 
@@ -196,6 +198,7 @@ chat_service.send_message()
 ### Frontend
 
 - **Connection lifecycle:** Chat WebSocket connection and disconnection are driven by user authentication state (e.g. in `main.dart`: connect when authenticated, disconnect when signed out or token invalid). Ensures the socket is not left open when the user is logged out and avoids redundant connects.
+- **Auth via first message:** To avoid putting the token in the URL (and in browser history/logs), the client connects to `/chat/ws/chat` without a query parameter and sends the first message `{"type": "auth", "token": "<firebase-jwt>"}`. The server accepts the connection, then authenticates via that first message (or optional query `token`); if neither succeeds within 10s, it closes with code 4001.
 - **Re-join on reconnect:** `ChatSocketService` keeps a set `_joinedBids` of currently joined bid IDs. On `join(bidId)` the bid is added and a join message sent; on `leave(bidId)` the bid is removed and a leave message sent. After a successful WebSocket connect (including auto-reconnect), the service re-sends `join` for every bid in `_joinedBids` so the user is re-subscribed to all active chats without the UI re-calling join. On `disconnect()`, `_joinedBids` is cleared.
 - **BidChatScreen:** Holds a single `ChatProvider` reference (`late final _chat`) read in `initState` and uses it for join, leave, loadHistory, messagesFor, markRead, sendMessage, sendTypingIndicator, clearBid—reducing redundant `context.read<ChatProvider>()` and improving state management. History load uses `if (mounted)` before `setState` after the async load.
 

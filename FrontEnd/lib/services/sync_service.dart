@@ -63,6 +63,8 @@ class SyncService {
       final items = result['items'] as List? ?? [];
       final now = DateTime.now();
       for (final item in items) {
+        final status = item['status'] as String? ?? '';
+        if (!_cacheableStatuses.contains(status)) continue;
         await db.upsertEvent(CachedEventsCompanion.insert(
           id: Value(item['id'] as int),
           title: Value(item['title'] as String? ?? ''),
@@ -82,6 +84,8 @@ class SyncService {
           syncedAt: now,
         ));
       }
+      // Purge cached events no longer in cacheable statuses
+      await db.deleteEventsNotInStatuses(_cacheableStatuses);
       final nextCursor = result['next_cursor'] as String?;
       await db.updateSyncMeta('cached_events', cursor: nextCursor);
     } catch (e) {

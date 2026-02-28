@@ -53,27 +53,41 @@ void main() async {
   runApp(const CrowdFundApp());
 }
 
-class CrowdFundApp extends StatelessWidget {
+class CrowdFundApp extends StatefulWidget {
   const CrowdFundApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final apiService = ApiService();
-    final chatSocket = ChatSocketService();
-    final appDatabase = AppDatabase();
-    final syncService = SyncService(db: appDatabase, api: apiService);
+  State<CrowdFundApp> createState() => _CrowdFundAppState();
+}
 
+class _CrowdFundAppState extends State<CrowdFundApp> {
+  late final ApiService _apiService;
+  late final ChatSocketService _chatSocket;
+  late final AppDatabase _appDatabase;
+  late final SyncService _syncService;
+
+  @override
+  void initState() {
+    super.initState();
+    _apiService = ApiService();
+    _chatSocket = ChatSocketService();
+    _appDatabase = AppDatabase();
+    _syncService = SyncService(db: _appDatabase, api: _apiService);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        Provider<ApiService>.value(value: apiService),
-        Provider<ChatSocketService>.value(value: chatSocket),
-        Provider<AppDatabase>.value(value: appDatabase),
-        Provider<SyncService>.value(value: syncService),
-        ChangeNotifierProvider(create: (_) => AuthProvider(apiService)),
-        ChangeNotifierProvider(create: (_) => EventProvider(apiService)),
-        ChangeNotifierProvider(create: (_) => ConfigProvider(apiService)..fetchConfig()),
-        ChangeNotifierProvider(create: (_) => NotificationProvider(apiService)),
-        ChangeNotifierProvider(create: (_) => ChatProvider(apiService, chatSocket)),
+        Provider<ApiService>.value(value: _apiService),
+        Provider<ChatSocketService>.value(value: _chatSocket),
+        Provider<AppDatabase>.value(value: _appDatabase),
+        Provider<SyncService>.value(value: _syncService),
+        ChangeNotifierProvider(create: (_) => AuthProvider(_apiService)),
+        ChangeNotifierProvider(create: (_) => EventProvider(_apiService)),
+        ChangeNotifierProvider(create: (_) => ConfigProvider(_apiService)..fetchConfig()),
+        ChangeNotifierProvider(create: (_) => NotificationProvider(_apiService)),
+        ChangeNotifierProvider(create: (_) => ChatProvider(_apiService, _chatSocket)),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
       ],
       child: const _AppShell(),
@@ -169,10 +183,9 @@ class _AppShellState extends State<_AppShell> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final authProvider = context.watch<AuthProvider>();
-    final themeProvider = context.watch<ThemeProvider>();
-
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final authProvider = context.read<AuthProvider>();
     final isAuth = authProvider.isAuthenticated;
     if (isAuth != _wasAuthenticated) {
       _wasAuthenticated = isAuth;
@@ -191,6 +204,12 @@ class _AppShellState extends State<_AppShell> {
         }
       });
     }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+    final themeProvider = context.watch<ThemeProvider>();
 
     _router ??= createRouter(authProvider);
 

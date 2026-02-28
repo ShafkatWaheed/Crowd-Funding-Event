@@ -24,6 +24,7 @@
   - `get_logger(name: str) -> logging.Logger` — returns a named logger (e.g. `api.auth`, `svc.ticket.sales`). Used by all API and service modules.
   - `log_step(logger, msg, *args, **extra_fields)` — logs at INFO with `[STEP] ` prefix and optional structured fields (e.g. `user_id`, `event_id`) for step-style tracing.
   - `JSONFormatter` — formats each record as a single JSON line: `time`, `level`, `logger`, `msg`, plus any `extra` keys (and `exception` when present). Ready for OpenSearch/Loki ingestion.
+  - **Token redaction:** `_redact(text)` and `_RedactTokenFilter` replace `token=...` values in log messages with `token=[REDACTED]` so JWT and query tokens are never written to stdout. `setup_logging()` attaches the filter to the root logger’s handlers and to `uvicorn`, `uvicorn.access`, and `uvicorn.error` handlers so access logs and application logs both redact tokens.
 
 ## Models and DB
 

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import '../services/api_service.dart';
@@ -131,6 +132,14 @@ class NotificationProvider extends ChangeNotifier {
   }
 
   Future<void> _registerToken(String token) async {
+    // Wait for Firebase Auth to be ready so the Dio interceptor can attach the ID token.
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    try {
+      await user.getIdToken();
+    } catch (_) {
+      return;
+    }
     final platform = kIsWeb ? 'web' : (defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android');
     try {
       await _api.post('/me/device-tokens', {'token': token, 'platform': platform});

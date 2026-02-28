@@ -62,6 +62,7 @@ flowchart LR
 
 - **Drawer navigation:** Dashboard uses a drawer for section switching: Events, Financial, Email, Settings, Mock, ARQ Control, KYC Review (in addition to bottom/section tabs where applicable).
 - **Dedicated admin routes:** Router registers `/admin/escrow-pipeline` → `AdminEscrowPipelineScreen` (full-screen escrow pipeline; Banking tab links via "View pipeline"); `/admin/run-logs` → `AdminRunLogsScreen` (full-screen ARQ run log; ARQ Control tab links). Payouts and Transactions screens remain at `/admin/payouts` and `/admin/transactions`.
+- **Admin UI polish:** Admin screens (dashboard, payouts, transactions, escrow pipeline, run logs, user detail, and tabs: ARQ, email, events, financial, home, KYC, mock, settings; banking sub-tabs) use theme-based shimmer highlight colors (`AppTheme.shimmerHighlightOf`) for loading placeholders. Toggle components across admin tabs use `activeTrackColor` for clearer on/off feedback. Data handling simplified in admin dashboard and transactions screens (unnecessary type casting removed).
 
 ## Improvements
 

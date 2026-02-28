@@ -28,6 +28,7 @@ class BidChatScreen extends StatefulWidget {
 class _BidChatScreenState extends State<BidChatScreen> {
   final _inputController = TextEditingController();
   final _scrollController = ScrollController();
+  late final ChatProvider _chat;
   bool _isLoadingHistory = false;
   Timer? _typingTimer;
   bool _isSendingTyping = false;
@@ -35,28 +36,27 @@ class _BidChatScreenState extends State<BidChatScreen> {
   @override
   void initState() {
     super.initState();
-    final chat = context.read<ChatProvider>();
-    chat.joinBid(widget.bidId);
+    _chat = context.read<ChatProvider>();
+    _chat.joinBid(widget.bidId);
     _loadInitialHistory();
     _scrollController.addListener(_onScroll);
   }
 
   Future<void> _loadInitialHistory() async {
     setState(() => _isLoadingHistory = true);
-    await context.read<ChatProvider>().loadHistory(widget.bidId);
+    await _chat.loadHistory(widget.bidId);
     _markLatestRead();
-    setState(() => _isLoadingHistory = false);
+    if (mounted) setState(() => _isLoadingHistory = false);
   }
 
   void _onScroll() {
     if (_scrollController.position.pixels >=
             _scrollController.position.maxScrollExtent - 50 &&
         !_isLoadingHistory) {
-      final messages = context.read<ChatProvider>().messagesFor(widget.bidId);
+      final messages = _chat.messagesFor(widget.bidId);
       if (messages.isNotEmpty) {
         setState(() => _isLoadingHistory = true);
-        context
-            .read<ChatProvider>()
+        _chat
             .loadHistory(widget.bidId, before: messages.last.id)
             .then((_) {
           if (mounted) setState(() => _isLoadingHistory = false);
@@ -66,9 +66,9 @@ class _BidChatScreenState extends State<BidChatScreen> {
   }
 
   void _markLatestRead() {
-    final messages = context.read<ChatProvider>().messagesFor(widget.bidId);
+    final messages = _chat.messagesFor(widget.bidId);
     if (messages.isNotEmpty) {
-      context.read<ChatProvider>().markRead(widget.bidId, messages.first.id);
+      _chat.markRead(widget.bidId, messages.first.id);
     }
   }
 
@@ -78,11 +78,11 @@ class _BidChatScreenState extends State<BidChatScreen> {
     final userId = context.read<AuthProvider>().user?.id;
     if (userId == null) return;
 
-    context.read<ChatProvider>().sendMessage(widget.bidId, body, userId);
+    _chat.sendMessage(widget.bidId, body, userId);
     _inputController.clear();
     _typingTimer?.cancel();
     if (_isSendingTyping) {
-      context.read<ChatProvider>().sendTypingIndicator(widget.bidId, false);
+      _chat.sendTypingIndicator(widget.bidId, false);
       _isSendingTyping = false;
     }
   }
@@ -90,21 +90,21 @@ class _BidChatScreenState extends State<BidChatScreen> {
   void _onTextChanged(String text) {
     if (!_isSendingTyping && text.isNotEmpty) {
       _isSendingTyping = true;
-      context.read<ChatProvider>().sendTypingIndicator(widget.bidId, true);
+      _chat.sendTypingIndicator(widget.bidId, true);
     }
     _typingTimer?.cancel();
     _typingTimer = Timer(const Duration(seconds: 2), () {
       if (_isSendingTyping) {
         _isSendingTyping = false;
-        context.read<ChatProvider>().sendTypingIndicator(widget.bidId, false);
+        _chat.sendTypingIndicator(widget.bidId, false);
       }
     });
   }
 
   @override
   void dispose() {
-    context.read<ChatProvider>().leaveBid(widget.bidId);
-    context.read<ChatProvider>().clearBid(widget.bidId);
+    _chat.leaveBid(widget.bidId);
+    _chat.clearBid(widget.bidId);
     _inputController.dispose();
     _scrollController.dispose();
     _typingTimer?.cancel();

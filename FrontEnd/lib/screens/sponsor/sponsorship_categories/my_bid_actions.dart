@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
@@ -172,6 +173,17 @@ class _MyBidActionsState extends State<MyBidActions> {
               ],
             ),
           ),
+          if (_status == 'pending' || _status == 'accepted' || _status == 'paid')
+            IconButton(
+              onPressed: () => context.push(
+                '/chat/bid/$_bidId?name=Organizer&writable=${_status != 'rejected'}',
+              ),
+              icon: const Icon(Icons.chat_outlined, size: 20),
+              color: AppTheme.accentColor,
+              tooltip: 'Chat with Organizer',
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              padding: EdgeInsets.zero,
+            ),
           if (_busy)
             const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
           else ...[

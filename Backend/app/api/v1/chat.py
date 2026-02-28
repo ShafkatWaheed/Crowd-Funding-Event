@@ -93,8 +93,14 @@ async def ws_chat(ws: WebSocket, token: str = Query(...)):
                         pass
             except asyncio.CancelledError:
                 pass
+            except Exception:
+                logger.warning("Pubsub listener crashed for user=%d", user.id)
 
-        pubsub_task = asyncio.create_task(_listen_pubsub())
+        def _ensure_pubsub_task():
+            """Start or restart the pubsub listener task if it's not running."""
+            nonlocal pubsub_task
+            if pubsub_task is None or pubsub_task.done():
+                pubsub_task = asyncio.create_task(_listen_pubsub())
 
         while True:
             try:
@@ -127,12 +133,14 @@ async def ws_chat(ws: WebSocket, token: str = Query(...)):
                         ctx = await chat_service.validate_participant(db, bid_id, user.id)
                     await pubsub.subscribe(f"chat:bid:{bid_id}")
                     joined_bids.add(bid_id)
+                    _ensure_pubsub_task()
                     await ws.send_json({
                         "type": "joined",
                         "bid_id": bid_id,
                         "is_writable": ctx["is_writable"],
                     })
-                except ValueError as e:
+                except Exception as e:
+                    logger.warning("Join error bid=%s user=%d: %s", bid_id, user.id, e)
                     await ws.send_json({"type": "error", "detail": str(e)})
 
             elif msg_type == "leave":
@@ -184,10 +192,14 @@ async def ws_chat(ws: WebSocket, token: str = Query(...)):
                             else ctx["sponsor_user_id"]
                         )
                         if recipient_id not in _connections:
-                            await _send_offline_push(db, recipient_id, user, body, bid_id)
-                            await db.commit()
+                            try:
+                                await _send_offline_push(db, recipient_id, user, body, bid_id)
+                                await db.commit()
+                            except Exception:
+                                logger.warning("Failed to send offline push for bid=%d", bid_id)
 
-                except ValueError as e:
+                except Exception as e:
+                    logger.exception("Send error bid=%d user=%d: %s", bid_id, user.id, e)
                     await ws.send_json({"type": "error", "detail": str(e)})
 
             elif msg_type == "ack":

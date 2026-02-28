@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -115,6 +116,20 @@ class _AppShellState extends State<_AppShell> {
     });
   }
 
+  Future<void> _connectChat() async {
+    final firebaseUser = FirebaseAuth.instance.currentUser;
+    if (firebaseUser == null) return;
+    final token = await firebaseUser.getIdToken();
+    if (token == null || !mounted) return;
+    context.read<ChatSocketService>().connect(token);
+    context.read<ChatProvider>().startListening();
+  }
+
+  void _disconnectChat() {
+    context.read<ChatProvider>().stopListening();
+    context.read<ChatSocketService>().disconnect();
+  }
+
   void _teardownFcm(NotificationProvider notifProvider) {
     if (!_fcmInitialized) return;
     _fcmInitialized = false;
@@ -145,9 +160,11 @@ class _AppShellState extends State<_AppShell> {
         if (isAuth) {
           notifProvider.startPolling();
           _setupFcmListeners(notifProvider);
+          _connectChat();
         } else {
           notifProvider.stopPolling();
           _teardownFcm(notifProvider);
+          _disconnectChat();
         }
       });
     }

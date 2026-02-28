@@ -15,6 +15,9 @@ class ChatSocketService {
   int _backoff = 1;
   bool _disposed = false;
 
+  /// Track which bids are currently joined so we can re-join on reconnect.
+  final Set<int> _joinedBids = {};
+
   final _controller = StreamController<Map<String, dynamic>>.broadcast();
   Stream<Map<String, dynamic>> get messages => _controller.stream;
   bool get isConnected => _channel != null;
@@ -60,7 +63,12 @@ class ChatSocketService {
         cancelOnError: false,
       );
 
-      debugPrint('WS connected');
+      // Re-join any bids that were active before a reconnect.
+      for (final bidId in _joinedBids) {
+        _send({'type': 'join', 'bid_id': bidId});
+      }
+
+      debugPrint('WS connected (rejoining ${_joinedBids.length} bids)');
     } catch (e) {
       debugPrint('WS connect failed: $e');
       _scheduleReconnect();
@@ -84,8 +92,15 @@ class ChatSocketService {
     }
   }
 
-  void join(int bidId) => _send({'type': 'join', 'bid_id': bidId});
-  void leave(int bidId) => _send({'type': 'leave', 'bid_id': bidId});
+  void join(int bidId) {
+    _joinedBids.add(bidId);
+    _send({'type': 'join', 'bid_id': bidId});
+  }
+
+  void leave(int bidId) {
+    _joinedBids.remove(bidId);
+    _send({'type': 'leave', 'bid_id': bidId});
+  }
 
   void sendMessage(int bidId, String body, String clientId) {
     _send({
@@ -120,6 +135,7 @@ class ChatSocketService {
   void disconnect() {
     _disposed = true;
     _reconnectTimer?.cancel();
+    _joinedBids.clear();
     _cleanup();
   }
 

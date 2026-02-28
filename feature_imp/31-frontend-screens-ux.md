@@ -7,7 +7,7 @@
 
 ## Frontend flow
 
-- **Screen/Widget:** `HomeScreen` (tabs: Home, Explore, Manage/My Events, Profile); FAB "New Event" (organizer/admin); bottom nav; inner screens (event detail, create, edit, venues, ticket strategies, admin, etc.) with close (X) and safe pop. Create Event: 5-step wizard (IndexedStack). Toasts: AppToast (success, error, warning, info).
+- **Screen/Widget:** `HomeScreen` (tabs: Home, Explore, Manage/My Events, Profile); FAB "New Event" (organizer/admin); bottom nav; inner screens (event detail, create, edit, venues, ticket strategies, admin, etc.) with close (X) and safe pop. Create Event: 5-step wizard (IndexedStack). Toasts: AppToast (success, error, warning, info). Loading: `LoadingSwitcher` (animated transition between shimmer placeholder and content); shimmer loaders use `AppTheme.shimmerOf` and `AppTheme.shimmerHighlightOf` for dark/light consistency.
 - **User action:** Switch tabs; tap cards to open detail; tap X to close (pop to previous tab/page); next/back in wizard; trigger toasts on success/error.
 - **API calls:** Various (each screen calls its own APIs). Router and navigation do not call API directly; ApiService used by providers/screens. Error extraction: ApiService.extractError for backend detail message.
 
@@ -52,6 +52,12 @@ flowchart LR
 
 - Safe pop: ensure back stack does not leave user on broken state (e.g. after logout, clear stack). Deep links (e.g. /events/123) should resolve with auth.
 - No sensitive data in route path (event id is fine); query params (e.g. tab=explore) for tab index.
+
+## Recently implemented (theme, loading, admin UI)
+
+- **Theme:** `AppTheme.shimmerHighlightOf(context)` — dark `0xFF3A3A3A`, light `0xFFF5F5F5`; used by shimmer loaders for consistent highlight in dark/light mode. Shimmer loaders (`shimmer_loaders.dart`) now use `AppTheme.shimmerOf` and `AppTheme.shimmerHighlightOf` instead of hardcoded colors.
+- **LoadingSwitcher:** New widget (`widgets/loading_switcher.dart`) wrapping `AnimatedSwitcher` for smooth transition between a loading placeholder (e.g. shimmer) and content. Uses `ValueKey` on loading vs content; duration `AppDuration.normal`, curves `AppCurve.enter`/`exit`. Used in event receipt screens (ticket, pledge, purchase group) and elsewhere for loading-state UX.
+- **Admin UI:** Admin screens use the new shimmer highlight colors; toggle components across admin tabs use `activeTrackColor` for clearer visual feedback; admin dashboard and transactions screens simplified data handling (removed unnecessary type casting).
 
 ## Improvements
 

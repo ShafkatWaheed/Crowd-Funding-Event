@@ -28,6 +28,7 @@ class EventMapWidget extends StatefulWidget {
   final String? search;
   final String? genre;
   final String? status;
+  final String? city;
 
   const EventMapWidget({
     super.key,
@@ -37,6 +38,7 @@ class EventMapWidget extends StatefulWidget {
     this.search,
     this.genre,
     this.status,
+    this.city,
   });
 
   @override
@@ -64,6 +66,7 @@ class _EventMapWidgetState extends State<EventMapWidget> {
     if (oldWidget.search != widget.search ||
         oldWidget.genre != widget.genre ||
         oldWidget.status != widget.status ||
+        oldWidget.city != widget.city ||
         oldWidget.organizerId != widget.organizerId) {
       _loadEvents();
     }
@@ -97,6 +100,7 @@ class _EventMapWidgetState extends State<EventMapWidget> {
         search: widget.search,
         genre: widget.genre,
         status: widget.status,
+        city: widget.city,
       );
       if (mounted) {
         setState(() {

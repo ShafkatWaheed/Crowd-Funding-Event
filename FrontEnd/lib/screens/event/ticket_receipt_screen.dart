@@ -21,6 +21,7 @@ class TicketReceiptScreen extends StatefulWidget {
   final int saleId;
   final bool showBuyAgain;
   final VoidCallback? onBuyAgain;
+  final bool isOrganizer;
 
   const TicketReceiptScreen({
     super.key,
@@ -28,6 +29,7 @@ class TicketReceiptScreen extends StatefulWidget {
     required this.saleId,
     this.showBuyAgain = false,
     this.onBuyAgain,
+    this.isOrganizer = false,
   });
 
   @override
@@ -98,6 +100,49 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
                 )
               : _buildReceipt(),
     );
+  }
+
+  Future<void> _requestRefund() async {
+    final r = _receipt!;
+    final receiptNumber = r['receipt_number'] ?? '';
+    final amountCents = (r['amount_paid_cents'] ?? 0) as int;
+    final amountStr = '\$${(amountCents / 100).toStringAsFixed(2)}';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Request Refund'),
+        content: Text(
+          'Request a refund for ticket $receiptNumber ($amountStr)?\n\n'
+          'The organizer will review your request.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorColor),
+            child: const Text('Request Refund'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      final api = context.read<ApiService>();
+      await api.requestTicketRefund(widget.eventId!, widget.saleId);
+      if (mounted) {
+        AppToast.success(context, 'Refund request sent to organizer');
+        _load();
+      }
+    } catch (e) {
+      if (mounted) {
+        AppToast.fromError(context, e, fallback: 'Refund request failed');
+      }
+    }
   }
 
   Widget _buildReceipt() {
@@ -291,7 +336,7 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
                       _sectionLabel('TICKET'),
                       const SizedBox(height: 8),
                       _detailRow(context, 'Tier', tierName),
-                      _detailRow(context, 'Ticket Code', ticketCode, copyable: true),
+                      _detailRow(context, 'Ticket Code', ticketCode, copyable: !widget.isOrganizer),
                       if (purchasedAt != null)
                         _detailRow(context, 'Purchased', AppDateFormat.fullDateTime(purchasedAt)),
                       if (scannedAt != null)
@@ -299,60 +344,62 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
                       if (extraPerks != null && extraPerks.toString().isNotEmpty)
                         _detailRow(context, 'Extra Perks', extraPerks.toString()),
 
-                      const SizedBox(height: 20),
+                      if (!widget.isOrganizer) ...[
+                        const SizedBox(height: 20),
 
-                      // QR Code
-                      Center(
-                        child: Column(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: AppTheme.cardOf(context),
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(color: AppTheme.dividerOf(context)),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.04),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 2),
+                        // QR Code
+                        Center(
+                          child: Column(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.cardOf(context),
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(color: AppTheme.dividerOf(context)),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.04),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: QrImageView(
+                                  data: r['encrypted_qr_payload'] ?? jsonEncode({
+                                    'receipt_number': receiptNumber,
+                                    'event_id': r['event_id'],
+                                    'user_id': userId,
+                                    'sale_id': saleId,
+                                    'ticket_code': ticketCode,
+                                  }),
+                                  version: QrVersions.auto,
+                                  size: 160,
+                                  gapless: true,
+                                  eyeStyle: QrEyeStyle(
+                                    eyeShape: QrEyeShape.square,
+                                    color: Theme.of(context).brightness == Brightness.dark
+                                        ? Colors.white
+                                        : Colors.black,
                                   ),
-                                ],
-                              ),
-                              child: QrImageView(
-                                data: r['encrypted_qr_payload'] ?? jsonEncode({
-                                  'receipt_number': receiptNumber,
-                                  'event_id': r['event_id'],
-                                  'user_id': userId,
-                                  'sale_id': saleId,
-                                  'ticket_code': ticketCode,
-                                }),
-                                version: QrVersions.auto,
-                                size: 160,
-                                gapless: true,
-                                eyeStyle: QrEyeStyle(
-                                  eyeShape: QrEyeShape.square,
-                                  color: Theme.of(context).brightness == Brightness.dark
-                                      ? Colors.white
-                                      : Colors.black,
-                                ),
-                                dataModuleStyle: QrDataModuleStyle(
-                                  dataModuleShape: QrDataModuleShape.square,
-                                  color: Theme.of(context).brightness == Brightness.dark
-                                      ? Colors.white
-                                      : Colors.black,
+                                  dataModuleStyle: QrDataModuleStyle(
+                                    dataModuleShape: QrDataModuleShape.square,
+                                    color: Theme.of(context).brightness == Brightness.dark
+                                        ? Colors.white
+                                        : Colors.black,
+                                  ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text('Scan for entry',
-                                style: TextStyle(
-                                    fontSize: 11,
-                                    color: AppTheme.textSecondaryOf(context),
-                                    fontWeight: FontWeight.w500)),
-                          ],
+                              const SizedBox(height: 8),
+                              Text('Scan for entry',
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      color: AppTheme.textSecondaryOf(context),
+                                      fontWeight: FontWeight.w500)),
+                            ],
+                          ),
                         ),
-                      ),
+                      ],
 
                       const SizedBox(height: 20),
 
@@ -450,6 +497,24 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
               ],
             ),
           ),
+
+          // ── Request Refund link (customer-only, purchased + unscanned) ──
+          if (!widget.isOrganizer &&
+              status == 'purchased' &&
+              scannedAt == null &&
+              widget.eventId != null) ...[
+            const SizedBox(height: 12),
+            Center(
+              child: TextButton(
+                onPressed: _requestRefund,
+                style: TextButton.styleFrom(
+                  foregroundColor: AppTheme.textSecondaryOf(context),
+                  textStyle: const TextStyle(fontSize: 12),
+                ),
+                child: const Text('Request Refund'),
+              ),
+            ),
+          ],
 
           // ── Buy Another Ticket button ──
           if (widget.showBuyAgain) ...[

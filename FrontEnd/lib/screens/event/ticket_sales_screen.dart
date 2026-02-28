@@ -441,6 +441,7 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
           builder: (_) => TicketReceiptScreen(
             eventId: widget.eventId,
             saleId: saleId,
+            isOrganizer: true,
           ),
         ),
       ),

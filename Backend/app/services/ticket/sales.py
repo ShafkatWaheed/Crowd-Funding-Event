@@ -294,12 +294,20 @@ async def get_ticket_receipt(
 async def list_my_tickets(
     db: AsyncSession, *, user_id: int, offset: int = 0, limit: int = 20,
 ) -> Sequence[TicketSale]:
-    """List ticket sales for a user (purchased + waitlisted)."""
+    """List ticket sales for a user (all statuses visible to customer)."""
     q = (
         select(TicketSale)
         .where(
             TicketSale.user_id == user_id,
-            TicketSale.status.in_([TicketSaleStatus.purchased, TicketSaleStatus.waitlisted]),
+            TicketSale.status.in_([
+                TicketSaleStatus.purchased,
+                TicketSaleStatus.waitlisted,
+                TicketSaleStatus.refund_requested,
+                TicketSaleStatus.refund_processing,
+                TicketSaleStatus.refunded,
+                TicketSaleStatus.refund_failed,
+                TicketSaleStatus.cancelled,
+            ]),
         )
         .options(
             selectinload(TicketSale.event),

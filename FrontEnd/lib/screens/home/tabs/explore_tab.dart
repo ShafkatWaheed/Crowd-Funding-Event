@@ -662,6 +662,7 @@ class _ExploreTabState extends State<ExploreTab> {
                       : null,
                   genre: _selectedGenre,
                   status: _selectedStatus,
+                  city: _selectedCity,
                 ),
               ),
             )

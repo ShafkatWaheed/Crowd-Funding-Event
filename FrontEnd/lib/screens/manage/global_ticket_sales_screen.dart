@@ -325,6 +325,7 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
                   builder: (_) => TicketReceiptScreen(
                     eventId: eventId,
                     saleId: saleId,
+                    isOrganizer: true,
                   ),
                 ),
               )

@@ -73,6 +73,13 @@ def _ticket_sale_to_response(sale) -> TicketSaleResponse:
     )
 
 
+def _ticket_sale_to_organizer_response(sale) -> TicketSaleResponse:
+    """Build TicketSaleResponse with QR payload stripped (organizer view)."""
+    resp = _ticket_sale_to_response(sale)
+    resp.encrypted_qr_payload = None
+    return resp
+
+
 @router.get("/{event_id}/ticket-tiers", response_model=list[TicketTierResponse])
 async def list_ticket_tiers(event_id: int, db: DbSession):
     """List ticket tiers for an event (public), with sold and reserved counts."""
@@ -282,7 +289,7 @@ async def list_refund_requests(
     if not await event_service.user_can_edit_event(db, event, current_user):
         raise ForbiddenError("You cannot manage refunds for this event")
     sales = await ticket_service.list_refund_requests(db, event_id=event_id)
-    return [_ticket_sale_to_response(s) for s in sales]
+    return [_ticket_sale_to_organizer_response(s) for s in sales]
 
 
 @router.post("/{event_id}/tickets/{ticket_id}/approve-refund", response_model=TicketSaleResponse)
@@ -317,7 +324,7 @@ async def approve_ticket_refund(
                 amount_cents=sale.amount_paid_cents,
                 receipt_number=sale.receipt_number or "",
             )
-    return _ticket_sale_to_response(sale)
+    return _ticket_sale_to_organizer_response(sale)
 
 
 @router.post("/{event_id}/tickets/{ticket_id}/reject-refund", response_model=TicketSaleResponse)
@@ -339,7 +346,7 @@ async def reject_ticket_refund(
             message=f"Your ticket refund request for \"{sale.event.title if sale.event else 'the event'}\" was rejected.",
             data={"event_id": event_id, "ticket_sale_id": ticket_id},
         )
-    return _ticket_sale_to_response(sale)
+    return _ticket_sale_to_organizer_response(sale)
 
 
 @router.post("/{event_id}/scan-ticket", response_model=ScanTicketResponse)
@@ -371,7 +378,7 @@ async def scan_ticket(
     sale, already_scanned = await ticket_service.scan_ticket(
         db, event_id=event_id, ticket_code=ticket_code, scanned_by_user=current_user,
     )
-    return ScanTicketResponse(already_scanned=already_scanned, ticket=_ticket_sale_to_response(sale))
+    return ScanTicketResponse(already_scanned=already_scanned, ticket=_ticket_sale_to_organizer_response(sale))
 
 
 @router.get("/{event_id}/tickets/{sale_id}/receipt", response_model=TicketReceiptResponse)
@@ -413,6 +420,8 @@ async def get_ticket_receipt(
             organizer_email = organizer.email
             organizer_phone = organizer.phone
 
+    is_organizer_view = current_user.role != UserRole.customer
+
     return TicketReceiptResponse(
         sale_id=sale.id,
         user_id=sale.user_id,
@@ -440,7 +449,7 @@ async def get_ticket_receipt(
         tax_rate=getattr(sale, "tax_rate", 0.0) or 0.0,
         tax_jurisdiction=getattr(sale, "tax_jurisdiction", None) or None,
         extra_perks=sale.extra_perks,
-        encrypted_qr_payload=encrypt_ticket_qr(sale.ticket_code, sale.event_id, sale.id),
+        encrypted_qr_payload=None if is_organizer_view else encrypt_ticket_qr(sale.ticket_code, sale.event_id, sale.id),
         purchased_at=sale.created_at,
         scanned_at=sale.scanned_at,
     )
@@ -553,7 +562,7 @@ async def list_event_ticket_sales(
     if not await event_service.user_can_read_event_mgmt(db, event, current_user):
         raise ForbiddenError("You cannot view ticket sales for this event")
     sales = await ticket_service.list_event_ticket_sales(db, event_id=event_id, offset=offset, limit=limit)
-    return [_ticket_sale_to_response(s) for s in sales]
+    return [_ticket_sale_to_organizer_response(s) for s in sales]
 
 
 @router.get("/{event_id}/scanned-tickets", response_model=list[TicketSaleResponse])
@@ -569,7 +578,7 @@ async def list_event_scanned_tickets(
     if not await event_service.user_can_read_event_mgmt(db, event, current_user):
         raise ForbiddenError("You cannot view scanned tickets for this event")
     sales = await ticket_service.list_event_scanned_ticket_sales(db, event_id=event_id, offset=offset, limit=limit)
-    return [_ticket_sale_to_response(s) for s in sales]
+    return [_ticket_sale_to_organizer_response(s) for s in sales]
 
 
 @router.get("/{event_id}/waitlisted-tickets", response_model=list[TicketSaleResponse])
@@ -583,7 +592,7 @@ async def list_event_waitlisted_tickets(
     if not await event_service.user_can_read_event_mgmt(db, event, current_user):
         raise ForbiddenError("You cannot view waitlisted tickets for this event")
     sales = await ticket_service.list_event_waitlisted_tickets(db, event_id=event_id)
-    return [_ticket_sale_to_response(s) for s in sales]
+    return [_ticket_sale_to_organizer_response(s) for s in sales]
 
 
 @router.post("/{event_id}/waitlisted-tickets/{ticket_id}/approve", response_model=TicketSaleResponse)
@@ -618,7 +627,7 @@ async def approve_waitlisted_ticket(
             ticket_code=sale.ticket_code,
             event_date=event.start_time if event else None,
         )
-    return _ticket_sale_to_response(sale)
+    return _ticket_sale_to_organizer_response(sale)
 
 
 @router.post("/{event_id}/waitlisted-tickets/{ticket_id}/reject", response_model=TicketSaleResponse)
@@ -652,7 +661,7 @@ async def reject_waitlisted_ticket(
         message="Your waitlisted ticket was not approved.",
         data={"event_id": event_id, "ticket_sale_id": ticket_id},
         )
-    return _ticket_sale_to_response(sale)
+    return _ticket_sale_to_organizer_response(sale)
 
 
 @router.get("/{event_id}/capacity-info")

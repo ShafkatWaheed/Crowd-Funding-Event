@@ -97,10 +97,21 @@ Run these in separate terminals. Ensure .env is configured before starting the b
 
   cd Backend
   source venv/bin/activate
+
+  # Foreground (see logs in terminal):
   arq app.worker.main.WorkerSettings
 
+  # Background (logs to file):
+  nohup ./venv/bin/python -m arq app.worker.main.WorkerSettings > /tmp/arq_worker.log 2>&1 &
+
+  # View logs:
+  tail -f /tmp/arq_worker.log
+
+  # Stop:
+  pkill -f "arq app.worker.main.WorkerSettings"
+
   Requires Redis to be running.
-  Handles: email sending, refund processing (13 registered tasks).
+  Handles: email sending, refund processing, escrow, bank verification (26 tasks).
   Run in a separate terminal alongside the backend.
 
 ---
@@ -158,5 +169,6 @@ Run these in separate terminals. Ensure .env is configured before starting the b
   Redis:      sudo docker start redis
 
   ARQ Worker: cd Backend && source venv/bin/activate && arq app.worker.main.WorkerSettings
+  ARQ (bg):   cd Backend && nohup ./venv/bin/python -m arq app.worker.main.WorkerSettings > /tmp/arq_worker.log 2>&1 &
 
   Fix perms:  sudo chown -R $(whoami) /home/shafkat/development/flutter/bin/cache/

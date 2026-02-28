@@ -231,10 +231,9 @@ class _MyEventsTabState extends State<MyEventsTab> {
                 onChanged: (v) => setState(() => _myEventsSearch = v),
               ),
               AppSpacing.vLg,
-              SizedBox(
-                height: 38,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
                   children: widget.genres.map((g) {
                     final isActive = _myEventsGenre == g;
                     return Padding(
@@ -265,10 +264,9 @@ class _MyEventsTabState extends State<MyEventsTab> {
                 ),
               ),
               AppSpacing.vSm,
-              SizedBox(
-                height: 38,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
                   children: _manageVisibleStatuses.map((s) {
                     final isActive = _myEventsStatus == s.name;
                     return Padding(

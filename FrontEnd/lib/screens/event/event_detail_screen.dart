@@ -161,10 +161,12 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     try {
       final api = context.read<ApiService>();
       final data = await api.getMyRegistration(widget.eventId);
-      setState(() {
-        _isRegistered = data['registered'] == true;
-        _regStatus = data['status'];
-      });
+      if (mounted) {
+        setState(() {
+          _isRegistered = data['registered'] == true;
+          _regStatus = data['status'];
+        });
+      }
     } catch (e) {
       debugPrint(e.toString());
     }

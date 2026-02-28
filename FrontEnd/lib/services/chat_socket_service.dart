@@ -35,8 +35,11 @@ class ChatSocketService {
       final base = ApiConfig.baseUrl
           .replaceFirst('http://', 'ws://')
           .replaceFirst('https://', 'wss://');
-      final url = '$base${ApiConfig.apiPrefix}/chat/ws/chat?token=$_token';
+      final url = '$base${ApiConfig.apiPrefix}/chat/ws/chat';
       _channel = WebSocketChannel.connect(Uri.parse(url));
+
+      // Authenticate via first message (keeps token out of URL / browser logs).
+      _send({'type': 'auth', 'token': _token});
 
       _subscription = _channel!.stream.listen(
         (data) {

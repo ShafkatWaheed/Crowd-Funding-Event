@@ -112,6 +112,7 @@ class CachedMyTickets extends Table {
   TextColumn get receiptNumber => text().nullable()();
   TextColumn get tierName => text().nullable()();
   TextColumn get eventTitle => text().nullable()();
+  TextColumn get eventStatus => text().nullable()();
   IntColumn get amountPaidCents => integer().withDefault(const Constant(0))();
   IntColumn get discountAppliedCents => integer().withDefault(const Constant(0))();
   TextColumn get status => text().withDefault(const Constant('purchased'))();
@@ -222,7 +223,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -238,6 +239,9 @@ class AppDatabase extends _$AppDatabase {
       if (from < 3) {
         await m.createTable(cachedSponsorTickets);
         await m.createTable(cachedSponsorDelegates);
+      }
+      if (from < 4) {
+        await m.addColumn(cachedMyTickets, cachedMyTickets.eventStatus);
       }
     },
   );

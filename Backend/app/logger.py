@@ -10,19 +10,43 @@ Usage:
 """
 import json
 import logging
+import re
 import sys
 from datetime import datetime, timezone
+
+_TOKEN_RE = re.compile(r'(token=)[^\s&"]+')
+
+
+def _redact(text: str) -> str:
+    """Replace token values in a string with [REDACTED]."""
+    return _TOKEN_RE.sub(r'\1[REDACTED]', text) if 'token=' in text else text
+
+
+class _RedactTokenFilter(logging.Filter):
+    """Redact JWT tokens from log messages before any formatter sees them."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if record.args:
+            args = record.args if isinstance(record.args, tuple) else (record.args,)
+            record.args = tuple(
+                _TOKEN_RE.sub(r'\1[REDACTED]', a) if isinstance(a, str) and 'token=' in a else a
+                for a in args
+            )
+        if isinstance(record.msg, str) and 'token=' in record.msg:
+            record.msg = _TOKEN_RE.sub(r'\1[REDACTED]', record.msg)
+        return True
 
 
 class JSONFormatter(logging.Formatter):
     """Outputs each log record as a single JSON line (OpenSearch / Loki friendly)."""
 
     def format(self, record: logging.LogRecord) -> str:
+        msg = _redact(record.getMessage())
         payload: dict = {
             "time": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
             "level": record.levelname,
             "logger": record.name,
-            "msg": record.getMessage(),
+            "msg": msg,
         }
         if record.exc_info and record.exc_info[0] is not None:
             payload["exception"] = self.formatException(record.exc_info)
@@ -56,6 +80,15 @@ def setup_logging(level: str = "INFO") -> None:
     else:
         for handler in root.handlers:
             handler.setFormatter(JSONFormatter())
+
+    # Attach redaction filter to all handlers (including uvicorn's own handlers
+    # which have propagate=False and bypass the root handler).
+    _token_filter = _RedactTokenFilter()
+    for handler in root.handlers:
+        handler.addFilter(_token_filter)
+    for name in ("uvicorn", "uvicorn.access", "uvicorn.error"):
+        for handler in logging.getLogger(name).handlers:
+            handler.addFilter(_token_filter)
 
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
     logging.getLogger("uvicorn.error").setLevel(numeric_level)

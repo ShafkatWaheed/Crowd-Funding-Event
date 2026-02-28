@@ -208,9 +208,10 @@ class _ConversationTile extends StatelessWidget {
     final roleLabel = isSponsor ? 'Organizer' : 'Sponsor';
 
     final statusColor = _bidStatusColor(conversation.bidStatus);
-    final timeStr = conversation.lastMessageAt != null
+    final hasMessages = conversation.lastMessageAt != null;
+    final timeStr = hasMessages
         ? _formatTime(conversation.lastMessageAt!)
-        : '';
+        : 'No messages yet';
 
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),

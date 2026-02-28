@@ -7,6 +7,76 @@ import '../../utils/date_time_utils.dart';
 import '../../providers/notification_provider.dart';
 import '../../widgets/shimmer_loaders.dart';
 
+/// Resolves a notification type + data payload to the appropriate route.
+/// Shared between in-app notification taps and FCM push taps.
+String? resolveNotificationRoute(String type, Map<String, dynamic> data) {
+  final eventId = data['event_id'];
+  final bidId = data['bid_id'];
+  final catId = data['category_id'];
+  final saleId = data['ticket_sale_id'];
+
+  switch (type) {
+    // ── Tickets ──
+    case 'ticket_purchased':
+    case 'ticket_waitlist_approved':
+    case 'refund_issued':
+      if (eventId != null && saleId != null) {
+        return '/events/$eventId/tickets/$saleId/receipt';
+      }
+      if (eventId != null) return '/events/$eventId';
+    case 'ticket_waitlist_rejected':
+      if (eventId != null) return '/events/$eventId/ticket-waitlist';
+    case 'ticket_refund_failed':
+      if (eventId != null) return '/events/$eventId/refund-requests';
+
+    // ── Pledges ──
+    case 'pledge_confirmed':
+      return '/my-pledges';
+
+    // ── Sponsors / Bids ──
+    case 'bid_received':
+    case 'bid_accepted':
+    case 'bid_rejected':
+    case 'sponsor_payment_received':
+    case 'sponsor_refunded':
+      if (eventId != null && catId != null) {
+        return '/events/$eventId/sponsorships/$catId/bids';
+      }
+      if (eventId != null) return '/events/$eventId';
+    case 'sponsor_ticket_generated':
+      return '/sponsor/tickets';
+
+    // ── Chat ──
+    case 'chat_message':
+      if (bidId != null) return '/chat/bid/$bidId';
+
+    // ── Co-organizers ──
+    case 'co_organizer_accepted':
+    case 'co_organizer_declined':
+      if (eventId != null) return '/events/$eventId/co-organizers';
+
+    // ── Account / KYC / Banking ──
+    case 'bank_verification_pending':
+    case 'bank_verified':
+    case 'kyc_submitted':
+    case 'kyc_approved':
+    case 'kyc_rejected':
+      return '/account';
+
+    // ── Admin ──
+    case 'escrow_payout_blocked':
+    case 'escrow_unfreeze_warning':
+      return '/admin/escrow-pipeline';
+
+    default:
+      break;
+  }
+
+  // Fallback: any notification with an event_id goes to event detail
+  if (eventId != null) return '/events/$eventId';
+  return null;
+}
+
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
 
@@ -96,24 +166,49 @@ class _NotificationScreenState extends State<NotificationScreen> {
   String _actionHint(String type) {
     switch (type) {
       case 'ticket_purchased':
+      case 'ticket_waitlist_approved':
         return 'View ticket';
+      case 'ticket_waitlist_rejected':
+        return 'View waitlist';
+      case 'refund_issued':
+      case 'ticket_refund_failed':
+        return 'View refund';
       case 'pledge_confirmed':
+        return 'View pledges';
       case 'funding_goal_reached':
       case 'milestone_reached':
-        return 'View pledge';
+      case 'pledge_refund_failed':
+        return 'View event';
       case 'bid_received':
       case 'bid_accepted':
       case 'bid_rejected':
         return 'View bid';
       case 'sponsor_payment_received':
       case 'sponsor_refunded':
-        return 'View payment';
+      case 'sponsor_refund_failed':
+        return 'View sponsorship';
+      case 'sponsor_ticket_generated':
+        return 'View ticket';
+      case 'chat_message':
+        return 'Open chat';
       case 'new_rating_received':
-        return 'See ratings';
+        return 'View event';
       case 'schedule_updated':
         return 'View schedule';
-      case 'refund_issued':
-        return 'View refund';
+      case 'co_organizer_invited':
+      case 'co_organizer_accepted':
+      case 'co_organizer_declined':
+      case 'co_organizer_removed':
+        return 'View event';
+      case 'bank_verification_pending':
+      case 'bank_verified':
+      case 'kyc_submitted':
+      case 'kyc_approved':
+      case 'kyc_rejected':
+        return 'View account';
+      case 'escrow_payout_blocked':
+      case 'escrow_unfreeze_warning':
+        return 'View escrow';
       default:
         return 'View event';
     }
@@ -135,27 +230,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
     final type = notif['type'] as String? ?? '';
     final data = notif['data'] as Map<String, dynamic>? ?? {};
-    final eventId = data['event_id'];
-
-    if (eventId == null) return;
-
-    switch (type) {
-      case 'ticket_purchased':
-        context.push('/events/$eventId');
-      case 'pledge_confirmed':
-      case 'funding_goal_reached':
-        context.push('/events/$eventId');
-      case 'bid_received':
-      case 'bid_accepted':
-      case 'bid_rejected':
-        context.push('/events/$eventId');
-      case 'new_rating_received':
-        context.push('/events/$eventId');
-      case 'schedule_updated':
-        context.push('/events/$eventId');
-      default:
-        context.push('/events/$eventId');
-    }
+    final route = resolveNotificationRoute(type, data);
+    if (route != null) context.push(route);
   }
 
   String _formatTime(String? iso) {

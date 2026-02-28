@@ -81,10 +81,14 @@ class _HomeTabState extends State<HomeTab> {
   }
 
   Future<void> _checkConnectivity() async {
-    final results = await Connectivity().checkConnectivity();
-    final offline = !results.any((r) => r != ConnectivityResult.none);
-    if (mounted && offline != _isOffline) {
-      setState(() => _isOffline = offline);
+    try {
+      final results = await Connectivity().checkConnectivity();
+      final offline = !results.any((r) => r != ConnectivityResult.none);
+      if (mounted && offline != _isOffline) {
+        setState(() => _isOffline = offline);
+      }
+    } catch (_) {
+      // connectivity_plus not available on web — assume online
     }
   }
 

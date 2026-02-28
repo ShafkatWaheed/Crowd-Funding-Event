@@ -60,6 +60,7 @@ flowchart LR
 - **Organizer never sees QR payload:** Backend uses `_ticket_sale_to_organizer_response()` (strips `encrypted_qr_payload`) for all organizer-facing ticket list and receipt responses: list ticket-sales, refund-requests, scanned-tickets, waitlisted-tickets, approve/reject responses, scan response, and GET receipt when `current_user.role != customer`. GET `/{event_id}/tickets/{sale_id}/receipt` sets `encrypted_qr_payload=None` when `is_organizer_view` so organizers cannot capture QR from receipt view.
 - **Receipt screen:** `TicketReceiptScreen` has `isOrganizer`; when organizer, ticket code is not copyable and QR section is hidden. Customer view shows QR and a "Request Refund" button that calls `requestTicketRefund(eventId, saleId)` after confirmation.
 - **My Tickets UX:** Refund request moved from list to receipt (open receipt → Request Refund). My Tickets stats chips: Total, Active, Pending (refund_requested/refund_processing), Refunded, Waitlist, Cancelled, Scanned (horizontal scroll). New filter "Refund Pending" shows tickets in refund_requested or refund_processing.
+- **Offline scanning:** [Offline Sync & Local Cache](71-offline-sync-local-cache.md). Organizers can "Prepare Offline" to download ticket list for an event into local SQLite (OfflineTickets). When scanning without network, scans are stored in OfflineScans and pushed to the server when connectivity is restored. Ticket scanner uses AppDatabase for offline mode.
 
 ## Vulnerabilities
 

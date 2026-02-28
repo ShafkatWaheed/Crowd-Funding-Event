@@ -34,7 +34,6 @@ class MyTicketsScreen extends StatefulWidget {
 
 class _MyTicketsScreenState extends State<MyTicketsScreen> {
   static const _pageSize = 20;
-
   final _scrollCtrl = ScrollController();
   List<TicketSale> _tickets = [];
   bool _loading = true;

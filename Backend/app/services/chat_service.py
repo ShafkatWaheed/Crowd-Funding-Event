@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 import redis.asyncio as aioredis
-from sqlalchemy import select, or_
+from sqlalchemy import and_, select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -229,13 +229,17 @@ async def get_conversations(db: AsyncSession, user_id: int) -> list[dict[str, An
         .join(SponsorUser, SponsorBid.sponsor_user_id == SponsorUser.id)
         .join(OrganizerUser, Event.organizer_id == OrganizerUser.id)
         .where(
-            SponsorBid.last_message_at.isnot(None),
             or_(
+                # Sponsors see ALL their bids (even without messages yet)
                 SponsorBid.sponsor_user_id == user_id,
-                Event.organizer_id == user_id,
+                # Organizers only see bids with chat activity
+                and_(
+                    Event.organizer_id == user_id,
+                    SponsorBid.last_message_at.isnot(None),
+                ),
             ),
         )
-        .order_by(SponsorBid.last_message_at.desc())
+        .order_by(SponsorBid.last_message_at.desc().nullslast())
     )
     result = await db.execute(q)
     rows = result.all()

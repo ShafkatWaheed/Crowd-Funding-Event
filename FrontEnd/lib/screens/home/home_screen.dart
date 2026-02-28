@@ -11,6 +11,7 @@ import '../../providers/notification_provider.dart';
 import '../../services/api_service.dart';
 import '../../widgets/press_feedback.dart';
 import '../../widgets/kyc_required_banner.dart';
+import '../../widgets/tickets_bottom_sheet.dart';
 import '../chat/conversations_screen.dart';
 import '../notification/notification_screen.dart';
 import 'tabs/explore_tab.dart';
@@ -18,7 +19,6 @@ import 'tabs/home_tab.dart';
 import 'tabs/manage_tab.dart';
 import 'tabs/my_events_tab.dart';
 import 'tabs/organizer_dashboard_tab.dart';
-import 'tabs/profile_tab.dart';
 import 'tabs/sponsor_manage_tab.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -195,7 +195,7 @@ class _HomeScreenState extends State<HomeScreen> {
           if (hasChatTab)
             const ConversationsScreen(embedded: true)
           else
-            const ProfileTab(),
+            const SizedBox.shrink(),
         ],
       ),
       bottomNavigationBar: Container(
@@ -218,7 +218,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (hasChatTab)
                   _navItem(3, Icons.chat_rounded, Icons.chat_outlined, 'Channel')
                 else
-                  _navItem(3, Icons.person_rounded, Icons.person_outline, 'Profile'),
+                  _navItem(3, Icons.confirmation_number_rounded, Icons.confirmation_number_outlined, 'Tickets'),
               ],
             ),
           ),
@@ -239,6 +239,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 )
               : null,
+    );
+  }
+
+  void _showTicketsSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => const TicketsBottomSheet(),
     );
   }
 
@@ -268,15 +277,13 @@ class _HomeScreenState extends State<HomeScreen> {
             );
           },
         ),
-        if (hasChatTab) ...[
-          AppSpacing.hMd,
-          GestureDetector(
-            onTap: () => context.push('/account'),
-            child: Icon(Icons.person_outline,
-                size: AppIconSize.lg,
-                color: AppTheme.textPrimaryOf(context)),
-          ),
-        ],
+        AppSpacing.hMd,
+        GestureDetector(
+          onTap: () => context.push('/account'),
+          child: Icon(Icons.person_outline,
+              size: AppIconSize.lg,
+              color: AppTheme.textPrimaryOf(context)),
+        ),
       ],
     );
   }
@@ -361,6 +368,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return GestureDetector(
       onTap: () {
+        // Customers: Tickets tab opens a bottom sheet instead of switching pages
+        if (!hasChatTab && index == 3) {
+          _showTicketsSheet();
+          return;
+        }
         if (_navIndex == index) return;
         setState(() {
           _navIndex = index;
@@ -371,7 +383,7 @@ class _HomeScreenState extends State<HomeScreen> {
         });
         final tabNames = hasChatTab
             ? ['home', 'explore', 'manage', 'channel']
-            : ['home', 'explore', 'manage', 'profile'];
+            : ['home', 'explore', 'manage', 'tickets'];
         final tab = tabNames[index];
         context.go(tab == 'home' ? '/' : '/?tab=$tab');
       },

@@ -24,7 +24,11 @@ class SyncService {
   // ── Lifecycle ──
 
   void init() {
-    _connectivitySub = Connectivity().onConnectivityChanged.listen(_onConnectivityChanged);
+    try {
+      _connectivitySub = Connectivity().onConnectivityChanged.listen(_onConnectivityChanged);
+    } catch (_) {
+      // connectivity_plus not available on web — skip listener
+    }
   }
 
   void dispose() {
@@ -42,8 +46,12 @@ class SyncService {
 
   /// Returns true if device currently has network connectivity.
   Future<bool> get isOnline async {
-    final results = await Connectivity().checkConnectivity();
-    return results.any((r) => r != ConnectivityResult.none);
+    try {
+      final results = await Connectivity().checkConnectivity();
+      return results.any((r) => r != ConnectivityResult.none);
+    } catch (_) {
+      return true; // Assume online when plugin unavailable (web)
+    }
   }
 
   // ── Pull Sync (Server → Device) ──
@@ -110,30 +118,45 @@ class SyncService {
   }
 
   /// Pull customer's own tickets (with QR payload) for offline display.
+  /// Only caches tickets for events in selling_tickets or live status.
+  static const _cacheableStatuses = {'selling_tickets', 'live'};
+
   Future<void> pullMyTickets() async {
     try {
-      final items = await api.getMyTickets(offset: 0, limit: 200);
+      const pageSize = 100;
+      final allEntries = <CachedMyTicketsCompanion>[];
       final now = DateTime.now();
-      final entries = items.map((item) {
-        final map = item as Map<String, dynamic>;
-        return CachedMyTicketsCompanion.insert(
-          id: Value(map['id'] as int),
-          eventId: map['event_id'] as int,
-          userId: map['user_id'] as int,
-          ticketCode: map['ticket_code'] as String? ?? '',
-          receiptNumber: Value(map['receipt_number'] as String?),
-          tierName: Value(map['tier_name'] as String?),
-          eventTitle: Value(map['event_title'] as String?),
-          amountPaidCents: Value(map['amount_paid_cents'] as int? ?? 0),
-          discountAppliedCents: Value(map['discount_applied_cents'] as int? ?? 0),
-          status: Value(map['status'] as String? ?? 'purchased'),
-          scannedAt: Value(_parseDateTime(map['scanned_at'])),
-          encryptedQrPayload: Value(map['encrypted_qr_payload'] as String?),
-          createdAt: _parseDateTime(map['created_at']) ?? now,
-          syncedAt: now,
-        );
-      }).toList();
-      await db.replaceMyTickets(entries);
+      int offset = 0;
+      while (true) {
+        final items = await api.getMyTickets(offset: offset, limit: pageSize);
+        for (final item in items) {
+          final map = item as Map<String, dynamic>;
+          final eventStatus = map['event_status'] as String?;
+          if (eventStatus == null || !_cacheableStatuses.contains(eventStatus)) {
+            continue; // skip tickets for events not in selling/live state
+          }
+          allEntries.add(CachedMyTicketsCompanion.insert(
+            id: Value(map['id'] as int),
+            eventId: map['event_id'] as int,
+            userId: map['user_id'] as int,
+            ticketCode: map['ticket_code'] as String? ?? '',
+            receiptNumber: Value(map['receipt_number'] as String?),
+            tierName: Value(map['tier_name'] as String?),
+            eventTitle: Value(map['event_title'] as String?),
+            eventStatus: Value(eventStatus),
+            amountPaidCents: Value(map['amount_paid_cents'] as int? ?? 0),
+            discountAppliedCents: Value(map['discount_applied_cents'] as int? ?? 0),
+            status: Value(map['status'] as String? ?? 'purchased'),
+            scannedAt: Value(_parseDateTime(map['scanned_at'])),
+            encryptedQrPayload: Value(map['encrypted_qr_payload'] as String?),
+            createdAt: _parseDateTime(map['created_at']) ?? now,
+            syncedAt: now,
+          ));
+        }
+        if (items.length < pageSize) break;
+        offset += pageSize;
+      }
+      await db.replaceMyTickets(allEntries);
       await db.updateSyncMeta('cached_my_tickets');
     } catch (e) {
       debugPrint('SyncService.pullMyTickets failed: $e');
@@ -197,13 +220,19 @@ class SyncService {
   }
 
   /// Pull sponsor's own tickets (with QR payload) for offline display.
+  /// Only caches tickets for events in selling_tickets or live status.
   Future<void> pullSponsorTickets() async {
     try {
       final items = await api.getMySponsorTickets();
       final now = DateTime.now();
-      final entries = items.map((item) {
+      final entries = <CachedSponsorTicketsCompanion>[];
+      for (final item in items) {
         final map = item as Map<String, dynamic>;
-        return CachedSponsorTicketsCompanion.insert(
+        final eventStatus = map['event_status'] as String?;
+        if (eventStatus == null || !_cacheableStatuses.contains(eventStatus)) {
+          continue; // skip tickets for events not in selling/live state
+        }
+        entries.add(CachedSponsorTicketsCompanion.insert(
           id: Value(map['id'] as int),
           eventId: map['event_id'] as int,
           sponsorUserId: map['sponsor_user_id'] as int,
@@ -213,7 +242,7 @@ class SyncService {
           scannedAt: Value(map['scanned_at'] as String?),
           createdAt: Value(map['created_at'] as String?),
           eventTitle: Value(map['event_title'] as String?),
-          eventStatus: Value(map['event_status'] as String?),
+          eventStatus: Value(eventStatus),
           eventStartTime: Value(map['event_start_time'] as String?),
           venueName: Value(map['venue_name'] as String?),
           venueAddress: Value(map['venue_address'] as String?),
@@ -225,8 +254,8 @@ class SyncService {
           categoryNamesJson:
               Value(jsonEncode(map['category_names'] as List? ?? [])),
           syncedAt: now,
-        );
-      }).toList();
+        ));
+      }
       await db.replaceSponsorTickets(entries);
       await db.updateSyncMeta('cached_sponsor_tickets');
     } catch (e) {
@@ -262,10 +291,16 @@ class SyncService {
   /// Pull bookmark IDs and replace local cache.
   Future<void> pullBookmarks() async {
     try {
-      // API returns List<dynamic> of event objects
-      final items = await api.getBookmarkedEvents(limit: 500);
-      final ids = items.map<int>((e) => (e as Map<String, dynamic>)['id'] as int).toList();
-      await db.replaceBookmarks(ids);
+      const pageSize = 100;
+      final allIds = <int>[];
+      int offset = 0;
+      while (true) {
+        final items = await api.getBookmarkedEvents(offset: offset, limit: pageSize);
+        allIds.addAll(items.map<int>((e) => (e as Map<String, dynamic>)['id'] as int));
+        if (items.length < pageSize) break;
+        offset += pageSize;
+      }
+      await db.replaceBookmarks(allIds);
     } catch (e) {
       debugPrint('SyncService.pullBookmarks failed: $e');
     }

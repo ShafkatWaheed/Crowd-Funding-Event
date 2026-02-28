@@ -56,25 +56,29 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
   }
 
   Future<void> _checkConnectivity() async {
-    final results = await Connectivity().checkConnectivity();
-    if (mounted) {
-      setState(() {
-        _isOffline = !results.any((r) => r != ConnectivityResult.none);
-      });
-    }
-    // Listen for changes
-    Connectivity().onConnectivityChanged.listen((results) {
+    try {
+      final results = await Connectivity().checkConnectivity();
       if (mounted) {
-        final wasOffline = _isOffline;
         setState(() {
           _isOffline = !results.any((r) => r != ConnectivityResult.none);
         });
-        // Coming back online — push offline scans
-        if (wasOffline && !_isOffline) {
-          _pushOfflineScans();
-        }
       }
-    });
+      // Listen for changes
+      Connectivity().onConnectivityChanged.listen((results) {
+        if (mounted) {
+          final wasOffline = _isOffline;
+          setState(() {
+            _isOffline = !results.any((r) => r != ConnectivityResult.none);
+          });
+          // Coming back online — push offline scans
+          if (wasOffline && !_isOffline) {
+            _pushOfflineScans();
+          }
+        }
+      });
+    } catch (_) {
+      // connectivity_plus not available on web — assume online
+    }
   }
 
   Future<void> _loadOfflineTicketCount() async {

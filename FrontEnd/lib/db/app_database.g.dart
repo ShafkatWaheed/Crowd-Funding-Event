@@ -2829,6 +2829,12 @@ class $CachedMyTicketsTable extends CachedMyTickets
   late final GeneratedColumn<String> eventTitle = GeneratedColumn<String>(
       'event_title', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _eventStatusMeta =
+      const VerificationMeta('eventStatus');
+  @override
+  late final GeneratedColumn<String> eventStatus = GeneratedColumn<String>(
+      'event_status', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   static const VerificationMeta _amountPaidCentsMeta =
       const VerificationMeta('amountPaidCents');
   @override
@@ -2885,6 +2891,7 @@ class $CachedMyTicketsTable extends CachedMyTickets
         receiptNumber,
         tierName,
         eventTitle,
+        eventStatus,
         amountPaidCents,
         discountAppliedCents,
         status,
@@ -2941,6 +2948,12 @@ class $CachedMyTicketsTable extends CachedMyTickets
           _eventTitleMeta,
           eventTitle.isAcceptableOrUnknown(
               data['event_title']!, _eventTitleMeta));
+    }
+    if (data.containsKey('event_status')) {
+      context.handle(
+          _eventStatusMeta,
+          eventStatus.isAcceptableOrUnknown(
+              data['event_status']!, _eventStatusMeta));
     }
     if (data.containsKey('amount_paid_cents')) {
       context.handle(
@@ -3003,6 +3016,8 @@ class $CachedMyTicketsTable extends CachedMyTickets
           .read(DriftSqlType.string, data['${effectivePrefix}tier_name']),
       eventTitle: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}event_title']),
+      eventStatus: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}event_status']),
       amountPaidCents: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}amount_paid_cents'])!,
       discountAppliedCents: attachedDatabase.typeMapping.read(
@@ -3034,6 +3049,7 @@ class CachedMyTicket extends DataClass implements Insertable<CachedMyTicket> {
   final String? receiptNumber;
   final String? tierName;
   final String? eventTitle;
+  final String? eventStatus;
   final int amountPaidCents;
   final int discountAppliedCents;
   final String status;
@@ -3049,6 +3065,7 @@ class CachedMyTicket extends DataClass implements Insertable<CachedMyTicket> {
       this.receiptNumber,
       this.tierName,
       this.eventTitle,
+      this.eventStatus,
       required this.amountPaidCents,
       required this.discountAppliedCents,
       required this.status,
@@ -3071,6 +3088,9 @@ class CachedMyTicket extends DataClass implements Insertable<CachedMyTicket> {
     }
     if (!nullToAbsent || eventTitle != null) {
       map['event_title'] = Variable<String>(eventTitle);
+    }
+    if (!nullToAbsent || eventStatus != null) {
+      map['event_status'] = Variable<String>(eventStatus);
     }
     map['amount_paid_cents'] = Variable<int>(amountPaidCents);
     map['discount_applied_cents'] = Variable<int>(discountAppliedCents);
@@ -3101,6 +3121,9 @@ class CachedMyTicket extends DataClass implements Insertable<CachedMyTicket> {
       eventTitle: eventTitle == null && nullToAbsent
           ? const Value.absent()
           : Value(eventTitle),
+      eventStatus: eventStatus == null && nullToAbsent
+          ? const Value.absent()
+          : Value(eventStatus),
       amountPaidCents: Value(amountPaidCents),
       discountAppliedCents: Value(discountAppliedCents),
       status: Value(status),
@@ -3126,6 +3149,7 @@ class CachedMyTicket extends DataClass implements Insertable<CachedMyTicket> {
       receiptNumber: serializer.fromJson<String?>(json['receiptNumber']),
       tierName: serializer.fromJson<String?>(json['tierName']),
       eventTitle: serializer.fromJson<String?>(json['eventTitle']),
+      eventStatus: serializer.fromJson<String?>(json['eventStatus']),
       amountPaidCents: serializer.fromJson<int>(json['amountPaidCents']),
       discountAppliedCents:
           serializer.fromJson<int>(json['discountAppliedCents']),
@@ -3148,6 +3172,7 @@ class CachedMyTicket extends DataClass implements Insertable<CachedMyTicket> {
       'receiptNumber': serializer.toJson<String?>(receiptNumber),
       'tierName': serializer.toJson<String?>(tierName),
       'eventTitle': serializer.toJson<String?>(eventTitle),
+      'eventStatus': serializer.toJson<String?>(eventStatus),
       'amountPaidCents': serializer.toJson<int>(amountPaidCents),
       'discountAppliedCents': serializer.toJson<int>(discountAppliedCents),
       'status': serializer.toJson<String>(status),
@@ -3166,6 +3191,7 @@ class CachedMyTicket extends DataClass implements Insertable<CachedMyTicket> {
           Value<String?> receiptNumber = const Value.absent(),
           Value<String?> tierName = const Value.absent(),
           Value<String?> eventTitle = const Value.absent(),
+          Value<String?> eventStatus = const Value.absent(),
           int? amountPaidCents,
           int? discountAppliedCents,
           String? status,
@@ -3182,6 +3208,7 @@ class CachedMyTicket extends DataClass implements Insertable<CachedMyTicket> {
             receiptNumber.present ? receiptNumber.value : this.receiptNumber,
         tierName: tierName.present ? tierName.value : this.tierName,
         eventTitle: eventTitle.present ? eventTitle.value : this.eventTitle,
+        eventStatus: eventStatus.present ? eventStatus.value : this.eventStatus,
         amountPaidCents: amountPaidCents ?? this.amountPaidCents,
         discountAppliedCents: discountAppliedCents ?? this.discountAppliedCents,
         status: status ?? this.status,
@@ -3205,6 +3232,8 @@ class CachedMyTicket extends DataClass implements Insertable<CachedMyTicket> {
       tierName: data.tierName.present ? data.tierName.value : this.tierName,
       eventTitle:
           data.eventTitle.present ? data.eventTitle.value : this.eventTitle,
+      eventStatus:
+          data.eventStatus.present ? data.eventStatus.value : this.eventStatus,
       amountPaidCents: data.amountPaidCents.present
           ? data.amountPaidCents.value
           : this.amountPaidCents,
@@ -3231,6 +3260,7 @@ class CachedMyTicket extends DataClass implements Insertable<CachedMyTicket> {
           ..write('receiptNumber: $receiptNumber, ')
           ..write('tierName: $tierName, ')
           ..write('eventTitle: $eventTitle, ')
+          ..write('eventStatus: $eventStatus, ')
           ..write('amountPaidCents: $amountPaidCents, ')
           ..write('discountAppliedCents: $discountAppliedCents, ')
           ..write('status: $status, ')
@@ -3251,6 +3281,7 @@ class CachedMyTicket extends DataClass implements Insertable<CachedMyTicket> {
       receiptNumber,
       tierName,
       eventTitle,
+      eventStatus,
       amountPaidCents,
       discountAppliedCents,
       status,
@@ -3269,6 +3300,7 @@ class CachedMyTicket extends DataClass implements Insertable<CachedMyTicket> {
           other.receiptNumber == this.receiptNumber &&
           other.tierName == this.tierName &&
           other.eventTitle == this.eventTitle &&
+          other.eventStatus == this.eventStatus &&
           other.amountPaidCents == this.amountPaidCents &&
           other.discountAppliedCents == this.discountAppliedCents &&
           other.status == this.status &&
@@ -3286,6 +3318,7 @@ class CachedMyTicketsCompanion extends UpdateCompanion<CachedMyTicket> {
   final Value<String?> receiptNumber;
   final Value<String?> tierName;
   final Value<String?> eventTitle;
+  final Value<String?> eventStatus;
   final Value<int> amountPaidCents;
   final Value<int> discountAppliedCents;
   final Value<String> status;
@@ -3301,6 +3334,7 @@ class CachedMyTicketsCompanion extends UpdateCompanion<CachedMyTicket> {
     this.receiptNumber = const Value.absent(),
     this.tierName = const Value.absent(),
     this.eventTitle = const Value.absent(),
+    this.eventStatus = const Value.absent(),
     this.amountPaidCents = const Value.absent(),
     this.discountAppliedCents = const Value.absent(),
     this.status = const Value.absent(),
@@ -3317,6 +3351,7 @@ class CachedMyTicketsCompanion extends UpdateCompanion<CachedMyTicket> {
     this.receiptNumber = const Value.absent(),
     this.tierName = const Value.absent(),
     this.eventTitle = const Value.absent(),
+    this.eventStatus = const Value.absent(),
     this.amountPaidCents = const Value.absent(),
     this.discountAppliedCents = const Value.absent(),
     this.status = const Value.absent(),
@@ -3337,6 +3372,7 @@ class CachedMyTicketsCompanion extends UpdateCompanion<CachedMyTicket> {
     Expression<String>? receiptNumber,
     Expression<String>? tierName,
     Expression<String>? eventTitle,
+    Expression<String>? eventStatus,
     Expression<int>? amountPaidCents,
     Expression<int>? discountAppliedCents,
     Expression<String>? status,
@@ -3353,6 +3389,7 @@ class CachedMyTicketsCompanion extends UpdateCompanion<CachedMyTicket> {
       if (receiptNumber != null) 'receipt_number': receiptNumber,
       if (tierName != null) 'tier_name': tierName,
       if (eventTitle != null) 'event_title': eventTitle,
+      if (eventStatus != null) 'event_status': eventStatus,
       if (amountPaidCents != null) 'amount_paid_cents': amountPaidCents,
       if (discountAppliedCents != null)
         'discount_applied_cents': discountAppliedCents,
@@ -3373,6 +3410,7 @@ class CachedMyTicketsCompanion extends UpdateCompanion<CachedMyTicket> {
       Value<String?>? receiptNumber,
       Value<String?>? tierName,
       Value<String?>? eventTitle,
+      Value<String?>? eventStatus,
       Value<int>? amountPaidCents,
       Value<int>? discountAppliedCents,
       Value<String>? status,
@@ -3388,6 +3426,7 @@ class CachedMyTicketsCompanion extends UpdateCompanion<CachedMyTicket> {
       receiptNumber: receiptNumber ?? this.receiptNumber,
       tierName: tierName ?? this.tierName,
       eventTitle: eventTitle ?? this.eventTitle,
+      eventStatus: eventStatus ?? this.eventStatus,
       amountPaidCents: amountPaidCents ?? this.amountPaidCents,
       discountAppliedCents: discountAppliedCents ?? this.discountAppliedCents,
       status: status ?? this.status,
@@ -3421,6 +3460,9 @@ class CachedMyTicketsCompanion extends UpdateCompanion<CachedMyTicket> {
     }
     if (eventTitle.present) {
       map['event_title'] = Variable<String>(eventTitle.value);
+    }
+    if (eventStatus.present) {
+      map['event_status'] = Variable<String>(eventStatus.value);
     }
     if (amountPaidCents.present) {
       map['amount_paid_cents'] = Variable<int>(amountPaidCents.value);
@@ -3456,6 +3498,7 @@ class CachedMyTicketsCompanion extends UpdateCompanion<CachedMyTicket> {
           ..write('receiptNumber: $receiptNumber, ')
           ..write('tierName: $tierName, ')
           ..write('eventTitle: $eventTitle, ')
+          ..write('eventStatus: $eventStatus, ')
           ..write('amountPaidCents: $amountPaidCents, ')
           ..write('discountAppliedCents: $discountAppliedCents, ')
           ..write('status: $status, ')
@@ -7059,6 +7102,7 @@ typedef $$CachedMyTicketsTableCreateCompanionBuilder = CachedMyTicketsCompanion
   Value<String?> receiptNumber,
   Value<String?> tierName,
   Value<String?> eventTitle,
+  Value<String?> eventStatus,
   Value<int> amountPaidCents,
   Value<int> discountAppliedCents,
   Value<String> status,
@@ -7076,6 +7120,7 @@ typedef $$CachedMyTicketsTableUpdateCompanionBuilder = CachedMyTicketsCompanion
   Value<String?> receiptNumber,
   Value<String?> tierName,
   Value<String?> eventTitle,
+  Value<String?> eventStatus,
   Value<int> amountPaidCents,
   Value<int> discountAppliedCents,
   Value<String> status,
@@ -7114,6 +7159,9 @@ class $$CachedMyTicketsTableFilterComposer
 
   ColumnFilters<String> get eventTitle => $composableBuilder(
       column: $table.eventTitle, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get eventStatus => $composableBuilder(
+      column: $table.eventStatus, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<int> get amountPaidCents => $composableBuilder(
       column: $table.amountPaidCents,
@@ -7171,6 +7219,9 @@ class $$CachedMyTicketsTableOrderingComposer
   ColumnOrderings<String> get eventTitle => $composableBuilder(
       column: $table.eventTitle, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get eventStatus => $composableBuilder(
+      column: $table.eventStatus, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<int> get amountPaidCents => $composableBuilder(
       column: $table.amountPaidCents,
       builder: (column) => ColumnOrderings(column));
@@ -7225,6 +7276,9 @@ class $$CachedMyTicketsTableAnnotationComposer
 
   GeneratedColumn<String> get eventTitle => $composableBuilder(
       column: $table.eventTitle, builder: (column) => column);
+
+  GeneratedColumn<String> get eventStatus => $composableBuilder(
+      column: $table.eventStatus, builder: (column) => column);
 
   GeneratedColumn<int> get amountPaidCents => $composableBuilder(
       column: $table.amountPaidCents, builder: (column) => column);
@@ -7282,6 +7336,7 @@ class $$CachedMyTicketsTableTableManager extends RootTableManager<
             Value<String?> receiptNumber = const Value.absent(),
             Value<String?> tierName = const Value.absent(),
             Value<String?> eventTitle = const Value.absent(),
+            Value<String?> eventStatus = const Value.absent(),
             Value<int> amountPaidCents = const Value.absent(),
             Value<int> discountAppliedCents = const Value.absent(),
             Value<String> status = const Value.absent(),
@@ -7298,6 +7353,7 @@ class $$CachedMyTicketsTableTableManager extends RootTableManager<
             receiptNumber: receiptNumber,
             tierName: tierName,
             eventTitle: eventTitle,
+            eventStatus: eventStatus,
             amountPaidCents: amountPaidCents,
             discountAppliedCents: discountAppliedCents,
             status: status,
@@ -7314,6 +7370,7 @@ class $$CachedMyTicketsTableTableManager extends RootTableManager<
             Value<String?> receiptNumber = const Value.absent(),
             Value<String?> tierName = const Value.absent(),
             Value<String?> eventTitle = const Value.absent(),
+            Value<String?> eventStatus = const Value.absent(),
             Value<int> amountPaidCents = const Value.absent(),
             Value<int> discountAppliedCents = const Value.absent(),
             Value<String> status = const Value.absent(),
@@ -7330,6 +7387,7 @@ class $$CachedMyTicketsTableTableManager extends RootTableManager<
             receiptNumber: receiptNumber,
             tierName: tierName,
             eventTitle: eventTitle,
+            eventStatus: eventStatus,
             amountPaidCents: amountPaidCents,
             discountAppliedCents: discountAppliedCents,
             status: status,

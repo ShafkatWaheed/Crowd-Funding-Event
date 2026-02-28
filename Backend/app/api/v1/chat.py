@@ -61,13 +61,29 @@ async def _authenticate_ws(token: str) -> User | None:
 
 
 @router.websocket("/ws/chat")
-async def ws_chat(ws: WebSocket, token: str = Query(...)):
-    user = await _authenticate_ws(token)
+async def ws_chat(ws: WebSocket, token: str = Query(default="")):
+    # Accept first, then authenticate via query param OR first message.
+    # This prevents the browser from logging the token in the URL on failure.
+    await ws.accept()
+
+    # Try query-param token first (backward compat), then first-message auth.
+    user: User | None = None
+    if token:
+        user = await _authenticate_ws(token)
+
+    if not user:
+        try:
+            first = await asyncio.wait_for(ws.receive_text(), timeout=10)
+            payload = json.loads(first)
+            if payload.get("type") == "auth" and payload.get("token"):
+                user = await _authenticate_ws(payload["token"])
+        except (asyncio.TimeoutError, Exception):
+            pass
+
     if not user:
         await ws.close(code=4001, reason="Authentication failed")
         return
 
-    await ws.accept()
     _connections[user.id] = ws
     logger.info("WS connected user=%d", user.id)
 

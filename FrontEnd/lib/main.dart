@@ -21,6 +21,7 @@ import 'providers/theme_provider.dart';
 import 'providers/config_provider.dart';
 import 'providers/chat_provider.dart';
 import 'providers/notification_provider.dart';
+import 'screens/notification/notification_screen.dart' show resolveNotificationRoute;
 import 'services/chat_socket_service.dart';
 
 @pragma('vm:entry-point')
@@ -106,18 +107,21 @@ class _AppShellState extends State<_AppShell> {
     });
 
     _openedAppSub = FirebaseMessaging.onMessageOpenedApp.listen((message) {
-      final data = message.data;
-      final eventId = data['event_id'];
-      if (eventId != null && _router != null) {
-        _router!.go('/events/$eventId');
+      final data = Map<String, dynamic>.from(message.data);
+      final type = data['type'] as String? ?? '';
+      final route = resolveNotificationRoute(type, data);
+      if (route != null && _router != null) {
+        _router!.go(route);
       }
     });
 
     FirebaseMessaging.instance.getInitialMessage().then((message) {
       if (message != null) {
-        final eventId = message.data['event_id'];
-        if (eventId != null && _router != null) {
-          _router!.go('/events/$eventId');
+        final data = Map<String, dynamic>.from(message.data);
+        final type = data['type'] as String? ?? '';
+        final route = resolveNotificationRoute(type, data);
+        if (route != null && _router != null) {
+          _router!.go(route);
         }
       }
     });

@@ -99,6 +99,7 @@ class TicketSaleResponse(BaseModel):
     receipt_number: str | None = None  # human-readable receipt ID
     tier_name: str | None = None
     event_title: str | None = None
+    event_status: str | None = None  # event lifecycle status (e.g. selling_tickets, live)
     attendee_display_name: str | None = None  # name on ticket (holder's display_name or email)
     amount_paid_cents: int
     discount_applied_cents: int

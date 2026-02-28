@@ -40,6 +40,7 @@ class TicketSale {
   final String? receiptNumber;
   final String? tierName;
   final String? eventTitle;
+  final String? eventStatus;
   final int amountPaidCents;
   final int discountAppliedCents;
   final int commissionCents;
@@ -59,6 +60,7 @@ class TicketSale {
     this.receiptNumber,
     this.tierName,
     this.eventTitle,
+    this.eventStatus,
     required this.amountPaidCents,
     required this.discountAppliedCents,
     this.commissionCents = 0,
@@ -80,6 +82,7 @@ class TicketSale {
       receiptNumber: json['receipt_number'],
       tierName: json['tier_name'],
       eventTitle: json['event_title'],
+      eventStatus: json['event_status'],
       amountPaidCents: json['amount_paid_cents'],
       discountAppliedCents: json['discount_applied_cents'] ?? 0,
       commissionCents: json['commission_cents'] ?? 0,

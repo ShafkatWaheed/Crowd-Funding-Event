@@ -223,6 +223,7 @@ async def get_my_tickets(
             receipt_number=getattr(s, "receipt_number", None),
             tier_name=s.ticket_tier.name if s.ticket_tier else None,
             event_title=s.event.title if s.event else None,
+            event_status=s.event.status.value if s.event else None,
             attendee_display_name=s.user.display_name if s.user else None,
             amount_paid_cents=s.amount_paid_cents,
             discount_applied_cents=s.discount_applied_cents,

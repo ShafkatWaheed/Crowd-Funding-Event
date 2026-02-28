@@ -306,10 +306,26 @@ async def create_early_bird_discount(
         raise ConflictError("Percent value must be 0-100")
 
     window_end = datetime.fromisoformat(data.window_end.replace("Z", "+00:00"))
+    window_start = (
+        datetime.fromisoformat(data.window_start.replace("Z", "+00:00"))
+        if data.window_start
+        else None
+    )
+
+    # Validate window_end against event dates
+    if data.applies_to == "funding":
+        if not event.funding_end_at:
+            raise ConflictError("Early Pledge requires a funding deadline on the event")
+        if window_end > event.funding_end_at:
+            raise ConflictError("Early Pledge window must end on or before the funding deadline")
+    elif data.applies_to == "tickets":
+        if event.start_time and window_end > event.start_time:
+            raise ConflictError("Early Ticket window must end before the event starts")
 
     eb = EarlyBirdDiscount(
         event_id=event_id,
         applies_to=data.applies_to,
+        window_start=window_start,
         window_end=window_end,
         discount_type=data.discount_type,
         value=data.value,

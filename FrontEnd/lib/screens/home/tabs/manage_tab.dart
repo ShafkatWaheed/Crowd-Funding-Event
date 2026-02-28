@@ -49,162 +49,193 @@ class _ManageTabState extends State<ManageTab> {
             ),
           ),
         ),
-        SliverToBoxAdapter(child: _buildQuickActions(user)),
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(
+              AppSpacing.xl, AppSpacing.xxl, AppSpacing.xl, 0),
+          sliver: SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ─── Events ───
+                _sectionLabel('Events'),
+                AppSpacing.vMd,
+                AnimatedListItem(
+                  index: 0,
+                  child: Row(
+                    children: [
+                      _quickActionCard(
+                        icon: Icons.add_circle_rounded,
+                        label: 'Create Event',
+                        color: AppTheme.accentColor,
+                        onTap: () async {
+                          final created =
+                              await context.push<bool>('/events/create');
+                          if (created == true && mounted) {
+                            widget.onEventCreated?.call();
+                          }
+                        },
+                      ),
+                      AppSpacing.hMd,
+                      _quickActionCard(
+                        icon: Icons.location_city_rounded,
+                        label: 'Venues',
+                        color: AppTheme.accentColor,
+                        onTap: () => context.push('/venues'),
+                      ),
+                      AppSpacing.hMd,
+                      _quickActionCard(
+                        icon: Icons.group_work_rounded,
+                        label: 'Co-Organized',
+                        color: context.managementAccent,
+                        onTap: () => context.push('/manage/co-organized'),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // ─── Tickets & Sales ───
+                const SizedBox(height: AppSpacing.xxl),
+                _sectionLabel('Tickets & Sales'),
+                AppSpacing.vMd,
+                AnimatedListItem(
+                  index: 1,
+                  child: Row(
+                    children: [
+                      _quickActionCard(
+                        icon: Icons.confirmation_number_rounded,
+                        label: 'Ticket Tiers',
+                        color: context.statusSelling,
+                        onTap: () => context.push('/ticket-strategies'),
+                      ),
+                      AppSpacing.hMd,
+                      _quickActionCard(
+                        icon: Icons.receipt_long_rounded,
+                        label: 'All Ticket Sales',
+                        color: AppTheme.successColor,
+                        onTap: () => context.push('/manage/ticket-sales'),
+                      ),
+                      AppSpacing.hMd,
+                      _quickActionCard(
+                        icon: Icons.qr_code_scanner_rounded,
+                        label: 'Scanned',
+                        color: context.sponsorAccent,
+                        onTap: () => context.push('/manage/scanned-tickets'),
+                      ),
+                    ],
+                  ),
+                ),
+                AppSpacing.vMd,
+                AnimatedListItem(
+                  index: 2,
+                  child: Row(
+                    children: [
+                      _quickActionCard(
+                        icon: Icons.hourglass_top_rounded,
+                        label: 'Waitlist',
+                        color: context.statusPending,
+                        onTap: () => context.push('/manage/waitlist'),
+                      ),
+                      AppSpacing.hMd,
+                      _quickActionCard(
+                        icon: Icons.discount_rounded,
+                        label: 'Discounts',
+                        color: AppTheme.errorColor,
+                        onTap: () => context.push('/manage/discounts'),
+                      ),
+                      AppSpacing.hMd,
+                      _quickActionCard(
+                        icon: Icons.money_off_rounded,
+                        label: 'Refunds',
+                        color: AppTheme.errorColor,
+                        onTap: () => context.push('/manage/refunds'),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // ─── Funding & Sponsors ───
+                const SizedBox(height: AppSpacing.xxl),
+                _sectionLabel('Funding & Sponsors'),
+                AppSpacing.vMd,
+                AnimatedListItem(
+                  index: 3,
+                  child: Row(
+                    children: [
+                      _quickActionCard(
+                        icon: Icons.volunteer_activism_rounded,
+                        label: 'Pledges',
+                        color: context.fundingAccent,
+                        onTap: () => context.push('/manage/pledges'),
+                      ),
+                      AppSpacing.hMd,
+                      _quickActionCard(
+                        icon: Icons.handshake_rounded,
+                        label: 'Sponsors',
+                        color: context.managementAccent,
+                        onTap: () => context.push('/manage/sponsors'),
+                      ),
+                      AppSpacing.hMd,
+                      _quickActionCard(
+                        icon: Icons.category_rounded,
+                        label: 'Sponsorships',
+                        color: context.sponsorAccent,
+                        onTap: () =>
+                            context.push('/sponsor-category-templates'),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // ─── Other ───
+                const SizedBox(height: AppSpacing.xxl),
+                _sectionLabel('Other'),
+                AppSpacing.vMd,
+                AnimatedListItem(
+                  index: 4,
+                  child: Row(
+                    children: [
+                      _quickActionCard(
+                        icon: Icons.bookmark_rounded,
+                        label: 'Bookmarks',
+                        color: AppTheme.warningColor,
+                        onTap: () => context.push('/bookmarks'),
+                      ),
+                      if (user != null && user.isAdmin) ...[
+                        AppSpacing.hMd,
+                        _quickActionCard(
+                          icon: Icons.admin_panel_settings_rounded,
+                          label: 'Admin',
+                          color: AppTheme.primaryColor,
+                          onTap: () => context.push('/admin'),
+                        ),
+                        AppSpacing.hMd,
+                        const Expanded(child: SizedBox()),
+                      ] else ...[
+                        AppSpacing.hMd,
+                        const Expanded(child: SizedBox()),
+                        AppSpacing.hMd,
+                        const Expanded(child: SizedBox()),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
         const SliverToBoxAdapter(child: SizedBox(height: 100)),
       ],
     );
   }
 
-  Widget _buildQuickActions(dynamic user) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(AppSpacing.xl, AppSpacing.xxl, AppSpacing.xl, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Quick Actions',
-            style: TextStyle(
-              fontSize: 13, fontWeight: FontWeight.w600,
-              color: AppTheme.textSecondaryOf(context), letterSpacing: 0.5,
-            ),
-          ),
-          AppSpacing.vLg,
-          AnimatedListItem(
-            index: 7,
-            child: Row(
-              children: [
-                _quickActionCard(
-                  icon: Icons.add_circle_rounded,
-                  label: 'Create Event',
-                  color: AppTheme.accentColor,
-                  onTap: () async {
-                    final created = await context.push<bool>('/events/create');
-                    if (created == true && mounted) {
-                      widget.onEventCreated?.call();
-                    }
-                  },
-                ),
-                AppSpacing.hMd,
-                _quickActionCard(
-                  icon: Icons.location_city_rounded,
-                  label: 'Venues',
-                  color: AppTheme.accentColor,
-                  onTap: () => context.push('/venues'),
-                ),
-                AppSpacing.hMd,
-                _quickActionCard(
-                  icon: Icons.confirmation_number_rounded,
-                  label: 'Ticket Tiers',
-                  color: context.statusSelling,
-                  onTap: () => context.push('/ticket-strategies'),
-                ),
-              ],
-            ),
-          ),
-          AppSpacing.vMd,
-          AnimatedListItem(
-            index: 8,
-            child: Row(
-              children: [
-                _quickActionCard(
-                  icon: Icons.receipt_long_rounded,
-                  label: 'All Sales',
-                  color: AppTheme.successColor,
-                  onTap: () => context.push('/manage/ticket-sales'),
-                ),
-                AppSpacing.hMd,
-                _quickActionCard(
-                  icon: Icons.qr_code_scanner_rounded,
-                  label: 'Scanned',
-                  color: context.sponsorAccent,
-                  onTap: () => context.push('/manage/scanned-tickets'),
-                ),
-                AppSpacing.hMd,
-                _quickActionCard(
-                  icon: Icons.hourglass_top_rounded,
-                  label: 'Waitlist',
-                  color: context.statusPending,
-                  onTap: () => context.push('/manage/waitlist'),
-                ),
-              ],
-            ),
-          ),
-          AppSpacing.vMd,
-          AnimatedListItem(
-            index: 9,
-            child: Row(
-              children: [
-                _quickActionCard(
-                  icon: Icons.discount_rounded,
-                  label: 'Discounts',
-                  color: AppTheme.errorColor,
-                  onTap: () => context.push('/manage/discounts'),
-                ),
-                AppSpacing.hMd,
-                _quickActionCard(
-                  icon: Icons.handshake_rounded,
-                  label: 'Sponsors',
-                  color: context.managementAccent,
-                  onTap: () => context.push('/manage/sponsors'),
-                ),
-                AppSpacing.hMd,
-                _quickActionCard(
-                  icon: Icons.category_rounded,
-                  label: 'Sponsorships',
-                  color: context.sponsorAccent,
-                  onTap: () => context.push('/sponsor-category-templates'),
-                ),
-              ],
-            ),
-          ),
-          AppSpacing.vMd,
-          AnimatedListItem(
-            index: 10,
-            child: Row(
-              children: [
-                _quickActionCard(
-                  icon: Icons.volunteer_activism_rounded,
-                  label: 'Pledges',
-                  color: context.fundingAccent,
-                  onTap: () => context.push('/manage/pledges'),
-                ),
-                AppSpacing.hMd,
-                _quickActionCard(
-                  icon: Icons.bookmark_rounded,
-                  label: 'Bookmarks',
-                  color: AppTheme.warningColor,
-                  onTap: () => context.push('/bookmarks'),
-                ),
-                AppSpacing.hMd,
-                _quickActionCard(
-                  icon: Icons.group_work_rounded,
-                  label: 'Co-Organized',
-                  color: context.managementAccent,
-                  onTap: () => context.push('/manage/co-organized'),
-                ),
-              ],
-            ),
-          ),
-          if (user != null && user.isAdmin) ...[
-            AppSpacing.vMd,
-            AnimatedListItem(
-              index: 11,
-              child: Row(
-                children: [
-                  _quickActionCard(
-                    icon: Icons.admin_panel_settings_rounded,
-                    label: 'Admin',
-                    color: AppTheme.primaryColor,
-                    onTap: () => context.push('/admin'),
-                  ),
-                  AppSpacing.hMd,
-                  const Expanded(child: SizedBox()),
-                  AppSpacing.hMd,
-                  const Expanded(child: SizedBox()),
-                ],
-              ),
-            ),
-          ],
-        ],
+  Widget _sectionLabel(String text) {
+    return Text(
+      text.toUpperCase(),
+      style: TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+        color: AppTheme.textSecondaryOf(context),
+        letterSpacing: 1.2,
       ),
     );
   }

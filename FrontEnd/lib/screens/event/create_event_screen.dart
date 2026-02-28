@@ -70,7 +70,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   final _eventMaxImagesCtrl = TextEditingController();
   final _maxPostsPerDayCtrl = TextEditingController();
   final _maxCoOrganizersCtrl = TextEditingController();
-  final _refundDeadlinePercentCtrl = TextEditingController();
+  Map<String, int> _platformLimits = {};
   bool _publish = true;
   bool _isLoading = false;
   bool _isDirty = false;
@@ -147,7 +147,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         _maxReservedSpotsCtrl, _venueNameCtrl, _venueAddressCtrl, _venueCityCtrl,
         _venueProvinceCtrl, _venueCapacityCtrl, _strategyNameCtrl, _parkingCtrl, _transitCtrl,
         _rideshareCtrl, _accessibilityCtrl, _waitlistMaxSizeCtrl, _eventMaxImagesCtrl,
-        _maxPostsPerDayCtrl, _maxCoOrganizersCtrl, _refundDeadlinePercentCtrl]) {
+        _maxPostsPerDayCtrl, _maxCoOrganizersCtrl]) {
       c.dispose();
     }
     _venueGeoDebounce?.cancel();
@@ -159,10 +159,18 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
   Future<void> _loadFeatureFlags() async {
     try {
-      final flags = await context.read<ApiService>().getFeatureFlags();
+      final api = context.read<ApiService>();
+      final config = await api.getPublicConfig();
       if (mounted) setState(() {
-        _communityRulesFeatureEnabled = flags['feature_community_rules_enabled'] ?? true;
+        _communityRulesFeatureEnabled = config['feature_community_rules_enabled'] == true;
         if (!_communityRulesFeatureEnabled) _communityRules = false;
+        _platformLimits = {
+          for (final key in [
+            'waitlist_max_size_limit', 'event_max_images_limit',
+            'max_posts_per_event_limit', 'max_co_organizers_limit',
+          ])
+            if (config[key] is int) key: config[key] as int,
+        };
       });
     } catch (e) { debugPrint(e.toString()); }
   }
@@ -393,7 +401,6 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         eventMaxImages: int.tryParse(_eventMaxImagesCtrl.text.trim()),
         maxPostsPerDay: int.tryParse(_maxPostsPerDayCtrl.text.trim()),
         maxCoOrganizers: int.tryParse(_maxCoOrganizersCtrl.text.trim()),
-        refundDeadlinePercent: int.tryParse(_refundDeadlinePercentCtrl.text.trim()),
       );
       await executeCreateEventSubmission(
         api: context.read<ApiService>(), eventData: payload,
@@ -496,7 +503,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     onRemoveDiscount: (id) => setState(() => _selectedDiscounts.remove(id)),
     earlyBirdDiscounts: _earlyBirdDiscounts, maxDiscountPercent: _maxDiscountPercent,
     onMaxDiscountPercentChanged: (v) => setState(() => _maxDiscountPercent = v),
-    fundingEndAt: _fundingEndAt, selectedStrategyId: _selectedStrategyId,
+    fundingEndAt: _fundingEndAt, startTime: _startTime,
+    selectedStrategyId: _selectedStrategyId,
     onMarkDirty: _markDirty, fmtDt: fmtDt,
     buildLoadingChip: (l) => buildLoadingChip(context, l),
     buildErrorRetry: (m, r) => buildErrorRetry(context, m, r),
@@ -532,7 +540,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       waitlistMaxSizeCtrl: _waitlistMaxSizeCtrl, waitlistAutoApprove: _waitlistAutoApprove,
       onWaitlistAutoApproveChanged: (v) => setState(() => _waitlistAutoApprove = v),
       eventMaxImagesCtrl: _eventMaxImagesCtrl, maxPostsPerDayCtrl: _maxPostsPerDayCtrl,
-      maxCoOrganizersCtrl: _maxCoOrganizersCtrl, refundDeadlinePercentCtrl: _refundDeadlinePercentCtrl),
+      maxCoOrganizersCtrl: _maxCoOrganizersCtrl,
+      platformLimits: _platformLimits),
   );
 
   Widget _buildStep5() => StepReview(

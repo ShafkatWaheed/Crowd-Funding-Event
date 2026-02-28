@@ -106,11 +106,10 @@ async def update_payment_info(request: Request, body: PaymentInfoUpdate, db: DbS
 # ═══════════════════════════════════════════
 
 class BankAccountResponse(BaseModel):
-    bank_name_masked: str | None = None
+    institution_number: str | None = None
+    transit_number: str | None = None
     account_last_four: str | None = None
     account_holder_masked: str | None = None
-    routing_masked: str | None = None
-    swift_masked: str | None = None
     verified: bool = False
     verification_status: str = "pending"
     rejection_reason: str | None = None
@@ -121,20 +120,43 @@ class BankAccountResponse(BaseModel):
 
 
 class BankAccountUpdate(BaseModel):
-    bank_name: str
+    institution_number: str
+    transit_number: str
     account_number: str
-    routing_number: str
     account_holder: str
-    swift_code: str | None = None
     payout_schedule: str | None = None
     payout_day: int | None = None
     min_payout_cents: int | None = None
 
-    @field_validator("bank_name", "account_number", "routing_number", "account_holder")
+    @field_validator("institution_number")
     @classmethod
-    def bank_fields_non_empty(cls, v: str) -> str:
+    def validate_institution(cls, v: str) -> str:
+        v = v.strip()
+        if not v or not v.isdigit() or len(v) != 3:
+            raise ValueError("Institution number must be exactly 3 digits")
+        return v
+
+    @field_validator("transit_number")
+    @classmethod
+    def validate_transit(cls, v: str) -> str:
+        v = v.strip()
+        if not v or not v.isdigit() or len(v) != 5:
+            raise ValueError("Transit number must be exactly 5 digits")
+        return v
+
+    @field_validator("account_number")
+    @classmethod
+    def validate_account(cls, v: str) -> str:
+        v = v.strip()
+        if not v or not v.isdigit() or len(v) < 7 or len(v) > 12:
+            raise ValueError("Account number must be 7-12 digits")
+        return v
+
+    @field_validator("account_holder")
+    @classmethod
+    def validate_holder(cls, v: str) -> str:
         if not v or not v.strip():
-            raise ValueError("Bank name, account number, routing number, and account holder cannot be empty")
+            raise ValueError("Account holder cannot be empty")
         return v.strip()
 
 
@@ -149,11 +171,10 @@ async def get_bank_account(
     if not acct:
         return BankAccountResponse()
     return BankAccountResponse(
-        bank_name_masked=enc.mask_value(enc.decrypt(acct.bank_name_encrypted)),
+        institution_number=enc.decrypt(acct.institution_number_encrypted),
+        transit_number=enc.decrypt(acct.transit_number_encrypted),
         account_last_four=enc.decrypt(acct.account_number_encrypted)[-4:],
         account_holder_masked=enc.mask_value(enc.decrypt(acct.account_holder_encrypted)),
-        routing_masked=enc.mask_value(enc.decrypt(acct.routing_number_encrypted)),
-        swift_masked=enc.mask_value(enc.decrypt(acct.swift_code_encrypted)) if acct.swift_code_encrypted else None,
         verified=acct.verified,
         verification_status=acct.verification_status.value,
         rejection_reason=acct.rejection_reason,
@@ -182,23 +203,21 @@ async def update_bank_account(
     )).scalar_one_or_none()
     if not acct:
         acct = OrganizerBankAccount(user_id=current_user.id,
-                                     bank_name_encrypted=enc.encrypt(body.bank_name),
+                                     institution_number_encrypted=enc.encrypt(body.institution_number),
+                                     transit_number_encrypted=enc.encrypt(body.transit_number),
                                      account_number_encrypted=enc.encrypt(body.account_number),
-                                     routing_number_encrypted=enc.encrypt(body.routing_number),
                                      account_holder_encrypted=enc.encrypt(body.account_holder))
         db.add(acct)
     else:
-        acct.bank_name_encrypted = enc.encrypt(body.bank_name)
+        acct.institution_number_encrypted = enc.encrypt(body.institution_number)
+        acct.transit_number_encrypted = enc.encrypt(body.transit_number)
         acct.account_number_encrypted = enc.encrypt(body.account_number)
-        acct.routing_number_encrypted = enc.encrypt(body.routing_number)
         acct.account_holder_encrypted = enc.encrypt(body.account_holder)
 
     acct.verified = False
     acct.verification_status = BankVerificationStatus.pending
     acct.rejection_reason = None
 
-    if body.swift_code:
-        acct.swift_code_encrypted = enc.encrypt(body.swift_code)
     if body.payout_schedule:
         acct.payout_schedule = body.payout_schedule
     if body.payout_day is not None:
@@ -223,11 +242,10 @@ async def update_bank_account(
         pass
 
     return BankAccountResponse(
-        bank_name_masked=enc.mask_value(body.bank_name),
+        institution_number=body.institution_number,
+        transit_number=body.transit_number,
         account_last_four=body.account_number[-4:],
         account_holder_masked=enc.mask_value(body.account_holder),
-        routing_masked=enc.mask_value(body.routing_number),
-        swift_masked=enc.mask_value(body.swift_code) if body.swift_code else None,
         verified=acct.verified,
         verification_status=acct.verification_status.value,
         rejection_reason=acct.rejection_reason,
@@ -330,7 +348,8 @@ async def get_payment_status(transaction_id: str, db: ReadDbSession, current_use
 
 class BankingOverviewResponse(BaseModel):
     platform_account_configured: bool = False
-    platform_account_bank_name: str | None = None
+    platform_account_institution: str | None = None
+    platform_account_transit: str | None = None
     platform_account_last_four: str | None = None
     fund_escrow_total_held_cents: int = 0
     fund_escrow_total_released_cents: int = 0
@@ -371,16 +390,23 @@ async def admin_banking_overview(
     mock_active = await settings_svc.get_bool(db, "payment_mock_enabled")
     platform_configured = await settings_svc.get_bool(db, "platform_holding_configured")
 
-    platform_bank_name: str | None = None
+    platform_inst: str | None = None
+    platform_transit: str | None = None
     platform_last_four: str | None = None
     if platform_configured:
-        raw_bank = await settings_svc.get_str(db, "platform_holding_bank_name")
+        raw_inst = await settings_svc.get_str(db, "platform_holding_institution_number")
+        raw_transit = await settings_svc.get_str(db, "platform_holding_transit_number")
         raw_acct = await settings_svc.get_str(db, "platform_holding_account_number")
-        if raw_bank:
+        if raw_inst:
             try:
-                platform_bank_name = enc.mask_value(enc.decrypt(raw_bank))
+                platform_inst = enc.decrypt(raw_inst)
             except Exception:
-                platform_bank_name = raw_bank
+                platform_inst = raw_inst
+        if raw_transit:
+            try:
+                platform_transit = enc.decrypt(raw_transit)
+            except Exception:
+                platform_transit = raw_transit
         if raw_acct:
             try:
                 platform_last_four = enc.decrypt(raw_acct)[-4:]
@@ -512,7 +538,8 @@ async def admin_banking_overview(
 
     return BankingOverviewResponse(
         platform_account_configured=platform_configured,
-        platform_account_bank_name=platform_bank_name,
+        platform_account_institution=platform_inst,
+        platform_account_transit=platform_transit,
         platform_account_last_four=platform_last_four,
         fund_escrow_total_held_cents=int(fe[0]),
         fund_escrow_total_released_cents=int(fe[1]),
@@ -547,16 +574,16 @@ async def admin_banking_overview(
 # ═══════════════════════════════════════════
 
 class PlatformAccountUpdate(BaseModel):
-    bank_name: str
+    institution_number: str
+    transit_number: str
     account_number: str
-    routing_number: str
     account_holder: str
 
 
 class PlatformAccountResponse(BaseModel):
-    bank_name_masked: str | None = None
+    institution_number: str | None = None
+    transit_number: str | None = None
     account_last_four: str | None = None
-    routing_masked: str | None = None
     account_holder_masked: str | None = None
     configured: bool = False
 
@@ -568,15 +595,15 @@ async def update_platform_account(
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
     log_step(logger, "Updating platform account", admin_id=current_user.id)
-    await settings_svc.set_value(db, "platform_holding_bank_name", enc.encrypt(body.bank_name))
+    await settings_svc.set_value(db, "platform_holding_institution_number", enc.encrypt(body.institution_number))
+    await settings_svc.set_value(db, "platform_holding_transit_number", enc.encrypt(body.transit_number))
     await settings_svc.set_value(db, "platform_holding_account_number", enc.encrypt(body.account_number))
-    await settings_svc.set_value(db, "platform_holding_routing_number", enc.encrypt(body.routing_number))
     await settings_svc.set_value(db, "platform_holding_account_holder", enc.encrypt(body.account_holder))
     await settings_svc.set_value(db, "platform_holding_configured", "true")
     return PlatformAccountResponse(
-        bank_name_masked=enc.mask_value(body.bank_name),
+        institution_number=body.institution_number,
+        transit_number=body.transit_number,
         account_last_four=body.account_number[-4:],
-        routing_masked=enc.mask_value(body.routing_number),
         account_holder_masked=enc.mask_value(body.account_holder),
         configured=True,
     )
@@ -590,24 +617,24 @@ async def get_platform_account(
     configured = await settings_svc.get_bool(db, "platform_holding_configured")
     if not configured:
         return PlatformAccountResponse()
-    raw_bank = await settings_svc.get_str(db, "platform_holding_bank_name")
+    raw_inst = await settings_svc.get_str(db, "platform_holding_institution_number")
+    raw_transit = await settings_svc.get_str(db, "platform_holding_transit_number")
     raw_acct = await settings_svc.get_str(db, "platform_holding_account_number")
-    raw_routing = await settings_svc.get_str(db, "platform_holding_routing_number")
     raw_holder = await settings_svc.get_str(db, "platform_holding_account_holder")
     try:
-        bank_name = enc.decrypt(raw_bank) if raw_bank else None
+        inst = enc.decrypt(raw_inst) if raw_inst else None
+        transit = enc.decrypt(raw_transit) if raw_transit else None
         acct_num = enc.decrypt(raw_acct) if raw_acct else None
-        routing = enc.decrypt(raw_routing) if raw_routing else None
         holder = enc.decrypt(raw_holder) if raw_holder else None
     except Exception:
-        bank_name = raw_bank
+        inst = raw_inst
+        transit = raw_transit
         acct_num = raw_acct
-        routing = raw_routing
         holder = raw_holder
     return PlatformAccountResponse(
-        bank_name_masked=enc.mask_value(bank_name) if bank_name else None,
+        institution_number=inst,
+        transit_number=transit,
         account_last_four=acct_num[-4:] if acct_num else None,
-        routing_masked=enc.mask_value(routing) if routing else None,
         account_holder_masked=enc.mask_value(holder) if holder else None,
         configured=True,
     )

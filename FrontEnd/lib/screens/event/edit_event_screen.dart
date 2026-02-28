@@ -16,6 +16,7 @@ import 'edit_sections/edit_milestones_section.dart';
 import 'edit_sections/edit_schedule_section.dart';
 import 'edit_sections/edit_tickets_section.dart';
 import 'edit_sections/edit_sponsors_section.dart';
+import 'create_event/event_policies_section.dart';
 
 class EditEventScreen extends StatefulWidget {
   final int eventId;
@@ -63,7 +64,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
   final _eventMaxImagesCtrl = TextEditingController();
   final _maxPostsPerDayCtrl = TextEditingController();
   final _maxCoOrganizersCtrl = TextEditingController();
-  final _refundDeadlinePercentCtrl = TextEditingController();
+  Map<String, int> _platformLimits = {};
 
   @override
   void initState() {
@@ -79,11 +80,18 @@ class _EditEventScreenState extends State<EditEventScreen> {
   Future<void> _loadFeatureFlags() async {
     try {
       final api = context.read<ApiService>();
-      final flags = await api.getFeatureFlags();
+      final config = await api.getPublicConfig();
       if (mounted) {
         setState(() {
           _communityRulesFeatureEnabled =
-              flags['feature_community_rules_enabled'] ?? true;
+              config['feature_community_rules_enabled'] == true;
+          _platformLimits = {
+            for (final key in [
+              'waitlist_max_size_limit', 'event_max_images_limit',
+              'max_posts_per_event_limit', 'max_co_organizers_limit',
+            ])
+              if (config[key] is int) key: config[key] as int,
+          };
         });
       }
     } catch (e) { debugPrint(e.toString()); }
@@ -150,7 +158,6 @@ class _EditEventScreenState extends State<EditEventScreen> {
         if (raw['event_max_images'] != null) _eventMaxImagesCtrl.text = raw['event_max_images'].toString();
         if (raw['max_posts_per_day'] != null) _maxPostsPerDayCtrl.text = raw['max_posts_per_day'].toString();
         if (raw['max_co_organizers'] != null) _maxCoOrganizersCtrl.text = raw['max_co_organizers'].toString();
-        if (raw['refund_deadline_percent'] != null) _refundDeadlinePercentCtrl.text = raw['refund_deadline_percent'].toString();
         _loadingEvent = false;
       });
     } catch (e) {
@@ -230,8 +237,6 @@ class _EditEventScreenState extends State<EditEventScreen> {
     if (mppd != null && mppd > 0) data['max_posts_per_day'] = mppd;
     final mco = int.tryParse(_maxCoOrganizersCtrl.text.trim());
     if (mco != null && mco > 0) data['max_co_organizers'] = mco;
-    final rdp = int.tryParse(_refundDeadlinePercentCtrl.text.trim());
-    if (rdp != null && rdp > 0) data['refund_deadline_percent'] = rdp;
 
     try {
       final api = context.read<ApiService>();
@@ -460,24 +465,14 @@ class _EditEventScreenState extends State<EditEventScreen> {
                             const SizedBox(height: 16),
 
                             // ─── Event Policies ───
-                            Card(
-                              child: ExpansionTile(
-                                leading: const Icon(Icons.tune, size: 20),
-                                title: const Text('Event Policies', style: TextStyle(fontWeight: FontWeight.w600)),
-                                childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                                children: [
-                                  TextFormField(controller: _waitlistMaxSizeCtrl, decoration: const InputDecoration(labelText: 'Waitlist max size', helperText: 'Leave empty for platform default'), keyboardType: TextInputType.number),
-                                  const SizedBox(height: 12),
-                                  SwitchListTile(title: const Text('Waitlist auto-approve'), value: _waitlistAutoApprove, onChanged: (v) => setState(() => _waitlistAutoApprove = v), contentPadding: EdgeInsets.zero),
-                                  TextFormField(controller: _eventMaxImagesCtrl, decoration: const InputDecoration(labelText: 'Max images', helperText: 'Leave empty for platform default'), keyboardType: TextInputType.number),
-                                  const SizedBox(height: 12),
-                                  TextFormField(controller: _maxPostsPerDayCtrl, decoration: const InputDecoration(labelText: 'Max posts per day', helperText: 'Leave empty for platform default'), keyboardType: TextInputType.number),
-                                  const SizedBox(height: 12),
-                                  TextFormField(controller: _maxCoOrganizersCtrl, decoration: const InputDecoration(labelText: 'Max co-organizers', helperText: 'Leave empty for platform default'), keyboardType: TextInputType.number),
-                                  const SizedBox(height: 12),
-                                  TextFormField(controller: _refundDeadlinePercentCtrl, decoration: const InputDecoration(labelText: 'Refund deadline %', helperText: 'Percentage of funding duration', suffixText: '%'), keyboardType: TextInputType.number),
-                                ],
-                              ),
+                            EventPoliciesSection(
+                              waitlistMaxSizeCtrl: _waitlistMaxSizeCtrl,
+                              waitlistAutoApprove: _waitlistAutoApprove,
+                              onWaitlistAutoApproveChanged: (v) => setState(() => _waitlistAutoApprove = v),
+                              eventMaxImagesCtrl: _eventMaxImagesCtrl,
+                              maxPostsPerDayCtrl: _maxPostsPerDayCtrl,
+                              maxCoOrganizersCtrl: _maxCoOrganizersCtrl,
+                              platformLimits: _platformLimits,
                             ),
                             const SizedBox(height: 24),
 

@@ -7,9 +7,9 @@
 
 ## Frontend flow
 
-- **Screen/Widget:** `AdminDashboardScreen` with tabs: Overview (stats), Pending Approval (events to approve/reject), Extensions (pending extension requests), Drafts, Users (list with email), Settings (platform settings, feature flags, commission, etc.), Escrow (list escrows, freeze/unfreeze, release stages), Requests (pending cancellation requests).
-- **User action:** View stats; approve/reject events; approve/reject extensions; publish/delete drafts; view users; edit settings (toggles for booleans, value for others); escrow release/freeze/unfreeze; approve/reject cancellation requests.
-- **API calls:** `adminGetUsers()`, `adminGetEvents(status?)`, `adminApproveEvent(id, approved)`, `adminGetStats()`, GET/PATCH settings (including getFeatureFlags()), GET escrows, POST escrows/{id}/release/{stage}, POST freeze/unfreeze, POST freeze-payouts for organizer; lifecycle cancellation/approve. Various admin endpoints under `/api/v1/admin/*`.
+- **Screen/Widget:** `AdminDashboardScreen` with section tabs and drawer navigation: Overview (stats), Events (pending approval, extensions, drafts), Financial (banking), Email, Settings, Mock, ARQ Control, KYC Review. Dedicated full-screen routes: `/admin/payouts` (payout status), `/admin/transactions` (transaction ledger), `/admin/escrow-pipeline` (escrow pipeline; linked from Banking tab), `/admin/run-logs` (ARQ worker run log; linked from ARQ Control tab), `/admin/users/:id` (user detail).
+- **User action:** View stats; approve/reject events and extensions; publish/delete drafts; view users; open Financial tab (banking overview, payouts/transactions/escrow-pipeline links); open Email tab (templates, logo upload); edit settings; Mock controls; ARQ toggles and run-logs link; KYC review; escrow release/freeze/unfreeze; approve/reject cancellation requests.
+- **API calls:** `adminGetUsers()`, `adminGetEvents(status?)`, `adminApproveEvent(id, approved)`, `adminGetStats()`, GET/PATCH settings (including getFeatureFlags()), GET escrows, POST escrows/{id}/release/{stage}, POST freeze/unfreeze, POST freeze-payouts for organizer; lifecycle cancellation/approve; banking/email/mock/worker endpoints as per [Banking](53-banking-financial-management.md), [ARQ Worker Control](65-arq-worker-control.md). Various admin endpoints under `/api/v1/admin/*`.
 
 ## Backend routing
 
@@ -57,6 +57,11 @@ flowchart LR
 
 - All admin routes must use require_role(UserRole.admin). No privilege escalation (e.g. organizer must not access admin endpoints). Mask email for non-admin in user list if needed (FEATURES says email visible only in admin).
 - Escrow release: ensure stage order (1 then 2 then 3) and amount consistency. Freeze prevents further releases; unfreeze does not auto-release.
+
+## Recently implemented (admin navigation and screens)
+
+- **Drawer navigation:** Dashboard uses a drawer for section switching: Events, Financial, Email, Settings, Mock, ARQ Control, KYC Review (in addition to bottom/section tabs where applicable).
+- **Dedicated admin routes:** Router registers `/admin/escrow-pipeline` → `AdminEscrowPipelineScreen` (full-screen escrow pipeline; Banking tab links via "View pipeline"); `/admin/run-logs` → `AdminRunLogsScreen` (full-screen ARQ run log; ARQ Control tab links). Payouts and Transactions screens remain at `/admin/payouts` and `/admin/transactions`.
 
 ## Improvements
 

@@ -13,14 +13,12 @@ class DashboardChartSection extends StatelessWidget {
   final Map<String, dynamic>? timeSeriesData;
   final bool timeSeriesLoading;
   final int chartDays;
-  final ValueChanged<int> onChartDaysChanged;
 
   const DashboardChartSection({
     super.key,
     required this.timeSeriesData,
     required this.timeSeriesLoading,
     required this.chartDays,
-    required this.onChartDaysChanged,
   });
 
   @override
@@ -60,8 +58,6 @@ class DashboardChartSection extends StatelessWidget {
                           color: AppTheme.textPrimaryOf(context),
                         ),
                       ),
-                      const Spacer(),
-                      _chartPeriodToggle(context),
                     ],
                   ),
                   AppSpacing.vLg,
@@ -167,49 +163,6 @@ class DashboardChartSection extends StatelessWidget {
               fontSize: 11, color: AppTheme.textSecondaryOf(context)),
         ),
       ],
-    );
-  }
-
-  Widget _chartPeriodToggle(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceOf(context),
-        borderRadius: AppRadius.pill,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final entry
-              in {7: '7d', 30: '30d', 90: '90d', 365: '1y'}.entries)
-            GestureDetector(
-              onTap: () {
-                if (chartDays != entry.key) {
-                  onChartDaysChanged(entry.key);
-                }
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: chartDays == entry.key
-                      ? AppTheme.accentColor
-                      : Colors.transparent,
-                  borderRadius: AppRadius.pill,
-                ),
-                child: Text(
-                  entry.value,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: chartDays == entry.key
-                        ? Colors.white
-                        : AppTheme.textSecondaryOf(context),
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
     );
   }
 

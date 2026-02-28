@@ -73,7 +73,20 @@ class ApiService {
         }
         handler.next(options);
       },
-      onError: (error, handler) {
+      onError: (error, handler) async {
+        if (error.response?.statusCode == 401) {
+          final user = FirebaseAuth.instance.currentUser;
+          if (user != null && error.requestOptions.extra['_retried'] != true) {
+            try {
+              final newToken = await user.getIdToken(true);
+              final opts = error.requestOptions;
+              opts.headers['Authorization'] = 'Bearer $newToken';
+              opts.extra['_retried'] = true;
+              final response = await dio.fetch(opts);
+              return handler.resolve(response);
+            } catch (_) {}
+          }
+        }
         handler.next(error);
       },
     ));
@@ -176,6 +189,15 @@ class ApiService {
       if (scannedOnly) 'scanned_only': true,
       if (eventStatus != null) 'event_status': eventStatus,
       if (genre != null) 'genre': genre,
+      if (eventId != null) 'event_id': eventId,
+      'offset': offset,
+      'limit': limit,
+    });
+    return resp.data;
+  }
+
+  Future<List<dynamic>> getOrganizerRefundRequests({int? eventId, int offset = 0, int limit = 50}) async {
+    final resp = await dio.get('/me/organizer-refund-requests', queryParameters: {
       if (eventId != null) 'event_id': eventId,
       'offset': offset,
       'limit': limit,
@@ -889,15 +911,15 @@ class ApiService {
 
   Future<Map<String, bool>> getFeatureFlags() async {
     try {
-      final resp = await dio.get('/admin/settings');
-      final list = resp.data as List;
+      final resp = await dio.get('/config');
+      final data = resp.data as Map<String, dynamic>;
       return {
-        for (var s in list.where((s) => (s['key'] as String).startsWith('feature_')))
-          s['key'] as String: s['value'] == 'true',
+        for (final entry in data.entries)
+          if (entry.key.startsWith('feature_'))
+            entry.key: entry.value == true,
       };
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 403) return {};
-      rethrow;
+    } catch (_) {
+      return {};
     }
   }
 

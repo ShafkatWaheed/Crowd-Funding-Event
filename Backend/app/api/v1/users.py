@@ -320,6 +320,22 @@ async def get_my_organizer_ticket_sales(
     return [_ticket_sale_to_response(s) for s in sales]
 
 
+@router.get("/organizer-refund-requests", response_model=list[TicketSaleResponse])
+async def get_my_organizer_refund_requests(
+    db: ReadDbSession,
+    current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+    event_id: int | None = Query(None, description="Filter to a single event"),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+):
+    """All pending refund requests across every event the current user organizes."""
+    sales = await ticket_service.list_organizer_refund_requests(
+        db, organizer_id=current_user.id,
+        event_id=event_id, offset=offset, limit=limit,
+    )
+    return [_ticket_sale_to_response(s) for s in sales]
+
+
 @router.get("/events", response_model=list[EventResponse])
 async def get_my_events(
     db: ReadDbSession,

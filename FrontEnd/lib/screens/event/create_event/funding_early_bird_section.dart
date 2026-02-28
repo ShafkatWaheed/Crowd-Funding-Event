@@ -8,11 +8,19 @@ class FundingEarlyBirdSection extends StatefulWidget {
   final VoidCallback onMarkDirty;
   final String Function(DateTime) fmtDt;
 
+  /// Funding deadline — if set, "Early Pledge" is available.
+  final DateTime? fundingEndAt;
+
+  /// Event start time — if set (and no funding deadline), "Early Ticket" is available.
+  final DateTime? startTime;
+
   const FundingEarlyBirdSection({
     super.key,
     required this.earlyBirdDiscounts,
     required this.onMarkDirty,
     required this.fmtDt,
+    this.fundingEndAt,
+    this.startTime,
   });
 
   @override
@@ -22,6 +30,25 @@ class FundingEarlyBirdSection extends StatefulWidget {
 
 class _FundingEarlyBirdSectionState extends State<FundingEarlyBirdSection> {
   bool _showEarlyBirdSection = false;
+
+  bool get _canEarlyPledge => widget.fundingEndAt != null;
+  bool get _canEarlyTicket =>
+      widget.fundingEndAt == null && widget.startTime != null;
+  bool get _canAddAny => _canEarlyPledge || _canEarlyTicket;
+
+  /// Max date for the window end picker based on the discount type.
+  DateTime? _maxDateFor(EarlyBirdInput eb) {
+    if (eb.appliesTo == 'funding') return widget.fundingEndAt;
+    if (eb.appliesTo == 'tickets') return widget.startTime;
+    return null;
+  }
+
+  /// Auto-pick the right default appliesTo when adding a new entry.
+  String _defaultAppliesTo() {
+    if (_canEarlyPledge) return 'funding';
+    if (_canEarlyTicket) return 'tickets';
+    return 'funding';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -105,39 +132,71 @@ class _FundingEarlyBirdSectionState extends State<FundingEarlyBirdSection> {
                       fontSize: 12,
                       color: AppTheme.textSecondaryOf(context)),
                 ),
+                if (!_canAddAny) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.warningColor.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                          color:
+                              AppTheme.warningColor.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline,
+                            size: 16, color: AppTheme.warningColor),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Set a funding deadline (for Early Pledge) or an event start date without funding (for Early Ticket) in the Dates step first.',
+                            style: TextStyle(
+                                fontSize: 11,
+                                color: AppTheme.warningColor),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 12),
                 ...widget.earlyBirdDiscounts.asMap().entries.map((entry) {
                   final idx = entry.key;
                   final eb = entry.value;
                   return _buildEarlyBirdCard(context, idx, eb);
                 }),
-                GestureDetector(
-                  onTap: () => setState(
-                      () => widget.earlyBirdDiscounts.add(EarlyBirdInput())),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(10),
-                      border:
-                          Border.all(color: AppTheme.dividerOf(context)),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.add_rounded,
-                            size: 18,
-                            color: AppTheme.textSecondaryOf(context)),
-                        const SizedBox(width: 6),
-                        Text('Add Early Bird Discount',
-                            style: TextStyle(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 13,
-                                color:
-                                    AppTheme.textSecondaryOf(context))),
-                      ],
+                if (_canAddAny)
+                  GestureDetector(
+                    onTap: () => setState(() {
+                      final input = EarlyBirdInput()
+                        ..appliesTo = _defaultAppliesTo();
+                      widget.earlyBirdDiscounts.add(input);
+                    }),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        border:
+                            Border.all(color: AppTheme.dividerOf(context)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.add_rounded,
+                              size: 18,
+                              color: AppTheme.textSecondaryOf(context)),
+                          const SizedBox(width: 6),
+                          Text('Add Early Bird Discount',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                  color:
+                                      AppTheme.textSecondaryOf(context))),
+                        ],
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
           ),
@@ -152,6 +211,15 @@ class _FundingEarlyBirdSectionState extends State<FundingEarlyBirdSection> {
 
   Widget _buildEarlyBirdCard(
       BuildContext context, int idx, EarlyBirdInput eb) {
+    final maxDate = _maxDateFor(eb);
+
+    // If the current windowEnd exceeds the max date, clear it.
+    if (eb.windowEnd != null && maxDate != null && eb.windowEnd!.isAfter(maxDate)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => eb.windowEnd = null);
+      });
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
@@ -179,24 +247,56 @@ class _FundingEarlyBirdSectionState extends State<FundingEarlyBirdSection> {
             ],
           ),
           const SizedBox(height: 8),
-          SegmentedButton<String>(
-            segments: const [
-              ButtonSegment(
+          if (_canEarlyPledge && _canEarlyTicket)
+            SegmentedButton<String>(
+              segments: [
+                ButtonSegment(
                   value: 'funding',
                   label: Text('Early Pledge',
-                      style: TextStyle(fontSize: 12))),
-              ButtonSegment(
+                      style: TextStyle(fontSize: 12)),
+                ),
+                ButtonSegment(
                   value: 'tickets',
                   label: Text('Early Ticket',
-                      style: TextStyle(fontSize: 12))),
-            ],
-            selected: {eb.appliesTo},
-            onSelectionChanged: (s) =>
-                setState(() => eb.appliesTo = s.first),
-            style: SegmentedButton.styleFrom(
-              visualDensity: VisualDensity.compact,
+                      style: TextStyle(fontSize: 12)),
+                ),
+              ],
+              selected: {eb.appliesTo},
+              onSelectionChanged: (s) {
+                setState(() {
+                  eb.appliesTo = s.first;
+                  eb.windowEnd = null;
+                });
+              },
+              style: SegmentedButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+              ),
+            )
+          else
+            Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: context.scheduleAccent.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.bolt_rounded,
+                      size: 14, color: context.scheduleAccent),
+                  const SizedBox(width: 6),
+                  Text(
+                    eb.appliesTo == 'funding'
+                        ? 'Early Pledge'
+                        : 'Early Ticket',
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: context.scheduleAccent),
+                  ),
+                ],
+              ),
             ),
-          ),
           const SizedBox(height: 10),
           Row(
             children: [
@@ -207,7 +307,7 @@ class _FundingEarlyBirdSectionState extends State<FundingEarlyBirdSection> {
                     labelText: 'Discount',
                     isDense: true,
                     suffixText:
-                        eb.discountType == 'percent' ? '%' : '¢',
+                        eb.discountType == 'percent' ? '%' : '\$',
                   ),
                   keyboardType: TextInputType.number,
                 ),
@@ -236,13 +336,18 @@ class _FundingEarlyBirdSectionState extends State<FundingEarlyBirdSection> {
           const SizedBox(height: 10),
           OutlinedButton.icon(
             onPressed: () async {
+              final now = DateTime.now();
+              final limit = maxDate ?? now.add(const Duration(days: 365));
+              // Ensure initialDate is within range
+              var initial = eb.windowEnd ?? now.add(const Duration(days: 7));
+              if (initial.isAfter(limit)) initial = limit;
+              if (initial.isBefore(now)) initial = now;
+
               final picked = await showDatePicker(
                 context: context,
-                initialDate: eb.windowEnd ??
-                    DateTime.now().add(const Duration(days: 7)),
-                firstDate: DateTime.now(),
-                lastDate:
-                    DateTime.now().add(const Duration(days: 365)),
+                initialDate: initial,
+                firstDate: now,
+                lastDate: limit,
               );
               if (picked != null) {
                 setState(() => eb.windowEnd = picked);
@@ -268,6 +373,18 @@ class _FundingEarlyBirdSectionState extends State<FundingEarlyBirdSection> {
                   borderRadius: BorderRadius.circular(10)),
             ),
           ),
+          if (maxDate != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              eb.appliesTo == 'funding'
+                  ? 'Window limited to funding deadline (${widget.fmtDt(maxDate)})'
+                  : 'Window limited to event start (${widget.fmtDt(maxDate)})',
+              style: TextStyle(
+                  fontSize: 10,
+                  color: context.scheduleAccent,
+                  fontStyle: FontStyle.italic),
+            ),
+          ],
           const SizedBox(height: 4),
           Text(
             eb.appliesTo == 'funding'

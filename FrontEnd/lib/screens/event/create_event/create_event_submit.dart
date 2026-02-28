@@ -40,7 +40,6 @@ Map<String, dynamic> buildCreateEventPayload({
   required int? eventMaxImages,
   required int? maxPostsPerDay,
   required int? maxCoOrganizers,
-  required int? refundDeadlinePercent,
 }) {
   final data = <String, dynamic>{
     'venue_id': selectedVenueId,
@@ -89,9 +88,6 @@ Map<String, dynamic> buildCreateEventPayload({
   if (eventMaxImages != null && eventMaxImages > 0) data['event_max_images'] = eventMaxImages;
   if (maxPostsPerDay != null && maxPostsPerDay > 0) data['max_posts_per_day'] = maxPostsPerDay;
   if (maxCoOrganizers != null && maxCoOrganizers > 0) data['max_co_organizers'] = maxCoOrganizers;
-  if (refundDeadlinePercent != null && refundDeadlinePercent > 0) {
-    data['refund_deadline_percent'] = refundDeadlinePercent;
-  }
 
   return data;
 }
@@ -185,6 +181,8 @@ Future<void> _createEarlyBirdDiscounts(ApiService api, int eventId, List<EarlyBi
         'applies_to': eb.appliesTo,
         'discount_type': eb.discountType,
         'value': val,
+        if (eb.windowStart != null)
+          'window_start': eb.windowStart!.toUtc().toIso8601String(),
         'window_end': eb.windowEnd!.toUtc().toIso8601String(),
       });
     } catch (e) { debugPrint(e.toString()); }

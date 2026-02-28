@@ -412,6 +412,35 @@ async def list_organizer_ticket_sales(
     return list(res.scalars().unique().all())
 
 
+async def list_organizer_refund_requests(
+    db: AsyncSession, *, organizer_id: int,
+    event_id: int | None = None,
+    offset: int = 0, limit: int = 20,
+) -> Sequence[TicketSale]:
+    """List all pending refund requests across all events owned by organizer_id."""
+    conditions = [
+        Event.organizer_id == organizer_id,
+        TicketSale.status == TicketSaleStatus.refund_requested,
+    ]
+    if event_id:
+        conditions.append(Event.id == event_id)
+    q = (
+        select(TicketSale)
+        .join(Event, TicketSale.event_id == Event.id)
+        .where(*conditions)
+        .options(
+            selectinload(TicketSale.event),
+            selectinload(TicketSale.user),
+            selectinload(TicketSale.ticket_tier),
+        )
+        .order_by(TicketSale.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    res = await db.execute(q)
+    return list(res.scalars().unique().all())
+
+
 async def list_all_ticket_sales_for_admin(
     db: AsyncSession,
     *,

@@ -61,6 +61,7 @@ class MilestoneSnapshotResponse(BaseModel):
 
 class EarlyBirdDiscountCreate(BaseModel):
     applies_to: str = Field(..., pattern=r"^(funding|tickets)$")
+    window_start: str | None = None  # ISO datetime (optional)
     window_end: str  # ISO datetime
     discount_type: str = Field(..., pattern=r"^(percent|fixed_cents)$")
     value: int = Field(..., ge=1)

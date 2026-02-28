@@ -205,36 +205,29 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
             children: [
               _StatChip(icon: Icons.favorite_rounded, value: '${event.likeCount}'),
               if (_attendeeCount > 0)
-                _StatChip(
-                  icon: Icons.group_rounded,
-                  value: event.maxCapacity > 0
-                      ? '$_attendeeCount / ${event.maxCapacity}'
-                      : '$_attendeeCount going',
+                Flexible(
+                  child: _StatChip(
+                    icon: Icons.group_rounded,
+                    value: event.maxCapacity > 0
+                        ? '$_attendeeCount / ${event.maxCapacity}'
+                        : '$_attendeeCount going',
+                  ),
                 ),
               if (hasFunding) ...[
                 const Spacer(),
-                Text(
-                  '${(event.fundingProgress * 100).clamp(0, 999).toStringAsFixed(0)}% raised',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 11,
-                    color: event.fundingProgress >= 1.0
-                        ? AppTheme.successColor
-                        : AppTheme.accentColor,
+                Flexible(
+                  child: Text(
+                    '${(event.fundingProgress * 100).clamp(0, 999).toStringAsFixed(0)}% raised${event.fundingEndAt != null ? ' · ${event.fundingHasTimeLeft ? event.fundingTimeLeftFormatted : "Ended"}' : ''}',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 11,
+                      color: event.fundingProgress >= 1.0
+                          ? AppTheme.successColor
+                          : AppTheme.accentColor,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                if (event.fundingEndAt != null) ...[
-                  Text(
-                    ' · ${event.fundingHasTimeLeft ? event.fundingTimeLeftFormatted : "Ended"}',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 11,
-                      color: event.fundingHasTimeLeft
-                          ? AppTheme.textSecondaryOf(context)
-                          : AppTheme.errorColor,
-                    ),
-                  ),
-                ],
               ],
             ],
           ),
@@ -479,12 +472,15 @@ class _StatChip extends StatelessWidget {
         children: [
           Icon(icon, size: 14, color: AppTheme.textSecondaryOf(context)),
           AppSpacing.hXs,
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.textPrimaryOf(context),
+          Flexible(
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textPrimaryOf(context),
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],

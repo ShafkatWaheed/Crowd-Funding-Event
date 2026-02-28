@@ -46,6 +46,7 @@ class EarlyBirdInput {
   String appliesTo = 'funding'; // 'funding' | 'tickets'
   String discountType = 'percent'; // 'percent' | 'fixed_cents'
   final valueCtrl = TextEditingController();
+  DateTime? windowStart;
   DateTime? windowEnd;
 }
 

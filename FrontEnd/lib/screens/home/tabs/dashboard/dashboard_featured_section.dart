@@ -146,47 +146,55 @@ class DashboardFeaturedSection extends StatelessWidget {
                     width: 280,
                     margin:
                         const EdgeInsets.only(right: AppSpacing.md),
-                    decoration: isSelected
-                        ? BoxDecoration(
-                            borderRadius: AppRadius.lg,
-                            border: Border.all(
-                              color: Theme.of(context).brightness ==
-                                      Brightness.dark
-                                  ? AppTheme.accentColor
-                                  : AppTheme.primaryColor,
-                              width: 2.5,
-                            ),
-                          )
-                        : null,
                     child: Stack(
                       children: [
-                        EventCard(
-                          event: event,
-                          imageUrl: event.firstImageUrl,
-                          onTap: onEventTap != null
-                              ? () => onEventTap!(event)
-                              : () => context
-                                  .push('/events/${event.id}'),
-                          isBookmarked:
-                              bookmarkedIds.contains(event.id),
-                          onBookmarkToggle: () =>
-                              onToggleBookmark(event.id),
-                        ),
-                        if (onEventTap != null)
-                          Positioned(
-                            right: 10,
-                            bottom: 10,
-                            child: GestureDetector(
-                              onTap: () => context
-                                  .push('/events/${event.id}'),
-                              child: Icon(
-                                Icons.arrow_forward,
-                                size: 18,
-                                color:
-                                    AppTheme.textSecondaryOf(context),
+                        Container(
+                          decoration: isSelected
+                              ? BoxDecoration(
+                                  borderRadius: AppRadius.lg,
+                                  border: Border.all(
+                                    color: Theme.of(context)
+                                                .brightness ==
+                                            Brightness.dark
+                                        ? AppTheme.accentColor
+                                        : AppTheme.primaryColor,
+                                    width: 2.5,
+                                  ),
+                                )
+                              : null,
+                          child: Stack(
+                            children: [
+                              EventCard(
+                                event: event,
+                                imageUrl: event.firstImageUrl,
+                                onTap: onEventTap != null
+                                    ? () => onEventTap!(event)
+                                    : () => context.push(
+                                        '/events/${event.id}'),
+                                isBookmarked: bookmarkedIds
+                                    .contains(event.id),
+                                onBookmarkToggle: () =>
+                                    onToggleBookmark(event.id),
                               ),
-                            ),
+                              if (onEventTap != null)
+                                Positioned(
+                                  right: 10,
+                                  bottom: 10,
+                                  child: GestureDetector(
+                                    onTap: () => context.push(
+                                        '/events/${event.id}'),
+                                    child: Icon(
+                                      Icons.arrow_forward,
+                                      size: 18,
+                                      color:
+                                          AppTheme.textSecondaryOf(
+                                              context),
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
+                        ),
                       ],
                     ),
                   );

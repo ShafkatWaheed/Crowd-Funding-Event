@@ -11,7 +11,13 @@ from app.services import platform_settings as settings_svc
 
 router = APIRouter()
 
-_PUBLIC_INT_KEYS = ["max_tickets_per_purchase"]
+_PUBLIC_INT_KEYS = [
+    "max_tickets_per_purchase",
+    "waitlist_max_size_limit",
+    "event_max_images_limit",
+    "max_posts_per_event_limit",
+    "max_co_organizers_limit",
+]
 _PUBLIC_BOOL_KEYS = [
     "max_tickets_frontend_enabled",
     "feature_milestones_enabled",

@@ -83,6 +83,7 @@ class _AppShell extends StatefulWidget {
 class _AppShellState extends State<_AppShell> {
   GoRouter? _router;
   bool _fcmInitialized = false;
+  bool _wasAuthenticated = false;
   StreamSubscription<RemoteMessage>? _foregroundSub;
   StreamSubscription<RemoteMessage>? _openedAppSub;
 
@@ -135,13 +136,20 @@ class _AppShellState extends State<_AppShell> {
     final authProvider = context.watch<AuthProvider>();
     final themeProvider = context.watch<ThemeProvider>();
 
-    final notifProvider = context.read<NotificationProvider>();
-    if (authProvider.isAuthenticated) {
-      notifProvider.startPolling();
-      _setupFcmListeners(notifProvider);
-    } else {
-      notifProvider.stopPolling();
-      _teardownFcm(notifProvider);
+    final isAuth = authProvider.isAuthenticated;
+    if (isAuth != _wasAuthenticated) {
+      _wasAuthenticated = isAuth;
+      final notifProvider = context.read<NotificationProvider>();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (isAuth) {
+          notifProvider.startPolling();
+          _setupFcmListeners(notifProvider);
+        } else {
+          notifProvider.stopPolling();
+          _teardownFcm(notifProvider);
+        }
+      });
     }
 
     _router ??= createRouter(authProvider);

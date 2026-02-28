@@ -7,8 +7,8 @@
 
 ## Frontend flow
 
-- **Screen/Widget:** Admin Dashboard → ARQ Control tab (`AdminArqTab`).
-- **User action:** View cron job summary (name, schedule, enabled state, total runs, total errors, last run time, last status); toggle each job on/off via Switch (calls existing PATCH settings); view run log with filters (task_name, status); expand run rows to see error traceback.
+- **Screen/Widget:** Admin Dashboard → ARQ Control tab (`AdminArqTab`); dedicated **Run Logs** screen at route `/admin/run-logs` (`AdminRunLogsScreen`) linked from the ARQ tab for full-screen run log with task/status filters and search.
+- **User action:** View cron job summary (name, schedule, enabled state, total runs, total errors, last run time, last status); toggle each job on/off via Switch (calls existing PATCH settings); view run log in tab or open full-screen Run Logs; filter by task name (e.g. mock_auto_settle, check_all_ticket_escrows, daily_reconciliation) and status (success/error/skipped); expand run rows to see error traceback.
 - **API calls:** `adminGetWorkerSummary()` → GET `/admin/worker-summary`; `adminGetWorkerRuns(taskName, status, offset, limit)` → GET `/admin/worker-runs`. Toggles use existing `onUpdateSetting(key, value)` → PATCH `/admin/settings/{key}` for keys `arq_mock_auto_settle_enabled`, `arq_ticket_escrow_check_enabled`, `arq_sponsor_escrow_check_enabled`, `arq_scheduled_payouts_enabled`, `arq_daily_reconciliation_enabled`.
 
 ## Backend routing

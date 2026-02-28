@@ -61,7 +61,7 @@ async def create(
     lng: float | None,
     max_capacity: int,
 ) -> Venue:
-    log_step(logger, "Create venue", organizer_id=organizer_id, name=name, max_capacity=max_capacity)
+    log_step(logger, "Create venue", organizer_id=organizer_id, venue_name=name, max_capacity=max_capacity)
     if max_capacity <= 0:
         logger.warning("Create venue rejected: invalid capacity", extra={"max_capacity": max_capacity})
         raise ConflictError("max_capacity must be greater than 0")

@@ -15,6 +15,7 @@ import '../screens/event/refund_requests_screen.dart';
 import '../screens/event/co_organizer_screen.dart';
 import '../screens/event/claim_discounts_screen.dart';
 import '../screens/manage/co_organized_events_screen.dart';
+import '../screens/manage/global_refund_requests_screen.dart';
 import '../screens/manage/global_ticket_sales_screen.dart';
 import '../screens/manage/global_waitlist_screen.dart';
 import '../screens/manage/global_discounts_screen.dart';
@@ -269,6 +270,11 @@ GoRouter createRouter(AuthProvider authProvider) {
         path: '/manage/ticket-waitlist',
         pageBuilder: (context, state) => fadeThroughPage(
             child: const GlobalWaitlistScreen(initialTicketView: true)),
+      ),
+      GoRoute(
+        path: '/manage/refunds',
+        pageBuilder: (context, state) =>
+            fadeThroughPage(child: const GlobalRefundRequestsScreen()),
       ),
       GoRoute(
         path: '/manage/discounts',

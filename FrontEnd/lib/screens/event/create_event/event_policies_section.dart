@@ -7,7 +7,7 @@ class EventPoliciesSection extends StatelessWidget {
   final TextEditingController eventMaxImagesCtrl;
   final TextEditingController maxPostsPerDayCtrl;
   final TextEditingController maxCoOrganizersCtrl;
-  final TextEditingController refundDeadlinePercentCtrl;
+  final Map<String, int> platformLimits;
 
   const EventPoliciesSection({
     super.key,
@@ -17,8 +17,24 @@ class EventPoliciesSection extends StatelessWidget {
     required this.eventMaxImagesCtrl,
     required this.maxPostsPerDayCtrl,
     required this.maxCoOrganizersCtrl,
-    required this.refundDeadlinePercentCtrl,
+    this.platformLimits = const {},
   });
+
+  String _helperText(String key, {String fallback = 'Leave empty for platform default'}) {
+    final limit = platformLimits[key];
+    if (limit != null) return 'Platform max: $limit';
+    return fallback;
+  }
+
+  String? _maxValidator(String? value, String limitKey) {
+    if (value == null || value.trim().isEmpty) return null;
+    final n = int.tryParse(value.trim());
+    if (n == null) return 'Enter a valid number';
+    if (n < 0) return 'Cannot be negative';
+    final limit = platformLimits[limitKey];
+    if (limit != null && n > limit) return 'Cannot exceed platform max ($limit)';
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,8 +49,12 @@ class EventPoliciesSection extends StatelessWidget {
           const SizedBox(height: 8),
           TextFormField(
             controller: waitlistMaxSizeCtrl,
-            decoration: const InputDecoration(labelText: 'Waitlist max size', helperText: 'Leave empty for platform default'),
+            decoration: InputDecoration(
+              labelText: 'Waitlist max size',
+              helperText: _helperText('waitlist_max_size_limit'),
+            ),
             keyboardType: TextInputType.number,
+            validator: (v) => _maxValidator(v, 'waitlist_max_size_limit'),
           ),
           const SizedBox(height: 12),
           SwitchListTile(
@@ -46,26 +66,32 @@ class EventPoliciesSection extends StatelessWidget {
           ),
           TextFormField(
             controller: eventMaxImagesCtrl,
-            decoration: const InputDecoration(labelText: 'Max images', helperText: 'Leave empty for platform default'),
+            decoration: InputDecoration(
+              labelText: 'Max images',
+              helperText: _helperText('event_max_images_limit'),
+            ),
             keyboardType: TextInputType.number,
+            validator: (v) => _maxValidator(v, 'event_max_images_limit'),
           ),
           const SizedBox(height: 12),
           TextFormField(
             controller: maxPostsPerDayCtrl,
-            decoration: const InputDecoration(labelText: 'Max posts per day', helperText: 'Leave empty for platform default'),
+            decoration: InputDecoration(
+              labelText: 'Max posts per day',
+              helperText: _helperText('max_posts_per_event_limit'),
+            ),
             keyboardType: TextInputType.number,
+            validator: (v) => _maxValidator(v, 'max_posts_per_event_limit'),
           ),
           const SizedBox(height: 12),
           TextFormField(
             controller: maxCoOrganizersCtrl,
-            decoration: const InputDecoration(labelText: 'Max co-organizers', helperText: 'Leave empty for platform default'),
+            decoration: InputDecoration(
+              labelText: 'Max co-organizers',
+              helperText: _helperText('max_co_organizers_limit'),
+            ),
             keyboardType: TextInputType.number,
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            controller: refundDeadlinePercentCtrl,
-            decoration: const InputDecoration(labelText: 'Refund deadline %', helperText: 'Percentage of funding duration', suffixText: '%'),
-            keyboardType: TextInputType.number,
+            validator: (v) => _maxValidator(v, 'max_co_organizers_limit'),
           ),
         ],
       ),

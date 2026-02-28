@@ -14,6 +14,7 @@ class StepFunding extends StatelessWidget {
   final TextEditingController minPledgeCtrl;
   final TextEditingController maxReservedSpotsCtrl;
   final DateTime? fundingEndAt;
+  final DateTime? startTime;
   final VoidCallback onPickFundingDeadline;
   final VoidCallback onClearFundingDeadline;
   final int refundDeadlineDays;
@@ -35,6 +36,7 @@ class StepFunding extends StatelessWidget {
     required this.minPledgeCtrl,
     required this.maxReservedSpotsCtrl,
     required this.fundingEndAt,
+    this.startTime,
     required this.onPickFundingDeadline,
     required this.onClearFundingDeadline,
     required this.refundDeadlineDays,
@@ -133,6 +135,8 @@ class StepFunding extends StatelessWidget {
                     earlyBirdDiscounts: earlyBirdDiscounts,
                     onMarkDirty: onMarkDirty,
                     fmtDt: fmtDt,
+                    fundingEndAt: fundingEndAt,
+                    startTime: startTime,
                   ),
                   const SizedBox(height: 16),
                   FundingDiscountCapSection(

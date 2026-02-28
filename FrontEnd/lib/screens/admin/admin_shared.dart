@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../config/theme.dart';
 import '../../services/api_service.dart';
@@ -242,14 +243,16 @@ Widget escrowBtn(
 
 class PlatformAccountCard extends StatefulWidget {
   final bool configured;
-  final String? bankName;
+  final String? institutionNumber;
+  final String? transitNumber;
   final String? lastFour;
   final VoidCallback onSaved;
 
   const PlatformAccountCard({
     super.key,
     required this.configured,
-    this.bankName,
+    this.institutionNumber,
+    this.transitNumber,
     this.lastFour,
     required this.onSaved,
   });
@@ -261,37 +264,37 @@ class PlatformAccountCard extends StatefulWidget {
 class _PlatformAccountCardState extends State<PlatformAccountCard> {
   bool _editing = false;
   bool _saving = false;
-  final _bankNameCtrl = TextEditingController();
+  final _institutionCtrl = TextEditingController();
+  final _transitCtrl = TextEditingController();
   final _accountNumberCtrl = TextEditingController();
-  final _routingNumberCtrl = TextEditingController();
   final _accountHolderCtrl = TextEditingController();
 
   @override
   void dispose() {
-    _bankNameCtrl.dispose();
+    _institutionCtrl.dispose();
+    _transitCtrl.dispose();
     _accountNumberCtrl.dispose();
-    _routingNumberCtrl.dispose();
     _accountHolderCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _save() async {
-    if (_bankNameCtrl.text.isEmpty ||
-        _accountNumberCtrl.text.isEmpty ||
-        _routingNumberCtrl.text.isEmpty ||
-        _accountHolderCtrl.text.isEmpty) {
+    if (_institutionCtrl.text.trim().length != 3 ||
+        _transitCtrl.text.trim().length != 5 ||
+        _accountNumberCtrl.text.trim().isEmpty ||
+        _accountHolderCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('All fields are required')),
+        const SnackBar(content: Text('All fields are required (Institution: 3 digits, Transit: 5 digits)')),
       );
       return;
     }
     setState(() => _saving = true);
     try {
       await ApiService.instance.put('/admin/platform-account', data: {
-        'bank_name': _bankNameCtrl.text,
-        'account_number': _accountNumberCtrl.text,
-        'routing_number': _routingNumberCtrl.text,
-        'account_holder': _accountHolderCtrl.text,
+        'institution_number': _institutionCtrl.text.trim(),
+        'transit_number': _transitCtrl.text.trim(),
+        'account_number': _accountNumberCtrl.text.trim(),
+        'account_holder': _accountHolderCtrl.text.trim(),
       });
       if (mounted) {
         setState(() {
@@ -327,25 +330,56 @@ class _PlatformAccountCardState extends State<PlatformAccountCard> {
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
                       color: AppTheme.textPrimaryOf(context))),
+              const SizedBox(height: 4),
+              Text('Canadian bank account details',
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textSecondaryOf(context))),
               const SizedBox(height: 12),
-              TextField(
-                controller: _bankNameCtrl,
-                decoration: const InputDecoration(
-                    labelText: 'Bank Name', border: OutlineInputBorder()),
+              Row(
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: TextField(
+                      controller: _institutionCtrl,
+                      decoration: const InputDecoration(
+                          labelText: 'Institution # (3 digits)',
+                          border: OutlineInputBorder()),
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(3),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    flex: 4,
+                    child: TextField(
+                      controller: _transitCtrl,
+                      decoration: const InputDecoration(
+                          labelText: 'Transit # (5 digits)',
+                          border: OutlineInputBorder()),
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(5),
+                      ],
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 10),
               TextField(
                 controller: _accountNumberCtrl,
                 decoration: const InputDecoration(
-                    labelText: 'Account Number',
+                    labelText: 'Account Number (7-12 digits)',
                     border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: _routingNumberCtrl,
-                decoration: const InputDecoration(
-                    labelText: 'Routing Number',
-                    border: OutlineInputBorder()),
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(12),
+                ],
               ),
               const SizedBox(height: 10),
               TextField(
@@ -407,9 +441,9 @@ class _PlatformAccountCardState extends State<PlatformAccountCard> {
                         fontWeight: FontWeight.w600,
                         color: AppTheme.textPrimaryOf(context)),
                   ),
-                  if (widget.configured && widget.bankName != null)
+                  if (widget.configured)
                     Text(
-                      '${widget.bankName} \u2022\u2022\u2022\u2022${widget.lastFour ?? ''}',
+                      '${widget.institutionNumber ?? '—'}-${widget.transitNumber ?? '—'} ••••${widget.lastFour ?? ''}',
                       style: TextStyle(
                           fontSize: 13,
                           color: AppTheme.textSecondaryOf(context)),

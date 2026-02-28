@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
@@ -18,11 +19,10 @@ class _ProfileBankSectionState extends State<ProfileBankSection> {
   bool _loading = false;
   Map<String, dynamic>? _bankData;
 
-  final _bankNameCtrl = TextEditingController();
+  final _institutionCtrl = TextEditingController();
+  final _transitCtrl = TextEditingController();
   final _accountNumberCtrl = TextEditingController();
-  final _routingNumberCtrl = TextEditingController();
   final _accountHolderCtrl = TextEditingController();
-  final _swiftCodeCtrl = TextEditingController();
   bool _editing = false;
 
   @override
@@ -33,11 +33,10 @@ class _ProfileBankSectionState extends State<ProfileBankSection> {
 
   @override
   void dispose() {
-    _bankNameCtrl.dispose();
+    _institutionCtrl.dispose();
+    _transitCtrl.dispose();
     _accountNumberCtrl.dispose();
-    _routingNumberCtrl.dispose();
     _accountHolderCtrl.dispose();
-    _swiftCodeCtrl.dispose();
     super.dispose();
   }
 
@@ -59,15 +58,28 @@ class _ProfileBankSectionState extends State<ProfileBankSection> {
   }
 
   Future<void> _save() async {
+    if (_institutionCtrl.text.trim().length != 3) {
+      AppToast.error(context, 'Institution number must be 3 digits');
+      return;
+    }
+    if (_transitCtrl.text.trim().length != 5) {
+      AppToast.error(context, 'Transit number must be 5 digits');
+      return;
+    }
+    if (_accountNumberCtrl.text.trim().length < 7) {
+      AppToast.error(context, 'Account number must be 7-12 digits');
+      return;
+    }
+    if (_accountHolderCtrl.text.trim().isEmpty) {
+      AppToast.error(context, 'Account holder is required');
+      return;
+    }
     try {
       await context.read<ApiService>().updateBankAccount({
-        'bank_name': _bankNameCtrl.text.trim(),
+        'institution_number': _institutionCtrl.text.trim(),
+        'transit_number': _transitCtrl.text.trim(),
         'account_number': _accountNumberCtrl.text.trim(),
-        'routing_number': _routingNumberCtrl.text.trim(),
         'account_holder': _accountHolderCtrl.text.trim(),
-        'swift_code': _swiftCodeCtrl.text.trim().isEmpty
-            ? null
-            : _swiftCodeCtrl.text.trim(),
       });
       await _load();
       if (mounted) AppToast.success(context, 'Bank account updated');
@@ -82,11 +94,10 @@ class _ProfileBankSectionState extends State<ProfileBankSection> {
   void _startEditing() {
     setState(() {
       _editing = true;
-      _bankNameCtrl.clear();
+      _institutionCtrl.clear();
+      _transitCtrl.clear();
       _accountNumberCtrl.clear();
-      _routingNumberCtrl.clear();
       _accountHolderCtrl.clear();
-      _swiftCodeCtrl.clear();
     });
   }
 
@@ -99,18 +110,20 @@ class _ProfileBankSectionState extends State<ProfileBankSection> {
       children: _loading
           ? [const Center(child: CircularProgressIndicator())]
           : [
-              if (_bankData != null && !_editing) ...[
-                _bankDetailRow(context, 'Bank',
-                    _bankData!['bank_name_masked'] ?? 'Not set'),
+              if (_bankData != null &&
+                  _bankData!['has_bank_account'] == true &&
+                  !_editing) ...[
+                _bankDetailRow(
+                    context, 'Institution', _bankData!['institution_number'] ?? '—'),
                 const SizedBox(height: 8),
-                _bankDetailRow(context, 'Account',
-                    _bankData!['account_number_masked'] ?? '••••'),
+                _bankDetailRow(
+                    context, 'Transit', _bankData!['transit_number'] ?? '—'),
                 const SizedBox(height: 8),
-                _bankDetailRow(context, 'Routing',
-                    _bankData!['routing_number_masked'] ?? '••••'),
+                _bankDetailRow(
+                    context, 'Account', '••••${_bankData!['account_last_four'] ?? ''}'),
                 const SizedBox(height: 8),
-                _bankDetailRow(context, 'Holder',
-                    _bankData!['account_holder_masked'] ?? ''),
+                _bankDetailRow(
+                    context, 'Holder', _bankData!['account_holder_masked'] ?? ''),
                 const SizedBox(height: 8),
                 Row(
                   children: [
@@ -127,17 +140,28 @@ class _ProfileBankSectionState extends State<ProfileBankSection> {
                     Text(
                       _bankData!['verified'] == true
                           ? 'Verified'
-                          : 'Pending verification',
+                          : _bankData!['verification_status'] == 'rejected'
+                              ? 'Rejected'
+                              : 'Pending verification',
                       style: TextStyle(
                         fontSize: 13,
                         color: _bankData!['verified'] == true
                             ? AppTheme.successColor
-                            : AppTheme.warningColor,
+                            : _bankData!['verification_status'] == 'rejected'
+                                ? AppTheme.errorColor
+                                : AppTheme.warningColor,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
                 ),
+                if (_bankData!['rejection_reason'] != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    _bankData!['rejection_reason'],
+                    style: TextStyle(fontSize: 12, color: AppTheme.errorColor),
+                  ),
+                ],
                 AppSpacing.vLg,
                 SizedBox(
                   width: double.infinity,
@@ -154,55 +178,80 @@ class _ProfileBankSectionState extends State<ProfileBankSection> {
                   ),
                 ),
               ] else ...[
-                TextFormField(
-                  controller: _bankNameCtrl,
-                  decoration: profileFieldDecoration(context,
-                      label: 'Bank Name', icon: Icons.account_balance),
+                Text(
+                  'Canadian bank account details',
+                  style: TextStyle(
+                      fontSize: 12, color: AppTheme.textSecondaryOf(context)),
+                ),
+                AppSpacing.vMd,
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: TextFormField(
+                        controller: _institutionCtrl,
+                        decoration: profileFieldDecoration(context,
+                            label: 'Institution # (3 digits)',
+                            icon: Icons.account_balance),
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(3),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 4,
+                      child: TextFormField(
+                        controller: _transitCtrl,
+                        decoration: profileFieldDecoration(context,
+                            label: 'Transit # (5 digits)',
+                            icon: Icons.alt_route),
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(5),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
                 AppSpacing.vLg,
                 TextFormField(
                   controller: _accountNumberCtrl,
                   decoration: profileFieldDecoration(context,
-                      label: 'Account Number', icon: Icons.numbers),
-                ),
-                AppSpacing.vLg,
-                TextFormField(
-                  controller: _routingNumberCtrl,
-                  decoration: profileFieldDecoration(context,
-                      label: 'Routing Number', icon: Icons.alt_route),
+                      label: 'Account Number (7-12 digits)',
+                      icon: Icons.numbers),
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(12),
+                  ],
                 ),
                 AppSpacing.vLg,
                 TextFormField(
                   controller: _accountHolderCtrl,
                   decoration: profileFieldDecoration(context,
-                      label: 'Account Holder',
+                      label: 'Account Holder Name',
                       icon: Icons.person_outline),
-                ),
-                AppSpacing.vLg,
-                TextFormField(
-                  controller: _swiftCodeCtrl,
-                  decoration: profileFieldDecoration(context,
-                      label: 'SWIFT Code (optional)',
-                      icon: Icons.language),
                 ),
                 AppSpacing.vLg,
                 Row(
                   children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () {
-                          if (_bankData != null) {
-                            setState(() => _editing = false);
-                          }
-                        },
-                        style: OutlinedButton.styleFrom(
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10)),
+                    if (_bankData != null && _bankData!['has_bank_account'] == true)
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => setState(() => _editing = false),
+                          style: OutlinedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                          ),
+                          child: const Text('Cancel'),
                         ),
-                        child: const Text('Cancel'),
                       ),
-                    ),
-                    const SizedBox(width: 12),
+                    if (_bankData != null && _bankData!['has_bank_account'] == true)
+                      const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton.icon(
                         onPressed: _save,

@@ -42,11 +42,10 @@ class OrganizerBankAccount(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True, nullable=False, index=True)
-    bank_name_encrypted: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    institution_number_encrypted: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    transit_number_encrypted: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     account_number_encrypted: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
-    routing_number_encrypted: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     account_holder_encrypted: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
-    swift_code_encrypted: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
     verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     verification_status: Mapped[BankVerificationStatus] = mapped_column(
         Enum(BankVerificationStatus, name="bankverificationstatus"),

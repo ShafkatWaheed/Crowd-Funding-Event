@@ -205,7 +205,8 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
             const SizedBox(height: 8),
             PlatformAccountCard(
               configured: d['platform_account_configured'] == true,
-              bankName: d['platform_account_bank_name'] as String?,
+              institutionNumber: d['platform_account_institution'] as String?,
+              transitNumber: d['platform_account_transit'] as String?,
               lastFour: d['platform_account_last_four'] as String?,
               onSaved: () => _loadBankingData(),
             ),

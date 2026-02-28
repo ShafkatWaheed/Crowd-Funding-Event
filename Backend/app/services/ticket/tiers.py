@@ -63,7 +63,7 @@ async def create_tier(
     max_reserved_spots: int = 0,
     display_order: int = 0,
 ) -> TicketTier:
-    log_step(logger, "Creating tier", event_id=event_id, name=name, price_cents=price_cents)
+    log_step(logger, "Creating tier", event_id=event_id, tier_name=name, price_cents=price_cents)
     event = await event_service.get_or_404(db, event_id)
     if not await _can_manage_event_tickets(db, user, event):
         logger.warning("Create tier rejected: no permission", extra={"event_id": event_id})
@@ -85,7 +85,7 @@ async def create_tier(
     db.add(tier)
     await db.flush()
     await db.refresh(tier)
-    logger.info("Tier created", extra={"event_id": event_id, "tier_id": tier.id, "name": name})
+    logger.info("Tier created", extra={"event_id": event_id, "tier_id": tier.id, "tier_name": name})
     return tier
 
 

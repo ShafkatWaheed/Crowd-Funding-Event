@@ -10,7 +10,6 @@ import '../../../providers/auth_provider.dart';
 import '../../../services/api_service.dart';
 import '../../../widgets/empty_state.dart';
 import '../../../widgets/error_state.dart';
-import 'dashboard/dashboard_activity_feed.dart';
 import 'dashboard/dashboard_chart_section.dart';
 import 'dashboard/dashboard_event_carousel.dart';
 import 'dashboard/dashboard_featured_section.dart';
@@ -429,14 +428,6 @@ class _OrganizerDashboardTabState extends State<OrganizerDashboardTab> {
                 timeSeriesData: _timeSeriesData,
                 timeSeriesLoading: _timeSeriesLoading,
                 chartDays: _chartDays,
-                onChartDaysChanged: (days) {
-                  setState(() => _chartDays = days);
-                  _loadTimeSeries(
-                    statusFilter: _dashboardStatusFilter,
-                    eventId: _dashboardEventId,
-                    genre: _dashboardGenreFilter,
-                  );
-                },
               ),
             ),
             SliverToBoxAdapter(
@@ -444,11 +435,6 @@ class _OrganizerDashboardTabState extends State<OrganizerDashboardTab> {
                 dashboardData: _dashboardData!,
                 bookmarkedIds: widget.bookmarkedIds,
                 onToggleBookmark: widget.onToggleBookmark,
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: DashboardActivityFeed(
-                feed: (_dashboardData!['recent_activity'] as List?) ?? [],
               ),
             ),
           ],

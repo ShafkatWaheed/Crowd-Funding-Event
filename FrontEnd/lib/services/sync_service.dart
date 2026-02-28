@@ -3,7 +3,7 @@ import 'dart:convert';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:drift/drift.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 
 import '../db/app_database.dart';
 import 'api_service.dart';
@@ -24,10 +24,15 @@ class SyncService {
   // ── Lifecycle ──
 
   void init() {
+    // connectivity_plus stream listener throws MissingPluginException on web
+    if (kIsWeb) return;
     try {
-      _connectivitySub = Connectivity().onConnectivityChanged.listen(_onConnectivityChanged);
+      _connectivitySub = Connectivity().onConnectivityChanged.listen(
+        _onConnectivityChanged,
+        onError: (_) {},
+      );
     } catch (_) {
-      // connectivity_plus not available on web — skip listener
+      // connectivity_plus not available — skip listener
     }
   }
 

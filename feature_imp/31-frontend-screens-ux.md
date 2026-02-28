@@ -18,6 +18,7 @@
 ## Service layer
 
 - Frontend: `GoRouter` (router.dart), `AuthProvider` (redirect, refresh), `ApiService` (extractError). No backend service for "UX" itself.
+- **App root:** `CrowdFundApp` is a **StatefulWidget**; `ApiService`, `ChatSocketService`, `AppDatabase`, and `SyncService` are created in `initState()` and held as instance variables (`_apiService`, `_chatSocket`, `_appDatabase`, `_syncService`). Provider values in `build()` use these instance variables so services are initialized once and survive rebuilds. This improves lifecycle management and avoids recreating services on every build.
 
 ## Models and DB
 

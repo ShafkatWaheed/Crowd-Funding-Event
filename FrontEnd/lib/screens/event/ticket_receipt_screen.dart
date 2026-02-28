@@ -131,7 +131,9 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
                   ),
                 ),
               )
-            : _buildReceipt(),
+            : _receipt != null
+                ? _buildReceipt()
+                : const SizedBox.shrink(),
       ),
     );
   }

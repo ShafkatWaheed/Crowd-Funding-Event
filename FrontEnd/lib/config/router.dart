@@ -131,7 +131,7 @@ GoRouter createRouter(AuthProvider authProvider) {
       GoRoute(
         path: '/account',
         pageBuilder: (context, state) => fadeThroughPage(
-          child: const Scaffold(body: ProfileTab()),
+          child: const _AccountShell(),
         ),
       ),
       GoRoute(
@@ -491,4 +491,29 @@ GoRouter createRouter(AuthProvider authProvider) {
       ),
     ),
   );
+}
+
+/// Wraps [ProfileTab] with a close-button AppBar for the /account route.
+class _AccountShell extends StatelessWidget {
+  const _AccountShell();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.close_rounded),
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            } else {
+              context.go('/');
+            }
+          },
+        ),
+        title: const Text('Account'),
+      ),
+      body: const ProfileTab(),
+    );
+  }
 }

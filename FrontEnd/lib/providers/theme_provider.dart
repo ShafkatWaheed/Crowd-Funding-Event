@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Manages light / dark theme preference with local persistence.
@@ -24,7 +25,11 @@ class ThemeProvider extends ChangeNotifier {
     };
     if (newMode != _mode) {
       _mode = newMode;
-      notifyListeners();
+      // Defer notification: on web, SharedPreferences resolves almost instantly
+      // (backed by localStorage), so notifyListeners can fire mid-build frame.
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        notifyListeners();
+      });
     }
   }
 

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 import '../services/api_service.dart';
 
 class NotificationProvider extends ChangeNotifier {
@@ -12,8 +13,25 @@ class NotificationProvider extends ChangeNotifier {
   Timer? _pollTimer;
   String? _fcmToken;
   StreamSubscription? _tokenRefreshSub;
+  bool _notifyScheduled = false;
 
   NotificationProvider(this._api);
+
+  // ignore: unused_element
+  /// Build-phase-safe notification. Defers if framework is currently building.
+  void _safeNotify() {
+    final phase = SchedulerBinding.instance.schedulerPhase;
+    if (phase == SchedulerPhase.persistentCallbacks) {
+      if (_notifyScheduled) return;
+      _notifyScheduled = true;
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        _notifyScheduled = false;
+        super.notifyListeners();
+      });
+    } else {
+      super.notifyListeners();
+    }
+  }
 
   int get unreadCount => _unreadCount;
   List<Map<String, dynamic>> get notifications => _notifications;
@@ -36,14 +54,14 @@ class NotificationProvider extends ChangeNotifier {
       final count = resp.data['unread_count'] ?? 0;
       if (count != _unreadCount) {
         _unreadCount = count;
-        notifyListeners();
+        _safeNotify();
       }
     } catch (e) { debugPrint(e.toString()); }
   }
 
   Future<void> loadNotifications({bool unreadOnly = false, int offset = 0}) async {
     _isLoading = true;
-    notifyListeners();
+    _safeNotify();
     try {
       final resp = await _api.dio.get('/me/notifications', queryParameters: {
         'unread_only': unreadOnly,
@@ -57,7 +75,7 @@ class NotificationProvider extends ChangeNotifier {
       }
     } catch (e) { debugPrint(e.toString()); }
     _isLoading = false;
-    notifyListeners();
+    _safeNotify();
   }
 
   Future<void> markRead(int notificationId) async {
@@ -68,7 +86,7 @@ class NotificationProvider extends ChangeNotifier {
         _notifications[idx]['is_read'] = true;
       }
       _unreadCount = (_unreadCount - 1).clamp(0, 999);
-      notifyListeners();
+      _safeNotify();
     } catch (e) { debugPrint(e.toString()); }
   }
 
@@ -79,7 +97,7 @@ class NotificationProvider extends ChangeNotifier {
         n['is_read'] = true;
       }
       _unreadCount = 0;
-      notifyListeners();
+      _safeNotify();
     } catch (e) { debugPrint(e.toString()); }
   }
 
@@ -90,7 +108,7 @@ class NotificationProvider extends ChangeNotifier {
           (n) => n['id'] == notificationId && n['is_read'] != true);
       _notifications.removeWhere((n) => n['id'] == notificationId);
       if (wasUnread) _unreadCount = (_unreadCount - 1).clamp(0, 999);
-      notifyListeners();
+      _safeNotify();
     } catch (e) { debugPrint(e.toString()); }
   }
 

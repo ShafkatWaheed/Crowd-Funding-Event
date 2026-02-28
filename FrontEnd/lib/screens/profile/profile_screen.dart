@@ -250,7 +250,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
+          icon: const Icon(Icons.close_rounded),
           onPressed: () {
             if (Navigator.of(context).canPop()) {
               context.pop();

@@ -183,9 +183,11 @@ class _AppShellState extends State<_AppShell> {
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final authProvider = context.read<AuthProvider>();
+  Widget build(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+    final themeProvider = context.watch<ThemeProvider>();
+
+    // Detect auth transitions and schedule side-effects after the frame.
     final isAuth = authProvider.isAuthenticated;
     if (isAuth != _wasAuthenticated) {
       _wasAuthenticated = isAuth;
@@ -204,14 +206,10 @@ class _AppShellState extends State<_AppShell> {
         }
       });
     }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final authProvider = context.watch<AuthProvider>();
-    final themeProvider = context.watch<ThemeProvider>();
 
     _router ??= createRouter(authProvider);
+
+    final loading = authProvider.isLoading;
 
     return MaterialApp.router(
       title: 'CrowdFund Events',
@@ -221,9 +219,7 @@ class _AppShellState extends State<_AppShell> {
       themeMode: themeProvider.mode,
       routerConfig: _router!,
       builder: (context, child) {
-        if (authProvider.isLoading) {
-          return const SplashScreen();
-        }
+        if (loading) return const SplashScreen();
         return child ?? const SizedBox.shrink();
       },
     );

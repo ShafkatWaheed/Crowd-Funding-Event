@@ -533,7 +533,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ),
         );
       case 5:
-        return AdminEmailTab(onSnack: _snack);
+        return AdminEmailTab(
+          settings: _settings,
+          onSnack: _snack,
+          onUpdateSetting: _updateSetting,
+          onReloadSettings: _loadSettings,
+        );
       case 6:
         return AdminSettingsTab(
           settings: _settings,

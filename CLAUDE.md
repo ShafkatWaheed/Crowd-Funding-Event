@@ -76,3 +76,24 @@ async def purchase_ticket(db: DbSession): ...
 - Services called from **write** or **coupled** endpoints need the primary session — use `DbSession`.
 
 Do not mix: a single request should use either `ReadDbSession` (all reads) or `DbSession` (reads + writes).
+
+---
+
+## MCP Validation Rules
+
+### Frontend: Validate with Dart MCP Server
+
+After making any changes to Flutter/Dart files (`FrontEnd/lib/**/*.dart`):
+
+- Use the **Dart MCP server** (`dart tooling-daemon`) to run `dart analyze` on the changed files.
+- Fix all errors and warnings before considering the task complete.
+- This catches type mismatches, missing imports, deprecated APIs, and other static analysis issues at edit time rather than at build time.
+
+### Database: Validate with PostgreSQL MCP Server
+
+After making any changes that affect the database (new migrations, model changes, query changes):
+
+- Use the **PostgreSQL MCP server** to validate the change against the live database schema.
+- For new migrations: verify the table/column exists after running the migration.
+- For query changes: spot-check that the query executes without errors.
+- For model changes: confirm the referenced tables and columns exist in the database.

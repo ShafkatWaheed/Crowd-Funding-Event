@@ -27,6 +27,7 @@
 
 - **Models:** `AuditLog` in `app.models.audit_log` — `id`, `admin_id` (FK users.id), `action` (string, indexed), `target_type` (string), `target_id` (string, nullable), `details` (JSONB, nullable), `created_at` (timestamp with timezone, indexed).
 - **Tables updated/read:** `audit_logs`. Writes only via `log_action`; no updates or deletes. Reads via `list_audit_logs`.
+- **Migration:** The `audit_logs` table is created by Alembic migration `nnn_create_audit_logs_table` (revision `nnn_create_audit_logs_table`, depends on `mmm_create_missing_enum_types`). Previously the `AuditLog` model existed but the table was never created, causing "relation audit_logs does not exist" when any admin action called `log_action`; this migration fixes that.
 
 ## Dependencies
 

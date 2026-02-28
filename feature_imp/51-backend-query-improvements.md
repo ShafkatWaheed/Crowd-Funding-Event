@@ -58,6 +58,10 @@ flowchart LR
 
 - Add query timing or slow-query log for dashboard to monitor impact. Consider read replica for dashboard if primary is still under load after optimization.
 
+## Project backend rules (N+1 and DB routing)
+
+- **CLAUDE.md** at the repo root (and `.cursor/rules/`) documents backend conventions: (1) avoid N+1 by eager-loading relationships with `selectinload` / `joinedload` / `subqueryload`; (2) classify new endpoints as read-only vs write/coupled and use `ReadDbSession` for read-only and `DbSession` for writes. These rules apply to all backend code under `Backend/app` and should be followed when adding or changing API handlers and services.
+
 ## Feedback
 
 - Dashboard drops from ~30 to ~8–10 queries; N+1 removed in organizer sponsors, ticket purchase, pledge preview/create, and sponsor admin flows. Indexes reduce full table scans on status and event_id filters.

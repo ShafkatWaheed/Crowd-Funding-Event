@@ -19,11 +19,30 @@ class AdminKycTab extends StatefulWidget {
 class _AdminKycTabState extends State<AdminKycTab> {
   List<dynamic> _pendingUsers = [];
   bool _loading = true;
+  String _searchText = '';
+  final _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _loadPending();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<dynamic> get _filteredUsers {
+    if (_searchText.isEmpty) return _pendingUsers;
+    final q = _searchText.toLowerCase();
+    return _pendingUsers.where((u) {
+      final name = (u['display_name'] ?? '').toString().toLowerCase();
+      final email = (u['email'] ?? '').toString().toLowerCase();
+      final role = (u['role'] ?? '').toString().toLowerCase();
+      return name.contains(q) || email.contains(q) || role.contains(q);
+    }).toList();
   }
 
   Future<void> _loadPending() async {
@@ -60,20 +79,54 @@ class _AdminKycTabState extends State<AdminKycTab> {
       );
     }
 
-    return RefreshIndicator(
-      onRefresh: _loadPending,
-      child: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: _pendingUsers.length,
-        itemBuilder: (context, index) {
-          final u = _pendingUsers[index] as Map<String, dynamic>;
-          return _KycUserCard(
-            user: u,
-            onSnack: widget.onSnack,
-            onDone: _loadPending,
-          );
-        },
-      ),
+    final filtered = _filteredUsers;
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: TextField(
+            controller: _searchController,
+            decoration: InputDecoration(
+              hintText: 'Search by name, email, or role...',
+              prefixIcon: const Icon(Icons.search, size: 20),
+              suffixIcon: _searchText.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear, size: 18),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() => _searchText = '');
+                      },
+                    )
+                  : null,
+              isDense: true,
+              contentPadding:
+                  const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8)),
+            ),
+            style: TextStyle(
+                fontSize: 14, color: AppTheme.textPrimaryOf(context)),
+            onChanged: (v) => setState(() => _searchText = v.trim()),
+          ),
+        ),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: _loadPending,
+            child: ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: filtered.length,
+              itemBuilder: (context, index) {
+                final u = filtered[index] as Map<String, dynamic>;
+                return _KycUserCard(
+                  user: u,
+                  onSnack: widget.onSnack,
+                  onDone: _loadPending,
+                );
+              },
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

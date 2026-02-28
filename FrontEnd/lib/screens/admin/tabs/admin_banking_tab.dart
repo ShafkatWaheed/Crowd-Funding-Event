@@ -6,8 +6,6 @@ import 'package:go_router/go_router.dart';
 import '../admin_shared.dart';
 import '../../../config/theme.dart';
 import '../../../services/api_service.dart';
-import 'banking/banking_escrow_config.dart';
-import 'banking/banking_escrow_pipeline.dart';
 import 'banking/banking_disputes_payout.dart';
 import 'banking/banking_tax_health.dart';
 
@@ -33,14 +31,6 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
   Map<String, dynamic>? _bankingData;
   bool _bankingLoading = false;
 
-  List<dynamic> _fundEscrows = [];
-  List<dynamic> _ticketEscrows = [];
-  List<dynamic> _sponsorEscrows = [];
-  bool _pipelineLoading = false;
-  String _pipelineTypeFilter = 'all';
-  Map<String, dynamic>? _selectedEventEscrows;
-  int? _selectedPipelineEventId;
-
   List<dynamic> _reconHistory = [];
   bool _reconHistoryLoading = false;
 
@@ -64,46 +54,15 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
     return s?['value']?.toString() ?? '';
   }
 
-  List<Map<String, dynamic>> get _escrowRows {
-    final rows = <Map<String, dynamic>>[];
-    for (final e in _fundEscrows) rows.add({...Map<String, dynamic>.from(e as Map), '_type': 'fund'});
-    for (final e in _ticketEscrows) rows.add({...Map<String, dynamic>.from(e as Map), '_type': 'ticket'});
-    for (final e in _sponsorEscrows) rows.add({...Map<String, dynamic>.from(e as Map), '_type': 'sponsor'});
-    return rows;
-  }
-
   Future<void> _loadBankingData() async {
-    setState(() => _bankingLoading = true);
+    // Only show full-page spinner on first load; reloads update in-place
+    if (_bankingData == null) setState(() => _bankingLoading = true);
     try {
       final data = await ApiService.instance.adminGetBankingOverview();
       if (mounted) setState(() { _bankingData = data; _bankingLoading = false; });
     } catch (e) {
       if (mounted) setState(() => _bankingLoading = false);
     }
-  }
-
-  Future<void> _loadEscrowPipeline() async {
-    setState(() => _pipelineLoading = true);
-    try {
-      final fundResp = await ApiService.instance.adminGetEscrows(type: 'fund');
-      final ticketResp = await ApiService.instance.adminGetEscrows(type: 'ticket');
-      final sponsorResp = await ApiService.instance.adminGetEscrows(type: 'sponsor');
-      if (mounted) setState(() {
-        _fundEscrows = (fundResp['items'] as List?) ?? [];
-        _ticketEscrows = (ticketResp['items'] as List?) ?? [];
-        _sponsorEscrows = (sponsorResp['items'] as List?) ?? [];
-        _pipelineLoading = false;
-      });
-    } catch (e) {
-      if (mounted) setState(() => _pipelineLoading = false);
-    }
-  }
-
-  Future<void> _loadEventEscrowDetail(int eventId) async {
-    try {
-      final data = await ApiService.instance.adminGetEventEscrows(eventId);
-      if (mounted) setState(() { _selectedEventEscrows = data; _selectedPipelineEventId = eventId; });
-    } catch (e) { debugPrint(e.toString()); }
   }
 
   Future<void> _loadReconHistory() async {
@@ -139,7 +98,6 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
       _loadDisputes(),
       _loadReconHistory(),
       _loadLedgerHealth(),
-      _loadEscrowPipeline(),
     ]);
     if (mounted) setState(() => _lastRefreshed = DateTime.now());
   }
@@ -281,23 +239,6 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
             _buildPayoutSummaryCard(context, d),
             const SizedBox(height: 16),
             _buildTransactionSummaryCard(context, d),
-            const SizedBox(height: 16),
-            BankingEscrowConfigSection(settingVal: _settingVal, onUpdateSetting: widget.onUpdateSetting),
-            const SizedBox(height: 16),
-            BankingEscrowPipelineSection(
-              escrowRows: _escrowRows,
-              pipelineLoading: _pipelineLoading,
-              pipelineTypeFilter: _pipelineTypeFilter,
-              onTypeFilterChanged: (v) => setState(() => _pipelineTypeFilter = v),
-              onRefresh: _loadEscrowPipeline,
-              selectedPipelineEventId: _selectedPipelineEventId,
-              selectedEventEscrows: _selectedEventEscrows,
-              onLoadEventDetail: _loadEventEscrowDetail,
-              onClearSelection: () => setState(() { _selectedEventEscrows = null; _selectedPipelineEventId = null; }),
-              onSnack: widget.onSnack,
-              onReloadEventDetail: _loadEventEscrowDetail,
-              onReloadPipeline: _loadEscrowPipeline,
-            ),
           ],
         ),
       ),
@@ -422,40 +363,49 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
   }
 
   Widget _buildEscrowSummary(BuildContext context, Map<String, dynamic> d) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Escrow Summary', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context))),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(child: _escrowSummaryCard('Fund', d['fund_escrow_total_held_cents'] ?? 0, d['fund_escrow_total_released_cents'] ?? 0, d['fund_escrow_active_count'] ?? 0, context.fundingAccent)),
-            const SizedBox(width: 8),
-            Expanded(child: _escrowSummaryCard('Ticket', d['ticket_escrow_total_held_cents'] ?? 0, d['ticket_escrow_total_released_cents'] ?? 0, d['ticket_escrow_active_count'] ?? 0, context.ticketAccent)),
-            const SizedBox(width: 8),
-            Expanded(child: _escrowSummaryCard('Sponsor', d['sponsor_escrow_total_held_cents'] ?? 0, d['sponsor_escrow_total_released_cents'] ?? 0, d['sponsor_escrow_active_count'] ?? 0, context.sponsorAccent)),
-          ],
+    return Card(
+      color: AppTheme.cardOf(context),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => context.push('/admin/escrow-pipeline'),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.lock_clock, color: AppTheme.accentColor, size: 22),
+                  const SizedBox(width: 8),
+                  Text('Escrow Pipeline', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context))),
+                  const Spacer(),
+                  Icon(Icons.arrow_forward_ios, size: 14, color: AppTheme.textSecondaryOf(context)),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(child: _escrowSummaryCol('Fund', d['fund_escrow_total_held_cents'] ?? 0, d['fund_escrow_active_count'] ?? 0, context.fundingAccent)),
+                  Expanded(child: _escrowSummaryCol('Ticket', d['ticket_escrow_total_held_cents'] ?? 0, d['ticket_escrow_active_count'] ?? 0, context.ticketAccent)),
+                  Expanded(child: _escrowSummaryCol('Sponsor', d['sponsor_escrow_total_held_cents'] ?? 0, d['sponsor_escrow_active_count'] ?? 0, context.sponsorAccent)),
+                ],
+              ),
+            ],
+          ),
         ),
-      ],
+      ),
     );
   }
 
-  Widget _escrowSummaryCard(String label, int heldCents, int releasedCents, int activeCount, Color color) {
-    return Card(
-      color: AppTheme.cardOf(context),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 14)),
-            const SizedBox(height: 8),
-            Text('Held: ${centsToStr(heldCents)}', style: TextStyle(fontSize: 13, color: AppTheme.textPrimaryOf(context))),
-            Text('Released: ${centsToStr(releasedCents)}', style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryOf(context))),
-            Text('Active: $activeCount', style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryOf(context))),
-          ],
-        ),
-      ),
+  Widget _escrowSummaryCol(String label, int heldCents, int activeCount, Color color) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 13)),
+        const SizedBox(height: 4),
+        Text('Held: ${centsToStr(heldCents)}', style: TextStyle(fontSize: 12, color: AppTheme.textPrimaryOf(context))),
+        Text('Active: $activeCount', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context))),
+      ],
     );
   }
 

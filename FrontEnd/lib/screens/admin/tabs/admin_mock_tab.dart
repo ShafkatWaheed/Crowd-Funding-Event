@@ -88,14 +88,44 @@ class _AdminMockTabState extends State<AdminMockTab> {
           children: [
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               margin: const EdgeInsets.only(bottom: 16),
-              decoration: BoxDecoration(color: AppTheme.warningSurface, borderRadius: BorderRadius.circular(8)),
+              decoration: BoxDecoration(
+                color: _settingVal('payment_mock_enabled') == 'true'
+                    ? AppTheme.warningSurface
+                    : AppTheme.successOf(context).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
               child: Row(
                 children: [
-                  const Icon(Icons.science_outlined, color: AppTheme.warningColor, size: 20),
+                  Icon(
+                    _settingVal('payment_mock_enabled') == 'true'
+                        ? Icons.science_outlined
+                        : Icons.payments,
+                    color: _settingVal('payment_mock_enabled') == 'true'
+                        ? AppTheme.warningColor
+                        : AppTheme.successOf(context),
+                    size: 20,
+                  ),
                   const SizedBox(width: 8),
-                  Expanded(child: Text('Mock Mode — All payments and emails are simulated', style: TextStyle(color: AppTheme.textPrimaryOf(context), fontWeight: FontWeight.w600))),
+                  Expanded(
+                    child: Text(
+                      _settingVal('payment_mock_enabled') == 'true'
+                          ? 'Mock Mode — All payments are simulated'
+                          : 'Live Mode — Real payment gateway active',
+                      style: TextStyle(
+                        color: AppTheme.textPrimaryOf(context),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  Switch(
+                    value: _settingVal('payment_mock_enabled') == 'true',
+                    activeColor: AppTheme.warningColor,
+                    onChanged: (on) {
+                      widget.onUpdateSetting('payment_mock_enabled', on ? 'true' : 'false');
+                    },
+                  ),
                 ],
               ),
             ),

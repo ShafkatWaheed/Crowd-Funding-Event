@@ -5,6 +5,7 @@ import '../../../config/design_tokens.dart';
 import '../../../config/theme.dart';
 import '../../../services/api_service.dart';
 import '../../../widgets/admin/admin_empty_state.dart';
+import 'banking/banking_escrow_config.dart';
 
 class AdminSettingsTab extends StatefulWidget {
   const AdminSettingsTab({
@@ -22,11 +23,24 @@ class AdminSettingsTab extends StatefulWidget {
   State<AdminSettingsTab> createState() => _AdminSettingsTabState();
 }
 
-class _AdminSettingsTabState extends State<AdminSettingsTab> {
+class _AdminSettingsTabState extends State<AdminSettingsTab>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabCtrl;
+
+  // ── Tab → group mapping ──
+  static const _tabDefs = [
+    {'label': 'General', 'icon': Icons.dashboard, 'groups': ['Branding', 'Feature Flags', 'Push Notifications']},
+    {'label': 'Financial', 'icon': Icons.monetization_on, 'groups': ['Commissions', 'Financial Policy', 'Community Rules']},
+    {'label': 'Events', 'icon': Icons.event, 'groups': ['Events', 'Event Limits', 'Ticket Limits']},
+    {'label': 'Security', 'icon': Icons.security, 'groups': ['API Rate Limits', 'KYC', 'File Uploads']},
+    {'label': 'Infrastructure', 'icon': Icons.build_circle, 'groups': ['Cache', 'Infrastructure', 'Chat']},
+    {'label': 'Escrow', 'icon': Icons.lock_clock, 'groups': <String>[]},
+  ];
+
+  // ── Group → setting keys ──
   static const _settingsGroups = {
     'Branding': ['platform_name', 'support_email'],
     'Commissions': ['ticket_commission_percent', 'funding_commission_percent', 'sponsor_commission_percent'],
-    'Escrow': ['escrow_stage1_percent', 'escrow_stage1_trigger_enabled', 'escrow_stage1_trigger_mode', 'escrow_stage1_ticket_percent', 'escrow_stage2_percent', 'escrow_stage2_trigger_enabled', 'escrow_stage2_trigger_mode', 'escrow_stage2_ticket_percent', 'escrow_stage2_days_percent', 'escrow_stage3_percent', 'escrow_stage3_trigger_enabled', 'escrow_stage3_trigger_mode', 'escrow_stage3_days_after_event', 'scan_threshold_percent', 'stage3_grace_days'],
     'Events': ['cancel_approval_threshold_percent', 'event_date_grace_days', 'event_date_deadline_days', 'default_refund_deadline_days'],
     'Community Rules': ['community_max_duration_days', 'community_max_ticket_price_cents', 'community_listing_fee_cents', 'community_ticket_commission_percent', 'community_funding_commission_percent', 'community_sponsor_commission_percent', 'community_escrow_disabled', 'new_organizer_deposit_cents'],
     'Ticket Limits': ['max_tickets_per_purchase', 'max_tickets_backend_enabled', 'max_tickets_frontend_enabled'],
@@ -46,7 +60,6 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
   static const _groupIcons = {
     'Branding': Icons.palette,
     'Commissions': Icons.monetization_on,
-    'Escrow': Icons.account_balance_wallet,
     'Events': Icons.event,
     'Community Rules': Icons.groups,
     'Ticket Limits': Icons.confirmation_number,
@@ -63,11 +76,19 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
     'Chat': Icons.chat_rounded,
   };
 
-  static const _triggerModeOptions = <String, List<String>>{
-    'escrow_stage1_trigger_mode': ['ticket_percent', 'funding_end', 'selling_started'],
-    'escrow_stage2_trigger_mode': ['ticket_percent', 'days_percent'],
-    'escrow_stage3_trigger_mode': ['days_after', 'scan_threshold'],
-  };
+  static const _triggerModeOptions = <String, List<String>>{};
+
+  @override
+  void initState() {
+    super.initState();
+    _tabCtrl = TabController(length: _tabDefs.length, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabCtrl.dispose();
+    super.dispose();
+  }
 
   String _settingVal(String key) {
     final s = widget.settings
@@ -96,11 +117,58 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
       );
     }
 
+    return Column(
+      children: [
+        TabBar(
+          controller: _tabCtrl,
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
+          labelColor: AppTheme.accentOf(context),
+          unselectedLabelColor: AppTheme.textSecondaryOf(context),
+          indicatorColor: AppTheme.accentOf(context),
+          tabs: _tabDefs.map((t) => Tab(
+            icon: Icon(t['icon'] as IconData, size: 18),
+            text: t['label'] as String,
+          )).toList(),
+        ),
+        Expanded(
+          child: TabBarView(
+            controller: _tabCtrl,
+            children: _tabDefs.map((t) {
+              final label = t['label'] as String;
+              if (label == 'Escrow') {
+                return RefreshIndicator(
+                  onRefresh: () async => widget.onReloadSettings(),
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(20),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 700),
+                        child: BankingEscrowConfigSection(
+                          settingVal: _settingVal,
+                          onUpdateSetting: widget.onUpdateSetting,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }
+              final groups = t['groups'] as List<String>;
+              return _buildGroupList(groups);
+            }).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGroupList(List<String> groupNames) {
     final settingsMap = {for (var s in widget.settings) s['key']: s};
 
     return RefreshIndicator(
       onRefresh: () async {
-        await widget.onReloadSettings?.call();
+        await widget.onReloadSettings();
       },
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -110,8 +178,11 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
             constraints: const BoxConstraints(maxWidth: 700),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: _settingsGroups.entries.map((group) {
-                final groupSettings = group.value
+              children: groupNames.map((groupName) {
+                final keys = _settingsGroups[groupName];
+                if (keys == null) return const SizedBox.shrink();
+
+                final groupSettings = keys
                     .map((k) => settingsMap[k])
                     .where((s) => s != null)
                     .toList();
@@ -121,10 +192,10 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
                   margin: const EdgeInsets.only(bottom: 12),
                   shape: RoundedRectangleBorder(borderRadius: AppRadius.md),
                   child: ExpansionTile(
-                    leading: Icon(_groupIcons[group.key] ?? Icons.settings, size: 22),
-                    title: Text(group.key,
+                    leading: Icon(_groupIcons[groupName] ?? Icons.settings, size: 22),
+                    title: Text(groupName,
                         style: const TextStyle(fontWeight: FontWeight.w600)),
-                    initiallyExpanded: group.key == 'Commissions',
+                    initiallyExpanded: groupNames.indexOf(groupName) == 0,
                     childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                     children: groupSettings.map((s) => _settingRow(context, s!)).toList(),
                   ),
@@ -193,11 +264,15 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
               onChanged: (v) { if (v != null) widget.onUpdateSetting(key, v); },
             )
           else ...[
-            Text(displayValue,
-                style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.accentOf(context))),
+            Flexible(
+              child: Text(displayValue,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.accentOf(context))),
+            ),
             const SizedBox(width: 8),
             IconButton(
               icon: const Icon(Icons.edit, size: 18),

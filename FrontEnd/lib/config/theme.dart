@@ -167,7 +167,7 @@ class AppTheme {
         unselectedLabelTextStyle: GoogleFonts.inter(fontSize: 12, color: textSecondary),
         indicatorColor: accentColor.withValues(alpha: 0.12),
       ),
-      dialogTheme: DialogTheme(
+      dialogTheme: DialogThemeData(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: AppRadius.xl),
@@ -226,7 +226,7 @@ class AppTheme {
         unselectedLabelTextStyle: GoogleFonts.inter(fontSize: 12, color: _dkTextSecondary),
         indicatorColor: accentColor.withValues(alpha: 0.15),
       ),
-      dialogTheme: DialogTheme(
+      dialogTheme: DialogThemeData(
         backgroundColor: _dkCard,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: AppRadius.xl),
@@ -272,8 +272,8 @@ class AppTheme {
     );
   }
 
-  static CardTheme _cardTheme(Color color) {
-    return CardTheme(
+  static CardThemeData _cardTheme(Color color) {
+    return CardThemeData(
       elevation: 0,
       color: color,
       surfaceTintColor: Colors.transparent,

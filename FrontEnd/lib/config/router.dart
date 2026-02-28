@@ -25,6 +25,8 @@ import '../screens/ticket_strategy/ticket_strategies_screen.dart';
 import '../screens/admin/admin_dashboard_screen.dart';
 import '../screens/admin/admin_payouts_screen.dart';
 import '../screens/admin/admin_transactions_screen.dart';
+import '../screens/admin/admin_escrow_pipeline_screen.dart';
+import '../screens/admin/admin_run_logs_screen.dart';
 import '../screens/admin/admin_user_detail_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import '../screens/profile/my_tickets_screen.dart';
@@ -442,6 +444,16 @@ GoRouter createRouter(AuthProvider authProvider) {
         path: '/admin/transactions',
         pageBuilder: (context, state) =>
             fadeThroughPage(child: const AdminTransactionsScreen()),
+      ),
+      GoRoute(
+        path: '/admin/escrow-pipeline',
+        pageBuilder: (context, state) =>
+            fadeThroughPage(child: const AdminEscrowPipelineScreen()),
+      ),
+      GoRoute(
+        path: '/admin/run-logs',
+        pageBuilder: (context, state) =>
+            fadeThroughPage(child: const AdminRunLogsScreen()),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(

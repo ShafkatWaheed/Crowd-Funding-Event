@@ -4,7 +4,10 @@ mock ledger, email templates, disputes, reconciliation, tax, payouts.
 """
 from datetime import date, datetime, timedelta, timezone
 
-from fastapi import APIRouter, Body, Depends, Query, Request
+import uuid
+from pathlib import Path
+
+from fastapi import APIRouter, Body, Depends, File, Query, Request, UploadFile
 from pydantic import BaseModel, field_validator
 
 from app.logger import get_logger, log_step
@@ -708,12 +711,29 @@ class EmailTemplateResponse(BaseModel):
     body_html: str
     variables: str
     is_active: bool
+    is_customized: bool = True
 
 
 class EmailTemplateUpdate(BaseModel):
     subject: str | None = None
     body_html: str | None = None
     is_active: bool | None = None
+
+
+# Default templates — always shown even when not yet customized in DB
+_DEFAULT_TEMPLATES: list[dict] = [
+    {"template_key": "event_cancelled", "subject": "Event Cancelled: {{event_title}}", "variables": '["event_title", "reason", "event_date"]'},
+    {"template_key": "ticket_purchased", "subject": "Ticket Confirmation: {{event_title}}", "variables": '["event_title", "ticket_type", "quantity", "total", "event_date", "venue"]'},
+    {"template_key": "unpledge_refund", "subject": "Pledge Refund: {{event_title}}", "variables": '["event_title", "amount", "reason"]'},
+    {"template_key": "unregister_refund", "subject": "Unregistration Refund: {{event_title}}", "variables": '["event_title", "amount"]'},
+    {"template_key": "cancellation_refund", "subject": "Cancellation Refund: {{event_title}}", "variables": '["event_title", "amount", "reason"]'},
+    {"template_key": "waitlist_ticket_rejected", "subject": "Waitlist Update: {{event_title}}", "variables": '["event_title", "reason"]'},
+    {"template_key": "ticket_refund_approved", "subject": "Refund Approved: {{event_title}}", "variables": '["event_title", "amount", "ticket_type"]'},
+    {"template_key": "waitlist_ticket_approved", "subject": "Waitlist Approved: {{event_title}}", "variables": '["event_title", "ticket_type"]'},
+    {"template_key": "sponsor_bid_approved", "subject": "Sponsorship Approved: {{event_title}}", "variables": '["event_title", "category_name", "amount"]'},
+    {"template_key": "sponsor_bid_rejected", "subject": "Sponsorship Update: {{event_title}}", "variables": '["event_title", "category_name", "reason"]'},
+    {"template_key": "sponsor_refund", "subject": "Sponsor Refund: {{event_title}}", "variables": '["event_title", "amount", "reason"]'},
+]
 
 
 @router.get("/admin/email-templates")
@@ -724,13 +744,33 @@ async def list_email_templates(
     rows = (await db.execute(
         select(EmailTemplate).order_by(EmailTemplate.template_key)
     )).scalars().all()
-    return [
-        EmailTemplateResponse(
-            template_key=t.template_key, subject=t.subject,
-            body_html=t.body_html, variables=t.variables, is_active=t.is_active,
-        )
-        for t in rows
-    ]
+    db_map = {t.template_key: t for t in rows}
+
+    result = []
+    for dflt in _DEFAULT_TEMPLATES:
+        key = dflt["template_key"]
+        if key in db_map:
+            t = db_map[key]
+            result.append(EmailTemplateResponse(
+                template_key=t.template_key, subject=t.subject,
+                body_html=t.body_html, variables=t.variables,
+                is_active=t.is_active, is_customized=True,
+            ))
+        else:
+            result.append(EmailTemplateResponse(
+                template_key=key, subject=dflt["subject"],
+                body_html="", variables=dflt["variables"],
+                is_active=True, is_customized=False,
+            ))
+    # Include any extra DB templates not in defaults
+    for t in rows:
+        if t.template_key not in {d["template_key"] for d in _DEFAULT_TEMPLATES}:
+            result.append(EmailTemplateResponse(
+                template_key=t.template_key, subject=t.subject,
+                body_html=t.body_html, variables=t.variables,
+                is_active=t.is_active, is_customized=True,
+            ))
+    return result
 
 
 @router.put("/admin/email-templates/{key}")
@@ -796,6 +836,44 @@ async def test_send_email_template(
     body = tmpl.body_html if tmpl else f"<p>Test email for template: {key}</p>"
     await send_email(to_email=current_user.email, subject=subject, body_html=body)
     return {"ok": True, "sent_to": current_user.email}
+
+
+@router.post("/admin/email-templates/upload-logo")
+@limiter.limit(dynamic_limit("file_upload", "10/minute"))
+async def upload_email_logo(
+    request: Request,
+    db: DbSession,
+    file: UploadFile = File(...),
+    current_user: User = Depends(require_role(UserRole.admin)),
+):
+    """Upload a logo image for email templates."""
+    from app.services.upload_validation import validate_upload
+
+    log_step(logger, "Uploading email logo", admin_id=current_user.id)
+    contents = await validate_upload(db, file, "image")
+
+    ext = Path(file.filename or "logo.png").suffix.lower() or ".png"
+    if ext not in {".jpg", ".jpeg", ".png", ".webp", ".gif"}:
+        ext = ".png"
+    filename = f"email_logo_{uuid.uuid4().hex[:12]}{ext}"
+
+    upload_dir = Path(__file__).resolve().parent.parent.parent.parent / "static" / "uploads"
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    dest = upload_dir / filename
+    dest.write_bytes(contents)
+
+    image_url = f"/static/uploads/{filename}"
+    await settings_svc.set_value(db, "email_template_logo_url", image_url)
+
+    from app.api.v1.config import invalidate_public_config
+    await invalidate_public_config()
+
+    await audit_svc.log_action(
+        db, admin_id=current_user.id, action="email_logo_upload",
+        target_type="setting", target_id="email_template_logo_url",
+        details={"logo_url": image_url},
+    )
+    return {"ok": True, "logo_url": image_url}
 
 
 # ═══════════════════════════════════════════

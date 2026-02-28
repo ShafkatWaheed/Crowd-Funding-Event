@@ -73,12 +73,16 @@ async def lifespan(application: FastAPI):
         logger.warning("Redis not available — ARQ tasks will be skipped (refunds complete inline)")
     await init_cache()
     try:
-        from app.cache import set_cache_enabled
+        from app.cache import set_cache_enabled, configure_circuit_breaker
         from app.db.base import async_session_maker
-        from app.services.platform_settings import get_bool
+        from app.services.platform_settings import get_bool, get_int
         from app.rate_limit import reload_rate_limits
         async with async_session_maker() as db:
             set_cache_enabled(await get_bool(db, "cache_enabled"))
+            configure_circuit_breaker(
+                threshold=await get_int(db, "cache_circuit_breaker_threshold"),
+                cooldown=await get_int(db, "cache_circuit_breaker_cooldown"),
+            )
             await reload_rate_limits(db)
     except Exception:
         logger.warning("Could not load startup settings — using defaults")

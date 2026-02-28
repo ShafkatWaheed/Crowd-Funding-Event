@@ -64,6 +64,26 @@ DEFAULTS = {
     "cache_ttl_featured": 60,
     "cache_ttl_event_detail": 30,
     "cache_ttl_dashboard": 15,
+    "cache_ttl_cities": 600,
+    "cache_ttl_genres": 3600,
+    "cache_ttl_map": 45,
+    "cache_ttl_admin_dashboard": 30,
+    # Cache stampede prevention (PER + SETNX)
+    "cache_stampede_lock_ttl": 5,
+    "cache_stampede_retry_ms": 100,
+    "cache_beta_featured": 2.0,
+    "cache_beta_event_detail": 1.0,
+    "cache_beta_map": 1.5,
+    "cache_beta_dashboard": 1.0,
+    # Cache circuit breaker
+    "cache_circuit_breaker_threshold": 5,
+    "cache_circuit_breaker_cooldown": 30,
+    # Client-side / offline sync
+    "offline_scan_enabled": "true",
+    "offline_scan_max_queue": 500,
+    "offline_scan_sync_interval": 30,
+    "client_event_cache_max_age_hours": 24,
+    "client_sync_on_launch": "true",
     # ── Mock toggles ──
     "payment_mock_enabled": "true",
     "email_mock_enabled": "true",
@@ -235,6 +255,23 @@ DESCRIPTIONS = {
     "cache_ttl_featured": "Redis cache TTL for featured events endpoint (seconds)",
     "cache_ttl_event_detail": "Redis cache TTL for event detail endpoint (seconds)",
     "cache_ttl_dashboard": "Redis cache TTL for organizer dashboard endpoint (seconds)",
+    "cache_ttl_cities": "Redis cache TTL for cities list endpoint (seconds)",
+    "cache_ttl_genres": "Redis cache TTL for genres list endpoint (seconds)",
+    "cache_ttl_map": "Redis cache TTL for map markers endpoint (seconds)",
+    "cache_ttl_admin_dashboard": "Redis cache TTL for admin dashboard stats (seconds)",
+    "cache_stampede_lock_ttl": "Max seconds to hold SETNX lock for cold-start stampede prevention",
+    "cache_stampede_retry_ms": "Milliseconds losers wait before retrying cache on cold start",
+    "cache_beta_featured": "PER beta for featured events (higher = more aggressive early recompute, e.g. 2.0)",
+    "cache_beta_event_detail": "PER beta for event detail (e.g. 1.0)",
+    "cache_beta_map": "PER beta for map markers (e.g. 1.5)",
+    "cache_beta_dashboard": "PER beta for organizer/admin dashboard (e.g. 1.0)",
+    "cache_circuit_breaker_threshold": "Consecutive Redis failures before circuit opens (skip Redis entirely)",
+    "cache_circuit_breaker_cooldown": "Seconds to keep circuit open before probing Redis again",
+    "offline_scan_enabled": "Enable offline ticket scanning (Flutter downloads tickets for local validation)",
+    "offline_scan_max_queue": "Max offline scan records queued on device before forcing sync",
+    "offline_scan_sync_interval": "Seconds between offline scan push-sync attempts when connectivity returns",
+    "client_event_cache_max_age_hours": "Max hours before locally cached events are considered too stale to display offline",
+    "client_sync_on_launch": "Auto-sync cached events on app launch (disable to reduce server load)",
     "payment_mock_enabled": "Enable mock payment gateway (all payments simulated)",
     "email_mock_enabled": "Enable mock email backend (all emails logged to console)",
     "mock_charge_latency_min_ms": "Min simulated charge latency (ms)",
@@ -428,4 +465,15 @@ async def set_value(db: AsyncSession, key: str, value: str, description: str | N
     if key == "cache_enabled":
         from app.cache import set_cache_enabled
         set_cache_enabled(value.lower() == "true")
+    elif key in ("cache_circuit_breaker_threshold", "cache_circuit_breaker_cooldown"):
+        from app.cache import configure_circuit_breaker
+        threshold = int(value) if key == "cache_circuit_breaker_threshold" else DEFAULTS["cache_circuit_breaker_threshold"]
+        cooldown = int(value) if key == "cache_circuit_breaker_cooldown" else DEFAULTS["cache_circuit_breaker_cooldown"]
+        # Re-read both values to get the current pair
+        t_raw = await _get_raw(db, "cache_circuit_breaker_threshold")
+        c_raw = await _get_raw(db, "cache_circuit_breaker_cooldown")
+        configure_circuit_breaker(
+            threshold=int(t_raw) if t_raw else DEFAULTS["cache_circuit_breaker_threshold"],
+            cooldown=int(c_raw) if c_raw else DEFAULTS["cache_circuit_breaker_cooldown"],
+        )
     return row

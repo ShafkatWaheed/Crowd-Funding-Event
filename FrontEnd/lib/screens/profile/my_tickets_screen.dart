@@ -10,7 +10,9 @@ import '../../widgets/loading_switcher.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../models/ticket.dart';
 import '../../providers/auth_provider.dart';
+import '../../db/app_database.dart';
 import '../../services/api_service.dart';
+import '../../services/sync_service.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/animated_list_item.dart';
 import '../../widgets/empty_state.dart';
@@ -41,6 +43,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
   String? _error;
   String _search = '';
   String _filterStatus = 'all';
+  bool _isOffline = false;
 
   @override
   void initState() {
@@ -75,6 +78,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
       _loading = true;
       _error = null;
       _hasMore = true;
+      _isOffline = false;
     });
     try {
       final api = context.read<ApiService>();
@@ -85,15 +89,55 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
           _hasMore = data.length >= _pageSize;
           _loading = false;
         });
+        // Background-cache tickets for offline use
+        context.read<SyncService>().pullMyTickets();
       }
     } catch (e) {
-      if (mounted) {
+      // Try loading from offline cache
+      await _loadFromCache();
+      if (mounted && _tickets.isEmpty) {
         setState(() {
           _error = ApiService.extractError(e, fallback: 'Failed to load tickets');
           _loading = false;
         });
       }
     }
+  }
+
+  Future<void> _loadFromCache() async {
+    try {
+      final db = context.read<AppDatabase>();
+      final rows = await db.getMyTicketsFromCache();
+      if (mounted && rows.isNotEmpty) {
+        setState(() {
+          _tickets = rows.map(_cachedRowToTicketSale).toList();
+          _hasMore = false;
+          _isOffline = true;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Failed to load tickets from cache: $e');
+    }
+  }
+
+  TicketSale _cachedRowToTicketSale(CachedMyTicket row) {
+    return TicketSale(
+      id: row.id,
+      eventId: row.eventId,
+      userId: row.userId,
+      ticketTierId: 0,
+      ticketCode: row.ticketCode,
+      receiptNumber: row.receiptNumber,
+      tierName: row.tierName,
+      eventTitle: row.eventTitle,
+      amountPaidCents: row.amountPaidCents,
+      discountAppliedCents: row.discountAppliedCents,
+      status: row.status,
+      scannedAt: row.scannedAt,
+      encryptedQrPayload: row.encryptedQrPayload,
+      createdAt: row.createdAt,
+    );
   }
 
   Future<void> _loadMore() async {
@@ -196,6 +240,34 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
       child: CustomScrollView(
         controller: _scrollCtrl,
         slivers: [
+          // ── Offline banner ──
+          if (_isOffline)
+            SliverToBoxAdapter(
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.lg, vertical: AppSpacing.sm + 2),
+                color: Colors.orange.shade700,
+                child: Row(
+                  children: [
+                    const Icon(Icons.cloud_off_rounded,
+                        size: 16, color: Colors.white),
+                    AppSpacing.hSm,
+                    Expanded(
+                      child: Text(
+                        "You're offline — showing cached tickets",
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
           // ── Stats summary ──
           SliverToBoxAdapter(
             child: Container(
@@ -384,6 +456,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
         builder: (_) => TicketReceiptScreen(
           eventId: ticket.eventId,
           saleId: ticket.id,
+          offlineTicket: _isOffline ? ticket : null,
         ),
       ),
     );

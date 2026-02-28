@@ -162,10 +162,14 @@ FrontEnd/
 │   ├── config/
 │   │   ├── router.dart          # GoRouter with role-based routes
 │   │   └── theme.dart           # AppTheme (light + dark palettes)
+│   ├── db/
+│   │   ├── app_database.dart    # Drift schema (offline cache tables)
+│   │   └── app_database.g.dart  # Generated Drift code
 │   ├── models/                  # Dart data classes (Event, User, Ticket, etc.)
 │   ├── providers/               # State management (ThemeProvider, NotificationProvider)
 │   ├── services/
-│   │   └── api_service.dart     # HTTP client (all backend calls)
+│   │   ├── api_service.dart     # HTTP client (all backend calls)
+│   │   └── sync_service.dart    # Offline sync: pull events, push scans
 │   ├── screens/
 │   │   ├── auth/                # Login, register, terms
 │   │   ├── event/               # Create wizard, detail, management
@@ -182,6 +186,7 @@ FrontEnd/
 - **Self-contained widgets** (FundingCard, ReactionBar, EventFeed) — refresh only themselves
 - **Dark mode** with context-aware color helpers
 - **Mapbox** integration (dark-v11 tiles, geocoding, venue markers)
+- **Offline-first** via Drift (SQLite) for ticket scanning, event browsing, bookmarks
 
 ---
 
@@ -345,7 +350,8 @@ No passwords stored in PostgreSQL — only `firebase_uid`, email, display_name, 
 | ⏳ Next | Dockerfile | Planned | Multi-stage build for deployment |
 | ⏳ Next | K8s manifests | Planned | Deployments, HPA, PDB, Ingress |
 | ⏳ Next | S3 storage | Planned | Multi-pod file sharing |
-| ⏳ Later | Redis caching | Planned | Read scaling |
+| ✅ Done | Redis caching | Implemented | Read scaling (stampede prevention, cascade invalidation, circuit breaker) |
+| ⏳ Next | Embedded DB (Drift) | Planned | Offline ticket scanning, event browsing, bookmarks |
 | ⏳ Later | Observability | Planned | Prometheus, structured logging |
 
 ### Why Not Microservices
@@ -419,3 +425,101 @@ Event cancelled ─────────► Bulk: all pledges,
 **Config**: All settings via `Backend/.env` — `DATABASE_URL`, `REDIS_URL`, `FIREBASE_PROJECT_ID`, `EMAIL_PROVIDER`, `TICKET_ENCRYPTION_KEY`
 
 **Without Redis**: App works — emails silently skipped, refunds complete inline. Redis required for background email delivery and future payment gateway integration.
+
+---
+
+## 11. Caching Architecture (Two-Tier)
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                         CLIENT (Flutter)                                     │
+│                                                                              │
+│  ┌──────────────────┐  ┌───────────────────┐  ┌──────────────────────────┐  │
+│  │  Drift / SQLite  │  │  Sync Service      │  │  Connectivity Monitor   │  │
+│  │  (embedded DB)   │  │  pull: events,     │  │  (connectivity_plus)    │  │
+│  │                  │  │       tickets      │  │  online → API           │  │
+│  │  cached_events   │  │  push: offline     │  │  offline → local DB     │  │
+│  │  offline_tickets │  │       scans        │  │                          │  │
+│  │  offline_scans   │  │                    │  │                          │  │
+│  │  cached_bookmarks│  │                    │  │                          │  │
+│  └──────────────────┘  └────────┬───────────┘  └──────────────────────────┘  │
+│                                 │                                            │
+└─────────────────────────────────┼────────────────────────────────────────────┘
+                                  │  HTTPS / REST
+                                  ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                         BACKEND (FastAPI)                                    │
+│                                                                              │
+│  ┌────────────────────────────────────────────────────────────────────────┐  │
+│  │                     Redis Cache Layer (cache.py)                       │  │
+│  │                                                                        │  │
+│  │  Stampede prevention: PER (Probabilistic Early Recomputation)          │  │
+│  │                     + SETNX lock (cold-start serialization)            │  │
+│  │  Circuit breaker:    skip Redis after N failures for M seconds         │  │
+│  │  Invalidation:       invalidate_event_cascade() on any event mutation  │  │
+│  └────────────────────────────────────────────────────────────────────────┘  │
+│                                                                              │
+│  ┌─────────────────┐                          ┌────────────────────────┐    │
+│  │  Read Pods       │───── cache hit ─────────►│  Redis                 │    │
+│  │  GET /events/*   │◄──── cached response ────│                        │    │
+│  │                  │                          │  Keys:                 │    │
+│  │  cache miss ─────┼──── query ──────────────►│  featured:{bool}       │    │
+│  │                  │                          │  event:{id}            │    │
+│  └────────┬─────────┘                          │  map:{city}:{genre}... │    │
+│           │                                    │  cities                │    │
+│           ▼                                    │  admin_dash:{...}      │    │
+│  ┌─────────────────┐                          │  dashboard:{...}       │    │
+│  │  DB Replica      │                          │  settings:{key}        │    │
+│  └─────────────────┘                          └────────────────────────┘    │
+│                                                                              │
+│  ┌─────────────────┐     invalidate_event_cascade()                         │
+│  │  Write Pods      │────► cache_delete event:{id}                          │
+│  │  POST/PATCH/DEL  │────► cache_delete_pattern featured:*                  │
+│  └─────────────────┘────► cache_delete_pattern map:*                        │
+│                      ────► cache_delete cities                               │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Redis Cache Matrix
+
+| Endpoint | Cache Key | TTL | Beta | Invalidation |
+|----------|-----------|-----|------|--------------|
+| `GET /events/featured` | `featured:{bool}` | 60s | 2.0 | Event create/update/delete, status change |
+| `GET /events/{id}` | `event:{id}` | 30s | 1.0 | Event update/delete |
+| `GET /events/cities` | `cities` | 600s | 0.5 | Event create/update/delete (venue change) |
+| `GET /events/map` | `map:{city}:{genre}:{status}:{live}` | 45s | 1.5 | Event create/update/delete |
+| `GET /admin/dashboard` | `admin_dash:{period}:{genre}:{status}` | 30s | 1.0 | Short TTL (natural expiry) |
+| `GET /me/organizer-dashboard` | `dashboard:{user}:{...}` | 15s | 1.0 | Short TTL |
+| `GET /config` (settings) | `settings:{key}` | 300s | — | Admin setting change |
+| `GET /events` (list/search) | **NOT CACHED** | — | — | Infinite filter combos; use DB replica |
+| Ticket availability | **NOT CACHED** | — | — | Must be real-time from primary DB |
+
+### Embedded DB (Drift/SQLite) Matrix
+
+| Local Table | Synced From | Sync Trigger | Offline Use |
+|-------------|-------------|-------------|-------------|
+| `cached_events` | `GET /events` | App launch + pull-to-refresh | Browse events, local search |
+| `offline_tickets` | `GET /events/{id}/ticket-sales` | Manual "Download for Offline" button | QR scan validation at venue |
+| `offline_scans` | — (local writes) | Push on connectivity restored | Queued scan records |
+| `cached_bookmarks` | `GET /me/bookmarks` | App launch | Offline access to saved events |
+| `cached_transport` | Event detail response | On event detail view | Directions at venue |
+| `sync_metadata` | — (local) | — | Track last sync cursor/timestamp |
+
+### Key Design Rules
+
+1. **Never cache ticket availability** — stale capacity = customers see "available" when sold out
+2. **Server is source of truth** — embedded DB is a read cache + write queue, never authoritative
+3. **Offline scans are idempotent** — `scan_ticket()` returns `already_scanned: true` on duplicates
+4. **Circuit breaker** — after 5 consecutive Redis failures, skip Redis for 30s (admin-configurable)
+5. **PER beta tuning** — hot paths (featured) use beta=2.0 for aggressive early refresh; long-TTL keys use beta=0.5
+
+### Admin Settings (15 new keys)
+
+All cache behavior is controlled via platform settings (admin dashboard):
+
+| Group | Settings |
+|-------|----------|
+| Cache TTLs | `cache_ttl_cities`, `cache_ttl_genres`, `cache_ttl_map`, `cache_ttl_admin_dashboard` |
+| Stampede / PER | `cache_stampede_lock_ttl`, `cache_stampede_retry_ms`, `cache_beta_featured`, `cache_beta_event_detail`, `cache_beta_map`, `cache_beta_dashboard` |
+| Circuit Breaker | `cache_circuit_breaker_threshold`, `cache_circuit_breaker_cooldown` |
+| Client Offline | `offline_scan_enabled`, `offline_scan_max_queue`, `offline_scan_sync_interval`, `client_event_cache_max_age_hours`, `client_sync_on_launch` |

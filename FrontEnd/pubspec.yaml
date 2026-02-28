@@ -67,6 +67,12 @@ dependencies:
   cached_network_image: ^3.4.1
   flutter_svg: ^2.0.17
 
+  # Embedded database (offline cache)
+  drift: ^2.22.1
+  drift_flutter: ^0.2.0
+  path_provider: ^2.1.5
+  connectivity_plus: ^6.1.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -77,6 +83,8 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
+  drift_dev: ^2.22.1
+  build_runner: ^2.4.14
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

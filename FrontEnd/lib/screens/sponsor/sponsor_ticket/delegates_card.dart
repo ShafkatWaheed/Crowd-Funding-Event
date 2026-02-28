@@ -3,8 +3,10 @@ import 'package:provider/provider.dart';
 
 import '../../../config/design_tokens.dart';
 import '../../../config/theme.dart';
+import '../../../db/app_database.dart';
 import '../../../models/sponsor.dart';
 import '../../../services/api_service.dart';
+import '../../../services/sync_service.dart';
 import '../../../utils/date_time_utils.dart';
 import '../../../widgets/app_toast.dart';
 
@@ -20,6 +22,7 @@ class DelegatesCard extends StatefulWidget {
 class _DelegatesCardState extends State<DelegatesCard> {
   List<SponsorDelegate> _delegates = [];
   bool _loading = true;
+  bool _isOffline = false;
 
   @override
   void initState() {
@@ -34,11 +37,47 @@ class _DelegatesCardState extends State<DelegatesCard> {
       if (mounted) {
         setState(() {
           _delegates = data.map((j) => SponsorDelegate.fromJson(j)).toList();
+          _isOffline = false;
+          _loading = false;
+        });
+        // Background-cache for offline use
+        context
+            .read<SyncService>()
+            .cacheSponsorDelegates(widget.ticketId, data);
+      }
+    } catch (_) {
+      // Try loading from offline cache
+      await _loadFromCache();
+      if (mounted && _delegates.isEmpty) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  Future<void> _loadFromCache() async {
+    try {
+      final db = context.read<AppDatabase>();
+      final rows = await db.getSponsorDelegatesFromCache(widget.ticketId);
+      if (mounted && rows.isNotEmpty) {
+        setState(() {
+          _delegates = rows
+              .map((row) => SponsorDelegate(
+                    id: row.id,
+                    sponsorTicketId: row.sponsorTicketId,
+                    name: row.name,
+                    email: row.email,
+                    phone: row.phone,
+                    checkedIn: row.checkedIn,
+                    checkedInAt: row.checkedInAt,
+                    createdAt: row.createdAt,
+                  ))
+              .toList();
+          _isOffline = true;
           _loading = false;
         });
       }
-    } catch (_) {
-      if (mounted) setState(() => _loading = false);
+    } catch (e) {
+      debugPrint('Failed to load delegates from cache: $e');
     }
   }
 
@@ -147,7 +186,7 @@ class _DelegatesCardState extends State<DelegatesCard> {
           else
             ..._delegates.map((d) => _DelegateRow(
                   delegate: d,
-                  onRemove: () => _remove(d),
+                  onRemove: _isOffline ? null : () => _remove(d),
                 )),
         ],
       ),
@@ -186,17 +225,36 @@ class _DelegatesCardState extends State<DelegatesCard> {
             ),
           ),
         ],
-        const Spacer(),
-        SizedBox(
-          height: 30,
-          child: TextButton.icon(
-            onPressed: _add,
-            icon: const Icon(Icons.person_add_rounded, size: 14),
-            label: const Text('Add', style: TextStyle(fontSize: 12)),
-            style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 8)),
+        if (_isOffline) ...[
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.orange.shade700.withValues(alpha: 0.15),
+              borderRadius: AppRadius.pill,
+            ),
+            child: Text(
+              'Cached',
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
+                color: Colors.orange.shade700,
+              ),
+            ),
           ),
-        ),
+        ],
+        const Spacer(),
+        if (!_isOffline)
+          SizedBox(
+            height: 30,
+            child: TextButton.icon(
+              onPressed: _add,
+              icon: const Icon(Icons.person_add_rounded, size: 14),
+              label: const Text('Add', style: TextStyle(fontSize: 12)),
+              style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8)),
+            ),
+          ),
       ],
     );
   }
@@ -233,9 +291,9 @@ class _DelegatesCardState extends State<DelegatesCard> {
 
 class _DelegateRow extends StatelessWidget {
   final SponsorDelegate delegate;
-  final VoidCallback onRemove;
+  final VoidCallback? onRemove;
 
-  const _DelegateRow({required this.delegate, required this.onRemove});
+  const _DelegateRow({required this.delegate, this.onRemove});
 
   @override
   Widget build(BuildContext context) {
@@ -296,7 +354,7 @@ class _DelegateRow extends StatelessWidget {
                 ],
               ),
             ),
-            if (!d.checkedIn)
+            if (!d.checkedIn && onRemove != null)
               IconButton(
                 onPressed: onRemove,
                 icon: Icon(Icons.close_rounded,

@@ -10,7 +10,9 @@ import '../../../providers/auth_provider.dart';
 import '../../../config/design_tokens.dart';
 import '../../../models/event.dart';
 import '../../../models/schedule.dart';
+import '../../../db/app_database.dart';
 import '../../../services/api_service.dart';
+import '../../../services/sync_service.dart';
 import '../../../widgets/fullscreen_image_viewer.dart';
 
 class EventScheduleSection extends StatefulWidget {
@@ -28,6 +30,7 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
   int _selectedIdx = 0;
   bool _loading = true;
   bool _featureEnabled = true;
+  bool _isOffline = false;
 
   @override
   void initState() {
@@ -56,11 +59,55 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
       if (mounted) {
         setState(() {
           _days = days;
+          _isOffline = false;
+          _loading = false;
+        });
+        // Background-cache for offline use
+        context.read<SyncService>().cacheScheduleForEvent(widget.eventId);
+      }
+    } catch (_) {
+      // Try loading from offline cache
+      await _loadFromCache();
+      if (mounted && _days.isEmpty) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  Future<void> _loadFromCache() async {
+    try {
+      final db = context.read<AppDatabase>();
+      final rows = await db.getScheduleForEvent(widget.eventId);
+      if (mounted && rows.isNotEmpty) {
+        // Group by date to reconstruct ScheduleDay list
+        final dayMap = <String, List<ScheduleItem>>{};
+        for (final row in rows) {
+          dayMap.putIfAbsent(row.date, () => []).add(ScheduleItem(
+            id: row.id,
+            eventId: row.eventId,
+            date: row.date,
+            startTime: row.startTime,
+            endTime: row.endTime,
+            title: row.title,
+            description: row.description,
+            imageUrl: row.imageUrl,
+            sortOrder: row.sortOrder,
+            overlaps: row.overlaps,
+            createdAt: row.syncedAt,
+          ));
+        }
+        final days = dayMap.entries
+            .map((e) => ScheduleDay(date: e.key, items: e.value))
+            .toList();
+
+        setState(() {
+          _days = days;
+          _isOffline = true;
           _loading = false;
         });
       }
-    } catch (_) {
-      if (mounted) setState(() => _loading = false);
+    } catch (e) {
+      debugPrint('Failed to load schedule from cache: $e');
     }
   }
 
@@ -132,32 +179,51 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
                     letterSpacing: 0.5,
                   ),
                 ),
-                const Spacer(),
-                Material(
-                  color: context.feedAccent.withValues(alpha: 0.08),
-                  borderRadius: AppRadius.sm,
-                  child: InkWell(
-                    borderRadius: AppRadius.sm,
-                    onTap: _downloadExcel,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.download_rounded, size: AppIconSize.sm, color: context.feedAccent),
-                          AppSpacing.hXs,
-                          Text('Excel',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: context.feedAccent,
-                            ),
-                          ),
-                        ],
+                if (_isOffline) ...[
+                  AppSpacing.hSm,
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade700.withValues(alpha: 0.15),
+                      borderRadius: AppRadius.sm,
+                    ),
+                    child: Text('Cached',
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.orange.shade700,
                       ),
                     ),
                   ),
-                ),
+                ],
+                const Spacer(),
+                if (!_isOffline)
+                  Material(
+                    color: context.feedAccent.withValues(alpha: 0.08),
+                    borderRadius: AppRadius.sm,
+                    child: InkWell(
+                      borderRadius: AppRadius.sm,
+                      onTap: _downloadExcel,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.download_rounded, size: AppIconSize.sm, color: context.feedAccent),
+                            AppSpacing.hXs,
+                            Text('Excel',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: context.feedAccent,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
             AppSpacing.vMd,

@@ -18,7 +18,7 @@ from app.services import notification_service as notif_svc
 from app.worker.redis_pool import enqueue as arq_enqueue
 from app.models.notification import NotificationType
 
-from app.cache import cache_delete, cache_delete_pattern
+from app.cache import invalidate_event_cascade
 
 from ._helpers import _event_to_response, _parse_iso_datetime
 
@@ -27,8 +27,7 @@ logger = get_logger("api.events.lifecycle")
 
 
 async def _invalidate_event_cache(event_id: int) -> None:
-    await cache_delete(f"event:{event_id}")
-    await cache_delete_pattern("featured:*")
+    await invalidate_event_cascade(event_id)
 
 
 @router.post("/{event_id}/cancel", response_model=EventResponse)

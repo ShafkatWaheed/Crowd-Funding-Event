@@ -1,3 +1,4 @@
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
@@ -5,10 +6,13 @@ import 'package:provider/provider.dart';
 
 import '../../../config/design_tokens.dart';
 import '../../../config/theme.dart';
+import '../../../db/app_database.dart';
 import '../../../models/event.dart';
+import '../../../models/venue.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../services/api_service.dart';
 import '../../../services/location_helper.dart';
+import '../../../services/sync_service.dart';
 import '../../../widgets/animated_list_item.dart';
 import '../../../widgets/empty_state.dart';
 import '../../../widgets/kyc_required_banner.dart';
@@ -57,6 +61,7 @@ class _HomeTabState extends State<HomeTab> {
   bool _featuredLoading = true;
   List<Event> _nearMeEvents = [];
   bool _nearMeAttempted = false;
+  bool _isOffline = false;
 
   static const List<EventStatus> _visibleStatuses = [
     EventStatus.approved,
@@ -69,9 +74,18 @@ class _HomeTabState extends State<HomeTab> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkConnectivity();
       _loadFeatured();
       _loadNearMe();
     });
+  }
+
+  Future<void> _checkConnectivity() async {
+    final results = await Connectivity().checkConnectivity();
+    final offline = !results.any((r) => r != ConnectivityResult.none);
+    if (mounted && offline != _isOffline) {
+      setState(() => _isOffline = offline);
+    }
   }
 
   @override
@@ -116,12 +130,84 @@ class _HomeTabState extends State<HomeTab> {
               .map((e) => Event.fromJson(e))
               .toList();
           _featuredLoading = false;
+          _isOffline = false;
         });
+        // Background: cache fetched events into local SQLite
+        _cacheEventsLocally();
       }
     } catch (_) {
       if (mounted) {
+        // API failed — try loading from local SQLite cache
+        await _loadFromLocalCache();
         setState(() => _featuredLoading = false);
       }
+    }
+  }
+
+  Future<void> _loadFromLocalCache() async {
+    try {
+      final db = context.read<AppDatabase>();
+      final cached = await db.getAllCachedEvents();
+      if (cached.isEmpty || !mounted) return;
+      final events = cached.map(_cachedRowToEvent).toList();
+      setState(() {
+        _trending = events.take(10).toList();
+        _isOffline = true;
+      });
+    } catch (e) {
+      debugPrint('HomeTab._loadFromLocalCache failed: $e');
+    }
+  }
+
+  Event _cachedRowToEvent(CachedEvent row) {
+    return Event(
+      id: row.id,
+      organizerId: 0,
+      venueId: 0,
+      title: row.title,
+      description: row.description,
+      genre: row.genre,
+      status: _parseEventStatus(row.status),
+      startTime: row.startTime,
+      endTime: row.endTime,
+      firstImageUrl: row.firstImageUrl,
+      minPledgeCents: 0,
+      registrationType: RegistrationType.open,
+      maxCapacity: 0,
+      commonDiscountPercent: 0,
+      pledgeDiscountPercent: 0,
+      createdAt: row.syncedAt,
+      venue: row.venueName != null
+          ? Venue(
+              id: 0,
+              name: row.venueName!,
+              address: '',
+              city: row.city ?? '',
+              lat: row.lat,
+              lng: row.lng,
+              maxCapacity: 0,
+            )
+          : null,
+      fundingGoalCents: row.fundingGoalCents,
+      totalPledgedCents: row.totalPledgedCents,
+      ticketsSoldCount: row.ticketsSoldCount ?? 0,
+    );
+  }
+
+  EventStatus _parseEventStatus(String status) {
+    return EventStatus.values.firstWhere(
+      (s) => s.name == status,
+      orElse: () => EventStatus.approved,
+    );
+  }
+
+  /// Cache displayed events into SQLite for offline access.
+  Future<void> _cacheEventsLocally() async {
+    try {
+      final syncService = context.read<SyncService>();
+      await syncService.pullEvents();
+    } catch (e) {
+      debugPrint('HomeTab._cacheEventsLocally failed: $e');
     }
   }
 
@@ -165,6 +251,10 @@ class _HomeTabState extends State<HomeTab> {
       setState(() => _homeSearchResults = []);
       return;
     }
+    if (_isOffline && _homeSearchCtrl.text.trim().isNotEmpty) {
+      _offlineSearch(_homeSearchCtrl.text.trim());
+      return;
+    }
     final seen = <int>{};
     final allEvents = <Event>[];
     for (final list in [
@@ -194,6 +284,18 @@ class _HomeTabState extends State<HomeTab> {
       return true;
     }).toList();
     setState(() => _homeSearchResults = results);
+  }
+
+  Future<void> _offlineSearch(String query) async {
+    try {
+      final db = context.read<AppDatabase>();
+      final cached = await db.searchEvents(query);
+      if (!mounted) return;
+      final events = cached.map(_cachedRowToEvent).toList();
+      setState(() => _homeSearchResults = events);
+    } catch (e) {
+      debugPrint('HomeTab._offlineSearch failed: $e');
+    }
   }
 
   void _clearHomeSearch() {
@@ -527,6 +629,41 @@ class _HomeTabState extends State<HomeTab> {
               ),
             ),
           ),
+
+          if (_isOffline)
+            SliverToBoxAdapter(
+              child: Container(
+                margin: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 0,
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.lg,
+                  vertical: AppSpacing.sm,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: AppRadius.md,
+                  border: Border.all(color: Colors.orange.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.cloud_off_rounded,
+                        size: AppIconSize.md, color: Colors.orange.shade700),
+                    AppSpacing.hMd,
+                    Expanded(
+                      child: Text(
+                        'You\'re offline — showing cached events',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.orange.shade800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
 
           if (user != null && user.kycStatus != 'verified' && !user.isAdmin)
             const SliverToBoxAdapter(

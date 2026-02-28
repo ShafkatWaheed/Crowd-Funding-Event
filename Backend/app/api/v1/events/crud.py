@@ -126,67 +126,73 @@ async def list_genres():
 @router.get("/cities")
 @limiter.limit(dynamic_limit("public_search", "60/minute"))
 async def list_cities(request: Request, db: ReadDbSession):
-    from app.models.venue import Venue
-    rows = (await db.execute(
-        select(Venue.city).where(Venue.city.isnot(None), Venue.city != "")
-        .distinct().order_by(Venue.city)
-    )).scalars().all()
-    return {"cities": list(rows)}
+    from app.cache import cache_get_or_compute
+    from app.services.platform_settings import get_int as get_setting_int
+
+    async def _compute():
+        from app.models.venue import Venue
+        rows = (await db.execute(
+            select(Venue.city).where(Venue.city.isnot(None), Venue.city != "")
+            .distinct().order_by(Venue.city)
+        )).scalars().all()
+        return {"cities": list(rows)}
+
+    ttl = await get_setting_int(db, "cache_ttl_cities")
+    return await cache_get_or_compute("cities", _compute, ttl=ttl, beta=0.5)
 
 
 @router.get("/featured")
 @limiter.limit(dynamic_limit("public_search", "60/minute"))
 async def get_featured_events(request: Request, db: ReadDbSession, sponsorship_only: bool = Query(False)):
     """Returns trending, popular, and coming-soon event lists for the discover page."""
-    from app.cache import cache_json_get, cache_json_set
-    from app.services.platform_settings import get_int as get_setting_int
+    from app.cache import cache_get_or_compute
+    from app.services.platform_settings import get_int as get_setting_int, get_float as get_setting_float
 
     cache_key = f"featured:{sponsorship_only}"
-    cached = await cache_json_get(cache_key)
-    if cached is not None:
-        return cached
 
-    trending = await event_service.get_trending_events(db, limit=10, sponsorship_only=sponsorship_only)
-    popular = await event_service.get_popular_events(db, limit=10, sponsorship_only=sponsorship_only)
-    coming_soon = await event_service.get_coming_soon_events(db, limit=10, sponsorship_only=sponsorship_only)
+    async def _compute():
+        trending = await event_service.get_trending_events(db, limit=10, sponsorship_only=sponsorship_only)
+        popular = await event_service.get_popular_events(db, limit=10, sponsorship_only=sponsorship_only)
+        coming_soon = await event_service.get_coming_soon_events(db, limit=10, sponsorship_only=sponsorship_only)
 
-    trending_ids = [e.id for e in trending]
-    popular_ids = [e.id for e in popular]
-    coming_soon_ids = [e.id for e in coming_soon]
-    all_ids = list(set(trending_ids + popular_ids + coming_soon_ids))
-    pledged, reserved, tickets_sold, first_images = await asyncio.gather(
-        funding_service.get_pledged_totals_for_events(db, event_ids=all_ids),
-        funding_service.get_total_reserved_spots_for_events(db, event_ids=all_ids),
-        ticket_service.get_ticket_sold_counts_for_events(db, event_ids=all_ids),
-        _get_first_images(db, all_ids),
-    )
-
-    now = datetime.now(timezone.utc)
-
-    def _to_resp(e: Event) -> EventResponse:
-        total_cents = pledged.get(e.id, 0)
-        days_left = None
-        if e.funding_end_at is not None:
-            end = e.funding_end_at if e.funding_end_at.tzinfo else e.funding_end_at.replace(tzinfo=timezone.utc)
-            delta = (end - now).days
-            days_left = max(0, delta) if delta > 0 else 0
-        return _event_to_response(
-            e,
-            total_pledged_cents=total_cents,
-            funding_days_left=days_left,
-            total_reserved_spots=reserved.get(e.id, 0),
-            tickets_sold_count=tickets_sold.get(e.id, 0),
-            first_image_url=first_images.get(e.id),
+        trending_ids = [e.id for e in trending]
+        popular_ids = [e.id for e in popular]
+        coming_soon_ids = [e.id for e in coming_soon]
+        all_ids = list(set(trending_ids + popular_ids + coming_soon_ids))
+        pledged, reserved, tickets_sold, first_images = await asyncio.gather(
+            funding_service.get_pledged_totals_for_events(db, event_ids=all_ids),
+            funding_service.get_total_reserved_spots_for_events(db, event_ids=all_ids),
+            ticket_service.get_ticket_sold_counts_for_events(db, event_ids=all_ids),
+            _get_first_images(db, all_ids),
         )
 
-    result = {
-        "trending": [_to_resp(e).model_dump(mode="json") for e in trending],
-        "popular": [_to_resp(e).model_dump(mode="json") for e in popular],
-        "coming_soon": [_to_resp(e).model_dump(mode="json") for e in coming_soon],
-    }
+        now = datetime.now(timezone.utc)
+
+        def _to_resp(e: Event) -> EventResponse:
+            total_cents = pledged.get(e.id, 0)
+            days_left = None
+            if e.funding_end_at is not None:
+                end = e.funding_end_at if e.funding_end_at.tzinfo else e.funding_end_at.replace(tzinfo=timezone.utc)
+                delta = (end - now).days
+                days_left = max(0, delta) if delta > 0 else 0
+            return _event_to_response(
+                e,
+                total_pledged_cents=total_cents,
+                funding_days_left=days_left,
+                total_reserved_spots=reserved.get(e.id, 0),
+                tickets_sold_count=tickets_sold.get(e.id, 0),
+                first_image_url=first_images.get(e.id),
+            )
+
+        return {
+            "trending": [_to_resp(e).model_dump(mode="json") for e in trending],
+            "popular": [_to_resp(e).model_dump(mode="json") for e in popular],
+            "coming_soon": [_to_resp(e).model_dump(mode="json") for e in coming_soon],
+        }
+
     ttl = await get_setting_int(db, "cache_ttl_featured")
-    await cache_json_set(cache_key, result, ttl=ttl)
-    return result
+    beta = await get_setting_float(db, "cache_beta_featured")
+    return await cache_get_or_compute(cache_key, _compute, ttl=ttl, beta=beta)
 
 
 @limiter.limit(dynamic_limit("event_create", "5/minute"))
@@ -419,9 +425,8 @@ async def update_event(
                 data={"event_id": event.id},
             )
 
-    from app.cache import cache_delete, cache_delete_pattern
-    await cache_delete(f"event:{event_id}")
-    await cache_delete_pattern("featured:*")
+    from app.cache import invalidate_event_cascade
+    await invalidate_event_cascade(event_id)
 
     updated = await event_service.get_by_id(db, updated.id, load_venue=True)
     return _event_to_response(updated)

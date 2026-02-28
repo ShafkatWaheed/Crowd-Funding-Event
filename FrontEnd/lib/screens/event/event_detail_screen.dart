@@ -20,6 +20,7 @@ import '../../widgets/error_state.dart';
 import '../../widgets/event_lifecycle_bar.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../services/api_service.dart';
+import '../../services/sync_service.dart';
 import '../../widgets/share_bottom_sheet.dart';
 import '../../widgets/calendar_bottom_sheet.dart';
 import 'event_detail/event_detail.dart';
@@ -60,6 +61,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   int _myReservedSpots = 0;
   int _revenueCents = 0;
   bool _bookmarked = false;
+  bool _offlineCached = false;
 
   bool _isUserAgeBlocked(Event event) {
     if (!event.ageRestricted) return false;
@@ -211,6 +213,27 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     }
   }
 
+  void _cacheForOffline(Event event) {
+    if (_offlineCached) return;
+    _offlineCached = true;
+    final syncService = context.read<SyncService>();
+    // Cache transport info for offline directions
+    if (event.hasTransportInfo || event.directionsUrl != null) {
+      syncService.cacheTransportForEvent(
+        eventId: event.id,
+        parkingInfo: event.parkingInfo,
+        transitInfo: event.transitInfo,
+        rideshareInfo: event.rideshareInfo,
+        accessibilityInfo: event.accessibilityInfo,
+        directionsUrl: event.directionsUrl,
+      );
+    }
+    // Cache schedule for offline viewing
+    if (event.hasSchedule) {
+      syncService.cacheScheduleForEvent(event.id);
+    }
+  }
+
   Future<void> _loadRevenue() async {
     final auth = context.read<AuthProvider>();
     final user = auth.user;
@@ -238,6 +261,11 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
         widget.isPreview ? widget.previewEvent : eventProvider!.selectedEvent;
     final user = widget.isPreview ? null : auth.user;
     final isDark = AppTheme.isDark(context);
+
+    // Cache transport + schedule for offline use when event is loaded
+    if (!widget.isPreview && event != null) {
+      _cacheForOffline(event);
+    }
 
     final hasPreviewImages = widget.isPreview &&
         widget.previewImages != null &&

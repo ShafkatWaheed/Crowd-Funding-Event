@@ -1,10 +1,13 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
+import '../../db/app_database.dart';
 import '../../models/sponsor.dart';
 import '../../services/api_service.dart';
-import '../../widgets/app_toast.dart';
+import '../../services/sync_service.dart';
 import '../../widgets/shimmer_loaders.dart';
 import 'sponsor_ticket/sponsor_ticket_card.dart';
 import 'sponsor_ticket/sponsor_ticket_receipt_page.dart';
@@ -19,6 +22,7 @@ class SponsorTicketScreen extends StatefulWidget {
 class _SponsorTicketScreenState extends State<SponsorTicketScreen> {
   List<SponsorTicketModel> _tickets = [];
   bool _loading = true;
+  bool _isOffline = false;
   final _searchCtrl = TextEditingController();
   String _searchQuery = '';
 
@@ -42,15 +46,72 @@ class _SponsorTicketScreenState extends State<SponsorTicketScreen> {
         setState(() {
           _tickets =
               data.map((j) => SponsorTicketModel.fromJson(j)).toList();
+          _isOffline = false;
+          _loading = false;
+        });
+        // Background-cache for offline use
+        context.read<SyncService>().pullSponsorTickets();
+      }
+    } catch (_) {
+      // Try loading from offline cache
+      await _loadFromCache();
+      if (mounted && _tickets.isEmpty) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  Future<void> _loadFromCache() async {
+    try {
+      final db = context.read<AppDatabase>();
+      final rows = await db.getSponsorTicketsFromCache();
+      if (mounted && rows.isNotEmpty) {
+        setState(() {
+          _tickets = rows.map(_cachedRowToSponsorTicket).toList();
+          _isOffline = true;
           _loading = false;
         });
       }
     } catch (e) {
-      if (mounted) {
-        AppToast.error(context, ApiService.extractError(e));
-        setState(() => _loading = false);
-      }
+      debugPrint('Failed to load sponsor tickets from cache: $e');
     }
+  }
+
+  SponsorTicketModel _cachedRowToSponsorTicket(CachedSponsorTicket row) {
+    List<SponsorTicketCategory> categories = [];
+    try {
+      final catList = jsonDecode(row.categoriesJson) as List;
+      categories = catList
+          .map((e) =>
+              SponsorTicketCategory.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+    } catch (_) {}
+
+    List<String> categoryNames = [];
+    try {
+      final nameList = jsonDecode(row.categoryNamesJson) as List;
+      categoryNames = nameList.map((e) => e.toString()).toList();
+    } catch (_) {}
+
+    return SponsorTicketModel(
+      id: row.id,
+      eventId: row.eventId,
+      sponsorUserId: row.sponsorUserId,
+      receiptNumber: row.receiptNumber,
+      encryptedQrPayload: row.encryptedQrPayload,
+      scannedAt: row.scannedAt,
+      createdAt: row.createdAt,
+      eventTitle: row.eventTitle,
+      eventStatus: row.eventStatus,
+      eventStartTime: row.eventStartTime,
+      venueName: row.venueName,
+      venueAddress: row.venueAddress,
+      venueCity: row.venueCity,
+      categoryCount: row.categoryCount,
+      scanCount: row.scanCount,
+      categories: categories,
+      categoryNames: categoryNames,
+    );
   }
 
   List<SponsorTicketModel> get _filtered {
@@ -82,6 +143,28 @@ class _SponsorTicketScreenState extends State<SponsorTicketScreen> {
                   onRefresh: _load,
                   child: Column(
                     children: [
+                      if (_isOffline)
+                        Container(
+                          width: double.infinity,
+                          color: Colors.orange.shade700.withValues(alpha: 0.12),
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 8, horizontal: 16),
+                          child: Row(
+                            children: [
+                              Icon(Icons.cloud_off_rounded,
+                                  size: 16, color: Colors.orange.shade700),
+                              const SizedBox(width: 8),
+                              Text(
+                                "You're offline \u2014 showing cached tickets",
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.orange.shade700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       _buildSearchBar(context),
                       Expanded(
                         child: filtered.isEmpty

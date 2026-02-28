@@ -11,8 +11,10 @@ import 'package:provider/provider.dart';
 
 import 'config/theme.dart';
 import 'config/router.dart';
+import 'db/app_database.dart';
 import 'screens/auth/splash_screen.dart';
 import 'services/api_service.dart';
+import 'services/sync_service.dart';
 import 'providers/auth_provider.dart';
 import 'providers/event_provider.dart';
 import 'providers/theme_provider.dart';
@@ -57,11 +59,15 @@ class CrowdFundApp extends StatelessWidget {
   Widget build(BuildContext context) {
     final apiService = ApiService();
     final chatSocket = ChatSocketService();
+    final appDatabase = AppDatabase();
+    final syncService = SyncService(db: appDatabase, api: apiService);
 
     return MultiProvider(
       providers: [
         Provider<ApiService>.value(value: apiService),
         Provider<ChatSocketService>.value(value: chatSocket),
+        Provider<AppDatabase>.value(value: appDatabase),
+        Provider<SyncService>.value(value: syncService),
         ChangeNotifierProvider(create: (_) => AuthProvider(apiService)),
         ChangeNotifierProvider(create: (_) => EventProvider(apiService)),
         ChangeNotifierProvider(create: (_) => ConfigProvider(apiService)..fetchConfig()),
@@ -85,6 +91,7 @@ class _AppShellState extends State<_AppShell> {
   GoRouter? _router;
   bool _fcmInitialized = false;
   bool _wasAuthenticated = false;
+  bool _syncInitialized = false;
   StreamSubscription<RemoteMessage>? _foregroundSub;
   StreamSubscription<RemoteMessage>? _openedAppSub;
 
@@ -130,6 +137,14 @@ class _AppShellState extends State<_AppShell> {
     context.read<ChatSocketService>().disconnect();
   }
 
+  void _initSync() {
+    if (_syncInitialized) return;
+    _syncInitialized = true;
+    final syncService = context.read<SyncService>();
+    syncService.init();
+    syncService.syncOnLaunch();
+  }
+
   void _teardownFcm(NotificationProvider notifProvider) {
     if (!_fcmInitialized) return;
     _fcmInitialized = false;
@@ -143,6 +158,9 @@ class _AppShellState extends State<_AppShell> {
     _router?.dispose();
     _foregroundSub?.cancel();
     _openedAppSub?.cancel();
+    if (_syncInitialized) {
+      context.read<SyncService>().dispose();
+    }
     super.dispose();
   }
 
@@ -161,6 +179,7 @@ class _AppShellState extends State<_AppShell> {
           notifProvider.startPolling();
           _setupFcmListeners(notifProvider);
           _connectChat();
+          _initSync();
         } else {
           notifProvider.stopPolling();
           _teardownFcm(notifProvider);

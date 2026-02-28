@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../config/theme.dart';
+import '../../config/design_tokens.dart';
+import '../../models/ticket.dart';
 import '../../utils/date_time_utils.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_toast.dart';
@@ -23,6 +25,7 @@ class TicketReceiptScreen extends StatefulWidget {
   final bool showBuyAgain;
   final VoidCallback? onBuyAgain;
   final bool isOrganizer;
+  final TicketSale? offlineTicket;
 
   const TicketReceiptScreen({
     super.key,
@@ -31,6 +34,7 @@ class TicketReceiptScreen extends StatefulWidget {
     this.showBuyAgain = false,
     this.onBuyAgain,
     this.isOrganizer = false,
+    this.offlineTicket,
   });
 
   @override
@@ -48,7 +52,34 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
     _load();
   }
 
+  bool get _isOffline => widget.offlineTicket != null;
+
   Future<void> _load() async {
+    // Build receipt from cached offline ticket (no API needed)
+    if (widget.offlineTicket != null) {
+      final t = widget.offlineTicket!;
+      setState(() {
+        _receipt = {
+          'sale_id': t.id,
+          'event_id': t.eventId,
+          'user_id': t.userId,
+          'receipt_number': t.receiptNumber ?? '',
+          'ticket_code': t.ticketCode,
+          'status': t.status,
+          'tier_name': t.tierName ?? '',
+          'event_title': t.eventTitle ?? 'Event #${t.eventId}',
+          'amount_paid_cents': t.amountPaidCents,
+          'discount_applied_cents': t.discountAppliedCents,
+          'tier_price_cents': t.amountPaidCents + t.discountAppliedCents,
+          'purchased_at': t.createdAt.toIso8601String(),
+          'scanned_at': t.scannedAt?.toIso8601String(),
+          'encrypted_qr_payload': t.encryptedQrPayload,
+        };
+        _loading = false;
+      });
+      return;
+    }
+
     setState(() {
       _loading = true;
       _error = null;
@@ -501,8 +532,40 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
             ),
           ),
 
-          // ── Request Refund link (customer-only, purchased + unscanned) ──
-          if (!widget.isOrganizer &&
+          // ── Offline indicator ──
+          if (_isOffline) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.lg, vertical: AppSpacing.sm + 2),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade700,
+                borderRadius: AppRadius.md,
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.cloud_off_rounded,
+                      size: 16, color: Colors.white),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Viewing cached receipt — you are offline',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          // ── Request Refund link (customer-only, purchased + unscanned, online only) ──
+          if (!_isOffline &&
+              !widget.isOrganizer &&
               status == 'purchased' &&
               scannedAt == null &&
               widget.eventId != null) ...[

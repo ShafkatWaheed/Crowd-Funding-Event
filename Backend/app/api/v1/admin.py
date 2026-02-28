@@ -525,6 +525,8 @@ async def approve_event(
             message=f'Your event "{event.title}" was not approved.',
             data={"event_id": event.id},
         )
+    from app.cache import invalidate_event_cascade
+    await invalidate_event_cascade(event_id)
     return {"ok": True, "event_id": event.id, "status": event.status.value}
 
 
@@ -547,10 +549,19 @@ async def admin_dashboard(
     status: str | None = Query(None),
 ):
     """Consolidated dashboard data for admin home tab."""
-    data = await admin_service.get_dashboard(
-        db, period=period, genre=genre, status=status,
-    )
-    return data
+    from app.cache import cache_get_or_compute, safe_cache_key
+    from app.services.platform_settings import get_int as get_setting_int, get_float as get_setting_float
+
+    cache_key = safe_cache_key("admin_dash", period, genre or "", status or "")
+
+    async def _compute():
+        return await admin_service.get_dashboard(
+            db, period=period, genre=genre, status=status,
+        )
+
+    ttl = await get_setting_int(db, "cache_ttl_admin_dashboard")
+    beta = await get_setting_float(db, "cache_beta_dashboard")
+    return await cache_get_or_compute(cache_key, _compute, ttl=ttl, beta=beta)
 
 
 # ----- Platform Settings -----

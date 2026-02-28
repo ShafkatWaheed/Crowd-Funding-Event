@@ -21,6 +21,7 @@ FastAPI Backend
   ├── WebSocket  /api/v1/chat/ws/chat?token=JWT
   ├── REST       /api/v1/chat/bids/{id}/messages
   ├── REST       /api/v1/chat/conversations
+  ├── REST POST  /api/v1/chat/bids/{id}/upload   (image upload)
   └── REST POST  /api/v1/chat/bids/{id}/read
 
 Storage
@@ -69,7 +70,7 @@ Single WS connection per user, multiplexed across bid channels.
 |-------------|---------------------------------------------|------------------------|
 | joined      | bid_id, is_writable                         | Channel joined         |
 | sent        | client_id, message_id, created_at           | Send confirmation      |
-| new_message | message {id, bid_id, sender_id, body, ...}  | Incoming message       |
+| new_message | message {id, bid_id, sender_id, body, msg_type, ...}  | Incoming message (msg_type: text \| image) |
 | delivered   | message_id, by                              | Delivery receipt       |
 | read        | message_id, bid_id, by                      | Read receipt           |
 | typing      | bid_id, user_id, is_typing                  | Typing indicator       |
@@ -91,7 +92,8 @@ Single WS connection per user, multiplexed across bid channels.
 | Method | Path                              | Auth | Purpose                         |
 |--------|-----------------------------------|------|---------------------------------|
 | GET    | /chat/bids/{bid_id}/messages      | JWT  | Paginated history (cursor-based)|
-| GET    | /chat/conversations               | JWT  | List conversations with unreads |
+| GET    | /chat/conversations               | JWT  | List conversations with unreads (includes sponsor_name, organizer_name) |
+| POST   | /chat/bids/{bid_id}/upload        | JWT  | Upload image to chat (multipart; participant validated; image stored under static/uploads/chat/) |
 | POST   | /chat/bids/{bid_id}/read          | JWT  | Mark-read fallback (REST)       |
 
 ### WebSocket
@@ -158,7 +160,7 @@ chat_service.send_message()
 | File | Purpose |
 |------|---------|
 | `Backend/app/services/chat_service.py` | Redis Streams CRUD, Pub/Sub, archive, purge |
-| `Backend/app/api/v1/chat.py` | WebSocket endpoint + REST history endpoints |
+| `Backend/app/api/v1/chat.py` | WebSocket endpoint; REST history, conversations, image upload |
 | `Backend/app/models/sponsor.py` | SponsorBid model (3 metadata columns added) |
 | `Backend/app/models/notification.py` | `chat_message` notification type |
 | `Backend/app/services/platform_settings.py` | Chat settings (4 keys) |
@@ -171,11 +173,11 @@ chat_service.send_message()
 
 | File | Purpose |
 |------|---------|
-| `FrontEnd/lib/models/chat_message.dart` | ChatMessage, ChatConversation models |
+| `FrontEnd/lib/models/chat_message.dart` | ChatMessage (isImage), ChatConversation (sponsorName, organizerName) |
 | `FrontEnd/lib/services/chat_socket_service.dart` | WebSocket client with auto-reconnect; tracks joined bids and re-joins on reconnect |
 | `FrontEnd/lib/providers/chat_provider.dart` | Chat state management (ChangeNotifier) |
-| `FrontEnd/lib/services/api_service.dart` | REST methods: getChatMessages, getChatConversations, markChatRead |
-| `FrontEnd/lib/screens/chat/bid_chat_screen.dart` | WhatsApp-style chat UI |
+| `FrontEnd/lib/services/api_service.dart` | REST: getChatMessages, getChatConversations, markChatRead, uploadChatImage |
+| `FrontEnd/lib/screens/chat/bid_chat_screen.dart` | WhatsApp-style chat UI; image attach (gallery/camera), image bubbles, fullscreen viewer |
 | `FrontEnd/lib/screens/chat/conversations_screen.dart` | Conversations list |
 | `FrontEnd/lib/config/router.dart` | Chat routes (/chat, /chat/bid/:bidId) |
 | `FrontEnd/lib/screens/sponsor/bid_management_screen.dart` | Chat button on bid cards |
@@ -196,6 +198,22 @@ chat_service.send_message()
 - **Connection lifecycle:** Chat WebSocket connection and disconnection are driven by user authentication state (e.g. in `main.dart`: connect when authenticated, disconnect when signed out or token invalid). Ensures the socket is not left open when the user is logged out and avoids redundant connects.
 - **Re-join on reconnect:** `ChatSocketService` keeps a set `_joinedBids` of currently joined bid IDs. On `join(bidId)` the bid is added and a join message sent; on `leave(bidId)` the bid is removed and a leave message sent. After a successful WebSocket connect (including auto-reconnect), the service re-sends `join` for every bid in `_joinedBids` so the user is re-subscribed to all active chats without the UI re-calling join. On `disconnect()`, `_joinedBids` is cleared.
 - **BidChatScreen:** Holds a single `ChatProvider` reference (`late final _chat`) read in `initState` and uses it for join, leave, loadHistory, messagesFor, markRead, sendMessage, sendTypingIndicator, clearBid—reducing redundant `context.read<ChatProvider>()` and improving state management. History load uses `if (mounted)` before `setState` after the async load.
+
+---
+
+## Image upload and conversation context (recently implemented)
+
+### Backend
+
+- **POST /chat/bids/{bid_id}/upload:** Multipart image upload for bid chat. Validates participant via `chat_service.validate_participant` (403 if not a participant or chat read-only). Validates file with `validate_upload(db, file, "image")`. Saves to `Backend/static/uploads/chat/` as `chat_{bid_id}_{uuid}{ext}` (ext from .jpg, .jpeg, .png, .webp, .gif). Calls `chat_service.send_message(bid_id, user_id, image_url, client_id, msg_type="image")` so the message is stored in Redis with type `image` and body as the static URL; then `update_pg_metadata` and returns the message. Image messages are delivered over WebSocket like text (new_message with msg_type and body).
+- **WebSocket originator logic:** When forwarding pubsub events to the client, the server determines the “origin” user so it does not echo the client’s own events: `new_message` → `message.sender_id`, `typing` → `user_id`, `delivered`/`read` → `by`. Only events where `origin != user.id` are sent to the WebSocket.
+- **get_conversations:** Now joins `User` (aliased as SponsorUser, OrganizerUser) and returns `sponsor_name` and `organizer_name` (display_name or email) per conversation for list context.
+
+### Frontend
+
+- **ChatMessage:** `isImage` getter (`msgType == 'image'`). Image messages have `body` as the image URL (e.g. `/static/uploads/chat/...`).
+- **ChatConversation:** New fields `sponsorName` and `organizerName` (from API) for display in the conversations list.
+- **BidChatScreen:** Optional `eventId` for app bar actions (View Event, Sponsorships). Attach button in input row opens a bottom sheet: **Gallery** or **Camera**. Image picker (image_picker) with maxWidth/maxHeight 1280, quality 75; then `ApiService.uploadChatImage(bidId, fileBytes, fileName)`. Upload state `_isUploading` shows a spinner on the attach button. Message bubbles: when `message.isImage`, render image via `_buildImageContent` (e.g. CachedNetworkImage) with tap-to-fullscreen (`FullscreenImageViewer`). Dependencies: `cached_network_image`, `image_picker`.
 
 ---
 

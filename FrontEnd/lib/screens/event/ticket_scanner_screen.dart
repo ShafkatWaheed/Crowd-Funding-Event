@@ -1,12 +1,15 @@
 import 'dart:convert';
 
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
+import '../../db/app_database.dart';
 import '../../services/api_service.dart';
+import '../../services/sync_service.dart';
 
 
 /// Full-screen QR code scanner for organizers to scan tickets at events.
@@ -36,11 +39,57 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
   bool _lastSuccess = false;
   bool _torchOn = false;
   bool _sponsorMode = false;
+  bool _isOffline = false;
+  int _offlineTicketCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkConnectivity();
+    _loadOfflineTicketCount();
+  }
 
   @override
   void dispose() {
     _cameraController.dispose();
     super.dispose();
+  }
+
+  Future<void> _checkConnectivity() async {
+    final results = await Connectivity().checkConnectivity();
+    if (mounted) {
+      setState(() {
+        _isOffline = !results.any((r) => r != ConnectivityResult.none);
+      });
+    }
+    // Listen for changes
+    Connectivity().onConnectivityChanged.listen((results) {
+      if (mounted) {
+        final wasOffline = _isOffline;
+        setState(() {
+          _isOffline = !results.any((r) => r != ConnectivityResult.none);
+        });
+        // Coming back online — push offline scans
+        if (wasOffline && !_isOffline) {
+          _pushOfflineScans();
+        }
+      }
+    });
+  }
+
+  Future<void> _loadOfflineTicketCount() async {
+    try {
+      final db = context.read<AppDatabase>();
+      final count = await db.countOfflineTickets(widget.eventId);
+      if (mounted) setState(() => _offlineTicketCount = count);
+    } catch (_) {}
+  }
+
+  Future<void> _pushOfflineScans() async {
+    try {
+      final syncService = context.read<SyncService>();
+      await syncService.pushOfflineScans();
+    } catch (_) {}
   }
 
   Future<void> _onDetect(BarcodeCapture capture) async {
@@ -99,6 +148,11 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
 
   Future<void> _handleRegularScan(ApiService api, String rawData,
       String? ticketCode, String? encryptedPayload) async {
+    if (_isOffline) {
+      await _handleOfflineScan(rawData, ticketCode, encryptedPayload);
+      return;
+    }
+
     final result = await api.scanTicket(
       widget.eventId,
       ticketCode: ticketCode,
@@ -123,6 +177,83 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
             : 'Entry confirmed',
         receiptNumber: ticketReceiptNum,
         alreadyScanned: alreadyScanned,
+      );
+    }
+  }
+
+  Future<void> _handleOfflineScan(
+      String rawData, String? ticketCode, String? encryptedPayload) async {
+    final db = context.read<AppDatabase>();
+    final code = ticketCode ?? encryptedPayload ?? rawData;
+
+    if (_offlineTicketCount == 0) {
+      if (mounted) {
+        setState(() {
+          _lastResult = rawData;
+          _lastSuccess = false;
+        });
+        _showScanResult(
+          success: false,
+          title: 'No Offline Data',
+          subtitle: 'Download tickets before scanning offline',
+        );
+      }
+      return;
+    }
+
+    final ticket = await db.findTicketByCode(widget.eventId, code);
+
+    if (ticket == null) {
+      if (mounted) {
+        setState(() {
+          _lastResult = rawData;
+          _lastSuccess = false;
+        });
+        _showScanResult(
+          success: false,
+          title: 'Not Found',
+          subtitle: 'Ticket not in offline data (may be a recent purchase)',
+        );
+      }
+      return;
+    }
+
+    if (ticket.scannedLocally) {
+      if (mounted) {
+        setState(() {
+          _lastResult = rawData;
+          _lastSuccess = true;
+        });
+        _showScanResult(
+          success: false,
+          title: 'Already Scanned',
+          subtitle: 'This ticket was already scanned offline',
+          alreadyScanned: true,
+        );
+      }
+      return;
+    }
+
+    // Valid ticket — mark scanned locally and queue for sync
+    // Get current user ID from the API service's auth state
+    final userId = 0; // Will be resolved on push sync
+    await db.markTicketScannedLocally(ticket.id);
+    await db.addOfflineScan(
+      ticketCode: code,
+      eventId: widget.eventId,
+      scannedById: userId,
+    );
+
+    if (mounted) {
+      setState(() {
+        _lastResult = rawData;
+        _lastSuccess = true;
+        _scannedCount++;
+      });
+      _showScanResult(
+        success: true,
+        title: 'Ticket Verified (Offline)',
+        subtitle: '${ticket.userName ?? 'Attendee'} — ${ticket.tierName ?? 'General'}',
       );
     }
   }
@@ -705,18 +836,24 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
                                 Text(
                                   _isProcessing
                                       ? 'Processing...'
-                                      : 'Point camera at QR code',
+                                      : _isOffline
+                                          ? 'Offline Mode — Local validation'
+                                          : 'Point camera at QR code',
                                   style: TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w700,
                                     letterSpacing: -0.2,
-                                    color: AppTheme.textPrimaryOf(context),
+                                    color: _isOffline
+                                        ? AppTheme.warningColor
+                                        : AppTheme.textPrimaryOf(context),
                                   ),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
                                   _scannedCount == 0
-                                      ? 'Ready to scan'
+                                      ? _isOffline
+                                          ? '$_offlineTicketCount tickets available offline'
+                                          : 'Ready to scan'
                                       : '$_scannedCount ticket${_scannedCount == 1 ? '' : 's'} scanned this session',
                                   style: TextStyle(
                                     fontSize: 12,

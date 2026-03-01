@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(PGPASSWORD=mysecretpassword psql -h localhost -U postgres -d event_db -c \"SELECT id, event_id, user_id, status, amount_paid_cents, created_at FROM ticket_sales WHERE status NOT IN \\(''purchased'', ''waitlisted''\\) ORDER BY created_at DESC LIMIT 20;\")",
-      "Bash(flutter analyze lib/screens/event/co_organizer_screen.dart)"
+      "Bash(flutter analyze lib/screens/event/co_organizer_screen.dart)",
+      "Bash(flutter pub get)"
     ]
   }
 }

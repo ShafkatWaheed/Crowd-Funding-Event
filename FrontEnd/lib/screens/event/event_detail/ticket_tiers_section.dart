@@ -10,6 +10,7 @@ import '../../../providers/auth_provider.dart';
 import '../../../providers/event_provider.dart';
 import '../../../services/api_service.dart';
 import '../../../widgets/app_toast.dart';
+import 'package:flutter_stripe/flutter_stripe.dart' hide Card;
 import '../ticket_receipt_screen.dart';
 import '../purchase_group_receipt_screen.dart';
 import 'ticket_price_breakdown.dart';
@@ -749,6 +750,22 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
     _showPaymentProcessing();
     try {
       final api = context.read<ApiService>();
+
+      // Stripe Payment Sheet flow when Stripe is enabled
+      if (api.isStripeEnabled) {
+        final intent = await api.createPaymentIntent(
+          amountCents: 0, // actual amount computed by backend
+          description: 'Ticket purchase for event $eventId',
+        );
+        await Stripe.instance.initPaymentSheet(
+          paymentSheetParameters: SetupPaymentSheetParameters(
+            paymentIntentClientSecret: intent['client_secret'] as String,
+            merchantDisplayName: 'CrowdFund Event',
+          ),
+        );
+        await Stripe.instance.presentPaymentSheet();
+      }
+
       final salesList = await api.purchaseTickets(eventId, tierId: tierId, quantity: quantity);
       _dismissPaymentProcessing();
       if (salesList.isEmpty) return;

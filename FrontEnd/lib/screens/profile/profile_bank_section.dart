@@ -18,6 +18,8 @@ class ProfileBankSection extends StatefulWidget {
 class _ProfileBankSectionState extends State<ProfileBankSection> {
   bool _loading = false;
   Map<String, dynamic>? _bankData;
+  bool _stripeMode = false;
+  bool _stripeConnected = false;
 
   final _institutionCtrl = TextEditingController();
   final _transitCtrl = TextEditingController();
@@ -43,12 +45,23 @@ class _ProfileBankSectionState extends State<ProfileBankSection> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final data = await context.read<ApiService>().getBankAccount();
+      final api = context.read<ApiService>();
+      final data = await api.getBankAccount();
       if (mounted) {
-        setState(() {
-          _bankData = data;
-          _editing = false;
-        });
+        final mode = data['mode'];
+        if (mode == 'stripe_connect') {
+          setState(() {
+            _stripeMode = true;
+            _stripeConnected = data['stripe_connected'] == true;
+            _bankData = data;
+          });
+        } else {
+          setState(() {
+            _stripeMode = false;
+            _bankData = data;
+            _editing = false;
+          });
+        }
       }
     } catch (e) {
       debugPrint(e.toString());
@@ -101,6 +114,50 @@ class _ProfileBankSectionState extends State<ProfileBankSection> {
     });
   }
 
+  List<Widget> _buildStripeConnectSection(BuildContext context) {
+    if (_stripeConnected) {
+      return [
+        Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.green, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Payout account connected via Stripe',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textPrimaryOf(context),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'Your banking details are securely managed by Stripe. Payouts will be deposited directly to your connected account.',
+          style: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 13),
+        ),
+      ];
+    }
+    return [
+      Text(
+        'Connect your bank account through Stripe to receive payouts.',
+        style: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 13),
+      ),
+      const SizedBox(height: 12),
+      FilledButton.icon(
+        onPressed: () {
+          // Placeholder — actual Stripe Connect onboarding link comes when StripePaymentGateway is implemented
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Stripe Connect onboarding coming soon')),
+          );
+        },
+        icon: const Icon(Icons.payment),
+        label: const Text('Connect with Stripe'),
+      ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     return ProfileSectionCard(
@@ -109,7 +166,9 @@ class _ProfileBankSectionState extends State<ProfileBankSection> {
       delay: 300,
       children: _loading
           ? [const Center(child: CircularProgressIndicator())]
-          : [
+          : _stripeMode
+              ? _buildStripeConnectSection(context)
+              : [
               if (_bankData != null &&
                   _bankData!['has_bank_account'] == true &&
                   !_editing) ...[

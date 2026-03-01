@@ -28,7 +28,7 @@ class _AdminSettingsTabState extends State<AdminSettingsTab>
   // ── Tab → group mapping ──
   static const _tabDefs = [
     {'label': 'General', 'icon': Icons.dashboard, 'groups': ['Branding', 'Feature Flags', 'Push Notifications']},
-    {'label': 'Financial', 'icon': Icons.monetization_on, 'groups': ['Commissions', 'Financial Policy', 'Community Rules']},
+    {'label': 'Financial', 'icon': Icons.monetization_on, 'groups': ['Commissions', 'Financial Policy', 'Community Rules', 'Stripe Integration']},
     {'label': 'Events', 'icon': Icons.event, 'groups': ['Events', 'Event Limits', 'Ticket Limits']},
     {'label': 'Security', 'icon': Icons.security, 'groups': ['API Rate Limits', 'KYC', 'File Uploads', 'Banking']},
     {'label': 'Infrastructure', 'icon': Icons.build_circle, 'groups': ['Cache', 'Cache TTLs', 'Stampede Prevention', 'Circuit Breaker', 'Offline / Sync', 'Infrastructure', 'Chat']},
@@ -58,6 +58,7 @@ class _AdminSettingsTabState extends State<AdminSettingsTab>
     'KYC': ['kyc_required_organizer', 'kyc_required_customer', 'kyc_required_sponsor', 'kyc_mock_enabled', 'mock_kyc_latency_min_ms', 'mock_kyc_latency_max_ms', 'mock_kyc_failure_rate_percent'],
     'Banking': ['bank_encryption_key', 'bank_verification_delay_seconds'],
     'Chat': ['chat_enabled', 'chat_max_message_length', 'chat_stream_maxlen', 'chat_archive_retention_days'],
+    'Stripe Integration': ['stripe_enabled', 'stripe_publishable_key', 'stripe_secret_key', 'stripe_webhook_secret', 'stripe_connect_enabled'],
   };
 
   static const _groupIcons = {
@@ -82,6 +83,7 @@ class _AdminSettingsTabState extends State<AdminSettingsTab>
     'KYC': Icons.verified_user,
     'Banking': Icons.account_balance_rounded,
     'Chat': Icons.chat_rounded,
+    'Stripe Integration': Icons.payment,
   };
 
   static const _triggerModeOptions = <String, List<String>>{};

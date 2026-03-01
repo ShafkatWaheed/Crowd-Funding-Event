@@ -71,6 +71,8 @@ class TicketSale(Base):
     tax_jurisdiction: Mapped[str] = mapped_column(String(32), nullable=False, default="")
     gateway_transaction_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     gateway_auth_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    stripe_payment_intent_id: Mapped[str | None] = mapped_column(String(128), unique=True, nullable=True)
+    gateway_refund_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     extra_perks: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[TicketSaleStatus] = mapped_column(Enum(TicketSaleStatus), nullable=False, default=TicketSaleStatus.purchased, index=True)
     scanned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

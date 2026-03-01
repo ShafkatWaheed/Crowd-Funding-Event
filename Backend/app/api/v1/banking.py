@@ -31,8 +31,56 @@ from app.services import audit as audit_svc
 from app.services import encryption as enc
 from app.services import ledger as ledger_svc
 from app.services import platform_settings as settings_svc
+from fastapi.exceptions import HTTPException
 
 router = APIRouter()
+
+
+# ═══════════════════════════════════════════
+#  Stripe Config (public)
+# ═══════════════════════════════════════════
+
+@router.get("/stripe/config")
+async def get_stripe_config(db: ReadDbSession):
+    """Return Stripe publishable key + enabled status for frontend."""
+    stripe_on = await settings_svc.get_bool(db, "stripe_enabled")
+    connect_on = await settings_svc.get_bool(db, "stripe_connect_enabled")
+    pk = await settings_svc.get_str(db, "stripe_publishable_key") if stripe_on else ""
+    return {
+        "stripe_enabled": stripe_on,
+        "stripe_connect_enabled": connect_on,
+        "publishable_key": pk,
+    }
+
+
+# ═══════════════════════════════════════════
+#  Stripe Payment Intent (authenticated)
+# ═══════════════════════════════════════════
+
+class PaymentIntentRequest(BaseModel):
+    amount_cents: int
+    description: str
+    idempotency_key: str | None = None
+
+
+@router.post("/payments/create-intent")
+@limiter.limit(dynamic_limit("payment_action", "10/minute"))
+async def create_payment_intent(
+    request: Request,
+    body: PaymentIntentRequest,
+    db: DbSession,
+    current_user: CurrentUser,
+):
+    """Create a payment intent for the Stripe Payment Sheet."""
+    stripe_on = await settings_svc.get_bool(db, "stripe_enabled")
+    if not stripe_on:
+        raise HTTPException(status_code=400, detail="Stripe is not enabled")
+
+    # Stub — returns error until StripePaymentGateway.create_intent() is implemented
+    raise HTTPException(
+        status_code=501,
+        detail="Stripe PaymentIntent creation not yet implemented. Coming soon.",
+    )
 
 
 # ═══════════════════════════════════════════
@@ -55,8 +103,16 @@ class PaymentInfoUpdate(BaseModel):
     payment_method_token: str | None = None
 
 
-@router.get("/me/payment-info", response_model=PaymentInfoResponse)
+@router.get("/me/payment-info")
 async def get_payment_info(db: ReadDbSession, current_user: CurrentUser):
+    stripe_on = await settings_svc.get_bool(db, "stripe_enabled")
+    if stripe_on:
+        user = (await db.execute(select(User).where(User.id == current_user.id))).scalar_one()
+        return {
+            "mode": "stripe",
+            "stripe_customer_id": user.stripe_customer_id,
+            "stripe_configured": user.stripe_customer_id is not None,
+        }
     info = (await db.execute(
         select(UserPaymentInfo).where(UserPaymentInfo.user_id == current_user.id)
     )).scalar_one_or_none()
@@ -74,6 +130,12 @@ async def get_payment_info(db: ReadDbSession, current_user: CurrentUser):
 @router.put("/me/payment-info", response_model=PaymentInfoResponse)
 @limiter.limit(dynamic_limit("payment_action", "10/minute"))
 async def update_payment_info(request: Request, body: PaymentInfoUpdate, db: DbSession, current_user: CurrentUser):
+    stripe_on = await settings_svc.get_bool(db, "stripe_enabled")
+    if stripe_on:
+        raise HTTPException(
+            status_code=400,
+            detail="Payment methods managed by Stripe. Card details are stored securely by Stripe.",
+        )
     log_step(logger, "Updating payment info", user_id=current_user.id)
     info = (await db.execute(
         select(UserPaymentInfo).where(UserPaymentInfo.user_id == current_user.id)
@@ -161,11 +223,19 @@ class BankAccountUpdate(BaseModel):
         return v.strip()
 
 
-@router.get("/me/bank-account", response_model=BankAccountResponse)
+@router.get("/me/bank-account")
 async def get_bank_account(
     db: ReadDbSession,
     current_user: User = Depends(require_role(UserRole.organizer)),
 ):
+    stripe_connect = await settings_svc.get_bool(db, "stripe_connect_enabled")
+    if stripe_connect:
+        user = (await db.execute(select(User).where(User.id == current_user.id))).scalar_one()
+        return {
+            "mode": "stripe_connect",
+            "stripe_connect_account_id": user.stripe_connect_account_id,
+            "stripe_connected": user.stripe_connect_account_id is not None,
+        }
     acct = (await db.execute(
         select(OrganizerBankAccount).where(OrganizerBankAccount.user_id == current_user.id)
     )).scalar_one_or_none()
@@ -204,6 +274,12 @@ async def update_bank_account(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.organizer)),
 ):
+    stripe_connect = await settings_svc.get_bool(db, "stripe_connect_enabled")
+    if stripe_connect:
+        raise HTTPException(
+            status_code=400,
+            detail="Bank account managed by Stripe Connect. Use Stripe dashboard to update banking details.",
+        )
     log_step(logger, "Updating bank account", user_id=current_user.id)
     from app.models.payment_info import BankVerificationStatus
     from app.services import notification_service as notif_svc
@@ -387,6 +463,8 @@ class BankingOverviewResponse(BaseModel):
     last_reconciliation_status: str | None = None
     last_reconciliation_delta_cents: int = 0
     mock_mode_active: bool = False
+    stripe_enabled: bool = False
+    stripe_connect_enabled: bool = False
 
 
 @router.get("/admin/banking-overview", response_model=BankingOverviewResponse)
@@ -577,6 +655,8 @@ async def admin_banking_overview(
         last_reconciliation_status=last_recon.status if last_recon else None,
         last_reconciliation_delta_cents=last_recon.delta_cents if last_recon else 0,
         mock_mode_active=mock_active,
+        stripe_enabled=await settings_svc.get_bool(db, "stripe_enabled"),
+        stripe_connect_enabled=await settings_svc.get_bool(db, "stripe_connect_enabled"),
     )
 
 
@@ -664,6 +744,12 @@ async def admin_verify_bank_account(
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
     """Admin marks an organizer's bank account as verified."""
+    stripe_connect = await settings_svc.get_bool(db, "stripe_connect_enabled")
+    if stripe_connect:
+        raise HTTPException(
+            status_code=400,
+            detail="Bank verification handled by Stripe Connect. Manual verification disabled.",
+        )
     from app.models.payment_info import BankVerificationStatus
     from app.services import notification_service as notif_svc
     from app.models.notification import NotificationType
@@ -708,6 +794,12 @@ async def admin_reject_bank_account(
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
     """Admin rejects an organizer's bank account verification."""
+    stripe_connect = await settings_svc.get_bool(db, "stripe_connect_enabled")
+    if stripe_connect:
+        raise HTTPException(
+            status_code=400,
+            detail="Bank verification handled by Stripe Connect. Manual verification disabled.",
+        )
     from app.models.payment_info import BankVerificationStatus
     from app.services import notification_service as notif_svc
     from app.models.notification import NotificationType

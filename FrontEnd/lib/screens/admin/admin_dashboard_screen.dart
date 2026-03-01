@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:firebase_auth/firebase_auth.dart' show FirebaseAuth;
 
 import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
@@ -203,7 +202,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   void _logout() async {
-    await FirebaseAuth.instance.signOut();
+    await context.read<AuthProvider>().signOut();
   }
 
   // ---------------------------------------------------------------------------

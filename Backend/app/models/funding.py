@@ -32,6 +32,8 @@ class Funding(Base):
     tax_cents: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     gateway_transaction_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     gateway_auth_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    stripe_payment_intent_id: Mapped[str | None] = mapped_column(String(128), unique=True, nullable=True)
+    gateway_refund_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     is_early_bird: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     receipt_number: Mapped[str | None] = mapped_column(String(32), nullable=True, unique=True, index=True)  # human-readable pledge receipt ID
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)

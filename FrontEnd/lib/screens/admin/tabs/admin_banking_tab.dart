@@ -199,6 +199,8 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (mockActive) _buildMockBanner(context),
+            if (d['stripe_enabled'] == true)
+              _buildStripeBanner(context, d['stripe_connect_enabled'] == true),
             _buildRefreshBar(context),
             const SizedBox(height: 8),
             Text('Platform Account', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context))),
@@ -358,6 +360,30 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
           const Icon(Icons.warning_amber_rounded, color: AppTheme.warningColor, size: 20),
           const SizedBox(width: 8),
           Expanded(child: Text('Mock Mode Active — No real money is moving', style: TextStyle(color: AppTheme.textPrimaryOf(context), fontWeight: FontWeight.w600))),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStripeBanner(BuildContext context, bool connectEnabled) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.indigo.shade50,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.payment, color: Colors.indigo, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Stripe is the active payment gateway${connectEnabled ? ' • Connect enabled for organizer payouts' : ''}',
+              style: TextStyle(color: AppTheme.textPrimaryOf(context), fontWeight: FontWeight.w600),
+            ),
+          ),
         ],
       ),
     );

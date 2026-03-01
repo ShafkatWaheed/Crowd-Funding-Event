@@ -590,6 +590,23 @@ async def update_setting(
     if key.startswith("rate_limit_"):
         from app.rate_limit import reload_rate_limits
         await reload_rate_limits(db)
+    # Warn all admins when Stripe is enabled but not yet implemented
+    if key == "stripe_enabled" and body.value == "true":
+        from app.services.escrow_base import get_all_admin_ids
+        admin_ids = await get_all_admin_ids(db)
+        if admin_ids:
+            await notif_svc.create_bulk_notifications(
+                db, user_ids=admin_ids,
+                type=NotificationType.settings_warning,
+                title="Stripe Enabled — Not Yet Implemented",
+                message=(
+                    "Stripe has been enabled as the payment gateway but the integration "
+                    "is not yet implemented. All payments, refunds, and payouts will fail "
+                    "until the Stripe gateway is fully built. Disable stripe_enabled to "
+                    "restore the mock gateway."
+                ),
+                data={"key": key, "value": body.value, "changed_by": current_user.id},
+            )
     await audit_svc.log_action(
         db, admin_id=current_user.id, action="settings_update",
         target_type="setting", target_id=key, details={"value": body.value},

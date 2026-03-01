@@ -33,6 +33,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late int _navIndex;
   void Function()? _exploreRefresh;
+  EventProvider? _eventProvider;
 
   // Bookmarks — batch-checked once per event list load
   final Set<int> _bookmarkedIds = {};
@@ -55,8 +56,8 @@ class _HomeScreenState extends State<HomeScreen> {
     _navIndex = widget.initialTab;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadCities();
-      final ep = context.read<EventProvider>();
-      ep.addListener(_onEventsChanged);
+      _eventProvider = context.read<EventProvider>();
+      _eventProvider!.addListener(_onEventsChanged);
     });
   }
 
@@ -116,7 +117,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
-    context.read<EventProvider>().removeListener(_onEventsChanged);
+    _eventProvider?.removeListener(_onEventsChanged);
     super.dispose();
   }
 

@@ -155,6 +155,7 @@ DEFAULTS = {
     # ── Infrastructure ──
     "worker_run_log_retention_days": 30,
     "notification_retention_days": 90,
+    "device_token_retention_days": 30,
     "cron_reconciliation_hour": 2,
     "cron_payout_hour": 0,
     "cron_escrow_check_interval_min": 15,
@@ -208,6 +209,13 @@ DEFAULTS = {
     "rate_limit_public_search": "60/minute",
     "rate_limit_social_action": "30/minute",
     "rate_limit_qr_scan": "30/minute",
+
+    # ── Stripe integration ──
+    "stripe_enabled": "false",
+    "stripe_publishable_key": "",
+    "stripe_secret_key": "",
+    "stripe_webhook_secret": "",
+    "stripe_connect_enabled": "false",
 }
 
 DESCRIPTIONS = {
@@ -330,6 +338,7 @@ DESCRIPTIONS = {
     "platform_holding_configured": "Whether platform holding bank account is configured",
     "worker_run_log_retention_days": "Days to keep ARQ worker run log entries before auto-purge",
     "notification_retention_days": "Days to keep notification records before auto-purge",
+    "device_token_retention_days": "Days to keep device tokens before auto-purge (catches orphaned tokens from failed logouts, app uninstalls, or force-quits)",
     "cron_reconciliation_hour": "Hour (0-23) for daily reconciliation cron job (takes effect on worker restart)",
     "cron_payout_hour": "Hour (0-23) for scheduled payouts cron job (takes effect on worker restart)",
     "cron_escrow_check_interval_min": "Minutes between escrow check cron runs (takes effect on worker restart)",
@@ -372,6 +381,13 @@ DESCRIPTIONS = {
     "rate_limit_public_search": "Rate limit for public search/discovery endpoints (e.g. 60/minute)",
     "rate_limit_social_action": "Rate limit for reactions and bookmarks (e.g. 30/minute)",
     "rate_limit_qr_scan": "Rate limit for ticket/sponsor QR scanning (e.g. 30/minute)",
+
+    # ── Stripe integration ──
+    "stripe_enabled": "Enable Stripe as the payment gateway (disables mock and local banking)",
+    "stripe_publishable_key": "Stripe publishable key (pk_test_... or pk_live_...)",
+    "stripe_secret_key": "Stripe secret key (sk_test_... or sk_live_...)",
+    "stripe_webhook_secret": "Stripe webhook signing secret (whsec_...)",
+    "stripe_connect_enabled": "Enable Stripe Connect for organizer payouts (replaces manual bank accounts)",
 }
 
 

@@ -262,12 +262,11 @@ async def send_sponsor_refund_email(
 
 async def process_pledge_refund(ctx: dict, funding_id: int) -> None:
     """
-    Complete a single pledge refund. Called after the API has already set
-    status=refund_processing and released reserved spots.
-
-    Future: this is where the payment gateway refund call would go.
-    For now, simulates processing then marks as refunded.
+    Complete a single pledge refund via payment gateway.
+    Called after the API has already set status=refund_processing and released reserved spots.
     """
+    from app.services.payment_gateway import get_gateway
+
     async with async_session_maker() as db:
         try:
             funding = (await db.execute(
@@ -278,14 +277,22 @@ async def process_pledge_refund(ctx: dict, funding_id: int) -> None:
                 logger.warning("Pledge %d: skip (not in refund_processing)", funding_id)
                 return
 
-            # --- Payment gateway refund would go here ---
-            # e.g. await payment_gateway.refund(funding.payment_intent_id, funding.amount_cents)
+            gateway = await get_gateway(db)
+            result = await gateway.refund(
+                db,
+                original_transaction_id=funding.gateway_transaction_id or "",
+                amount_cents=funding.amount_cents,
+                description=f"Pledge refund for funding #{funding_id}",
+            )
+            if result.status != "completed":
+                raise RuntimeError(f"Gateway returned status={result.status}")
 
+            funding.gateway_refund_id = result.transaction_id
             funding.status = FundingStatus.refunded
             await db.commit()
 
             await _send_pledge_refund_email(db, funding)
-            logger.info("Pledge %d: refunded (%d cents)", funding_id, funding.amount_cents)
+            logger.info("Pledge %d: refunded (%d cents, txn=%s)", funding_id, funding.amount_cents, result.transaction_id)
 
         except Exception:
             await db.rollback()
@@ -341,6 +348,7 @@ async def process_ticket_refund(ctx: dict, ticket_sale_id: int) -> None:
             if result.status != "completed":
                 raise RuntimeError(f"Gateway returned status={result.status}")
 
+            sale.gateway_refund_id = result.transaction_id
             sale.status = TicketSaleStatus.refunded
             await db.commit()
             logger.info("Ticket %d: refunded (%d cents, txn=%s)", ticket_sale_id, sale.amount_paid_cents, result.transaction_id)
@@ -377,6 +385,7 @@ async def process_sponsor_refund(ctx: dict, payment_id: int) -> None:
             if result.status != "completed":
                 raise RuntimeError(f"Gateway returned status={result.status}")
 
+            payment.gateway_refund_id = result.transaction_id
             payment.status = PaymentStatus.refunded
             await db.commit()
             logger.info("SponsorPayment %d: refunded (%d cents, txn=%s)", payment_id, payment.amount_cents, result.transaction_id)
@@ -866,6 +875,17 @@ async def cleanup_old_records(ctx: dict) -> None:
                 cutoff = datetime.now(timezone.utc) - timedelta(days=notif_days)
                 result = await db.execute(
                     delete(Notification).where(Notification.created_at < cutoff)
+                )
+                total_deleted += result.rowcount
+
+            # Clean up stale device tokens (orphaned from logout failures,
+            # app uninstalls, force-quits, etc.)
+            from app.models.device_token import DeviceToken
+            device_token_days = await settings_svc.get_int(db, "device_token_retention_days")
+            if device_token_days > 0:
+                cutoff = datetime.now(timezone.utc) - timedelta(days=device_token_days)
+                result = await db.execute(
+                    delete(DeviceToken).where(DeviceToken.updated_at < cutoff)
                 )
                 total_deleted += result.rowcount
 

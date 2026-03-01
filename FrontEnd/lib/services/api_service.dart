@@ -1701,4 +1701,37 @@ class ApiService {
   Future<void> markChatRead(int bidId, String messageId) async {
     await dio.post('/chat/bids/$bidId/read', queryParameters: {'message_id': messageId});
   }
+
+  // ── Stripe ──
+
+  /// Whether Stripe is the active payment gateway. Set by [initStripeConfig].
+  bool get isStripeEnabled => _stripeEnabled;
+  bool _stripeEnabled = false;
+
+  /// Fetch Stripe config from backend and cache the enabled state.
+  Future<Map<String, dynamic>> getStripeConfig() async {
+    final resp = await dio.get('/stripe/config');
+    final data = Map<String, dynamic>.from(resp.data as Map);
+    _stripeEnabled = data['stripe_enabled'] == true;
+    return data;
+  }
+
+  /// Initialize Stripe config (call once after login).
+  Future<void> initStripeConfig() async {
+    await getStripeConfig();
+  }
+
+  /// Create a Stripe PaymentIntent for the Payment Sheet.
+  Future<Map<String, dynamic>> createPaymentIntent({
+    required int amountCents,
+    required String description,
+    String? idempotencyKey,
+  }) async {
+    final resp = await dio.post('/payments/create-intent', data: {
+      'amount_cents': amountCents,
+      'description': description,
+      if (idempotencyKey != null) 'idempotency_key': idempotencyKey,
+    });
+    return Map<String, dynamic>.from(resp.data as Map);
+  }
 }

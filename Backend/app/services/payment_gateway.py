@@ -428,27 +428,18 @@ class MockPaymentGateway(PaymentGateway):
 
 
 class StripePaymentGateway(PaymentGateway):
-    """Stub for future real Stripe integration."""
+    """Real Stripe integration — abstract until all methods are implemented.
 
-    async def charge(self, db, *, user_id, amount_cents, description, idempotency_key=None,
-                     escrow_account="holding_account", commission_cents=0, tax_cents=0):
-        raise NotImplementedError("Stripe integration not yet implemented")
-
-    async def transfer(self, db, *, from_account, to_account, amount_cents, description):
-        raise NotImplementedError("Stripe integration not yet implemented")
-
-    async def refund(self, db, *, original_transaction_id, amount_cents, description):
-        raise NotImplementedError("Stripe integration not yet implemented")
-
-    async def hold(self, db, *, account, amount_cents, description):
-        raise NotImplementedError("Stripe integration not yet implemented")
-
-    async def release_hold(self, db, *, hold_id, to_account, amount_cents):
-        raise NotImplementedError("Stripe integration not yet implemented")
+    To activate: subclass this, implement every method, and update get_gateway().
+    """
 
 
 async def get_gateway(db: AsyncSession) -> PaymentGateway:
-    """Factory: returns MockPaymentGateway when mock is enabled, else Stripe stub."""
-    if await settings_svc.get_bool(db, "payment_mock_enabled"):
-        return MockPaymentGateway()
-    return StripePaymentGateway()
+    """Factory: returns Stripe when enabled, else Mock."""
+    stripe_on = await settings_svc.get_bool(db, "stripe_enabled")
+    if stripe_on:
+        raise RuntimeError(
+            "Stripe is enabled but not yet implemented. "
+            "Disable stripe_enabled in admin settings or implement StripePaymentGateway."
+        )
+    return MockPaymentGateway()

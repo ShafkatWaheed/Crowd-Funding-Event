@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../../config/theme.dart';
 import '../../../services/api_service.dart';
 import '../../../widgets/app_toast.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
 
 class MyBidActions extends StatefulWidget {
   final Map<String, dynamic> bid;
@@ -82,6 +83,22 @@ class _MyBidActionsState extends State<MyBidActions> {
     _showPaymentProcessing();
     try {
       final api = context.read<ApiService>();
+
+      // Stripe Payment Sheet flow when Stripe is enabled
+      if (api.isStripeEnabled) {
+        final intent = await api.createPaymentIntent(
+          amountCents: widget.bid['amount_cents'] as int? ?? 0,
+          description: 'Sponsorship payment for bid $_bidId',
+        );
+        await Stripe.instance.initPaymentSheet(
+          paymentSheetParameters: SetupPaymentSheetParameters(
+            paymentIntentClientSecret: intent['client_secret'] as String,
+            merchantDisplayName: 'CrowdFund Event',
+          ),
+        );
+        await Stripe.instance.presentPaymentSheet();
+      }
+
       await api.payBid(widget.eventId, widget.categoryId, _bidId);
       _dismissPaymentProcessing();
       if (mounted) AppToast.success(context, 'Payment successful!');

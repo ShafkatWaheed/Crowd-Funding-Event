@@ -28,6 +28,11 @@ class AuthProvider extends ChangeNotifier {
   /// Used by the router to know when the initial session check is done.
   bool _initialCheckDone = false;
 
+  /// Optional async callback invoked *before* Firebase signOut so callers
+  /// (e.g. FCM device-token unregister) can still use a valid auth session.
+  Future<void> Function()? _onBeforeSignOut;
+  set onBeforeSignOut(Future<void> Function()? cb) => _onBeforeSignOut = cb;
+
   AuthProvider(this._api) {
     _firebaseAuth.authStateChanges().listen(_onAuthStateChanged);
   }
@@ -206,6 +211,15 @@ class AuthProvider extends ChangeNotifier {
   /// Sign out of Firebase and clear local state.
   Future<void> signOut() async {
     _log('signOut: signing out...');
+    // Run pre-signout hook (e.g. unregister FCM device token) while
+    // the Firebase session is still alive and Dio can attach auth headers.
+    if (_onBeforeSignOut != null) {
+      try {
+        await _onBeforeSignOut!();
+      } catch (e) {
+        _log('signOut: pre-signout hook error (continuing): $e');
+      }
+    }
     await _firebaseAuth.signOut();
     _user = null;
     _errorMessage = null;

@@ -103,6 +103,8 @@ class SponsorPayment(Base):
     tax_rate: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     gateway_transaction_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     gateway_auth_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    stripe_payment_intent_id: Mapped[str | None] = mapped_column(String(128), unique=True, nullable=True)
+    gateway_refund_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     status: Mapped[PaymentStatus] = mapped_column(Enum(PaymentStatus), nullable=False, default=PaymentStatus.completed, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 

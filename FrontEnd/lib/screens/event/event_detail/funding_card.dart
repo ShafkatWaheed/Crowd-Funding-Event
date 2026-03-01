@@ -11,6 +11,7 @@ import '../../../providers/auth_provider.dart';
 import '../../../services/api_service.dart';
 import '../../../widgets/app_toast.dart';
 import '../pledge_receipt_screen.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
 
 // ═══════════════════════════════════════════
 // Self-contained Funding Card
@@ -600,6 +601,22 @@ class _FundingCardState extends State<FundingCard> {
     _showPaymentProcessing();
     try {
       final api = context.read<ApiService>();
+
+      // Stripe Payment Sheet flow when Stripe is enabled
+      if (api.isStripeEnabled) {
+        final intent = await api.createPaymentIntent(
+          amountCents: amountCents,
+          description: 'Pledge for event ${widget.eventId}',
+        );
+        await Stripe.instance.initPaymentSheet(
+          paymentSheetParameters: SetupPaymentSheetParameters(
+            paymentIntentClientSecret: intent['client_secret'] as String,
+            merchantDisplayName: 'CrowdFund Event',
+          ),
+        );
+        await Stripe.instance.presentPaymentSheet();
+      }
+
       final result = await api.pledge(widget.eventId, amountCents,
           reservedSpots: reservedSpots,
           tierReservations: tierReservations);

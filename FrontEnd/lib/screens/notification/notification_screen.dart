@@ -75,6 +75,8 @@ String? resolveNotificationRoute(String type, Map<String, dynamic> data) {
     case 'escrow_payout_blocked':
     case 'escrow_unfreeze_warning':
       return '/admin/escrow-pipeline';
+    case 'settings_warning':
+      return '/admin';
 
     default:
       break;
@@ -156,6 +158,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
         return Icons.bookmark;
       case 'event_under_review':
         return Icons.warning_amber_rounded;
+      case 'settings_warning':
+        return Icons.warning_rounded;
       default:
         return Icons.notifications_outlined;
     }
@@ -168,6 +172,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     }
     if (type == 'sponsor_payment_received') return AppTheme.successColor;
     if (type == 'refund_requested') return AppTheme.warningColor;
+    if (type == 'settings_warning') return AppTheme.warningColor;
     if (type == 'sponsor_refunded') return AppTheme.warningColor;
     if (type.contains('waitlist')) return AppTheme.warningColor;
     if (type.contains('bid')) return AppTheme.accentColor;
@@ -222,6 +227,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
       case 'escrow_payout_blocked':
       case 'escrow_unfreeze_warning':
         return 'View escrow';
+      case 'settings_warning':
+        return 'View settings';
       default:
         return 'View event';
     }
@@ -232,6 +239,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     if (type.contains('pledge') || type.contains('funding') || type.contains('milestone')) return 'funding';
     if (type.contains('bid') || type.contains('sponsor')) return 'sponsors';
     if (type.contains('event') || type.contains('schedule') || type.contains('registration') || type.contains('rating') || type.contains('bookmark')) return 'events';
+    if (type == 'settings_warning') return 'events';
     return 'events';
   }
 

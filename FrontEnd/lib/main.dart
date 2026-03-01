@@ -23,6 +23,8 @@ import 'providers/chat_provider.dart';
 import 'providers/notification_provider.dart';
 import 'screens/notification/notification_screen.dart' show resolveNotificationRoute;
 import 'services/chat_socket_service.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter_stripe/flutter_stripe.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -49,6 +51,12 @@ void main() async {
   );
 
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+  // Stripe — publishable key set dynamically after /stripe/config API call.
+  // flutter_stripe uses dart:io Platform which crashes on web.
+  if (!kIsWeb) {
+    Stripe.publishableKey = '';
+  }
 
   runApp(const CrowdFundApp());
 }
@@ -115,6 +123,12 @@ class _AppShellState extends State<_AppShell> {
     if (_fcmInitialized) return;
     _fcmInitialized = true;
 
+    // Wire pre-signout hook so device token is unregistered while
+    // the Firebase auth session is still active (avoids 401).
+    context.read<AuthProvider>().onBeforeSignOut = () async {
+      await notifProvider.unregisterDevice();
+    };
+
     notifProvider.initFcm();
 
     _foregroundSub = FirebaseMessaging.onMessage.listen((message) {
@@ -170,7 +184,10 @@ class _AppShellState extends State<_AppShell> {
     _fcmInitialized = false;
     _foregroundSub?.cancel();
     _openedAppSub?.cancel();
-    notifProvider.unregisterDevice();
+    // Clear the pre-signout hook. Device token was already unregistered
+    // by the hook before Firebase signed out; calling unregisterDevice()
+    // here would 401 because the auth session is already gone.
+    context.read<AuthProvider>().onBeforeSignOut = null;
   }
 
   @override

@@ -320,6 +320,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               delay: 200,
                               children: [
                                 TextFormField(
+                                  controller: _birthdayCtrl,
+                                  readOnly: true,
+                                  onTap: _pickBirthday,
+                                  decoration: profileFieldDecoration(
+                                    context,
+                                    label: 'Birthday',
+                                    icon: Icons.cake_outlined,
+                                    hint: 'Select your birthday',
+                                    suffix: IconButton(
+                                      icon: const Icon(
+                                          Icons.calendar_today_outlined,
+                                          size: 20),
+                                      onPressed: _pickBirthday,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                TextFormField(
                                   controller: _experienceCtrl,
                                   decoration: profileFieldDecoration(
                                     context,

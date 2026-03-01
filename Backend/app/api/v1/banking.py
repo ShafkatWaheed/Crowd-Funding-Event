@@ -117,6 +117,7 @@ class BankAccountResponse(BaseModel):
     payout_day: int = 1
     min_payout_cents: int = 2500
     has_bank_account: bool = False
+    decryption_failed: bool = False
 
 
 class BankAccountUpdate(BaseModel):
@@ -170,19 +171,29 @@ async def get_bank_account(
     )).scalar_one_or_none()
     if not acct:
         return BankAccountResponse()
-    return BankAccountResponse(
-        institution_number=enc.decrypt(acct.institution_number_encrypted),
-        transit_number=enc.decrypt(acct.transit_number_encrypted),
-        account_last_four=enc.decrypt(acct.account_number_encrypted)[-4:],
-        account_holder_masked=enc.mask_value(enc.decrypt(acct.account_holder_encrypted)),
-        verified=acct.verified,
-        verification_status=acct.verification_status.value,
-        rejection_reason=acct.rejection_reason,
-        payout_schedule=acct.payout_schedule,
-        payout_day=acct.payout_day,
-        min_payout_cents=acct.min_payout_cents,
-        has_bank_account=True,
-    )
+    try:
+        return BankAccountResponse(
+            institution_number=enc.decrypt(acct.institution_number_encrypted),
+            transit_number=enc.decrypt(acct.transit_number_encrypted),
+            account_last_four=enc.decrypt(acct.account_number_encrypted)[-4:],
+            account_holder_masked=enc.mask_value(enc.decrypt(acct.account_holder_encrypted)),
+            verified=acct.verified,
+            verification_status=acct.verification_status.value,
+            rejection_reason=acct.rejection_reason,
+            payout_schedule=acct.payout_schedule,
+            payout_day=acct.payout_day,
+            min_payout_cents=acct.min_payout_cents,
+            has_bank_account=True,
+        )
+    except Exception:
+        logger.warning("Failed to decrypt bank account data for user=%d — re-enter bank details", current_user.id)
+        return BankAccountResponse(
+            has_bank_account=True,
+            verified=acct.verified,
+            verification_status=acct.verification_status.value,
+            rejection_reason=acct.rejection_reason,
+            decryption_failed=True,
+        )
 
 
 @router.put("/me/bank-account", response_model=BankAccountResponse)

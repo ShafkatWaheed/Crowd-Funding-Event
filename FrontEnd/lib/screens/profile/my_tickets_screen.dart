@@ -42,6 +42,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
   String? _error;
   String _search = '';
   String _filterStatus = 'all';
+  String _sortBy = 'newest';
   bool _isOffline = false;
 
   @override
@@ -81,7 +82,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
     });
     try {
       final api = context.read<ApiService>();
-      final data = await api.getMyTickets(offset: 0, limit: _pageSize);
+      final data = await api.getMyTickets(offset: 0, limit: _pageSize, sortBy: _sortBy);
       if (mounted) {
         setState(() {
           _tickets = data.map((e) => TicketSale.fromJson(e)).toList();
@@ -144,7 +145,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
     setState(() => _loadingMore = true);
     try {
       final api = context.read<ApiService>();
-      final data = await api.getMyTickets(offset: _tickets.length, limit: _pageSize);
+      final data = await api.getMyTickets(offset: _tickets.length, limit: _pageSize, sortBy: _sortBy);
       if (mounted) {
         setState(() {
           _tickets.addAll(data.map((e) => TicketSale.fromJson(e)));
@@ -364,6 +365,49 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                       ),
                     ),
                     onChanged: (v) => setState(() => _search = v),
+                  ),
+                  AppSpacing.vMd,
+
+                  // Sort chips
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        Icon(Icons.sort_rounded, size: 18,
+                            color: AppTheme.textSecondaryOf(context)),
+                        AppSpacing.hSm,
+                        ...<String, String>{
+                          'newest': 'Newest',
+                          'oldest': 'Oldest',
+                          'price_high': 'Price \u2191',
+                          'price_low': 'Price \u2193',
+                        }.entries.map((e) => Padding(
+                              padding: const EdgeInsets.only(right: AppSpacing.sm),
+                              child: ChoiceChip(
+                                label: Text(e.value),
+                                selected: _sortBy == e.key,
+                                onSelected: (_) {
+                                  setState(() => _sortBy = e.key);
+                                  _load();
+                                },
+                                selectedColor: AppTheme.accentColor,
+                                backgroundColor: AppTheme.cardOf(context),
+                                side: BorderSide(
+                                  color: _sortBy == e.key
+                                      ? AppTheme.accentColor
+                                      : AppTheme.dividerOf(context),
+                                ),
+                                labelStyle: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: _sortBy == e.key
+                                      ? Colors.white
+                                      : AppTheme.textPrimaryOf(context),
+                                ),
+                              ),
+                            )),
+                      ],
+                    ),
                   ),
                   AppSpacing.vMd,
 

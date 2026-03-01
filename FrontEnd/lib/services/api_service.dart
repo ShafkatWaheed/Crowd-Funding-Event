@@ -151,20 +151,26 @@ class ApiService {
     return resp.data;
   }
 
-  Future<List<dynamic>> getMyPledges({int offset = 0, int limit = 20}) async {
-    final resp = await dio.get('/me/pledges', queryParameters: {'offset': offset, 'limit': limit});
+  Future<List<dynamic>> getMyPledges({int offset = 0, int limit = 20, String? sortBy}) async {
+    final resp = await dio.get('/me/pledges', queryParameters: {
+      'offset': offset, 'limit': limit,
+      if (sortBy != null) 'sort_by': sortBy,
+    });
     return resp.data;
   }
 
-  Future<List<dynamic>> getMyTickets({int offset = 0, int limit = 20}) async {
-    final resp = await dio.get('/me/tickets', queryParameters: {'offset': offset, 'limit': limit});
+  Future<List<dynamic>> getMyTickets({int offset = 0, int limit = 20, String? sortBy}) async {
+    final resp = await dio.get('/me/tickets', queryParameters: {
+      'offset': offset, 'limit': limit,
+      if (sortBy != null) 'sort_by': sortBy,
+    });
     return resp.data;
   }
 
-  Future<List<dynamic>> getMyEvents({int offset = 0, int limit = 20}) async {
+  Future<List<dynamic>> getMyEvents({int offset = 0, int limit = 20, String? sortBy}) async {
     final resp = await dio.get('/me/events', queryParameters: {
-      'offset': offset,
-      'limit': limit,
+      'offset': offset, 'limit': limit,
+      if (sortBy != null) 'sort_by': sortBy,
     });
     return resp.data;
   }

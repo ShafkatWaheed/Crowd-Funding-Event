@@ -7,16 +7,19 @@ import '../../../models/event.dart';
 class AgeRestrictionBanner extends StatelessWidget {
   final Event event;
   final bool isBlocked;
+  final bool isOwnEvent;
 
   const AgeRestrictionBanner({
     super.key,
     required this.event,
     required this.isBlocked,
+    this.isOwnEvent = false,
   });
 
   @override
   Widget build(BuildContext context) {
     if (!event.ageRestricted) return const SizedBox.shrink();
+    if (isOwnEvent && !isBlocked) return const SizedBox.shrink();
 
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.lg),

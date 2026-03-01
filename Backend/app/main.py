@@ -75,7 +75,7 @@ async def lifespan(application: FastAPI):
     try:
         from app.cache import set_cache_enabled, configure_circuit_breaker
         from app.db.base import async_session_maker
-        from app.services.platform_settings import get_bool, get_int
+        from app.services.platform_settings import get_bool, get_int, get_str
         from app.rate_limit import reload_rate_limits
         async with async_session_maker() as db:
             set_cache_enabled(await get_bool(db, "cache_enabled"))
@@ -84,6 +84,11 @@ async def lifespan(application: FastAPI):
                 cooldown=await get_int(db, "cache_circuit_breaker_cooldown"),
             )
             await reload_rate_limits(db)
+            # Initialize bank encryption key from platform settings (overrides .env)
+            enc_key = await get_str(db, "bank_encryption_key")
+            if enc_key:
+                from app.services.encryption import set_key as _set_enc_key
+                _set_enc_key(enc_key)
     except Exception:
         logger.warning("Could not load startup settings — using defaults")
     yield

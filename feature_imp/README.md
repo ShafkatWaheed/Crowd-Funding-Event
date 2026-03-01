@@ -90,6 +90,12 @@ This folder documents each major feature of the Crowd Funding Event product: **e
 |---|------|---------|------|
 | 52 | [52-kyc-aml-verification.md](52-kyc-aml-verification.md) | KYC/AML Verification | Mock + admin review live; Stripe Identity pending |
 
+### Releases
+
+| Version | Date | Note |
+|---------|------|------|
+| Beta 1.0 | 2026-02-28 | Most stable version; documented in commit "most stable version beta 1.0". |
+
 ### Planned (not yet implemented)
 
 | # | File | Feature |

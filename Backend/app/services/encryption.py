@@ -1,8 +1,10 @@
 """
 Fernet symmetric encryption for sensitive banking data.
 
-Uses BANK_ENCRYPTION_KEY env var (base64-url-safe 32 bytes).
-Generates a key automatically if not set (dev mode only).
+Key resolution order:
+1. Platform setting `bank_encryption_key` (set via admin UI or on startup)
+2. BANK_ENCRYPTION_KEY env var / config.py
+3. Auto-generated (dev mode only — lost on restart)
 """
 from __future__ import annotations
 
@@ -14,6 +16,17 @@ from cryptography.fernet import Fernet
 _KEY: bytes | None = None
 
 
+def set_key(raw: str) -> None:
+    """Set the encryption key programmatically (called from admin settings or startup)."""
+    global _KEY
+    if not raw:
+        return
+    if len(raw) == 44 and raw.endswith("="):
+        _KEY = raw.encode()
+    else:
+        _KEY = base64.urlsafe_b64encode(raw.ljust(32, "\0")[:32].encode())
+
+
 def _get_key() -> bytes:
     global _KEY
     if _KEY is not None:
@@ -21,10 +34,7 @@ def _get_key() -> bytes:
 
     raw = os.environ.get("BANK_ENCRYPTION_KEY", "")
     if raw:
-        if len(raw) == 44 and raw.endswith("="):
-            _KEY = raw.encode()
-        else:
-            _KEY = base64.urlsafe_b64encode(raw.ljust(32, "\0")[:32].encode())
+        set_key(raw)
     else:
         _KEY = Fernet.generate_key()
     return _KEY

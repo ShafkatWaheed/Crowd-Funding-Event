@@ -41,6 +41,7 @@ class _MyEventsTabState extends State<MyEventsTab> {
   String _myEventsSearch = '';
   String? _myEventsGenre;
   String? _myEventsStatus;
+  String _myEventsSortBy = 'newest';
   static const int _myEventsPageSize = 20;
 
   List<EventStatus> get _manageVisibleStatuses {
@@ -73,7 +74,7 @@ class _MyEventsTabState extends State<MyEventsTab> {
     });
     try {
       final api = context.read<ApiService>();
-      final data = await api.getMyEvents(offset: 0, limit: _myEventsPageSize);
+      final data = await api.getMyEvents(offset: 0, limit: _myEventsPageSize, sortBy: _myEventsSortBy);
       if (mounted) {
         final list = data.map((e) => Event.fromJson(e)).toList();
         setState(() {
@@ -108,7 +109,7 @@ class _MyEventsTabState extends State<MyEventsTab> {
     try {
       final api = context.read<ApiService>();
       final data =
-          await api.getMyEvents(offset: _myEvents.length, limit: _myEventsPageSize);
+          await api.getMyEvents(offset: _myEvents.length, limit: _myEventsPageSize, sortBy: _myEventsSortBy);
       if (mounted) {
         setState(() {
           _myEvents.addAll(data.map((e) => Event.fromJson(e)));
@@ -236,7 +237,43 @@ class _MyEventsTabState extends State<MyEventsTab> {
                 ),
                 onChanged: (v) => setState(() => _myEventsSearch = v),
               ),
-              AppSpacing.vLg,
+              AppSpacing.vMd,
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    Icon(Icons.sort_rounded, size: 16, color: AppTheme.textSecondaryOf(context)),
+                    const SizedBox(width: 8),
+                    ...{'newest': 'Newest', 'oldest': 'Oldest', 'name_az': 'Name A-Z', 'soonest': 'Soonest'}.entries.map((e) {
+                      final isActive = _myEventsSortBy == e.key;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: AppSpacing.sm),
+                        child: ChoiceChip(
+                          label: Text(e.value),
+                          selected: isActive,
+                          onSelected: (_) {
+                            if (_myEventsSortBy != e.key) {
+                              setState(() => _myEventsSortBy = e.key);
+                              _loadMyEvents();
+                            }
+                          },
+                          selectedColor: AppTheme.accentColor,
+                          backgroundColor: AppTheme.cardOf(context),
+                          side: BorderSide(
+                            color: isActive ? AppTheme.accentColor : AppTheme.dividerOf(context),
+                          ),
+                          labelStyle: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: isActive ? Colors.white : AppTheme.textPrimaryOf(context),
+                          ),
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              ),
+              AppSpacing.vSm,
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(

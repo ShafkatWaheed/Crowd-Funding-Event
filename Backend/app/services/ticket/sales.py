@@ -291,8 +291,17 @@ async def get_ticket_receipt(
     return sale
 
 
+_MY_TICKETS_SORT = {
+    "newest": TicketSale.created_at.desc(),
+    "oldest": TicketSale.created_at.asc(),
+    "price_high": TicketSale.amount_paid_cents.desc(),
+    "price_low": TicketSale.amount_paid_cents.asc(),
+}
+
+
 async def list_my_tickets(
     db: AsyncSession, *, user_id: int, offset: int = 0, limit: int = 20,
+    sort_by: str = "newest",
 ) -> Sequence[TicketSale]:
     """List ticket sales for a user (all statuses visible to customer)."""
     q = (
@@ -314,7 +323,7 @@ async def list_my_tickets(
             selectinload(TicketSale.ticket_tier),
             selectinload(TicketSale.user),
         )
-        .order_by(TicketSale.created_at.desc())
+        .order_by(_MY_TICKETS_SORT.get(sort_by, TicketSale.created_at.desc()))
         .offset(offset)
         .limit(limit)
     )

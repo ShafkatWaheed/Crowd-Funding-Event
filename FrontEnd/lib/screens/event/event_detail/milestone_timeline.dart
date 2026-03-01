@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
@@ -165,200 +166,312 @@ class _MilestoneTimelineState extends State<MilestoneTimeline> {
           ),
           AppSpacing.vLg,
 
-          // Timeline
-          ..._milestones.asMap().entries.map((entry) {
-            final idx = entry.key;
-            final ms = entry.value;
-            final isLast = idx == _milestones.length - 1;
-            final isUnlocked = ms.isUnlocked;
-            final myReaction = _myReactions[ms.id];
+          // Horizontal progress rail
+          _buildProgressRail(fundingPercent),
 
-            return IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Vertical track + node
-                  SizedBox(
-                    width: 36,
-                    child: Column(
-                      children: [
-                        // Node
-                        Container(
-                          width: 28,
-                          height: 28,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: isUnlocked
-                                ? AppTheme.accentColor
-                                : AppTheme.dividerOf(context),
-                            border: Border.all(
-                              color: isUnlocked
-                                  ? AppTheme.accentColor
-                                  : AppTheme.textSecondaryOf(context),
-                              width: 2,
-                            ),
-                          ),
-                          child: Center(
-                            child: isUnlocked
-                                ? Icon(Icons.check_rounded,
-                                    size: AppIconSize.sm, color: Colors.white)
-                                : Icon(Icons.lock_rounded,
-                                    size: AppIconSize.sm, color: AppTheme.textSecondaryOf(context)),
-                          ),
-                        ),
-                        // Connecting line
-                        if (!isLast)
-                          Expanded(
-                            child: Container(
-                              width: 2,
-                              color: fundingPercent >= ms.unlockPercent
-                                  ? AppTheme.accentColor
-                                  : AppTheme.dividerOf(context),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
+          AppSpacing.vXl,
 
-                  AppSpacing.hSm,
-
-                  // Milestone card
-                  Expanded(
-                    child: Container(
-                      margin: EdgeInsets.only(bottom: isLast ? 0 : AppSpacing.lg),
-                      padding: AppSpacing.paddingMd,
-                      decoration: BoxDecoration(
-                        color: isUnlocked
-                            ? AppTheme.accentColor.withValues(alpha: 0.06)
-                            : AppTheme.surfaceOf(context),
-                        borderRadius: AppRadius.md,
-                        border: Border.all(
-                          color: isUnlocked
-                              ? AppTheme.accentColor.withValues(alpha: 0.3)
-                              : AppTheme.dividerOf(context),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Percentage + badge row
-                          Row(
-                            children: [
-                              Text(
-                                '${ms.unlockPercent}%',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w800,
-                                  color: isUnlocked
-                                      ? AppTheme.accentColor
-                                      : AppTheme.textSecondaryOf(context),
-                                ),
-                              ),
-                              const Spacer(),
-                              if (_milestoneDiscounts.containsKey(ms.unlockPercent))
-                                Container(
-                                  margin: EdgeInsets.only(right: AppSpacing.xs),
-                                  padding: EdgeInsets.symmetric(
-                                      horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
-                                  decoration: BoxDecoration(
-                                    color: context.fundingAccent.withValues(alpha: 0.12),
-                                    borderRadius: AppRadius.sm,
-                                  ),
-                                  child: Text(
-                                    '${_milestoneDiscounts[ms.unlockPercent]}% OFF',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w700,
-                                      color: context.fundingAccent,
-                                      letterSpacing: 0.3,
-                                    ),
-                                  ),
-                                ),
-                              Container(
-                                padding: EdgeInsets.symmetric(
-                                    horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
-                                decoration: BoxDecoration(
-                                  color: isUnlocked
-                                      ? AppTheme.successSurfaceOf(context)
-                                      : AppTheme.textSecondaryOf(context).withValues(alpha: 0.12),
-                                  borderRadius: AppRadius.sm,
-                                ),
-                                child: Text(
-                                  isUnlocked ? 'UNLOCKED' : 'LOCKED',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
-                                    color: isUnlocked
-                                        ? AppTheme.successColor
-                                        : AppTheme.textSecondaryOf(context),
-                                    letterSpacing: 0.5,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          AppSpacing.vSm,
-
-                          // Title
-                          Text(
-                            ms.title,
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: AppTheme.textPrimaryOf(context),
-                            ),
-                          ),
-
-                          // Benefit description
-                          if (ms.benefitDescription != null &&
-                              ms.benefitDescription!.isNotEmpty) ...[
-                            AppSpacing.vXs,
-                            Text(
-                              ms.benefitDescription!,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: AppTheme.textSecondaryOf(context),
-                              ),
-                            ),
-                          ],
-
-                          AppSpacing.vMd,
-
-                          // Like/dislike row
-                          Row(
-                            children: [
-                              _milestoneReactionBtn(
-                                icon: myReaction == 'like'
-                                    ? Icons.thumb_up
-                                    : Icons.thumb_up_outlined,
-                                count: ms.likeCount,
-                                isActive: myReaction == 'like',
-                                activeColor: AppTheme.accentColor,
-                                onTap: () => _react(ms.id, 'like'),
-                              ),
-                              AppSpacing.hSm,
-                              _milestoneReactionBtn(
-                                icon: myReaction == 'dislike'
-                                    ? Icons.thumb_down
-                                    : Icons.thumb_down_outlined,
-                                count: ms.dislikeCount,
-                                isActive: myReaction == 'dislike',
-                                activeColor: AppTheme.errorColor,
-                                onTap: () => _react(ms.id, 'dislike'),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }),
+          // 2-column milestone grid
+          _buildMilestoneGrid(),
         ],
       ),
     );
+  }
+
+  Widget _buildProgressRail(double fundingPercent) {
+    return Column(
+      children: [
+        // Progress bar with milestone dots
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final barWidth = constraints.maxWidth;
+            return Column(
+              children: [
+                SizedBox(
+                  height: 32,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      // Background bar
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        top: 12,
+                        child: Container(
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: AppTheme.dividerOf(context),
+                            borderRadius: AppRadius.pill,
+                          ),
+                        ),
+                      ),
+                      // Filled bar
+                      Positioned(
+                        left: 0,
+                        top: 12,
+                        child: TweenAnimationBuilder<double>(
+                          tween: Tween(begin: 0, end: fundingPercent / 100),
+                          duration: const Duration(milliseconds: 800),
+                          curve: AppCurve.enter,
+                          builder: (context, value, _) => Container(
+                            width: barWidth * value,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  AppTheme.accentColor,
+                                  context.photoAccent,
+                                ],
+                              ),
+                              borderRadius: AppRadius.pill,
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Milestone dots
+                      ..._milestones.map((ms) {
+                        final pos = (ms.unlockPercent / 100) * barWidth;
+                        final isUnlocked = ms.isUnlocked;
+                        return Positioned(
+                          left: pos - 7,
+                          top: 9,
+                          child: Container(
+                            width: 14,
+                            height: 14,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: isUnlocked
+                                  ? AppTheme.accentColor
+                                  : AppTheme.dividerOf(context),
+                              border: Border.all(
+                                color: isUnlocked
+                                    ? AppTheme.accentColor
+                                    : AppTheme.textSecondaryOf(context).withValues(alpha: 0.5),
+                                width: 2,
+                              ),
+                              boxShadow: isUnlocked
+                                  ? [
+                                      BoxShadow(
+                                        color: AppTheme.accentColor.withValues(alpha: 0.4),
+                                        blurRadius: 6,
+                                        spreadRadius: 1,
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+                AppSpacing.vSm,
+                // Percentage labels under dots
+                SizedBox(
+                  height: 16,
+                  child: Stack(
+                    children: _milestones.map((ms) {
+                      final pos = (ms.unlockPercent / 100) * barWidth;
+                      return Positioned(
+                        left: pos - 14,
+                        child: SizedBox(
+                          width: 28,
+                          child: Text(
+                            '${ms.unlockPercent}%',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              color: ms.isUnlocked
+                                  ? AppTheme.accentColor
+                                  : AppTheme.textSecondaryOf(context),
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+        AppSpacing.vSm,
+        // "Currently at X% funded"
+        Center(
+          child: Text(
+            'Currently at ${fundingPercent.toStringAsFixed(0)}% funded',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textSecondaryOf(context),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMilestoneGrid() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cardWidth = (constraints.maxWidth - AppSpacing.md) / 2;
+        return Wrap(
+          spacing: AppSpacing.md,
+          runSpacing: AppSpacing.md,
+          children: _milestones.asMap().entries.map((entry) {
+            final idx = entry.key;
+            final ms = entry.value;
+            return SizedBox(
+              width: cardWidth,
+              child: _buildMilestoneCard(ms, idx),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+
+  Widget _buildMilestoneCard(FundingMilestone ms, int index) {
+    final isUnlocked = ms.isUnlocked;
+    final myReaction = _myReactions[ms.id];
+
+    return Container(
+      padding: AppSpacing.paddingMd,
+      decoration: BoxDecoration(
+        color: isUnlocked
+            ? AppTheme.accentColor.withValues(alpha: 0.06)
+            : AppTheme.surfaceOf(context),
+        borderRadius: AppRadius.md,
+        border: Border.all(
+          color: isUnlocked
+              ? AppTheme.accentColor.withValues(alpha: 0.3)
+              : AppTheme.dividerOf(context),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Percentage + status badge
+          Row(
+            children: [
+              Text(
+                '${ms.unlockPercent}%',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: isUnlocked
+                      ? AppTheme.accentColor
+                      : AppTheme.textSecondaryOf(context),
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+                decoration: BoxDecoration(
+                  color: isUnlocked
+                      ? AppTheme.successSurfaceOf(context)
+                      : AppTheme.textSecondaryOf(context).withValues(alpha: 0.12),
+                  borderRadius: AppRadius.sm,
+                ),
+                child: Text(
+                  isUnlocked ? 'UNLOCKED' : 'LOCKED',
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    color: isUnlocked
+                        ? AppTheme.successColor
+                        : AppTheme.textSecondaryOf(context),
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          AppSpacing.vSm,
+
+          // Title
+          Text(
+            ms.title,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.textPrimaryOf(context),
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+
+          // Benefit description
+          if (ms.benefitDescription != null &&
+              ms.benefitDescription!.isNotEmpty) ...[
+            const SizedBox(height: 2),
+            Text(
+              ms.benefitDescription!,
+              style: TextStyle(
+                fontSize: 12,
+                color: AppTheme.textSecondaryOf(context),
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+
+          // Discount badge
+          if (_milestoneDiscounts.containsKey(ms.unlockPercent)) ...[
+            AppSpacing.vSm,
+            Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+              decoration: BoxDecoration(
+                color: context.fundingAccent.withValues(alpha: 0.12),
+                borderRadius: AppRadius.sm,
+              ),
+              child: Text(
+                '${_milestoneDiscounts[ms.unlockPercent]}% OFF',
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                  color: context.fundingAccent,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ),
+          ],
+
+          AppSpacing.vSm,
+
+          // Like/dislike row
+          Row(
+            children: [
+              _milestoneReactionBtn(
+                icon: myReaction == 'like'
+                    ? Icons.thumb_up
+                    : Icons.thumb_up_outlined,
+                count: ms.likeCount,
+                isActive: myReaction == 'like',
+                activeColor: AppTheme.accentColor,
+                onTap: () => _react(ms.id, 'like'),
+              ),
+              AppSpacing.hSm,
+              _milestoneReactionBtn(
+                icon: myReaction == 'dislike'
+                    ? Icons.thumb_down
+                    : Icons.thumb_down_outlined,
+                count: ms.dislikeCount,
+                isActive: myReaction == 'dislike',
+                activeColor: AppTheme.errorColor,
+                onTap: () => _react(ms.id, 'dislike'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    )
+        .animate(delay: Duration(milliseconds: 80 * index))
+        .fadeIn(duration: AppDuration.normal, curve: AppCurve.enter)
+        .slideY(begin: 0.1, end: 0, duration: AppDuration.normal, curve: AppCurve.enter);
   }
 
   Widget _milestoneReactionBtn({
@@ -377,18 +490,18 @@ class _MilestoneTimelineState extends State<MilestoneTimeline> {
         borderRadius: AppRadius.lg,
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icon,
-                  size: AppIconSize.sm,
+                  size: 14,
                   color: isActive ? activeColor : AppTheme.textSecondaryOf(context)),
-              AppSpacing.hXs,
+              const SizedBox(width: 3),
               Text(
                 '$count',
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 11,
                   fontWeight: FontWeight.w700,
                   color: isActive ? activeColor : AppTheme.textSecondaryOf(context),
                 ),

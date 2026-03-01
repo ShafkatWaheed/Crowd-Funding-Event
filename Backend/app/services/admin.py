@@ -80,6 +80,17 @@ async def approve_or_reject_event(
             raise ConflictError(
                 "Organizer must have a verified bank account before the event can be approved"
             )
+        # Event must have a funding goal or at least one ticket tier
+        from app.models.ticket import TicketTier
+        has_funding = event.funding_goal_cents is not None and event.funding_goal_cents > 0
+        tier_count = (await db.execute(
+            select(func.count()).select_from(TicketTier).where(TicketTier.event_id == event.id)
+        )).scalar_one()
+        if not has_funding and tier_count == 0:
+            logger.warning("Approve rejected: no funding goal or ticket tiers", extra={"event_id": event_id})
+            raise ConflictError(
+                "Event must have a funding goal or at least one ticket tier before approval"
+            )
         event.status = EventStatus.approved
         logger.info("Event approved", extra={"event_id": event_id})
     else:

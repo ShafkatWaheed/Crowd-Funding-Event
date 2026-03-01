@@ -30,7 +30,7 @@ class _AdminSettingsTabState extends State<AdminSettingsTab>
     {'label': 'General', 'icon': Icons.dashboard, 'groups': ['Branding', 'Feature Flags', 'Push Notifications']},
     {'label': 'Financial', 'icon': Icons.monetization_on, 'groups': ['Commissions', 'Financial Policy', 'Community Rules']},
     {'label': 'Events', 'icon': Icons.event, 'groups': ['Events', 'Event Limits', 'Ticket Limits']},
-    {'label': 'Security', 'icon': Icons.security, 'groups': ['API Rate Limits', 'KYC', 'File Uploads']},
+    {'label': 'Security', 'icon': Icons.security, 'groups': ['API Rate Limits', 'KYC', 'File Uploads', 'Banking']},
     {'label': 'Infrastructure', 'icon': Icons.build_circle, 'groups': ['Cache', 'Cache TTLs', 'Stampede Prevention', 'Circuit Breaker', 'Offline / Sync', 'Infrastructure', 'Chat']},
     {'label': 'Escrow', 'icon': Icons.lock_clock, 'groups': <String>[]},
   ];
@@ -56,6 +56,7 @@ class _AdminSettingsTabState extends State<AdminSettingsTab>
     'Email Branding': ['email_template_logo_url', 'email_template_footer_text'],
     'Event Limits': ['waitlist_max_size_limit', 'waitlist_auto_approve_default', 'event_max_images_limit', 'max_posts_per_event_limit', 'max_co_organizers_limit', 'refund_deadline_percent_min', 'refund_deadline_percent_max'],
     'KYC': ['kyc_required_organizer', 'kyc_required_customer', 'kyc_required_sponsor', 'kyc_mock_enabled', 'mock_kyc_latency_min_ms', 'mock_kyc_latency_max_ms', 'mock_kyc_failure_rate_percent'],
+    'Banking': ['bank_encryption_key', 'bank_verification_delay_seconds'],
     'Chat': ['chat_enabled', 'chat_max_message_length', 'chat_stream_maxlen', 'chat_archive_retention_days'],
   };
 
@@ -79,6 +80,7 @@ class _AdminSettingsTabState extends State<AdminSettingsTab>
     'Email Branding': Icons.email,
     'Event Limits': Icons.tune,
     'KYC': Icons.verified_user,
+    'Banking': Icons.account_balance_rounded,
     'Chat': Icons.chat_rounded,
   };
 

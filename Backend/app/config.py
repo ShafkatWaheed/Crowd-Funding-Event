@@ -41,12 +41,22 @@ class Settings(BaseSettings):
     # Redis (ARQ task queue + caching)
     REDIS_URL: str = "redis://localhost:6379/0"
     CACHE_DEFAULT_TTL: int = 60  # seconds
+    RATELIMIT_STORAGE_URL: str = "memory://"  # Redis in prod: redis://host:6379/1
+
+    # Database connection pool
+    DB_POOL_SIZE: int = 10
+    DB_MAX_OVERFLOW: int = 20
+    DB_POOL_TIMEOUT: int = 30
+    DB_POOL_RECYCLE: int = 1800
 
     # Logging
     LOG_LEVEL: str = "INFO"  # DEBUG | INFO | WARNING | ERROR
 
     # ── Ticket QR Encryption (AES-256-GCM) ──
     TICKET_ENCRYPTION_KEY: str = ""  # 64-char hex string (32 bytes); empty = plaintext fallback (dev mode)
+
+    # ── Bank Account Encryption (Fernet) ──
+    BANK_ENCRYPTION_KEY: str = ""  # base64-url-safe 32 bytes; empty = auto-generated (dev only)
 
     @computed_field
     @property

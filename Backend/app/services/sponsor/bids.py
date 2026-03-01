@@ -2,12 +2,12 @@
 from datetime import datetime, timezone
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.logger import get_logger, log_step
 from app.models.user import User, UserRole
-from app.models.sponsor import SponsorBid, BidStatus
+from app.models.sponsor import SponsorBid, BidStatus, SponsorshipCategory
 from app.schemas.sponsor import BidCreate, BidUpdate
 
 from app.services.sponsor.categories import _get_category, _require_organizer
@@ -136,7 +136,20 @@ async def accept_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorBid:
         logger.warning("Accept bid: not found", extra={"bid_id": bid_id})
         raise HTTPException(status_code=404, detail="Bid not found")
 
-    cat = await _get_category(db, bid.category_id)
+    # Lock the category to prevent race condition on filled_spots.
+    # Offset 2_000_000 avoids collision with event-level advisory locks.
+    await db.execute(
+        text("SELECT pg_advisory_xact_lock(:lock_id)"),
+        {"lock_id": bid.category_id + 2_000_000},
+    )
+    cat = (await db.execute(
+        select(SponsorshipCategory)
+        .where(SponsorshipCategory.id == bid.category_id)
+        .with_for_update()
+    )).scalar_one_or_none()
+    if not cat:
+        raise HTTPException(status_code=404, detail="Category not found")
+
     await _require_organizer(db, cat.event_id, user)
 
     if bid.status != BidStatus.pending:

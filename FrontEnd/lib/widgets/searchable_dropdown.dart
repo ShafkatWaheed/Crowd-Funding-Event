@@ -63,9 +63,13 @@ class _SearchableDropdownState<T> extends State<SearchableDropdown<T>> {
   void didUpdateWidget(covariant SearchableDropdown<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.selectedItem != oldWidget.selectedItem) {
-      _controller.text = widget.selectedItem != null
-          ? widget.itemLabel(widget.selectedItem as T)
-          : '';
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _controller.text = widget.selectedItem != null
+              ? widget.itemLabel(widget.selectedItem as T)
+              : '';
+        }
+      });
     }
   }
 

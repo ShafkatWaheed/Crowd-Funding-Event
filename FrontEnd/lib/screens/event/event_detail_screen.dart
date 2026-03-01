@@ -67,6 +67,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     if (!event.ageRestricted) return false;
     final user = context.read<AuthProvider>().user;
     if (user == null) return false;
+    // Organizer is never blocked from viewing their own event
+    if (user.id == event.organizerId) return false;
     if (user.birthday == null) return true;
     try {
       final bd = DateTime.parse(user.birthday!);
@@ -694,6 +696,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
         AgeRestrictionBanner(
           event: event,
           isBlocked: _isUserAgeBlocked(event),
+          isOwnEvent: user != null && user.id == event.organizerId,
         ),
 
         // About

@@ -1,10 +1,10 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../config/api_config.dart';
-import '../../../utils/date_time_utils.dart';
 import '../../../config/theme.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../config/design_tokens.dart';
@@ -31,11 +31,18 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
   bool _loading = true;
   bool _featureEnabled = true;
   bool _isOffline = false;
+  final ScrollController _circleScroll = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _circleScroll.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -79,7 +86,6 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
       final db = context.read<AppDatabase>();
       final rows = await db.getScheduleForEvent(widget.eventId);
       if (mounted && rows.isNotEmpty) {
-        // Group by date to reconstruct ScheduleDay list
         final dayMap = <String, List<ScheduleItem>>{};
         for (final row in rows) {
           dayMap.putIfAbsent(row.date, () => []).add(ScheduleItem(
@@ -111,8 +117,6 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
     }
   }
 
-  String _formatDate(String isoDate) => AppDateFormat.isoDateOnly(isoDate);
-
   String _formatTime24to12(String hhmm) {
     try {
       final parts = hhmm.split(':');
@@ -126,12 +130,47 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
     }
   }
 
+  /// Extract day number from ISO date string (e.g. "2026-03-01" → "1")
+  String _dayNumber(String isoDate) {
+    try {
+      final dt = DateTime.parse(isoDate);
+      return '${dt.day}';
+    } catch (_) {
+      return isoDate;
+    }
+  }
+
+  /// Extract short weekday name from ISO date (e.g. "2026-03-01" → "Sat")
+  String _weekdayShort(String isoDate) {
+    try {
+      final dt = DateTime.parse(isoDate);
+      const names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      return names[dt.weekday - 1];
+    } catch (_) {
+      return '';
+    }
+  }
+
   Future<void> _downloadExcel() async {
     final api = context.read<ApiService>();
     final url = api.getScheduleExportUrl(widget.eventId);
     final uri = Uri.parse(url);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  void _selectDay(int idx) {
+    setState(() => _selectedIdx = idx);
+    // Auto-scroll selected circle into view
+    const circleWidth = 52.0 + 16.0; // circle + spacing
+    final target = (idx * circleWidth) - (MediaQuery.of(context).size.width / 2) + circleWidth / 2;
+    if (_circleScroll.hasClients) {
+      _circleScroll.animateTo(
+        target.clamp(0, _circleScroll.position.maxScrollExtent),
+        duration: AppDuration.normal,
+        curve: AppCurve.enter,
+      );
     }
   }
 
@@ -226,164 +265,34 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
                   ),
               ],
             ),
-            AppSpacing.vMd,
+            AppSpacing.vLg,
 
-            // Date tab pills
+            // Story circles — date selector
             SizedBox(
-              height: AppSpacing.xxxl,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: _days.length,
-                separatorBuilder: (_, __) => AppSpacing.hSm,
-                itemBuilder: (context, idx) {
-                  final isSelected = idx == _selectedIdx;
-                  return GestureDetector(
-                    onTap: () => setState(() => _selectedIdx = idx),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? context.feedAccent.withValues(alpha: 0.12)
-                            : AppTheme.surfaceOf(context),
-                        borderRadius: AppRadius.xl,
-                        border: Border.all(
-                          color: isSelected
-                              ? context.feedAccent.withValues(alpha: 0.4)
-                              : AppTheme.dividerOf(context),
-                        ),
-                      ),
-                      child: Text(
-                        _formatDate(_days[idx].date),
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                          color: isSelected
-                              ? context.feedAccent
-                              : AppTheme.textSecondaryOf(context),
-                        ),
-                      ),
+              height: 72,
+              child: _days.length == 1
+                  ? Center(child: _buildStoryCircle(0))
+                  : ListView.separated(
+                      controller: _circleScroll,
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _days.length,
+                      separatorBuilder: (_, __) => AppSpacing.hLg,
+                      itemBuilder: (_, idx) => _buildStoryCircle(idx),
                     ),
-                  );
-                },
-              ),
             ),
             AppSpacing.vLg,
 
-            // Vertical timeline for selected date
+            // Agenda cards for selected day
             ...selectedDay.items.asMap().entries.map((entry) {
               final idx = entry.key;
               final item = entry.value;
-              final isLast = idx == selectedDay.items.length - 1;
               final isOverlap = item.overlaps;
 
-              return IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(
-                      width: 40,
-                      child: Column(
-                        children: [
-                          _buildTimelineNode(context, item, isOverlap),
-                          if (!isLast)
-                            Expanded(
-                              child: Container(
-                                width: 2,
-                                color: isOverlap
-                                    ? context.photoAccent.withValues(alpha: 0.4)
-                                    : context.feedAccent.withValues(alpha: 0.2),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    AppSpacing.hSm,
-                    Expanded(
-                      child: Container(
-                        margin: EdgeInsets.only(bottom: isLast ? 0 : AppSpacing.md),
-                        padding: AppSpacing.paddingMd,
-                        decoration: BoxDecoration(
-                          color: AppTheme.cardOf(context),
-                          borderRadius: AppRadius.sm,
-                          border: Border.all(
-                            color: isOverlap
-                                ? context.photoAccent.withValues(alpha: 0.5)
-                                : context.feedAccent.withValues(alpha: 0.3),
-                            width: 1,
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
-                                  decoration: BoxDecoration(
-                                    color: isOverlap
-                                        ? context.photoAccent.withValues(alpha: 0.15)
-                                        : context.feedAccent.withValues(alpha: 0.12),
-                                    borderRadius: AppRadius.sm,
-                                  ),
-                                  child: Text(
-                                    '${_formatTime24to12(item.startTime)} – ${_formatTime24to12(item.endTime)}',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
-                                      color: isOverlap
-                                          ? context.photoAccent
-                                          : context.feedAccent,
-                                    ),
-                                  ),
-                                ),
-                                if (isOverlap) ...[
-                                  AppSpacing.hSm,
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
-                                    decoration: BoxDecoration(
-                                      color: context.photoAccent.withValues(alpha: 0.15),
-                                      borderRadius: AppRadius.sm,
-                                    ),
-                                    child: Text('Overlaps',
-                                      style: TextStyle(
-                                        fontSize: 9,
-                                        fontWeight: FontWeight.w700,
-                                        color: context.photoAccent,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                            AppSpacing.vSm,
-                            Text(
-                              item.title,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: Theme.of(context).brightness == Brightness.dark
-                                    ? Colors.white
-                                    : AppTheme.textPrimaryOf(context),
-                              ),
-                            ),
-                            if (item.description != null && item.description!.isNotEmpty) ...[
-                              AppSpacing.vXs,
-                              Text(
-                                item.description!,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: AppTheme.textSecondaryOf(context),
-                                ),
-                              ),
-                            ],
-                            if (item.linkUrl != null && item.linkUrl!.isNotEmpty)
-                              _buildLinkChip(context, item.linkUrl!),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
+              return Padding(
+                padding: EdgeInsets.only(
+                  bottom: idx < selectedDay.items.length - 1 ? AppSpacing.md : 0,
                 ),
+                child: _buildAgendaCard(item, isOverlap, idx),
               );
             }),
 
@@ -404,70 +313,194 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
     );
   }
 
-  Widget _buildTimelineNode(BuildContext context, ScheduleItem item, bool isOverlap) {
-    final hasImage = item.imageUrl != null && item.imageUrl!.isNotEmpty;
-    final accent = isOverlap ? context.photoAccent : context.feedAccent;
+  Widget _buildStoryCircle(int idx) {
+    final isSelected = idx == _selectedIdx;
+    final accent = context.feedAccent;
 
-    if (hasImage) {
-      final resolvedUrl = item.imageUrl!.startsWith('/')
-          ? ApiConfig.imageUrl(item.imageUrl!)
-          : item.imageUrl!;
-      return GestureDetector(
-        onTap: () {
-          Navigator.of(context).push(PageRouteBuilder(
-            opaque: false,
-            barrierColor: Colors.black87,
-            pageBuilder: (_, __, ___) => FullscreenImageViewer(
-              imageUrls: [resolvedUrl],
-              captions: [item.imageCaption],
-              initialIndex: 0,
-            ),
-            transitionsBuilder: (_, anim, __, child) =>
-                FadeTransition(opacity: anim, child: child),
-          ));
-        },
-        child: Tooltip(
-          message: item.imageCaption ?? '',
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                border: Border.all(color: accent.withValues(alpha: 0.4), width: 1.5),
-                borderRadius: BorderRadius.circular(8),
+    return GestureDetector(
+      onTap: () => _selectDay(idx),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedContainer(
+            duration: AppDuration.fast,
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isSelected ? accent : AppTheme.dividerOf(context),
+                width: isSelected ? 3 : 1.5,
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(6.5),
-                child: CachedNetworkImage(
-                  imageUrl: resolvedUrl,
-                  width: 36,
-                  height: 36,
-                  fit: BoxFit.cover,
-                  errorWidget: (_, __, ___) => Container(
-                    color: accent.withValues(alpha: 0.1),
-                    child: Icon(Icons.image_rounded, size: 16, color: accent),
-                  ),
+              color: isSelected
+                  ? accent.withValues(alpha: 0.08)
+                  : Colors.transparent,
+            ),
+            child: Center(
+              child: Text(
+                _dayNumber(_days[idx].date),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+                  color: isSelected ? accent : AppTheme.textSecondaryOf(context),
                 ),
               ),
             ),
           ),
-        ),
-      );
-    }
-
-    return Container(
-      width: AppSpacing.xxl,
-      height: AppSpacing.xxl,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: accent,
+          const SizedBox(height: 4),
+          Text(
+            _weekdayShort(_days[idx].date),
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              color: isSelected ? accent : AppTheme.textSecondaryOf(context),
+            ),
+          ),
+        ],
       ),
-      child: Center(
-        child: Icon(
-          isOverlap ? Icons.warning_rounded : Icons.schedule_rounded,
-          size: AppIconSize.sm,
-          color: Colors.white,
+    );
+  }
+
+  Widget _buildAgendaCard(ScheduleItem item, bool isOverlap, int index) {
+    final accent = isOverlap ? context.photoAccent : context.feedAccent;
+    final hasImage = item.imageUrl != null && item.imageUrl!.isNotEmpty;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Time header
+        Row(
+          children: [
+            Text(
+              _formatTime24to12(item.startTime),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.textSecondaryOf(context),
+              ),
+            ),
+            if (isOverlap) ...[
+              AppSpacing.hSm,
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 2),
+                decoration: BoxDecoration(
+                  color: context.photoAccent.withValues(alpha: 0.15),
+                  borderRadius: AppRadius.sm,
+                ),
+                child: Text('Overlaps',
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    color: context.photoAccent,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 4),
+        // Card with left accent border
+        Container(
+          width: double.infinity,
+          padding: AppSpacing.paddingMd,
+          decoration: BoxDecoration(
+            color: AppTheme.surfaceOf(context),
+            borderRadius: AppRadius.md,
+            border: Border.all(color: AppTheme.dividerOf(context), width: 0.5),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 4,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: accent,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.title,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textPrimaryOf(context),
+                      ),
+                    ),
+                    if (item.description != null && item.description!.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        item.description!,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.textSecondaryOf(context),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 4),
+                    Text(
+                      '${_formatTime24to12(item.startTime)} – ${_formatTime24to12(item.endTime)}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: accent,
+                      ),
+                    ),
+                    if (item.linkUrl != null && item.linkUrl!.isNotEmpty)
+                      _buildLinkChip(context, item.linkUrl!),
+                  ],
+                ),
+              ),
+              if (hasImage) ...[
+                AppSpacing.hMd,
+                _buildSessionThumbnail(item, accent),
+              ],
+            ],
+          ),
+        ),
+      ],
+    )
+        .animate(delay: Duration(milliseconds: 50 * index))
+        .fadeIn(duration: AppDuration.normal, curve: AppCurve.enter)
+        .slideY(begin: 0.1, end: 0, duration: AppDuration.normal, curve: AppCurve.enter);
+  }
+
+  Widget _buildSessionThumbnail(ScheduleItem item, Color accent) {
+    final resolvedUrl = item.imageUrl!.startsWith('/')
+        ? ApiConfig.imageUrl(item.imageUrl!)
+        : item.imageUrl!;
+    return GestureDetector(
+      onTap: () {
+        Navigator.of(context).push(PageRouteBuilder(
+          opaque: false,
+          barrierColor: Colors.black87,
+          pageBuilder: (_, __, ___) => FullscreenImageViewer(
+            imageUrls: [resolvedUrl],
+            captions: [item.imageCaption],
+            initialIndex: 0,
+          ),
+          transitionsBuilder: (_, anim, __, child) =>
+              FadeTransition(opacity: anim, child: child),
+        ));
+      },
+      child: ClipRRect(
+        borderRadius: AppRadius.sm,
+        child: CachedNetworkImage(
+          imageUrl: resolvedUrl,
+          width: 48,
+          height: 48,
+          fit: BoxFit.cover,
+          errorWidget: (_, __, ___) => Container(
+            width: 48,
+            height: 48,
+            color: accent.withValues(alpha: 0.1),
+            child: Icon(Icons.image_rounded, size: 20, color: accent),
+          ),
         ),
       ),
     );

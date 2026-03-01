@@ -191,6 +191,15 @@ async def publish_event(db: AsyncSession, event_id: int, user: User) -> Event:
         raise ConflictError("Only draft events can be published")
     if event.start_time is None and event.funding_end_at is None:
         raise ConflictError("Set at least one of event date or funding deadline before publishing")
+
+    # Event must have a funding goal or at least one ticket tier
+    has_funding = event.funding_goal_cents is not None and event.funding_goal_cents > 0
+    tier_count = (await db.execute(
+        select(func.count()).select_from(TicketTier).where(TicketTier.event_id == event.id)
+    )).scalar_one()
+    if not has_funding and tier_count == 0:
+        raise ConflictError("Event must have a funding goal or at least one ticket tier before publishing")
+
     event.status = EventStatus.approved
     await db.flush()
     await db.refresh(event)

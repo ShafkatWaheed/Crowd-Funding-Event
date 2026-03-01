@@ -70,7 +70,14 @@ def _global_limit() -> str:
     return _limits.get("global", "120/minute")
 
 
-limiter = Limiter(key_func=_key_func, default_limits=[_global_limit])
+from app.config import settings
+
+limiter = Limiter(
+    key_func=_key_func,
+    default_limits=[_global_limit],
+    storage_uri=settings.RATELIMIT_STORAGE_URL,
+    in_memory_fallback_enabled=True,
+)
 
 
 def dynamic_limit(endpoint_key: str, fallback: str) -> Callable[..., str]:

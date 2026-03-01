@@ -12,6 +12,7 @@ class EditScheduleItem {
   TimeOfDay endTime;
   final titleCtrl = TextEditingController();
   final descCtrl = TextEditingController();
+  String? error;
   EditScheduleItem({this.id})
       : startTime = const TimeOfDay(hour: 9, minute: 0),
         endTime = const TimeOfDay(hour: 10, minute: 0);
@@ -82,7 +83,12 @@ class _EditScheduleSectionState extends State<EditScheduleSection> {
 
   Future<void> _saveItem(EditScheduleItem si) async {
     final title = si.titleCtrl.text.trim();
-    if (title.isEmpty || si.date == null) return;
+    if (title.isEmpty || si.date == null) {
+      setState(() => si.error = title.isEmpty
+          ? 'Title is required'
+          : 'Date is required');
+      return;
+    }
     final api = context.read<ApiService>();
     final dateStr =
         '${si.date!.year}-${si.date!.month.toString().padLeft(2, '0')}-${si.date!.day.toString().padLeft(2, '0')}';
@@ -99,7 +105,10 @@ class _EditScheduleSectionState extends State<EditScheduleSection> {
           'title': title,
           'description': si.descCtrl.text.trim(),
         });
-        if (mounted) AppToast.success(context, 'Schedule item updated');
+        if (mounted) {
+          setState(() => si.error = null);
+          AppToast.success(context, 'Schedule item updated');
+        }
       } else {
         final resp = await api.createScheduleItem(widget.eventId, {
           'date': dateStr,
@@ -110,12 +119,15 @@ class _EditScheduleSectionState extends State<EditScheduleSection> {
             'description': si.descCtrl.text.trim(),
         });
         si.id = resp['id'] as int;
-        if (mounted) AppToast.success(context, 'Schedule item created');
+        if (mounted) {
+          setState(() => si.error = null);
+          AppToast.success(context, 'Schedule item created');
+        }
       }
     } catch (e) {
       if (mounted) {
-        AppToast.fromError(context, e,
-            fallback: 'Failed to save schedule item');
+        final msg = ApiService.extractError(e, fallback: 'Failed to save schedule item');
+        setState(() => si.error = msg);
       }
     }
   }
@@ -441,6 +453,34 @@ class _EditScheduleSectionState extends State<EditScheduleSection> {
             ),
             maxLines: 2,
           ),
+          if (si.error != null) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppTheme.errorColor.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppTheme.errorColor.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.error_outline_rounded,
+                      size: 16, color: AppTheme.errorColor),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      si.error!,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.errorColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

@@ -34,6 +34,7 @@ class _MyPledgesScreenState extends State<MyPledgesScreen> {
   String? _error;
   String _search = '';
   String _filterStatus = 'all';
+  String _sortBy = 'newest';
 
   @override
   void initState() {
@@ -67,7 +68,7 @@ class _MyPledgesScreenState extends State<MyPledgesScreen> {
     setState(() { _loading = true; _error = null; _hasMore = true; });
     try {
       final api = context.read<ApiService>();
-      final data = await api.getMyPledges(offset: 0, limit: _pageSize);
+      final data = await api.getMyPledges(offset: 0, limit: _pageSize, sortBy: _sortBy);
       if (mounted) {
         setState(() {
           _pledges = List<Map<String, dynamic>>.from(data);
@@ -90,7 +91,7 @@ class _MyPledgesScreenState extends State<MyPledgesScreen> {
     setState(() => _loadingMore = true);
     try {
       final api = context.read<ApiService>();
-      final data = await api.getMyPledges(offset: _pledges.length, limit: _pageSize);
+      final data = await api.getMyPledges(offset: _pledges.length, limit: _pageSize, sortBy: _sortBy);
       if (mounted) {
         setState(() {
           _pledges.addAll(List<Map<String, dynamic>>.from(data));
@@ -228,6 +229,51 @@ class _MyPledgesScreenState extends State<MyPledgesScreen> {
                     onChanged: (v) => setState(() => _search = v),
                   ),
                   AppSpacing.vMd,
+
+                  // Sort chips
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        Icon(Icons.sort_rounded, size: 18,
+                            color: AppTheme.textSecondaryOf(context)),
+                        AppSpacing.hSm,
+                        ...<String, String>{
+                          'newest': 'Newest',
+                          'oldest': 'Oldest',
+                          'amount_high': 'Amount \u2191',
+                          'amount_low': 'Amount \u2193',
+                        }.entries.map((e) => Padding(
+                              padding: const EdgeInsets.only(right: AppSpacing.sm),
+                              child: ChoiceChip(
+                                label: Text(e.value),
+                                selected: _sortBy == e.key,
+                                onSelected: (_) {
+                                  setState(() => _sortBy = e.key);
+                                  _load();
+                                },
+                                selectedColor: context.sponsorAccent,
+                                backgroundColor: AppTheme.cardOf(context),
+                                side: BorderSide(
+                                  color: _sortBy == e.key
+                                      ? context.sponsorAccent
+                                      : AppTheme.dividerOf(context),
+                                ),
+                                labelStyle: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: _sortBy == e.key
+                                      ? Colors.white
+                                      : AppTheme.textPrimaryOf(context),
+                                ),
+                              ),
+                            )),
+                      ],
+                    ),
+                  ),
+                  AppSpacing.vMd,
+
+                  // Filter chips
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(

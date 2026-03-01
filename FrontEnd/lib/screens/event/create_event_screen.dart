@@ -411,7 +411,10 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       );
       setState(() => _isLoading = false);
       if (mounted) context.pop(true);
-    } catch (_) { setState(() => _isLoading = false); }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) AppToast.fromError(context, e, fallback: 'Failed to create event');
+    }
   }
 
   Future<void> _handleClose() async {

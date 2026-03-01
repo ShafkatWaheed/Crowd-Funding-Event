@@ -62,19 +62,23 @@ async def update_me(
 ):
     """Update current user profile."""
     log_step(logger, "Updating profile", user_id=current_user.id)
+    # Re-fetch user in the write session (current_user comes from read session)
+    user = await db.get(User, current_user.id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
     if body.display_name is not None:
-        current_user.display_name = body.display_name
+        user.display_name = body.display_name
     if body.phone is not None:
-        current_user.phone = body.phone
+        user.phone = body.phone
     if body.address is not None:
-        current_user.address = body.address
+        user.address = body.address
     if body.birthday is not None:
-        current_user.birthday = body.birthday
+        user.birthday = body.birthday
     if body.years_of_experience is not None:
-        current_user.years_of_experience = body.years_of_experience
+        user.years_of_experience = body.years_of_experience
     await db.flush()
-    await db.refresh(current_user)
-    return _me_response(current_user)
+    await db.refresh(user)
+    return _me_response(user)
 
 
 @router.get("/search-organizers")
@@ -107,10 +111,11 @@ async def get_my_pledges(
     current_user: User = Depends(require_role(UserRole.customer, UserRole.sponsor)),
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
+    sort_by: str = Query("newest", description="Sort: newest, oldest, amount_high, amount_low"),
 ):
     """List events the current user has pledged to."""
     from app.api.v1.events import _build_tier_reservation_response
-    pledges = await funding_service.list_pledges_by_user(db, user_id=current_user.id, offset=offset, limit=limit)
+    pledges = await funding_service.list_pledges_by_user(db, user_id=current_user.id, offset=offset, limit=limit, sort_by=sort_by)
     result = []
     for p in pledges:
         tier_resp = await _build_tier_reservation_response(db, p.id)
@@ -209,9 +214,10 @@ async def get_my_tickets(
     current_user: User = Depends(require_role(UserRole.customer)),
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
+    sort_by: str = Query("newest", description="Sort: newest, oldest, price_high, price_low"),
 ):
     """List tickets the current user has purchased (customer only). Includes ticket_code for QR and scanned_at (already scanned)."""
-    sales = await ticket_service.list_my_tickets(db, user_id=current_user.id, offset=offset, limit=limit)
+    sales = await ticket_service.list_my_tickets(db, user_id=current_user.id, offset=offset, limit=limit, sort_by=sort_by)
     return [
         TicketSaleResponse(
             id=s.id,
@@ -343,10 +349,11 @@ async def get_my_events(
     current_user: CurrentUser,
     offset: int = Query(0, ge=0, description="Pagination offset"),
     limit: int = Query(20, ge=1, le=100, description="Page size (max 100)"),
+    sort_by: str = Query("newest", description="Sort: newest, oldest, name_az, soonest"),
 ):
     """Events the current user is registered to (includes cancelled events so the user can see cancellation reasons)."""
     from datetime import datetime, timezone
-    events = await event_service.get_my_registered_events(db, user_id=current_user.id, offset=offset, limit=limit)
+    events = await event_service.get_my_registered_events(db, user_id=current_user.id, offset=offset, limit=limit, sort_by=sort_by)
     event_ids = [e.id for e in events]
     pledged = await funding_service.get_pledged_totals_for_events(db, event_ids=event_ids) if event_ids else {}
     now = datetime.now(timezone.utc)

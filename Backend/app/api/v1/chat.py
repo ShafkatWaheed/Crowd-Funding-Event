@@ -38,6 +38,17 @@ router = APIRouter()
 _connections: dict[int, WebSocket] = {}
 
 HEARTBEAT_INTERVAL = 30
+WS_PRESENCE_TTL = 60  # seconds; keys expire on pod crash without cleanup
+
+# Module-level pooled Redis client for publish/presence (NOT for Pub/Sub listen).
+_redis_pool: aioredis.Redis | None = None
+
+
+async def _get_redis() -> aioredis.Redis:
+    global _redis_pool
+    if _redis_pool is None:
+        _redis_pool = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+    return _redis_pool
 
 
 # ── WebSocket endpoint ──────────────────────────────────────────────────────
@@ -87,6 +98,13 @@ async def ws_chat(ws: WebSocket, token: str = Query(default="")):
     _connections[user.id] = ws
     logger.info("WS connected user=%d", user.id)
 
+    # Register presence in Redis (cross-pod offline detection)
+    try:
+        rp = await _get_redis()
+        await rp.set(f"ws:online:{user.id}", "1", ex=WS_PRESENCE_TTL)
+    except Exception:
+        logger.warning("Failed to set WS presence for user=%d", user.id)
+
     pubsub: aioredis.client.PubSub | None = None
     r: aioredis.Redis | None = None
     joined_bids: set[int] = set()
@@ -134,6 +152,9 @@ async def ws_chat(ws: WebSocket, token: str = Query(default="")):
             except asyncio.TimeoutError:
                 try:
                     await ws.send_json({"type": "ping"})
+                    # Refresh presence TTL on each heartbeat
+                    rp = await _get_redis()
+                    await rp.expire(f"ws:online:{user.id}", WS_PRESENCE_TTL)
                 except Exception:
                     break
                 continue
@@ -217,7 +238,14 @@ async def ws_chat(ws: WebSocket, token: str = Query(default="")):
                             if ctx["is_sponsor"]
                             else ctx["sponsor_user_id"]
                         )
-                        if recipient_id not in _connections:
+                        # Check cross-pod presence via Redis (not local dict)
+                        try:
+                            rp = await _get_redis()
+                            is_online = await rp.exists(f"ws:online:{recipient_id}")
+                        except Exception:
+                            # Fallback to local dict if Redis unavailable
+                            is_online = recipient_id in _connections
+                        if not is_online:
                             try:
                                 await _send_offline_push(db, recipient_id, user, body, bid_id)
                                 await db.commit()
@@ -238,9 +266,8 @@ async def ws_chat(ws: WebSocket, token: str = Query(default="")):
                         "by": user.id,
                     })
                     try:
-                        r2 = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+                        r2 = await _get_redis()
                         await r2.publish(f"chat:bid:{bid_id}", payload)
-                        await r2.aclose()
                     except Exception:
                         pass
 
@@ -264,9 +291,8 @@ async def ws_chat(ws: WebSocket, token: str = Query(default="")):
                         "by": user.id,
                     })
                     try:
-                        r2 = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+                        r2 = await _get_redis()
                         await r2.publish(f"chat:bid:{bid_id}", payload)
-                        await r2.aclose()
                     except Exception:
                         pass
 
@@ -281,9 +307,8 @@ async def ws_chat(ws: WebSocket, token: str = Query(default="")):
                         "is_typing": is_typing,
                     })
                     try:
-                        r2 = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+                        r2 = await _get_redis()
                         await r2.publish(f"chat:bid:{bid_id}", payload)
-                        await r2.aclose()
                     except Exception:
                         pass
 
@@ -293,6 +318,12 @@ async def ws_chat(ws: WebSocket, token: str = Query(default="")):
         logger.exception("WS error user=%d", user.id)
     finally:
         _connections.pop(user.id, None)
+        # Remove presence from Redis
+        try:
+            rp = await _get_redis()
+            await rp.delete(f"ws:online:{user.id}")
+        except Exception:
+            pass  # TTL will clean up if Redis is unreachable
         if pubsub_task:
             pubsub_task.cancel()
         if pubsub:

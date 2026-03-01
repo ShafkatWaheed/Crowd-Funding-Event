@@ -28,3 +28,21 @@ def enforce_age_limit(
         raise ForbiddenError(
             f"You must be at least {event_min_age} years old to {action}"
         )
+
+
+def validate_organizer_can_restrict_age(
+    organizer_birthday: date | None,
+    age_restricted: bool,
+) -> None:
+    """Only 18+ organizers can create age-restricted events."""
+    if not age_restricted:
+        return
+    if organizer_birthday is None:
+        raise ForbiddenError(
+            "You must set your birthday before creating an age-restricted event"
+        )
+    organizer_age = calculate_age(organizer_birthday)
+    if organizer_age < 18:
+        raise ForbiddenError(
+            "You must be at least 18 years old to create an age-restricted event"
+        )

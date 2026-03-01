@@ -213,6 +213,8 @@ class ScheduleMilestoneDialogs {
     DateTime? date;
     TimeOfDay startTime = const TimeOfDay(hour: 9, minute: 0);
     TimeOfDay endTime = const TimeOfDay(hour: 10, minute: 0);
+    String? errorMsg;
+    bool saving = false;
 
     if (existing != null) {
       try { date = DateTime.parse(existing['date']); } catch (e) { debugPrint(e.toString()); }
@@ -224,7 +226,7 @@ class ScheduleMilestoneDialogs {
       } catch (e) { debugPrint(e.toString()); }
     }
 
-    final result = await showDialog<Map<String, dynamic>>(
+    await showDialog<void>(
       context: parentCtx,
       builder: (ctx) {
         return StatefulBuilder(builder: (ctx, setDlgState) {
@@ -309,44 +311,84 @@ class ScheduleMilestoneDialogs {
                       ),
                     ],
                   ),
+                  if (errorMsg != null) ...[
+                    AppSpacing.vMd,
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.errorColor.withValues(alpha: 0.08),
+                        borderRadius: AppRadius.sm,
+                        border: Border.all(color: AppTheme.errorColor.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.error_outline_rounded,
+                              size: 16, color: AppTheme.errorColor),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              errorMsg!,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.errorColor,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
             actions: [
               TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
               ElevatedButton(
-                onPressed: () {
-                  if (titleCtrl.text.trim().isEmpty || date == null) return;
-                  Navigator.pop(ctx, {
+                onPressed: saving ? null : () async {
+                  if (titleCtrl.text.trim().isEmpty || date == null) {
+                    setDlgState(() => errorMsg = titleCtrl.text.trim().isEmpty
+                        ? 'Title is required'
+                        : 'Date is required');
+                    return;
+                  }
+                  setDlgState(() { saving = true; errorMsg = null; });
+                  final payload = {
                     'title': titleCtrl.text.trim(),
                     'description': descCtrl.text.trim(),
                     'date': AppDateFormat.apiDate(date!),
                     'start_time': fmtTime(startTime),
                     'end_time': fmtTime(endTime),
-                  });
+                  };
+                  try {
+                    Map<String, dynamic> resp;
+                    if (existing != null && existing['id'] != null) {
+                      resp = await api.updateScheduleItem(event.id, existing['id'], payload);
+                    } else {
+                      resp = await api.createScheduleItem(event.id, payload);
+                    }
+                    onSaved(resp);
+                    if (ctx.mounted) Navigator.pop(ctx);
+                    if (parentCtx.mounted) AppToast.success(parentCtx, existing != null ? 'Session updated' : 'Session added');
+                  } catch (e) {
+                    if (ctx.mounted) {
+                      setDlgState(() {
+                        saving = false;
+                        errorMsg = ApiService.extractError(e, fallback: 'Failed to save session');
+                      });
+                    }
+                  }
                 },
-                child: const Text('Save'),
+                child: saving
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Text('Save'),
               ),
             ],
           );
         });
       },
     );
-
-    if (result != null) {
-      try {
-        Map<String, dynamic> resp;
-        if (existing != null && existing['id'] != null) {
-          resp = await api.updateScheduleItem(event.id, existing['id'], result);
-        } else {
-          resp = await api.createScheduleItem(event.id, result);
-        }
-        onSaved(resp);
-        if (parentCtx.mounted) AppToast.success(parentCtx, existing != null ? 'Session updated' : 'Session added');
-      } catch (e) {
-        if (parentCtx.mounted) AppToast.fromError(parentCtx, e, fallback: 'Failed to save session');
-      }
-    }
   }
 
   // ═══════════════════════════════════════════

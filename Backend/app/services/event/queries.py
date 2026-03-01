@@ -20,8 +20,17 @@ from app.services.event.permissions import user_can_edit_event
 logger = get_logger("svc.event.queries")
 
 
+_MY_EVENTS_SORT = {
+    "newest": Event.created_at.desc(),
+    "oldest": Event.created_at.asc(),
+    "name_az": Event.title.asc(),
+    "soonest": Event.start_time.asc().nulls_last(),
+}
+
+
 async def get_my_registered_events(
     db: AsyncSession, *, user_id: int, offset: int = 0, limit: int | None = None,
+    sort_by: str = "newest",
 ) -> Sequence[Event]:
     """Events the user is registered to (any registration status). Useful for 'My Events'."""
     logger.debug("get_my_registered_events", extra={"user_id": user_id, "offset": offset, "limit": limit})
@@ -33,7 +42,7 @@ async def get_my_registered_events(
             Registration.status.in_([RegistrationStatus.registered, RegistrationStatus.waitlist]),
         )
         .options(selectinload(Event.venue), selectinload(Event.ticket_strategy), selectinload(Event.organizer))
-        .order_by(Event.created_at.desc())
+        .order_by(_MY_EVENTS_SORT.get(sort_by, Event.created_at.desc()))
     )
     if offset:
         q = q.offset(offset)

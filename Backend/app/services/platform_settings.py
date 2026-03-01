@@ -180,6 +180,7 @@ DEFAULTS = {
     "max_sponsor_delegates_per_ticket": 5,
     # ── Bank verification ──
     "bank_verification_delay_seconds": 10,
+    "bank_encryption_key": "",
     # ── KYC (Know Your Customer) ──
     "kyc_required_organizer": "false",
     "kyc_required_customer": "false",
@@ -325,6 +326,7 @@ DESCRIPTIONS = {
     "upload_max_document_size_mb": "Max document upload size in MB (prerequisite documents)",
     "upload_allowed_image_types": "Comma-separated MIME types allowed for image uploads (e.g. image/jpeg,image/png)",
     "upload_allowed_document_types": "Comma-separated MIME types allowed for document uploads (e.g. application/pdf,image/jpeg)",
+    "bank_encryption_key": "Fernet encryption key for bank account data (base64-url-safe 32 bytes). Changing this invalidates all existing encrypted bank data.",
     "platform_holding_configured": "Whether platform holding bank account is configured",
     "worker_run_log_retention_days": "Days to keep ARQ worker run log entries before auto-purge",
     "notification_retention_days": "Days to keep notification records before auto-purge",
@@ -462,7 +464,10 @@ async def set_value(db: AsyncSession, key: str, value: str, description: str | N
         await db.flush()
         await db.refresh(row)
     await cache_delete(safe_cache_key("settings", key))
-    if key == "cache_enabled":
+    if key == "bank_encryption_key":
+        from app.services.encryption import set_key as _set_enc_key
+        _set_enc_key(value)
+    elif key == "cache_enabled":
         from app.cache import set_cache_enabled
         set_cache_enabled(value.lower() == "true")
     elif key in ("cache_circuit_breaker_threshold", "cache_circuit_breaker_cooldown"):

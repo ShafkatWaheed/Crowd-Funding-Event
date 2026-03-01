@@ -247,6 +247,8 @@ async def create_event(
     )
     if body.max_discount_percent is not None:
         event.max_discount_percent = max(0, min(100, body.max_discount_percent))
+    from app.services.age_verification import validate_organizer_can_restrict_age
+    validate_organizer_can_restrict_age(current_user.birthday, body.age_restricted)
     event.age_restricted = body.age_restricted
     event.min_age = body.min_age
     await db.flush()
@@ -399,6 +401,9 @@ async def update_event(
 
     if body.max_discount_percent is not None:
         updated.max_discount_percent = max(0, min(100, body.max_discount_percent))
+    if body.age_restricted is not None and body.age_restricted:
+        from app.services.age_verification import validate_organizer_can_restrict_age
+        validate_organizer_can_restrict_age(current_user.birthday, body.age_restricted)
     if body.age_restricted is not None:
         updated.age_restricted = body.age_restricted
     if body.min_age is not None:

@@ -488,19 +488,28 @@ async def refund_pledges_for_user_event(
     return result.rowcount or 0
 
 
+_MY_PLEDGES_SORT = {
+    "newest": Funding.created_at.desc(),
+    "oldest": Funding.created_at.asc(),
+    "amount_high": Funding.amount_cents.desc(),
+    "amount_low": Funding.amount_cents.asc(),
+}
+
+
 async def list_pledges_by_user(
     db: AsyncSession,
     *,
     user_id: int,
     offset: int = 0,
     limit: int = 20,
+    sort_by: str = "newest",
 ) -> Sequence[Funding]:
     """List all pledges for a user."""
     q = (
         select(Funding)
         .where(Funding.user_id == user_id)
         .options(selectinload(Funding.event))
-        .order_by(Funding.created_at.desc())
+        .order_by(_MY_PLEDGES_SORT.get(sort_by, Funding.created_at.desc()))
         .offset(offset)
         .limit(limit)
     )

@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
 import '../../models/venue.dart';
-import '../../services/api_service.dart';
+import '../../repositories/venue_repository.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/shimmer_loaders.dart';
 
@@ -36,8 +36,8 @@ class _VenueListScreenState extends State<VenueListScreen> {
   Future<void> _loadVenues() async {
     setState(() => _isLoading = true);
     try {
-      final api = context.read<ApiService>();
-      final data = await api.getVenues();
+      final repo = context.read<VenueRepository>();
+      final data = await repo.getVenues();
       final parsed = data.map((v) => Venue.fromJson(v)).toList();
       setState(() {
         _venues = parsed;
@@ -66,8 +66,8 @@ class _VenueListScreenState extends State<VenueListScreen> {
 
   Future<void> _deleteVenue(int id) async {
     try {
-      final api = context.read<ApiService>();
-      await api.deleteVenue(id);
+      final repo = context.read<VenueRepository>();
+      await repo.deleteVenue(id);
       _loadVenues();
     } catch (e) {
       if (mounted) {

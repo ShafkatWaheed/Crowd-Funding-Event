@@ -5,23 +5,23 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
-import '../../lib/services/api_service.dart';
+import '../../lib/repositories/user_repository.dart';
 import '../../lib/widgets/kyc_section.dart';
-import '../helpers/mock_api_service.dart';
+import '../helpers/mock_user_repository.dart';
 import '../helpers/pump_app.dart';
 
 void main() {
-  late MockApiService mockApi;
+  late MockUserRepository mockUserRepo;
 
   setUp(() {
-    mockApi = MockApiService();
+    mockUserRepo = MockUserRepository();
   });
 
   Future<void> pumpKyc(WidgetTester tester) async {
     await pumpApp(
       tester,
       const Scaffold(body: SingleChildScrollView(child: KycSection())),
-      overrides: [Provider<ApiService>.value(value: mockApi)],
+      overrides: [Provider<UserRepository>.value(value: mockUserRepo)],
     );
   }
 
@@ -42,7 +42,7 @@ void main() {
     testWidgets('shows loading indicator while fetching', (tester) async {
       // Use a Completer that never completes — avoids pending Timer teardown errors.
       final completer = Completer<Map<String, dynamic>>();
-      when(() => mockApi.getKycStatus()).thenAnswer((_) => completer.future);
+      when(() => mockUserRepo.getKycStatus()).thenAnswer((_) => completer.future);
 
       await pumpKyc(tester);
       await tester.pump();
@@ -55,7 +55,7 @@ void main() {
     });
 
     testWidgets('renders "not_started" state with document upload list', (tester) async {
-      when(() => mockApi.getKycStatus())
+      when(() => mockUserRepo.getKycStatus())
           .thenAnswer((_) async => kycResponse(status: 'not_started'));
 
       await pumpKyc(tester);
@@ -80,7 +80,7 @@ void main() {
     });
 
     testWidgets('renders "not_started" with required flag', (tester) async {
-      when(() => mockApi.getKycStatus())
+      when(() => mockUserRepo.getKycStatus())
           .thenAnswer((_) async => kycResponse(status: 'not_started', required: true));
 
       await pumpKyc(tester);
@@ -90,7 +90,7 @@ void main() {
     });
 
     testWidgets('renders "verified" state without upload list', (tester) async {
-      when(() => mockApi.getKycStatus())
+      when(() => mockUserRepo.getKycStatus())
           .thenAnswer((_) async => kycResponse(status: 'verified', verified: true));
 
       await pumpKyc(tester);
@@ -104,7 +104,7 @@ void main() {
     });
 
     testWidgets('renders "submitted" state with review message', (tester) async {
-      when(() => mockApi.getKycStatus())
+      when(() => mockUserRepo.getKycStatus())
           .thenAnswer((_) async => kycResponse(status: 'submitted'));
 
       await pumpKyc(tester);
@@ -119,7 +119,7 @@ void main() {
     });
 
     testWidgets('renders "rejected" state with rejection reasons', (tester) async {
-      when(() => mockApi.getKycStatus()).thenAnswer((_) async => kycResponse(
+      when(() => mockUserRepo.getKycStatus()).thenAnswer((_) async => kycResponse(
             status: 'rejected',
             documents: [
               {
@@ -141,7 +141,7 @@ void main() {
     });
 
     testWidgets('shows check icon for uploaded documents', (tester) async {
-      when(() => mockApi.getKycStatus()).thenAnswer((_) async => kycResponse(
+      when(() => mockUserRepo.getKycStatus()).thenAnswer((_) async => kycResponse(
             status: 'not_started',
             documents: [
               {
@@ -165,7 +165,7 @@ void main() {
     });
 
     testWidgets('submit button enabled when required docs are uploaded', (tester) async {
-      when(() => mockApi.getKycStatus()).thenAnswer((_) async => kycResponse(
+      when(() => mockUserRepo.getKycStatus()).thenAnswer((_) async => kycResponse(
             status: 'not_started',
             documents: [
               {'document_type': 'id_front', 'original_filename': 'a.jpg', 'status': 'pending', 'id': 1},
@@ -184,51 +184,51 @@ void main() {
 
     testWidgets('tapping submit calls submitKyc and reloads', (tester) async {
       // First load: required docs uploaded
-      when(() => mockApi.getKycStatus()).thenAnswer((_) async => kycResponse(
+      when(() => mockUserRepo.getKycStatus()).thenAnswer((_) async => kycResponse(
             status: 'not_started',
             documents: [
               {'document_type': 'id_front', 'original_filename': 'a.jpg', 'status': 'pending', 'id': 1},
               {'document_type': 'proof_of_address', 'original_filename': 'b.pdf', 'status': 'pending', 'id': 2},
             ],
           ));
-      when(() => mockApi.submitKyc())
+      when(() => mockUserRepo.submitKyc())
           .thenAnswer((_) async => {'message': 'Submitted for review'});
 
       await pumpKyc(tester);
       await tester.pumpAndSettle();
 
       // After submit, return submitted state
-      when(() => mockApi.getKycStatus())
+      when(() => mockUserRepo.getKycStatus())
           .thenAnswer((_) async => kycResponse(status: 'submitted'));
 
       await tester.tap(find.text('Submit for Verification'));
       await tester.pumpAndSettle();
 
-      verify(() => mockApi.submitKyc()).called(1);
+      verify(() => mockUserRepo.submitKyc()).called(1);
       // Reloaded to submitted state
       expect(find.text('Under Review'), findsOneWidget);
     });
 
     testWidgets('tapping delete button calls deleteKycDocument', (tester) async {
-      when(() => mockApi.getKycStatus()).thenAnswer((_) async => kycResponse(
+      when(() => mockUserRepo.getKycStatus()).thenAnswer((_) async => kycResponse(
             status: 'not_started',
             documents: [
               {'document_type': 'id_front', 'original_filename': 'a.jpg', 'status': 'pending', 'id': 42},
             ],
           ));
-      when(() => mockApi.deleteKycDocument(42)).thenAnswer((_) async => {});
+      when(() => mockUserRepo.deleteKycDocument(42)).thenAnswer((_) async => {});
 
       await pumpKyc(tester);
       await tester.pumpAndSettle();
 
       // Reload after delete returns empty
-      when(() => mockApi.getKycStatus())
+      when(() => mockUserRepo.getKycStatus())
           .thenAnswer((_) async => kycResponse(status: 'not_started'));
 
       await tester.tap(find.byIcon(Icons.close));
       await tester.pumpAndSettle();
 
-      verify(() => mockApi.deleteKycDocument(42)).called(1);
+      verify(() => mockUserRepo.deleteKycDocument(42)).called(1);
     });
   });
 }

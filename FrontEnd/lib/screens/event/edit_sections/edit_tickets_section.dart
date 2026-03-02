@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
-import '../../../services/api_service.dart';
+import '../../../repositories/ticket_repository.dart';
 import '../../../widgets/app_toast.dart';
 
 class EditTier {
@@ -34,16 +34,16 @@ class _EditTicketsSectionState extends State<EditTicketsSection> {
 
   Future<void> _loadTiers() async {
     try {
-      final api = context.read<ApiService>();
-      final list = await api.getTicketTiers(widget.eventId);
+      final ticketRepo = context.read<TicketRepository>();
+      final list = await ticketRepo.getTicketTiers(widget.eventId);
       if (mounted) {
         setState(() {
           _tiers = list.map((j) {
-            final t = EditTier(id: j['id']);
-            t.nameCtrl.text = j['name'] ?? '';
+            final t = EditTier(id: j.id);
+            t.nameCtrl.text = j.name;
             t.priceCtrl.text =
-                ((j['price_cents'] ?? 0) / 100).toStringAsFixed(2);
-            t.descCtrl.text = j['description'] ?? '';
+                (j.priceCents / 100).toStringAsFixed(2);
+            t.descCtrl.text = ''; // TicketTier model lacks description
             return t;
           }).toList();
           _loaded = true;
@@ -60,10 +60,10 @@ class _EditTicketsSectionState extends State<EditTicketsSection> {
     if (name.isEmpty) return;
     final priceCents =
         ((double.tryParse(t.priceCtrl.text.trim()) ?? 0) * 100).toInt();
-    final api = context.read<ApiService>();
+    final ticketRepo = context.read<TicketRepository>();
     try {
       if (t.id != null) {
-        await api.updateTicketTier(widget.eventId, t.id!, {
+        await ticketRepo.updateTicketTier(widget.eventId, t.id!, {
           'name': name,
           'price_cents': priceCents,
           if (t.descCtrl.text.trim().isNotEmpty)
@@ -71,7 +71,7 @@ class _EditTicketsSectionState extends State<EditTicketsSection> {
         });
         if (mounted) AppToast.success(context, 'Tier updated');
       } else {
-        final resp = await api.createTicketTier(widget.eventId, {
+        final resp = await ticketRepo.createTicketTier(widget.eventId, {
           'name': name,
           'price_cents': priceCents,
           'display_order': _tiers.indexOf(t),
@@ -92,8 +92,8 @@ class _EditTicketsSectionState extends State<EditTicketsSection> {
     final t = _tiers[idx];
     if (t.id != null) {
       try {
-        final api = context.read<ApiService>();
-        await api.deleteTicketTier(widget.eventId, t.id!);
+        final ticketRepo = context.read<TicketRepository>();
+        await ticketRepo.deleteTicketTier(widget.eventId, t.id!);
       } catch (e) {
         if (mounted) {
           AppToast.fromError(context, e,

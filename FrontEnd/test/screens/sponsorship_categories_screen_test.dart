@@ -1,22 +1,25 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
 import '../../lib/models/user.dart';
 import '../../lib/providers/auth_provider.dart';
-import '../../lib/services/api_service.dart';
+import '../../lib/repositories/event_repository.dart';
+import '../../lib/repositories/sponsor_repository.dart';
 import '../../lib/screens/sponsor/sponsorship_categories_screen.dart';
-import '../helpers/mock_api_service.dart';
+import '../helpers/mock_event_repository.dart';
+import '../helpers/mock_sponsor_repository.dart';
 import '../helpers/mock_providers.dart';
 import '../helpers/pump_app.dart';
 
 void main() {
-  late MockApiService mockApi;
+  late MockSponsorRepository mockSponsorRepo;
+  late MockEventRepository mockEventRepo;
   late MockAuthProvider mockAuth;
 
   setUp(() {
-    mockApi = MockApiService();
+    mockSponsorRepo = MockSponsorRepository();
+    mockEventRepo = MockEventRepository();
     mockAuth = MockAuthProvider();
   });
 
@@ -53,9 +56,9 @@ void main() {
     List<dynamic>? categories,
     String eventStatus = 'approved',
   }) {
-    when(() => mockApi.getSponsorshipCategories(any()))
+    when(() => mockSponsorRepo.getSponsorshipCategories(any()))
         .thenAnswer((_) async => categories ?? []);
-    when(() => mockApi.getEvent(any()))
+    when(() => mockEventRepo.getEvent(any()))
         .thenAnswer((_) async => {'id': 1, 'status': eventStatus});
   }
 
@@ -71,7 +74,8 @@ void main() {
       tester,
       const SponsorshipCategoriesScreen(eventId: 1),
       overrides: [
-        Provider<ApiService>.value(value: mockApi),
+        Provider<SponsorRepository>.value(value: mockSponsorRepo),
+        Provider<EventRepository>.value(value: mockEventRepo),
         ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
       ],
     );

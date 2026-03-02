@@ -6,8 +6,11 @@ import '../../../config/theme.dart';
 import '../../../utils/date_time_utils.dart';
 import '../../../config/design_tokens.dart';
 import '../../../models/event.dart';
+import '../../../models/ticket.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/event_provider.dart';
+import '../../../repositories/event_repository.dart';
+import '../../../repositories/ticket_repository.dart';
 import '../../../services/api_service.dart';
 import '../../../widgets/app_toast.dart';
 import 'package:flutter_stripe/flutter_stripe.dart' hide Card;
@@ -19,7 +22,7 @@ class TicketTiersSection extends StatefulWidget {
   final Event event;
   final int myTicketCount;
   final int myReservedSpots;
-  final List<Map<String, dynamic>> myEventTickets;
+  final List<TicketSale> myEventTickets;
   final bool isOrganizer;
   final bool isAdmin;
   final bool isRegistered;
@@ -43,12 +46,12 @@ class TicketTiersSection extends StatefulWidget {
 
 class _TicketTiersSectionState extends State<TicketTiersSection> {
   Widget _buildTicketTiersSection() {
-    final api = context.read<ApiService>();
+    final ticketRepo = context.read<TicketRepository>();
     final user = context.read<AuthProvider>().user;
     final isCustomer = user != null && !user.isOrganizer && !user.isAdmin;
 
     return FutureBuilder(
-      future: api.dio.get('/events/${widget.event.id}/ticket-tiers'),
+      future: ticketRepo.getTicketTiers(widget.event.id),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -57,23 +60,20 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
           return Text('Could not load ticket tiers',
               style: TextStyle(color: AppTheme.textSecondaryOf(context)));
         }
-        final tiers = snapshot.data!.data as List;
+        final tiers = snapshot.data!;
         if (tiers.isEmpty) {
           return Text('No tiers configured yet',
               style: TextStyle(color: AppTheme.textSecondaryOf(context)));
         }
         return Column(
           children: tiers.map((t) {
-            final tierId = t['id'];
-            final name = t['name'] ?? 'Tier';
-            final desc = t['description'] as String?;
-            final priceCents = t['price_cents'] ?? 0;
-            final isFree = priceCents == 0;
+            final tierId = t.id;
+            final name = t.name;
+            final priceCents = t.priceCents;
+            final isFree = t.isFree;
             final basePrice = isFree ? null : (priceCents / 100).toStringAsFixed(2);
-            final maxSpots = (t['max_reserved_spots'] ?? 0) as int;
-            final tierSold = (t['tickets_sold'] ?? 0) as int;
-            final tierReserved = (t['spots_reserved'] ?? 0) as int;
-            final spotsLeft = maxSpots > 0 ? maxSpots - tierSold - tierReserved : 0;
+            final maxSpots = t.maxReservedSpots;
+            final spotsLeft = t.spotsLeft;
 
             return Card(
               margin: const EdgeInsets.only(bottom: AppSpacing.sm),
@@ -143,15 +143,7 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
                           ],
                         ),
                       ),
-                    if (desc != null && desc.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(left: 28, top: 3),
-                        child: Text(desc,
-                            style: TextStyle(
-                                fontSize: 12,
-                                color: AppTheme.textSecondaryOf(context),
-                                fontStyle: FontStyle.italic)),
-                      ),
+                    // Note: TicketTier model lacks 'description' field
                     if (isCustomer && !isFree)
                       TicketPriceBreakdown(eventId: widget.event.id, tierId: tierId, basePriceCents: priceCents),
                   ],
@@ -167,9 +159,8 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
   Future<void> _showBuyTicketDialog() async {
     final event = widget.event;
     try {
-      final api = context.read<ApiService>();
-      final tiersData = await api.dio.get('/events/${event.id}/ticket-tiers');
-      final tiers = (tiersData.data as List);
+      final ticketRepo = context.read<TicketRepository>();
+      final tiers = await ticketRepo.getTicketTiers(event.id);
       if (tiers.isEmpty) {
         if (mounted) {
           AppToast.error(context, 'No ticket tiers available for this event');
@@ -180,15 +171,10 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
 
       final previews = <int, Map<String, dynamic>>{};
       await Future.wait(tiers.map((t) async {
-        final tierId = t['id'];
-        final baseCents = t['price_cents'] ?? 0;
-        if (baseCents > 0) {
+        if (t.priceCents > 0) {
           try {
-            final resp = await api.dio.get(
-              '/events/${event.id}/ticket-price',
-              queryParameters: {'ticket_tier_id': tierId},
-            );
-            previews[tierId] = resp.data;
+            final preview = await ticketRepo.getTicketPrice(event.id, t.id);
+            previews[t.id] = preview;
           } catch (e) { debugPrint(e.toString()); }
         }
       }));
@@ -206,14 +192,11 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
                 itemCount: tiers.length,
                 itemBuilder: (context, i) {
                   final t = tiers[i];
-                  final name = t['name'] ?? 'Tier';
-                  final desc = t['description'] as String?;
-                  final baseCents = t['price_cents'] ?? 0;
-                  final tierId = t['id'];
-                  final maxSpots = (t['max_reserved_spots'] ?? 0) as int;
-                  final tierSold = (t['tickets_sold'] ?? 0) as int;
-                  final tierReserved = (t['spots_reserved'] ?? 0) as int;
-                  final spotsLeft = maxSpots - tierSold - tierReserved;
+                  final name = t.name;
+                  final baseCents = t.priceCents;
+                  final tierId = t.id;
+                  final maxSpots = t.maxReservedSpots;
+                  final spotsLeft = t.spotsLeft;
                   final preview = previews[tierId];
                   final finalCents = preview?['final_price_cents'] ?? baseCents;
                   final totalDiscount = preview?['total_discount_cents'] ?? 0;
@@ -286,15 +269,7 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
                                     )
                                   else
                                     Text('\$$basePrice', style: const TextStyle(fontWeight: FontWeight.w600)),
-                                  if (desc != null && desc.isNotEmpty)
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: AppSpacing.xs),
-                                      child: Text(desc,
-                                          style: TextStyle(
-                                              fontSize: 12,
-                                              color: AppTheme.textSecondaryOf(context),
-                                              fontStyle: FontStyle.italic)),
-                                    ),
+                                  // Note: TicketTier model lacks 'description' field
                                   if (maxSpots > 0)
                                     Padding(
                                       padding: const EdgeInsets.only(top: 4),
@@ -349,12 +324,12 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
   }
 
   Future<void> _showInvoiceDialog(
-      Map<String, dynamic> tier, Map<String, dynamic>? preview) async {
-    final api = context.read<ApiService>();
+      TicketTier tier, Map<String, dynamic>? preview) async {
+    final eventRepo = context.read<EventRepository>();
     final event = widget.event;
-    final tierName = tier['name'] ?? 'Ticket';
-    final tierId = tier['id'] as int;
-    final baseCents = (tier['price_cents'] ?? 0) as int;
+    final tierName = tier.name;
+    final tierId = tier.id;
+    final baseCents = tier.priceCents;
     final commonDisc = (preview?['common_discount_cents'] ?? 0) as int;
     final selectiveDisc = (preview?['selective_discount_cents'] ?? 0) as int;
     final pledgeDisc = (preview?['pledge_discount_cents'] ?? 0) as int;
@@ -362,14 +337,12 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
     final totalDiscountPerTicket = (preview?['total_discount_cents'] ?? 0) as int;
     final finalCentsPerTicket = (preview?['final_price_cents'] ?? baseCents) as int;
     final commissionPerTicket = (preview?['commission_cents'] ?? 0) as int;
-    final maxSpots = (tier['max_reserved_spots'] ?? 0) as int;
-    final tierSold = (tier['tickets_sold'] ?? 0) as int;
-    final tierReserved = (tier['spots_reserved'] ?? 0) as int;
-    final spotsLeft = maxSpots > 0 ? maxSpots - tierSold - tierReserved : 0;
+    final maxSpots = tier.maxReservedSpots;
+    final spotsLeft = tier.spotsLeft;
 
     int configMax = 10;
     try {
-      final cfg = await api.getPublicConfig();
+      final cfg = await eventRepo.getPublicConfig();
       final feEnabled = cfg['max_tickets_frontend_enabled'] == true;
       if (feEnabled) {
         configMax = (cfg['max_tickets_per_purchase'] as num?)?.toInt() ?? 10;
@@ -750,6 +723,7 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
     _showPaymentProcessing();
     try {
       final api = context.read<ApiService>();
+      final ticketRepo = context.read<TicketRepository>();
 
       // Stripe Payment Sheet flow when Stripe is enabled
       if (api.isStripeEnabled) {
@@ -766,13 +740,13 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
         await Stripe.instance.presentPaymentSheet();
       }
 
-      final salesList = await api.purchaseTickets(eventId, tierId: tierId, quantity: quantity);
+      final salesList = await ticketRepo.purchaseTickets(eventId, tierId: tierId, quantity: quantity);
       _dismissPaymentProcessing();
       if (salesList.isEmpty) return;
 
-      final first = salesList[0] as Map<String, dynamic>;
-      final status = first['status'] ?? 'purchased';
-      final purchaseGroupId = first['purchase_group_id'];
+      final first = salesList[0];
+      final status = first.status;
+      final purchaseGroupId = first.purchaseGroupId;
 
       if (mounted) {
         if (status == 'waitlisted') {
@@ -781,7 +755,7 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
                   ? 'Event is at capacity — your $quantity tickets are waiting for organizer approval.'
                   : 'Event is at capacity — your ticket is waiting for organizer approval.');
         } else {
-          final totalPaid = salesList.fold<int>(0, (sum, s) => sum + ((s['amount_paid_cents'] ?? 0) as int));
+          final totalPaid = salesList.fold<int>(0, (sum, s) => sum + s.amountPaidCents);
           final isFree = totalPaid == 0;
           final ticketWord = quantity > 1 ? '$quantity tickets' : 'ticket';
           final priceStr = isFree
@@ -804,7 +778,7 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
                 ),
               );
             } else {
-              final saleId = first['id'] as int;
+              final saleId = first.id;
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (_) => TicketReceiptScreen(
@@ -870,7 +844,7 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
   }
 
   Widget _buildYourTicketsSection() {
-    final scannedCount = widget.myEventTickets.where((t) => t['scanned_at'] != null).length;
+    final scannedCount = widget.myEventTickets.where((t) => t.isScanned).length;
     
     return Container(
       width: double.infinity,
@@ -915,14 +889,12 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
             ),
           ),
           ...widget.myEventTickets.take(3).map((t) {
-            final ticketCode = t['ticket_code'] ?? '';
-            final receiptNumber = t['receipt_number'] ?? '';
-            final status = t['status'] ?? '';
-            final isScanned = t['scanned_at'] != null;
-            final saleId = t['id'] as int;
-            final createdAt = t['created_at'] != null
-                ? AppDateFormat.isoShort(t['created_at'])
-                : '';
+            final ticketCode = t.ticketCode;
+            final receiptNumber = t.receiptNumber ?? '';
+            final status = t.status;
+            final isScanned = t.isScanned;
+            final saleId = t.id;
+            final createdAt = AppDateFormat.isoShort(t.createdAt.toIso8601String());
             return GestureDetector(
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(

@@ -7,7 +7,9 @@ import '../../models/event.dart';
 import '../../models/venue.dart';
 import '../../models/ticket_strategy.dart';
 import '../../providers/event_provider.dart';
-import '../../services/api_service.dart';
+import '../../repositories/event_repository.dart';
+import '../../repositories/ticket_repository.dart';
+import '../../repositories/venue_repository.dart';
 import '../../widgets/app_toast.dart';
 
 import 'edit_sections/edit_basic_info_section.dart';
@@ -79,8 +81,8 @@ class _EditEventScreenState extends State<EditEventScreen> {
 
   Future<void> _loadFeatureFlags() async {
     try {
-      final api = context.read<ApiService>();
-      final config = await api.getPublicConfig();
+      final repo = context.read<EventRepository>();
+      final config = await repo.getPublicConfig();
       if (mounted) {
         setState(() {
           _communityRulesFeatureEnabled =
@@ -99,8 +101,8 @@ class _EditEventScreenState extends State<EditEventScreen> {
 
   Future<void> _loadVenues() async {
     try {
-      final api = context.read<ApiService>();
-      final data = await api.getVenues();
+      final repo = context.read<VenueRepository>();
+      final data = await repo.getVenues();
       setState(() {
         _venues = data.map((v) => Venue.fromJson(v)).toList();
       });
@@ -109,8 +111,8 @@ class _EditEventScreenState extends State<EditEventScreen> {
 
   Future<void> _loadStrategies() async {
     try {
-      final api = context.read<ApiService>();
-      final data = await api.getTicketStrategies();
+      final ticketRepo = context.read<TicketRepository>();
+      final data = await ticketRepo.getTicketStrategies();
       setState(() {
         _strategies =
             data.map((d) => TicketStrategy.fromJson(d)).toList();
@@ -120,8 +122,8 @@ class _EditEventScreenState extends State<EditEventScreen> {
 
   Future<void> _loadEvent() async {
     try {
-      final api = context.read<ApiService>();
-      final data = await api.getEvent(widget.eventId);
+      final eventRepo = context.read<EventRepository>();
+      final data = await eventRepo.getEvent(widget.eventId);
       final event = Event.fromJson(data);
       setState(() {
         _event = event;
@@ -239,8 +241,8 @@ class _EditEventScreenState extends State<EditEventScreen> {
     if (mco != null && mco > 0) data['max_co_organizers'] = mco;
 
     try {
-      final api = context.read<ApiService>();
-      final updated = await api.updateEvent(widget.eventId, data);
+      final eventRepo = context.read<EventRepository>();
+      final updated = await eventRepo.updateEvent(widget.eventId, data);
       if (mounted) {
         final newStatus = updated['status'];
         context.read<EventProvider>().loadEvent(widget.eventId);

@@ -5,7 +5,8 @@ import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../widgets/shimmer_loaders.dart';
-import '../../services/api_service.dart';
+import '../../repositories/admin_repository.dart';
+import '../../repositories/base_repository.dart';
 import 'admin_shared.dart';
 import 'tabs/admin_banking_tab.dart';
 import 'tabs/admin_email_tab.dart';
@@ -83,13 +84,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       return;
     }
     setState(() => _isLoading = true);
-    final api = context.read<ApiService>();
+    final admin = context.read<AdminRepository>();
     try {
       final results = await Future.wait([
-        api.adminGetStats(),
-        api.adminGetUsers(offset: 0, limit: adminPageSize),
-        api.adminGetEvents(offset: 0, limit: adminPageSize),
-        api.dio.get('/admin/settings'),
+        admin.getStats(),
+        admin.getUsers(offset: 0, limit: adminPageSize),
+        admin.getEvents(offset: 0, limit: adminPageSize),
+        admin.getSettings(),
       ]);
       final usersResp = results[1] as Map<String, dynamic>;
       final eventsResp = results[2] as Map<String, dynamic>;
@@ -99,7 +100,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         _usersTotal = (usersResp['total'] as int?) ?? 0;
         _allEvents = (eventsResp['items'] as List<dynamic>?) ?? [];
         _eventsTotal = (eventsResp['total'] as int?) ?? 0;
-        _settings = (results[3] as dynamic).data as List<dynamic>;
+        _settings = results[3] as List<dynamic>;
         if (_eventFilterIndex < 0) {
           _eventFilterIndex = _autoSelectEventFilter();
         }
@@ -110,10 +111,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Future<void> _loadSettings() async {
     try {
-      final api = context.read<ApiService>();
-      final resp = await api.dio.get('/admin/settings');
+      final admin = context.read<AdminRepository>();
+      final data = await admin.getSettings();
       if (mounted) {
-        setState(() => _settings = (resp.data as List)
+        setState(() => _settings = data
             .map((e) => Map<String, dynamic>.from(e as Map))
             .toList());
       }
@@ -122,10 +123,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Future<void> _loadEvents() async {
     try {
-      final api = context.read<ApiService>();
+      final admin = context.read<AdminRepository>();
       final results = await Future.wait([
-        api.adminGetEvents(offset: 0, limit: adminPageSize),
-        api.adminGetStats(),
+        admin.getEvents(offset: 0, limit: adminPageSize),
+        admin.getStats(),
       ]);
       final eventsResp = results[0];
       if (mounted) {
@@ -142,9 +143,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     if (_eventsLoadingMore || _allEvents.length >= _eventsTotal) return;
     setState(() => _eventsLoadingMore = true);
     try {
-      final api = context.read<ApiService>();
+      final admin = context.read<AdminRepository>();
       final resp =
-          await api.adminGetEvents(offset: _allEvents.length, limit: adminPageSize);
+          await admin.getEvents(offset: _allEvents.length, limit: adminPageSize);
       final items = (resp['items'] as List<dynamic>?) ?? [];
       setState(() {
         _allEvents.addAll(items);
@@ -156,7 +157,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Future<void> _loadMockData() async {
     try {
-      final data = await ApiService.instance.get('/admin/mock-overview');
+      final admin = context.read<AdminRepository>();
+      final data = await admin.getMockOverview();
       if (mounted) setState(() => _mockData = data);
     } catch (e) { debugPrint(e.toString()); }
   }
@@ -183,13 +185,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       }
     });
     try {
-      final api = context.read<ApiService>();
-      await api.dio.patch('/admin/settings/$key', data: {'value': newValue});
+      final admin = context.read<AdminRepository>();
+      await admin.updateSetting(key, newValue);
       _loadSettings();
       _snack('Setting "$key" updated');
     } catch (e) {
       _loadSettings();
-      _snack('Failed to update: ${ApiService.extractError(e)}');
+      _snack('Failed to update: ${ApiError.extractMessage(e)}');
     }
   }
 
@@ -502,7 +504,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           usersTotal: _usersTotal,
           onSnack: _snack,
           onLoadMore: (offset, limit, {search, role}) =>
-              context.read<ApiService>().adminGetUsers(
+              context.read<AdminRepository>().getUsers(
                     offset: offset,
                     limit: limit,
                     search: search,

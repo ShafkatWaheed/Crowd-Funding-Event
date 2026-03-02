@@ -3,10 +3,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
-import '../services/api_service.dart';
+import '../repositories/notification_repository.dart';
 
 class NotificationProvider extends ChangeNotifier {
-  final ApiService _api;
+  final NotificationRepository _repo;
   int _unreadCount = 0;
   List<Map<String, dynamic>> _notifications = [];
   bool _isLoading = false;
@@ -15,7 +15,7 @@ class NotificationProvider extends ChangeNotifier {
   StreamSubscription? _tokenRefreshSub;
   bool _notifyScheduled = false;
 
-  NotificationProvider(this._api);
+  NotificationProvider(this._repo);
 
   // ignore: unused_element
   /// Build-phase-safe notification. Defers if framework is currently building.
@@ -50,8 +50,7 @@ class NotificationProvider extends ChangeNotifier {
 
   Future<void> _fetchUnreadCount() async {
     try {
-      final resp = await _api.dio.get('/me/notifications/unread-count');
-      final count = resp.data['unread_count'] ?? 0;
+      final count = await _repo.getUnreadCount();
       if (count != _unreadCount) {
         _unreadCount = count;
         _safeNotify();
@@ -63,15 +62,11 @@ class NotificationProvider extends ChangeNotifier {
     _isLoading = true;
     _safeNotify();
     try {
-      final resp = await _api.dio.get('/me/notifications', queryParameters: {
-        'unread_only': unreadOnly,
-        'offset': offset,
-        'limit': 20,
-      });
+      final data = await _repo.getNotifications(unreadOnly: unreadOnly, offset: offset);
       if (offset == 0) {
-        _notifications = List<Map<String, dynamic>>.from(resp.data);
+        _notifications = List<Map<String, dynamic>>.from(data);
       } else {
-        _notifications.addAll(List<Map<String, dynamic>>.from(resp.data));
+        _notifications.addAll(List<Map<String, dynamic>>.from(data));
       }
     } catch (e) { debugPrint(e.toString()); }
     _isLoading = false;
@@ -80,7 +75,7 @@ class NotificationProvider extends ChangeNotifier {
 
   Future<void> markRead(int notificationId) async {
     try {
-      await _api.dio.patch('/me/notifications/$notificationId/read');
+      await _repo.markRead(notificationId);
       final idx = _notifications.indexWhere((n) => n['id'] == notificationId);
       if (idx >= 0) {
         _notifications[idx]['is_read'] = true;
@@ -92,7 +87,7 @@ class NotificationProvider extends ChangeNotifier {
 
   Future<void> markAllRead() async {
     try {
-      await _api.dio.patch('/me/notifications/read-all');
+      await _repo.markAllRead();
       for (final n in _notifications) {
         n['is_read'] = true;
       }
@@ -103,7 +98,7 @@ class NotificationProvider extends ChangeNotifier {
 
   Future<void> deleteNotification(int notificationId) async {
     try {
-      await _api.dio.delete('/me/notifications/$notificationId');
+      await _repo.deleteNotification(notificationId);
       final wasUnread = _notifications.any(
           (n) => n['id'] == notificationId && n['is_read'] != true);
       _notifications.removeWhere((n) => n['id'] == notificationId);
@@ -160,14 +155,14 @@ class NotificationProvider extends ChangeNotifier {
     }
     final platform = kIsWeb ? 'web' : (defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android');
     try {
-      await _api.post('/me/device-tokens', {'token': token, 'platform': platform});
+      await _repo.registerDeviceToken(token, platform);
     } catch (e) { debugPrint(e.toString()); }
   }
 
   Future<void> unregisterDevice() async {
     if (_fcmToken != null) {
       try {
-        await _api.dio.delete('/me/device-tokens/$_fcmToken');
+        await _repo.unregisterDeviceToken(_fcmToken!);
       } catch (e) { debugPrint(e.toString()); }
       _fcmToken = null;
     }

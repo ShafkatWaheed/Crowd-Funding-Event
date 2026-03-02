@@ -6,7 +6,8 @@ import 'package:provider/provider.dart';
 import '../../../config/design_tokens.dart';
 import '../../../utils/date_time_utils.dart';
 import '../../../config/theme.dart';
-import '../../../services/api_service.dart';
+import '../../../repositories/admin_repository.dart';
+import '../../../repositories/base_repository.dart';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -495,14 +496,11 @@ Future<void> escrowAction(
   required void Function(String) onSnack,
 }) async {
   try {
-    final api = context.read<ApiService>();
-    final path = stage != null
-        ? '/admin/escrows/$eventId/release/$stage'
-        : '/admin/escrows/$eventId/$action';
-    await api.dio.post(path);
+    final admin = context.read<AdminRepository>();
+    await admin.escrowAction(eventId, action, stage: stage);
     onRefresh();
     onSnack('Escrow action completed');
   } catch (e) {
-    onSnack('Escrow action failed: ${ApiService.extractError(e)}');
+    onSnack('Escrow action failed: ${ApiError.extractMessage(e)}');
   }
 }

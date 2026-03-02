@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.kyc_document import KycDocument, KycDocumentStatus, KycDocumentType
 from app.models.notification import NotificationType
 from app.models.user import User
+from app.repositories.user_repo import user_repo
 from app.services import platform_settings as settings_svc
 
 from app.logger import get_logger
@@ -91,8 +92,7 @@ async def get_kyc_service(db: AsyncSession) -> KycVerificationService:
 
 
 async def list_documents(db: AsyncSession, user_id: int) -> list[KycDocument]:
-    q = select(KycDocument).where(KycDocument.user_id == user_id).order_by(KycDocument.submitted_at)
-    return list((await db.execute(q)).scalars().all())
+    return await user_repo.get_kyc_documents(db, user_id)
 
 
 async def upload_document(
@@ -104,40 +104,23 @@ async def upload_document(
     mime_type: str,
     original_filename: str,
 ) -> KycDocument:
-    existing = (
-        await db.execute(
-            select(KycDocument).where(
-                KycDocument.user_id == user_id,
-                KycDocument.document_type == document_type,
-                KycDocument.status == KycDocumentStatus.pending,
-            )
-        )
-    ).scalar_one_or_none()
-    if existing:
-        if os.path.exists(existing.file_path):
-            os.remove(existing.file_path)
-        existing.file_path = file_path
-        existing.mime_type = mime_type
-        existing.original_filename = original_filename
-        existing.submitted_at = datetime.now(timezone.utc)
-        await db.flush()
-        await db.refresh(existing)
-        return existing
+    # Clean up old file if a document of this type already exists
+    existing = await user_repo.get_kyc_document_by_type(db, user_id, document_type.value)
+    if existing and os.path.exists(existing.file_path):
+        os.remove(existing.file_path)
 
-    doc = KycDocument(
+    return await user_repo.upsert_kyc_document(
+        db,
         user_id=user_id,
-        document_type=document_type,
+        document_type=document_type.value,
         file_path=file_path,
         mime_type=mime_type,
         original_filename=original_filename,
     )
-    db.add(doc)
-    await db.flush()
-    await db.refresh(doc)
-    return doc
 
 
 async def delete_document(db: AsyncSession, user_id: int, document_id: int) -> None:
+    # Fetch the document first to get file_path for cleanup and validate existence
     doc = (
         await db.execute(
             select(KycDocument).where(
@@ -152,12 +135,11 @@ async def delete_document(db: AsyncSession, user_id: int, document_id: int) -> N
         raise ValueError("Cannot delete a document that has been reviewed")
     if os.path.exists(doc.file_path):
         os.remove(doc.file_path)
-    await db.delete(doc)
-    await db.flush()
+    await user_repo.delete_kyc_document(db, document_id, user_id)
 
 
 async def submit_for_review(db: AsyncSession, user_id: int) -> KycResult:
-    user = await db.get(User, user_id)
+    user = await user_repo.get_by_id(db, user_id)
     if not user:
         raise ValueError("User not found")
     if user.kyc_status == "verified":
@@ -170,20 +152,18 @@ async def submit_for_review(db: AsyncSession, user_id: int) -> KycResult:
         names = ", ".join(t.value for t in missing)
         raise ValueError(f"Missing required documents: {names}")
 
-    user.kyc_status = "submitted"
-    await db.flush()
+    await user_repo.update_user(db, user, kyc_status="submitted")
 
     if await settings_svc.get_bool(db, "kyc_mock_enabled"):
         svc = await get_kyc_service(db)
         result = await svc.verify_submission(db, user_id=user_id)
         now = datetime.now(timezone.utc)
         if result.status == "verified":
-            user.kyc_status = "verified"
-            user.kyc_verified_at = now
+            await user_repo.update_user(db, user, kyc_status="verified", kyc_verified_at=now)
             for doc in docs:
                 doc.status = KycDocumentStatus.approved
         elif result.status == "rejected":
-            user.kyc_status = "rejected"
+            await user_repo.update_user(db, user, kyc_status="rejected")
             for doc in docs:
                 doc.status = KycDocumentStatus.rejected
                 doc.rejection_reason = result.reason
@@ -202,7 +182,7 @@ async def admin_verify(
     rejection_reason: str | None,
     reviewed_by_id: int,
 ) -> str:
-    user = await db.get(User, user_id)
+    user = await user_repo.get_by_id(db, user_id)
     if not user:
         raise ValueError("User not found")
 
@@ -210,14 +190,13 @@ async def admin_verify(
     docs = await list_documents(db, user_id)
 
     if approved:
-        user.kyc_status = "verified"
-        user.kyc_verified_at = now
+        await user_repo.update_user(db, user, kyc_status="verified", kyc_verified_at=now)
         for doc in docs:
             doc.status = KycDocumentStatus.approved
             doc.reviewed_at = now
             doc.reviewed_by_id = reviewed_by_id
     else:
-        user.kyc_status = "rejected"
+        await user_repo.update_user(db, user, kyc_status="rejected")
         for doc in docs:
             doc.status = KycDocumentStatus.rejected
             doc.rejection_reason = rejection_reason
@@ -251,5 +230,4 @@ async def admin_verify(
 
 
 async def list_pending_users(db: AsyncSession) -> list[User]:
-    q = select(User).where(User.kyc_status == "submitted").order_by(User.updated_at)
-    return list((await db.execute(q)).scalars().all())
+    return await user_repo.list_pending_kyc_users(db)

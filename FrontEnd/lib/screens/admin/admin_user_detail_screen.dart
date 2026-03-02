@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
-import '../../services/api_service.dart';
+import '../../repositories/admin_repository.dart';
+import '../../repositories/base_repository.dart';
 import '../../widgets/admin/admin_empty_state.dart';
 import 'user_detail_tabs/user_discounts_tab.dart';
 import 'user_detail_tabs/user_escrow_tab.dart';
@@ -74,8 +75,8 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
   Future<void> _loadDetail() async {
     setState(() { _loading = true; _error = null; });
     try {
-      final api = context.read<ApiService>();
-      final data = await api.adminGetUserDetail(widget.userId);
+      final admin = context.read<AdminRepository>();
+      final data = await admin.getUserDetail(widget.userId);
       if (mounted) {
         final role = data['role'] as String? ?? 'customer';
         _tabCtrl?.dispose();
@@ -84,15 +85,15 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
       }
     } catch (e) {
       if (mounted) {
-        setState(() { _error = ApiService.extractError(e); _loading = false; });
+        setState(() { _error = ApiError.extractMessage(e); _loading = false; });
       }
     }
   }
 
   Future<void> _refreshDetail() async {
     try {
-      final api = context.read<ApiService>();
-      final data = await api.adminGetUserDetail(widget.userId);
+      final admin = context.read<AdminRepository>();
+      final data = await admin.getUserDetail(widget.userId);
       if (mounted) {
         final role = data['role'] as String? ?? 'customer';
         final oldLength = _tabCtrl?.length ?? 0;

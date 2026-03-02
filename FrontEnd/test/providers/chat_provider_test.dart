@@ -5,20 +5,21 @@ import 'package:mocktail/mocktail.dart';
 import '../../lib/providers/chat_provider.dart';
 import '../../lib/models/chat_message.dart';
 import '../helpers/mock_api_service.dart';
+import '../helpers/mock_chat_repository.dart';
 import '../helpers/fixtures.dart';
 
 void main() {
-  late MockApiService mockApi;
+  late MockChatRepository mockRepo;
   late MockChatSocketService mockSocket;
   late ChatProvider provider;
   late StreamController<Map<String, dynamic>> wsController;
 
   setUp(() {
-    mockApi = MockApiService();
+    mockRepo = MockChatRepository();
     mockSocket = MockChatSocketService();
     wsController = StreamController<Map<String, dynamic>>.broadcast();
     when(() => mockSocket.messages).thenAnswer((_) => wsController.stream);
-    provider = ChatProvider(mockApi, mockSocket);
+    provider = ChatProvider(mockRepo, mockSocket);
   });
 
   tearDown(() {
@@ -37,7 +38,7 @@ void main() {
     });
 
     test('loadConversations success', () async {
-      when(() => mockApi.getChatConversations()).thenAnswer((_) async => [
+      when(() => mockRepo.getChatConversations()).thenAnswer((_) async => [
             ChatConversation.fromJson(chatConversationJson(bidId: 1, unreadCount: 3)),
             ChatConversation.fromJson(chatConversationJson(bidId: 2, unreadCount: 1)),
           ]);
@@ -51,7 +52,7 @@ void main() {
     });
 
     test('loadConversations error does not throw', () async {
-      when(() => mockApi.getChatConversations())
+      when(() => mockRepo.getChatConversations())
           .thenThrow(Exception('Network error'));
 
       await provider.loadConversations();
@@ -61,7 +62,7 @@ void main() {
     });
 
     test('loadHistory appends messages', () async {
-      when(() => mockApi.getChatMessages(1, before: null)).thenAnswer((_) async => [
+      when(() => mockRepo.getChatMessages(1, before: null)).thenAnswer((_) async => [
             ChatMessage.fromJson(chatMessageJson(id: 'msg-1', bidId: 1)),
             ChatMessage.fromJson(chatMessageJson(id: 'msg-2', bidId: 1)),
           ]);
@@ -72,7 +73,7 @@ void main() {
     });
 
     test('loadHistory deduplicates messages', () async {
-      when(() => mockApi.getChatMessages(1, before: null)).thenAnswer((_) async => [
+      when(() => mockRepo.getChatMessages(1, before: null)).thenAnswer((_) async => [
             ChatMessage.fromJson(chatMessageJson(id: 'msg-1', bidId: 1)),
           ]);
 
@@ -108,7 +109,7 @@ void main() {
       when(() => mockSocket.markRead(any(), any())).thenReturn(null);
 
       // Setup some unread count
-      when(() => mockApi.getChatConversations()).thenAnswer((_) async => [
+      when(() => mockRepo.getChatConversations()).thenAnswer((_) async => [
             ChatConversation.fromJson(chatConversationJson(bidId: 1, unreadCount: 5)),
           ]);
 

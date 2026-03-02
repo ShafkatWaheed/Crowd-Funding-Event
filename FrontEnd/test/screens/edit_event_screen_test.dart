@@ -8,22 +8,30 @@ import 'package:provider/provider.dart';
 import '../../lib/models/user.dart';
 import '../../lib/providers/auth_provider.dart';
 import '../../lib/providers/event_provider.dart';
-import '../../lib/services/api_service.dart';
 import '../../lib/screens/event/edit_event_screen.dart';
+import '../../lib/repositories/event_repository.dart';
+import '../../lib/repositories/ticket_repository.dart';
+import '../../lib/repositories/venue_repository.dart';
 import '../helpers/mock_providers.dart';
-import '../helpers/mock_api_service.dart';
+import '../helpers/mock_event_repository.dart';
+import '../helpers/mock_ticket_repository.dart';
+import '../helpers/mock_venue_repository.dart';
 import '../helpers/pump_app.dart';
 import '../helpers/fixtures.dart';
 
 void main() {
   late MockAuthProvider mockAuth;
-  late MockApiService mockApi;
   late MockEventProvider mockEvent;
+  late MockEventRepository mockEventRepo;
+  late MockTicketRepository mockTicketRepo;
+  late MockVenueRepository mockVenueRepo;
 
   setUp(() {
     mockAuth = MockAuthProvider();
-    mockApi = MockApiService();
     mockEvent = MockEventProvider();
+    mockEventRepo = MockEventRepository();
+    mockTicketRepo = MockTicketRepository();
+    mockVenueRepo = MockVenueRepository();
 
     when(() => mockAuth.user).thenReturn(makeUser(role: UserRole.organizer));
   });
@@ -35,7 +43,9 @@ void main() {
       overrides: [
         ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
         ChangeNotifierProvider<EventProvider>.value(value: mockEvent),
-        Provider<ApiService>.value(value: mockApi),
+        Provider<EventRepository>.value(value: mockEventRepo),
+        Provider<TicketRepository>.value(value: mockTicketRepo),
+        Provider<VenueRepository>.value(value: mockVenueRepo),
       ],
     );
   }
@@ -48,13 +58,13 @@ void main() {
       final venuesCompleter = Completer<List<dynamic>>();
       final configCompleter = Completer<Map<String, dynamic>>();
 
-      when(() => mockApi.getEvent(1))
+      when(() => mockEventRepo.getEvent(1))
           .thenAnswer((_) => eventCompleter.future);
-      when(() => mockApi.getTicketStrategies())
+      when(() => mockTicketRepo.getTicketStrategies())
           .thenAnswer((_) => strategiesCompleter.future);
-      when(() => mockApi.getVenues())
+      when(() => mockVenueRepo.getVenues())
           .thenAnswer((_) => venuesCompleter.future);
-      when(() => mockApi.getPublicConfig())
+      when(() => mockEventRepo.getPublicConfig())
           .thenAnswer((_) => configCompleter.future);
 
       await pumpEditEvent(tester);
@@ -74,13 +84,13 @@ void main() {
     });
 
     testWidgets('renders form after event loads', (tester) async {
-      when(() => mockApi.getEvent(1))
+      when(() => mockEventRepo.getEvent(1))
           .thenAnswer((_) async => eventJson(title: 'My Event', status: 'draft'));
-      when(() => mockApi.getTicketStrategies())
+      when(() => mockTicketRepo.getTicketStrategies())
           .thenAnswer((_) async => []);
-      when(() => mockApi.getVenues())
+      when(() => mockVenueRepo.getVenues())
           .thenAnswer((_) async => [venueJson()]);
-      when(() => mockApi.getPublicConfig())
+      when(() => mockEventRepo.getPublicConfig())
           .thenAnswer((_) async => {});
 
       await pumpEditEvent(tester);
@@ -92,13 +102,13 @@ void main() {
     });
 
     testWidgets('shows AppBar with close button', (tester) async {
-      when(() => mockApi.getEvent(1))
+      when(() => mockEventRepo.getEvent(1))
           .thenAnswer((_) async => eventJson());
-      when(() => mockApi.getTicketStrategies())
+      when(() => mockTicketRepo.getTicketStrategies())
           .thenAnswer((_) async => []);
-      when(() => mockApi.getVenues())
+      when(() => mockVenueRepo.getVenues())
           .thenAnswer((_) async => []);
-      when(() => mockApi.getPublicConfig())
+      when(() => mockEventRepo.getPublicConfig())
           .thenAnswer((_) async => {});
 
       await pumpEditEvent(tester);

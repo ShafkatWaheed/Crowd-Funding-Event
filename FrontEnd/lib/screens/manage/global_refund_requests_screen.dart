@@ -4,7 +4,8 @@ import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../config/design_tokens.dart';
 import '../../utils/date_time_utils.dart';
-import '../../services/api_service.dart';
+import '../../models/ticket.dart';
+import '../../repositories/ticket_repository.dart';
 import '../../widgets/app_toast.dart';
 
 class GlobalRefundRequestsScreen extends StatefulWidget {
@@ -17,7 +18,7 @@ class GlobalRefundRequestsScreen extends StatefulWidget {
 
 class _GlobalRefundRequestsScreenState
     extends State<GlobalRefundRequestsScreen> {
-  List<dynamic> _requests = [];
+  List<TicketSale> _requests = [];
   bool _loading = true;
   String? _error;
   String _searchText = '';
@@ -41,8 +42,8 @@ class _GlobalRefundRequestsScreenState
       _error = null;
     });
     try {
-      final api = context.read<ApiService>();
-      final data = await api.getOrganizerRefundRequests();
+      final repo = context.read<TicketRepository>();
+      final data = await repo.getOrganizerRefundRequests();
       if (mounted) {
         setState(() {
           _requests = data;
@@ -59,15 +60,14 @@ class _GlobalRefundRequestsScreenState
     }
   }
 
-  List<dynamic> get _filtered {
+  List<TicketSale> get _filtered {
     if (_searchText.isEmpty) return _requests;
     final q = _searchText.toLowerCase();
     return _requests.where((r) {
-      final attendee =
-          (r['attendee_display_name'] ?? '').toString().toLowerCase();
-      final event = (r['event_title'] ?? '').toString().toLowerCase();
-      final tier = (r['tier_name'] ?? '').toString().toLowerCase();
-      final code = (r['ticket_code'] ?? '').toString().toLowerCase();
+      final attendee = (r.attendeeDisplayName ?? '').toLowerCase();
+      final event = (r.eventTitle ?? '').toLowerCase();
+      final tier = (r.tierName ?? '').toLowerCase();
+      final code = r.ticketCode.toLowerCase();
       return attendee.contains(q) ||
           event.contains(q) ||
           tier.contains(q) ||
@@ -77,8 +77,8 @@ class _GlobalRefundRequestsScreenState
 
   Future<void> _approve(int eventId, int ticketId) async {
     try {
-      final api = context.read<ApiService>();
-      await api.approveTicketRefund(eventId, ticketId);
+      final repo = context.read<TicketRepository>();
+      await repo.approveTicketRefund(eventId, ticketId);
       if (mounted) {
         AppToast.success(context, 'Refund approved');
         _load();
@@ -110,8 +110,8 @@ class _GlobalRefundRequestsScreenState
     if (confirmed != true || !mounted) return;
 
     try {
-      final api = context.read<ApiService>();
-      await api.rejectTicketRefund(eventId, ticketId);
+      final repo = context.read<TicketRepository>();
+      await repo.rejectTicketRefund(eventId, ticketId);
       if (mounted) {
         AppToast.success(context, 'Refund rejected — ticket restored');
         _load();
@@ -260,8 +260,7 @@ class _GlobalRefundRequestsScreenState
                                       bottom: index < filtered.length - 1
                                           ? AppSpacing.md
                                           : 0),
-                                  child: _buildCard(
-                                      r as Map<String, dynamic>),
+                                  child: _buildCard(r),
                                 );
                               }),
                           ],
@@ -270,18 +269,16 @@ class _GlobalRefundRequestsScreenState
     );
   }
 
-  Widget _buildCard(Map<String, dynamic> ticket) {
-    final amountCents = ticket['amount_paid_cents'] ?? 0;
+  Widget _buildCard(TicketSale ticket) {
+    final amountCents = ticket.amountPaidCents;
     final price = '\$${(amountCents / 100).toStringAsFixed(2)}';
-    final tierName = ticket['tier_name'] ?? 'General';
-    final attendee = ticket['attendee_display_name'] ?? 'Unknown';
-    final eventTitle = ticket['event_title'] ?? '';
-    final receiptNo = ticket['receipt_number'] ?? ticket['ticket_code'] ?? '';
-    final createdAt = ticket['created_at'] != null
-        ? AppDateFormat.isoShort(ticket['created_at'])
-        : '';
-    final ticketId = ticket['id'] as int;
-    final eventId = ticket['event_id'] as int;
+    final tierName = ticket.tierName ?? 'General';
+    final attendee = ticket.attendeeDisplayName ?? 'Unknown';
+    final eventTitle = ticket.eventTitle ?? '';
+    final receiptNo = ticket.receiptNumber ?? ticket.ticketCode;
+    final createdAt = AppDateFormat.isoShort(ticket.createdAt.toIso8601String());
+    final ticketId = ticket.id;
+    final eventId = ticket.eventId;
     final isDark = AppTheme.isDark(context);
 
     return Container(

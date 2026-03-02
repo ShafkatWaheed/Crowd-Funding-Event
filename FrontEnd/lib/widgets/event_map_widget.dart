@@ -11,7 +11,7 @@ import 'package:provider/provider.dart';
 
 import '../config/theme.dart';
 import '../models/map_event.dart';
-import '../services/api_service.dart';
+import '../repositories/event_repository.dart';
 
 /// Full-screen map widget showing event markers.
 /// Tapping a marker shows a bottom sheet listing all events at that venue.
@@ -86,7 +86,7 @@ class _EventMapWidgetState extends State<EventMapWidget> {
 
   Future<void> _loadEvents() async {
     try {
-      final api = context.read<ApiService>();
+      final repo = context.read<EventRepository>();
       final bounds = _mapController.camera.visibleBounds;
       final center = _mapController.camera.center;
       const distance = Distance();
@@ -97,7 +97,7 @@ class _EventMapWidgetState extends State<EventMapWidget> {
           ) +
           5;
 
-      final data = await api.getMapEvents(
+      final data = await repo.getMapEvents(
         lat: center.latitude,
         lng: center.longitude,
         radiusKm: radiusKm,

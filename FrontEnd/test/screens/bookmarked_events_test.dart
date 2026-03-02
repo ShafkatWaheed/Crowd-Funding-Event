@@ -4,20 +4,20 @@ import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
 import '../../lib/providers/auth_provider.dart';
-import '../../lib/services/api_service.dart';
+import '../../lib/repositories/bookmark_repository.dart';
 import '../../lib/screens/bookmark/bookmarked_events_screen.dart';
 import '../helpers/mock_providers.dart';
-import '../helpers/mock_api_service.dart';
+import '../helpers/mock_bookmark_repository.dart';
 import '../helpers/pump_app.dart';
 import '../helpers/fixtures.dart';
 
 void main() {
   late MockAuthProvider mockAuth;
-  late MockApiService mockApi;
+  late MockBookmarkRepository mockBookmarkRepo;
 
   setUp(() {
     mockAuth = MockAuthProvider();
-    mockApi = MockApiService();
+    mockBookmarkRepo = MockBookmarkRepository();
 
     when(() => mockAuth.user).thenReturn(makeUser());
   });
@@ -28,14 +28,14 @@ void main() {
       const BookmarkedEventsScreen(),
       overrides: [
         ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
-        Provider<ApiService>.value(value: mockApi),
+        Provider<BookmarkRepository>.value(value: mockBookmarkRepo),
       ],
     );
   }
 
   group('BookmarkedEventsScreen', () {
     testWidgets('renders bookmarked events list after load', (tester) async {
-      when(() => mockApi.getBookmarkedEvents(
+      when(() => mockBookmarkRepo.getBookmarkedEvents(
             search: any(named: 'search'),
             status: any(named: 'status'),
             offset: any(named: 'offset'),
@@ -56,7 +56,7 @@ void main() {
     });
 
     testWidgets('empty state when no bookmarks', (tester) async {
-      when(() => mockApi.getBookmarkedEvents(
+      when(() => mockBookmarkRepo.getBookmarkedEvents(
             search: any(named: 'search'),
             status: any(named: 'status'),
             offset: any(named: 'offset'),
@@ -75,7 +75,7 @@ void main() {
     });
 
     testWidgets('search field and filter chips present', (tester) async {
-      when(() => mockApi.getBookmarkedEvents(
+      when(() => mockBookmarkRepo.getBookmarkedEvents(
             search: any(named: 'search'),
             status: any(named: 'status'),
             offset: any(named: 'offset'),

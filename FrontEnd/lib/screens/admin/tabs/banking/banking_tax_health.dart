@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import 'package:provider/provider.dart';
+
 import '../../../../config/theme.dart';
-import '../../../../services/api_service.dart';
+import '../../../../repositories/admin_repository.dart';
 import '../../../../widgets/app_toast.dart';
 import '../../admin_shared.dart';
 
@@ -376,8 +378,9 @@ class BankingReconciliationStatus extends StatelessWidget {
               ),
               onPressed: () async {
                 try {
-                  await ApiService.instance
-                      .adminRunReconciliation();
+                  await context
+                      .read<AdminRepository>()
+                      .runReconciliation();
                   onReloadBanking();
                   onReloadReconHistory?.call();
                   if (context.mounted) {

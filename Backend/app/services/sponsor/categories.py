@@ -1,16 +1,17 @@
 """Sponsorship categories and templates, plus bid stats helpers."""
 from fastapi import HTTPException
-from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User, UserRole
 from app.models.event import Event
-from app.models.sponsor import SponsorshipCategory, SponsorBid, BidStatus
+from app.models.sponsor import SponsorshipCategory, BidStatus
+from app.models.prerequisite import CategoryPrerequisite
 from app.schemas.sponsor import CategoryCreate, CategoryUpdate
+from app.repositories.sponsor_repo import sponsor_repo
 
 
 async def _require_organizer(db: AsyncSession, event_id: int, user: User) -> Event:
-    event = (await db.execute(select(Event).where(Event.id == event_id))).scalar_one_or_none()
+    event = await sponsor_repo.get_event(db, event_id)
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
     if event.organizer_id != user.id and user.role != UserRole.admin:
@@ -19,34 +20,18 @@ async def _require_organizer(db: AsyncSession, event_id: int, user: User) -> Eve
 
 
 async def _get_category(db: AsyncSession, cat_id: int) -> SponsorshipCategory:
-    cat = (await db.execute(
-        select(SponsorshipCategory).where(SponsorshipCategory.id == cat_id)
-    )).scalar_one_or_none()
+    cat = await sponsor_repo.get_category(db, cat_id)
     if not cat:
         raise HTTPException(status_code=404, detail="Category not found")
     return cat
 
 
 async def list_categories(db: AsyncSession, event_id: int) -> list[SponsorshipCategory]:
-    q = (
-        select(SponsorshipCategory)
-        .where(SponsorshipCategory.event_id == event_id)
-        .order_by(SponsorshipCategory.sort_order, SponsorshipCategory.id)
-    )
-    return list((await db.execute(q)).scalars().all())
+    return await sponsor_repo.list_categories(db, event_id)
 
 
 async def get_prereq_counts(db: AsyncSession, category_ids: list[int]) -> dict[int, int]:
-    if not category_ids:
-        return {}
-    from app.models.prerequisite import CategoryPrerequisite
-    q = (
-        select(CategoryPrerequisite.category_id, func.count(CategoryPrerequisite.id))
-        .where(CategoryPrerequisite.category_id.in_(category_ids))
-        .group_by(CategoryPrerequisite.category_id)
-    )
-    rows = (await db.execute(q)).all()
-    return {cat_id: cnt for cat_id, cnt in rows}
+    return await sponsor_repo.get_prereq_counts(db, category_ids)
 
 
 async def create_category(
@@ -62,47 +47,32 @@ async def create_category(
         min_bid_cents=data.min_bid_cents,
         sort_order=data.sort_order,
     )
-    db.add(cat)
-    await db.flush()
-    await db.refresh(cat)
-    return cat
+    return await sponsor_repo.create_category(db, cat)
 
 
 async def update_category(
     db: AsyncSession, cat_id: int, user: User, data: CategoryUpdate
 ) -> SponsorshipCategory:
-    cat = (await db.execute(
-        select(SponsorshipCategory).where(SponsorshipCategory.id == cat_id)
-    )).scalar_one_or_none()
+    cat = await sponsor_repo.get_category(db, cat_id)
     if not cat:
         raise HTTPException(status_code=404, detail="Category not found")
     await _require_organizer(db, cat.event_id, user)
 
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(cat, field, value)
-    await db.flush()
-    await db.refresh(cat)
-    return cat
+    return await sponsor_repo.update_category(db, cat)
 
 
 async def delete_category(db: AsyncSession, cat_id: int, user: User) -> None:
-    cat = (await db.execute(
-        select(SponsorshipCategory).where(SponsorshipCategory.id == cat_id)
-    )).scalar_one_or_none()
+    cat = await sponsor_repo.get_category(db, cat_id)
     if not cat:
         raise HTTPException(status_code=404, detail="Category not found")
     await _require_organizer(db, cat.event_id, user)
-    await db.delete(cat)
-    await db.flush()
+    await sponsor_repo.delete_category(db, cat)
 
 
 async def list_templates(db: AsyncSession, user: User) -> list[SponsorshipCategory]:
-    q = (
-        select(SponsorshipCategory)
-        .where(SponsorshipCategory.is_template == True, SponsorshipCategory.organizer_id == user.id)
-        .order_by(SponsorshipCategory.name)
-    )
-    return list((await db.execute(q)).scalars().all())
+    return await sponsor_repo.list_templates(db, user.id)
 
 
 async def create_template(db: AsyncSession, user: User, data: CategoryCreate) -> SponsorshipCategory:
@@ -117,19 +87,11 @@ async def create_template(db: AsyncSession, user: User, data: CategoryCreate) ->
         min_bid_cents=data.min_bid_cents,
         sort_order=data.sort_order,
     )
-    db.add(cat)
-    await db.flush()
-    await db.refresh(cat)
-    return cat
+    return await sponsor_repo.create_template(db, cat)
 
 
 async def update_template(db: AsyncSession, template_id: int, user: User, data: CategoryUpdate) -> SponsorshipCategory:
-    cat = (await db.execute(
-        select(SponsorshipCategory).where(
-            SponsorshipCategory.id == template_id,
-            SponsorshipCategory.is_template == True,
-        )
-    )).scalar_one_or_none()
+    cat = await sponsor_repo.get_template(db, template_id)
     if not cat:
         raise HTTPException(status_code=404, detail="Template not found")
     if cat.organizer_id != user.id and user.role != UserRole.admin:
@@ -137,36 +99,23 @@ async def update_template(db: AsyncSession, template_id: int, user: User, data: 
 
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(cat, field, value)
-    await db.flush()
-    await db.refresh(cat)
-    return cat
+    return await sponsor_repo.update_template(db, cat)
 
 
 async def delete_template(db: AsyncSession, template_id: int, user: User) -> None:
-    cat = (await db.execute(
-        select(SponsorshipCategory).where(
-            SponsorshipCategory.id == template_id,
-            SponsorshipCategory.is_template == True,
-        )
-    )).scalar_one_or_none()
+    cat = await sponsor_repo.get_template(db, template_id)
     if not cat:
         raise HTTPException(status_code=404, detail="Template not found")
     if cat.organizer_id != user.id and user.role != UserRole.admin:
         raise HTTPException(status_code=403, detail="Not your template")
-    await db.delete(cat)
-    await db.flush()
+    await sponsor_repo.delete_template(db, cat)
 
 
 async def copy_template_to_event(
     db: AsyncSession, template_id: int, event_id: int, user: User
 ) -> SponsorshipCategory:
     """Copy a template category (and its prerequisites) into an event-scoped category."""
-    template = (await db.execute(
-        select(SponsorshipCategory).where(
-            SponsorshipCategory.id == template_id,
-            SponsorshipCategory.is_template == True,
-        )
-    )).scalar_one_or_none()
+    template = await sponsor_repo.get_template(db, template_id)
     if not template:
         raise HTTPException(status_code=404, detail="Template not found")
 
@@ -183,14 +132,9 @@ async def copy_template_to_event(
         min_bid_cents=template.min_bid_cents,
         sort_order=template.sort_order,
     )
-    db.add(cat)
-    await db.flush()
-    await db.refresh(cat)
+    cat = await sponsor_repo.create_category(db, cat)
 
-    from app.models.prerequisite import CategoryPrerequisite
-    prereqs = (await db.execute(
-        select(CategoryPrerequisite).where(CategoryPrerequisite.category_id == template_id)
-    )).scalars().all()
+    prereqs = await sponsor_repo.list_prerequisites(db, template_id)
 
     for p in prereqs:
         new_prereq = CategoryPrerequisite(
@@ -199,41 +143,27 @@ async def copy_template_to_event(
             description=p.description,
             is_required=p.is_required,
         )
-        db.add(new_prereq)
+        await sponsor_repo.create_prerequisite(db, new_prereq)
 
-    await db.flush()
-    await db.refresh(cat)
+    # Re-flush and refresh to pick up any new prerequisite relations
+    cat = await sponsor_repo.update_category(db, cat)
     return cat
 
 
 async def get_bid_stats(db: AsyncSession, cat_id: int) -> tuple[int, list[int]]:
-    all_q = select(SponsorBid).where(
-        SponsorBid.category_id == cat_id,
-        SponsorBid.status.in_([BidStatus.pending, BidStatus.accepted, BidStatus.paid]),
-    )
-    all_bids = list((await db.execute(all_q)).scalars().all())
+    all_bids = await sponsor_repo.get_bid_stats(db, cat_id)
     pending_amounts = [b.amount_cents for b in all_bids if b.status == BidStatus.pending]
     return len(all_bids), pending_amounts
 
 
 async def get_my_bid_count(db: AsyncSession, cat_id: int, user_id: int) -> int:
     active_statuses = [BidStatus.pending, BidStatus.accepted, BidStatus.paid]
-    q = select(SponsorBid).where(
-        SponsorBid.category_id == cat_id,
-        SponsorBid.sponsor_user_id == user_id,
-        SponsorBid.status.in_(active_statuses),
-    )
-    bids = list((await db.execute(q)).scalars().all())
+    bids = await sponsor_repo.count_active_bids_by_user(db, cat_id, user_id, active_statuses)
     return len(bids)
 
 
 async def get_my_bids(db: AsyncSession, cat_id: int, user_id: int) -> list[dict]:
-    q = select(SponsorBid).where(
-        SponsorBid.category_id == cat_id,
-        SponsorBid.sponsor_user_id == user_id,
-        SponsorBid.status != BidStatus.withdrawn,
-    ).order_by(SponsorBid.id.desc())
-    bids = list((await db.execute(q)).scalars().all())
+    bids = await sponsor_repo.get_my_bids(db, cat_id, user_id)
     return [
         {"id": b.id, "amount_cents": b.amount_cents, "status": b.status.value}
         for b in bids

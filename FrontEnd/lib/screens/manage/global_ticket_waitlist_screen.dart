@@ -3,7 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
-import '../../services/api_service.dart';
+import '../../repositories/event_repository.dart';
+import '../../repositories/ticket_repository.dart';
 import '../../widgets/app_toast.dart';
 
 /// Shows waitlisted tickets across ALL organiser events.
@@ -41,18 +42,19 @@ class _GlobalTicketWaitlistScreenState
       _error = null;
     });
     try {
-      final api = context.read<ApiService>();
-      final events = await api.getMyEvents();
+      final eventRepo = context.read<EventRepository>();
+      final ticketRepo = context.read<TicketRepository>();
+      final events = await eventRepo.getMyEvents();
       final List<Map<String, dynamic>> combined = [];
 
       for (final evt in events) {
         final eventId = evt['id'] as int;
         final eventTitle = evt['title'] ?? 'Event #$eventId';
         try {
-          final tickets = await api.getWaitlistedTickets(eventId);
+          final tickets = await ticketRepo.getWaitlistedTickets(eventId);
           for (final t in tickets) {
             combined.add({
-              ...Map<String, dynamic>.from(t),
+              ...t.toJson(),
               '_event_title': eventTitle,
               '_event_id': eventId,
             });
@@ -83,7 +85,7 @@ class _GlobalTicketWaitlistScreenState
       _filtered = _all.where((t) {
         final event = (t['_event_title'] ?? '').toString().toLowerCase();
         final userId = '${t['user_id']}'.toLowerCase();
-        final tierName = (t['tier']?['name'] ?? '').toString().toLowerCase();
+        final tierName = (t['tier_name'] ?? '').toString().toLowerCase();
         return event.contains(q) || userId.contains(q) || tierName.contains(q);
       }).toList();
     }
@@ -91,8 +93,8 @@ class _GlobalTicketWaitlistScreenState
 
   Future<void> _approve(int eventId, int ticketId) async {
     try {
-      final api = context.read<ApiService>();
-      await api.approveWaitlistedTicket(eventId, ticketId);
+      final repo = context.read<TicketRepository>();
+      await repo.approveWaitlistedTicket(eventId, ticketId);
       if (mounted) {
         AppToast.success(context, 'Ticket approved!');
         _load();
@@ -106,8 +108,8 @@ class _GlobalTicketWaitlistScreenState
 
   Future<void> _reject(int eventId, int ticketId) async {
     try {
-      final api = context.read<ApiService>();
-      await api.rejectWaitlistedTicket(eventId, ticketId);
+      final repo = context.read<TicketRepository>();
+      await repo.rejectWaitlistedTicket(eventId, ticketId);
       if (mounted) {
         AppToast.success(context, 'Ticket rejected.');
         _load();
@@ -283,7 +285,7 @@ class _GlobalTicketWaitlistScreenState
     final eventId = ticket['_event_id'] as int;
     final eventTitle = ticket['_event_title'] ?? '';
     final userId = ticket['user_id'];
-    final tierName = ticket['tier']?['name'] ?? 'Unknown Tier';
+    final tierName = ticket['tier_name'] ?? 'Unknown Tier';
     final amountCents = ticket['amount_paid_cents'] ?? 0;
     final price = amountCents == 0
         ? 'Free'

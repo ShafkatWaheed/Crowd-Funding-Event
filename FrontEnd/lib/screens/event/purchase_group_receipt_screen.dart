@@ -7,7 +7,8 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../../utils/date_time_utils.dart';
 
 import '../../config/theme.dart';
-import '../../services/api_service.dart';
+import '../../repositories/ticket_repository.dart';
+import '../../repositories/base_repository.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/shimmer_loaders.dart';
 import 'ticket_receipt_screen.dart';
@@ -51,14 +52,14 @@ class _PurchaseGroupReceiptScreenState
       _error = null;
     });
     try {
-      final api = context.read<ApiService>();
-      final data = await api.getPurchaseGroupReceipt(
+      final repo = context.read<TicketRepository>();
+      final data = await repo.getPurchaseGroupReceipt(
           widget.eventId, widget.purchaseGroupId);
       if (mounted) setState(() { _receipt = data; _loading = false; });
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = ApiService.extractError(e, fallback: 'Failed to load receipt');
+          _error = ApiError.extractMessage(e, fallback: 'Failed to load receipt');
           _loading = false;
         });
       }

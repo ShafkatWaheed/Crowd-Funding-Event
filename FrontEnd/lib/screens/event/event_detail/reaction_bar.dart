@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../config/theme.dart';
 import '../../../config/design_tokens.dart';
 import '../../../providers/auth_provider.dart';
-import '../../../services/api_service.dart';
+import '../../../repositories/event_repository.dart';
 import '../../../widgets/app_toast.dart';
 
 class ReactionBar extends StatefulWidget {
@@ -43,7 +43,7 @@ class _ReactionBarState extends State<ReactionBar> {
     final auth = context.read<AuthProvider>();
     if (auth.user == null) return;
     try {
-      final api = context.read<ApiService>();
+      final api = context.read<EventRepository>();
       final data = await api.getMyReaction(widget.eventId);
       if (mounted) setState(() => _myReaction = data['reaction']);
     } catch (e) { debugPrint(e.toString()); }
@@ -53,7 +53,7 @@ class _ReactionBarState extends State<ReactionBar> {
     if (_reacting) return;
     setState(() => _reacting = true);
     try {
-      final api = context.read<ApiService>();
+      final api = context.read<EventRepository>();
       final resp = await api.reactToEvent(widget.eventId, reaction);
       if (mounted) {
         setState(() {

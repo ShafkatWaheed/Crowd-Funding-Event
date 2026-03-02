@@ -6,7 +6,7 @@ import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../db/app_database.dart';
 import '../../models/sponsor.dart';
-import '../../services/api_service.dart';
+import '../../repositories/sponsor_repository.dart';
 import '../../services/sync_service.dart';
 import '../../widgets/shimmer_loaders.dart';
 import 'sponsor_ticket/sponsor_ticket_card.dart';
@@ -40,7 +40,7 @@ class _SponsorTicketScreenState extends State<SponsorTicketScreen> {
 
   Future<void> _load() async {
     try {
-      final api = context.read<ApiService>();
+      final api = context.read<SponsorRepository>();
       final data = await api.getMySponsorTickets();
       if (mounted) {
         setState(() {

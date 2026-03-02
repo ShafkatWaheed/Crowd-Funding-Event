@@ -6,9 +6,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
-import '../../lib/services/api_service.dart';
+import '../../lib/repositories/event_repository.dart';
 import '../../lib/widgets/event_map_widget.dart';
-import '../helpers/mock_api_service.dart';
+import '../helpers/mock_event_repository.dart';
 import '../helpers/pump_app.dart';
 
 Map<String, dynamic> _markerJson({
@@ -35,7 +35,7 @@ Map<String, dynamic> _markerJson({
     };
 
 void main() {
-  late MockApiService mockApi;
+  late MockEventRepository mockEventRepo;
 
   setUpAll(() async {
     // dotenv must be initialized before the widget reads env vars.
@@ -48,12 +48,12 @@ void main() {
   });
 
   setUp(() {
-    mockApi = MockApiService();
+    mockEventRepo = MockEventRepository();
   });
 
   /// Stub all getMapEvents named params.
-  void stubMapEvents(MockApiService api, FutureOr<List<dynamic>> Function() result) {
-    when(() => api.getMapEvents(
+  void stubMapEvents(MockEventRepository repo, FutureOr<List<dynamic>> Function() result) {
+    when(() => repo.getMapEvents(
           lat: any(named: 'lat'),
           lng: any(named: 'lng'),
           radiusKm: any(named: 'radiusKm'),
@@ -76,14 +76,14 @@ void main() {
           child: EventMapWidget(),
         ),
       ),
-      overrides: [Provider<ApiService>.value(value: mockApi)],
+      overrides: [Provider<EventRepository>.value(value: mockEventRepo)],
     );
   }
 
   group('EventMapWidget', () {
     testWidgets('builds without error and shows loading indicator', (tester) async {
       final completer = Completer<List<dynamic>>();
-      stubMapEvents(mockApi, () => completer.future);
+      stubMapEvents(mockEventRepo, () => completer.future);
 
       await pumpMap(tester);
       await tester.pump();
@@ -98,7 +98,7 @@ void main() {
     });
 
     testWidgets('calls getMapEvents on load', (tester) async {
-      stubMapEvents(mockApi, () => [
+      stubMapEvents(mockEventRepo, () => [
             _markerJson(id: 1, title: 'Event A'),
             _markerJson(id: 2, title: 'Event B', venueId: 2, venueName: 'Arena'),
           ]);
@@ -106,7 +106,7 @@ void main() {
       await pumpMap(tester);
       await tester.pumpAndSettle();
 
-      verify(() => mockApi.getMapEvents(
+      verify(() => mockEventRepo.getMapEvents(
             lat: any(named: 'lat'),
             lng: any(named: 'lng'),
             radiusKm: any(named: 'radiusKm'),
@@ -120,7 +120,7 @@ void main() {
     });
 
     testWidgets('handles API error gracefully', (tester) async {
-      stubMapEvents(mockApi, () => throw Exception('Network error'));
+      stubMapEvents(mockEventRepo, () => throw Exception('Network error'));
 
       await pumpMap(tester);
       await tester.pumpAndSettle();
@@ -130,7 +130,7 @@ void main() {
     });
 
     testWidgets('hides loading indicator after data loads', (tester) async {
-      stubMapEvents(mockApi, () => [_markerJson()]);
+      stubMapEvents(mockEventRepo, () => [_markerJson()]);
 
       await pumpMap(tester);
       await tester.pumpAndSettle();

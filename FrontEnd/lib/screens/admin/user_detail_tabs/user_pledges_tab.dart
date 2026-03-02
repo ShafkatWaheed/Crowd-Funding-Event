@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
-import '../../../services/api_service.dart';
+import '../../../repositories/base_repository.dart';
+import '../../../repositories/funding_repository.dart';
 import '../../../widgets/admin/admin_empty_state.dart';
 import 'user_detail_shared.dart';
 
@@ -44,12 +45,12 @@ class _UserPledgesTabState extends State<UserPledgesTab> {
   Future<void> _refundPledge(int eventId, int fundingId) async {
     try {
       await context
-          .read<ApiService>()
+          .read<FundingRepository>()
           .adminRefundPledge(eventId, fundingId);
       widget.onRefresh();
       widget.onSnack('Pledge refunded');
     } catch (e) {
-      widget.onSnack('Failed: ${ApiService.extractError(e)}');
+      widget.onSnack('Failed: ${ApiError.extractMessage(e)}');
     }
   }
 

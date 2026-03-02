@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
 import '../../../config/design_tokens.dart';
-import '../../../services/api_service.dart';
+import '../../../repositories/ticket_repository.dart';
 
 class CustomerDiscountsSection extends StatefulWidget {
   final int eventId;
@@ -26,7 +27,7 @@ class _CustomerDiscountsSectionState extends State<CustomerDiscountsSection> {
 
   Future<void> _load() async {
     try {
-      final list = await ApiService().getMyDiscounts(widget.eventId);
+      final list = await context.read<TicketRepository>().getMyDiscounts(widget.eventId);
       if (mounted) {
         setState(() {
           _discounts = list.cast<Map<String, dynamic>>();

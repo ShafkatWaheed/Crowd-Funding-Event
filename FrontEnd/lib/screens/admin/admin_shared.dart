@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
-import '../../services/api_service.dart';
+import '../../repositories/admin_repository.dart';
+import '../../repositories/base_repository.dart';
 import '../../utils/date_time_utils.dart';
 
 const double adminWideBreakpoint = 900;
@@ -290,7 +292,8 @@ class _PlatformAccountCardState extends State<PlatformAccountCard> {
     }
     setState(() => _saving = true);
     try {
-      await ApiService.instance.put('/admin/platform-account', data: {
+      final admin = context.read<AdminRepository>();
+      await admin.updatePlatformAccount({
         'institution_number': _institutionCtrl.text.trim(),
         'transit_number': _transitCtrl.text.trim(),
         'account_number': _accountNumberCtrl.text.trim(),
@@ -309,7 +312,7 @@ class _PlatformAccountCardState extends State<PlatformAccountCard> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
               content:
-                  Text(ApiService.extractError(e, fallback: 'Failed to save'))),
+                  Text(ApiError.extractMessage(e, fallback: 'Failed to save'))),
         );
       }
     }

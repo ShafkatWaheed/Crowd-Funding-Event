@@ -4,24 +4,14 @@ Create pledge, unpledge, refunds, and list pledges.
 from datetime import datetime, timezone
 from typing import Sequence
 
-from sqlalchemy import func, select
 from app.logger import get_logger, log_step
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.core.exceptions import ConflictError
 from app.models.event import EventStatus
 from app.models.funding import Funding, FundingStatus
-from app.models.registration import Registration, RegistrationStatus
-from app.models.ticket import TicketSale, TicketSaleStatus, TicketTier
 from app.models.user import User
-
-from app.services.funding.reservations import (
-    get_reserved_spots_for_tier,
-    get_reserved_spots_for_tiers,
-    get_total_reserved_spots,
-    get_user_reserved_spots,
-)
+from app.repositories.funding_repo import funding_repo
 
 logger = get_logger("svc.funding.pledges")
 
@@ -43,18 +33,17 @@ async def pledge_preview(
     platform_cut = amount_cents * funding_pct // 100
     net_to_organizer = amount_cents - platform_cut
 
-    user_existing = await get_user_reserved_spots(db, event_id, user.id)
+    user_existing = await funding_repo.get_user_reserved_spots(db, event_id, user.id)
     max_per_user = event.max_reserved_spots_per_user
     available_for_user = max(0, max_per_user - user_existing)
 
-    event_total = await get_total_reserved_spots(db, event_id)
+    event_total = await funding_repo.get_total_reserved_spots(db, event_id)
 
     tier_availability: list[dict] = []
     if event.link_funding_to_tiers:
-        tiers_q = select(TicketTier).where(TicketTier.event_id == event_id).order_by(TicketTier.display_order)
-        tiers = list((await db.execute(tiers_q)).scalars().all())
+        tiers = await funding_repo.get_tiers_for_event(db, event_id)
         reservable_ids = [t.id for t in tiers if t.max_reserved_spots > 0]
-        reserved_map = await get_reserved_spots_for_tiers(db, event_id, reservable_ids)
+        reserved_map = await funding_repo.get_reserved_spots_for_tiers(db, event_id, reservable_ids)
         for t in tiers:
             if t.max_reserved_spots <= 0:
                 continue
@@ -116,16 +105,9 @@ async def create_pledge(
     from app.services.age_verification import enforce_age_limit
     enforce_age_limit(user.birthday, event.age_restricted, event.min_age, "back this event")
 
-    from sqlalchemy import text
-    await db.execute(text("SELECT pg_advisory_xact_lock(:eid)"), {"eid": event_id})
+    await funding_repo.advisory_lock(db, event_id)
 
-    reg_q = select(Registration).where(
-        Registration.event_id == event_id,
-        Registration.user_id == user.id,
-        Registration.status == RegistrationStatus.registered,
-    )
-    reg_result = await db.execute(reg_q)
-    is_registered = reg_result.scalar_one_or_none() is not None
+    is_registered = await funding_repo.is_user_registered(db, event_id, user.id)
     is_guest = not is_registered
 
     if event.link_funding_to_tiers and tier_reservations:
@@ -136,13 +118,8 @@ async def create_pledge(
         min_required_cents = 0
 
         tier_ids_needed = [tr["tier_id"] for tr in tier_reservations]
-        tiers_map = {t.id: t for t in (await db.execute(
-            select(TicketTier).where(
-                TicketTier.id.in_(tier_ids_needed),
-                TicketTier.event_id == event_id,
-            )
-        )).scalars().all()}
-        reserved_map = await get_reserved_spots_for_tiers(db, event_id, tier_ids_needed)
+        tiers_map = await funding_repo.get_tiers_by_ids(db, event_id, tier_ids_needed)
+        reserved_map = await funding_repo.get_reserved_spots_for_tiers(db, event_id, tier_ids_needed)
 
         for tr in tier_reservations:
             tid, spots = tr["tier_id"], tr["spots"]
@@ -174,12 +151,8 @@ async def create_pledge(
                 f"to cover the selected tier reservations"
             )
 
-        total_reserved = await get_total_reserved_spots(db, event_id)
-        tickets_sold_q = select(func.count()).where(
-            TicketSale.event_id == event_id,
-            TicketSale.status == TicketSaleStatus.purchased,
-        )
-        tickets_sold = int((await db.execute(tickets_sold_q)).scalar_one())
+        total_reserved = await funding_repo.get_total_reserved_spots(db, event_id)
+        tickets_sold = await funding_repo.count_tickets_sold(db, event_id)
         occupied = tickets_sold + total_reserved
         if occupied + reserved_spots > event.max_capacity:
             available = max(0, event.max_capacity - occupied)
@@ -202,19 +175,15 @@ async def create_pledge(
                 f"to reserve {reserved_spots} spot(s) ({event.min_pledge_cents} cents/spot)"
             )
 
-        user_existing_spots = await get_user_reserved_spots(db, event_id, user.id)
+        user_existing_spots = await funding_repo.get_user_reserved_spots(db, event_id, user.id)
         if user_existing_spots + reserved_spots > event.max_reserved_spots_per_user:
             raise ConflictError(
                 f"Cannot reserve {reserved_spots} more spot(s). "
                 f"You already have {user_existing_spots} and the limit is {event.max_reserved_spots_per_user}."
             )
 
-        total_reserved = await get_total_reserved_spots(db, event_id)
-        tickets_sold_q = select(func.count()).where(
-            TicketSale.event_id == event_id,
-            TicketSale.status == TicketSaleStatus.purchased,
-        )
-        tickets_sold = int((await db.execute(tickets_sold_q)).scalar_one())
+        total_reserved = await funding_repo.get_total_reserved_spots(db, event_id)
+        tickets_sold = await funding_repo.count_tickets_sold(db, event_id)
         occupied = tickets_sold + total_reserved
         if occupied + reserved_spots > event.max_capacity:
             available = max(0, event.max_capacity - occupied)
@@ -275,39 +244,20 @@ async def create_pledge(
         gateway_transaction_id=gateway_txn_id,
         gateway_auth_code=gateway_auth,
     )
-    db.add(pledge)
-    await db.flush()
-    await db.refresh(pledge)
+    pledge = await funding_repo.create_pledge(db, pledge)
 
     if event.link_funding_to_tiers and tier_reservations:
-        from app.models.funding import PledgeSpotReservation
-        for tr in tier_reservations:
-            row = PledgeSpotReservation(
-                funding_id=pledge.id,
-                ticket_tier_id=tr["tier_id"],
-                spots=tr["spots"],
-            )
-            db.add(row)
-        await db.flush()
+        await funding_repo.create_spot_reservations(db, pledge.id, tier_reservations)
 
-    now = datetime.now(timezone.utc)
-    pledge.receipt_number = f"PLG-{now.strftime('%Y%m%d')}-{event_id}-{pledge.id}"
-    await db.flush()
-    await db.refresh(pledge)
+    await funding_repo.set_receipt_number(db, pledge, event_id)
 
     try:
-        from app.models.milestone import EarlyBirdDiscount
-        eb_q = select(EarlyBirdDiscount).where(
-            EarlyBirdDiscount.event_id == event_id,
-            EarlyBirdDiscount.applies_to == "funding",
-        )
-        eb_disc = (await db.execute(eb_q)).scalar_one_or_none()
+        eb_disc = await funding_repo.get_early_bird_discount(db, event_id)
         if eb_disc:
             now = datetime.now(timezone.utc)
             window_start = eb_disc.window_start or event.created_at
             if window_start <= now <= eb_disc.window_end:
-                pledge.is_early_bird = True
-                await db.flush()
+                await funding_repo.set_early_bird(db, pledge)
     except Exception:
         pass
 
@@ -337,38 +287,13 @@ async def unpledge(
     release reserved spots immediately, and enqueue ARQ jobs for completion.
     """
     log_step(logger, "Unpledging", event_id=event_id, user_id=user.id)
-    q_refund = (
-        select(Funding)
-        .where(
-            Funding.event_id == event_id,
-            Funding.user_id == user.id,
-            Funding.status == FundingStatus.pledged,
-            Funding.is_guest == False,  # noqa: E712
-        )
-    )
-    result = await db.execute(q_refund)
-    refundable = list(result.scalars().all())
-    refunded_cents = 0
-    for f in refundable:
-        refunded_cents += f.amount_cents
-        f.status = FundingStatus.refund_processing
 
-    q_guest = (
-        select(func.coalesce(func.sum(Funding.amount_cents), 0))
-        .where(
-            Funding.event_id == event_id,
-            Funding.user_id == user.id,
-            Funding.status == FundingStatus.pledged,
-            Funding.is_guest == True,  # noqa: E712
-        )
-    )
-    guest_total = (await db.execute(q_guest)).scalar_one()
+    refundable = await funding_repo.get_refundable_pledges(db, event_id, user.id)
+    refunded_cents = sum(f.amount_cents for f in refundable)
 
-    await db.flush()
-
-    for f in refundable:
-        f.status = FundingStatus.refunded
-    await db.flush()
+    await funding_repo.mark_refund_processing(db, refundable)
+    guest_total = await funding_repo.get_guest_pledged_total(db, event_id, user.id)
+    await funding_repo.mark_refunded(db, refundable)
 
     logger.info("Unpledge completed", extra={"event_id": event_id, "user_id": user.id, "refunded_cents": refunded_cents, "pledges_refunded": len(refundable)})
     return {
@@ -384,25 +309,11 @@ async def _check_milestone_snapshots(db: AsyncSession, event) -> None:
     if not event.funding_goal_cents or event.funding_goal_cents <= 0:
         return
 
-    from app.models.milestone import FundingMilestone, FundingMilestoneSnapshot, FundingMilestoneUser
-    from app.models.event import EventDiscount
-
-    total_q = select(func.coalesce(func.sum(Funding.amount_cents), 0)).where(
-        Funding.event_id == event.id,
-        Funding.status == FundingStatus.pledged,
-    )
-    total_pledged = int((await db.execute(total_q)).scalar_one())
+    total_pledged = await funding_repo.get_total_pledged(db, event.id)
     current_pct = total_pledged / event.funding_goal_cents * 100
 
-    disc_q = select(EventDiscount).where(
-        EventDiscount.event_id == event.id,
-        EventDiscount.discount_type == "funding_milestone",
-        EventDiscount.milestone_percent.isnot(None),
-    )
-    milestone_discounts = list((await db.execute(disc_q)).scalars().all())
-
-    fm_q = select(FundingMilestone).where(FundingMilestone.event_id == event.id)
-    display_milestones = list((await db.execute(fm_q)).scalars().all())
+    milestone_discounts = await funding_repo.get_event_discounts_for_milestones(db, event.id)
+    display_milestones = await funding_repo.get_funding_milestones(db, event.id)
 
     all_percents: set[int] = set()
     for d in milestone_discounts:
@@ -414,16 +325,8 @@ async def _check_milestone_snapshots(db: AsyncSession, event) -> None:
     if not all_percents:
         return
 
-    existing_q = select(FundingMilestoneSnapshot.milestone_percent).where(
-        FundingMilestoneSnapshot.event_id == event.id,
-    )
-    existing_percents = set((await db.execute(existing_q)).scalars().all())
-
-    pledgers_q = select(func.distinct(Funding.user_id)).where(
-        Funding.event_id == event.id,
-        Funding.status == FundingStatus.pledged,
-    )
-    pledger_ids = list((await db.execute(pledgers_q)).scalars().all())
+    existing_percents = await funding_repo.get_existing_snapshot_percents(db, event.id)
+    pledger_ids = await funding_repo.get_pledger_ids(db, event.id)
 
     for pct in sorted(all_percents):
         if pct in existing_percents:
@@ -431,37 +334,13 @@ async def _check_milestone_snapshots(db: AsyncSession, event) -> None:
         if current_pct < pct:
             continue
         log_step(logger, "Milestone crossed", event_id=event.id, milestone_percent=pct, current_pct=round(current_pct, 2))
-        snapshot = FundingMilestoneSnapshot(
-            event_id=event.id,
-            milestone_percent=pct,
-        )
-        db.add(snapshot)
-        await db.flush()
-        await db.refresh(snapshot)
-        for uid in pledger_ids:
-            db.add(FundingMilestoneUser(snapshot_id=snapshot.id, user_id=uid))
-        await db.flush()
+        await funding_repo.create_milestone_snapshot(db, event.id, pct, pledger_ids)
 
 
 async def refund_all_pledges_for_event(db: AsyncSession, *, event_id: int, guest_refund: bool = True) -> int:
     """When an event is cancelled, mark all pledged fundings as refunded. Returns count."""
     log_step(logger, "Refunding all pledges for event", event_id=event_id, guest_refund=guest_refund)
-    from sqlalchemy import update
-    conditions = [
-        Funding.event_id == event_id,
-        Funding.status == FundingStatus.pledged,
-    ]
-    if not guest_refund:
-        conditions.append(Funding.is_guest == False)  # noqa: E712
-    await db.execute(
-        update(Funding).where(*conditions).values(status=FundingStatus.refund_processing)
-    )
-    result = await db.execute(
-        update(Funding)
-        .where(Funding.event_id == event_id, Funding.status == FundingStatus.refund_processing)
-        .values(status=FundingStatus.refunded)
-    )
-    count = result.rowcount or 0
+    count = await funding_repo.bulk_refund_event(db, event_id, guest_refund=guest_refund)
     logger.info("Refund all pledges completed", extra={"event_id": event_id, "count": count})
     return count
 
@@ -474,26 +353,7 @@ async def refund_pledges_for_user_event(
 ) -> int:
     """Mark all pledged fundings for this user+event as refunded. Returns count."""
     log_step(logger, "Refunding pledges for user", event_id=event_id, user_id=user_id)
-    from sqlalchemy import update
-    await db.execute(
-        update(Funding)
-        .where(Funding.event_id == event_id, Funding.user_id == user_id, Funding.status == FundingStatus.pledged)
-        .values(status=FundingStatus.refund_processing)
-    )
-    result = await db.execute(
-        update(Funding)
-        .where(Funding.event_id == event_id, Funding.user_id == user_id, Funding.status == FundingStatus.refund_processing)
-        .values(status=FundingStatus.refunded)
-    )
-    return result.rowcount or 0
-
-
-_MY_PLEDGES_SORT = {
-    "newest": Funding.created_at.desc(),
-    "oldest": Funding.created_at.asc(),
-    "amount_high": Funding.amount_cents.desc(),
-    "amount_low": Funding.amount_cents.asc(),
-}
+    return await funding_repo.bulk_refund_user_event(db, event_id, user_id)
 
 
 async def list_pledges_by_user(
@@ -505,16 +365,7 @@ async def list_pledges_by_user(
     sort_by: str = "newest",
 ) -> Sequence[Funding]:
     """List all pledges for a user."""
-    q = (
-        select(Funding)
-        .where(Funding.user_id == user_id)
-        .options(selectinload(Funding.event))
-        .order_by(_MY_PLEDGES_SORT.get(sort_by, Funding.created_at.desc()))
-        .offset(offset)
-        .limit(limit)
-    )
-    result = await db.execute(q)
-    return result.scalars().unique().all()
+    return await funding_repo.list_by_user(db, user_id, offset=offset, limit=limit, sort_by=sort_by)
 
 
 async def list_organizer_pledges(
@@ -529,38 +380,16 @@ async def list_organizer_pledges(
     limit: int = 20,
 ) -> Sequence[Funding]:
     """List all pledges made to events owned by organizer_id."""
-    from app.models.event import Event
-    from app.models.event import EventStatus
-    conditions = [Event.organizer_id == organizer_id]
-    if event_status:
-        try:
-            conditions.append(Event.status == EventStatus(event_status))
-        except ValueError:
-            pass
-    if genre:
-        conditions.append(Event.genre == genre)
-    if event_id:
-        conditions.append(Event.id == event_id)
-    if status_filter and status_filter != "all":
-        if status_filter == "donation":
-            conditions.append(Funding.is_guest == True)  # noqa: E712
-        else:
-            conditions.append(Funding.status == status_filter)
-            conditions.append(Funding.is_guest == False)  # noqa: E712
-    q = (
-        select(Funding)
-        .join(Event, Funding.event_id == Event.id)
-        .where(*conditions)
-        .options(
-            selectinload(Funding.event),
-            selectinload(Funding.user),
-        )
-        .order_by(Funding.created_at.desc())
-        .offset(offset)
-        .limit(limit)
+    return await funding_repo.list_organizer_pledges(
+        db,
+        organizer_id=organizer_id,
+        status_filter=status_filter,
+        event_status=event_status,
+        genre=genre,
+        event_id=event_id,
+        offset=offset,
+        limit=limit,
     )
-    result = await db.execute(q)
-    return list(result.scalars().unique().all())
 
 
 async def list_all_pledges_for_admin(
@@ -573,40 +402,14 @@ async def list_all_pledges_for_admin(
     is_donation: bool | None = None,
 ) -> tuple[Sequence[Funding], int]:
     """List fundings across events for admin, optionally filtered by status/donation. Returns (items, total)."""
-    from app.models.event import Event
-    from sqlalchemy import or_ as sql_or
-    base = (
-        select(Funding)
-        .join(Event, Funding.event_id == Event.id)
+    return await funding_repo.list_all_admin(
+        db,
+        offset=offset,
+        limit=limit,
+        search=search,
+        status=status,
+        is_donation=is_donation,
     )
-    if status:
-        try:
-            base = base.where(Funding.status == FundingStatus(status))
-        except ValueError:
-            pass
-    if is_donation is True:
-        base = base.where(Funding.is_guest == True)  # noqa: E712
-    elif is_donation is False:
-        base = base.where(Funding.is_guest == False)  # noqa: E712
-    if search:
-        pattern = f"%{search}%"
-        base = base.outerjoin(User, Funding.user_id == User.id).where(
-            sql_or(Event.title.ilike(pattern), User.display_name.ilike(pattern))
-        )
-    count_q = select(func.count()).select_from(base.subquery())
-    total = (await db.execute(count_q)).scalar_one()
-    q = (
-        base
-        .options(
-            selectinload(Funding.event),
-            selectinload(Funding.user),
-        )
-        .order_by(Funding.created_at.desc())
-        .offset(offset)
-        .limit(limit)
-    )
-    result = await db.execute(q)
-    return list(result.scalars().unique().all()), int(total)
 
 
 async def refund_pledge_by_id(
@@ -617,22 +420,4 @@ async def refund_pledge_by_id(
     Idempotent: returns 1 if the pledge is already refunded or in refund_processing.
     """
     log_step(logger, "Refunding pledge by id", event_id=event_id, funding_id=funding_id)
-    existing = (await db.execute(
-        select(Funding).where(Funding.id == funding_id, Funding.event_id == event_id)
-    )).scalar_one_or_none()
-    if not existing:
-        return 0
-    if existing.status in (FundingStatus.refunded, FundingStatus.refund_processing):
-        return 1
-
-    from sqlalchemy import update
-    result = await db.execute(
-        update(Funding)
-        .where(
-            Funding.id == funding_id,
-            Funding.event_id == event_id,
-            Funding.status == FundingStatus.pledged,
-        )
-        .values(status=FundingStatus.refunded)
-    )
-    return result.rowcount or 0
+    return await funding_repo.refund_single(db, funding_id, event_id)

@@ -3,9 +3,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
-import '../../lib/services/api_service.dart';
+import '../../lib/models/ticket.dart';
+import '../../lib/repositories/base_repository.dart';
+import '../../lib/repositories/ticket_repository.dart';
 import '../../lib/widgets/tickets_bottom_sheet.dart';
-import '../helpers/mock_api_service.dart';
+import '../helpers/mock_ticket_repository.dart';
 import '../helpers/pump_app.dart';
 
 Map<String, dynamic> _ticketJson({
@@ -37,10 +39,10 @@ Map<String, dynamic> _ticketJson({
     };
 
 void main() {
-  late MockApiService mockApi;
+  late MockTicketRepository mockTicketRepo;
 
   setUp(() {
-    mockApi = MockApiService();
+    mockTicketRepo = MockTicketRepository();
   });
 
   Future<void> pumpSheet(WidgetTester tester) async {
@@ -54,8 +56,8 @@ void main() {
               context: ctx,
               isScrollControlled: true,
               backgroundColor: Colors.transparent,
-              builder: (_) => Provider<ApiService>.value(
-                value: mockApi,
+              builder: (_) => Provider<TicketRepository>.value(
+                value: mockTicketRepo,
                 child: const SizedBox(
                   height: 500,
                   child: TicketsBottomSheet(),
@@ -66,7 +68,7 @@ void main() {
           ),
         ),
       ),
-      overrides: [Provider<ApiService>.value(value: mockApi)],
+      overrides: [Provider<TicketRepository>.value(value: mockTicketRepo)],
     );
 
     await tester.tap(find.text('Open'));
@@ -75,11 +77,14 @@ void main() {
 
   group('TicketsBottomSheet', () {
     testWidgets('shows loading then renders ticket list', (tester) async {
-      when(() => mockApi.getMyTickets(offset: 0, limit: 100)).thenAnswer(
-        (_) async => [
-          _ticketJson(id: 1, eventTitle: 'Concert Night', eventStatus: 'selling_tickets'),
-          _ticketJson(id: 2, eventTitle: 'Jazz Fest', ticketCode: 'TKT-002', eventStatus: 'live'),
-        ],
+      when(() => mockTicketRepo.getMyTickets(offset: 0, limit: 100)).thenAnswer(
+        (_) async => PaginatedResult(
+          items: [
+            TicketSale.fromJson(_ticketJson(id: 1, eventTitle: 'Concert Night', eventStatus: 'selling_tickets')),
+            TicketSale.fromJson(_ticketJson(id: 2, eventTitle: 'Jazz Fest', ticketCode: 'TKT-002', eventStatus: 'live')),
+          ],
+          hasMore: false,
+        ),
       );
 
       await pumpSheet(tester);
@@ -91,8 +96,8 @@ void main() {
     });
 
     testWidgets('shows empty state when no tickets', (tester) async {
-      when(() => mockApi.getMyTickets(offset: 0, limit: 100))
-          .thenAnswer((_) async => []);
+      when(() => mockTicketRepo.getMyTickets(offset: 0, limit: 100))
+          .thenAnswer((_) async => PaginatedResult(items: <TicketSale>[], hasMore: false));
 
       await pumpSheet(tester);
 
@@ -101,12 +106,15 @@ void main() {
     });
 
     testWidgets('filters tickets by status — excludes non-purchased and non-active events', (tester) async {
-      when(() => mockApi.getMyTickets(offset: 0, limit: 100)).thenAnswer(
-        (_) async => [
-          _ticketJson(id: 1, eventTitle: 'Active', eventStatus: 'selling_tickets', status: 'purchased'),
-          _ticketJson(id: 2, eventTitle: 'Refunded', eventStatus: 'selling_tickets', status: 'refunded'),
-          _ticketJson(id: 3, eventTitle: 'Completed Event', eventStatus: 'completed', status: 'purchased'),
-        ],
+      when(() => mockTicketRepo.getMyTickets(offset: 0, limit: 100)).thenAnswer(
+        (_) async => PaginatedResult(
+          items: [
+            TicketSale.fromJson(_ticketJson(id: 1, eventTitle: 'Active', eventStatus: 'selling_tickets', status: 'purchased')),
+            TicketSale.fromJson(_ticketJson(id: 2, eventTitle: 'Refunded', eventStatus: 'selling_tickets', status: 'refunded')),
+            TicketSale.fromJson(_ticketJson(id: 3, eventTitle: 'Completed Event', eventStatus: 'completed', status: 'purchased')),
+          ],
+          hasMore: false,
+        ),
       );
 
       await pumpSheet(tester);
@@ -119,11 +127,14 @@ void main() {
     });
 
     testWidgets('search filters tickets by event title', (tester) async {
-      when(() => mockApi.getMyTickets(offset: 0, limit: 100)).thenAnswer(
-        (_) async => [
-          _ticketJson(id: 1, eventTitle: 'Rock Concert', eventStatus: 'live'),
-          _ticketJson(id: 2, eventTitle: 'Jazz Night', ticketCode: 'TKT-002', eventStatus: 'live'),
-        ],
+      when(() => mockTicketRepo.getMyTickets(offset: 0, limit: 100)).thenAnswer(
+        (_) async => PaginatedResult(
+          items: [
+            TicketSale.fromJson(_ticketJson(id: 1, eventTitle: 'Rock Concert', eventStatus: 'live')),
+            TicketSale.fromJson(_ticketJson(id: 2, eventTitle: 'Jazz Night', ticketCode: 'TKT-002', eventStatus: 'live')),
+          ],
+          hasMore: false,
+        ),
       );
 
       await pumpSheet(tester);
@@ -140,11 +151,14 @@ void main() {
     });
 
     testWidgets('search filters by ticket code', (tester) async {
-      when(() => mockApi.getMyTickets(offset: 0, limit: 100)).thenAnswer(
-        (_) async => [
-          _ticketJson(id: 1, eventTitle: 'Event A', ticketCode: 'ABC-123', eventStatus: 'live'),
-          _ticketJson(id: 2, eventTitle: 'Event B', ticketCode: 'XYZ-999', eventStatus: 'live'),
-        ],
+      when(() => mockTicketRepo.getMyTickets(offset: 0, limit: 100)).thenAnswer(
+        (_) async => PaginatedResult(
+          items: [
+            TicketSale.fromJson(_ticketJson(id: 1, eventTitle: 'Event A', ticketCode: 'ABC-123', eventStatus: 'live')),
+            TicketSale.fromJson(_ticketJson(id: 2, eventTitle: 'Event B', ticketCode: 'XYZ-999', eventStatus: 'live')),
+          ],
+          hasMore: false,
+        ),
       );
 
       await pumpSheet(tester);
@@ -157,10 +171,13 @@ void main() {
     });
 
     testWidgets('shows "No matches" when search yields no results', (tester) async {
-      when(() => mockApi.getMyTickets(offset: 0, limit: 100)).thenAnswer(
-        (_) async => [
-          _ticketJson(id: 1, eventTitle: 'Concert', eventStatus: 'live'),
-        ],
+      when(() => mockTicketRepo.getMyTickets(offset: 0, limit: 100)).thenAnswer(
+        (_) async => PaginatedResult(
+          items: [
+            TicketSale.fromJson(_ticketJson(id: 1, eventTitle: 'Concert', eventStatus: 'live')),
+          ],
+          hasMore: false,
+        ),
       );
 
       await pumpSheet(tester);
@@ -173,7 +190,7 @@ void main() {
     });
 
     testWidgets('handles API error gracefully', (tester) async {
-      when(() => mockApi.getMyTickets(offset: 0, limit: 100))
+      when(() => mockTicketRepo.getMyTickets(offset: 0, limit: 100))
           .thenThrow(Exception('Network error'));
 
       await pumpSheet(tester);
@@ -183,10 +200,13 @@ void main() {
     });
 
     testWidgets('displays tier name and receipt number', (tester) async {
-      when(() => mockApi.getMyTickets(offset: 0, limit: 100)).thenAnswer(
-        (_) async => [
-          _ticketJson(tierName: 'VIP', receiptNumber: 'REC-VIP-42', eventStatus: 'live'),
-        ],
+      when(() => mockTicketRepo.getMyTickets(offset: 0, limit: 100)).thenAnswer(
+        (_) async => PaginatedResult(
+          items: [
+            TicketSale.fromJson(_ticketJson(tierName: 'VIP', receiptNumber: 'REC-VIP-42', eventStatus: 'live')),
+          ],
+          hasMore: false,
+        ),
       );
 
       await pumpSheet(tester);

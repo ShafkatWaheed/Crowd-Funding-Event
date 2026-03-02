@@ -635,28 +635,118 @@ Each domain follows the same 4-step pattern:
 
 ## Migration Strategy (per domain)
 
-Each domain follows this safe incremental pattern:
+Each domain follows this safe incremental pattern — **only run tests for the phase you changed**:
 
 ```
 Step A: Write/expand backend tests for this domain's endpoints
-         ↓  run pytest → all pass
+         ↓  run domain pytest → all pass
 Step B: Create backend repository (new file, nothing breaks)
-         ↓  run pytest → all pass
+         ↓  run domain pytest → all pass
 Step C: Refactor backend service to use repo (internal change, API unchanged)
-         ↓  run pytest → all pass (this is the critical check)
+         ↓  run domain pytest → all pass (this is the critical check)
 Step D: Create frontend repository (new file, nothing breaks)
-         ↓
+         ↓  dart analyze on new file → 0 issues
 Step E: Write frontend repo + provider tests
-         ↓  run flutter test → all pass
+         ↓  run domain flutter test → all pass
 Step F: Create/expand frontend provider
-         ↓  run flutter test → all pass
+         ↓  run domain flutter test → all pass
 Step G: Migrate screens one-by-one to use provider
-         ↓  run flutter test + dart analyze → all pass
+         ↓  run domain flutter test + dart analyze on changed files → all pass
 Step H: Delete migrated methods from ApiService (only after all callers removed)
-         ↓  run flutter test + grep for deleted methods → zero hits
+         ↓  run domain flutter test + grep for deleted methods → zero hits
 ```
 
 At every step the app compiles, runs, and tests pass. No big-bang switchover.
+
+### Per-Phase Test Commands
+
+**Phase 1 (Foundation):** New files only — no existing tests to run.
+```bash
+# Backend: just verify import works
+cd Backend && python -c "from app.repositories.base import BaseRepository; print('OK')"
+# Frontend: static analysis only
+cd FrontEnd && dart analyze lib/repositories/base_repository.dart
+```
+
+**Phase 2 (Funding/Pledges):**
+```bash
+# Backend
+cd Backend && RATELIMIT_STORAGE_URL=memory:// pytest tests/test_funding_coverage.py tests/test_funding_extended.py tests/test_phase5_domain_gaps.py tests/test_milestone_phase3.py tests/test_fund_escrow_phase2.py -v --tb=short
+
+# Frontend
+cd FrontEnd && flutter test test/models/funding_test.dart test/screens/my_pledges_screen_test.dart test/screens/funding_card_test.dart
+cd FrontEnd && dart analyze lib/repositories/funding_repository.dart lib/providers/pledge_provider.dart lib/screens/profile/my_pledges_screen.dart
+```
+
+**Phase 3 (Tickets):**
+```bash
+# Backend
+cd Backend && RATELIMIT_STORAGE_URL=memory:// pytest tests/test_ticket_pricing_coverage.py tests/test_ticket_services_coverage.py tests/test_tickets_extended.py tests/test_ticket_sales_phase3.py tests/test_phase5_ticket_sales.py tests/test_strategies.py tests/test_discounts.py -v --tb=short
+
+# Frontend
+cd FrontEnd && flutter test test/models/ticket_test.dart test/models/ticket_strategy_test.dart test/screens/my_tickets_screen_test.dart test/screens/ticket_scanner_screen_test.dart test/screens/ticket_tiers_section_test.dart test/screens/ticket_sales_screen_test.dart test/screens/waitlist_screen_test.dart
+cd FrontEnd && dart analyze lib/repositories/ticket_repository.dart lib/providers/ticket_provider.dart
+```
+
+**Phase 4 (Events):**
+```bash
+# Backend
+cd Backend && RATELIMIT_STORAGE_URL=memory:// pytest tests/test_events.py tests/test_events_public.py tests/test_event_crud_phase2.py tests/test_lifecycle.py tests/test_phase4b_event_support.py tests/test_images.py tests/test_posts.py tests/test_organizers.py -v --tb=short
+
+# Frontend
+cd FrontEnd && flutter test test/models/event_test.dart test/models/event_form_models_test.dart test/models/event_image_test.dart test/screens/event_detail_screen_test.dart test/screens/create_event_screen_test.dart test/screens/edit_event_screen_test.dart test/screens/home_screen_test.dart test/providers/event_provider_test.dart test/screens/organizer_dashboard_test.dart
+cd FrontEnd && dart analyze lib/repositories/event_repository.dart lib/providers/
+```
+
+**Phase 5 (Users & Auth):**
+```bash
+# Backend
+cd Backend && RATELIMIT_STORAGE_URL=memory:// pytest tests/test_auth.py tests/test_auth_extended.py tests/test_users.py tests/test_public_profiles.py -v --tb=short
+
+# Frontend
+cd FrontEnd && flutter test test/models/user_test.dart test/screens/login_screen_test.dart test/screens/register_screen_test.dart test/screens/profile_screen_test.dart test/providers/auth_provider_test.dart
+cd FrontEnd && dart analyze lib/repositories/user_repository.dart lib/providers/auth_provider.dart
+```
+
+**Phase 6 (Registration):**
+```bash
+# Backend
+cd Backend && RATELIMIT_STORAGE_URL=memory:// pytest tests/test_registration.py -v --tb=short
+
+# Frontend
+cd FrontEnd && flutter test test/screens/register_screen_test.dart
+cd FrontEnd && dart analyze lib/repositories/registration_repository.dart
+```
+
+**Phase 7 (Notifications):**
+```bash
+# Backend
+cd Backend && RATELIMIT_STORAGE_URL=memory:// pytest tests/test_notifications.py -v --tb=short
+
+# Frontend
+cd FrontEnd && flutter test test/providers/notification_provider_test.dart
+cd FrontEnd && dart analyze lib/repositories/notification_repository.dart lib/providers/notification_provider.dart
+```
+
+**Phase 8 (Sponsors):**
+```bash
+# Backend
+cd Backend && RATELIMIT_STORAGE_URL=memory:// pytest tests/test_sponsors.py tests/test_sponsors_coverage.py tests/test_sponsors_extended.py tests/test_sponsor_bids_phase3.py tests/test_sponsor_payments_coverage.py tests/test_sponsor_services_coverage.py tests/test_phase4a_sponsor.py tests/test_sponsor_escrow_coverage.py -v --tb=short
+
+# Frontend
+cd FrontEnd && flutter test test/models/sponsor_test.dart test/screens/sponsor_ticket_screen_test.dart test/screens/sponsor_dashboard_test.dart test/screens/sponsor_payment_receipt_test.dart test/screens/sponsor_category_templates_test.dart test/screens/sponsorship_categories_screen_test.dart test/screens/bid_management_test.dart test/screens/bid_chat_screen_test.dart
+cd FrontEnd && dart analyze lib/repositories/sponsor_repository.dart lib/providers/sponsor_provider.dart
+```
+
+**Phase 9 (Remaining — Admin, Venues, Bookmarks, Escrow, Dashboard):**
+```bash
+# Backend
+cd Backend && RATELIMIT_STORAGE_URL=memory:// pytest tests/test_admin_extended.py tests/test_phase5_push_admin.py tests/test_venues.py tests/test_escrow_coverage.py tests/test_escrow_extended_coverage.py tests/test_dashboard_milestone_coverage.py tests/test_map.py tests/test_banking.py tests/test_payment_gateway_coverage.py -v --tb=short
+
+# Frontend
+cd FrontEnd && flutter test test/models/venue_test.dart test/models/milestone_test.dart test/models/schedule_test.dart test/screens/venue_screens_test.dart test/screens/bookmarked_events_test.dart test/screens/admin_dashboard_test.dart test/screens/organizer_sponsors_screen_test.dart test/screens/manage_screens_test.dart test/screens/receipt_screens_test.dart
+cd FrontEnd && dart analyze lib/repositories/
+```
 
 ---
 
@@ -798,22 +888,29 @@ git checkout main && git merge refactor/phase-2-funding
 
 ## Verification
 
-After each phase:
+### Per-Phase: Run only the domain's tests
+
+After each phase, run **only the tests listed in "Per-Phase Test Commands" above** for that domain. Do NOT run the full test suite after every phase — it's slow and unnecessary. The domain tests catch regressions in the code you touched.
+
+Also check migration progress after each phase:
 ```bash
-# Backend — must never decrease from baseline
-cd Backend && pytest -v --tb=short
-
-# Frontend — must pass all tests + static analysis
-cd FrontEnd && flutter test && dart analyze lib/
-
 # Migration completeness — grep for old patterns
 grep -rc "context.read<ApiService>()" FrontEnd/lib/screens/ | grep -v ':0$' | wc -l   # starts at 80, decreases each phase
 grep -rc "db\.execute" Backend/app/services/ | grep -v ':0$' | wc -l                  # starts at 46 files, decreases each phase
 ```
 
-**Final (Phase 10):**
-- `grep -r "context.read<ApiService>()" FrontEnd/lib/` → zero matches
-- `grep -r "db\.execute" Backend/app/services/` → zero matches (all 368 moved to repos)
-- `pytest` → all backend tests pass (30+ files)
-- `flutter test` → all frontend tests pass (51+ files)
+### Final (Phase 10): Full test suite — the ONLY time we run everything
+
+```bash
+# Backend — full suite, must pass all tests
+cd Backend && RATELIMIT_STORAGE_URL=memory:// pytest -v --tb=short
+
+# Frontend — full suite + full static analysis
+cd FrontEnd && flutter test && dart analyze lib/
+
+# Zero old patterns remaining
+grep -r "context.read<ApiService>()" FrontEnd/lib/  # → zero matches
+grep -r "db\.execute" Backend/app/services/          # → zero matches (all 368 moved to repos)
+```
+
 - Manual smoke test: login → browse events → pledge → buy ticket → check profile lists

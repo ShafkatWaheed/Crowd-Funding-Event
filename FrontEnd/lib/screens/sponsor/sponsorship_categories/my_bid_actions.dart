@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
+import '../../../repositories/base_repository.dart';
+import '../../../repositories/sponsor_repository.dart';
 import '../../../services/api_service.dart';
 import '../../../widgets/app_toast.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
@@ -52,12 +54,12 @@ class _MyBidActionsState extends State<MyBidActions> {
     if (confirmed != true || !mounted) return;
     setState(() => _busy = true);
     try {
-      final api = context.read<ApiService>();
-      await api.withdrawBid(widget.eventId, widget.categoryId, _bidId);
+      final repo = context.read<SponsorRepository>();
+      await repo.withdrawBid(widget.eventId, widget.categoryId, _bidId);
       if (mounted) AppToast.success(context, 'Bid withdrawn');
       widget.onDone();
     } catch (e) {
-      if (mounted) AppToast.error(context, ApiService.extractError(e));
+      if (mounted) AppToast.error(context, ApiError.extractMessage(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -83,6 +85,7 @@ class _MyBidActionsState extends State<MyBidActions> {
     _showPaymentProcessing();
     try {
       final api = context.read<ApiService>();
+      final repo = context.read<SponsorRepository>();
 
       // Stripe Payment Sheet flow when Stripe is enabled
       if (api.isStripeEnabled) {
@@ -99,13 +102,13 @@ class _MyBidActionsState extends State<MyBidActions> {
         await Stripe.instance.presentPaymentSheet();
       }
 
-      await api.payBid(widget.eventId, widget.categoryId, _bidId);
+      await repo.payBid(widget.eventId, widget.categoryId, _bidId);
       _dismissPaymentProcessing();
       if (mounted) AppToast.success(context, 'Payment successful!');
       widget.onDone();
     } catch (e) {
       _dismissPaymentProcessing();
-      if (mounted) AppToast.error(context, ApiService.extractError(e));
+      if (mounted) AppToast.error(context, ApiError.extractMessage(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }

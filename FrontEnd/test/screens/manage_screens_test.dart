@@ -1,28 +1,32 @@
-import 'dart:async';
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
 import '../../lib/models/user.dart';
+import '../../lib/models/funding.dart';
+import '../../lib/models/ticket.dart';
 import '../../lib/providers/auth_provider.dart';
-import '../../lib/services/api_service.dart';
+import '../../lib/repositories/funding_repository.dart';
+import '../../lib/repositories/ticket_repository.dart';
+import '../../lib/repositories/base_repository.dart';
 import '../../lib/screens/manage/organizer_pledges_screen.dart';
 import '../../lib/screens/manage/global_ticket_sales_screen.dart';
 import '../../lib/screens/manage/global_refund_requests_screen.dart';
 import '../helpers/mock_providers.dart';
-import '../helpers/mock_api_service.dart';
+import '../helpers/mock_funding_repository.dart';
+import '../helpers/mock_ticket_repository.dart';
 import '../helpers/pump_app.dart';
 import '../helpers/fixtures.dart';
 
 void main() {
   late MockAuthProvider mockAuth;
-  late MockApiService mockApi;
+  late MockFundingRepository mockFundingRepo;
+  late MockTicketRepository mockTicketRepo;
 
   setUp(() {
     mockAuth = MockAuthProvider();
-    mockApi = MockApiService();
+    mockFundingRepo = MockFundingRepository();
+    mockTicketRepo = MockTicketRepository();
 
     when(() => mockAuth.user).thenReturn(makeUser(role: UserRole.organizer));
   });
@@ -34,20 +38,20 @@ void main() {
         const OrganizerPledgesScreen(),
         overrides: [
           ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
-          Provider<ApiService>.value(value: mockApi),
+          Provider<FundingRepository>.value(value: mockFundingRepo),
         ],
       );
     }
 
     testWidgets('shows title and status filter chips', (tester) async {
-      when(() => mockApi.getOrganizerPledges(
+      when(() => mockFundingRepo.getOrganizerPledges(
             status: any(named: 'status'),
             eventStatus: any(named: 'eventStatus'),
             genre: any(named: 'genre'),
             eventId: any(named: 'eventId'),
             offset: any(named: 'offset'),
             limit: any(named: 'limit'),
-          )).thenAnswer((_) async => []);
+          )).thenAnswer((_) async => PaginatedResult<Pledge>(items: [], hasMore: false));
 
       await pumpPledges(tester);
       await tester.pumpAndSettle();
@@ -59,14 +63,14 @@ void main() {
     });
 
     testWidgets('shows empty state when no pledges', (tester) async {
-      when(() => mockApi.getOrganizerPledges(
+      when(() => mockFundingRepo.getOrganizerPledges(
             status: any(named: 'status'),
             eventStatus: any(named: 'eventStatus'),
             genre: any(named: 'genre'),
             eventId: any(named: 'eventId'),
             offset: any(named: 'offset'),
             limit: any(named: 'limit'),
-          )).thenAnswer((_) async => []);
+          )).thenAnswer((_) async => PaginatedResult<Pledge>(items: [], hasMore: false));
 
       await pumpPledges(tester);
       await tester.pumpAndSettle();
@@ -82,20 +86,20 @@ void main() {
         GlobalTicketSalesScreen(scannedOnly: scannedOnly),
         overrides: [
           ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
-          Provider<ApiService>.value(value: mockApi),
+          Provider<TicketRepository>.value(value: mockTicketRepo),
         ],
       );
     }
 
     testWidgets('shows All Ticket Sales title by default', (tester) async {
-      when(() => mockApi.getOrganizerTicketSales(
+      when(() => mockTicketRepo.getOrganizerTicketSales(
             scannedOnly: any(named: 'scannedOnly'),
             eventStatus: any(named: 'eventStatus'),
             genre: any(named: 'genre'),
             eventId: any(named: 'eventId'),
             offset: any(named: 'offset'),
             limit: any(named: 'limit'),
-          )).thenAnswer((_) async => []);
+          )).thenAnswer((_) async => <TicketSale>[]);
 
       await pumpTicketSales(tester);
       await tester.pumpAndSettle();
@@ -104,14 +108,14 @@ void main() {
     });
 
     testWidgets('shows scanned-only title when scannedOnly is true', (tester) async {
-      when(() => mockApi.getOrganizerTicketSales(
+      when(() => mockTicketRepo.getOrganizerTicketSales(
             scannedOnly: any(named: 'scannedOnly'),
             eventStatus: any(named: 'eventStatus'),
             genre: any(named: 'genre'),
             eventId: any(named: 'eventId'),
             offset: any(named: 'offset'),
             limit: any(named: 'limit'),
-          )).thenAnswer((_) async => []);
+          )).thenAnswer((_) async => <TicketSale>[]);
 
       await pumpTicketSales(tester, scannedOnly: true);
       await tester.pumpAndSettle();
@@ -127,14 +131,17 @@ void main() {
         const GlobalRefundRequestsScreen(),
         overrides: [
           ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
-          Provider<ApiService>.value(value: mockApi),
+          Provider<TicketRepository>.value(value: mockTicketRepo),
         ],
       );
     }
 
     testWidgets('shows Refund Requests title', (tester) async {
-      when(() => mockApi.getOrganizerRefundRequests())
-          .thenAnswer((_) async => []);
+      when(() => mockTicketRepo.getOrganizerRefundRequests(
+            eventId: any(named: 'eventId'),
+            offset: any(named: 'offset'),
+            limit: any(named: 'limit'),
+          )).thenAnswer((_) async => <TicketSale>[]);
 
       await pumpRefundRequests(tester);
       await tester.pumpAndSettle();

@@ -6,13 +6,17 @@ import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
 import '../../lib/models/user.dart';
+import '../../lib/models/ticket.dart';
 import '../../lib/providers/auth_provider.dart';
 import '../../lib/services/api_service.dart';
 import '../../lib/services/sync_service.dart';
 import '../../lib/db/app_database.dart';
+import '../../lib/repositories/ticket_repository.dart';
+import '../../lib/repositories/base_repository.dart';
 import '../../lib/screens/profile/my_tickets_screen.dart';
 import '../helpers/mock_providers.dart';
 import '../helpers/mock_api_service.dart';
+import '../helpers/mock_ticket_repository.dart';
 import '../helpers/pump_app.dart';
 import '../helpers/fixtures.dart';
 
@@ -25,18 +29,23 @@ void main() {
   late MockApiService mockApi;
   late MockSyncService mockSync;
   late MockAppDatabase mockDb;
+  late MockTicketRepository mockTicketRepo;
 
   setUp(() {
     mockAuth = MockAuthProvider();
     mockApi = MockApiService();
     mockSync = MockSyncService();
     mockDb = MockAppDatabase();
+    mockTicketRepo = MockTicketRepository();
 
     // Default: logged-in customer
     when(() => mockAuth.user).thenReturn(makeUser(role: UserRole.customer));
 
     // Stub pullMyTickets (background sync, returns void)
     when(() => mockSync.pullMyTickets()).thenAnswer((_) async {});
+
+    // Stub offline cache (returns empty by default)
+    when(() => mockDb.getMyTicketsFromCache()).thenAnswer((_) async => <CachedMyTicket>[]);
   });
 
   /// Helper to pump MyTicketsScreen with injected providers.
@@ -49,34 +58,38 @@ void main() {
         Provider<ApiService>.value(value: mockApi),
         Provider<SyncService>.value(value: mockSync),
         Provider<AppDatabase>.value(value: mockDb),
+        Provider<TicketRepository>.value(value: mockTicketRepo),
       ],
     );
   }
 
   group('MyTicketsScreen', () {
     testWidgets('renders ticket list after load', (tester) async {
-      when(() => mockApi.getMyTickets(
+      when(() => mockTicketRepo.getMyTickets(
             offset: any(named: 'offset'),
             limit: any(named: 'limit'),
             sortBy: any(named: 'sortBy'),
-          )).thenAnswer((_) async => [
-            ticketSaleJson(
-              id: 1,
-              eventId: 10,
-              amountPaidCents: 5000,
-              tierName: 'General',
-              eventTitle: 'Rock Show',
-              ticketCode: 'TKT-AAA',
-            ),
-            ticketSaleJson(
-              id: 2,
-              eventId: 10,
-              amountPaidCents: 15000,
-              tierName: 'VIP',
-              eventTitle: 'Rock Show',
-              ticketCode: 'TKT-BBB',
-            ),
-          ]);
+          )).thenAnswer((_) async => PaginatedResult(
+            items: [
+              TicketSale.fromJson(ticketSaleJson(
+                id: 1,
+                eventId: 10,
+                amountPaidCents: 5000,
+                tierName: 'General',
+                eventTitle: 'Rock Show',
+                ticketCode: 'TKT-AAA',
+              )),
+              TicketSale.fromJson(ticketSaleJson(
+                id: 2,
+                eventId: 10,
+                amountPaidCents: 15000,
+                tierName: 'VIP',
+                eventTitle: 'Rock Show',
+                ticketCode: 'TKT-BBB',
+              )),
+            ],
+            hasMore: false,
+          ));
 
       await pumpMyTickets(tester);
       await tester.pumpAndSettle();
@@ -88,13 +101,14 @@ void main() {
     });
 
     testWidgets('sort chips exist', (tester) async {
-      when(() => mockApi.getMyTickets(
+      when(() => mockTicketRepo.getMyTickets(
             offset: any(named: 'offset'),
             limit: any(named: 'limit'),
             sortBy: any(named: 'sortBy'),
-          )).thenAnswer((_) async => [
-            ticketSaleJson(id: 1, eventTitle: 'Test'),
-          ]);
+          )).thenAnswer((_) async => PaginatedResult(
+            items: [TicketSale.fromJson(ticketSaleJson(id: 1, eventTitle: 'Test'))],
+            hasMore: false,
+          ));
 
       await pumpMyTickets(tester);
       await tester.pumpAndSettle();
@@ -106,11 +120,14 @@ void main() {
     });
 
     testWidgets('empty state message when no tickets', (tester) async {
-      when(() => mockApi.getMyTickets(
+      when(() => mockTicketRepo.getMyTickets(
             offset: any(named: 'offset'),
             limit: any(named: 'limit'),
             sortBy: any(named: 'sortBy'),
-          )).thenAnswer((_) async => []);
+          )).thenAnswer((_) async => PaginatedResult(
+            items: <TicketSale>[],
+            hasMore: false,
+          ));
 
       await pumpMyTickets(tester);
       await tester.pumpAndSettle();
@@ -121,8 +138,8 @@ void main() {
     });
 
     testWidgets('loading state shown initially', (tester) async {
-      final completer = Completer<List<Map<String, dynamic>>>();
-      when(() => mockApi.getMyTickets(
+      final completer = Completer<PaginatedResult<TicketSale>>();
+      when(() => mockTicketRepo.getMyTickets(
             offset: any(named: 'offset'),
             limit: any(named: 'limit'),
             sortBy: any(named: 'sortBy'),
@@ -136,22 +153,25 @@ void main() {
     });
 
     testWidgets('ticket card shows details', (tester) async {
-      when(() => mockApi.getMyTickets(
+      when(() => mockTicketRepo.getMyTickets(
             offset: any(named: 'offset'),
             limit: any(named: 'limit'),
             sortBy: any(named: 'sortBy'),
-          )).thenAnswer((_) async => [
-            ticketSaleJson(
-              id: 1,
-              eventId: 10,
-              amountPaidCents: 7500,
-              tierName: 'Premium',
-              eventTitle: 'Jazz Night',
-              ticketCode: 'TKT-XYZ',
-              receiptNumber: 'REC-TKT-XYZ',
-              status: 'purchased',
-            ),
-          ]);
+          )).thenAnswer((_) async => PaginatedResult(
+            items: [
+              TicketSale.fromJson(ticketSaleJson(
+                id: 1,
+                eventId: 10,
+                amountPaidCents: 7500,
+                tierName: 'Premium',
+                eventTitle: 'Jazz Night',
+                ticketCode: 'TKT-XYZ',
+                receiptNumber: 'REC-TKT-XYZ',
+                status: 'purchased',
+              )),
+            ],
+            hasMore: false,
+          ));
 
       await pumpMyTickets(tester);
       await tester.pumpAndSettle();

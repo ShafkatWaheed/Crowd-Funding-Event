@@ -5,16 +5,21 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
-import '../../lib/services/api_service.dart';
+import '../../lib/models/ticket.dart';
+import '../../lib/repositories/sponsor_repository.dart';
+import '../../lib/repositories/ticket_repository.dart';
 import '../../lib/screens/event/ticket_sales_screen.dart';
-import '../helpers/mock_api_service.dart';
+import '../helpers/mock_sponsor_repository.dart';
+import '../helpers/mock_ticket_repository.dart';
 import '../helpers/pump_app.dart';
 
 void main() {
-  late MockApiService mockApi;
+  late MockSponsorRepository mockSponsorRepo;
+  late MockTicketRepository mockTicketRepo;
 
   setUp(() {
-    mockApi = MockApiService();
+    mockSponsorRepo = MockSponsorRepository();
+    mockTicketRepo = MockTicketRepository();
   });
 
   Map<String, dynamic> saleJson({
@@ -32,35 +37,43 @@ void main() {
   }) =>
       {
         'id': id,
+        'event_id': 1,
         'user_id': userId,
+        'ticket_tier_id': 1,
+        'ticket_code': ticketCode,
         'attendee_display_name': attendee,
         'tier_name': tierName,
-        'ticket_code': ticketCode,
         'amount_paid_cents': amountPaidCents,
+        'discount_applied_cents': 0,
         'commission_cents': commissionCents,
         'net_to_organizer_cents': netToOrganizerCents,
+        'status': 'active',
         'scanned_at': scannedAt,
         'scanned_by_display_name': scannedBy,
         'created_at': createdAt,
       };
 
+  TicketSale makeSale(Map<String, dynamic> json) => TicketSale.fromJson(json);
+
   void stubSales({
-    List<dynamic>? sales,
+    List<Map<String, dynamic>>? sales,
     Map<String, dynamic>? stats,
     bool scannedOnly = false,
   }) {
+    final saleObjects = (sales ?? []).map(makeSale).toList();
+
     if (scannedOnly) {
-      when(() => mockApi.getScannedTickets(any(),
+      when(() => mockTicketRepo.getScannedTickets(any(),
               offset: any(named: 'offset'), limit: any(named: 'limit')))
-          .thenAnswer((_) async => sales ?? []);
-      when(() => mockApi.getScannedSponsorTickets(any()))
+          .thenAnswer((_) async => saleObjects);
+      when(() => mockSponsorRepo.getScannedSponsorTickets(any()))
           .thenAnswer((_) async => []);
     } else {
-      when(() => mockApi.getTicketSales(any(),
+      when(() => mockTicketRepo.getTicketSales(any(),
               offset: any(named: 'offset'), limit: any(named: 'limit')))
-          .thenAnswer((_) async => sales ?? []);
+          .thenAnswer((_) async => saleObjects);
     }
-    when(() => mockApi.getTicketSalesStats(any()))
+    when(() => mockTicketRepo.getTicketSalesStats(any()))
         .thenAnswer((_) async => stats ?? {'total_sold': 0, 'total_scanned': 0});
   }
 
@@ -72,18 +85,19 @@ void main() {
       tester,
       TicketSalesScreen(eventId: 1, scannedOnly: scannedOnly),
       overrides: [
-        Provider<ApiService>.value(value: mockApi),
+        Provider<SponsorRepository>.value(value: mockSponsorRepo),
+        Provider<TicketRepository>.value(value: mockTicketRepo),
       ],
     );
   }
 
   group('TicketSalesScreen — loading & error', () {
     testWidgets('shows shimmer while loading', (tester) async {
-      final completer = Completer<List<dynamic>>();
-      when(() => mockApi.getTicketSales(any(),
+      final completer = Completer<List<TicketSale>>();
+      when(() => mockTicketRepo.getTicketSales(any(),
               offset: any(named: 'offset'), limit: any(named: 'limit')))
           .thenAnswer((_) => completer.future);
-      when(() => mockApi.getTicketSalesStats(any()))
+      when(() => mockTicketRepo.getTicketSalesStats(any()))
           .thenAnswer((_) async => {'total_sold': 0, 'total_scanned': 0});
 
       await pumpSales(tester);
@@ -96,10 +110,10 @@ void main() {
     });
 
     testWidgets('shows error state with retry', (tester) async {
-      when(() => mockApi.getTicketSales(any(),
+      when(() => mockTicketRepo.getTicketSales(any(),
               offset: any(named: 'offset'), limit: any(named: 'limit')))
           .thenThrow(Exception('Network error'));
-      when(() => mockApi.getTicketSalesStats(any()))
+      when(() => mockTicketRepo.getTicketSalesStats(any()))
           .thenAnswer((_) async => {'total_sold': 0, 'total_scanned': 0});
 
       await pumpSales(tester);

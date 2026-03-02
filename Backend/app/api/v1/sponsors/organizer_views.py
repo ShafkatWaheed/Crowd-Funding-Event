@@ -4,14 +4,14 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, UploadFile, File
-from sqlalchemy import select
 
 from app.dependencies import DbSession, ReadDbSession, CurrentUser, require_feature
 from app.rate_limit import limiter, dynamic_limit
 from app.services.upload_validation import validate_upload
 from app.models.user import UserRole
 from app.models.prerequisite import CategoryPrerequisite, BidPrerequisiteUpload, UploadStatus
-from app.models.sponsor import SponsorBid, BidStatus
+from app.models.sponsor import BidStatus
+from app.repositories.sponsor_repo import sponsor_repo
 from app.services import sponsor as sponsor_svc
 from app.services import funding as funding_service
 from app.api.v1.events import _event_to_response, _get_first_images
@@ -133,9 +133,7 @@ async def create_prerequisite(
         is_required=is_required,
         requires_document=requires_document,
     )
-    db.add(prereq)
-    await db.flush()
-    await db.refresh(prereq)
+    prereq = await sponsor_repo.create_prerequisite(db, prereq)
     return {
         "id": prereq.id,
         "name": prereq.name,
@@ -152,8 +150,7 @@ async def list_prerequisites(
     db: ReadDbSession = None,
     current_user: CurrentUser = None,
 ):
-    q = select(CategoryPrerequisite).where(CategoryPrerequisite.category_id == cat_id)
-    items = (await db.execute(q)).scalars().all()
+    items = await sponsor_repo.list_prerequisites(db, cat_id)
     return [
         {"id": p.id, "name": p.name, "description": p.description, "is_required": p.is_required, "requires_document": p.requires_document}
         for p in items
@@ -170,13 +167,10 @@ async def delete_prerequisite(
 ):
     cat = await sponsor_svc._get_category(db, cat_id)
     await sponsor_svc._require_organizer(db, cat.event_id, current_user)
-    prereq = (await db.execute(
-        select(CategoryPrerequisite).where(CategoryPrerequisite.id == prereq_id)
-    )).scalar_one_or_none()
+    prereq = await sponsor_repo.get_prerequisite(db, prereq_id)
     if not prereq:
         raise HTTPException(status_code=404, detail="Prerequisite not found")
-    await db.delete(prereq)
-    await db.flush()
+    await sponsor_repo.delete_prerequisite(db, prereq)
 
 
 @router.post("/bids/{bid_id}/prerequisites/{prereq_id}/upload")
@@ -189,7 +183,7 @@ async def upload_prerequisite_document(
     db: DbSession = None,
     current_user: CurrentUser = None,
 ):
-    bid = (await db.execute(select(SponsorBid).where(SponsorBid.id == bid_id))).scalar_one_or_none()
+    bid = await sponsor_repo.get_bid(db, bid_id)
     if not bid or bid.sponsor_user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not your bid")
     content = await validate_upload(db, file, "document")
@@ -205,9 +199,7 @@ async def upload_prerequisite_document(
         prerequisite_id=prereq_id,
         file_url=f"/static/uploads/prerequisites/{filename}",
     )
-    db.add(upload)
-    await db.flush()
-    await db.refresh(upload)
+    upload = await sponsor_repo.create_prerequisite_upload(db, upload)
     return {"id": upload.id, "file_url": upload.file_url, "status": upload.status.value}
 
 
@@ -222,34 +214,15 @@ async def upload_category_prerequisite(
     db: DbSession = None,
     current_user: CurrentUser = None,
 ):
-    prereq = (await db.execute(
-        select(CategoryPrerequisite).where(
-            CategoryPrerequisite.id == prereq_id,
-            CategoryPrerequisite.category_id == cat_id,
-        )
-    )).scalar_one_or_none()
+    prereq = await sponsor_repo.get_prerequisite_for_category(db, prereq_id, cat_id)
     if not prereq:
         raise HTTPException(status_code=404, detail="Prerequisite not found")
-    bid = (await db.execute(
-        select(SponsorBid)
-        .where(
-            SponsorBid.category_id == cat_id,
-            SponsorBid.sponsor_user_id == current_user.id,
-            SponsorBid.status.notin_([BidStatus.rejected]),
-        )
-        .order_by(SponsorBid.created_at.desc())
-    )).scalars().first()
+    bid = await sponsor_repo.get_bid_for_category_by_sponsor(db, cat_id, current_user.id)
     if not bid:
         raise HTTPException(status_code=400, detail="You have no active bid for this category")
-    existing = (await db.execute(
-        select(BidPrerequisiteUpload).where(
-            BidPrerequisiteUpload.bid_id == bid.id,
-            BidPrerequisiteUpload.prerequisite_id == prereq_id,
-        )
-    )).scalar_one_or_none()
+    existing = await sponsor_repo.get_bid_prerequisite_upload(db, bid.id, prereq_id)
     if existing:
-        await db.delete(existing)
-        await db.flush()
+        await sponsor_repo.delete_prerequisite_upload(db, existing)
     content = await validate_upload(db, file, "document")
     upload_dir = "static/uploads/prerequisites"
     os.makedirs(upload_dir, exist_ok=True)
@@ -263,9 +236,7 @@ async def upload_category_prerequisite(
         prerequisite_id=prereq_id,
         file_url=f"/static/uploads/prerequisites/{filename}",
     )
-    db.add(upload)
-    await db.flush()
-    await db.refresh(upload)
+    upload = await sponsor_repo.create_prerequisite_upload(db, upload)
     return {"id": upload.id, "file_url": upload.file_url, "status": upload.status.value}
 
 
@@ -275,8 +246,7 @@ async def list_bid_prerequisite_uploads(
     db: ReadDbSession = None,
     current_user: CurrentUser = None,
 ):
-    q = select(BidPrerequisiteUpload).where(BidPrerequisiteUpload.bid_id == bid_id)
-    items = (await db.execute(q)).scalars().all()
+    items = await sponsor_repo.list_bid_prerequisite_uploads(db, bid_id)
     return [
         {
             "id": u.id,
@@ -300,24 +270,18 @@ async def review_prerequisite_upload(
     db: DbSession = None,
     current_user: CurrentUser = None,
 ):
-    bid = (await db.execute(select(SponsorBid).where(SponsorBid.id == bid_id))).scalar_one_or_none()
+    bid = await sponsor_repo.get_bid(db, bid_id)
     if not bid:
         raise HTTPException(status_code=404, detail="Bid not found")
     cat = await sponsor_svc._get_category(db, bid.category_id)
     await sponsor_svc._require_organizer(db, cat.event_id, current_user)
-    upload = (await db.execute(
-        select(BidPrerequisiteUpload).where(
-            BidPrerequisiteUpload.bid_id == bid_id,
-            BidPrerequisiteUpload.prerequisite_id == prereq_id,
-        )
-    )).scalar_one_or_none()
+    upload = await sponsor_repo.get_bid_prerequisite_upload(db, bid_id, prereq_id)
     if not upload:
         raise HTTPException(status_code=404, detail="Upload not found")
     upload.status = UploadStatus(status)
     upload.reviewed_at = datetime.now(timezone.utc)
     upload.reviewer_note = reviewer_note
-    await db.flush()
-    await db.refresh(upload)
+    upload = await sponsor_repo.update_prerequisite_upload(db, upload)
     return {"id": upload.id, "status": upload.status.value, "reviewer_note": upload.reviewer_note}
 
 

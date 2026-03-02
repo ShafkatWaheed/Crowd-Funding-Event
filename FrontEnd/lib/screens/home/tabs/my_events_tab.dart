@@ -7,7 +7,7 @@ import '../../../config/design_tokens.dart';
 import '../../../config/theme.dart';
 import '../../../models/event.dart';
 import '../../../providers/auth_provider.dart';
-import '../../../services/api_service.dart';
+import '../../../repositories/event_repository.dart';
 import '../../../widgets/animated_list_item.dart';
 import '../../../widgets/empty_state.dart';
 import '../../../widgets/event_card.dart';
@@ -73,8 +73,8 @@ class _MyEventsTabState extends State<MyEventsTab> {
       _myEventsHasMore = true;
     });
     try {
-      final api = context.read<ApiService>();
-      final data = await api.getMyEvents(offset: 0, limit: _myEventsPageSize, sortBy: _myEventsSortBy);
+      final repo = context.read<EventRepository>();
+      final data = await repo.getMyEvents(offset: 0, limit: _myEventsPageSize, sortBy: _myEventsSortBy);
       if (mounted) {
         final list = data.map((e) => Event.fromJson(e)).toList();
         setState(() {
@@ -96,8 +96,8 @@ class _MyEventsTabState extends State<MyEventsTab> {
   Future<void> _batchCheckBookmarks(List<int> eventIds) async {
     if (eventIds.isEmpty) return;
     try {
-      final api = context.read<ApiService>();
-      final res = await api.checkBookmarks(eventIds);
+      final repo = context.read<EventRepository>();
+      final res = await repo.checkBookmarks(eventIds);
       final ids = (res['bookmarked_ids'] as List?)?.cast<int>() ?? [];
       if (mounted) widget.onBookmarksSynced?.call(ids);
     } catch (e) { debugPrint(e.toString()); }
@@ -107,9 +107,9 @@ class _MyEventsTabState extends State<MyEventsTab> {
     if (_myEventsLoadingMore || !_myEventsHasMore) return;
     setState(() => _myEventsLoadingMore = true);
     try {
-      final api = context.read<ApiService>();
+      final repo = context.read<EventRepository>();
       final data =
-          await api.getMyEvents(offset: _myEvents.length, limit: _myEventsPageSize, sortBy: _myEventsSortBy);
+          await repo.getMyEvents(offset: _myEvents.length, limit: _myEventsPageSize, sortBy: _myEventsSortBy);
       if (mounted) {
         setState(() {
           _myEvents.addAll(data.map((e) => Event.fromJson(e)));

@@ -8,7 +8,7 @@ import '../../config/theme.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../providers/auth_provider.dart';
-import '../../services/api_service.dart';
+import '../../repositories/event_repository.dart';
 
 class CoOrganizerScreen extends StatefulWidget {
   final int eventId;
@@ -19,7 +19,7 @@ class CoOrganizerScreen extends StatefulWidget {
 }
 
 class _CoOrganizerScreenState extends State<CoOrganizerScreen> {
-  final _api = ApiService();
+  late final EventRepository _api = context.read<EventRepository>();
   List<Map<String, dynamic>> _organizers = [];
   bool _loading = true;
   bool _isMainOrganizer = false;

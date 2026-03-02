@@ -3,11 +3,10 @@ In-app notification endpoints + device token management for FCM push.
 """
 from fastapi import APIRouter, HTTPException, Query, Response
 from pydantic import BaseModel
-from sqlalchemy import select, delete as sa_delete
 
 from app.dependencies import CurrentUser, DbSession, ReadDbSession
 from app.logger import get_logger, log_step
-from app.models.device_token import DeviceToken
+from app.repositories.notification_repo import notification_repo
 from app.services import notification_service as notif_svc
 
 logger = get_logger("api.notifications")
@@ -94,15 +93,15 @@ async def register_device_token(
     """Register or update a device token for push notifications."""
     if body.platform not in ("android", "ios", "web"):
         raise HTTPException(status_code=400, detail="platform must be android, ios, or web")
-    existing = (await db.execute(
-        select(DeviceToken).where(DeviceToken.token == body.token)
-    )).scalar_one_or_none()
+    existing = await notification_repo.get_device_token(db, body.token)
     if existing:
         existing.user_id = current_user.id
         existing.platform = body.platform
+        await db.flush()
     else:
-        db.add(DeviceToken(user_id=current_user.id, token=body.token, platform=body.platform))
-    await db.flush()
+        await notification_repo.create_device_token(
+            db, user_id=current_user.id, token=body.token, platform=body.platform,
+        )
     return {"ok": True}
 
 
@@ -113,10 +112,5 @@ async def unregister_device_token(
     current_user: CurrentUser,
 ):
     """Remove a device token (e.g. on logout)."""
-    await db.execute(
-        sa_delete(DeviceToken).where(
-            DeviceToken.token == token,
-            DeviceToken.user_id == current_user.id,
-        )
-    )
+    await notification_repo.delete_device_token(db, current_user.id, token)
     return {"ok": True}

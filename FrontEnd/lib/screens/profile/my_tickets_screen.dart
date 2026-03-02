@@ -11,7 +11,8 @@ import '../../widgets/shimmer_loaders.dart';
 import '../../models/ticket.dart';
 import '../../providers/auth_provider.dart';
 import '../../db/app_database.dart';
-import '../../services/api_service.dart';
+import '../../repositories/ticket_repository.dart';
+import '../../repositories/base_repository.dart';
 import '../../services/sync_service.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/animated_list_item.dart';
@@ -81,12 +82,12 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
       _isOffline = false;
     });
     try {
-      final api = context.read<ApiService>();
-      final data = await api.getMyTickets(offset: 0, limit: _pageSize, sortBy: _sortBy);
+      final repo = context.read<TicketRepository>();
+      final result = await repo.getMyTickets(offset: 0, limit: _pageSize, sortBy: _sortBy);
       if (mounted) {
         setState(() {
-          _tickets = data.map((e) => TicketSale.fromJson(e)).toList();
-          _hasMore = data.length >= _pageSize;
+          _tickets = result.items;
+          _hasMore = result.hasMore;
           _loading = false;
         });
         // Background-cache tickets for offline use
@@ -97,7 +98,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
       await _loadFromCache();
       if (mounted && _tickets.isEmpty) {
         setState(() {
-          _error = ApiService.extractError(e, fallback: 'Failed to load tickets');
+          _error = ApiError.extractMessage(e, fallback: 'Failed to load tickets');
           _loading = false;
         });
       }
@@ -144,12 +145,12 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
     if (_loadingMore || !_hasMore) return;
     setState(() => _loadingMore = true);
     try {
-      final api = context.read<ApiService>();
-      final data = await api.getMyTickets(offset: _tickets.length, limit: _pageSize, sortBy: _sortBy);
+      final repo = context.read<TicketRepository>();
+      final result = await repo.getMyTickets(offset: _tickets.length, limit: _pageSize, sortBy: _sortBy);
       if (mounted) {
         setState(() {
-          _tickets.addAll(data.map((e) => TicketSale.fromJson(e)));
-          _hasMore = data.length >= _pageSize;
+          _tickets.addAll(result.items);
+          _hasMore = result.hasMore;
           _loadingMore = false;
         });
       }

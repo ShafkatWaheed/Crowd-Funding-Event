@@ -7,20 +7,20 @@ import 'package:provider/provider.dart';
 
 import '../../lib/models/user.dart';
 import '../../lib/providers/auth_provider.dart';
-import '../../lib/services/api_service.dart';
+import '../../lib/repositories/sponsor_repository.dart';
 import '../../lib/screens/sponsor/bid_management_screen.dart';
 import '../helpers/mock_providers.dart';
-import '../helpers/mock_api_service.dart';
+import '../helpers/mock_sponsor_repository.dart';
 import '../helpers/pump_app.dart';
 import '../helpers/fixtures.dart';
 
 void main() {
   late MockAuthProvider mockAuth;
-  late MockApiService mockApi;
+  late MockSponsorRepository mockSponsorRepo;
 
   setUp(() {
     mockAuth = MockAuthProvider();
-    mockApi = MockApiService();
+    mockSponsorRepo = MockSponsorRepository();
 
     when(() => mockAuth.user).thenReturn(makeUser(role: UserRole.organizer));
   });
@@ -37,7 +37,7 @@ void main() {
       ),
       overrides: [
         ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
-        Provider<ApiService>.value(value: mockApi),
+        Provider<SponsorRepository>.value(value: mockSponsorRepo),
       ],
     );
   }
@@ -45,7 +45,7 @@ void main() {
   group('BidManagementScreen', () {
     testWidgets('shows category name in AppBar', (tester) async {
       final bidsCompleter = Completer<List<dynamic>>();
-      when(() => mockApi.listBids(1, 1))
+      when(() => mockSponsorRepo.listBids(1, 1))
           .thenAnswer((_) => bidsCompleter.future);
 
       await pumpBidManagement(tester, categoryName: 'Gold Sponsor');
@@ -60,7 +60,7 @@ void main() {
 
     testWidgets('shows generic title when no category name', (tester) async {
       final bidsCompleter = Completer<List<dynamic>>();
-      when(() => mockApi.listBids(1, 1))
+      when(() => mockSponsorRepo.listBids(1, 1))
           .thenAnswer((_) => bidsCompleter.future);
 
       await pumpBidManagement(tester);
@@ -74,7 +74,7 @@ void main() {
     });
 
     testWidgets('shows empty state when no bids', (tester) async {
-      when(() => mockApi.listBids(1, 1))
+      when(() => mockSponsorRepo.listBids(1, 1))
           .thenAnswer((_) async => []);
 
       await pumpBidManagement(tester);

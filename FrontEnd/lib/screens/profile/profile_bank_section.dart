@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
 import '../../config/design_tokens.dart';
-import '../../services/api_service.dart';
+import '../../repositories/user_repository.dart';
 import '../../widgets/app_toast.dart';
 import 'profile_section_card.dart';
 
@@ -45,8 +45,8 @@ class _ProfileBankSectionState extends State<ProfileBankSection> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final api = context.read<ApiService>();
-      final data = await api.getBankAccount();
+      final userRepo = context.read<UserRepository>();
+      final data = await userRepo.getBankAccount();
       if (mounted) {
         final mode = data['mode'];
         if (mode == 'stripe_connect') {
@@ -88,7 +88,7 @@ class _ProfileBankSectionState extends State<ProfileBankSection> {
       return;
     }
     try {
-      await context.read<ApiService>().updateBankAccount({
+      await context.read<UserRepository>().updateBankAccount({
         'institution_number': _institutionCtrl.text.trim(),
         'transit_number': _transitCtrl.text.trim(),
         'account_number': _accountNumberCtrl.text.trim(),

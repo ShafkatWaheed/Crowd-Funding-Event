@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
 import '../../../config/design_tokens.dart';
-import '../../../services/api_service.dart';
+import '../../../repositories/ticket_repository.dart';
 import '../../../widgets/app_toast.dart';
 
 class EventDiscountDropdown extends StatefulWidget {
@@ -14,11 +15,12 @@ class EventDiscountDropdown extends StatefulWidget {
 }
 
 class _EventDiscountDropdownState extends State<EventDiscountDropdown> {
-  final _api = ApiService();
   List<Map<String, dynamic>> _allStrategies = [];
   List<Map<String, dynamic>> _attached = [];
   bool _loading = true;
   String _search = '';
+
+  TicketRepository get _ticketRepo => context.read<TicketRepository>();
 
   @override
   void initState() {
@@ -30,9 +32,9 @@ class _EventDiscountDropdownState extends State<EventDiscountDropdown> {
     if (!mounted) return;
     setState(() => _loading = true);
     try {
-      final all = await _api.getDiscountStrategies();
+      final all = await _ticketRepo.getDiscountStrategies();
       if (!mounted) return;
-      final attached = await _api.getEventDiscountStrategies(widget.eventId);
+      final attached = await _ticketRepo.getEventDiscountStrategies(widget.eventId);
       if (!mounted) return;
       _allStrategies = all.cast<Map<String, dynamic>>();
       _attached = attached.cast<Map<String, dynamic>>();
@@ -48,7 +50,7 @@ class _EventDiscountDropdownState extends State<EventDiscountDropdown> {
 
   Future<void> _attach(int id, {required bool autoApply}) async {
     try {
-      await _api.attachDiscountStrategy(widget.eventId, id, autoApply: autoApply);
+      await _ticketRepo.attachDiscountStrategy(widget.eventId, id, autoApply: autoApply);
       await _load();
     } catch (e) {
       if (mounted) {
@@ -59,7 +61,7 @@ class _EventDiscountDropdownState extends State<EventDiscountDropdown> {
 
   Future<void> _detach(int id) async {
     try {
-      await _api.detachDiscountStrategy(widget.eventId, id);
+      await _ticketRepo.detachDiscountStrategy(widget.eventId, id);
       await _load();
     } catch (e) {
       if (mounted) {

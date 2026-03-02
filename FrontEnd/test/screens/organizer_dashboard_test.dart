@@ -7,21 +7,21 @@ import 'package:provider/provider.dart';
 
 import '../../lib/models/user.dart';
 import '../../lib/providers/auth_provider.dart';
-import '../../lib/services/api_service.dart';
+import '../../lib/repositories/event_repository.dart';
 import '../../lib/screens/home/tabs/organizer_dashboard_tab.dart';
 import '../helpers/mock_providers.dart';
-import '../helpers/mock_api_service.dart';
+import '../helpers/mock_event_repository.dart';
 import '../helpers/pump_app.dart';
 import '../helpers/fixtures.dart';
 
 void main() {
   late MockAuthProvider mockAuth;
-  late MockApiService mockApi;
+  late MockEventRepository mockEventRepo;
   late Set<int> bookmarkedIds;
 
   setUp(() {
     mockAuth = MockAuthProvider();
-    mockApi = MockApiService();
+    mockEventRepo = MockEventRepository();
     bookmarkedIds = <int>{};
 
     // Default: logged-in organizer
@@ -61,13 +61,13 @@ void main() {
             eventJson(id: 1, title: 'Music Fest', totalPledgedCents: 100000),
           ],
         };
-    when(() => mockApi.getOrganizerDashboard(
+    when(() => mockEventRepo.getOrganizerDashboard(
           status: any(named: 'status'),
           eventId: any(named: 'eventId'),
           genre: any(named: 'genre'),
           period: any(named: 'period'),
         )).thenAnswer((_) async => data);
-    when(() => mockApi.getOrganizerTimeSeries(
+    when(() => mockEventRepo.getOrganizerTimeSeries(
           days: any(named: 'days'),
           status: any(named: 'status'),
           eventId: any(named: 'eventId'),
@@ -87,7 +87,7 @@ void main() {
       ),
       overrides: [
         ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
-        Provider<ApiService>.value(value: mockApi),
+        Provider<EventRepository>.value(value: mockEventRepo),
       ],
     );
   }
@@ -118,7 +118,7 @@ void main() {
       // Use completers to keep the futures pending without creating timers
       final dashCompleter = Completer<Map<String, dynamic>>();
 
-      when(() => mockApi.getOrganizerDashboard(
+      when(() => mockEventRepo.getOrganizerDashboard(
             status: any(named: 'status'),
             eventId: any(named: 'eventId'),
             genre: any(named: 'genre'),
@@ -134,7 +134,7 @@ void main() {
       expect(find.byType(CustomScrollView), findsOneWidget);
 
       // Complete with valid data and also stub time series for clean teardown
-      when(() => mockApi.getOrganizerTimeSeries(
+      when(() => mockEventRepo.getOrganizerTimeSeries(
             days: any(named: 'days'),
             status: any(named: 'status'),
             eventId: any(named: 'eventId'),

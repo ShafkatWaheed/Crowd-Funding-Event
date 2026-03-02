@@ -5,17 +5,14 @@ import secrets
 from datetime import datetime, timezone
 from typing import Sequence
 
-from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.logger import get_logger, log_step
 
 from app.core.exceptions import ConflictError, ForbiddenError, NotFoundError
-from app.models.event import Event
-from app.models.registration import Registration, RegistrationStatus
 from app.models.ticket import TicketSale, TicketSaleStatus
 from app.models.user import User
+from app.repositories.ticket_repo import ticket_repo
 from app.services import event as event_service
 
 from app.services.ticket.pricing import compute_ticket_price
@@ -52,15 +49,9 @@ async def purchase_ticket(
 
     tier = await get_tier_or_404(db, event_id=event_id, tier_id=tier_id)
 
-    from sqlalchemy import text
-    await db.execute(text("SELECT pg_advisory_xact_lock(:eid)"), {"eid": event_id})
+    await ticket_repo.advisory_lock(db, event_id)
 
-    reg_q = select(Registration).where(
-        Registration.event_id == event_id,
-        Registration.user_id == user.id,
-        Registration.status == RegistrationStatus.registered,
-    )
-    reg = (await db.execute(reg_q)).scalar_one_or_none()
+    reg = await ticket_repo.get_active_registration(db, event_id, user.id)
     if not reg:
         logger.warning("Ticket purchase rejected: not registered", extra={"event_id": event_id, "user_id": user.id})
         raise ConflictError("Only registered attendees can purchase tickets for this event")
@@ -83,11 +74,7 @@ async def purchase_ticket(
 
     from app.services import funding as funding_svc
 
-    purchased_count_q = select(func.count()).where(
-        TicketSale.event_id == event_id,
-        TicketSale.status == TicketSaleStatus.purchased,
-    )
-    purchased_count = int((await db.execute(purchased_count_q)).scalar_one())
+    purchased_count = await ticket_repo.count_purchased(db, event_id)
 
     total_reserved = await funding_svc.get_total_reserved_spots(db, event_id)
 
@@ -170,13 +157,9 @@ async def purchase_ticket(
             gateway_transaction_id=gateway_txn_id,
             gateway_auth_code=gateway_auth,
         )
-        db.add(sale)
-        await db.flush()
-        await db.refresh(sale)
+        sale = await ticket_repo.create_sale(db, sale)
 
-        sale.receipt_number = f"RCP-{now.strftime('%Y%m%d')}-{event_id}-{sale.id}"
-        await db.flush()
-        await db.refresh(sale)
+        await ticket_repo.set_receipt_number(db, sale, f"RCP-{now.strftime('%Y%m%d')}-{event_id}-{sale.id}")
         sales.append(sale)
 
     try:
@@ -193,17 +176,7 @@ async def purchase_ticket(
         pass
 
     sale_ids = [s.id for s in sales]
-    loaded_q = (
-        select(TicketSale)
-        .where(TicketSale.id.in_(sale_ids))
-        .options(
-            selectinload(TicketSale.event),
-            selectinload(TicketSale.ticket_tier),
-            selectinload(TicketSale.user),
-        )
-        .order_by(TicketSale.id.asc())
-    )
-    sales_result = list((await db.execute(loaded_q)).scalars().unique().all())
+    sales_result = await ticket_repo.load_sales_by_ids(db, sale_ids)
     purchased_count = sum(1 for s in sales_result if s.status == TicketSaleStatus.purchased)
     waitlisted_count = sum(1 for s in sales_result if s.status == TicketSaleStatus.waitlisted)
     logger.info("Ticket purchase completed", extra={"event_id": event_id, "user_id": user.id, "quantity": quantity, "purchased": purchased_count, "waitlisted": waitlisted_count})
@@ -214,17 +187,7 @@ async def get_purchase_group_tickets(
     db: AsyncSession, *, purchase_group_id: str, user_id: int | None = None
 ) -> list[TicketSale]:
     """Load all ticket sales in a purchase group with relationships."""
-    q = (
-        select(TicketSale)
-        .where(TicketSale.purchase_group_id == purchase_group_id)
-        .options(
-            selectinload(TicketSale.event),
-            selectinload(TicketSale.ticket_tier),
-            selectinload(TicketSale.user),
-        )
-        .order_by(TicketSale.id.asc())
-    )
-    sales = list((await db.execute(q)).scalars().unique().all())
+    sales = await ticket_repo.get_purchase_group_sales(db, purchase_group_id)
     if not sales:
         raise NotFoundError("PurchaseGroup", purchase_group_id)
     if user_id is not None and sales[0].user_id != user_id:
@@ -238,34 +201,13 @@ async def get_ticket_sold_counts_for_events(
     event_ids: list[int],
 ) -> dict[int, int]:
     """Return { event_id: tickets_sold_count } for each event."""
-    if not event_ids:
-        return {}
-    q = (
-        select(TicketSale.event_id, func.count().label("cnt"))
-        .where(
-            TicketSale.event_id.in_(event_ids),
-            TicketSale.status == TicketSaleStatus.purchased,
-        )
-        .group_by(TicketSale.event_id)
-    )
-    result = await db.execute(q)
-    return {int(row.event_id): int(row.cnt) for row in result.all()}
+    return await ticket_repo.get_sold_counts_for_events(db, event_ids)
 
 
 async def get_ticket_sales_stats(db: AsyncSession, *, event_id: int) -> dict:
     """Return total_sold and total_scanned counts for an event."""
-    sold_q = select(func.count()).where(
-        TicketSale.event_id == event_id,
-        TicketSale.status == TicketSaleStatus.purchased,
-    )
-    total_sold = int((await db.execute(sold_q)).scalar_one())
-
-    scanned_q = select(func.count()).where(
-        TicketSale.event_id == event_id,
-        TicketSale.status == TicketSaleStatus.purchased,
-        TicketSale.scanned_at.isnot(None),
-    )
-    total_scanned = int((await db.execute(scanned_q)).scalar_one())
+    total_sold = await ticket_repo.count_purchased(db, event_id)
+    total_scanned = await ticket_repo.count_scanned(db, event_id)
     return {"total_sold": total_sold, "total_scanned": total_scanned}
 
 
@@ -273,30 +215,12 @@ async def get_ticket_receipt(
     db: AsyncSession, *, sale_id: int, user_id: int | None = None
 ) -> TicketSale:
     """Load a single ticket sale with all relationships needed for a receipt."""
-    q = (
-        select(TicketSale)
-        .where(TicketSale.id == sale_id)
-        .options(
-            selectinload(TicketSale.event),
-            selectinload(TicketSale.ticket_tier),
-            selectinload(TicketSale.user),
-        )
-    )
-    sale = (await db.execute(q)).scalar_one_or_none()
+    sale = await ticket_repo.get_sale_with_relations(db, sale_id)
     if not sale:
         raise NotFoundError("TicketSale", sale_id)
     if user_id is not None and sale.user_id != user_id:
-        from app.core.exceptions import ForbiddenError as FE
-        raise FE("You can only view your own ticket receipts")
+        raise ForbiddenError("You can only view your own ticket receipts")
     return sale
-
-
-_MY_TICKETS_SORT = {
-    "newest": TicketSale.created_at.desc(),
-    "oldest": TicketSale.created_at.asc(),
-    "price_high": TicketSale.amount_paid_cents.desc(),
-    "price_low": TicketSale.amount_paid_cents.asc(),
-}
 
 
 async def list_my_tickets(
@@ -304,50 +228,16 @@ async def list_my_tickets(
     sort_by: str = "newest",
 ) -> Sequence[TicketSale]:
     """List ticket sales for a user (all statuses visible to customer)."""
-    q = (
-        select(TicketSale)
-        .where(
-            TicketSale.user_id == user_id,
-            TicketSale.status.in_([
-                TicketSaleStatus.purchased,
-                TicketSaleStatus.waitlisted,
-                TicketSaleStatus.refund_requested,
-                TicketSaleStatus.refund_processing,
-                TicketSaleStatus.refunded,
-                TicketSaleStatus.refund_failed,
-                TicketSaleStatus.cancelled,
-            ]),
-        )
-        .options(
-            selectinload(TicketSale.event),
-            selectinload(TicketSale.ticket_tier),
-            selectinload(TicketSale.user),
-        )
-        .order_by(_MY_TICKETS_SORT.get(sort_by, TicketSale.created_at.desc()))
-        .offset(offset)
-        .limit(limit)
+    return await ticket_repo.list_my_tickets(
+        db, user_id=user_id, offset=offset, limit=limit, sort_by=sort_by,
     )
-    res = await db.execute(q)
-    return list(res.scalars().unique().all())
 
 
 async def list_tickets_for_user_admin(
     db: AsyncSession, *, user_id: int, limit: int = 200,
 ) -> Sequence[TicketSale]:
     """List all ticket sales for a user (all statuses) for admin user detail."""
-    q = (
-        select(TicketSale)
-        .where(TicketSale.user_id == user_id)
-        .options(
-            selectinload(TicketSale.event),
-            selectinload(TicketSale.ticket_tier),
-            selectinload(TicketSale.user),
-        )
-        .order_by(TicketSale.created_at.desc())
-        .limit(limit)
-    )
-    res = await db.execute(q)
-    return list(res.scalars().unique().all())
+    return await ticket_repo.list_for_user_admin(db, user_id=user_id, limit=limit)
 
 
 async def list_event_ticket_sales(
@@ -355,20 +245,7 @@ async def list_event_ticket_sales(
 ) -> Sequence[TicketSale]:
     """List all ticket sales for an event (organizer/admin)."""
     await event_service.get_or_404(db, event_id)
-    q = (
-        select(TicketSale)
-        .where(TicketSale.event_id == event_id)
-        .options(
-            selectinload(TicketSale.user),
-            selectinload(TicketSale.ticket_tier),
-            selectinload(TicketSale.scanned_by),
-        )
-        .order_by(TicketSale.scanned_at.desc().nulls_last(), TicketSale.created_at.desc())
-        .offset(offset)
-        .limit(limit)
-    )
-    res = await db.execute(q)
-    return list(res.scalars().unique().all())
+    return await ticket_repo.list_event_sales(db, event_id=event_id, offset=offset, limit=limit)
 
 
 async def list_event_scanned_ticket_sales(
@@ -376,20 +253,7 @@ async def list_event_scanned_ticket_sales(
 ) -> Sequence[TicketSale]:
     """List only scanned ticket sales for an event."""
     await event_service.get_or_404(db, event_id)
-    q = (
-        select(TicketSale)
-        .where(TicketSale.event_id == event_id, TicketSale.scanned_at.isnot(None))
-        .options(
-            selectinload(TicketSale.user),
-            selectinload(TicketSale.ticket_tier),
-            selectinload(TicketSale.scanned_by),
-        )
-        .order_by(TicketSale.scanned_at.desc(), TicketSale.created_at.desc())
-        .offset(offset)
-        .limit(limit)
-    )
-    res = await db.execute(q)
-    return list(res.scalars().unique().all())
+    return await ticket_repo.list_event_scanned_sales(db, event_id=event_id, offset=offset, limit=limit)
 
 
 async def list_organizer_ticket_sales(
@@ -398,35 +262,11 @@ async def list_organizer_ticket_sales(
     event_id: int | None = None, offset: int = 0, limit: int = 20,
 ) -> Sequence[TicketSale]:
     """List all ticket sales across all events owned by organizer_id."""
-    conditions = [Event.organizer_id == organizer_id]
-    if scanned_only:
-        conditions.append(TicketSale.scanned_at.isnot(None))
-    if event_status:
-        from app.models.event import EventStatus
-        try:
-            conditions.append(Event.status == EventStatus(event_status))
-        except ValueError:
-            pass
-    if genre:
-        conditions.append(Event.genre == genre)
-    if event_id:
-        conditions.append(Event.id == event_id)
-    q = (
-        select(TicketSale)
-        .join(Event, TicketSale.event_id == Event.id)
-        .where(*conditions)
-        .options(
-            selectinload(TicketSale.event),
-            selectinload(TicketSale.user),
-            selectinload(TicketSale.ticket_tier),
-            selectinload(TicketSale.scanned_by),
-        )
-        .order_by(TicketSale.created_at.desc())
-        .offset(offset)
-        .limit(limit)
+    return await ticket_repo.list_organizer_sales(
+        db, organizer_id=organizer_id, scanned_only=scanned_only,
+        event_status=event_status, genre=genre, event_id=event_id,
+        offset=offset, limit=limit,
     )
-    res = await db.execute(q)
-    return list(res.scalars().unique().all())
 
 
 async def list_organizer_refund_requests(
@@ -435,27 +275,9 @@ async def list_organizer_refund_requests(
     offset: int = 0, limit: int = 20,
 ) -> Sequence[TicketSale]:
     """List all pending refund requests across all events owned by organizer_id."""
-    conditions = [
-        Event.organizer_id == organizer_id,
-        TicketSale.status == TicketSaleStatus.refund_requested,
-    ]
-    if event_id:
-        conditions.append(Event.id == event_id)
-    q = (
-        select(TicketSale)
-        .join(Event, TicketSale.event_id == Event.id)
-        .where(*conditions)
-        .options(
-            selectinload(TicketSale.event),
-            selectinload(TicketSale.user),
-            selectinload(TicketSale.ticket_tier),
-        )
-        .order_by(TicketSale.created_at.desc())
-        .offset(offset)
-        .limit(limit)
+    return await ticket_repo.list_organizer_refund_requests(
+        db, organizer_id=organizer_id, event_id=event_id, offset=offset, limit=limit,
     )
-    res = await db.execute(q)
-    return list(res.scalars().unique().all())
 
 
 async def list_all_ticket_sales_for_admin(
@@ -467,53 +289,15 @@ async def list_all_ticket_sales_for_admin(
     status: str | None = None,
 ) -> tuple[Sequence[TicketSale], int]:
     """List ticket sales for admin, optionally filtered by status. Returns (items, total)."""
-    from sqlalchemy import or_ as sql_or
-    base = (
-        select(TicketSale)
-        .join(Event, TicketSale.event_id == Event.id)
+    return await ticket_repo.list_all_for_admin(
+        db, offset=offset, limit=limit, search=search, status=status,
     )
-    if status:
-        try:
-            base = base.where(TicketSale.status == TicketSaleStatus(status))
-        except ValueError:
-            pass
-    if search:
-        pattern = f"%{search}%"
-        base = base.outerjoin(User, TicketSale.user_id == User.id).where(
-            sql_or(Event.title.ilike(pattern), User.display_name.ilike(pattern))
-        )
-    count_q = select(func.count()).select_from(base.subquery())
-    total = (await db.execute(count_q)).scalar_one()
-    q = (
-        base
-        .options(
-            selectinload(TicketSale.event),
-            selectinload(TicketSale.user),
-            selectinload(TicketSale.ticket_tier),
-        )
-        .order_by(TicketSale.created_at.desc())
-        .offset(offset)
-        .limit(limit)
-    )
-    res = await db.execute(q)
-    return list(res.scalars().unique().all()), int(total)
 
 
 async def list_event_waitlisted_tickets(db: AsyncSession, *, event_id: int) -> Sequence[TicketSale]:
     """List waitlisted ticket sales for an event."""
     await event_service.get_or_404(db, event_id)
-    q = (
-        select(TicketSale)
-        .where(TicketSale.event_id == event_id, TicketSale.status == TicketSaleStatus.waitlisted)
-        .options(
-            selectinload(TicketSale.user),
-            selectinload(TicketSale.ticket_tier),
-            selectinload(TicketSale.scanned_by),
-        )
-        .order_by(TicketSale.created_at.asc())
-    )
-    res = await db.execute(q)
-    return list(res.scalars().unique().all())
+    return await ticket_repo.list_event_waitlisted(db, event_id=event_id)
 
 
 async def approve_waitlisted_ticket(
@@ -525,23 +309,14 @@ async def approve_waitlisted_ticket(
     if not await _can_manage_event_tickets(db, user, event):
         raise ForbiddenError("Only the event organizer or admin can approve waitlisted tickets")
 
-    q = select(TicketSale).where(
-        TicketSale.id == ticket_sale_id, TicketSale.event_id == event_id,
-    ).options(
-        selectinload(TicketSale.user),
-        selectinload(TicketSale.ticket_tier),
-        selectinload(TicketSale.event),
-    )
-    sale = (await db.execute(q)).scalar_one_or_none()
+    sale = await ticket_repo.get_sale_for_event(db, ticket_sale_id, event_id)
     if not sale:
         raise NotFoundError("TicketSale", ticket_sale_id)
     if sale.status != TicketSaleStatus.waitlisted:
         logger.warning("Approve waitlist rejected: not waitlisted", extra={"event_id": event_id, "ticket_sale_id": ticket_sale_id})
         raise ConflictError("Only waitlisted tickets can be approved")
 
-    sale.status = TicketSaleStatus.purchased
-    await db.flush()
-    await db.refresh(sale)
+    await ticket_repo.update_sale_status(db, sale, TicketSaleStatus.purchased)
     logger.info("Waitlisted ticket approved", extra={"event_id": event_id, "ticket_sale_id": ticket_sale_id})
     return sale
 
@@ -555,23 +330,14 @@ async def reject_waitlisted_ticket(
     if not await _can_manage_event_tickets(db, user, event):
         raise ForbiddenError("Only the event organizer or admin can reject waitlisted tickets")
 
-    q = select(TicketSale).where(
-        TicketSale.id == ticket_sale_id, TicketSale.event_id == event_id,
-    ).options(
-        selectinload(TicketSale.user),
-        selectinload(TicketSale.ticket_tier),
-        selectinload(TicketSale.event),
-    )
-    sale = (await db.execute(q)).scalar_one_or_none()
+    sale = await ticket_repo.get_sale_for_event(db, ticket_sale_id, event_id)
     if not sale:
         raise NotFoundError("TicketSale", ticket_sale_id)
     if sale.status != TicketSaleStatus.waitlisted:
         logger.warning("Reject waitlist failed: not waitlisted", extra={"event_id": event_id, "ticket_sale_id": ticket_sale_id})
         raise ConflictError("Only waitlisted tickets can be rejected")
 
-    sale.status = TicketSaleStatus.cancelled
-    await db.flush()
-    await db.refresh(sale)
+    await ticket_repo.update_sale_status(db, sale, TicketSaleStatus.cancelled)
     return sale
 
 
@@ -580,16 +346,7 @@ async def request_refund(
 ) -> TicketSale:
     """Customer requests a refund for a purchased ticket."""
     log_step(logger, "Requesting ticket refund", event_id=event_id, ticket_sale_id=ticket_sale_id, user_id=user.id)
-    q = select(TicketSale).where(
-        TicketSale.id == ticket_sale_id,
-        TicketSale.event_id == event_id,
-        TicketSale.user_id == user.id,
-    ).options(
-        selectinload(TicketSale.user),
-        selectinload(TicketSale.ticket_tier),
-        selectinload(TicketSale.event),
-    )
-    sale = (await db.execute(q)).scalar_one_or_none()
+    sale = await ticket_repo.get_sale_for_user(db, ticket_sale_id, event_id, user.id)
     if not sale:
         raise NotFoundError("TicketSale", ticket_sale_id)
     if sale.status in (
@@ -605,9 +362,7 @@ async def request_refund(
         logger.warning("Refund request rejected: already scanned", extra={"event_id": event_id, "ticket_sale_id": ticket_sale_id})
         raise ConflictError("Scanned tickets cannot be refunded")
 
-    sale.status = TicketSaleStatus.refund_requested
-    await db.flush()
-    await db.refresh(sale)
+    await ticket_repo.update_sale_status(db, sale, TicketSaleStatus.refund_requested)
     return sale
 
 
@@ -620,15 +375,7 @@ async def approve_refund(
     if not await _can_manage_event_tickets(db, user, event):
         raise ForbiddenError("Only the event organizer or admin can approve refunds")
 
-    q = select(TicketSale).where(
-        TicketSale.id == ticket_sale_id,
-        TicketSale.event_id == event_id,
-    ).options(
-        selectinload(TicketSale.user),
-        selectinload(TicketSale.ticket_tier),
-        selectinload(TicketSale.event),
-    )
-    sale = (await db.execute(q)).scalar_one_or_none()
+    sale = await ticket_repo.get_sale_for_event(db, ticket_sale_id, event_id)
     if not sale:
         raise NotFoundError("TicketSale", ticket_sale_id)
     if sale.status in (TicketSaleStatus.refund_processing, TicketSaleStatus.refunded):
@@ -637,9 +384,7 @@ async def approve_refund(
         logger.warning("Approve refund rejected: wrong status", extra={"event_id": event_id, "ticket_sale_id": ticket_sale_id, "status": sale.status})
         raise ConflictError("Only refund-requested tickets can be approved")
 
-    sale.status = TicketSaleStatus.refund_processing
-    await db.flush()
-    await db.refresh(sale)
+    await ticket_repo.update_sale_status(db, sale, TicketSaleStatus.refund_processing)
 
     from app.worker.redis_pool import enqueue
     await enqueue("process_ticket_refund", sale.id)
@@ -655,23 +400,13 @@ async def reject_refund(
     if not await _can_manage_event_tickets(db, user, event):
         raise ForbiddenError("Only the event organizer or admin can reject refunds")
 
-    q = select(TicketSale).where(
-        TicketSale.id == ticket_sale_id,
-        TicketSale.event_id == event_id,
-    ).options(
-        selectinload(TicketSale.user),
-        selectinload(TicketSale.ticket_tier),
-        selectinload(TicketSale.event),
-    )
-    sale = (await db.execute(q)).scalar_one_or_none()
+    sale = await ticket_repo.get_sale_for_event(db, ticket_sale_id, event_id)
     if not sale:
         raise NotFoundError("TicketSale", ticket_sale_id)
     if sale.status != TicketSaleStatus.refund_requested:
         raise ConflictError("Only refund-requested tickets can be rejected")
 
-    sale.status = TicketSaleStatus.purchased
-    await db.flush()
-    await db.refresh(sale)
+    await ticket_repo.update_sale_status(db, sale, TicketSaleStatus.purchased)
     return sale
 
 
@@ -679,20 +414,7 @@ async def list_refund_requests(
     db: AsyncSession, *, event_id: int
 ) -> list[TicketSale]:
     """List all tickets with refund_requested status for an event."""
-    q = (
-        select(TicketSale)
-        .where(
-            TicketSale.event_id == event_id,
-            TicketSale.status == TicketSaleStatus.refund_requested,
-        )
-        .options(
-            selectinload(TicketSale.user),
-            selectinload(TicketSale.ticket_tier),
-            selectinload(TicketSale.event),
-        )
-        .order_by(TicketSale.created_at.desc())
-    )
-    return list((await db.execute(q)).scalars().all())
+    return await ticket_repo.list_refund_requests(db, event_id=event_id)
 
 
 async def refund_all_tickets_for_event(db: AsyncSession, *, event_id: int) -> int:
@@ -701,20 +423,7 @@ async def refund_all_tickets_for_event(db: AsyncSession, *, event_id: int) -> in
     Marks tickets as refund_processing, then enqueues ARQ tasks for actual refund.
     """
     log_step(logger, "Refunding all tickets for event", event_id=event_id)
-    from sqlalchemy import update
-    await db.execute(
-        update(TicketSale)
-        .where(TicketSale.event_id == event_id, TicketSale.status == TicketSaleStatus.purchased)
-        .values(status=TicketSaleStatus.refund_processing)
-    )
-    await db.flush()
-
-    ids = (await db.execute(
-        select(TicketSale.id).where(
-            TicketSale.event_id == event_id,
-            TicketSale.status == TicketSaleStatus.refund_processing,
-        )
-    )).scalars().all()
+    ids = await ticket_repo.bulk_mark_refund_processing(db, event_id)
 
     from app.worker.redis_pool import enqueue
     for tid in ids:
@@ -735,29 +444,13 @@ async def scan_ticket(
     event = await event_service.get_or_404(db, event_id)
     if not await _can_manage_event_tickets(db, scanned_by_user, event):
         raise ForbiddenError("Only the event organizer or admin can scan tickets")
-    q = (
-        select(TicketSale)
-        .where(
-            TicketSale.event_id == event_id,
-            TicketSale.ticket_code == ticket_code.strip(),
-            TicketSale.status == TicketSaleStatus.purchased,
-        )
-        .options(
-            selectinload(TicketSale.user),
-            selectinload(TicketSale.ticket_tier),
-            selectinload(TicketSale.event),
-        )
-    )
-    res = await db.execute(q)
-    sale = res.scalar_one_or_none()
+    sale = await ticket_repo.get_sale_by_code(db, event_id, ticket_code)
     if not sale:
         raise NotFoundError("Ticket", "code not found or invalid for this event")
     already_scanned = sale.scanned_at is not None
     if not already_scanned:
         now = datetime.now(timezone.utc)
-        sale.scanned_at = now
-        sale.scanned_by_id = scanned_by_user.id
-        await db.flush()
+        await ticket_repo.mark_scanned(db, sale, now, scanned_by_user.id)
         from app.services.event import record_customer_attendance
         await record_customer_attendance(
             db,
@@ -766,11 +459,5 @@ async def scan_ticket(
             event_id=event_id,
             scanned_at=now,
         )
-    q2 = select(TicketSale).where(TicketSale.id == sale.id).options(
-        selectinload(TicketSale.user),
-        selectinload(TicketSale.ticket_tier),
-        selectinload(TicketSale.event),
-        selectinload(TicketSale.scanned_by),
-    )
-    sale = (await db.execute(q2)).scalar_one()
+    sale = await ticket_repo.reload_with_scanned_by(db, sale.id)
     return sale, already_scanned

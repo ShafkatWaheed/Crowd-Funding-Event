@@ -10,17 +10,14 @@ from datetime import datetime, timezone
 
 from app.logger import get_logger
 
-from sqlalchemy import func, or_, select
-from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ConflictError
 from app.models.escrow import EscrowStatus, TicketEscrow
-from app.models.event import Event, EventStatus
-from app.models.ticket import TicketSale, TicketSaleStatus
-from app.models.user import User
+from app.models.event import EventStatus
 from app.services import escrow_base
 from app.services import platform_settings as settings_svc
+from app.repositories.escrow_repo import escrow_repo
 
 logger = get_logger("escrow")
 
@@ -28,36 +25,17 @@ _LABEL = "Ticket escrow"
 
 
 async def get_or_create(db: AsyncSession, *, event_id: int) -> TicketEscrow:
-    q = select(TicketEscrow).where(TicketEscrow.event_id == event_id)
-    escrow = (await db.execute(q)).scalar_one_or_none()
+    escrow = await escrow_repo.get_escrow_by_event(db, TicketEscrow, event_id)
     if escrow:
         return escrow
-    total = await _calc_total(db, event_id)
-    stmt = pg_insert(TicketEscrow).values(
-        event_id=event_id, total_held_cents=total,
-    ).on_conflict_do_nothing(index_elements=["event_id"])
-    await db.execute(stmt)
-    await db.flush()
-    return (await db.execute(q)).scalar_one()
-
-
-async def _calc_total(db: AsyncSession, event_id: int) -> int:
-    """Sum of net ticket revenue (amount_paid - commission) for purchased tickets."""
-    result = (await db.execute(
-        select(func.coalesce(
-            func.sum(TicketSale.amount_paid_cents - TicketSale.commission_cents), 0
-        )).where(
-            TicketSale.event_id == event_id,
-            TicketSale.status == TicketSaleStatus.purchased,
-        )
-    )).scalar_one()
-    return int(result)
+    total = await escrow_repo.calc_ticket_total(db, event_id)
+    return await escrow_repo.upsert_escrow(db, TicketEscrow, event_id=event_id, total_held_cents=total)
 
 
 async def refresh_total(db: AsyncSession, event_id: int) -> TicketEscrow:
     escrow = await get_or_create(db, event_id=event_id)
-    escrow.total_held_cents = await _calc_total(db, event_id)
-    await db.flush()
+    escrow.total_held_cents = await escrow_repo.calc_ticket_total(db, event_id)
+    await escrow_repo.flush(db)
     return escrow
 
 
@@ -114,7 +92,7 @@ async def list_all(
 
 async def check_and_release_stage1(db: AsyncSession, *, event_id: int) -> TicketEscrow | None:
     """Stage 1: event completed + N days grace period."""
-    event = (await db.execute(select(Event).where(Event.id == event_id))).scalar_one_or_none()
+    event = await escrow_repo.get_event_by_id(db, event_id)
     if not event or event.status != EventStatus.completed:
         return None
     escrow = await get_or_create(db, event_id=event_id)
@@ -145,7 +123,7 @@ async def check_and_release_stage1(db: AsyncSession, *, event_id: int) -> Ticket
 
 async def check_and_release_stage2(db: AsyncSession, *, event_id: int) -> TicketEscrow | None:
     """Stage 2: N days after event + refund rate below threshold."""
-    event = (await db.execute(select(Event).where(Event.id == event_id))).scalar_one_or_none()
+    event = await escrow_repo.get_event_by_id(db, event_id)
     if not event or event.status != EventStatus.completed:
         return None
     escrow = await get_or_create(db, event_id=event_id)
@@ -165,19 +143,7 @@ async def check_and_release_stage2(db: AsyncSession, *, event_id: int) -> Ticket
         return None
 
     max_rate = await settings_svc.get_int(db, "ticket_escrow_stage2_max_refund_rate")
-    total_sold = (await db.execute(
-        select(func.count()).select_from(TicketSale).where(
-            TicketSale.event_id == event_id,
-            TicketSale.status.in_([TicketSaleStatus.purchased, TicketSaleStatus.refunded,
-                                   TicketSaleStatus.refund_processing]),
-        )
-    )).scalar_one()
-    total_refunds = (await db.execute(
-        select(func.count()).select_from(TicketSale).where(
-            TicketSale.event_id == event_id,
-            TicketSale.status.in_([TicketSaleStatus.refunded, TicketSaleStatus.refund_processing]),
-        )
-    )).scalar_one()
+    total_sold, total_refunds = await escrow_repo.count_sold_and_refunded_tickets(db, event_id)
 
     if total_sold > 0:
         refund_rate = (total_refunds * 100) // total_sold
@@ -198,7 +164,7 @@ async def check_and_release_stage2(db: AsyncSession, *, event_id: int) -> Ticket
 
 async def check_and_release_stage3(db: AsyncSession, *, event_id: int) -> TicketEscrow | None:
     """Stage 3: N days after event + no open disputes."""
-    event = (await db.execute(select(Event).where(Event.id == event_id))).scalar_one_or_none()
+    event = await escrow_repo.get_event_by_id(db, event_id)
     if not event or event.status != EventStatus.completed:
         return None
     escrow = await get_or_create(db, event_id=event_id)
@@ -219,13 +185,7 @@ async def check_and_release_stage3(db: AsyncSession, *, event_id: int) -> Ticket
 
     require_no_disputes = await settings_svc.get_bool(db, "ticket_escrow_stage3_require_no_disputes")
     if require_no_disputes:
-        from app.models.dispute import Dispute, DisputeStatus
-        open_disputes = (await db.execute(
-            select(func.count()).select_from(Dispute).where(
-                Dispute.event_id == event_id,
-                Dispute.status.in_([DisputeStatus.open, DisputeStatus.evidence_submitted]),
-            )
-        )).scalar_one()
+        open_disputes = await escrow_repo.count_open_disputes(db, event_id)
         if open_disputes > 0:
             return None
 
@@ -247,10 +207,10 @@ async def check_and_release_stage3(db: AsyncSession, *, event_id: int) -> Ticket
 
 async def _check_bank_guard(db: AsyncSession, event_id: int, *, stage: int) -> bool:
     """Return True if organizer has a verified bank account, else notify and skip."""
-    organizer_id = await escrow_base.get_organizer_for_event(db, event_id)
+    organizer_id = await escrow_repo.get_organizer_for_event(db, event_id)
     if organizer_id is None:
         return False
-    if await escrow_base.organizer_has_verified_bank(db, organizer_id):
+    if await escrow_repo.organizer_has_verified_bank(db, organizer_id):
         return True
 
     from app.services import notification_service as notif_svc

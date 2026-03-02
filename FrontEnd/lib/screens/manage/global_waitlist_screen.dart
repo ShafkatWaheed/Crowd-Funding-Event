@@ -3,7 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
-import '../../services/api_service.dart';
+import '../../repositories/event_repository.dart';
+import '../../repositories/ticket_repository.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/shimmer_loaders.dart';
 
@@ -57,8 +58,9 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
       _error = null;
     });
     try {
-      final api = context.read<ApiService>();
-      final events = await api.getMyEvents();
+      final eventRepo = context.read<EventRepository>();
+      final ticketRepo = context.read<TicketRepository>();
+      final events = await eventRepo.getMyEvents();
 
       final List<Map<String, dynamic>> fundCombined = [];
       final List<Map<String, dynamic>> ticketCombined = [];
@@ -69,7 +71,7 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
 
         // Fund waitlist
         try {
-          final regs = await api.getRegistrations(eventId);
+          final regs = await eventRepo.getRegistrations(eventId);
           for (final r in regs) {
             if (r['status'] == 'waitlist') {
               fundCombined.add({
@@ -83,10 +85,10 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
 
         // Ticket waitlist
         try {
-          final tickets = await api.getWaitlistedTickets(eventId);
+          final tickets = await ticketRepo.getWaitlistedTickets(eventId);
           for (final t in tickets) {
             ticketCombined.add({
-              ...Map<String, dynamic>.from(t),
+              ...t.toJson(),
               '_event_title': eventTitle,
               '_event_id': eventId,
             });
@@ -122,7 +124,7 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
       _ticketFiltered = _ticketAll.where((t) {
         final event = (t['_event_title'] ?? '').toString().toLowerCase();
         final userId = '${t['user_id']}'.toLowerCase();
-        final tierName = (t['tier']?['name'] ?? '').toString().toLowerCase();
+        final tierName = (t['tier_name'] ?? '').toString().toLowerCase();
         return event.contains(q) || userId.contains(q) || tierName.contains(q);
       }).toList();
     }
@@ -132,8 +134,8 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
 
   Future<void> _decideFund(int eventId, int regId, String action) async {
     try {
-      final api = context.read<ApiService>();
-      await api.decideRegistration(eventId, regId, action);
+      final eventRepo = context.read<EventRepository>();
+      await eventRepo.decideRegistration(eventId, regId, action);
       if (mounted) {
         AppToast.success(context, action == 'approve'
             ? 'Registration approved!'
@@ -151,8 +153,8 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
 
   Future<void> _approveTicket(int eventId, int ticketId) async {
     try {
-      final api = context.read<ApiService>();
-      await api.approveWaitlistedTicket(eventId, ticketId);
+      final repo = context.read<TicketRepository>();
+      await repo.approveWaitlistedTicket(eventId, ticketId);
       if (mounted) {
         AppToast.success(context, 'Ticket approved!');
         _load();
@@ -166,8 +168,8 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
 
   Future<void> _rejectTicket(int eventId, int ticketId) async {
     try {
-      final api = context.read<ApiService>();
-      await api.rejectWaitlistedTicket(eventId, ticketId);
+      final repo = context.read<TicketRepository>();
+      await repo.rejectWaitlistedTicket(eventId, ticketId);
       if (mounted) {
         AppToast.success(context, 'Ticket rejected.');
         _load();
@@ -534,7 +536,7 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
     final eventId = ticket['_event_id'] as int;
     final eventTitle = ticket['_event_title'] ?? '';
     final userId = ticket['user_id'];
-    final tierName = ticket['tier']?['name'] ?? 'Unknown Tier';
+    final tierName = ticket['tier_name'] ?? 'Unknown Tier';
     final amountCents = ticket['amount_paid_cents'] ?? 0;
     final price = amountCents == 0
         ? 'Free'

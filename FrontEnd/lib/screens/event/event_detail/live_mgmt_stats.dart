@@ -5,7 +5,8 @@ import 'package:provider/provider.dart';
 import '../../../config/theme.dart';
 import '../../../config/design_tokens.dart';
 import '../../../models/event.dart';
-import '../../../services/api_service.dart';
+import '../../../repositories/ticket_repository.dart';
+import '../../../repositories/event_repository.dart';
 
 // ═══════════════════════════════════════════
 // Live Management Stats — clickable stat chips
@@ -51,7 +52,8 @@ class _LiveMgmtStatsState extends State<LiveMgmtStats> {
 
   Future<void> _load() async {
     try {
-      final api = context.read<ApiService>();
+      final api = context.read<EventRepository>();
+      final ticketRepo = context.read<TicketRepository>();
 
       if (_isEarlyPhase) {
         // Only need registrations for early phases
@@ -66,18 +68,17 @@ class _LiveMgmtStatsState extends State<LiveMgmtStats> {
         }
       } else {
         // Ticket & completed phases: load everything
-        final results = await Future.wait([
-          api.getTicketSales(_eventId),
-          api.getScannedTickets(_eventId),
-          api.getRegistrations(_eventId),
-          api.getWaitlistedTickets(_eventId),
-          api.getRefundRequests(_eventId),
+        final ticketResults = await Future.wait([
+          ticketRepo.getTicketSales(_eventId),
+          ticketRepo.getScannedTickets(_eventId),
+          ticketRepo.getWaitlistedTickets(_eventId),
+          ticketRepo.getRefundRequests(_eventId),
         ]);
-        final allSales = results[0];
-        final scanned = results[1];
-        final regs = results[2];
-        final ticketWaitlist = results[3];
-        final refundRequests = results[4];
+        final regs = await api.getRegistrations(_eventId);
+        final allSales = ticketResults[0];
+        final scanned = ticketResults[1];
+        final ticketWaitlist = ticketResults[2];
+        final refundRequests = ticketResults[3];
         final fundingWaitlisted =
             regs.where((r) => r['status'] == 'waitlist').length;
         if (mounted) {

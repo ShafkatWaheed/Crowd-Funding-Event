@@ -3,13 +3,12 @@ Venue CRUD. Organizers own venues; customers see all.
 """
 from typing import Sequence
 
-from sqlalchemy import select
-
-from app.logger import get_logger, log_step
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.logger import get_logger, log_step
 from app.models.venue import Venue
 from app.core.exceptions import NotFoundError, ConflictError
+from app.repositories.venue_repo import venue_repo
 
 logger = get_logger("svc.venue")
 
@@ -21,24 +20,16 @@ async def list_venues(
     organizer_id: int | None = None,
 ) -> Sequence[Venue]:
     """List venues. If organizer_id given, only that organizer's venues; else all (for customers)."""
-    q = select(Venue)
-    if organizer_id is not None:
-        q = q.where(Venue.organizer_id == organizer_id)
-    if city:
-        q = q.where(Venue.city == city)
-    q = q.order_by(Venue.name.asc())
-    result = await db.execute(q)
-    return result.scalars().all()
+    return await venue_repo.list_venues(db, city=city, organizer_id=organizer_id)
 
 
 async def get_by_id(db: AsyncSession, venue_id: int) -> Venue | None:
     """Get venue by id or None."""
-    result = await db.execute(select(Venue).where(Venue.id == venue_id))
-    return result.scalar_one_or_none()
+    return await venue_repo.get_by_id(db, venue_id)
 
 
 async def get_or_404(db: AsyncSession, venue_id: int) -> Venue:
-    venue = await get_by_id(db, venue_id)
+    venue = await venue_repo.get_by_id(db, venue_id)
     if not venue:
         raise NotFoundError("Venue", venue_id)
     return venue
@@ -75,9 +66,7 @@ async def create(
         lng=lng,
         max_capacity=max_capacity,
     )
-    db.add(venue)
-    await db.flush()
-    await db.refresh(venue)
+    venue = await venue_repo.create_venue(db, venue)
     logger.info("Venue created", extra={"venue_id": venue.id})
     return venue
 
@@ -112,7 +101,6 @@ async def update(
         venue.lng = lng
     if max_capacity is not None:
         venue.max_capacity = max_capacity
-    await db.flush()
-    await db.refresh(venue)
+    venue = await venue_repo.update_venue(db, venue)
     logger.info("Venue updated", extra={"venue_id": venue.id})
     return venue

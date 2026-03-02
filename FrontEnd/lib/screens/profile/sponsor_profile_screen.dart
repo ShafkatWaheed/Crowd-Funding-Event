@@ -9,7 +9,9 @@ import '../../utils/date_time_utils.dart';
 
 import '../../config/api_config.dart';
 import '../../config/theme.dart';
-import '../../services/api_service.dart';
+import '../../repositories/base_repository.dart';
+import '../../repositories/user_repository.dart';
+import '../../repositories/sponsor_repository.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/star_rating.dart';
@@ -98,12 +100,12 @@ class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
 
   Future<void> _load() async {
     try {
-      final api = context.read<ApiService>();
-      final data = await api.getSponsorPublicProfile(widget.userId);
+      final userRepo = context.read<UserRepository>();
+      final data = await userRepo.getSponsorPublicProfile(widget.userId);
       if (mounted) setState(() { _profile = data; _loading = false; });
     } catch (e) {
       if (mounted) {
-        AppToast.error(context, ApiService.extractError(e));
+        AppToast.error(context, ApiError.extractMessage(e));
         setState(() => _loading = false);
       }
     }
@@ -111,15 +113,15 @@ class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
 
   Future<void> _loadRatings() async {
     try {
-      final api = context.read<ApiService>();
-      final data = await api.getUserRatingsSummary(widget.userId);
+      final userRepo = context.read<UserRepository>();
+      final data = await userRepo.getUserRatingsSummary(widget.userId);
       if (mounted) setState(() => _ratingsSummary = data);
     } catch (e) { debugPrint(e.toString()); }
   }
 
   Future<void> _loadEvents() async {
     try {
-      final api = context.read<ApiService>();
+      final api = context.read<SponsorRepository>();
       final data = await api.getSponsorEventsForOrganizer(widget.userId);
       if (mounted) {
         setState(() {
@@ -861,7 +863,7 @@ class _SponsorEventCard extends StatelessWidget {
 
 /// Quick-view bottom sheet for sponsor profile.
 void showSponsorProfileSheet(BuildContext context, int sponsorUserId, {bool isOrganizerView = false}) {
-  final api = context.read<ApiService>();
+  final userRepo = context.read<UserRepository>();
   showModalBottomSheet(
     context: context,
     shape: const RoundedRectangleBorder(
@@ -870,7 +872,7 @@ void showSponsorProfileSheet(BuildContext context, int sponsorUserId, {bool isOr
     backgroundColor: AppTheme.cardOf(context),
     builder: (ctx) {
       return FutureBuilder<Map<String, dynamic>>(
-        future: api.getSponsorPublicProfile(sponsorUserId),
+        future: userRepo.getSponsorPublicProfile(sponsorUserId),
         builder: (ctx, snap) {
           if (snap.connectionState != ConnectionState.done) {
             return const SizedBox(

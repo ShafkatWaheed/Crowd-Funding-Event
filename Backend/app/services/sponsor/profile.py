@@ -1,20 +1,18 @@
 """Sponsor profile CRUD."""
 from fastapi import HTTPException
-from sqlalchemy import select
-
-from app.logger import get_logger, log_step
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.logger import get_logger, log_step
 from app.models.user import User, UserRole
 from app.models.sponsor import SponsorProfile
 from app.schemas.sponsor import SponsorProfileCreate, SponsorProfileUpdate
+from app.repositories.sponsor_repo import sponsor_repo
 
 logger = get_logger("svc.sponsor.profile")
 
 
 async def get_profile(db: AsyncSession, user_id: int) -> SponsorProfile | None:
-    q = select(SponsorProfile).where(SponsorProfile.user_id == user_id)
-    return (await db.execute(q)).scalar_one_or_none()
+    return await sponsor_repo.get_sponsor_profile(db, user_id)
 
 
 async def create_profile(
@@ -35,14 +33,12 @@ async def create_profile(
         description=data.description,
         website_url=data.website_url,
     )
-    db.add(profile)
+    profile = await sponsor_repo.create_sponsor_profile(db, profile)
 
     if user.role == UserRole.customer:
         user.role = UserRole.sponsor
-        db.add(user)
+        await sponsor_repo.add_and_flush(db, user)
 
-    await db.flush()
-    await db.refresh(profile)
     logger.info("Sponsor profile created", extra={"profile_id": profile.id, "user_id": user.id})
     return profile
 
@@ -59,7 +55,6 @@ async def update_profile(
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(profile, field, value)
 
-    await db.flush()
-    await db.refresh(profile)
+    profile = await sponsor_repo.update_sponsor_profile(db, profile)
     logger.info("Sponsor profile updated", extra={"profile_id": profile.id, "user_id": user_id})
     return profile

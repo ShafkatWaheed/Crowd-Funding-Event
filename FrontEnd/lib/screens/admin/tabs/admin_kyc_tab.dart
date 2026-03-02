@@ -4,7 +4,8 @@ import 'package:provider/provider.dart';
 import '../admin_shared.dart';
 import '../../../config/design_tokens.dart';
 import '../../../config/theme.dart';
-import '../../../services/api_service.dart';
+import '../../../repositories/base_repository.dart';
+import '../../../repositories/user_repository.dart';
 import '../../../widgets/admin/admin_empty_state.dart';
 
 class AdminKycTab extends StatefulWidget {
@@ -48,10 +49,10 @@ class _AdminKycTabState extends State<AdminKycTab> {
   Future<void> _loadPending() async {
     setState(() => _loading = true);
     try {
-      final data = await context.read<ApiService>().adminGetKycPending();
+      final data = await context.read<UserRepository>().adminGetKycPending();
       if (mounted) setState(() => _pendingUsers = data);
     } catch (e) {
-      widget.onSnack(ApiService.extractError(e), isError: true);
+      widget.onSnack(ApiError.extractMessage(e), isError: true);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -156,11 +157,11 @@ class _KycUserCardState extends State<_KycUserCard> {
     setState(() => _loadingDocs = true);
     try {
       final docs = await context
-          .read<ApiService>()
+          .read<UserRepository>()
           .adminGetUserKycDocuments(widget.user['user_id']);
       if (mounted) setState(() => _documents = docs);
     } catch (e) {
-      widget.onSnack(ApiService.extractError(e), isError: true);
+      widget.onSnack(ApiError.extractMessage(e), isError: true);
     } finally {
       if (mounted) setState(() => _loadingDocs = false);
     }
@@ -170,12 +171,12 @@ class _KycUserCardState extends State<_KycUserCard> {
     setState(() => _acting = true);
     try {
       await context
-          .read<ApiService>()
+          .read<UserRepository>()
           .adminVerifyKyc(widget.user['user_id'], approved: true);
       widget.onSnack('KYC approved');
       widget.onDone();
     } catch (e) {
-      widget.onSnack(ApiService.extractError(e), isError: true);
+      widget.onSnack(ApiError.extractMessage(e), isError: true);
     } finally {
       if (mounted) setState(() => _acting = false);
     }
@@ -214,7 +215,7 @@ class _KycUserCardState extends State<_KycUserCard> {
 
     setState(() => _acting = true);
     try {
-      await context.read<ApiService>().adminVerifyKyc(
+      await context.read<UserRepository>().adminVerifyKyc(
             widget.user['user_id'],
             approved: false,
             rejectionReason: reason,
@@ -222,7 +223,7 @@ class _KycUserCardState extends State<_KycUserCard> {
       widget.onSnack('KYC rejected');
       widget.onDone();
     } catch (e) {
-      widget.onSnack(ApiService.extractError(e), isError: true);
+      widget.onSnack(ApiError.extractMessage(e), isError: true);
     } finally {
       if (mounted) setState(() => _acting = false);
     }

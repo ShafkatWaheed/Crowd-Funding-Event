@@ -1,20 +1,17 @@
-import 'dart:async';
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
-import '../../lib/services/api_service.dart';
+import '../../lib/repositories/sponsor_repository.dart';
 import '../../lib/screens/sponsor/sponsor_payment_receipt_screen.dart';
-import '../helpers/mock_api_service.dart';
+import '../helpers/mock_sponsor_repository.dart';
 import '../helpers/pump_app.dart';
 
 void main() {
-  late MockApiService mockApi;
+  late MockSponsorRepository mockSponsorRepo;
 
   setUp(() {
-    mockApi = MockApiService();
+    mockSponsorRepo = MockSponsorRepository();
   });
 
   Map<String, dynamic> receiptJson({
@@ -56,13 +53,13 @@ void main() {
     await pumpApp(
       tester,
       const SponsorPaymentReceiptScreen(paymentId: 1),
-      overrides: [Provider<ApiService>.value(value: mockApi)],
+      overrides: [Provider<SponsorRepository>.value(value: mockSponsorRepo)],
     );
   }
 
   group('SponsorPaymentReceiptScreen', () {
     testWidgets('shows loading then renders payment receipt', (tester) async {
-      when(() => mockApi.getSponsorPaymentReceipt(1))
+      when(() => mockSponsorRepo.getSponsorPaymentReceipt(1))
           .thenAnswer((_) async => receiptJson());
 
       await pumpReceipt(tester);
@@ -77,7 +74,7 @@ void main() {
     });
 
     testWidgets('shows fee breakdown', (tester) async {
-      when(() => mockApi.getSponsorPaymentReceipt(1)).thenAnswer((_) async =>
+      when(() => mockSponsorRepo.getSponsorPaymentReceipt(1)).thenAnswer((_) async =>
           receiptJson(
             amountCents: 50000,
             platformCutCents: 5000,
@@ -94,7 +91,7 @@ void main() {
     });
 
     testWidgets('shows refund receipt with refund UI', (tester) async {
-      when(() => mockApi.getSponsorPaymentReceipt(1)).thenAnswer((_) async =>
+      when(() => mockSponsorRepo.getSponsorPaymentReceipt(1)).thenAnswer((_) async =>
           receiptJson(type: 'refund', amountCents: 30000));
 
       await pumpReceipt(tester);
@@ -106,7 +103,7 @@ void main() {
     });
 
     testWidgets('shows error state with retry', (tester) async {
-      when(() => mockApi.getSponsorPaymentReceipt(1))
+      when(() => mockSponsorRepo.getSponsorPaymentReceipt(1))
           .thenThrow(Exception('Network error'));
 
       await pumpReceipt(tester);
@@ -116,7 +113,7 @@ void main() {
     });
 
     testWidgets('shows copy receipt number button', (tester) async {
-      when(() => mockApi.getSponsorPaymentReceipt(1))
+      when(() => mockSponsorRepo.getSponsorPaymentReceipt(1))
           .thenAnswer((_) async => receiptJson());
 
       await pumpReceipt(tester);
@@ -127,7 +124,7 @@ void main() {
     });
 
     testWidgets('shows venue info when present', (tester) async {
-      when(() => mockApi.getSponsorPaymentReceipt(1)).thenAnswer(
+      when(() => mockSponsorRepo.getSponsorPaymentReceipt(1)).thenAnswer(
           (_) async => receiptJson(venueName: 'Grand Hall', venueCity: 'NYC'));
 
       await pumpReceipt(tester);
@@ -137,7 +134,7 @@ void main() {
     });
 
     testWidgets('shows tax when present', (tester) async {
-      when(() => mockApi.getSponsorPaymentReceipt(1)).thenAnswer(
+      when(() => mockSponsorRepo.getSponsorPaymentReceipt(1)).thenAnswer(
           (_) async => receiptJson(taxCents: 2500, taxRate: 5.0));
 
       await pumpReceipt(tester);

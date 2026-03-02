@@ -4,7 +4,9 @@ import 'package:provider/provider.dart';
 
 import '../../../config/design_tokens.dart';
 import '../../../config/theme.dart';
-import '../../../services/api_service.dart';
+import '../../../repositories/admin_repository.dart';
+import '../../../repositories/base_repository.dart';
+import '../../../repositories/event_repository.dart';
 import '../../../widgets/admin/admin_empty_state.dart';
 import 'user_detail_shared.dart';
 
@@ -961,56 +963,52 @@ class _UserEventsTabState extends State<UserEventsTab> {
 
   Future<void> _approveEvent(int id, bool approve) async {
     try {
-      final api = context.read<ApiService>();
-      await api.adminApproveEvent(id, {
+      final admin = context.read<AdminRepository>();
+      await admin.approveEvent(id, {
         'approved': approve,
         if (!approve) 'reason': 'Rejected by admin',
       });
       widget.onRefresh();
       widget.onSnack(approve ? 'Event approved' : 'Event rejected');
     } catch (e) {
-      widget.onSnack('Action failed: ${ApiService.extractError(e)}');
+      widget.onSnack('Action failed: ${ApiError.extractMessage(e)}');
     }
   }
 
   Future<void> _decideCancellation(
       int eventId, String action) async {
     try {
-      final api = context.read<ApiService>();
-      await api.dio.post('/events/$eventId/cancellation/approve',
-          data: {'action': action});
+      final admin = context.read<AdminRepository>();
+      await admin.decideCancellation(eventId, action);
       widget.onRefresh();
       widget.onSnack('Cancellation ${action}d');
     } catch (e) {
-      widget.onSnack('Action failed: ${ApiService.extractError(e)}');
+      widget.onSnack('Action failed: ${ApiError.extractMessage(e)}');
     }
   }
 
   Future<void> _decideExtension(
       int eventId, String action) async {
     try {
-      final api = context.read<ApiService>();
-      await api.decideExtension(eventId, action);
+      final eventRepo = context.read<EventRepository>();
+      await eventRepo.decideExtension(eventId, action);
       widget.onRefresh();
       widget.onSnack('Extension ${action}d');
     } catch (e) {
-      widget.onSnack('Action failed: ${ApiService.extractError(e)}');
+      widget.onSnack('Action failed: ${ApiError.extractMessage(e)}');
     }
   }
 
   Future<void> _resolveReview(int eventId, String targetStatus,
       {String? notes}) async {
     try {
-      final api = context.read<ApiService>();
-      await api.dio
-          .post('/admin/events/$eventId/resolve-review', data: {
-        'target_status': targetStatus,
-        if (notes != null && notes.isNotEmpty) 'notes': notes,
-      });
+      final admin = context.read<AdminRepository>();
+      await admin.resolveReview(eventId,
+          targetStatus: targetStatus, notes: notes);
       widget.onRefresh();
       widget.onSnack('Review resolved');
     } catch (e) {
-      widget.onSnack('Action failed: ${ApiService.extractError(e)}');
+      widget.onSnack('Action failed: ${ApiError.extractMessage(e)}');
     }
   }
 

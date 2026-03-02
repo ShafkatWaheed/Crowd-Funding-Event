@@ -5,7 +5,8 @@ import '../../../config/design_tokens.dart';
 import '../../../config/theme.dart';
 import '../../../db/app_database.dart';
 import '../../../models/sponsor.dart';
-import '../../../services/api_service.dart';
+import '../../../repositories/base_repository.dart';
+import '../../../repositories/sponsor_repository.dart';
 import '../../../services/sync_service.dart';
 import '../../../utils/date_time_utils.dart';
 import '../../../widgets/app_toast.dart';
@@ -32,7 +33,7 @@ class _DelegatesCardState extends State<DelegatesCard> {
 
   Future<void> _load() async {
     try {
-      final api = context.read<ApiService>();
+      final api = context.read<SponsorRepository>();
       final data = await api.listDelegates(widget.ticketId);
       if (mounted) {
         setState(() {
@@ -127,7 +128,7 @@ class _DelegatesCardState extends State<DelegatesCard> {
     if (!mounted) return;
 
     try {
-      final api = context.read<ApiService>();
+      final api = context.read<SponsorRepository>();
       await api.addDelegate(
         widget.ticketId,
         nameCtrl.text.trim(),
@@ -139,18 +140,18 @@ class _DelegatesCardState extends State<DelegatesCard> {
       if (mounted) AppToast.success(context, 'Delegate added');
       _load();
     } catch (e) {
-      if (mounted) AppToast.error(context, ApiService.extractError(e));
+      if (mounted) AppToast.error(context, ApiError.extractMessage(e));
     }
   }
 
   Future<void> _remove(SponsorDelegate d) async {
     try {
-      final api = context.read<ApiService>();
+      final api = context.read<SponsorRepository>();
       await api.removeDelegate(widget.ticketId, d.id);
       if (mounted) AppToast.success(context, '${d.name} removed');
       _load();
     } catch (e) {
-      if (mounted) AppToast.error(context, ApiService.extractError(e));
+      if (mounted) AppToast.error(context, ApiError.extractMessage(e));
     }
   }
 

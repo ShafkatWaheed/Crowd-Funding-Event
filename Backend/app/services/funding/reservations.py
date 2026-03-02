@@ -1,34 +1,25 @@
 """
 Spot reservation and tier-linked reservation helpers.
-"""
-from sqlalchemy import func, select
 
+All queries have been moved to FundingRepository.
+These thin wrappers maintain the existing public API so callers don't break.
+"""
 from app.logger import get_logger, log_step
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import ConflictError
-from app.models.funding import Funding, FundingStatus
+from app.repositories.funding_repo import funding_repo
 
 logger = get_logger("svc.funding.reservations")
 
 
 async def get_user_reserved_spots(db: AsyncSession, event_id: int, user_id: int) -> int:
     """Sum of remaining (unredeemed) reserved spots for this user on this event."""
-    q = select(func.coalesce(func.sum(Funding.reserved_spots), 0)).where(
-        Funding.event_id == event_id,
-        Funding.user_id == user_id,
-        Funding.status == FundingStatus.pledged,
-    )
-    return int((await db.execute(q)).scalar_one())
+    return await funding_repo.get_user_reserved_spots(db, event_id, user_id)
 
 
 async def get_total_reserved_spots(db: AsyncSession, event_id: int) -> int:
     """Sum of all unredeemed reserved spots across all pledgers for this event."""
-    q = select(func.coalesce(func.sum(Funding.reserved_spots), 0)).where(
-        Funding.event_id == event_id,
-        Funding.status == FundingStatus.pledged,
-    )
-    return int((await db.execute(q)).scalar_one())
+    return await funding_repo.get_total_reserved_spots(db, event_id)
 
 
 async def get_total_reserved_spots_for_events(
@@ -37,97 +28,32 @@ async def get_total_reserved_spots_for_events(
     event_ids: list[int],
 ) -> dict[int, int]:
     """Return { event_id: total_reserved_spots } for each event. Used for list/cards."""
-    if not event_ids:
-        return {}
-    q = (
-        select(Funding.event_id, func.coalesce(func.sum(Funding.reserved_spots), 0).label("total"))
-        .where(
-            Funding.event_id.in_(event_ids),
-            Funding.status == FundingStatus.pledged,
-        )
-        .group_by(Funding.event_id)
-    )
-    result = await db.execute(q)
-    return {int(row.event_id): int(row.total) for row in result.all()}
+    return await funding_repo.get_total_reserved_spots_for_events(db, event_ids)
 
 
 async def consume_one_reserved_spot(db: AsyncSession, event_id: int, user_id: int) -> None:
     """Decrement the oldest pledge's reserved_spots by 1 for this user+event."""
     log_step(logger, "Consuming one reserved spot", event_id=event_id, user_id=user_id)
-    q = (
-        select(Funding)
-        .where(
-            Funding.event_id == event_id,
-            Funding.user_id == user_id,
-            Funding.status == FundingStatus.pledged,
-            Funding.reserved_spots > 0,
-        )
-        .order_by(Funding.created_at.asc())
-        .limit(1)
-        .with_for_update()
-    )
-    pledge = (await db.execute(q)).scalar_one_or_none()
-    if pledge is None:
-        logger.warning("Consume reserved spot failed: none available", extra={"event_id": event_id, "user_id": user_id})
-        raise ConflictError("No reserved spots available to consume")
-    pledge.reserved_spots -= 1
-    await db.flush()
+    await funding_repo.consume_one_reserved_spot(db, event_id, user_id)
 
 
 async def get_reserved_spots_for_tiers(
     db: AsyncSession, event_id: int, tier_ids: list[int]
 ) -> dict[int, int]:
     """Total reserved spots per tier across all pledgers. Returns {tier_id: spots}."""
-    from app.models.funding import PledgeSpotReservation
-    if not tier_ids:
-        return {}
-    q = (
-        select(
-            PledgeSpotReservation.ticket_tier_id,
-            func.coalesce(func.sum(PledgeSpotReservation.spots), 0).label("total"),
-        )
-        .join(Funding, PledgeSpotReservation.funding_id == Funding.id)
-        .where(
-            Funding.event_id == event_id,
-            Funding.status == FundingStatus.pledged,
-            PledgeSpotReservation.ticket_tier_id.in_(tier_ids),
-        )
-        .group_by(PledgeSpotReservation.ticket_tier_id)
-    )
-    return {int(r.ticket_tier_id): int(r.total) for r in (await db.execute(q)).all()}
+    return await funding_repo.get_reserved_spots_for_tiers(db, event_id, tier_ids)
 
 
 async def get_reserved_spots_for_tier(db: AsyncSession, event_id: int, tier_id: int) -> int:
     """Total reserved spots for a specific tier across all pledgers."""
-    from app.models.funding import PledgeSpotReservation
-    q = (
-        select(func.coalesce(func.sum(PledgeSpotReservation.spots), 0))
-        .join(Funding, PledgeSpotReservation.funding_id == Funding.id)
-        .where(
-            Funding.event_id == event_id,
-            Funding.status == FundingStatus.pledged,
-            PledgeSpotReservation.ticket_tier_id == tier_id,
-        )
-    )
-    return int((await db.execute(q)).scalar_one())
+    return await funding_repo.get_reserved_spots_for_tier(db, event_id, tier_id)
 
 
 async def get_user_reserved_spots_for_tier(
     db: AsyncSession, event_id: int, user_id: int, tier_id: int
 ) -> int:
     """User's reserved spots for a specific tier."""
-    from app.models.funding import PledgeSpotReservation
-    q = (
-        select(func.coalesce(func.sum(PledgeSpotReservation.spots), 0))
-        .join(Funding, PledgeSpotReservation.funding_id == Funding.id)
-        .where(
-            Funding.event_id == event_id,
-            Funding.user_id == user_id,
-            Funding.status == FundingStatus.pledged,
-            PledgeSpotReservation.ticket_tier_id == tier_id,
-        )
-    )
-    return int((await db.execute(q)).scalar_one())
+    return await funding_repo.get_user_reserved_spots_for_tier(db, event_id, user_id, tier_id)
 
 
 async def consume_reserved_spots_for_tier(
@@ -135,29 +61,4 @@ async def consume_reserved_spots_for_tier(
 ) -> None:
     """Decrement reservation rows for user+tier, consuming from oldest pledge first."""
     log_step(logger, "Consuming reserved spots for tier", event_id=event_id, user_id=user_id, tier_id=tier_id, count=count)
-    from app.models.funding import PledgeSpotReservation
-    remaining = count
-    q = (
-        select(PledgeSpotReservation)
-        .join(Funding, PledgeSpotReservation.funding_id == Funding.id)
-        .where(
-            Funding.event_id == event_id,
-            Funding.user_id == user_id,
-            Funding.status == FundingStatus.pledged,
-            PledgeSpotReservation.ticket_tier_id == tier_id,
-            PledgeSpotReservation.spots > 0,
-        )
-        .order_by(Funding.created_at.asc())
-        .with_for_update()
-    )
-    rows = list((await db.execute(q)).scalars().all())
-    for row in rows:
-        if remaining <= 0:
-            break
-        take = min(remaining, row.spots)
-        row.spots -= take
-        remaining -= take
-        pledge = await db.get(Funding, row.funding_id)
-        if pledge:
-            pledge.reserved_spots = max(0, pledge.reserved_spots - take)
-    await db.flush()
+    await funding_repo.consume_reserved_spots_for_tier(db, event_id, user_id, tier_id, count)

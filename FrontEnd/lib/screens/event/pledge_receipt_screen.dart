@@ -4,7 +4,8 @@ import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
 import '../../utils/date_time_utils.dart';
-import '../../services/api_service.dart';
+import '../../repositories/base_repository.dart';
+import '../../repositories/funding_repository.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/loading_switcher.dart';
 import '../../widgets/shimmer_loaders.dart';
@@ -36,11 +37,11 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
 
   Future<void> _load() async {
     try {
-      final api = context.read<ApiService>();
-      final data = await api.getPledgeReceipt(widget.eventId, widget.pledgeId);
+      final repo = context.read<FundingRepository>();
+      final data = await repo.getPledgeReceipt(widget.eventId, widget.pledgeId);
       if (mounted) setState(() { _receipt = data; _loading = false; });
     } catch (e) {
-      if (mounted) setState(() { _error = ApiService.extractError(e); _loading = false; });
+      if (mounted) setState(() { _error = ApiError.extractMessage(e); _loading = false; });
     }
   }
 

@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:dio/dio.dart';
+import 'package:provider/provider.dart';
 
 import '../../../config/api_config.dart';
 import '../../../config/theme.dart';
-import '../../../services/api_service.dart';
+import '../../../repositories/admin_repository.dart';
+import '../../../repositories/base_repository.dart';
 
 class AdminEmailTab extends StatefulWidget {
   const AdminEmailTab({
@@ -47,12 +48,11 @@ class _AdminEmailTabState extends State<AdminEmailTab> {
   Future<void> _loadEmailTemplates() async {
     setState(() => _emailLoading = true);
     try {
-      final resp =
-          await ApiService.instance.dio.get('/admin/email-templates');
-      final data = resp.data;
+      final admin = context.read<AdminRepository>();
+      final data = await admin.getEmailTemplates();
       if (mounted) {
         setState(() {
-          _emailTemplates = data is List ? List<dynamic>.from(data) : [];
+          _emailTemplates = data;
           _emailLoading = false;
           _initialLoaded = true;
         });
@@ -81,18 +81,13 @@ class _AdminEmailTabState extends State<AdminEmailTab> {
     setState(() => _logoUploading = true);
     try {
       final bytes = await picked.readAsBytes();
-      final formData = FormData.fromMap({
-        'file': MultipartFile.fromBytes(bytes, filename: picked.name),
-      });
-      await ApiService.instance.dio.post(
-        '/admin/email-templates/upload-logo',
-        data: formData,
-      );
+      final admin = context.read<AdminRepository>();
+      await admin.uploadEmailLogo(fileBytes: bytes, fileName: picked.name);
       await widget.onReloadSettings();
       if (mounted) widget.onSnack('Logo uploaded');
     } catch (e) {
       if (mounted) {
-        widget.onSnack('Upload failed: ${ApiService.extractError(e)}');
+        widget.onSnack('Upload failed: ${ApiError.extractMessage(e)}');
       }
     }
     if (mounted) setState(() => _logoUploading = false);
@@ -103,16 +98,14 @@ class _AdminEmailTabState extends State<AdminEmailTab> {
   Future<void> _saveTemplate(
       String key, String subject, String bodyHtml, bool isActive) async {
     try {
-      await ApiService.instance.dio.put('/admin/email-templates/$key', data: {
-        'subject': subject,
-        'body_html': bodyHtml,
-        'is_active': isActive,
-      });
+      final admin = context.read<AdminRepository>();
+      await admin.saveEmailTemplate(key,
+          subject: subject, bodyHtml: bodyHtml, isActive: isActive);
       _loadEmailTemplates();
       if (mounted) widget.onSnack('Template "$key" updated');
     } catch (e) {
       if (mounted) {
-        widget.onSnack('Save failed: ${ApiService.extractError(e)}');
+        widget.onSnack('Save failed: ${ApiError.extractMessage(e)}');
       }
     }
   }
@@ -514,8 +507,9 @@ class _AdminEmailTabState extends State<AdminEmailTab> {
                   );
                   if (confirm == true) {
                     try {
-                      await ApiService.instance
-                          .post('/admin/email-templates/reset-all', {});
+                      await context
+                          .read<AdminRepository>()
+                          .resetAllEmailTemplates();
                       _loadEmailTemplates();
                       if (mounted) {
                         widget.onSnack('All templates reset to defaults');
@@ -608,9 +602,9 @@ class _AdminEmailTabState extends State<AdminEmailTab> {
                       label: const Text('Test Send'),
                       onPressed: () async {
                         try {
-                          await ApiService.instance.post(
-                              '/admin/email-templates/$key/test-send',
-                              {});
+                          await context
+                              .read<AdminRepository>()
+                              .testSendEmailTemplate(key);
                           if (mounted) {
                             widget.onSnack('Test email sent');
                           }
@@ -625,8 +619,9 @@ class _AdminEmailTabState extends State<AdminEmailTab> {
                         label: const Text('Reset'),
                         onPressed: () async {
                           try {
-                            await ApiService.instance.post(
-                                '/admin/email-templates/$key/reset', {});
+                            await context
+                                .read<AdminRepository>()
+                                .resetEmailTemplate(key);
                             _loadEmailTemplates();
                             if (mounted) {
                               widget.onSnack('"$key" reset to default');

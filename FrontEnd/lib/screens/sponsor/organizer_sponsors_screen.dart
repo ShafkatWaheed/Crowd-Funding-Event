@@ -6,7 +6,7 @@ import 'package:provider/provider.dart';
 import '../../config/api_config.dart';
 import '../../config/theme.dart';
 import '../../widgets/shimmer_loaders.dart';
-import '../../services/api_service.dart';
+import '../../repositories/sponsor_repository.dart';
 import '../../widgets/app_toast.dart';
 
 class OrganizerSponsorsScreen extends StatefulWidget {
@@ -60,7 +60,7 @@ class _OrganizerSponsorsScreenState extends State<OrganizerSponsorsScreen> {
       _hasMore = true;
     });
     try {
-      final api = context.read<ApiService>();
+      final api = context.read<SponsorRepository>();
       final data = await api.getOrganizerSponsors(eventStatus: widget.eventStatus, genre: widget.genre, eventId: widget.eventId, offset: 0, limit: _pageSize);
       if (!mounted) return;
       setState(() {
@@ -79,7 +79,7 @@ class _OrganizerSponsorsScreenState extends State<OrganizerSponsorsScreen> {
     if (_loadingMore || !_hasMore) return;
     setState(() => _loadingMore = true);
     try {
-      final api = context.read<ApiService>();
+      final api = context.read<SponsorRepository>();
       final data = await api.getOrganizerSponsors(
         eventStatus: widget.eventStatus,
         genre: widget.genre,

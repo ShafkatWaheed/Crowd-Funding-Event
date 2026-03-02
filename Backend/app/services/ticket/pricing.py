@@ -1,15 +1,10 @@
 """
 Ticket price computation (discounts, pledge, milestone, early bird).
 """
-from sqlalchemy import func, select
-
 from app.logger import get_logger, log_step
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.event import EventDiscount
-from app.models.discount_strategy import EventDiscountStrategyLink
-from app.models.funding import Funding, FundingStatus
-from app.models.ticket import UserEventDiscount
+from app.repositories.ticket_repo import ticket_repo
 from app.services import event as event_service
 
 from app.services.ticket.tiers import get_tier_or_404
@@ -47,24 +42,14 @@ async def compute_ticket_price(
     common_cents = base * event.common_discount_percent // 100
 
     selective_cents = 0
-    sel_q = select(UserEventDiscount).where(
-        UserEventDiscount.event_id == event_id,
-        UserEventDiscount.user_id == user_id,
-    )
-    sel_res = await db.execute(sel_q)
-    ued = sel_res.scalar_one_or_none()
+    ued = await ticket_repo.get_user_event_discount(db, event_id, user_id)
     if ued:
         if ued.discount_type == "percent":
             selective_cents = base * min(100, ued.value) // 100
         else:
             selective_cents = min(base, ued.value)
 
-    sum_q = select(func.coalesce(func.sum(Funding.amount_cents), 0)).where(
-        Funding.event_id == event_id,
-        Funding.user_id == user_id,
-        Funding.status == FundingStatus.pledged,
-    )
-    total_pledged = int((await db.execute(sum_q)).scalar_one())
+    total_pledged = await ticket_repo.get_user_pledged_total(db, event_id, user_id)
     has_pledged = total_pledged > 0
 
     pledge_cents = 0
@@ -79,24 +64,9 @@ async def compute_ticket_price(
         pledge_cents = min(pledge_cents, base)
 
     event_discount_cents = 0
-    disc_q = select(EventDiscount).where(EventDiscount.event_id == event_id)
-    disc_rows = list((await db.execute(disc_q)).scalars().all())
-
-    from app.models.discount_strategy import CustomerDiscountClaim
-    from sqlalchemy.orm import selectinload as _sload
-
-    link_q = (
-        select(EventDiscountStrategyLink)
-        .options(_sload(EventDiscountStrategyLink.strategy))
-        .where(EventDiscountStrategyLink.event_id == event_id)
-    )
-    links = list((await db.execute(link_q)).scalars().all())
-
-    claim_q = select(CustomerDiscountClaim.link_id).where(
-        CustomerDiscountClaim.user_id == user_id,
-        CustomerDiscountClaim.link_id.in_([l.id for l in links]) if links else False,
-    )
-    claimed_link_ids = set((await db.execute(claim_q)).scalars().all()) if links else set()
+    disc_rows = await ticket_repo.get_event_discounts(db, event_id)
+    links = await ticket_repo.get_discount_strategy_links(db, event_id)
+    claimed_link_ids = await ticket_repo.get_claimed_link_ids(db, user_id, [l.id for l in links])
 
     all_rules = [(d.discount_type, d.value, d.target) for d in disc_rows]
     for link in links:
@@ -116,25 +86,10 @@ async def compute_ticket_price(
 
     milestone_cents = 0
     try:
-        from app.models.milestone import FundingMilestoneSnapshot, FundingMilestoneUser
-        snap_q = (
-            select(FundingMilestoneSnapshot)
-            .join(FundingMilestoneUser, FundingMilestoneUser.snapshot_id == FundingMilestoneSnapshot.id)
-            .where(
-                FundingMilestoneSnapshot.event_id == event_id,
-                FundingMilestoneUser.user_id == user_id,
-            )
-            .order_by(FundingMilestoneSnapshot.milestone_percent.desc())
-        )
-        user_snapshots = list((await db.execute(snap_q)).scalars().unique().all())
+        user_snapshots = await ticket_repo.get_user_milestone_snapshots(db, event_id, user_id)
 
         if user_snapshots:
-            milestone_disc_q = select(EventDiscount).where(
-                EventDiscount.event_id == event_id,
-                EventDiscount.discount_type == "funding_milestone",
-                EventDiscount.milestone_percent.isnot(None),
-            )
-            milestone_discs = list((await db.execute(milestone_disc_q)).scalars().all())
+            milestone_discs = await ticket_repo.get_milestone_discounts(db, event_id)
             user_milestone_pcts = {s.milestone_percent for s in user_snapshots}
 
             best_milestone_cents = 0
@@ -153,23 +108,15 @@ async def compute_ticket_price(
 
     early_bird_cents = 0
     try:
-        from app.models.milestone import EarlyBirdDiscount
         from datetime import datetime, timezone
         now = datetime.now(timezone.utc)
 
-        eb_q = select(EarlyBirdDiscount).where(EarlyBirdDiscount.event_id == event_id)
-        eb_discs = list((await db.execute(eb_q)).scalars().all())
+        eb_discs = await ticket_repo.get_early_bird_discounts(db, event_id)
 
         for eb in eb_discs:
             eb_amount = 0
             if eb.applies_to == "funding":
-                eb_pledge_q = select(func.count()).where(
-                    Funding.event_id == event_id,
-                    Funding.user_id == user_id,
-                    Funding.status == FundingStatus.pledged,
-                    Funding.is_early_bird == True,  # noqa: E712
-                )
-                has_eb = int((await db.execute(eb_pledge_q)).scalar_one()) > 0
+                has_eb = await ticket_repo.has_early_bird_pledge(db, event_id, user_id)
                 if not has_eb:
                     continue
             elif eb.applies_to == "tickets":

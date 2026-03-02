@@ -5,7 +5,8 @@ import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../models/event.dart';
 import '../../utils/date_time_utils.dart';
-import '../../services/api_service.dart';
+import '../../repositories/base_repository.dart';
+import '../../repositories/bookmark_repository.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/event_lifecycle_bar.dart';
@@ -67,8 +68,8 @@ class _BookmarkedEventsScreenState extends State<BookmarkedEventsScreen> {
       _hasMore = true;
     });
     try {
-      final api = context.read<ApiService>();
-      final data = await api.getBookmarkedEvents(
+      final repo = context.read<BookmarkRepository>();
+      final data = await repo.getBookmarkedEvents(
         search: _searchCtrl.text.isNotEmpty ? _searchCtrl.text : null,
         status: _statusFilter,
         offset: 0,
@@ -83,7 +84,7 @@ class _BookmarkedEventsScreenState extends State<BookmarkedEventsScreen> {
       }
     } catch (e) {
       if (mounted) {
-        AppToast.error(context, ApiService.extractError(e));
+        AppToast.error(context, ApiError.extractMessage(e));
         setState(() => _loading = false);
       }
     }
@@ -93,8 +94,8 @@ class _BookmarkedEventsScreenState extends State<BookmarkedEventsScreen> {
     if (_loadingMore || !_hasMore) return;
     setState(() => _loadingMore = true);
     try {
-      final api = context.read<ApiService>();
-      final data = await api.getBookmarkedEvents(
+      final repo = context.read<BookmarkRepository>();
+      final data = await repo.getBookmarkedEvents(
         search: _searchCtrl.text.isNotEmpty ? _searchCtrl.text : null,
         status: _statusFilter,
         offset: _events.length,
@@ -114,13 +115,13 @@ class _BookmarkedEventsScreenState extends State<BookmarkedEventsScreen> {
 
   Future<void> _removeBookmark(int eventId) async {
     try {
-      final api = context.read<ApiService>();
-      await api.toggleBookmark(eventId);
+      final repo = context.read<BookmarkRepository>();
+      await repo.toggleBookmark(eventId);
       if (mounted) {
         setState(() => _events.removeWhere((e) => e.id == eventId));
       }
     } catch (e) {
-      if (mounted) AppToast.error(context, ApiService.extractError(e));
+      if (mounted) AppToast.error(context, ApiError.extractMessage(e));
     }
   }
 

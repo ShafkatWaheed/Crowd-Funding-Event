@@ -3,52 +3,33 @@ Fund escrow service: create, release stages, freeze, get status.
 """
 from datetime import datetime, timezone
 
-from sqlalchemy import select, func, or_
-from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ConflictError, NotFoundError
 from app.models.escrow import EscrowRelease, EscrowStatus, FundEscrow
 from app.models.event import Event, EventStatus
-from app.models.funding import Funding, FundingStatus
-from app.models.ticket import TicketSale, TicketSaleStatus
-from app.models.user import User
 from app.logger import get_logger
 from app.services import escrow_base
 from app.services import platform_settings as settings_svc
+from app.repositories.escrow_repo import escrow_repo
 
 logger = get_logger("escrow")
 
 
 async def get_or_create(db: AsyncSession, *, event_id: int) -> FundEscrow:
     """Get existing escrow or create one. total_held_cents = sum of pledged fundings net."""
-    q = select(FundEscrow).where(FundEscrow.event_id == event_id)
-    escrow = (await db.execute(q)).scalar_one_or_none()
+    escrow = await escrow_repo.get_escrow_by_event(db, FundEscrow, event_id)
     if escrow:
         return escrow
-    total_q = select(func.coalesce(func.sum(Funding.net_to_organizer_cents), 0)).where(
-        Funding.event_id == event_id,
-        Funding.status == FundingStatus.pledged,
-    )
-    total = int((await db.execute(total_q)).scalar_one())
-    stmt = pg_insert(FundEscrow).values(
-        event_id=event_id, total_held_cents=total,
-    ).on_conflict_do_nothing(index_elements=["event_id"])
-    await db.execute(stmt)
-    await db.flush()
-    escrow = (await db.execute(q)).scalar_one()
-    return escrow
+    total = await escrow_repo.calc_fund_total(db, event_id)
+    return await escrow_repo.upsert_escrow(db, FundEscrow, event_id=event_id, total_held_cents=total)
 
 
 async def refresh_total(db: AsyncSession, escrow: FundEscrow) -> FundEscrow:
     """Recalculate total_held_cents from current pledges."""
-    total_q = select(func.coalesce(func.sum(Funding.net_to_organizer_cents), 0)).where(
-        Funding.event_id == escrow.event_id,
-        Funding.status == FundingStatus.pledged,
-    )
-    total = int((await db.execute(total_q)).scalar_one())
+    total = await escrow_repo.calc_fund_total(db, escrow.event_id)
     escrow.total_held_cents = total
-    await db.flush()
+    await escrow_repo.flush(db)
     return escrow
 
 
@@ -70,9 +51,8 @@ async def _mark_waived(db: AsyncSession, event_id: int) -> FundEscrow:
         escrow_id=escrow.id, stage=0, amount_cents=0,
         released_by="system", reason="Community escrow disabled -- waived",
     )
-    db.add(log)
-    await db.flush()
-    await db.refresh(escrow)
+    await escrow_repo.add_release_log(db, log)
+    await escrow_repo.flush_and_refresh(db, escrow)
     return escrow
 
 
@@ -80,12 +60,7 @@ async def _ticket_sold_percent(db: AsyncSession, event_id: int, max_capacity: in
     """Return percentage of max_capacity that has been sold (0-100)."""
     if max_capacity <= 0:
         return 0
-    sold = (await db.execute(
-        select(func.count()).select_from(TicketSale).where(
-            TicketSale.event_id == event_id,
-            TicketSale.status == TicketSaleStatus.purchased,
-        )
-    )).scalar_one()
+    sold = await escrow_repo.count_purchased_tickets(db, event_id)
     return (sold * 100) // max_capacity
 
 
@@ -115,9 +90,8 @@ async def release_stage1(db: AsyncSession, *, event_id: int, released_by: str = 
     escrow.status = EscrowStatus.partially_released
 
     log = EscrowRelease(escrow_id=escrow.id, stage=1, amount_cents=amount, released_by=released_by, reason="Stage 1: planning confirmed")
-    db.add(log)
-    await db.flush()
-    await db.refresh(escrow)
+    await escrow_repo.add_release_log(db, log)
+    await escrow_repo.flush_and_refresh(db, escrow)
     return escrow
 
 
@@ -138,9 +112,8 @@ async def release_stage2(db: AsyncSession, *, event_id: int, released_by: str = 
     escrow.stage2_released_at = now
 
     log = EscrowRelease(escrow_id=escrow.id, stage=2, amount_cents=amount, released_by=released_by, reason="Stage 2: event imminent")
-    db.add(log)
-    await db.flush()
-    await db.refresh(escrow)
+    await escrow_repo.add_release_log(db, log)
+    await escrow_repo.flush_and_refresh(db, escrow)
     return escrow
 
 
@@ -162,9 +135,8 @@ async def release_stage3(db: AsyncSession, *, event_id: int, released_by: str = 
     escrow.status = EscrowStatus.fully_released
 
     log = EscrowRelease(escrow_id=escrow.id, stage=3, amount_cents=amount, released_by=released_by, reason="Stage 3: event completed")
-    db.add(log)
-    await db.flush()
-    await db.refresh(escrow)
+    await escrow_repo.add_release_log(db, log)
+    await escrow_repo.flush_and_refresh(db, escrow)
     return escrow
 
 
@@ -184,8 +156,7 @@ async def unfreeze(db: AsyncSession, *, event_id: int) -> FundEscrow:
         escrow.status = EscrowStatus.partially_released
     else:
         escrow.status = EscrowStatus.holding
-    await db.flush()
-    await db.refresh(escrow)
+    await escrow_repo.flush_and_refresh(db, escrow)
 
     await escrow_base._warn_admins_if_no_bank(db, event_id, label="Fund escrow")
 
@@ -236,7 +207,7 @@ async def check_and_release_stage1(db: AsyncSession, *, event_id: int) -> FundEs
     if not await settings_svc.get_bool(db, "escrow_stage1_trigger_enabled"):
         return None
 
-    event = (await db.execute(select(Event).where(Event.id == event_id))).scalar_one_or_none()
+    event = await escrow_repo.get_event_by_id(db, event_id)
     if not event:
         return None
 
@@ -294,7 +265,7 @@ async def check_and_release_stage2(db: AsyncSession, *, event_id: int) -> FundEs
     if not await settings_svc.get_bool(db, "escrow_stage2_trigger_enabled"):
         return None
 
-    event = (await db.execute(select(Event).where(Event.id == event_id))).scalar_one_or_none()
+    event = await escrow_repo.get_event_by_id(db, event_id)
     if not event:
         return None
 
@@ -358,7 +329,7 @@ async def check_and_release_stage3(db: AsyncSession, *, event_id: int) -> FundEs
     if not await settings_svc.get_bool(db, "escrow_stage3_trigger_enabled"):
         return None
 
-    event = (await db.execute(select(Event).where(Event.id == event_id))).scalar_one_or_none()
+    event = await escrow_repo.get_event_by_id(db, event_id)
     if not event:
         return None
 
@@ -382,19 +353,8 @@ async def check_and_release_stage3(db: AsyncSession, *, event_id: int) -> FundEs
         threshold_pct = await settings_svc.get_int(db, "scan_threshold_percent")
         if threshold_pct <= 0:
             threshold_pct = 50
-        total_sold = (await db.execute(
-            select(func.count()).select_from(TicketSale).where(
-                TicketSale.event_id == event_id,
-                TicketSale.status == TicketSaleStatus.purchased,
-            )
-        )).scalar_one()
-        total_scanned = (await db.execute(
-            select(func.count()).select_from(TicketSale).where(
-                TicketSale.event_id == event_id,
-                TicketSale.status == TicketSaleStatus.purchased,
-                TicketSale.scanned_at.isnot(None),
-            )
-        )).scalar_one()
+        total_sold = await escrow_repo.count_purchased_tickets(db, event_id)
+        total_scanned = await escrow_repo.count_scanned_tickets(db, event_id)
         if total_sold > 0:
             scan_pct = (total_scanned * 100) // total_sold
             if scan_pct < threshold_pct:
@@ -428,10 +388,10 @@ async def check_and_release_stage3(db: AsyncSession, *, event_id: int) -> FundEs
 
 async def _check_bank_guard(db: AsyncSession, event_id: int, *, stage: int) -> bool:
     """Return True if organizer has a verified bank account, else notify and skip."""
-    organizer_id = await escrow_base.get_organizer_for_event(db, event_id)
+    organizer_id = await escrow_repo.get_organizer_for_event(db, event_id)
     if organizer_id is None:
         return False
-    if await escrow_base.organizer_has_verified_bank(db, organizer_id):
+    if await escrow_repo.organizer_has_verified_bank(db, organizer_id):
         return True
 
     from app.services import notification_service as notif_svc

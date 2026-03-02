@@ -12,14 +12,18 @@ import '../../config/theme.dart';
 import '../../config/design_tokens.dart';
 import '../../models/event.dart';
 import '../../models/event_image.dart';
+import '../../models/funding.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/event_provider.dart';
+import '../../models/ticket.dart';
+import '../../repositories/funding_repository.dart';
+import '../../repositories/ticket_repository.dart';
 import '../../widgets/animated_list_item.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/error_state.dart';
 import '../../widgets/event_lifecycle_bar.dart';
 import '../../widgets/shimmer_loaders.dart';
-import '../../services/api_service.dart';
+import '../../repositories/event_repository.dart';
 import '../../services/sync_service.dart';
 import '../../widgets/share_bottom_sheet.dart';
 import '../../widgets/calendar_bottom_sheet.dart';
@@ -57,7 +61,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   bool _isRegistered = false;
   String? _regStatus;
   int _myTicketCount = 0;
-  List<Map<String, dynamic>> _myEventTickets = [];
+  List<TicketSale> _myEventTickets = [];
   int _myReservedSpots = 0;
   int _revenueCents = 0;
   bool _bookmarked = false;
@@ -112,8 +116,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
   Future<void> _checkBookmark() async {
     try {
-      final api = context.read<ApiService>();
-      final res = await api.checkBookmarks([widget.eventId]);
+      final repo = context.read<EventRepository>();
+      final res = await repo.checkBookmarks([widget.eventId]);
       final ids = (res['bookmarked_ids'] as List?)?.cast<int>() ?? [];
       if (mounted) setState(() => _bookmarked = ids.contains(widget.eventId));
     } catch (e) {
@@ -123,8 +127,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
   Future<void> _toggleBookmark() async {
     try {
-      final api = context.read<ApiService>();
-      final res = await api.toggleBookmark(widget.eventId);
+      final repo = context.read<EventRepository>();
+      final res = await repo.toggleBookmark(widget.eventId);
       if (mounted) setState(() => _bookmarked = res['bookmarked'] == true);
     } catch (e) {
       debugPrint(e.toString());
@@ -133,8 +137,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
   Future<void> _loadImages() async {
     try {
-      final api = context.read<ApiService>();
-      final data = await api.getEventImages(widget.eventId);
+      final repo = context.read<EventRepository>();
+      final data = await repo.getEventImages(widget.eventId);
       if (mounted) {
         setState(() {
           _images = data.map((i) => EventImage.fromJson(i)).toList();
@@ -161,8 +165,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     final auth = context.read<AuthProvider>();
     if (auth.user == null) return;
     try {
-      final api = context.read<ApiService>();
-      final data = await api.getMyRegistration(widget.eventId);
+      final repo = context.read<EventRepository>();
+      final data = await repo.getMyRegistration(widget.eventId);
       if (mounted) {
         setState(() {
           _isRegistered = data['registered'] == true;
@@ -179,19 +183,19 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     final user = auth.user;
     if (user == null || !user.isCustomer) return;
     try {
-      final api = context.read<ApiService>();
-      final tickets = await api.getMyTickets();
-      final myTickets = tickets
+      final ticketRepo = context.read<TicketRepository>();
+      final result = await ticketRepo.getMyTickets();
+      final myTickets = result.items
           .where((t) =>
-              t['event_id'] == widget.eventId &&
-              (t['status'] == 'purchased' ||
-                  t['status'] == 'waitlisted' ||
-                  t['status'] == 'refund_requested'))
+              t.eventId == widget.eventId &&
+              (t.status == 'purchased' ||
+                  t.status == 'waitlisted' ||
+                  t.status == 'refund_requested'))
           .toList();
       if (mounted) {
         setState(() {
           _myTicketCount = myTickets.length;
-          _myEventTickets = myTickets.cast<Map<String, dynamic>>();
+          _myEventTickets = myTickets;
         });
       }
     } catch (e) {
@@ -204,13 +208,13 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     final user = auth.user;
     if (user == null || !(user.isCustomer || user.isSponsor)) return;
     try {
-      final api = context.read<ApiService>();
-      final pledges = await api.getMyPledges();
-      final spots = pledges
+      final repo = context.read<FundingRepository>();
+      final result = await repo.getMyPledges();
+      final spots = result.items
           .where((p) =>
-              p['event_id'] == widget.eventId && p['status'] == 'pledged')
+              p.eventId == widget.eventId && p.status == PledgeStatus.pledged)
           .fold<int>(
-              0, (sum, p) => sum + ((p['reserved_spots'] ?? 0) as int));
+              0, (sum, p) => sum + p.reservedSpots);
       if (mounted) setState(() => _myReservedSpots = spots);
     } catch (e) {
       debugPrint(e.toString());
@@ -246,10 +250,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       if (event == null || !event.viewerIsCoOrganizer) return;
     }
     try {
-      final api = context.read<ApiService>();
-      final sales = await api.getTicketSales(widget.eventId);
-      final total = sales.fold<int>(
-          0, (s, e) => s + ((e['amount_paid_cents'] ?? 0) as int));
+      final ticketRepo = context.read<TicketRepository>();
+      final sales = await ticketRepo.getTicketSales(widget.eventId);
+      final total = sales.fold<int>(0, (s, t) => s + t.amountPaidCents);
       if (mounted) setState(() => _revenueCents = total);
     } catch (e) {
       debugPrint(e.toString());

@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
-import '../../../services/api_service.dart';
+import '../../../repositories/base_repository.dart';
+import '../../../repositories/event_repository.dart';
 import '../../../widgets/app_toast.dart';
 
 class EditScheduleItem {
@@ -50,7 +51,7 @@ class _EditScheduleSectionState extends State<EditScheduleSection> {
 
   Future<void> _loadSchedule() async {
     try {
-      final api = context.read<ApiService>();
+      final api = context.read<EventRepository>();
       final list = await api.getSchedule(widget.eventId);
       if (mounted) {
         final parsed = <EditScheduleItem>[];
@@ -89,7 +90,7 @@ class _EditScheduleSectionState extends State<EditScheduleSection> {
           : 'Date is required');
       return;
     }
-    final api = context.read<ApiService>();
+    final api = context.read<EventRepository>();
     final dateStr =
         '${si.date!.year}-${si.date!.month.toString().padLeft(2, '0')}-${si.date!.day.toString().padLeft(2, '0')}';
     final startStr =
@@ -126,7 +127,7 @@ class _EditScheduleSectionState extends State<EditScheduleSection> {
       }
     } catch (e) {
       if (mounted) {
-        final msg = ApiService.extractError(e, fallback: 'Failed to save schedule item');
+        final msg = ApiError.extractMessage(e, fallback: 'Failed to save schedule item');
         setState(() => si.error = msg);
       }
     }
@@ -136,7 +137,7 @@ class _EditScheduleSectionState extends State<EditScheduleSection> {
     final si = _items[idx];
     if (si.id != null) {
       try {
-        final api = context.read<ApiService>();
+        final api = context.read<EventRepository>();
         await api.deleteScheduleItem(widget.eventId, si.id!);
       } catch (e) {
         if (mounted) {

@@ -8,7 +8,7 @@ import '../../../config/theme.dart';
 import '../../../models/event.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../utils/date_time_utils.dart';
-import '../../../services/api_service.dart';
+import '../../../repositories/sponsor_repository.dart';
 import '../../../widgets/animated_list_item.dart';
 import '../../../widgets/kyc_required_banner.dart';
 import '../../../widgets/empty_state.dart';
@@ -55,7 +55,7 @@ class _SponsorManageTabState extends State<SponsorManageTab> {
     if (auth.user == null || !auth.user!.isSponsor) return;
     setState(() => _sponsorBidEventsLoading = true);
     try {
-      final api = context.read<ApiService>();
+      final api = context.read<SponsorRepository>();
       final data = await api.getSponsorBidEvents();
       if (mounted) {
         setState(() {

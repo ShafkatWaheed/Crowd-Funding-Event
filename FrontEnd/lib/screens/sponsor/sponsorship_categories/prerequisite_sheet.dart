@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
-import '../../../services/api_service.dart';
+import '../../../repositories/base_repository.dart';
+import '../../../repositories/sponsor_repository.dart';
 import '../../../widgets/app_toast.dart';
 
 class PrerequisiteSheet extends StatefulWidget {
@@ -35,12 +36,12 @@ class _PrerequisiteSheetState extends State<PrerequisiteSheet> {
 
   Future<void> _load() async {
     try {
-      final api = context.read<ApiService>();
+      final api = context.read<SponsorRepository>();
       final data = await api.listPrerequisites(widget.eventId, widget.categoryId);
       if (mounted) setState(() { _prereqs = data.cast<Map<String, dynamic>>(); _loading = false; });
     } catch (e) {
       if (mounted) {
-        AppToast.error(context, ApiService.extractError(e));
+        AppToast.error(context, ApiError.extractMessage(e));
         setState(() => _loading = false);
       }
     }
@@ -124,7 +125,7 @@ class _PrerequisiteSheetState extends State<PrerequisiteSheet> {
     if (!mounted) return;
 
     try {
-      final api = context.read<ApiService>();
+      final api = context.read<SponsorRepository>();
       await api.createPrerequisite(
         widget.eventId,
         widget.categoryId,
@@ -136,18 +137,18 @@ class _PrerequisiteSheetState extends State<PrerequisiteSheet> {
       if (mounted) AppToast.success(context, 'Requirement added');
       _load();
     } catch (e) {
-      if (mounted) AppToast.error(context, ApiService.extractError(e));
+      if (mounted) AppToast.error(context, ApiError.extractMessage(e));
     }
   }
 
   Future<void> _delete(int prereqId) async {
     try {
-      final api = context.read<ApiService>();
+      final api = context.read<SponsorRepository>();
       await api.deletePrerequisite(widget.eventId, widget.categoryId, prereqId);
       if (mounted) AppToast.success(context, 'Requirement removed');
       _load();
     } catch (e) {
-      if (mounted) AppToast.error(context, ApiService.extractError(e));
+      if (mounted) AppToast.error(context, ApiError.extractMessage(e));
     }
   }
 

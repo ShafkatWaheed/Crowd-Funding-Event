@@ -22,6 +22,7 @@ from app.schemas.kyc import KycDocumentResponse, KycStatusResponse, KycSubmitRes
 from fastapi import Query
 
 from app.api.v1.events import _event_to_response, _get_first_images, _ticket_sale_to_response
+from app.repositories.user_repo import user_repo
 from app.services import event as event_service
 from app.services import funding as funding_service
 from app.services import ticket as ticket_service
@@ -63,21 +64,22 @@ async def update_me(
     """Update current user profile."""
     log_step(logger, "Updating profile", user_id=current_user.id)
     # Re-fetch user in the write session (current_user comes from read session)
-    user = await db.get(User, current_user.id)
+    user = await user_repo.get_by_id(db, current_user.id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    kwargs: dict = {}
     if body.display_name is not None:
-        user.display_name = body.display_name
+        kwargs["display_name"] = body.display_name
     if body.phone is not None:
-        user.phone = body.phone
+        kwargs["phone"] = body.phone
     if body.address is not None:
-        user.address = body.address
+        kwargs["address"] = body.address
     if body.birthday is not None:
-        user.birthday = body.birthday
+        kwargs["birthday"] = body.birthday
     if body.years_of_experience is not None:
-        user.years_of_experience = body.years_of_experience
-    await db.flush()
-    await db.refresh(user)
+        kwargs["years_of_experience"] = body.years_of_experience
+    if kwargs:
+        user = await user_repo.update_user(db, user, **kwargs)
     return _me_response(user)
 
 
@@ -89,19 +91,11 @@ async def search_organizers(
     limit: int = Query(10, ge=1, le=20),
 ):
     """Search users with organizer role by email or display name. For co-organizer invite."""
-    from sqlalchemy import select, or_
-    query = select(User).where(
-        User.role == UserRole.organizer,
-        User.id != current_user.id,
-        or_(
-            User.email.ilike(f"%{q}%"),
-            User.display_name.ilike(f"%{q}%"),
-        ),
-    ).limit(limit)
-    results = (await db.execute(query)).scalars().all()
+    results = await user_repo.search_organizers(db, q, limit=limit)
     return [
         {"id": u.id, "email": u.email, "display_name": u.display_name}
         for u in results
+        if u.id != current_user.id
     ]
 
 

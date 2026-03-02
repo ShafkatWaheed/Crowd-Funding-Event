@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
 import '../../config/design_tokens.dart';
-import '../../services/api_service.dart';
+import '../../repositories/user_repository.dart';
 import '../../widgets/app_toast.dart';
 import 'profile_section_card.dart';
 
@@ -36,7 +36,7 @@ class _ProfilePaymentSectionState extends State<ProfilePaymentSection> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final data = await context.read<ApiService>().getPaymentInfo();
+      final data = await context.read<UserRepository>().getPaymentInfo();
       if (mounted) {
         setState(() {
           _paymentInfo = data;
@@ -53,7 +53,7 @@ class _ProfilePaymentSectionState extends State<ProfilePaymentSection> {
 
   Future<void> _save() async {
     try {
-      await context.read<ApiService>().updatePaymentInfo({
+      await context.read<UserRepository>().updatePaymentInfo({
         'card_holder_name': _cardHolderCtrl.text.trim(),
         'billing_address': _billingAddressCtrl.text.trim(),
       });

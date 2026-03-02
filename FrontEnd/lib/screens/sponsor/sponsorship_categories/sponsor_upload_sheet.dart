@@ -3,7 +3,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
-import '../../../services/api_service.dart';
+import '../../../repositories/base_repository.dart';
+import '../../../repositories/sponsor_repository.dart';
 import '../../../widgets/app_toast.dart';
 
 class SponsorUploadSheet extends StatefulWidget {
@@ -37,7 +38,7 @@ class _SponsorUploadSheetState extends State<SponsorUploadSheet> {
 
   Future<void> _load() async {
     try {
-      final api = context.read<ApiService>();
+      final api = context.read<SponsorRepository>();
       final prereqs = await api.listPrerequisites(widget.eventId, widget.categoryId);
       final allBids = await api.listBids(widget.eventId, widget.categoryId);
       final myBids = allBids
@@ -58,7 +59,7 @@ class _SponsorUploadSheetState extends State<SponsorUploadSheet> {
       if (_selectedBidId != null) await _loadUploads(_selectedBidId!);
     } catch (e) {
       if (mounted) {
-        AppToast.error(context, ApiService.extractError(e));
+        AppToast.error(context, ApiError.extractMessage(e));
         setState(() => _loading = false);
       }
     }
@@ -66,7 +67,7 @@ class _SponsorUploadSheetState extends State<SponsorUploadSheet> {
 
   Future<void> _loadUploads(int bidId) async {
     try {
-      final api = context.read<ApiService>();
+      final api = context.read<SponsorRepository>();
       final uploads = await api.listBidPrerequisiteUploads(bidId);
       if (mounted) {
         setState(() {
@@ -85,7 +86,7 @@ class _SponsorUploadSheetState extends State<SponsorUploadSheet> {
 
     if (!mounted) return;
     try {
-      final api = context.read<ApiService>();
+      final api = context.read<SponsorRepository>();
       await api.uploadPrerequisiteDocument(
         _selectedBidId!,
         prereqId,
@@ -95,7 +96,7 @@ class _SponsorUploadSheetState extends State<SponsorUploadSheet> {
       if (mounted) AppToast.success(context, 'Document uploaded');
       _loadUploads(_selectedBidId!);
     } catch (e) {
-      if (mounted) AppToast.error(context, ApiService.extractError(e));
+      if (mounted) AppToast.error(context, ApiError.extractMessage(e));
     }
   }
 

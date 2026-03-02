@@ -7,19 +7,13 @@ import math
 from datetime import datetime, timezone
 from typing import Sequence
 
-from sqlalchemy import func, nulls_last, select, and_, or_, exists
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.logger import get_logger
-from app.models.event import Event, EventOrganizer, EventDiscount, OrganizerCustomerHistory, EventStatus, RegistrationType
-from app.models.discount_strategy import DiscountStrategy, EventDiscountStrategyLink
-from app.models.registration import Registration, RegistrationStatus
-from app.models.venue import Venue
+from app.models.event import Event, EventStatus, RegistrationType
 from app.models.user import User
-from app.models.ticket import TicketTier, TicketSale, UserEventDiscount
-from app.models.funding import Funding, FundingStatus
 from app.core.exceptions import NotFoundError, ForbiddenError, ConflictError
+from app.repositories.event_repo import event_repo
 
 from app.services.event.permissions import user_can_edit_event
 
@@ -32,14 +26,14 @@ async def auto_transition_status(db: AsyncSession, event: Event) -> Event:
     Called on every event fetch to keep status current.
 
     Lifecycle:
-      approved → (funding_end_at passes):
-        - If start_time set → waiting_event_date (organizer must manually start selling)
-        - If start_time NOT set → waiting_event_date (deadline = funding_end + grace days)
-      approved (no funding, event date set) → stays approved until start_time
-      waiting_event_date → (organizer clicks "Start Selling") → selling_tickets
-      selling_tickets / approved → (start_time reaches now) → live
-      live → (end_time reaches now) → completed
-      waiting_event_date → (event_date_deadline passes, no start_time) → cancelled + refund
+      approved -> (funding_end_at passes):
+        - If start_time set -> waiting_event_date (organizer must manually start selling)
+        - If start_time NOT set -> waiting_event_date (deadline = funding_end + grace days)
+      approved (no funding, event date set) -> stays approved until start_time
+      waiting_event_date -> (organizer clicks "Start Selling") -> selling_tickets
+      selling_tickets / approved -> (start_time reaches now) -> live
+      live -> (end_time reaches now) -> completed
+      waiting_event_date -> (event_date_deadline passes, no start_time) -> cancelled + refund
     """
     from datetime import timedelta
 
@@ -57,7 +51,7 @@ async def auto_transition_status(db: AsyncSession, event: Event) -> Event:
     try:
         status = event.status
 
-        # ── approved → check funding end / non-funded transitions ──
+        # -- approved -> check funding end / non-funded transitions --
         if status == EventStatus.approved:
             funding_end = _tz(event.funding_end_at)
             if funding_end is not None and now >= funding_end:
@@ -67,15 +61,13 @@ async def auto_transition_status(db: AsyncSession, event: Event) -> Event:
                 event.status = EventStatus.waiting_event_date
                 changed = True
             elif funding_end is None and event.start_time is not None and event.ticket_strategy_id is not None:
-                has_tiers = (await db.execute(
-                    select(TicketTier.id).where(TicketTier.event_id == event.id).limit(1)
-                )).scalar_one_or_none()
-                if has_tiers is not None:
+                has_tiers = await event_repo.has_ticket_tiers(db, event.id)
+                if has_tiers:
                     event.status = EventStatus.selling_tickets
                     event.ticket_selling_started_at = now
                     changed = True
 
-        # ── waiting_event_date → check if deadline passed ──
+        # -- waiting_event_date -> check if deadline passed --
         if status == EventStatus.waiting_event_date:
             if event.event_date_deadline is not None and now >= _tz(event.event_date_deadline) and event.start_time is None:
                 event.status = EventStatus.cancelled
@@ -93,25 +85,15 @@ async def auto_transition_status(db: AsyncSession, event: Event) -> Event:
                 ))
                 changed = True
 
-        # ── selling_tickets / approved → check if event started ──
+        # -- selling_tickets / approved -> check if event started --
         if event.status in (EventStatus.selling_tickets, EventStatus.approved):
             start = _tz(event.start_time)
             if start is not None and now >= start:
                 event.status = EventStatus.live
                 changed = True
-                from sqlalchemy import update as sql_update
-                from app.models.funding import Funding, FundingStatus
-                await db.execute(
-                    sql_update(Funding)
-                    .where(
-                        Funding.event_id == event.id,
-                        Funding.status == FundingStatus.pledged,
-                        Funding.reserved_spots > 0,
-                    )
-                    .values(reserved_spots=0)
-                )
+                await event_repo.zero_reserved_spots(db, event.id)
 
-        # ── live → check if event ended ──
+        # -- live -> check if event ended --
         if event.status == EventStatus.live:
             end = _tz(event.end_time)
             if end is not None and now >= end:
@@ -145,7 +127,7 @@ async def auto_transition_status(db: AsyncSession, event: Event) -> Event:
             log.exception("Failed to send under_review notification for event %s", event.id)
 
     if changed:
-        await db.flush()
+        await event_repo.flush_event(db)
 
     return event
 
@@ -158,13 +140,9 @@ async def get_by_id(
     load_organizer: bool = False,
 ) -> Event | None:
     """Load event by id. Returns None if not found."""
-    q = select(Event).where(Event.id == event_id)
-    if load_venue:
-        q = q.options(selectinload(Event.venue), selectinload(Event.ticket_strategy), selectinload(Event.organizer))
-    elif load_organizer:
-        q = q.options(selectinload(Event.organizer))
-    result = await db.execute(q)
-    event = result.scalar_one_or_none()
+    event = await event_repo.get_by_id_with_relations(
+        db, event_id, load_venue=load_venue, load_organizer=load_organizer
+    )
     if event is not None:
         event = await auto_transition_status(db, event)
     return event
@@ -180,7 +158,7 @@ async def get_or_404(db: AsyncSession, event_id: int) -> Event:
 
 async def publish_event(db: AsyncSession, event_id: int, user: User) -> Event:
     """
-    Publish a draft event (draft → approved). No admin approval needed.
+    Publish a draft event (draft -> approved). No admin approval needed.
     Only the organizer (or admin) can publish; event must be in draft status.
     At least one of funding_end_at or start_time must be set.
     """
@@ -194,15 +172,12 @@ async def publish_event(db: AsyncSession, event_id: int, user: User) -> Event:
 
     # Event must have a funding goal or at least one ticket tier
     has_funding = event.funding_goal_cents is not None and event.funding_goal_cents > 0
-    tier_count = (await db.execute(
-        select(func.count()).select_from(TicketTier).where(TicketTier.event_id == event.id)
-    )).scalar_one()
+    tier_count = await event_repo.count_tier_for_event(db, event.id)
     if not has_funding and tier_count == 0:
         raise ConflictError("Event must have a funding goal or at least one ticket tier before publishing")
 
     event.status = EventStatus.approved
-    await db.flush()
-    await db.refresh(event)
+    await event_repo.flush_and_refresh(db, event)
     return event
 
 
@@ -252,129 +227,42 @@ async def list_events(
     cursor: str | None = None,
 ) -> tuple[Sequence[Event], str | None]:
     """List events with optional filters. Returns (events, next_cursor)."""
-    conditions = []
-    q = select(Event)
-    need_venue_join = city is not None
-    if search is not None and search.strip():
-        need_venue_join = True
-    if need_venue_join:
-        q = q.outerjoin(Event.venue)
-    if city is not None:
-        conditions.append(Venue.city == city)
-    if search is not None and search.strip():
-        search_term = f"%{search.strip()}%"
-        conditions.append(
-            or_(
-                Event.title.ilike(search_term),
-                (Event.description.isnot(None)) & (Event.description.ilike(search_term)),
-                Venue.name.ilike(search_term),
-                Venue.city.ilike(search_term),
-                Venue.address.ilike(search_term),
-            )
-        )
-    if status is not None:
-        try:
-            status_enum = EventStatus(status)
-        except ValueError:
-            return ([], None)
-        conditions.append(Event.status == status_enum)
-    elif not include_all_statuses and organizer_id is None:
-        conditions.append(
-            Event.status.notin_([
-                EventStatus.draft, EventStatus.pending_approval,
-                EventStatus.cancelled, EventStatus.completed,
-            ])
-        )
-    if live is True:
-        now = datetime.now(timezone.utc)
-        conditions.append(Event.start_time.isnot(None))
-        conditions.append(Event.start_time <= now)
-        conditions.append(Event.end_time.isnot(None))
-        conditions.append(Event.end_time >= now)
-        conditions.append(Event.status.in_([EventStatus.approved, EventStatus.selling_tickets, EventStatus.live]))
-    if registration_type is not None:
-        try:
-            reg_type = RegistrationType(registration_type)
-        except ValueError:
-            return ([], None)
-        conditions.append(Event.registration_type == reg_type)
-    if organizer_id is not None:
-        conditions.append(Event.organizer_id == organizer_id)
-    if date_from is not None:
-        conditions.append(Event.start_time.isnot(None))
-        conditions.append(Event.start_time >= date_from)
-    if date_to is not None:
-        conditions.append(Event.start_time.isnot(None))
-        conditions.append(Event.start_time <= date_to)
-    if has_funding is True:
-        conditions.append(
-            or_(Event.funding_goal_cents.isnot(None), Event.funding_end_at.isnot(None))
-        )
-    if has_funding is False:
-        conditions.append(Event.funding_goal_cents.is_(None))
-        conditions.append(Event.funding_end_at.is_(None))
-    if has_tickets is True:
-        conditions.append(exists(select(1).where(TicketTier.event_id == Event.id)))
-    if has_tickets is False:
-        conditions.append(~exists(select(1).where(TicketTier.event_id == Event.id)))
-    if min_capacity is not None:
-        conditions.append(Event.max_capacity >= min_capacity)
-    if max_capacity is not None:
-        conditions.append(Event.max_capacity <= max_capacity)
-    if genre is not None:
-        conditions.append(Event.genre == genre)
-    if community_rules is not None:
-        conditions.append(Event.community_rules == community_rules)
-    if sponsorship_only:
-        from app.models.sponsor import SponsorshipCategory
-        conditions.append(exists(
-            select(SponsorshipCategory.id).where(
-                SponsorshipCategory.event_id == Event.id,
-                SponsorshipCategory.is_template == False,
-            )
-        ))
-    if conditions:
-        q = q.where(and_(*conditions))
-
-    use_keyset = cursor is not None and limit is not None
-    if use_keyset:
+    # Decode cursor for keyset pagination
+    cursor_start_time: datetime | None = None
+    cursor_id: int | None = None
+    if cursor is not None and limit is not None:
         decoded = _decode_cursor(cursor)
         if decoded:
             cursor_start_time, cursor_id = decoded
-            if cursor_start_time is not None:
-                keyset = or_(
-                    Event.start_time > cursor_start_time,
-                    (Event.start_time == cursor_start_time) & (Event.id > cursor_id),
-                    Event.start_time.is_(None),
-                )
-            else:
-                keyset = or_(
-                    Event.start_time.isnot(None),
-                    (Event.start_time.is_(None) & (Event.id > cursor_id)),
-                )
-            q = q.where(keyset)
-        else:
-            use_keyset = False
 
-    q = q.options(
-        selectinload(Event.venue),
-        selectinload(Event.ticket_strategy),
-        selectinload(Event.organizer),
-    ).order_by(nulls_last(Event.start_time.asc()), Event.id.asc())
-    if not use_keyset and offset is not None and offset > 0:
-        q = q.offset(offset)
-    if limit is not None:
-        q = q.limit(limit + 1 if use_keyset else limit)
-    result = await db.execute(q)
-    rows = result.scalars().unique().all()
+    rows, has_more = await event_repo.list_events(
+        db,
+        search=search,
+        city=city,
+        status=status,
+        live=live,
+        registration_type=registration_type,
+        organizer_id=organizer_id,
+        date_from=date_from,
+        date_to=date_to,
+        has_funding=has_funding,
+        has_tickets=has_tickets,
+        min_capacity=min_capacity,
+        max_capacity=max_capacity,
+        genre=genre,
+        community_rules=community_rules,
+        include_all_statuses=include_all_statuses,
+        sponsorship_only=sponsorship_only,
+        offset=offset,
+        limit=limit,
+        cursor_start_time=cursor_start_time,
+        cursor_id=cursor_id,
+    )
 
     next_cursor = None
-    if use_keyset and limit is not None and len(rows) > limit:
-        rows = list(rows)[:limit]
+    if has_more and rows:
         last = rows[-1]
         next_cursor = _encode_cursor(last.start_time, last.id)
-    elif not use_keyset:
-        next_cursor = None
 
     return (rows, next_cursor)
 
@@ -398,70 +286,19 @@ async def list_events_for_map(
     Optional city (via venue), live filter, lat/lng/radius_km (approximate bbox),
     organizer_id, search, genre, and status filters.
     """
-    conditions = [
-        Event.lat.isnot(None),
-        Event.lng.isnot(None),
-    ]
-    if organizer_id is not None:
-        conditions.append(Event.organizer_id == organizer_id)
-    if status is not None:
-        try:
-            status_enum = EventStatus(status)
-        except ValueError:
-            return []
-        conditions.append(Event.status == status_enum)
-    elif organizer_id is None:
-        conditions.append(
-            Event.status.notin_([
-                EventStatus.draft, EventStatus.pending_approval,
-                EventStatus.cancelled, EventStatus.completed,
-            ]),
-        )
-    need_venue_join = city is not None
-    if search is not None and search.strip():
-        search_term = f"%{search.strip()}%"
-        need_venue_join = True
-        conditions.append(
-            or_(
-                Event.title.ilike(search_term),
-                Venue.name.ilike(search_term),
-                Venue.city.ilike(search_term),
-                Venue.address.ilike(search_term),
-            )
-        )
-    if genre is not None:
-        conditions.append(Event.genre == genre)
-    if sponsorship_only:
-        from app.models.sponsor import SponsorshipCategory
-        conditions.append(exists(
-            select(SponsorshipCategory.id).where(
-                SponsorshipCategory.event_id == Event.id,
-                SponsorshipCategory.is_template == False,
-            )
-        ))
-    q = select(Event)
-    if need_venue_join:
-        q = q.outerjoin(Event.venue)
-    if city is not None:
-        conditions.append(Venue.city == city)
-    if live is True:
-        now = datetime.now(timezone.utc)
-        conditions.append(Event.start_time.isnot(None))
-        conditions.append(Event.start_time <= now)
-        conditions.append(Event.end_time.isnot(None))
-        conditions.append(Event.end_time >= now)
-        conditions.append(Event.status.in_([EventStatus.approved, EventStatus.selling_tickets, EventStatus.live]))
-    if lat is not None and lng is not None and radius_km is not None and radius_km > 0:
-        # Approximate bbox: 1 deg lat ~ 111 km; 1 deg lng ~ 111*cos(lat) km
-        delta_lat = radius_km / 111.0
-        delta_lng = radius_km / (111.0 * math.cos(math.radians(lat)) if lat != 0 else 111.0)
-        conditions.append(Event.lat >= lat - delta_lat)
-        conditions.append(Event.lat <= lat + delta_lat)
-        conditions.append(Event.lng >= lng - delta_lng)
-        conditions.append(Event.lng <= lng + delta_lng)
-    q = q.options(selectinload(Event.venue)).where(and_(*conditions)).order_by(Event.start_time.asc())
-    result = await db.execute(q)
-    return result.scalars().unique().all()
+    return await event_repo.list_events_for_map(
+        db,
+        city=city,
+        live=live,
+        lat=lat,
+        lng=lng,
+        radius_km=radius_km,
+        organizer_id=organizer_id,
+        search=search,
+        genre=genre,
+        status=status,
+        sponsorship_only=sponsorship_only,
+    )
 
 
 async def create(
@@ -509,17 +346,11 @@ async def create(
 
     max_events = await settings_svc.get_int(db, "max_events_per_organizer")
     if max_events > 0:
-        active_count = (await db.execute(
-            select(func.count()).select_from(Event).where(
-                Event.organizer_id == organizer_id,
-                Event.status.notin_(["cancelled", "completed"]),
-            )
-        )).scalar_one()
+        active_count = await event_repo.count_active_events(db, organizer_id)
         if active_count >= max_events:
             raise ConflictError(f"You can have at most {max_events} active events")
 
-    venue_result = await db.execute(select(Venue).where(Venue.id == venue_id))
-    venue = venue_result.scalar_one_or_none()
+    venue = await event_repo.get_venue(db, venue_id)
     if not venue:
         raise NotFoundError("Venue", venue_id)
     if not allow_any_venue and venue.organizer_id != organizer_id:
@@ -542,15 +373,13 @@ async def create(
 
     # Validate ticket strategy exists and belongs to organizer
     if ticket_strategy_id is not None:
-        from app.models.ticket_strategy import TicketStrategy as TS
-        ts_result = await db.execute(select(TS).where(TS.id == ticket_strategy_id))
-        ts = ts_result.scalar_one_or_none()
+        ts = await event_repo.get_ticket_strategy(db, ticket_strategy_id)
         if not ts:
             raise NotFoundError("TicketStrategy", ticket_strategy_id)
         if not allow_any_venue and ts.organizer_id != organizer_id:
             raise ForbiddenError("You can only use your own ticket strategies")
 
-    # ── Community rules (opt-in via toggle) ──
+    # -- Community rules (opt-in via toggle) --
     if community_rules:
         from app.services import platform_settings as settings_svc
         if not await settings_svc.get_bool(db, "feature_community_rules_enabled"):
@@ -580,9 +409,7 @@ async def create(
 
         # Ticket price check (validate strategy tiers)
         if ticket_strategy_id is not None:
-            from app.models.ticket_strategy import TicketStrategyTier as TST
-            tier_q = select(TST).where(TST.strategy_id == ticket_strategy_id)
-            tiers = list((await db.execute(tier_q)).scalars().all())
+            tiers = await event_repo.get_strategy_tiers(db, ticket_strategy_id)
             for t in tiers:
                 if t.price_cents > max_ticket_cents:
                     raise ConflictError(
@@ -663,10 +490,7 @@ async def create(
         refund_deadline_percent=refund_deadline_percent,
         status=EventStatus.approved if publish else EventStatus.draft,
     )
-    db.add(event)
-    await db.flush()
-    await db.refresh(event)
-    return event
+    return await event_repo.create_event(db, event)
 
 
 async def update(
@@ -704,11 +528,10 @@ async def update(
     max_co_organizers: int | None = None,
     refund_deadline_percent: int | None = None,
 ) -> Event:
-    """Update event fields (only provided ones). When switching closed→open, auto-approve waitlist up to capacity."""
+    """Update event fields (only provided ones). When switching closed->open, auto-approve waitlist up to capacity."""
     old_registration_type = event.registration_type
     if venue_id is not None and venue_id != event.venue_id:
-        venue_result = await db.execute(select(Venue).where(Venue.id == venue_id))
-        venue = venue_result.scalar_one_or_none()
+        venue = await event_repo.get_venue(db, venue_id)
         if not venue:
             raise NotFoundError("Venue", venue_id)
         event.venue_id = venue_id
@@ -736,13 +559,8 @@ async def update(
         # Capacity floor guard: cannot reduce below tickets_sold + reserved_spots
         if max_capacity < event.max_capacity:
             from app.services import funding as funding_svc
-            from app.models.ticket import TicketSale as _TS, TicketSaleStatus as _TSS
             total_reserved = await funding_svc.get_total_reserved_spots(db, event.id)
-            tickets_sold_q = select(func.count()).where(
-                _TS.event_id == event.id,
-                _TS.status == _TSS.purchased,
-            )
-            tickets_sold = int((await db.execute(tickets_sold_q)).scalar_one())
+            tickets_sold = await event_repo.count_tickets_sold(db, event.id)
             floor = tickets_sold + total_reserved
             if max_capacity < floor:
                 raise ConflictError(
@@ -782,30 +600,23 @@ async def update(
                 )
         event.refund_deadline_days = refund_deadline_days
     if ticket_strategy_id is not None:
-        from app.models.ticket import TicketTier, TicketSale
         strategy_changed = ticket_strategy_id != event.ticket_strategy_id
         # Check if tiers are missing (e.g. manually deleted) even for the same strategy
-        tier_count = (await db.execute(
-            select(func.count()).where(TicketTier.event_id == event.id)
-        )).scalar_one()
-        tiers_missing = int(tier_count) == 0
+        tier_count = await event_repo.count_ticket_tiers(db, event.id)
+        tiers_missing = tier_count == 0
 
         if strategy_changed or tiers_missing:
             event.ticket_strategy_id = ticket_strategy_id
             # Re-copy tiers from strategy (delete old TicketTiers first, only if no sales)
-            existing_sales = (await db.execute(
-                select(TicketSale).where(TicketSale.event_id == event.id).limit(1)
-            )).scalar_one_or_none()
-            if existing_sales is None:
-                existing_tiers = (await db.execute(
-                    select(TicketTier).where(TicketTier.event_id == event.id)
-                )).scalars().all()
+            existing_sales = await event_repo.has_ticket_sales(db, event.id)
+            if not existing_sales:
+                existing_tiers = await event_repo.get_existing_tiers(db, event.id)
                 for t in existing_tiers:
-                    await db.delete(t)
-                await db.flush()
+                    await event_repo.delete_tier(db, t)
+                await event_repo.flush_event(db)
                 from app.services import ticket_strategy as ts_service
                 await ts_service.apply_strategy_to_event(db, strategy_id=ticket_strategy_id, event_id=event.id)
-    # Parking & Transport (operational — never triggers re-approval)
+    # Parking & Transport (operational -- never triggers re-approval)
     if parking_info is not None:
         event.parking_info = parking_info
     if transit_info is not None:
@@ -847,13 +658,13 @@ async def update(
             raise ConflictError("Event start time must be after the funding deadline")
     if event.funding_end_at is not None and (event.funding_goal_cents is None or event.funding_goal_cents <= 0):
         raise ConflictError("Funding goal is required when a funding deadline is set")
-    await db.flush()
+    await event_repo.flush_event(db)
     if registration_type is not None and old_registration_type == RegistrationType.closed and registration_type == RegistrationType.open:
         from app.services import registration as registration_service
         await registration_service.auto_approve_waitlist_when_switching_to_open(
             db, event_id=event.id, event_max_capacity=event.max_capacity
         )
-    await db.refresh(event)
+    await event_repo.flush_and_refresh(db, event)
     return event
 
 

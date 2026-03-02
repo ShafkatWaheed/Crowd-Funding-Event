@@ -3,16 +3,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
-import '../../lib/services/api_service.dart';
+import '../../lib/repositories/ticket_repository.dart';
 import '../../lib/screens/manage/global_discounts_screen.dart';
-import '../helpers/mock_api_service.dart';
+import '../helpers/mock_ticket_repository.dart';
 import '../helpers/pump_app.dart';
 
 void main() {
-  late MockApiService mockApi;
+  late MockTicketRepository mockTicketRepo;
 
   setUp(() {
-    mockApi = MockApiService();
+    mockTicketRepo = MockTicketRepository();
   });
 
   Map<String, dynamic> discountJson({
@@ -31,7 +31,7 @@ void main() {
       };
 
   void stubDiscounts({List<dynamic>? data}) {
-    when(() => mockApi.getDiscountStrategies())
+    when(() => mockTicketRepo.getDiscountStrategies())
         .thenAnswer((_) async => data ?? []);
   }
 
@@ -39,7 +39,7 @@ void main() {
     await pumpApp(
       tester,
       const GlobalDiscountsScreen(),
-      overrides: [Provider<ApiService>.value(value: mockApi)],
+      overrides: [Provider<TicketRepository>.value(value: mockTicketRepo)],
     );
   }
 
@@ -141,8 +141,8 @@ void main() {
     testWidgets('calls deleteDiscountStrategy when delete tapped',
         (tester) async {
       stubDiscounts(data: [discountJson(id: 42)]);
-      when(() => mockApi.deleteDiscountStrategy(42))
-          .thenAnswer((_) async => {});
+      when(() => mockTicketRepo.deleteDiscountStrategy(42))
+          .thenAnswer((_) async {});
 
       await pumpScreen(tester);
       await tester.pumpAndSettle();
@@ -150,7 +150,7 @@ void main() {
       await tester.tap(find.byIcon(Icons.delete_outline));
       await tester.pumpAndSettle();
 
-      verify(() => mockApi.deleteDiscountStrategy(42)).called(1);
+      verify(() => mockTicketRepo.deleteDiscountStrategy(42)).called(1);
     });
   });
 }

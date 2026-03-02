@@ -8,6 +8,9 @@ import '../../../utils/date_time_utils.dart';
 import '../../../config/design_tokens.dart';
 import '../../../models/event.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../repositories/base_repository.dart';
+import '../../../repositories/funding_repository.dart';
+import '../../../repositories/ticket_repository.dart';
 import '../../../services/api_service.dart';
 import '../../../widgets/app_toast.dart';
 import '../pledge_receipt_screen.dart';
@@ -60,16 +63,16 @@ class _FundingCardState extends State<FundingCard> {
 
   Future<void> _loadEarlyBirdDiscounts() async {
     try {
-      final api = context.read<ApiService>();
-      final data = await api.getEarlyBirdDiscounts(widget.eventId);
+      final ticketRepo = context.read<TicketRepository>();
+      final data = await ticketRepo.getEarlyBirdDiscounts(widget.eventId);
       if (mounted) setState(() => _earlyBirdDiscounts = data);
     } catch (e) { debugPrint(e.toString()); }
   }
 
   Future<void> _loadFunding() async {
     try {
-      final api = context.read<ApiService>();
-      final data = await api.getFundingSummary(widget.eventId);
+      final repo = context.read<FundingRepository>();
+      final data = await repo.getFundingSummary(widget.eventId);
       if (mounted) {
         setState(() {
           _totalPledgedCents = data['total_pledged_cents'] ?? 0;
@@ -131,8 +134,8 @@ class _FundingCardState extends State<FundingCard> {
 
     if (isTierLinked) {
       try {
-        final api = context.read<ApiService>();
-        final preview = await api.getPledgePreview(widget.eventId, 0, 0);
+        final repo = context.read<FundingRepository>();
+        final preview = await repo.getPledgePreview(widget.eventId, 0, 0);
         tierAvailability = List<Map<String, dynamic>>.from(preview['tier_availability'] ?? []);
         availableSpotsForUser = (preview['available_spots_for_user'] as int?) ?? maxPerUser;
         for (final t in tierAvailability) {
@@ -459,12 +462,12 @@ class _FundingCardState extends State<FundingCard> {
     String? previewError;
 
     try {
-      final api = context.read<ApiService>();
-      preview = await api.getPledgePreview(widget.eventId, amountCents, reservedSpots);
+      final repo = context.read<FundingRepository>();
+      preview = await repo.getPledgePreview(widget.eventId, amountCents, reservedSpots);
       loadingPreview = false;
     } catch (e) {
       loadingPreview = false;
-      previewError = ApiService.extractError(e);
+      previewError = ApiError.extractMessage(e);
     }
 
     if (!mounted) return;
@@ -601,6 +604,7 @@ class _FundingCardState extends State<FundingCard> {
     _showPaymentProcessing();
     try {
       final api = context.read<ApiService>();
+      final repo = context.read<FundingRepository>();
 
       // Stripe Payment Sheet flow when Stripe is enabled
       if (api.isStripeEnabled) {
@@ -617,7 +621,7 @@ class _FundingCardState extends State<FundingCard> {
         await Stripe.instance.presentPaymentSheet();
       }
 
-      final result = await api.pledge(widget.eventId, amountCents,
+      final result = await repo.pledge(widget.eventId, amountCents,
           reservedSpots: reservedSpots,
           tierReservations: tierReservations);
       _dismissPaymentProcessing();
@@ -710,8 +714,8 @@ class _FundingCardState extends State<FundingCard> {
 
     if (confirmed != true || !mounted) return;
     try {
-      final api = context.read<ApiService>();
-      final result = await api.unpledge(widget.eventId);
+      final repo = context.read<FundingRepository>();
+      final result = await repo.unpledge(widget.eventId);
       if (!mounted) return;
       final refunded = result['refunded_cents'] ?? 0;
       final guest = result['guest_non_refundable_cents'] ?? 0;
@@ -743,8 +747,8 @@ class _FundingCardState extends State<FundingCard> {
     _refundPollTimer?.cancel();
     _refundPollTimer = Timer.periodic(const Duration(seconds: 3), (_) async {
       try {
-        final api = context.read<ApiService>();
-        final result = await api.getRefundStatus(widget.eventId);
+        final repo = context.read<FundingRepository>();
+        final result = await repo.getRefundStatus(widget.eventId);
         final status = result['status'] as String? ?? 'none';
 
         if (status == 'completed') {

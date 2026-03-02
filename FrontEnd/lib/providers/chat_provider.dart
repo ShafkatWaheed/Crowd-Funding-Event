@@ -3,11 +3,11 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../models/chat_message.dart';
-import '../services/api_service.dart';
+import '../repositories/chat_repository.dart';
 import '../services/chat_socket_service.dart';
 
 class ChatProvider extends ChangeNotifier {
-  final ApiService _api;
+  final ChatRepository _chatRepo;
   final ChatSocketService _socket;
   StreamSubscription? _sub;
 
@@ -17,7 +17,7 @@ class ChatProvider extends ChangeNotifier {
   List<ChatConversation> _conversations = [];
   bool _conversationsLoading = false;
 
-  ChatProvider(this._api, this._socket);
+  ChatProvider(this._chatRepo, this._socket);
 
   List<ChatMessage> messagesFor(int bidId) => _messagesByBid[bidId] ?? [];
   int unreadFor(int bidId) => _unreadCounts[bidId] ?? 0;
@@ -141,7 +141,7 @@ class ChatProvider extends ChangeNotifier {
 
   Future<void> loadHistory(int bidId, {String? before}) async {
     try {
-      final messages = await _api.getChatMessages(bidId, before: before);
+      final messages = await _chatRepo.getChatMessages(bidId, before: before);
       final list = _messagesByBid.putIfAbsent(bidId, () => []);
       for (final msg in messages) {
         if (!list.any((m) => m.id == msg.id)) {
@@ -158,7 +158,7 @@ class ChatProvider extends ChangeNotifier {
     _conversationsLoading = true;
     notifyListeners();
     try {
-      _conversations = await _api.getChatConversations();
+      _conversations = await _chatRepo.getChatConversations();
       for (final c in _conversations) {
         _unreadCounts[c.bidId] = c.unreadCount;
       }

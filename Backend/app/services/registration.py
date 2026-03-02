@@ -18,15 +18,16 @@ Concurrency:
 
 
 
-from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.logger import get_logger, log_step
 from app.core.exceptions import ConflictError, NotFoundError
-from app.models.event import Event, EventStatus, RegistrationType
+from app.models.event import EventStatus, RegistrationType
 from app.models.registration import Registration, RegistrationStatus
 from app.models.user import User
+from app.repositories.registration_repo import registration_repo
 from app.services import funding as funding_service
+
 
 logger = get_logger("svc.registration")
 
@@ -38,10 +39,8 @@ async def register(
     user: User,
 ) -> Registration:
     log_step(logger, "Register for event", event_id=event_id, user_id=user.id)
-    await db.execute(text("SELECT pg_advisory_xact_lock(:eid)"), {"eid": event_id})
-    event_q = select(Event).where(Event.id == event_id).with_for_update()
-    event_res = await db.execute(event_q)
-    event = event_res.scalar_one_or_none()
+    await registration_repo.advisory_lock(db, event_id)
+    event = await registration_repo.get_event_for_update(db, event_id)
     if not event:
         raise NotFoundError("Event", event_id)
 
@@ -56,12 +55,7 @@ async def register(
     enforce_age_limit(user.birthday, event.age_restricted, event.min_age, "register for this event")
 
     # Existing registration?
-    existing_q = select(Registration).where(
-        Registration.event_id == event_id,
-        Registration.user_id == user.id,
-    )
-    existing_res = await db.execute(existing_q)
-    existing = existing_res.scalar_one_or_none()
+    existing = await registration_repo.get_existing_registration(db, event_id, user.id)
 
     # Determine target status
     target_status: RegistrationStatus
@@ -69,14 +63,10 @@ async def register(
         target_status = RegistrationStatus.waitlist
     else:
         # Open: decide based on capacity
-        registered_count_q = select(func.count()).where(
-            Registration.event_id == event_id,
-            Registration.status == RegistrationStatus.registered,
-        )
-        registered_count = (await db.execute(registered_count_q)).scalar_one()
+        registered_count = await registration_repo.count_registered(db, event_id)
         target_status = (
             RegistrationStatus.registered
-            if int(registered_count) < int(event.max_capacity)
+            if registered_count < int(event.max_capacity)
             else RegistrationStatus.waitlist
         )
 
@@ -86,52 +76,35 @@ async def register(
         policy = await get_effective_policy(db, event)
         max_waitlist = policy.get("waitlist_max_size")
         if max_waitlist and max_waitlist > 0:
-            wl_count = (await db.execute(
-                select(func.count()).where(
-                    Registration.event_id == event_id,
-                    Registration.status == RegistrationStatus.waitlist,
-                )
-            )).scalar_one()
-            if int(wl_count) >= max_waitlist:
+            wl_count = await registration_repo.count_waitlisted(db, event_id)
+            if wl_count >= max_waitlist:
                 logger.warning("Register rejected: waitlist full", extra={"event_id": event_id, "user_id": user.id, "max_waitlist": max_waitlist})
                 raise ConflictError(f"Waitlist is full ({max_waitlist} max)")
 
     if existing:
         if existing.status == RegistrationStatus.cancelled:
-            existing.status = target_status
-            if target_status == RegistrationStatus.registered:
-                event.registration_count = (event.registration_count or 0) + 1
-            await db.flush()
-            await db.refresh(existing)
-            return existing
+            return await registration_repo.update_registration_status(
+                db, existing, target_status, event=event if target_status == RegistrationStatus.registered else None,
+            )
         logger.warning("Register rejected: already registered", extra={"event_id": event_id, "user_id": user.id, "status": existing.status.value})
         raise ConflictError(f"Already {existing.status.value} for this event")
 
-    reg = Registration(event_id=event_id, user_id=user.id, status=target_status)
-    db.add(reg)
+    reg = await registration_repo.create_registration(db, event_id, user.id, target_status)
     if target_status == RegistrationStatus.registered:
         event.registration_count = (event.registration_count or 0) + 1
-    await db.flush()
-    await db.refresh(reg)
+        await registration_repo.flush(db)
     logger.info("User registered", extra={"event_id": event_id, "user_id": user.id, "status": target_status.value})
     return reg
 
 
 async def list_registrations(db: AsyncSession, *, event_id: int) -> list[Registration]:
-    q = select(Registration).where(Registration.event_id == event_id).order_by(Registration.created_at.asc())
-    res = await db.execute(q)
-    return list(res.scalars().all())
+    return await registration_repo.list_by_event(db, event_id)
 
 
 async def get_registration_or_404(
     db: AsyncSession, *, event_id: int, registration_id: int
 ) -> Registration:
-    q = select(Registration).where(
-        Registration.id == registration_id,
-        Registration.event_id == event_id,
-    )
-    res = await db.execute(q)
-    reg = res.scalar_one_or_none()
+    reg = await registration_repo.get_by_id(db, event_id, registration_id)
     if not reg:
         raise NotFoundError("Registration", registration_id)
     return reg
@@ -141,24 +114,17 @@ async def approve_waitlist(
     db: AsyncSession, *, event_id: int, registration_id: int
 ) -> Registration:
     """
-    Approve a waitlist request → move to registered if capacity allows.
+    Approve a waitlist request -> move to registered if capacity allows.
     Uses row locks to reduce races.
     """
     log_step(logger, "Approve waitlist", event_id=event_id, registration_id=registration_id)
     # Lock event first (capacity gate)
-    event_q = select(Event).where(Event.id == event_id).with_for_update()
-    event_res = await db.execute(event_q)
-    event = event_res.scalar_one_or_none()
+    event = await registration_repo.get_event_for_update(db, event_id)
     if not event:
         raise NotFoundError("Event", event_id)
 
     # Lock the registration row
-    reg_q = select(Registration).where(
-        Registration.id == registration_id,
-        Registration.event_id == event_id,
-    ).with_for_update()
-    reg_res = await db.execute(reg_q)
-    reg = reg_res.scalar_one_or_none()
+    reg = await registration_repo.get_by_id_for_update(db, event_id, registration_id)
     if not reg:
         raise NotFoundError("Registration", registration_id)
 
@@ -169,17 +135,11 @@ async def approve_waitlist(
         raise ConflictError("Cannot approve registrations for this event status")
 
     # Capacity check
-    registered_count_q = select(func.count()).where(
-        Registration.event_id == event_id,
-        Registration.status == RegistrationStatus.registered,
-    )
-    registered_count = int((await db.execute(registered_count_q)).scalar_one())
+    registered_count = await registration_repo.count_registered(db, event_id)
     if registered_count >= int(event.max_capacity):
         raise ConflictError("Event is full")
 
-    reg.status = RegistrationStatus.registered
-    await db.flush()
-    await db.refresh(reg)
+    reg = await registration_repo.update_registration_status(db, reg, RegistrationStatus.registered)
 
     from app.services import notification_service as notif_svc
     from app.models.notification import NotificationType
@@ -197,15 +157,14 @@ async def reject_waitlist(
     db: AsyncSession, *, event_id: int, registration_id: int
 ) -> Registration:
     """
-    Reject a waitlist request → mark cancelled.
+    Reject a waitlist request -> mark cancelled.
     """
     log_step(logger, "Reject waitlist", event_id=event_id, registration_id=registration_id)
     reg = await get_registration_or_404(db, event_id=event_id, registration_id=registration_id)
     if reg.status != RegistrationStatus.waitlist:
         raise ConflictError("Only waitlist registrations can be rejected")
-    reg.status = RegistrationStatus.cancelled
-    await db.flush()
-    await db.refresh(reg)
+
+    reg = await registration_repo.update_registration_status(db, reg, RegistrationStatus.cancelled)
 
     from app.services import notification_service as notif_svc
     from app.models.notification import NotificationType
@@ -250,7 +209,7 @@ async def unregister(
         refund_cutoff = event_start - timedelta(days=deadline_days)
         refund_eligible = now <= refund_cutoff
     else:
-        # No start time set — use funding_end_at or default to eligible
+        # No start time set -- use funding_end_at or default to eligible
         fund_end = event.funding_end_at
         if fund_end is not None:
             if fund_end.tzinfo is None:
@@ -265,7 +224,7 @@ async def unregister(
     pledges_refunded = 0
 
     if refund_eligible:
-        pledges = await _get_pledges_for_refund(db, event_id=event_id, user_id=user.id)
+        pledges = await registration_repo.get_pledges_for_refund(db, event_id, user.id)
         for p in pledges:
             refunded_cents += p.amount_cents
         pledges_refunded = await funding_service.refund_pledges_for_user_event(
@@ -274,15 +233,13 @@ async def unregister(
 
     reg.status = RegistrationStatus.cancelled
     event.registration_count = max(0, (event.registration_count or 1) - 1)
-    await db.flush()
+    await registration_repo.flush(db)
     logger.info("User unregistered", extra={"event_id": event_id, "user_id": user.id, "refunded_cents": refunded_cents, "pledges_refunded": pledges_refunded, "refund_eligible": refund_eligible})
     return {"refunded_cents": refunded_cents, "pledges_refunded": pledges_refunded, "refund_eligible": refund_eligible}
 
 
-async def _get_event_for_unregister(db: AsyncSession, *, event_id: int) -> Event:
-    q = select(Event).where(Event.id == event_id)
-    res = await db.execute(q)
-    event = res.scalar_one_or_none()
+async def _get_event_for_unregister(db: AsyncSession, *, event_id: int):
+    event = await registration_repo.get_event(db, event_id)
     if not event:
         raise NotFoundError("Event", event_id)
     if event.status == EventStatus.cancelled:
@@ -295,28 +252,10 @@ async def _get_event_for_unregister(db: AsyncSession, *, event_id: int) -> Event
 async def _get_user_registration(
     db: AsyncSession, *, event_id: int, user_id: int
 ) -> Registration:
-    q = select(Registration).where(
-        Registration.event_id == event_id,
-        Registration.user_id == user_id,
-    )
-    res = await db.execute(q)
-    reg = res.scalar_one_or_none()
+    reg = await registration_repo.get_user_registration(db, event_id, user_id)
     if not reg:
         raise NotFoundError("Registration", "user not registered for this event")
     return reg
-
-
-async def _get_pledges_for_refund(
-    db: AsyncSession, *, event_id: int, user_id: int
-) -> list:
-    from app.models.funding import Funding, FundingStatus
-    q = select(Funding).where(
-        Funding.event_id == event_id,
-        Funding.user_id == user_id,
-        Funding.status == FundingStatus.pledged,
-    )
-    res = await db.execute(q)
-    return list(res.scalars().all())
 
 
 async def auto_approve_waitlist_when_switching_to_open(
@@ -329,28 +268,11 @@ async def auto_approve_waitlist_when_switching_to_open(
     When organizer changes event from closed to open, approve waitlist entries
     in order (first-come) until we reach max_capacity. Returns number approved.
     """
-    registered_count_q = select(func.count()).where(
-        Registration.event_id == event_id,
-        Registration.status == RegistrationStatus.registered,
-    )
-    current_registered = int((await db.execute(registered_count_q)).scalar_one())
+    current_registered = await registration_repo.count_registered(db, event_id)
     slots = max(0, event_max_capacity - current_registered)
     if slots == 0:
         return 0
     # First N waitlist by created_at
-    waitlist_q = (
-        select(Registration)
-        .where(
-            Registration.event_id == event_id,
-            Registration.status == RegistrationStatus.waitlist,
-        )
-        .order_by(Registration.created_at.asc())
-        .limit(slots)
-    )
-    res = await db.execute(waitlist_q)
-    to_approve = list(res.scalars().all())
-    for reg in to_approve:
-        reg.status = RegistrationStatus.registered
-    if to_approve:
-        await db.flush()
+    to_approve = await registration_repo.get_waitlist_to_approve(db, event_id, slots)
+    await registration_repo.bulk_approve_waitlist(db, to_approve)
     return len(to_approve)

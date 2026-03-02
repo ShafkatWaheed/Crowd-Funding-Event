@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../admin_shared.dart';
 import '../../../config/theme.dart';
-import '../../../services/api_service.dart';
+import 'package:provider/provider.dart';
+
+import '../../../repositories/admin_repository.dart';
 
 class AdminMockTab extends StatefulWidget {
   final void Function(String) onSnack;
@@ -57,7 +59,8 @@ class _AdminMockTabState extends State<AdminMockTab> {
   Future<void> _loadMockData() async {
     setState(() => _mockLoading = true);
     try {
-      final data = await ApiService.instance.get('/admin/mock-overview');
+      final admin = context.read<AdminRepository>();
+      final data = await admin.getMockOverview();
       if (mounted) setState(() { _mockData = data; _mockLoading = false; });
     } catch (e) {
       if (mounted) setState(() => _mockLoading = false);
@@ -178,7 +181,7 @@ class _AdminMockTabState extends State<AdminMockTab> {
                       ),
                     );
                     if (confirmed == true) {
-                      await ApiService.instance.post('/admin/mock/clear', {});
+                      await context.read<AdminRepository>().clearMockData();
                       _loadMockData();
                     }
                   },
@@ -187,7 +190,7 @@ class _AdminMockTabState extends State<AdminMockTab> {
                   icon: const Icon(Icons.done_all, size: 18),
                   label: const Text('Settle All Pending'),
                   onPressed: () async {
-                    await ApiService.instance.post('/admin/mock/settle-all', {});
+                    await context.read<AdminRepository>().settleAllPending();
                     _loadMockData();
                   },
                 ),
@@ -196,7 +199,7 @@ class _AdminMockTabState extends State<AdminMockTab> {
                   label: const Text('Fail Next Charge'),
                   style: ElevatedButton.styleFrom(backgroundColor: AppTheme.warningColor, foregroundColor: Colors.white),
                   onPressed: () async {
-                    await ApiService.instance.post('/admin/mock/fail-next', {});
+                    await context.read<AdminRepository>().failNextCharge();
                     if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Next charge will fail')));
                   },
                 ),
@@ -216,7 +219,7 @@ class _AdminMockTabState extends State<AdminMockTab> {
                       ),
                     );
                     if (confirmed == true) {
-                      await ApiService.instance.post('/admin/mock/reset-defaults', {});
+                      await context.read<AdminRepository>().resetMockDefaults();
                       widget.onSettingsReload?.call();
                       _loadMockData();
                       if (mounted) widget.onSnack('Mock settings reset to defaults');

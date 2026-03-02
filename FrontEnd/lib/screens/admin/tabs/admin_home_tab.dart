@@ -9,7 +9,7 @@ import '../../../utils/date_time_utils.dart';
 import '../../../config/design_tokens.dart';
 import '../../../config/theme.dart';
 import '../../../providers/auth_provider.dart';
-import '../../../services/api_service.dart';
+import '../../../repositories/admin_repository.dart';
 import '../../../widgets/admin/admin_action_card.dart';
 import '../../../widgets/admin/admin_kpi_card.dart';
 
@@ -49,7 +49,7 @@ class _AdminHomeTabState extends State<AdminHomeTab> {
     if (user == null || !user.isAdmin) return;
     setState(() => _dashboardLoading = true);
     try {
-      final data = await context.read<ApiService>().adminGetDashboard(
+      final data = await context.read<AdminRepository>().getDashboard(
             period: _period,
             genre: _filterGenre,
             status: _filterStatus,

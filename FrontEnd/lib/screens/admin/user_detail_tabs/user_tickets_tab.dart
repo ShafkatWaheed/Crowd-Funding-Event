@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
-import '../../../services/api_service.dart';
+import '../../../repositories/base_repository.dart';
+import '../../../repositories/ticket_repository.dart';
 import '../../../widgets/admin/admin_empty_state.dart';
 import 'user_detail_shared.dart';
 
@@ -45,11 +46,11 @@ class _UserTicketsTabState extends State<UserTicketsTab> {
 
   Future<void> _approveTicketRefund(int eventId, int ticketId) async {
     try {
-      await context.read<ApiService>().approveTicketRefund(eventId, ticketId);
+      await context.read<TicketRepository>().approveTicketRefund(eventId, ticketId);
       widget.onRefresh();
       widget.onSnack('Refund approved');
     } catch (e) {
-      widget.onSnack('Failed: ${ApiService.extractError(e)}');
+      widget.onSnack('Failed: ${ApiError.extractMessage(e)}');
     }
   }
 

@@ -1,27 +1,24 @@
-import 'dart:async';
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
 import '../../lib/models/user.dart';
 import '../../lib/providers/auth_provider.dart';
-import '../../lib/services/api_service.dart';
+import '../../lib/repositories/venue_repository.dart';
 import '../../lib/screens/venue/venue_list_screen.dart';
 import '../../lib/screens/venue/create_venue_screen.dart';
 import '../helpers/mock_providers.dart';
-import '../helpers/mock_api_service.dart';
+import '../helpers/mock_venue_repository.dart';
 import '../helpers/pump_app.dart';
 import '../helpers/fixtures.dart';
 
 void main() {
   late MockAuthProvider mockAuth;
-  late MockApiService mockApi;
+  late MockVenueRepository mockVenueRepo;
 
   setUp(() {
     mockAuth = MockAuthProvider();
-    mockApi = MockApiService();
+    mockVenueRepo = MockVenueRepository();
 
     when(() => mockAuth.user).thenReturn(makeUser(role: UserRole.organizer));
   });
@@ -33,13 +30,13 @@ void main() {
         const VenueListScreen(),
         overrides: [
           ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
-          Provider<ApiService>.value(value: mockApi),
+          Provider<VenueRepository>.value(value: mockVenueRepo),
         ],
       );
     }
 
     testWidgets('shows My Venues title and Add Venue FAB', (tester) async {
-      when(() => mockApi.getVenues())
+      when(() => mockVenueRepo.getVenues())
           .thenAnswer((_) async => [venueJson()]);
 
       await pumpVenueList(tester);
@@ -50,7 +47,7 @@ void main() {
     });
 
     testWidgets('shows empty state when no venues', (tester) async {
-      when(() => mockApi.getVenues())
+      when(() => mockVenueRepo.getVenues())
           .thenAnswer((_) async => []);
 
       await pumpVenueList(tester);
@@ -60,7 +57,7 @@ void main() {
     });
 
     testWidgets('shows venue card with name and address', (tester) async {
-      when(() => mockApi.getVenues())
+      when(() => mockVenueRepo.getVenues())
           .thenAnswer((_) async => [
                 venueJson(name: 'Grand Arena', address: '123 Main St', city: 'NYC'),
               ]);
@@ -79,7 +76,7 @@ void main() {
         const CreateVenueScreen(),
         overrides: [
           ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
-          Provider<ApiService>.value(value: mockApi),
+          Provider<VenueRepository>.value(value: mockVenueRepo),
         ],
       );
     }

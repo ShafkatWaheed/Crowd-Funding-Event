@@ -11,7 +11,7 @@ import '../../../config/design_tokens.dart';
 import '../../../models/event.dart';
 import '../../../models/schedule.dart';
 import '../../../db/app_database.dart';
-import '../../../services/api_service.dart';
+import '../../../repositories/event_repository.dart';
 import '../../../services/sync_service.dart';
 import '../../../widgets/fullscreen_image_viewer.dart';
 
@@ -47,12 +47,12 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
 
   Future<void> _load() async {
     try {
-      final api = context.read<ApiService>();
+      final repo = context.read<EventRepository>();
 
       final auth = context.read<AuthProvider>();
       if (auth.user != null && auth.user!.isAdmin) {
         try {
-          final flags = await api.getFeatureFlags();
+          final flags = await repo.getFeatureFlags();
           if (flags['feature_schedule_enabled'] == false) {
             if (mounted) setState(() { _featureEnabled = false; _loading = false; });
             return;
@@ -60,7 +60,7 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
         } catch (e) { debugPrint(e.toString()); }
       }
 
-      final list = await api.getSchedule(widget.eventId);
+      final list = await repo.getSchedule(widget.eventId);
       final days = list.map((j) => ScheduleDay.fromJson(j)).toList();
 
       if (mounted) {
@@ -152,8 +152,8 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
   }
 
   Future<void> _downloadExcel() async {
-    final api = context.read<ApiService>();
-    final url = api.getScheduleExportUrl(widget.eventId);
+    final repo = context.read<EventRepository>();
+    final url = repo.getScheduleExportUrl(widget.eventId);
     final uri = Uri.parse(url);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);

@@ -1,14 +1,13 @@
 """
 Event co-organizers: list, add (invite), remove, update permission, respond, self-remove.
 """
-from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.models.event import EventOrganizer
 from app.models.notification import NotificationType
 from app.models.user import User
 from app.core.exceptions import NotFoundError, ForbiddenError, ConflictError
+from app.repositories.event_repo import event_repo
 
 from app.logger import get_logger
 from app.services.event.crud import get_by_id, get_or_404
@@ -34,14 +33,7 @@ async def list_event_organizers(db: AsyncSession, *, event_id: int) -> tuple[Use
     if not event:
         raise NotFoundError("Event", event_id)
     main = event.organizer
-    q = (
-        select(EventOrganizer)
-        .where(EventOrganizer.event_id == event_id)
-        .options(selectinload(EventOrganizer.user))
-        .order_by(EventOrganizer.created_at.asc())
-    )
-    result = await db.execute(q)
-    co_organizers = list(result.scalars().unique().all())
+    co_organizers = await event_repo.list_event_organizers(db, event_id)
     return main, co_organizers
 
 
@@ -56,25 +48,17 @@ async def add_event_organizer(
         raise ConflictError("User is already the main organizer")
     if permission not in ("read", "full"):
         raise ConflictError("Permission must be 'read' or 'full'")
-    target = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    target = await event_repo.get_user_by_id(db, user_id)
     if not target:
         raise NotFoundError("User", user_id)
     if target.role.value != "organizer":
         raise ConflictError("Only users with organizer role can be added as co-organizers")
-    existing = (
-        await db.execute(
-            select(EventOrganizer).where(
-                EventOrganizer.event_id == event_id,
-                EventOrganizer.user_id == user_id,
-            )
-        )
-    ).scalar_one_or_none()
+    existing = await event_repo.get_co_organizer(db, event_id, user_id)
     if existing:
         if existing.invitation_status == "declined":
             existing.invitation_status = "pending"
             existing.permission = permission
-            await db.flush()
-            await db.refresh(existing)
+            await event_repo.flush_and_refresh_co_organizer(db, existing)
             await _notify(
                 db, user_id, NotificationType.co_organizer_invited,
                 "Co-Organizer Invitation",
@@ -87,19 +71,12 @@ async def add_event_organizer(
     policy = await get_effective_policy(db, event)
     max_co = policy.get("max_co_organizers")
     if max_co and max_co > 0:
-        co_count = (await db.execute(
-            select(func.count()).where(
-                EventOrganizer.event_id == event_id,
-                EventOrganizer.invitation_status != "declined",
-            )
-        )).scalar_one()
-        if int(co_count) >= max_co:
+        co_count = await event_repo.count_co_organizers(db, event_id)
+        if co_count >= max_co:
             raise ConflictError(f"Max {max_co} co-organizers per event")
 
     eo = EventOrganizer(event_id=event_id, user_id=user_id, permission=permission, invitation_status="pending")
-    db.add(eo)
-    await db.flush()
-    await db.refresh(eo)
+    eo = await event_repo.create_co_organizer(db, eo)
     await _notify(
         db, user_id, NotificationType.co_organizer_invited,
         "Co-Organizer Invitation",
@@ -120,19 +97,11 @@ async def update_event_organizer_permission(
         raise ConflictError("Cannot update permission for the main organizer")
     if permission not in ("read", "full"):
         raise ConflictError("Permission must be 'read' or 'full'")
-    eo = (
-        await db.execute(
-            select(EventOrganizer).where(
-                EventOrganizer.event_id == event_id,
-                EventOrganizer.user_id == user_id,
-            )
-        )
-    ).scalar_one_or_none()
+    eo = await event_repo.get_co_organizer(db, event_id, user_id)
     if not eo:
         raise NotFoundError("Co-organizer", user_id)
     eo.permission = permission
-    await db.flush()
-    await db.refresh(eo)
+    await event_repo.flush_and_refresh_co_organizer(db, eo)
     return eo
 
 
@@ -141,21 +110,13 @@ async def respond_to_invitation(
 ) -> EventOrganizer:
     """Invited user accepts or declines a co-organizer invitation."""
     event = await get_or_404(db, event_id)
-    eo = (
-        await db.execute(
-            select(EventOrganizer).where(
-                EventOrganizer.event_id == event_id,
-                EventOrganizer.user_id == user.id,
-            )
-        )
-    ).scalar_one_or_none()
+    eo = await event_repo.get_co_organizer(db, event_id, user.id)
     if not eo:
         raise NotFoundError("Invitation not found")
     if eo.invitation_status != "pending":
         raise ConflictError(f"Invitation already {eo.invitation_status}")
     eo.invitation_status = "accepted" if accept else "declined"
-    await db.flush()
-    await db.refresh(eo)
+    await event_repo.flush_and_refresh_co_organizer(db, eo)
     display = user.display_name or f"User #{user.id}"
     if accept:
         await _notify(
@@ -179,18 +140,10 @@ async def self_remove_from_event(db: AsyncSession, *, event_id: int, user: User)
     event = await get_or_404(db, event_id)
     if user.id == event.organizer_id:
         raise ConflictError("Main organizer cannot self-remove; transfer ownership first")
-    eo = (
-        await db.execute(
-            select(EventOrganizer).where(
-                EventOrganizer.event_id == event_id,
-                EventOrganizer.user_id == user.id,
-            )
-        )
-    ).scalar_one_or_none()
+    eo = await event_repo.get_co_organizer(db, event_id, user.id)
     if not eo:
         raise NotFoundError("You are not a co-organizer for this event")
-    await db.delete(eo)
-    await db.flush()
+    await event_repo.delete_co_organizer(db, eo)
     display = user.display_name or f"User #{user.id}"
     await _notify(
         db, event.organizer_id, NotificationType.co_organizer_removed,
@@ -207,16 +160,10 @@ async def remove_event_organizer(db: AsyncSession, *, event_id: int, user_id: in
         raise ForbiddenError("Only the main organizer can remove co-organizers")
     if user_id == event.organizer_id:
         raise ConflictError("Cannot remove the main organizer")
-    q = select(EventOrganizer).where(
-        EventOrganizer.event_id == event_id,
-        EventOrganizer.user_id == user_id,
-    )
-    result = await db.execute(q)
-    eo = result.scalar_one_or_none()
+    eo = await event_repo.get_co_organizer(db, event_id, user_id)
     if not eo:
         raise NotFoundError("Co-organizer", user_id)
-    await db.delete(eo)
-    await db.flush()
+    await event_repo.delete_co_organizer(db, eo)
     await _notify(
         db, user_id, NotificationType.co_organizer_removed,
         "Removed from Event",
@@ -225,6 +172,6 @@ async def remove_event_organizer(db: AsyncSession, *, event_id: int, user_id: in
     )
 
 
-# ═══════════════════════════════════════════
+# ===================================
 # Event Discounts
-# ═══════════════════════════════════════════
+# ===================================

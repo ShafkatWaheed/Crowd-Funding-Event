@@ -7,21 +7,25 @@ import 'package:provider/provider.dart';
 
 import '../../lib/models/user.dart';
 import '../../lib/providers/auth_provider.dart';
-import '../../lib/services/api_service.dart';
+import '../../lib/repositories/ticket_repository.dart';
+import '../../lib/repositories/funding_repository.dart';
 import '../../lib/screens/event/ticket_receipt_screen.dart';
 import '../../lib/screens/event/pledge_receipt_screen.dart';
 import '../helpers/mock_providers.dart';
-import '../helpers/mock_api_service.dart';
+import '../helpers/mock_ticket_repository.dart';
+import '../helpers/mock_funding_repository.dart';
 import '../helpers/pump_app.dart';
 import '../helpers/fixtures.dart';
 
 void main() {
   late MockAuthProvider mockAuth;
-  late MockApiService mockApi;
+  late MockTicketRepository mockTicketRepo;
+  late MockFundingRepository mockFundingRepo;
 
   setUp(() {
     mockAuth = MockAuthProvider();
-    mockApi = MockApiService();
+    mockTicketRepo = MockTicketRepository();
+    mockFundingRepo = MockFundingRepository();
 
     when(() => mockAuth.user).thenReturn(makeUser());
   });
@@ -33,14 +37,14 @@ void main() {
         const TicketReceiptScreen(eventId: 1, saleId: 1),
         overrides: [
           ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
-          Provider<ApiService>.value(value: mockApi),
+          Provider<TicketRepository>.value(value: mockTicketRepo),
         ],
       );
     }
 
     testWidgets('shows loading shimmer initially', (tester) async {
       final receiptCompleter = Completer<Map<String, dynamic>>();
-      when(() => mockApi.getTicketReceipt(1, 1))
+      when(() => mockTicketRepo.getTicketReceipt(1, 1))
           .thenAnswer((_) => receiptCompleter.future);
 
       await pumpTicketReceipt(tester);
@@ -67,7 +71,7 @@ void main() {
     });
 
     testWidgets('displays receipt content after load', (tester) async {
-      when(() => mockApi.getTicketReceipt(1, 1)).thenAnswer((_) async => {
+      when(() => mockTicketRepo.getTicketReceipt(1, 1)).thenAnswer((_) async => {
             'sale_id': 1,
             'event_id': 1,
             'user_id': 1,
@@ -107,13 +111,13 @@ void main() {
         const PledgeReceiptScreen(eventId: 1, pledgeId: 1),
         overrides: [
           ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
-          Provider<ApiService>.value(value: mockApi),
+          Provider<FundingRepository>.value(value: mockFundingRepo),
         ],
       );
     }
 
     testWidgets('shows Pledge Receipt title after data loads', (tester) async {
-      when(() => mockApi.getPledgeReceipt(1, 1))
+      when(() => mockFundingRepo.getPledgeReceipt(1, 1))
           .thenAnswer((_) async => {
                 'receipt_number': 'PL-001',
                 'event_title': 'Test Event',
@@ -147,7 +151,7 @@ void main() {
     });
 
     testWidgets('displays receipt content after load', (tester) async {
-      when(() => mockApi.getPledgeReceipt(1, 1)).thenAnswer((_) async => {
+      when(() => mockFundingRepo.getPledgeReceipt(1, 1)).thenAnswer((_) async => {
             'receipt_number': 'PL-RECEIPT-002',
             'event_title': 'Charity Gala',
             'amount_cents': 20000,

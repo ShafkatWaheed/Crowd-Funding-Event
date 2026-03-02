@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
-import '../../../services/api_service.dart';
+import '../../../repositories/base_repository.dart';
+import '../../../repositories/sponsor_repository.dart';
 import '../../../widgets/admin/admin_empty_state.dart';
 import 'user_detail_shared.dart';
 
@@ -37,12 +38,12 @@ class _UserSponsorBidsTabState extends State<UserSponsorBidsTab> {
       int eventId, int catId, int bidId) async {
     try {
       await context
-          .read<ApiService>()
+          .read<SponsorRepository>()
           .adminRefundSponsorBid(eventId, catId, bidId);
       widget.onRefresh();
       widget.onSnack('Sponsor bid refunded');
     } catch (e) {
-      widget.onSnack('Failed: ${ApiService.extractError(e)}');
+      widget.onSnack('Failed: ${ApiError.extractMessage(e)}');
     }
   }
 

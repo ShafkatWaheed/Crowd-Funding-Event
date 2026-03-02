@@ -3,7 +3,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
-import '../../../services/api_service.dart';
+import '../../../repositories/base_repository.dart';
+import '../../../repositories/sponsor_repository.dart';
 import '../../../widgets/app_toast.dart';
 
 class CategoryRequirements extends StatefulWidget {
@@ -37,7 +38,7 @@ class _CategoryRequirementsState extends State<CategoryRequirements> {
     if (_prereqs.isNotEmpty) return;
     setState(() => _loading = true);
     try {
-      final api = context.read<ApiService>();
+      final api = context.read<SponsorRepository>();
       final prereqs = await api.listPrerequisites(widget.eventId, widget.categoryId);
 
       Map<int, Map<String, dynamic>> uploads = {};
@@ -58,7 +59,7 @@ class _CategoryRequirementsState extends State<CategoryRequirements> {
       }
     } catch (e) {
       if (mounted) {
-        AppToast.error(context, ApiService.extractError(e));
+        AppToast.error(context, ApiError.extractMessage(e));
         setState(() => _loading = false);
       }
     }
@@ -73,7 +74,7 @@ class _CategoryRequirementsState extends State<CategoryRequirements> {
     setState(() => _uploading[prereqId] = true);
     if (!mounted) return;
     try {
-      final api = context.read<ApiService>();
+      final api = context.read<SponsorRepository>();
       final resp = await api.uploadCategoryPrerequisite(
         widget.eventId, widget.categoryId, prereqId,
         filePath: file.path,
@@ -94,7 +95,7 @@ class _CategoryRequirementsState extends State<CategoryRequirements> {
       }
     } catch (e) {
       if (mounted) {
-        AppToast.error(context, ApiService.extractError(e));
+        AppToast.error(context, ApiError.extractMessage(e));
         setState(() => _uploading[prereqId] = false);
       }
     }

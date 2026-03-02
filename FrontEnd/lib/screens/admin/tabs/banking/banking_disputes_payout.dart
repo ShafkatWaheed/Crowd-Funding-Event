@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../../config/theme.dart';
-import '../../../../services/api_service.dart';
+import '../../../../repositories/admin_repository.dart';
 import '../../../../widgets/app_toast.dart';
 import '../../admin_shared.dart';
 
@@ -93,8 +94,9 @@ class BankingDisputesSection extends StatelessWidget {
                                     const TextStyle(fontSize: 12)),
                             onPressed: () async {
                               try {
-                                await ApiService.instance
-                                    .adminSubmitDisputeEvidence(
+                                await context
+                                    .read<AdminRepository>()
+                                    .submitDisputeEvidence(
                                         d['id'] as int);
                                 onReloadDisputes();
                                 if (context.mounted) {
@@ -123,8 +125,9 @@ class BankingDisputesSection extends StatelessWidget {
                                     const TextStyle(fontSize: 12)),
                             onPressed: () async {
                               try {
-                                await ApiService.instance
-                                    .adminAcceptDisputeLoss(
+                                await context
+                                    .read<AdminRepository>()
+                                    .acceptDisputeLoss(
                                         d['id'] as int);
                                 onReloadDisputes();
                                 onReloadBanking();

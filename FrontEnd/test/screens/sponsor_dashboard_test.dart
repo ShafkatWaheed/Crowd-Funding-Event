@@ -7,20 +7,20 @@ import 'package:provider/provider.dart';
 
 import '../../lib/models/user.dart';
 import '../../lib/providers/auth_provider.dart';
-import '../../lib/services/api_service.dart';
+import '../../lib/repositories/sponsor_repository.dart';
 import '../../lib/screens/sponsor/sponsor_dashboard_screen.dart';
 import '../helpers/mock_providers.dart';
-import '../helpers/mock_api_service.dart';
+import '../helpers/mock_sponsor_repository.dart';
 import '../helpers/pump_app.dart';
 import '../helpers/fixtures.dart';
 
 void main() {
   late MockAuthProvider mockAuth;
-  late MockApiService mockApi;
+  late MockSponsorRepository mockSponsorRepo;
 
   setUp(() {
     mockAuth = MockAuthProvider();
-    mockApi = MockApiService();
+    mockSponsorRepo = MockSponsorRepository();
 
     // Default: sponsor user
     when(() => mockAuth.user).thenReturn(makeUser(role: UserRole.sponsor));
@@ -60,7 +60,7 @@ void main() {
     Map<String, dynamic>? profile,
     List<Map<String, dynamic>>? tickets,
   }) {
-    when(() => mockApi.getSponsorProfile()).thenAnswer((_) async =>
+    when(() => mockSponsorRepo.getSponsorProfile()).thenAnswer((_) async =>
         profile ??
         {
           'id': 1,
@@ -72,7 +72,7 @@ void main() {
           'description': 'A sponsor company',
           'website_url': null,
         });
-    when(() => mockApi.getMySponsorTickets()).thenAnswer((_) async =>
+    when(() => mockSponsorRepo.getMySponsorTickets()).thenAnswer((_) async =>
         tickets ?? [_sponsorTicketJson()]);
   }
 
@@ -82,7 +82,7 @@ void main() {
       const SponsorDashboardScreen(),
       overrides: [
         ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
-        Provider<ApiService>.value(value: mockApi),
+        Provider<SponsorRepository>.value(value: mockSponsorRepo),
       ],
     );
   }
@@ -123,9 +123,9 @@ void main() {
       final profileCompleter = Completer<Map<String, dynamic>>();
       final ticketsCompleter = Completer<List<dynamic>>();
 
-      when(() => mockApi.getSponsorProfile())
+      when(() => mockSponsorRepo.getSponsorProfile())
           .thenAnswer((_) => profileCompleter.future);
-      when(() => mockApi.getMySponsorTickets())
+      when(() => mockSponsorRepo.getMySponsorTickets())
           .thenAnswer((_) => ticketsCompleter.future);
 
       await pumpSponsorDashboard(tester);

@@ -5,7 +5,12 @@ import 'package:provider/provider.dart';
 
 import '../../../config/design_tokens.dart';
 import '../../../config/theme.dart';
-import '../../../services/api_service.dart';
+import '../../../models/funding.dart';
+import '../../../repositories/funding_repository.dart';
+import '../../../models/ticket.dart';
+import '../../../repositories/base_repository.dart';
+import '../../../repositories/ticket_repository.dart';
+import '../../../repositories/admin_repository.dart';
 import '../../../widgets/admin/admin_empty_state.dart';
 import '../../../widgets/admin/admin_search_bar.dart';
 import '../admin_shared.dart';
@@ -44,10 +49,10 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
   String _ticketStatusFilter = 'all';
   String _pledgeStatusFilter = 'all';
 
-  List<dynamic> _adminTickets = [];
+  List<TicketSale> _adminTickets = [];
   int _ticketsTotal = 0;
   bool _ticketsLoadingMore = false;
-  List<dynamic> _adminPledges = [];
+  List<Pledge> _adminPledges = [];
   int _pledgesTotal = 0;
   bool _pledgesLoadingMore = false;
   List<dynamic> _escrows = [];
@@ -132,8 +137,8 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
 
   Future<void> _loadTickets() async {
     try {
-      final api = context.read<ApiService>();
-      final resp = await api.adminGetTickets(
+      final ticketRepo = context.read<TicketRepository>();
+      final result = await ticketRepo.adminGetTickets(
         offset: 0,
         limit: _pageSize,
         search: _financialSearch.isEmpty ? null : _financialSearch,
@@ -141,8 +146,8 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
       );
       if (mounted) {
         setState(() {
-          _adminTickets = (resp['items'] as List<dynamic>?) ?? [];
-          _ticketsTotal = (resp['total'] as int?) ?? 0;
+          _adminTickets = result.items;
+          _ticketsTotal = result.total ?? 0;
         });
       }
     } catch (e) { debugPrint(e.toString()); }
@@ -150,8 +155,8 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
 
   Future<void> _loadPledges() async {
     try {
-      final api = context.read<ApiService>();
-      final resp = await api.adminGetPledges(
+      final repo = context.read<FundingRepository>();
+      final result = await repo.adminGetPledges(
         offset: 0,
         limit: _pageSize,
         search: _financialSearch.isEmpty ? null : _financialSearch,
@@ -160,8 +165,8 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
       );
       if (mounted) {
         setState(() {
-          _adminPledges = (resp['items'] as List<dynamic>?) ?? [];
-          _pledgesTotal = (resp['total'] as int?) ?? 0;
+          _adminPledges = result.items;
+          _pledgesTotal = result.total ?? 0;
         });
       }
     } catch (e) { debugPrint(e.toString()); }
@@ -169,16 +174,12 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
 
   Future<void> _loadEscrowsOnly() async {
     try {
-      final api = context.read<ApiService>();
-      final resp = await api.dio.get(
-        '/admin/escrows',
-        queryParameters: {
-          'offset': 0,
-          'limit': _pageSize,
-          if (_escrowSearch.isNotEmpty) 'search': _escrowSearch,
-        },
+      final admin = context.read<AdminRepository>();
+      final data = await admin.getEscrowList(
+        offset: 0,
+        limit: _pageSize,
+        search: _escrowSearch.isNotEmpty ? _escrowSearch : null,
       );
-      final data = resp.data as Map<String, dynamic>;
       if (mounted) {
         setState(() {
           _escrows = (data['items'] as List<dynamic>?) ?? [];
@@ -192,17 +193,16 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
     if (_ticketsLoadingMore || _adminTickets.length >= _ticketsTotal) return;
     setState(() => _ticketsLoadingMore = true);
     try {
-      final api = context.read<ApiService>();
-      final resp = await api.adminGetTickets(
+      final ticketRepo = context.read<TicketRepository>();
+      final result = await ticketRepo.adminGetTickets(
         offset: _adminTickets.length,
         limit: _pageSize,
         search: _financialSearch.isEmpty ? null : _financialSearch,
         status: _ticketStatusFilter == 'all' ? null : _ticketStatusFilter,
       );
-      final items = (resp['items'] as List<dynamic>?) ?? [];
       setState(() {
-        _adminTickets.addAll(items);
-        _ticketsTotal = (resp['total'] as int?) ?? _ticketsTotal;
+        _adminTickets.addAll(result.items);
+        _ticketsTotal = result.total ?? _ticketsTotal;
       });
     } catch (e) { debugPrint(e.toString()); }
     if (mounted) setState(() => _ticketsLoadingMore = false);
@@ -212,18 +212,17 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
     if (_pledgesLoadingMore || _adminPledges.length >= _pledgesTotal) return;
     setState(() => _pledgesLoadingMore = true);
     try {
-      final api = context.read<ApiService>();
-      final resp = await api.adminGetPledges(
+      final repo = context.read<FundingRepository>();
+      final result = await repo.adminGetPledges(
         offset: _adminPledges.length,
         limit: _pageSize,
         search: _financialSearch.isEmpty ? null : _financialSearch,
         status: _pledgeApiStatus,
         isDonation: _pledgeApiDonation,
       );
-      final items = (resp['items'] as List<dynamic>?) ?? [];
       setState(() {
-        _adminPledges.addAll(items);
-        _pledgesTotal = (resp['total'] as int?) ?? _pledgesTotal;
+        _adminPledges.addAll(result.items);
+        _pledgesTotal = result.total ?? _pledgesTotal;
       });
     } catch (e) { debugPrint(e.toString()); }
     if (mounted) setState(() => _pledgesLoadingMore = false);
@@ -233,16 +232,12 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
     if (_escrowsLoadingMore || _escrows.length >= _escrowsTotal) return;
     setState(() => _escrowsLoadingMore = true);
     try {
-      final api = context.read<ApiService>();
-      final resp = await api.dio.get(
-        '/admin/escrows',
-        queryParameters: {
-          'offset': _escrows.length,
-          'limit': _pageSize,
-          if (_escrowSearch.isNotEmpty) 'search': _escrowSearch,
-        },
+      final admin = context.read<AdminRepository>();
+      final data = await admin.getEscrowList(
+        offset: _escrows.length,
+        limit: _pageSize,
+        search: _escrowSearch.isNotEmpty ? _escrowSearch : null,
       );
-      final data = resp.data as Map<String, dynamic>;
       final items = (data['items'] as List<dynamic>?) ?? [];
       setState(() {
         _escrows.addAll(items);
@@ -264,16 +259,17 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
   }
 
   Future<void> _reloadFinancialData() async {
-    final api = context.read<ApiService>();
+    final ticketRepo = context.read<TicketRepository>();
+    final fundingRepo = context.read<FundingRepository>();
     try {
       final search = _financialSearch.isEmpty ? null : _financialSearch;
-      final ticketsResp = await api.adminGetTickets(
+      final ticketsResult = await ticketRepo.adminGetTickets(
         offset: 0,
         limit: _pageSize,
         search: search,
         status: _ticketStatusFilter == 'all' ? null : _ticketStatusFilter,
       );
-      final pledgesResp = await api.adminGetPledges(
+      final pledgesResult = await fundingRepo.adminGetPledges(
         offset: 0,
         limit: _pageSize,
         search: search,
@@ -282,10 +278,10 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
       );
       if (mounted) {
         setState(() {
-          _adminTickets = (ticketsResp['items'] as List<dynamic>?) ?? [];
-          _ticketsTotal = (ticketsResp['total'] as int?) ?? 0;
-          _adminPledges = (pledgesResp['items'] as List<dynamic>?) ?? [];
-          _pledgesTotal = (pledgesResp['total'] as int?) ?? 0;
+          _adminTickets = ticketsResult.items;
+          _ticketsTotal = ticketsResult.total ?? 0;
+          _adminPledges = pledgesResult.items;
+          _pledgesTotal = pledgesResult.total ?? 0;
         });
       }
     } catch (e) { debugPrint(e.toString()); }
@@ -303,17 +299,13 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
   }
 
   Future<void> _reloadEscrowData() async {
-    final api = context.read<ApiService>();
+    final admin = context.read<AdminRepository>();
     try {
-      final resp = await api.dio.get(
-        '/admin/escrows',
-        queryParameters: {
-          'offset': 0,
-          'limit': _pageSize,
-          if (_escrowSearch.isNotEmpty) 'search': _escrowSearch,
-        },
+      final data = await admin.getEscrowList(
+        offset: 0,
+        limit: _pageSize,
+        search: _escrowSearch.isNotEmpty ? _escrowSearch : null,
       );
-      final data = resp.data as Map<String, dynamic>;
       if (mounted) {
         setState(() {
           _escrows = (data['items'] as List<dynamic>?) ?? [];
@@ -325,15 +317,12 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
 
   Future<void> _escrowAction(int eventId, String action, {int? stage}) async {
     try {
-      final api = context.read<ApiService>();
-      final path = stage != null
-          ? '/admin/escrows/$eventId/release/$stage'
-          : '/admin/escrows/$eventId/$action';
-      await api.dio.post(path);
+      final admin = context.read<AdminRepository>();
+      await admin.escrowAction(eventId, action, stage: stage);
       _loadEscrowsOnly();
       _snack('Escrow action completed');
     } catch (e) {
-      _snack('Escrow action failed: ${ApiService.extractError(e)}');
+      _snack('Escrow action failed: ${ApiError.extractMessage(e)}');
     }
   }
 
@@ -562,9 +551,9 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
   Widget _financialSummary() {
     if (_financialSubTab == 'tickets') {
       final totalRevenue = _adminTickets.fold<int>(
-          0, (sum, t) => sum + ((t['amount_paid_cents'] as int?) ?? 0));
+          0, (sum, t) => sum + t.amountPaidCents);
       final refundRequested =
-          _adminTickets.where((t) => t['status'] == 'refund_requested').length;
+          _adminTickets.where((t) => t.status == 'refund_requested').length;
       return _summaryStrip([
         'Total sold: ${_adminTickets.length}',
         'Refund requested: $refundRequested',
@@ -572,9 +561,9 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
       ]);
     } else if (_financialSubTab == 'pledges') {
       final totalAmount = _adminPledges.fold<int>(
-          0, (sum, p) => sum + ((p['amount_cents'] as int?) ?? 0));
+          0, (sum, p) => sum + p.amountCents);
       final guests =
-          _adminPledges.where((p) => p['is_guest'] == true).length;
+          _adminPledges.where((p) => p.isGuest).length;
       return _summaryStrip([
         'Total pledges: ${_adminPledges.length}',
         'Total: ${centsToStr(totalAmount)}',
@@ -651,21 +640,21 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
           );
         }
         final t = tickets[i];
-        final eventId = t['event_id'] as int;
-        final ticketId = t['id'] as int;
-        final status = t['status'] as String? ?? '';
-        final amountCents = t['amount_paid_cents'] as int? ?? 0;
+        final eventId = t.eventId;
+        final ticketId = t.id;
+        final status = t.status;
+        final amountCents = t.amountPaidCents;
         final canApproveRefund = status == 'refund_requested';
 
         return Card(
           margin: const EdgeInsets.only(bottom: 10),
           child: ListTile(
             title: Text(
-              t['event_title'] ?? 'Event #$eventId',
+              t.eventTitle ?? 'Event #$eventId',
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
             subtitle: Text(
-              '${t['attendee_display_name'] ?? 'User #${t['user_id']}'} • ${t['tier_name'] ?? 'Ticket'} • ${centsToStr(amountCents)}',
+              '${t.attendeeDisplayName ?? 'User #${t.userId}'} • ${t.tierName ?? 'Ticket'} • ${centsToStr(amountCents)}',
             ),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
@@ -688,7 +677,7 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
                       'Approve refund for this ticket?',
                       () async {
                         await context
-                            .read<ApiService>()
+                            .read<TicketRepository>()
                             .approveTicketRefund(eventId, ticketId);
                         _loadTickets();
                         _snack('Refund approved');
@@ -731,20 +720,20 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
           );
         }
         final p = pledges[i];
-        final eventId = p['event_id'] as int;
-        final fundingId = p['id'] as int;
-        final amountCents = p['amount_cents'] as int? ?? 0;
-        final isGuest = p['is_guest'] == true;
+        final eventId = p.eventId;
+        final fundingId = p.id;
+        final amountCents = p.amountCents;
+        final isGuest = p.isGuest;
 
         return Card(
           margin: const EdgeInsets.only(bottom: 10),
           child: ListTile(
             title: Text(
-              p['event_title'] ?? 'Event #$eventId',
+              p.eventTitle ?? 'Event #$eventId',
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
             subtitle: Text(
-              '${p['user_display_name'] ?? (isGuest ? 'Guest' : 'User #${p['user_id']}')} • ${centsToStr(amountCents)}${isGuest ? ' (donation)' : ''}',
+              '${p.userDisplayName ?? (isGuest ? 'Guest' : 'User #${p.userId}')} • ${centsToStr(amountCents)}${isGuest ? ' (donation)' : ''}',
             ),
             trailing: FilledButton.tonal(
               onPressed: () => _confirmAction(
@@ -752,7 +741,7 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
                 'Are you sure you want to refund this pledge of ${centsToStr(amountCents)}?',
                 () async {
                   await context
-                      .read<ApiService>()
+                      .read<FundingRepository>()
                       .adminRefundPledge(eventId, fundingId);
                   _loadPledges();
                   _snack('Pledge refunded');

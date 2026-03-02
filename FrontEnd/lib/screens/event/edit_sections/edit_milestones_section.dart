@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
-import '../../../services/api_service.dart';
+import '../../../repositories/event_repository.dart';
 import '../../../widgets/app_toast.dart';
 
 class EditMilestone {
@@ -33,7 +33,7 @@ class _EditMilestonesSectionState extends State<EditMilestonesSection> {
 
   Future<void> _loadMilestones() async {
     try {
-      final api = context.read<ApiService>();
+      final api = context.read<EventRepository>();
       final list = await api.getMilestones(widget.eventId);
       if (mounted) {
         setState(() {
@@ -53,7 +53,7 @@ class _EditMilestonesSectionState extends State<EditMilestonesSection> {
   Future<void> _saveMilestone(EditMilestone ms) async {
     final title = ms.titleCtrl.text.trim();
     if (title.isEmpty) return;
-    final api = context.read<ApiService>();
+    final api = context.read<EventRepository>();
     try {
       if (ms.id != null) {
         await api.updateMilestone(widget.eventId, ms.id!, {
@@ -83,7 +83,7 @@ class _EditMilestonesSectionState extends State<EditMilestonesSection> {
     final ms = _milestones[idx];
     if (ms.id != null) {
       try {
-        final api = context.read<ApiService>();
+        final api = context.read<EventRepository>();
         await api.deleteMilestone(widget.eventId, ms.id!);
       } catch (e) {
         if (mounted) {

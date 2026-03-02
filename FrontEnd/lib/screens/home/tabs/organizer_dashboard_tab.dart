@@ -7,7 +7,8 @@ import '../../../config/design_tokens.dart';
 import '../../../config/theme.dart';
 import '../../../models/event.dart';
 import '../../../providers/auth_provider.dart';
-import '../../../services/api_service.dart';
+import '../../../repositories/base_repository.dart';
+import '../../../repositories/event_repository.dart';
 import '../../../widgets/empty_state.dart';
 import '../../../widgets/error_state.dart';
 import 'dashboard/dashboard_chart_section.dart';
@@ -75,8 +76,8 @@ class _OrganizerDashboardTabState extends State<OrganizerDashboardTab> {
       _dashboardError = null;
     });
     try {
-      final api = context.read<ApiService>();
-      final data = await api.getOrganizerDashboard(
+      final repo = context.read<EventRepository>();
+      final data = await repo.getOrganizerDashboard(
         status: statusFilter,
         eventId: eventId,
         genre: genre,
@@ -100,7 +101,7 @@ class _OrganizerDashboardTabState extends State<OrganizerDashboardTab> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _dashboardError = ApiService.extractError(e);
+          _dashboardError = ApiError.extractMessage(e);
           _dashboardLoading = false;
         });
       }
@@ -114,8 +115,8 @@ class _OrganizerDashboardTabState extends State<OrganizerDashboardTab> {
   }) async {
     setState(() => _timeSeriesLoading = true);
     try {
-      final api = context.read<ApiService>();
-      final data = await api.getOrganizerTimeSeries(
+      final repo = context.read<EventRepository>();
+      final data = await repo.getOrganizerTimeSeries(
         days: _chartDays,
         status: statusFilter,
         eventId: eventId,
@@ -144,9 +145,9 @@ class _OrganizerDashboardTabState extends State<OrganizerDashboardTab> {
     });
     _loadDashboard(statusFilter: status);
     try {
-      final api = context.read<ApiService>();
+      final repo = context.read<EventRepository>();
       final user = context.read<AuthProvider>().user;
-      final result = await api.getEvents(
+      final result = await repo.getEvents(
         params: {
           'status': status,
           'include_all_statuses': true,

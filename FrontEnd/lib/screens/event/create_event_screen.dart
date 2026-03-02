@@ -8,7 +8,10 @@ import 'package:image_picker/image_picker.dart';
 import '../../models/event_form_models.dart';
 import '../../models/venue.dart';
 import '../../models/ticket_strategy.dart';
-import '../../services/api_service.dart';
+import '../../repositories/event_repository.dart';
+import '../../repositories/ticket_repository.dart';
+import '../../repositories/sponsor_repository.dart';
+import '../../repositories/venue_repository.dart';
 import '../../services/mapbox_geocoding_service.dart';
 import '../../widgets/app_toast.dart';
 import 'package:provider/provider.dart';
@@ -159,8 +162,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
   Future<void> _loadFeatureFlags() async {
     try {
-      final api = context.read<ApiService>();
-      final config = await api.getPublicConfig();
+      final repo = context.read<EventRepository>();
+      final config = await repo.getPublicConfig();
       if (mounted) { setState(() {
         _communityRulesFeatureEnabled = config['feature_community_rules_enabled'] == true;
         if (!_communityRulesFeatureEnabled) { _communityRules = false; }
@@ -178,7 +181,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   Future<void> _loadVenues() async {
     setState(() { _venuesLoading = true; _venuesError = null; });
     try {
-      final data = await context.read<ApiService>().getVenues();
+      final data = await context.read<VenueRepository>().getVenues();
       if (mounted) setState(() { _venues = data.map((v) => Venue.fromJson(v)).toList(); _venuesLoading = false; });
     } catch (e) { if (mounted) setState(() { _venuesError = 'Failed to load venues'; _venuesLoading = false; }); }
   }
@@ -186,7 +189,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   Future<void> _loadStrategies() async {
     setState(() { _strategiesLoading = true; _strategiesError = null; });
     try {
-      final data = await context.read<ApiService>().getTicketStrategies();
+      final data = await context.read<TicketRepository>().getTicketStrategies();
       if (mounted) setState(() { _strategies = data.map((d) => TicketStrategy.fromJson(d)).toList(); _strategiesLoading = false; });
     } catch (e) { if (mounted) setState(() { _strategiesError = 'Failed to load strategies'; _strategiesLoading = false; }); }
   }
@@ -194,7 +197,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   Future<void> _loadDiscounts() async {
     setState(() { _discountsLoading = true; _discountsError = null; });
     try {
-      final data = await context.read<ApiService>().getDiscountStrategies();
+      final data = await context.read<TicketRepository>().getDiscountStrategies();
       if (mounted) setState(() { _discountStrategies = data.cast<Map<String, dynamic>>(); _discountsLoading = false; });
     } catch (e) { if (mounted) setState(() { _discountsError = 'Failed to load discounts'; _discountsLoading = false; }); }
   }
@@ -202,7 +205,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   Future<void> _loadSponsorTemplates() async {
     setState(() => _loadingTemplates = true);
     try {
-      final data = await context.read<ApiService>().getSponsorCategoryTemplates();
+      final data = await context.read<SponsorRepository>().getSponsorCategoryTemplates();
       if (mounted) setState(() { _sponsorTemplates = data.cast<Map<String, dynamic>>(); _loadingTemplates = false; });
     } catch (_) { if (mounted) setState(() => _loadingTemplates = false); }
   }
@@ -403,7 +406,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         maxCoOrganizers: int.tryParse(_maxCoOrganizersCtrl.text.trim()),
       );
       await executeCreateEventSubmission(
-        api: context.read<ApiService>(), eventData: payload,
+        sponsorRepo: context.read<SponsorRepository>(), eventRepo: context.read<EventRepository>(),
+        ticketRepo: context.read<TicketRepository>(),
+        eventData: payload,
         selectedDiscounts: _selectedDiscounts, localTiers: _localTiers,
         milestones: _milestones, earlyBirdDiscounts: _earlyBirdDiscounts,
         hasSchedule: _hasSchedule, scheduleDays: _scheduleDays,

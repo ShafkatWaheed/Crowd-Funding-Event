@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -7,34 +6,22 @@ import 'package:provider/provider.dart';
 import '../../lib/models/user.dart';
 import '../../lib/providers/auth_provider.dart';
 import '../../lib/providers/theme_provider.dart';
-import '../../lib/services/api_service.dart';
+import '../../lib/repositories/admin_repository.dart';
 import '../../lib/screens/admin/admin_dashboard_screen.dart';
 import '../helpers/mock_providers.dart';
-import '../helpers/mock_api_service.dart';
+import '../helpers/mock_admin_repository.dart';
 import '../helpers/pump_app.dart';
 import '../helpers/fixtures.dart';
 
-/// Mock for Dio Response used in admin settings loading.
-class MockResponse extends Mock implements Response<dynamic> {}
-
 void main() {
   late MockAuthProvider mockAuth;
-  late MockApiService mockApi;
+  late MockAdminRepository mockAdmin;
   late MockThemeProvider mockTheme;
-
-  setUpAll(() {
-    // Register fallback values for types used in any() matchers
-    registerFallbackValue(Options());
-    registerFallbackValue(CancelToken());
-  });
 
   setUp(() {
     mockAuth = MockAuthProvider();
-    mockApi = MockApiService();
+    mockAdmin = MockAdminRepository();
     mockTheme = MockThemeProvider();
-
-    // Set ApiService.instance so _loadMockData does not crash
-    ApiService.instance = mockApi;
 
     // Default: admin user
     when(() => mockAuth.user)
@@ -45,8 +32,8 @@ void main() {
     when(() => mockTheme.mode).thenReturn(ThemeMode.light);
     when(() => mockTheme.toggle()).thenAnswer((_) async {});
 
-    // Stub admin API calls that are made in initState._loadData
-    when(() => mockApi.adminGetStats()).thenAnswer((_) async => {
+    // Stub admin repository calls that are made in initState._loadData
+    when(() => mockAdmin.getStats()).thenAnswer((_) async => {
           'total_users': 100,
           'total_events': 25,
           'total_pledges': 500,
@@ -54,7 +41,7 @@ void main() {
           'pending_events': 3,
           'pending_kyc': 2,
         });
-    when(() => mockApi.adminGetUsers(
+    when(() => mockAdmin.getUsers(
           offset: any(named: 'offset'),
           limit: any(named: 'limit'),
           search: any(named: 'search'),
@@ -65,7 +52,7 @@ void main() {
           ],
           'total': 2,
         });
-    when(() => mockApi.adminGetEvents(
+    when(() => mockAdmin.getEvents(
           offset: any(named: 'offset'),
           limit: any(named: 'limit'),
           search: any(named: 'search'),
@@ -79,25 +66,14 @@ void main() {
           'total': 2,
         });
 
-    // Settings endpoint returns via dio.get — stub with all optional params
-    final settingsResponse = MockResponse();
-    when(() => settingsResponse.data).thenReturn(<dynamic>[
-      <String, dynamic>{'key': 'maintenance_mode', 'value': 'false'},
-      <String, dynamic>{'key': 'max_events', 'value': '100'},
-    ]);
-    when(() => mockApi.mockDio.get(
-          any(),
-          data: any(named: 'data'),
-          queryParameters: any(named: 'queryParameters'),
-          options: any(named: 'options'),
-          cancelToken: any(named: 'cancelToken'),
-          onReceiveProgress: any(named: 'onReceiveProgress'),
-        )).thenAnswer((_) async => settingsResponse);
+    // Settings endpoint
+    when(() => mockAdmin.getSettings()).thenAnswer((_) async => <dynamic>[
+          <String, dynamic>{'key': 'maintenance_mode', 'value': 'false'},
+          <String, dynamic>{'key': 'max_events', 'value': '100'},
+        ]);
 
-    // _loadMockData calls ApiService.instance.get('/admin/mock-overview')
-    when(() => mockApi.get('/admin/mock-overview'))
-        .thenAnswer((_) async => <String, dynamic>{});
-    when(() => mockApi.get(any()))
+    // Mock overview
+    when(() => mockAdmin.getMockOverview())
         .thenAnswer((_) async => <String, dynamic>{});
   });
 
@@ -111,7 +87,7 @@ void main() {
       overrides: [
         ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
         ChangeNotifierProvider<ThemeProvider>.value(value: mockTheme),
-        Provider<ApiService>.value(value: mockApi),
+        Provider<AdminRepository>.value(value: mockAdmin),
       ],
     );
   }

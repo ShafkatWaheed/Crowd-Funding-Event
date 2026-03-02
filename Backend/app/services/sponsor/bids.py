@@ -2,13 +2,13 @@
 from datetime import datetime, timezone
 
 from fastapi import HTTPException
-from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.logger import get_logger, log_step
 from app.models.user import User, UserRole
 from app.models.sponsor import SponsorBid, BidStatus, SponsorshipCategory
 from app.schemas.sponsor import BidCreate, BidUpdate
+from app.repositories.sponsor_repo import sponsor_repo
 
 from app.services.sponsor.categories import _get_category, _require_organizer
 from app.services.sponsor.payments import _ensure_sponsor_ticket
@@ -37,19 +37,13 @@ async def place_bid(
         raise HTTPException(status_code=400, detail="No spots available in this category")
 
     active_statuses = [BidStatus.pending, BidStatus.accepted, BidStatus.paid]
-    my_active_bids = (await db.execute(
-        select(SponsorBid).where(
-            SponsorBid.category_id == cat_id,
-            SponsorBid.sponsor_user_id == user.id,
-            SponsorBid.status.in_(active_statuses),
-        )
-    )).scalars().all()
+    my_active_bids = await sponsor_repo.count_active_bids_by_user(db, cat_id, user.id, active_statuses)
 
-    if len(list(my_active_bids)) >= cat.total_spots:
+    if len(my_active_bids) >= cat.total_spots:
         logger.warning("Place bid rejected: max spots exceeded", extra={"cat_id": cat_id, "user_id": user.id})
         raise HTTPException(
             status_code=409,
-            detail=f"You already have {len(list(my_active_bids))} active bid(s) — max is {cat.total_spots} (total spots)",
+            detail=f"You already have {len(my_active_bids)} active bid(s) — max is {cat.total_spots} (total spots)",
         )
 
     bid = SponsorBid(
@@ -58,9 +52,7 @@ async def place_bid(
         amount_cents=data.amount_cents,
         proposal_text=data.proposal_text,
     )
-    db.add(bid)
-    await db.flush()
-    await db.refresh(bid)
+    bid = await sponsor_repo.create_bid(db, bid)
     logger.info("Bid placed", extra={"bid_id": bid.id, "cat_id": cat_id, "user_id": user.id})
     return bid
 
@@ -68,9 +60,7 @@ async def place_bid(
 async def update_bid(
     db: AsyncSession, bid_id: int, user: User, data: BidUpdate
 ) -> SponsorBid:
-    bid = (await db.execute(
-        select(SponsorBid).where(SponsorBid.id == bid_id)
-    )).scalar_one_or_none()
+    bid = await sponsor_repo.get_bid(db, bid_id)
     if not bid:
         raise HTTPException(status_code=404, detail="Bid not found")
     if bid.sponsor_user_id != user.id:
@@ -86,16 +76,13 @@ async def update_bid(
     if data.proposal_text is not None:
         bid.proposal_text = data.proposal_text
 
-    await db.flush()
-    await db.refresh(bid)
+    bid = await sponsor_repo.update_bid(db, bid)
     return bid
 
 
 async def withdraw_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorBid:
     log_step(logger, "Withdraw bid", bid_id=bid_id, user_id=user.id)
-    bid = (await db.execute(
-        select(SponsorBid).where(SponsorBid.id == bid_id)
-    )).scalar_one_or_none()
+    bid = await sponsor_repo.get_bid(db, bid_id)
     if not bid:
         logger.warning("Withdraw bid: not found", extra={"bid_id": bid_id})
         raise HTTPException(status_code=404, detail="Bid not found")
@@ -107,8 +94,7 @@ async def withdraw_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorBid:
         raise HTTPException(status_code=400, detail="Can only withdraw pending bids")
 
     bid.status = BidStatus.withdrawn
-    await db.flush()
-    await db.refresh(bid)
+    bid = await sponsor_repo.update_bid(db, bid)
     logger.info("Bid withdrawn", extra={"bid_id": bid.id})
     return bid
 
@@ -119,34 +105,20 @@ async def list_bids(
     """Organizer-only: list all bids for a category."""
     cat = await _get_category(db, cat_id)
     await _require_organizer(db, cat.event_id, user)
-    q = (
-        select(SponsorBid)
-        .where(SponsorBid.category_id == cat_id)
-        .order_by(SponsorBid.amount_cents.desc())
-    )
-    return list((await db.execute(q)).scalars().all())
+    return await sponsor_repo.list_bids_for_category(db, cat_id)
 
 
 async def accept_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorBid:
     log_step(logger, "Accept bid", bid_id=bid_id, user_id=user.id)
-    bid = (await db.execute(
-        select(SponsorBid).where(SponsorBid.id == bid_id)
-    )).scalar_one_or_none()
+    bid = await sponsor_repo.get_bid(db, bid_id)
     if not bid:
         logger.warning("Accept bid: not found", extra={"bid_id": bid_id})
         raise HTTPException(status_code=404, detail="Bid not found")
 
     # Lock the category to prevent race condition on filled_spots.
     # Offset 2_000_000 avoids collision with event-level advisory locks.
-    await db.execute(
-        text("SELECT pg_advisory_xact_lock(:lock_id)"),
-        {"lock_id": bid.category_id + 2_000_000},
-    )
-    cat = (await db.execute(
-        select(SponsorshipCategory)
-        .where(SponsorshipCategory.id == bid.category_id)
-        .with_for_update()
-    )).scalar_one_or_none()
+    await sponsor_repo.advisory_lock(db, bid.category_id + 2_000_000)
+    cat = await sponsor_repo.get_category_for_update(db, bid.category_id)
     if not cat:
         raise HTTPException(status_code=404, detail="Category not found")
 
@@ -159,29 +131,18 @@ async def accept_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorBid:
         logger.warning("Accept bid: category full", extra={"bid_id": bid_id, "cat_id": bid.category_id})
         raise HTTPException(status_code=400, detail="No spots available — category is full")
 
-    from app.models.prerequisite import CategoryPrerequisite, BidPrerequisiteUpload, UploadStatus
-    required_prereqs = (await db.execute(
-        select(CategoryPrerequisite).where(
-            CategoryPrerequisite.category_id == bid.category_id,
-            CategoryPrerequisite.is_required == True,
-        )
-    )).scalars().all()
+    from app.models.prerequisite import UploadStatus
+    required_prereqs = await sponsor_repo.list_required_prerequisites(db, bid.category_id)
 
     for prereq in required_prereqs:
-        upload = (await db.execute(
-            select(BidPrerequisiteUpload).where(
-                BidPrerequisiteUpload.bid_id == bid.id,
-                BidPrerequisiteUpload.prerequisite_id == prereq.id,
-            )
-        )).scalar_one_or_none()
+        upload = await sponsor_repo.get_bid_prerequisite_upload(db, bid.id, prereq.id)
         if upload and upload.status == UploadStatus.pending:
             upload.status = UploadStatus.approved
             upload.reviewed_at = datetime.now(timezone.utc)
 
     bid.status = BidStatus.accepted
     cat.filled_spots += 1
-    await db.flush()
-    await db.refresh(bid)
+    bid = await sponsor_repo.flush_and_refresh_bid(db, bid)
 
     await _ensure_sponsor_ticket(db, cat.event_id, bid.sponsor_user_id)
     logger.info("Bid accepted", extra={"bid_id": bid.id, "cat_id": bid.category_id})
@@ -190,9 +151,7 @@ async def accept_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorBid:
 
 async def reject_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorBid:
     log_step(logger, "Reject bid", bid_id=bid_id, user_id=user.id)
-    bid = (await db.execute(
-        select(SponsorBid).where(SponsorBid.id == bid_id)
-    )).scalar_one_or_none()
+    bid = await sponsor_repo.get_bid(db, bid_id)
     if not bid:
         logger.warning("Reject bid: not found", extra={"bid_id": bid_id})
         raise HTTPException(status_code=404, detail="Bid not found")
@@ -205,7 +164,6 @@ async def reject_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorBid:
         raise HTTPException(status_code=400, detail="Can only reject pending bids")
 
     bid.status = BidStatus.rejected
-    await db.flush()
-    await db.refresh(bid)
+    bid = await sponsor_repo.update_bid(db, bid)
     logger.info("Bid rejected", extra={"bid_id": bid.id})
     return bid

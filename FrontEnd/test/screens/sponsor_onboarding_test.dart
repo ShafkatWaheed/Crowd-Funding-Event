@@ -7,20 +7,20 @@ import 'package:provider/provider.dart';
 
 import '../../lib/models/user.dart';
 import '../../lib/providers/auth_provider.dart';
-import '../../lib/services/api_service.dart';
+import '../../lib/repositories/sponsor_repository.dart';
 import '../../lib/screens/sponsor/sponsor_onboarding_screen.dart';
 import '../helpers/mock_providers.dart';
-import '../helpers/mock_api_service.dart';
+import '../helpers/mock_sponsor_repository.dart';
 import '../helpers/pump_app.dart';
 import '../helpers/fixtures.dart';
 
 void main() {
   late MockAuthProvider mockAuth;
-  late MockApiService mockApi;
+  late MockSponsorRepository mockSponsorRepo;
 
   setUp(() {
     mockAuth = MockAuthProvider();
-    mockApi = MockApiService();
+    mockSponsorRepo = MockSponsorRepository();
 
     when(() => mockAuth.user).thenReturn(makeUser(role: UserRole.customer));
     when(() => mockAuth.refreshUser()).thenAnswer((_) async {});
@@ -32,7 +32,7 @@ void main() {
       const SponsorOnboardingScreen(),
       overrides: [
         ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
-        Provider<ApiService>.value(value: mockApi),
+        Provider<SponsorRepository>.value(value: mockSponsorRepo),
       ],
     );
   }
@@ -40,7 +40,7 @@ void main() {
   group('SponsorOnboardingScreen', () {
     testWidgets('shows loading spinner during initial load', (tester) async {
       final profileCompleter = Completer<Map<String, dynamic>>();
-      when(() => mockApi.getSponsorProfile())
+      when(() => mockSponsorRepo.getSponsorProfile())
           .thenAnswer((_) => profileCompleter.future);
 
       await pumpOnboarding(tester);
@@ -55,7 +55,7 @@ void main() {
     });
 
     testWidgets('shows create mode when no existing profile', (tester) async {
-      when(() => mockApi.getSponsorProfile())
+      when(() => mockSponsorRepo.getSponsorProfile())
           .thenThrow(Exception('Not found'));
 
       await pumpOnboarding(tester);
@@ -68,7 +68,7 @@ void main() {
     });
 
     testWidgets('shows form fields with correct labels', (tester) async {
-      when(() => mockApi.getSponsorProfile())
+      when(() => mockSponsorRepo.getSponsorProfile())
           .thenThrow(Exception('Not found'));
 
       await pumpOnboarding(tester);

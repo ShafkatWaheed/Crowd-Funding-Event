@@ -4,10 +4,10 @@ import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
 import '../../lib/db/app_database.dart';
-import '../../lib/services/api_service.dart';
+import '../../lib/repositories/sponsor_repository.dart';
 import '../../lib/services/sync_service.dart';
 import '../../lib/screens/sponsor/sponsor_ticket_screen.dart';
-import '../helpers/mock_api_service.dart';
+import '../helpers/mock_sponsor_repository.dart';
 import '../helpers/pump_app.dart';
 
 class MockAppDatabase extends Mock implements AppDatabase {}
@@ -15,12 +15,12 @@ class MockAppDatabase extends Mock implements AppDatabase {}
 class MockSyncService extends Mock implements SyncService {}
 
 void main() {
-  late MockApiService mockApi;
+  late MockSponsorRepository mockSponsorRepo;
   late MockAppDatabase mockDb;
   late MockSyncService mockSync;
 
   setUp(() {
-    mockApi = MockApiService();
+    mockSponsorRepo = MockSponsorRepository();
     mockDb = MockAppDatabase();
     mockSync = MockSyncService();
 
@@ -73,7 +73,7 @@ void main() {
       tester,
       const SponsorTicketScreen(),
       overrides: [
-        Provider<ApiService>.value(value: mockApi),
+        Provider<SponsorRepository>.value(value: mockSponsorRepo),
         Provider<AppDatabase>.value(value: mockDb),
         Provider<SyncService>.value(value: mockSync),
       ],
@@ -82,7 +82,7 @@ void main() {
 
   group('SponsorTicketScreen', () {
     testWidgets('shows title', (tester) async {
-      when(() => mockApi.getMySponsorTickets())
+      when(() => mockSponsorRepo.getMySponsorTickets())
           .thenAnswer((_) async => [ticketJson()]);
 
       await pumpScreen(tester);
@@ -92,7 +92,7 @@ void main() {
     });
 
     testWidgets('shows empty state when no tickets', (tester) async {
-      when(() => mockApi.getMySponsorTickets())
+      when(() => mockSponsorRepo.getMySponsorTickets())
           .thenAnswer((_) async => []);
 
       await pumpScreen(tester);
@@ -104,7 +104,7 @@ void main() {
     });
 
     testWidgets('renders ticket list after load', (tester) async {
-      when(() => mockApi.getMySponsorTickets()).thenAnswer((_) async => [
+      when(() => mockSponsorRepo.getMySponsorTickets()).thenAnswer((_) async => [
             ticketJson(id: 1, eventTitle: 'Rock Concert'),
             ticketJson(id: 2, eventTitle: 'Jazz Night', receiptNumber: 'REC-SP-002'),
           ]);
@@ -117,7 +117,7 @@ void main() {
     });
 
     testWidgets('falls back to offline cache on API error', (tester) async {
-      when(() => mockApi.getMySponsorTickets())
+      when(() => mockSponsorRepo.getMySponsorTickets())
           .thenThrow(Exception('Network error'));
       when(() => mockDb.getSponsorTicketsFromCache())
           .thenAnswer((_) async => []);
@@ -129,7 +129,7 @@ void main() {
     });
 
     testWidgets('syncs tickets in background after load', (tester) async {
-      when(() => mockApi.getMySponsorTickets())
+      when(() => mockSponsorRepo.getMySponsorTickets())
           .thenAnswer((_) async => [ticketJson()]);
 
       await pumpScreen(tester);

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
-import '../../../services/api_service.dart';
+import '../../../repositories/sponsor_repository.dart';
 import '../../../widgets/app_toast.dart';
 
 class EditLocalPrereq {
@@ -52,7 +52,7 @@ class _EditSponsorsSectionState extends State<EditSponsorsSection> {
 
   Future<void> _loadCategories() async {
     try {
-      final api = context.read<ApiService>();
+      final api = context.read<SponsorRepository>();
       final list = await api.getSponsorshipCategories(widget.eventId);
       if (mounted) {
         setState(() {
@@ -82,7 +82,7 @@ class _EditSponsorsSectionState extends State<EditSponsorsSection> {
     final spots = int.tryParse(sc.spotsCtrl.text.trim()) ?? 1;
     final minBid =
         ((double.tryParse(sc.minBidCtrl.text.trim()) ?? 0) * 100).round();
-    final api = context.read<ApiService>();
+    final api = context.read<SponsorRepository>();
     try {
       if (sc.id != null) {
         await api.updateSponsorshipCategory(widget.eventId, sc.id!, {
@@ -129,7 +129,7 @@ class _EditSponsorsSectionState extends State<EditSponsorsSection> {
     final sc = _categories[idx];
     if (sc.id != null) {
       try {
-        final api = context.read<ApiService>();
+        final api = context.read<SponsorRepository>();
         await api.deleteSponsorshipCategory(widget.eventId, sc.id!);
       } catch (e) {
         if (mounted) {
@@ -145,7 +145,7 @@ class _EditSponsorsSectionState extends State<EditSponsorsSection> {
   // ── Template picker ──
 
   Future<void> _showTemplatePicker() async {
-    final api = context.read<ApiService>();
+    final api = context.read<SponsorRepository>();
     try {
       final data = await api.getSponsorCategoryTemplates();
       _templates = data.cast<Map<String, dynamic>>();
@@ -264,7 +264,7 @@ class _EditSponsorsSectionState extends State<EditSponsorsSection> {
 
   Future<void> _showPrerequisiteSheet(EditSponsorCategory sc) async {
     if (sc.id == null) return;
-    final api = context.read<ApiService>();
+    final api = context.read<SponsorRepository>();
     List<Map<String, dynamic>> prereqs = [];
     try {
       final data =

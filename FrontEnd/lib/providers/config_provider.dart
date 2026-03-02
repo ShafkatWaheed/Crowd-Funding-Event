@@ -1,9 +1,9 @@
 import 'package:flutter/foundation.dart';
 
-import '../services/api_service.dart';
+import '../repositories/event_repository.dart';
 
 class ConfigProvider extends ChangeNotifier {
-  final ApiService _api;
+  final EventRepository _api;
 
   int maxTicketsPerPurchase = 10;
   bool maxTicketsFrontendEnabled = false;

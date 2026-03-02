@@ -6,7 +6,8 @@ import '../../../utils/date_time_utils.dart';
 import '../../../config/design_tokens.dart';
 import '../../../models/event.dart';
 import '../../../providers/event_provider.dart';
-import '../../../services/api_service.dart';
+import '../../../repositories/event_repository.dart';
+import '../../../repositories/base_repository.dart';
 import '../../../widgets/app_toast.dart';
 
 class ScheduleMilestoneDialogs {
@@ -39,7 +40,7 @@ class ScheduleMilestoneDialogs {
   static Future<void> showManageScheduleSheet(
     BuildContext context, Event event, VoidCallback onRefresh,
   ) async {
-    final api = context.read<ApiService>();
+    final api = context.read<EventRepository>();
     List<Map<String, dynamic>> items = [];
     bool loading = true;
 
@@ -199,7 +200,7 @@ class ScheduleMilestoneDialogs {
   // ═══════════════════════════════════════════
 
   static Future<void> showScheduleItemEditor(
-    BuildContext parentCtx, ApiService api, Event event,
+    BuildContext parentCtx, EventRepository api, Event event,
     Map<String, dynamic>? existing, Function(Map<String, dynamic>) onSaved,
   ) async {
     final titleCtrl = TextEditingController(text: existing?['title'] ?? '');
@@ -375,7 +376,7 @@ class ScheduleMilestoneDialogs {
                     if (ctx.mounted) {
                       setDlgState(() {
                         saving = false;
-                        errorMsg = ApiService.extractError(e, fallback: 'Failed to save session');
+                        errorMsg = ApiError.extractMessage(e, fallback: 'Failed to save session');
                       });
                     }
                   }
@@ -398,7 +399,7 @@ class ScheduleMilestoneDialogs {
   static Future<void> showManageMilestonesSheet(
     BuildContext context, Event event, VoidCallback onRefresh,
   ) async {
-    final api = context.read<ApiService>();
+    final api = context.read<EventRepository>();
     List<Map<String, dynamic>> items = [];
     bool loading = true;
 
@@ -550,7 +551,7 @@ class ScheduleMilestoneDialogs {
   // ═══════════════════════════════════════════
 
   static Future<void> showMilestoneEditor(
-    BuildContext parentCtx, ApiService api, int eventId,
+    BuildContext parentCtx, EventRepository api, int eventId,
     Map<String, dynamic>? existing, Function(Map<String, dynamic>) onSaved,
   ) async {
     final titleCtrl = TextEditingController(text: existing?['title'] ?? '');
@@ -749,7 +750,7 @@ class ScheduleMilestoneDialogs {
     if (result == null || result.isEmpty) return;
     if (!context.mounted) return;
     try {
-      await context.read<ApiService>().extendFunding(event.id, result);
+      await context.read<EventRepository>().extendFunding(event.id, result);
       if (context.mounted) {
         AppToast.success(context, 'Extension request submitted for admin approval');
         context.read<EventProvider>().loadEvent(event.id);
@@ -769,7 +770,7 @@ class ScheduleMilestoneDialogs {
   static Future<void> showSetEventDateDialog(
     BuildContext context, Event event, VoidCallback onRefresh,
   ) async {
-    final api = context.read<ApiService>();
+    final api = context.read<EventRepository>();
 
     DateTime? pickedStart;
     DateTime? pickedEnd;

@@ -309,7 +309,11 @@ class SyncService {
       final allIds = <int>[];
       int offset = 0;
       while (true) {
-        final items = await api.getBookmarkedEvents(offset: offset, limit: pageSize);
+        final resp = await api.dio.get('/me/bookmarks', queryParameters: {
+          'offset': offset,
+          'limit': pageSize,
+        });
+        final items = resp.data as List;
         allIds.addAll(items.map<int>((e) => (e as Map<String, dynamic>)['id'] as int));
         if (items.length < pageSize) break;
         offset += pageSize;

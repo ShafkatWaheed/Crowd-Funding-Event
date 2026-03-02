@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -7,26 +6,30 @@ import 'package:provider/provider.dart';
 import '../../lib/models/event.dart';
 import '../../lib/models/user.dart';
 import '../../lib/providers/auth_provider.dart';
-import '../../lib/services/api_service.dart';
+import '../../lib/repositories/funding_repository.dart';
+import '../../lib/repositories/ticket_repository.dart';
 import '../../lib/screens/event/event_detail/funding_card.dart';
 import '../helpers/mock_providers.dart';
-import '../helpers/mock_api_service.dart';
+import '../helpers/mock_funding_repository.dart';
+import '../helpers/mock_ticket_repository.dart';
 import '../helpers/pump_app.dart';
 import '../helpers/fixtures.dart';
 
 void main() {
   late MockAuthProvider mockAuth;
-  late MockApiService mockApi;
+  late MockFundingRepository mockFundingRepo;
+  late MockTicketRepository mockTicketRepo;
 
   setUp(() {
     mockAuth = MockAuthProvider();
-    mockApi = MockApiService();
+    mockFundingRepo = MockFundingRepository();
+    mockTicketRepo = MockTicketRepository();
 
     // Default: logged-in customer who is not organizer/admin
     when(() => mockAuth.user).thenReturn(makeUser(role: UserRole.customer));
 
-    // Stub funding summary API
-    when(() => mockApi.getFundingSummary(any())).thenAnswer((_) async => {
+    // Stub funding summary via FundingRepository
+    when(() => mockFundingRepo.getFundingSummary(any())).thenAnswer((_) async => {
           'total_pledged_cents': 50000,
           'backers_count': 10,
           'goal_cents': 100000,
@@ -34,8 +37,8 @@ void main() {
           'total_reserved_spots': 3,
         });
 
-    // Stub early bird discounts API
-    when(() => mockApi.getEarlyBirdDiscounts(any()))
+    // Stub early bird discounts via TicketRepository
+    when(() => mockTicketRepo.getEarlyBirdDiscounts(any()))
         .thenAnswer((_) async => []);
   });
 
@@ -66,7 +69,8 @@ void main() {
       ),
       overrides: [
         ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
-        Provider<ApiService>.value(value: mockApi),
+        Provider<FundingRepository>.value(value: mockFundingRepo),
+        Provider<TicketRepository>.value(value: mockTicketRepo),
       ],
     );
 
@@ -154,7 +158,7 @@ void main() {
 
     testWidgets('pledged amount displayed after API load', (tester) async {
       // After the funding summary API returns, the raised amount is updated
-      when(() => mockApi.getFundingSummary(any())).thenAnswer((_) async => {
+      when(() => mockFundingRepo.getFundingSummary(any())).thenAnswer((_) async => {
             'total_pledged_cents': 75000,
             'backers_count': 15,
             'goal_cents': 100000,

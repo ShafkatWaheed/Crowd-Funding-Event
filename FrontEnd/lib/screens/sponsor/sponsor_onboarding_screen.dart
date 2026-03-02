@@ -4,7 +4,8 @@ import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
-import '../../services/api_service.dart';
+import '../../repositories/base_repository.dart';
+import '../../repositories/sponsor_repository.dart';
 import '../../widgets/app_toast.dart';
 
 class SponsorOnboardingScreen extends StatefulWidget {
@@ -35,7 +36,7 @@ class _SponsorOnboardingScreenState extends State<SponsorOnboardingScreen> {
 
   Future<void> _loadExisting() async {
     try {
-      final api = context.read<ApiService>();
+      final api = context.read<SponsorRepository>();
       final data = await api.getSponsorProfile();
       _companyNameCtrl.text = data['company_name'] ?? '';
       _contactNameCtrl.text = data['contact_name'] ?? '';
@@ -78,7 +79,7 @@ class _SponsorOnboardingScreenState extends State<SponsorOnboardingScreen> {
     };
 
     try {
-      final api = context.read<ApiService>();
+      final api = context.read<SponsorRepository>();
       if (_isEdit) {
         await api.updateSponsorProfile(payload);
       } else {
@@ -97,7 +98,7 @@ class _SponsorOnboardingScreenState extends State<SponsorOnboardingScreen> {
       }
     } catch (e) {
       if (mounted) {
-        AppToast.error(context, ApiService.extractError(e));
+        AppToast.error(context, ApiError.extractMessage(e));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);

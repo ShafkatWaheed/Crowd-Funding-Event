@@ -3,8 +3,10 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
+import '../../models/ticket.dart';
 import '../../utils/date_time_utils.dart';
-import '../../services/api_service.dart';
+import '../../repositories/ticket_repository.dart';
+import '../../repositories/sponsor_repository.dart';
 import '../../widgets/shimmer_loaders.dart';
 import 'ticket_receipt_screen.dart';
 
@@ -29,7 +31,7 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
 
   final _searchCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
-  List<dynamic> _all = [];
+  List<TicketSale> _all = [];
   bool _loading = true;
   bool _loadingMore = false;
   bool _hasMore = true;
@@ -74,12 +76,12 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
       _hasMore = true;
     });
     try {
-      final api = context.read<ApiService>();
+      final repo = context.read<TicketRepository>();
       final data = widget.scannedOnly
-          ? await api.getScannedTickets(widget.eventId, offset: 0, limit: _pageSize)
-          : await api.getTicketSales(widget.eventId, offset: 0, limit: _pageSize);
+          ? await repo.getScannedTickets(widget.eventId, offset: 0, limit: _pageSize)
+          : await repo.getTicketSales(widget.eventId, offset: 0, limit: _pageSize);
       try {
-        final stats = await api.getTicketSalesStats(widget.eventId);
+        final stats = await repo.getTicketSalesStats(widget.eventId);
         _totalSold = (stats['total_sold'] ?? 0) as int;
         _totalScanned = (stats['total_scanned'] ?? 0) as int;
       } catch (e) { debugPrint(e.toString()); }
@@ -100,10 +102,10 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
     if (_loadingMore || !_hasMore) return;
     setState(() => _loadingMore = true);
     try {
-      final api = context.read<ApiService>();
+      final repo = context.read<TicketRepository>();
       final data = widget.scannedOnly
-          ? await api.getScannedTickets(widget.eventId, offset: _all.length, limit: _pageSize)
-          : await api.getTicketSales(widget.eventId, offset: _all.length, limit: _pageSize);
+          ? await repo.getScannedTickets(widget.eventId, offset: _all.length, limit: _pageSize)
+          : await repo.getTicketSales(widget.eventId, offset: _all.length, limit: _pageSize);
       if (mounted) {
         setState(() {
           _all.addAll(data);
@@ -119,8 +121,8 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
   Future<void> _loadSponsorScanned() async {
     setState(() => _sponsorLoading = true);
     try {
-      final api = context.read<ApiService>();
-      final data = await api.getScannedSponsorTickets(widget.eventId);
+      final repo = context.read<SponsorRepository>();
+      final data = await repo.getScannedSponsorTickets(widget.eventId);
       if (mounted) {
         setState(() {
           _sponsorScanned = data;
@@ -132,31 +134,30 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
     }
   }
 
-  List<dynamic> get _filtered {
+  List<TicketSale> get _filtered {
     final q = _searchCtrl.text.trim().toLowerCase();
     if (q.isEmpty) return _all;
     return _all.where((s) {
-      final attendee =
-          (s['attendee_display_name'] ?? '').toString().toLowerCase();
-      final tierName = (s['tier_name'] ?? '').toString().toLowerCase();
-      final code = (s['ticket_code'] ?? '').toString().toLowerCase();
-      final userId = '${s['user_id']}'.toLowerCase();
-      return attendee.contains(q) ||
-          tierName.contains(q) ||
+      final tierName = (s.tierName ?? '').toLowerCase();
+      final code = s.ticketCode.toLowerCase();
+      final userId = '${s.userId}'.toLowerCase();
+      final attendee = (s.attendeeDisplayName ?? '').toLowerCase();
+      return tierName.contains(q) ||
           code.contains(q) ||
-          userId.contains(q);
+          userId.contains(q) ||
+          attendee.contains(q);
     }).toList();
   }
 
   int get _totalRevenue =>
-      _all.fold<int>(0, (s, e) => s + ((e['amount_paid_cents'] ?? 0) as int));
+      _all.fold<int>(0, (s, e) => s + e.amountPaidCents);
 
   int get _totalCommission =>
-      _all.fold<int>(0, (s, e) => s + ((e['commission_cents'] ?? 0) as int));
+      _all.fold<int>(0, (s, e) => s + e.commissionCents);
 
   int get _totalNetToOrganizer =>
       _all.fold<int>(
-          0, (s, e) => s + ((e['net_to_organizer_cents'] ?? 0) as int));
+          0, (s, e) => s + (e.amountPaidCents - e.commissionCents));
 
   @override
   Widget build(BuildContext context) {
@@ -421,19 +422,16 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
     );
   }
 
-  Widget _buildCard(dynamic sale) {
-    final saleId = sale['id'] as int;
-    final tierName = sale['tier_name'] ?? 'Unknown';
-    final attendee =
-        sale['attendee_display_name'] ?? 'User #${sale['user_id']}';
-    final code = sale['ticket_code'] ?? '';
-    final amount = (sale['amount_paid_cents'] ?? 0) as int;
-    final commission = (sale['commission_cents'] ?? 0) as int;
-    final netAmount = (sale['net_to_organizer_cents'] ?? 0) as int;
-    final scannedAt = sale['scanned_at'];
-    final scannedBy = sale['scanned_by_display_name'];
-    final isScanned = scannedAt != null;
-    final createdAt = AppDateFormat.isoFull(sale['created_at']);
+  Widget _buildCard(TicketSale sale) {
+    final saleId = sale.id;
+    final tierName = sale.tierName ?? 'Unknown';
+    final attendee = sale.attendeeDisplayName ?? 'User #${sale.userId}';
+    final code = sale.ticketCode;
+    final amount = sale.amountPaidCents;
+    final commission = sale.commissionCents;
+    final netAmount = amount - commission;
+    final isScanned = sale.isScanned;
+    final createdAt = AppDateFormat.shortDateTime(sale.createdAt);
 
     return GestureDetector(
       onTap: () => Navigator.of(context).push(
@@ -516,7 +514,9 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
                               size: 13, color: AppTheme.successColor),
                           const SizedBox(width: 4),
                           Text(
-                            'Scanned${scannedBy != null ? ' by $scannedBy' : ''}',
+                            sale.scannedByDisplayName != null
+                                ? 'Scanned by ${sale.scannedByDisplayName}'
+                                : 'Scanned',
                             style: TextStyle(
                                 fontSize: 12,
                                 color: AppTheme.successColor),

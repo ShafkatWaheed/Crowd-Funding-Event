@@ -1,12 +1,12 @@
 """
 Firebase verify + user upsert: verify ID token, create or update user in DB.
 """
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.logger import get_logger, log_step
 from app.core.firebase import verify_id_token
 from app.models.user import User, UserRole
+from app.repositories.user_repo import user_repo
 
 logger = get_logger("svc.auth")
 
@@ -41,15 +41,13 @@ async def verify_and_upsert_user(
         or None
     )
 
-    result = await db.execute(select(User).where(User.firebase_uid == uid))
-    user = result.scalar_one_or_none()
+    user = await user_repo.get_by_firebase_uid(db, uid)
     if user:
         logger.info("User updated", extra={"user_id": user.id, "uid": uid})
-        user.email = email
+        updates: dict = {"email": email}
         if display_name is not None:
-            user.display_name = display_name
-        await db.flush()
-        await db.refresh(user)
+            updates["display_name"] = display_name
+        user = await user_repo.update_user(db, user, **updates)
         return user
 
     # New user: use requested role only if allowed (never admin)
@@ -70,7 +68,8 @@ async def verify_and_upsert_user(
         raise ValueError("You must be at least 13 years old to register")
 
     logger.debug("Creating new user", extra={"uid": uid, "role": role.value, "email": email})
-    user = User(
+    user = await user_repo.create_user(
+        db,
         firebase_uid=uid,
         email=email,
         display_name=display_name,
@@ -78,8 +77,5 @@ async def verify_and_upsert_user(
         terms_accepted_at=terms_accepted_at,
         birthday=birthday,
     )
-    db.add(user)
-    await db.flush()
-    await db.refresh(user)
     logger.info("User created", extra={"user_id": user.id, "uid": uid, "role": role.value})
     return user

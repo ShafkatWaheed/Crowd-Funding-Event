@@ -6,7 +6,8 @@ import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/shimmer_loaders.dart';
-import '../../services/api_service.dart';
+import '../../repositories/base_repository.dart';
+import '../../repositories/sponsor_repository.dart';
 
 class SponsorCategoryTemplatesScreen extends StatefulWidget {
   const SponsorCategoryTemplatesScreen({super.key});
@@ -37,7 +38,7 @@ class _SponsorCategoryTemplatesScreenState
 
   Future<void> _load() async {
     try {
-      final api = context.read<ApiService>();
+      final api = context.read<SponsorRepository>();
       final data = await api.getSponsorCategoryTemplates();
       if (!mounted) return;
       setState(() {
@@ -87,7 +88,7 @@ class _SponsorCategoryTemplatesScreenState
     if (confirmed != true) return;
     if (!mounted) return;
     try {
-      final api = context.read<ApiService>();
+      final api = context.read<SponsorRepository>();
       await api.deleteSponsorCategoryTemplate(id);
       if (mounted) AppToast.success(context, 'Template deleted');
       _load();
@@ -441,7 +442,7 @@ class _TemplateFormScreenState extends State<_TemplateFormScreen> {
     };
 
     try {
-      final api = context.read<ApiService>();
+      final api = context.read<SponsorRepository>();
       if (_isEditing) {
         await api.updateSponsorCategoryTemplate(
             widget.existing!['id'] as int, data);
@@ -581,7 +582,7 @@ class _TemplatePrerequisiteSheetState
 
   Future<void> _load() async {
     try {
-      final api = context.read<ApiService>();
+      final api = context.read<SponsorRepository>();
       final data = await api.listTemplatePrerequisites(widget.templateId);
       if (mounted) {
         setState(() {
@@ -591,7 +592,7 @@ class _TemplatePrerequisiteSheetState
       }
     } catch (e) {
       if (mounted) {
-        AppToast.error(context, ApiService.extractError(e));
+        AppToast.error(context, ApiError.extractMessage(e));
         setState(() => _loading = false);
       }
     }
@@ -679,7 +680,7 @@ class _TemplatePrerequisiteSheetState
     if (!mounted) return;
 
     try {
-      final api = context.read<ApiService>();
+      final api = context.read<SponsorRepository>();
       await api.createTemplatePrerequisite(
         widget.templateId,
         name: nameCtrl.text.trim(),
@@ -691,18 +692,18 @@ class _TemplatePrerequisiteSheetState
       if (mounted) AppToast.success(context, 'Requirement added');
       _load();
     } catch (e) {
-      if (mounted) AppToast.error(context, ApiService.extractError(e));
+      if (mounted) AppToast.error(context, ApiError.extractMessage(e));
     }
   }
 
   Future<void> _delete(int prereqId) async {
     try {
-      final api = context.read<ApiService>();
+      final api = context.read<SponsorRepository>();
       await api.deleteTemplatePrerequisite(widget.templateId, prereqId);
       if (mounted) AppToast.success(context, 'Requirement removed');
       _load();
     } catch (e) {
-      if (mounted) AppToast.error(context, ApiService.extractError(e));
+      if (mounted) AppToast.error(context, ApiError.extractMessage(e));
     }
   }
 

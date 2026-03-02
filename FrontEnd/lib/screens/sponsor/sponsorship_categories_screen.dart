@@ -6,7 +6,9 @@ import '../../config/theme.dart';
 import '../../models/event.dart';
 import '../../models/sponsor.dart';
 import '../../providers/auth_provider.dart';
-import '../../services/api_service.dart';
+import '../../repositories/base_repository.dart';
+import '../../repositories/event_repository.dart';
+import '../../repositories/sponsor_repository.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/shimmer_loaders.dart';
 import 'sponsorship_categories/bid_leaderboard.dart';
@@ -38,10 +40,11 @@ class _SponsorshipCategoriesScreenState
 
   Future<void> _load() async {
     try {
-      final api = context.read<ApiService>();
+      final sponsorRepo = context.read<SponsorRepository>();
+      final eventRepo = context.read<EventRepository>();
       final results = await Future.wait([
-        api.getSponsorshipCategories(widget.eventId),
-        api.getEvent(widget.eventId),
+        sponsorRepo.getSponsorshipCategories(widget.eventId),
+        eventRepo.getEvent(widget.eventId),
       ]);
       final data = results[0] as List;
       final eventData = results[1] as Map<String, dynamic>;
@@ -59,7 +62,7 @@ class _SponsorshipCategoriesScreenState
       }
     } catch (e) {
       if (mounted) {
-        AppToast.error(context, ApiService.extractError(e));
+        AppToast.error(context, ApiError.extractMessage(e));
         setState(() => _loading = false);
       }
     }
@@ -77,7 +80,7 @@ class _SponsorshipCategoriesScreenState
     if (result == null || !mounted) return;
 
     try {
-      final api = context.read<ApiService>();
+      final api = context.read<SponsorRepository>();
       await api.placeBid(widget.eventId, cat.id, {
         'amount_cents': result.amountCents,
         if (result.proposalText != null)
@@ -87,7 +90,7 @@ class _SponsorshipCategoriesScreenState
       if (mounted) AppToast.success(context, 'Bid placed!');
       _load();
     } catch (e) {
-      if (mounted) AppToast.error(context, ApiService.extractError(e));
+      if (mounted) AppToast.error(context, ApiError.extractMessage(e));
     }
   }
 
@@ -171,7 +174,7 @@ class _SponsorshipCategoriesScreenState
 
     if (!mounted) return;
     try {
-      final api = context.read<ApiService>();
+      final api = context.read<SponsorRepository>();
       await api.createSponsorshipCategory(widget.eventId, {
         'name': name,
         'description': descCtrl.text.trim(),
@@ -181,7 +184,7 @@ class _SponsorshipCategoriesScreenState
       if (mounted) AppToast.success(context, 'Sponsorship created');
       _load();
     } catch (e) {
-      if (mounted) AppToast.error(context, ApiService.extractError(e));
+      if (mounted) AppToast.error(context, ApiError.extractMessage(e));
     }
   }
 

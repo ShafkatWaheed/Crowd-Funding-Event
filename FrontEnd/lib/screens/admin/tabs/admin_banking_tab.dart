@@ -5,7 +5,9 @@ import 'package:go_router/go_router.dart';
 
 import '../admin_shared.dart';
 import '../../../config/theme.dart';
-import '../../../services/api_service.dart';
+import 'package:provider/provider.dart';
+
+import '../../../repositories/admin_repository.dart';
 import 'banking/banking_disputes_payout.dart';
 import 'banking/banking_tax_health.dart';
 
@@ -58,7 +60,8 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
     // Only show full-page spinner on first load; reloads update in-place
     if (_bankingData == null) setState(() => _bankingLoading = true);
     try {
-      final data = await ApiService.instance.adminGetBankingOverview();
+      final admin = context.read<AdminRepository>();
+      final data = await admin.getBankingOverview();
       if (mounted) setState(() { _bankingData = data; _bankingLoading = false; });
     } catch (e) {
       if (mounted) setState(() => _bankingLoading = false);
@@ -68,7 +71,8 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
   Future<void> _loadReconHistory() async {
     setState(() => _reconHistoryLoading = true);
     try {
-      final resp = await ApiService.instance.adminGetReconciliationHistory();
+      final admin = context.read<AdminRepository>();
+      final resp = await admin.getReconciliationHistory();
       setState(() => _reconHistory = resp);
     } catch (e) { debugPrint(e.toString()); }
     setState(() => _reconHistoryLoading = false);
@@ -77,7 +81,8 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
   Future<void> _loadLedgerHealth() async {
     setState(() => _ledgerHealthLoading = true);
     try {
-      final resp = await ApiService.instance.adminGetLedgerHealth();
+      final admin = context.read<AdminRepository>();
+      final resp = await admin.getLedgerHealth();
       setState(() => _ledgerHealth = resp);
     } catch (e) { debugPrint(e.toString()); }
     setState(() => _ledgerHealthLoading = false);
@@ -86,7 +91,8 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
   Future<void> _loadDisputes() async {
     setState(() => _disputesLoading = true);
     try {
-      final resp = await ApiService.instance.adminGetDisputes();
+      final admin = context.read<AdminRepository>();
+      final resp = await admin.getDisputes();
       setState(() => _disputes = (resp['items'] as List?) ?? []);
     } catch (e) { debugPrint(e.toString()); }
     setState(() => _disputesLoading = false);

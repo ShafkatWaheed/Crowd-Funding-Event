@@ -1,17 +1,19 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
 import '../../lib/models/event.dart';
+import '../../lib/models/ticket.dart';
 import '../../lib/models/user.dart';
 import '../../lib/providers/auth_provider.dart';
 import '../../lib/providers/event_provider.dart';
+import '../../lib/repositories/ticket_repository.dart';
 import '../../lib/services/api_service.dart';
 import '../../lib/screens/event/event_detail/ticket_tiers_section.dart';
 import '../helpers/mock_providers.dart';
 import '../helpers/mock_api_service.dart';
+import '../helpers/mock_ticket_repository.dart';
 import '../helpers/pump_app.dart';
 import '../helpers/fixtures.dart';
 
@@ -19,26 +21,16 @@ void main() {
   late MockAuthProvider mockAuth;
   late MockApiService mockApi;
   late MockEventProvider mockEvent;
-
-  /// Build a Dio Response wrapping [data].
-  Response<dynamic> dioResponse(dynamic data) {
-    return Response(
-      data: data,
-      statusCode: 200,
-      requestOptions: RequestOptions(path: ''),
-    );
-  }
+  late MockTicketRepository mockTicketRepo;
 
   setUp(() {
     mockAuth = MockAuthProvider();
     mockApi = MockApiService();
     mockEvent = MockEventProvider();
+    mockTicketRepo = MockTicketRepository();
 
     // Default: logged-in customer (not organizer/admin)
     when(() => mockAuth.user).thenReturn(makeUser(role: UserRole.customer));
-
-    // Register fallback for Dio get calls
-    registerFallbackValue(RequestOptions(path: ''));
   });
 
   /// Helper to pump TicketTiersSection with injected providers.
@@ -47,7 +39,7 @@ void main() {
     Event? event,
     int myTicketCount = 0,
     int myReservedSpots = 0,
-    List<Map<String, dynamic>>? myEventTickets,
+    List<TicketSale>? myEventTickets,
     bool isOrganizer = false,
     bool isAdmin = false,
     bool isRegistered = true,
@@ -81,25 +73,28 @@ void main() {
         ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
         ChangeNotifierProvider<EventProvider>.value(value: mockEvent),
         Provider<ApiService>.value(value: mockApi),
+        Provider<TicketRepository>.value(value: mockTicketRepo),
       ],
     );
   }
 
-  /// Stubs the MockDio to return [tiers] when the tiers endpoint is called.
-  void stubTiers(MockApiService api, List<Map<String, dynamic>> tiers) {
-    when(() => api.mockDio.get(
-          any(that: contains('ticket-tiers')),
-          data: any(named: 'data'),
-          queryParameters: any(named: 'queryParameters'),
-          options: any(named: 'options'),
-          cancelToken: any(named: 'cancelToken'),
-          onReceiveProgress: any(named: 'onReceiveProgress'),
-        )).thenAnswer((_) async => dioResponse(tiers));
+  /// Stubs the MockTicketRepository to return [tiers] when getTicketTiers is called.
+  void stubTiers(MockTicketRepository repo, List<Map<String, dynamic>> tiers) {
+    when(() => repo.getTicketTiers(any()))
+        .thenAnswer((_) async => tiers.map((t) => TicketTier.fromJson({
+              'id': t['id'],
+              'event_id': 1,
+              'name': t['name'],
+              'price_cents': t['price_cents'],
+              'max_reserved_spots': t['max_reserved_spots'] ?? 0,
+              'display_order': 0,
+              ...t,
+            })).toList());
   }
 
   group('TicketTiersSection', () {
     testWidgets('renders tier list', (tester) async {
-      stubTiers(mockApi, [
+      stubTiers(mockTicketRepo, [
         {
           'id': 1,
           'name': 'General',
@@ -126,7 +121,7 @@ void main() {
     });
 
     testWidgets('shows tier name and price', (tester) async {
-      stubTiers(mockApi, [
+      stubTiers(mockTicketRepo, [
         {
           'id': 1,
           'name': 'Standard',
@@ -146,7 +141,7 @@ void main() {
     });
 
     testWidgets('free tier shows FREE label', (tester) async {
-      stubTiers(mockApi, [
+      stubTiers(mockTicketRepo, [
         {
           'id': 1,
           'name': 'Community',
@@ -165,7 +160,7 @@ void main() {
     });
 
     testWidgets('sold-out state handling', (tester) async {
-      stubTiers(mockApi, [
+      stubTiers(mockTicketRepo, [
         {
           'id': 1,
           'name': 'Limited',
@@ -185,7 +180,7 @@ void main() {
 
     testWidgets('buy button exists for customer on selling_tickets event',
         (tester) async {
-      stubTiers(mockApi, [
+      stubTiers(mockTicketRepo, [
         {
           'id': 1,
           'name': 'General',
@@ -204,7 +199,7 @@ void main() {
     });
 
     testWidgets('quantity display when spots are available', (tester) async {
-      stubTiers(mockApi, [
+      stubTiers(mockTicketRepo, [
         {
           'id': 1,
           'name': 'General',

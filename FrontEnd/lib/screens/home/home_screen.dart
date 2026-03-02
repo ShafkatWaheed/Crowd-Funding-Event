@@ -9,7 +9,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/chat_provider.dart';
 import '../../providers/event_provider.dart';
 import '../../providers/notification_provider.dart';
-import '../../services/api_service.dart';
+import '../../repositories/event_repository.dart';
 import '../../widgets/press_feedback.dart';
 import '../../widgets/kyc_required_banner.dart';
 import '../../widgets/tickets_bottom_sheet.dart';
@@ -81,8 +81,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadCities() async {
     try {
-      final api = context.read<ApiService>();
-      final cities = await api.getEventCities();
+      final repo = context.read<EventRepository>();
+      final cities = await repo.getEventCities();
       if (mounted) setState(() => _cities = cities);
     } catch (e) { debugPrint(e.toString()); }
   }
@@ -90,8 +90,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _batchCheckBookmarks(List<int> eventIds) async {
     if (eventIds.isEmpty) return;
     try {
-      final api = context.read<ApiService>();
-      final res = await api.checkBookmarks(eventIds);
+      final repo = context.read<EventRepository>();
+      final res = await repo.checkBookmarks(eventIds);
       final ids = (res['bookmarked_ids'] as List?)?.cast<int>() ?? [];
       if (mounted) { setState(() {
         _bookmarkedIds.addAll(ids);
@@ -101,8 +101,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _toggleBookmark(int eventId) async {
     try {
-      final api = context.read<ApiService>();
-      final res = await api.toggleBookmark(eventId);
+      final repo = context.read<EventRepository>();
+      final res = await repo.toggleBookmark(eventId);
       if (mounted) {
         setState(() {
           if (res['bookmarked'] == true) {

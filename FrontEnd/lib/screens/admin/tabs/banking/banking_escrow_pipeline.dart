@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
+import 'package:provider/provider.dart';
+
 import '../../../../config/theme.dart';
-import '../../../../services/api_service.dart';
+import '../../../../repositories/admin_repository.dart';
+import '../../../../repositories/base_repository.dart';
 import '../../admin_shared.dart';
 
 class BankingEscrowPipelineSection extends StatelessWidget {
@@ -213,7 +216,7 @@ class _EscrowDetailColumn extends StatelessWidget {
                         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         onChanged: (val) async {
                           try {
-                            await ApiService.instance.adminToggleAutoRelease(
+                            await context.read<AdminRepository>().toggleAutoRelease(
                               eventId, type,
                               stage1: stageNum == 1 ? val : null,
                               stage2: stageNum == 2 ? val : null,
@@ -222,7 +225,7 @@ class _EscrowDetailColumn extends StatelessWidget {
                             await onReloadEventDetail(eventId);
                             onSnack('Stage $stageNum auto-release ${val ? 'enabled' : 'disabled'}');
                           } catch (e) {
-                            onSnack('Toggle failed: ${ApiService.extractError(e)}');
+                            onSnack('Toggle failed: ${ApiError.extractMessage(e)}');
                           }
                         },
                       ),
@@ -232,12 +235,12 @@ class _EscrowDetailColumn extends StatelessWidget {
                     TextButton(
                       onPressed: () async {
                         try {
-                          await ApiService.instance.adminReleaseEscrowStage(eventId, type, stageNum);
+                          await context.read<AdminRepository>().releaseEscrowStage(eventId, type, stageNum);
                           await onReloadEventDetail(eventId);
                           onReloadPipeline();
                           onSnack('$label Stage $stageNum released');
                         } catch (e) {
-                          onSnack('Release failed: ${ApiService.extractError(e)}');
+                          onSnack('Release failed: ${ApiError.extractMessage(e)}');
                         }
                       },
                       child: const Text('Release', style: TextStyle(fontSize: 12)),
@@ -253,7 +256,7 @@ class _EscrowDetailColumn extends StatelessWidget {
                 icon: const Icon(Icons.ac_unit, size: 14),
                 label: const Text('Freeze', style: TextStyle(fontSize: 12)),
                 onPressed: () async {
-                  await ApiService.instance.adminFreezeEscrow(eventId, type);
+                  await context.read<AdminRepository>().freezeEscrow(eventId, type);
                   await onReloadEventDetail(eventId);
                   onReloadPipeline();
                 },
@@ -263,7 +266,7 @@ class _EscrowDetailColumn extends StatelessWidget {
                 icon: const Icon(Icons.play_arrow, size: 14),
                 label: const Text('Unfreeze', style: TextStyle(fontSize: 12)),
                 onPressed: () async {
-                  await ApiService.instance.adminUnfreezeEscrow(eventId, type);
+                  await context.read<AdminRepository>().unfreezeEscrow(eventId, type);
                   await onReloadEventDetail(eventId);
                   onReloadPipeline();
                 },

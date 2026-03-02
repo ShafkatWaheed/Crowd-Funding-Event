@@ -3,15 +3,13 @@ Event lifecycle: cancel, reactivate, extend, set_event_date, start_selling, appr
 """
 from datetime import datetime, timezone
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.logger import get_logger, log_step
-from app.models.event import Event, EventOrganizer, EventDiscount, EventStatus
-from app.models.ticket import TicketTier, TicketSale, UserEventDiscount
-from app.models.funding import Funding
+from app.models.event import Event, EventStatus
 from app.models.user import User
 from app.core.exceptions import ForbiddenError, ConflictError
+from app.repositories.event_repo import event_repo
 
 from app.services.event.permissions import user_can_edit_event
 
@@ -47,8 +45,7 @@ async def _check_cancel_threshold(db: AsyncSession, event: Event, user: User, re
                 "requested_by": user.id,
                 "pledge_percent": pledge_pct,
             }
-            await db.flush()
-            await db.refresh(event)
+            await event_repo.flush_and_refresh(db, event)
             return True
     return False
 
@@ -82,8 +79,7 @@ async def cancel_event(db: AsyncSession, event: Event, user: User, *, reason: st
             "requested_by": user.id,
             "status": event.status.value,
         }
-        await db.flush()
-        await db.refresh(event)
+        await event_repo.flush_and_refresh(db, event)
         raise ConflictError(
             "Cancellation request has been sent to admin for approval."
         )
@@ -106,16 +102,13 @@ async def cancel_event(db: AsyncSession, event: Event, user: User, *, reason: st
     from app.services import ticket as ticket_service
     await ticket_service.refund_all_tickets_for_event(db, event_id=event.id)
 
-    from app.models.escrow import FundEscrow, TicketEscrow, SponsorEscrow, EscrowStatus
-    for model in (FundEscrow, TicketEscrow, SponsorEscrow):
-        esc = (await db.execute(
-            select(model).where(model.event_id == event.id)
-        )).scalar_one_or_none()
+    from app.models.escrow import EscrowStatus
+    fund_esc, ticket_esc, sponsor_esc = await event_repo.get_escrow_records(db, event.id)
+    for esc in (fund_esc, ticket_esc, sponsor_esc):
         if esc and esc.status not in (EscrowStatus.fully_released, EscrowStatus.refunded):
             esc.status = EscrowStatus.refunded
 
-    await db.flush()
-    await db.refresh(event)
+    await event_repo.flush_and_refresh(db, event)
     return event
 
 
@@ -132,8 +125,7 @@ async def reactivate_event(db: AsyncSession, event: Event, user: User) -> Event:
         raise ConflictError("Only cancelled events can be moved back to draft")
     event.status = EventStatus.draft
     logger.info("Event reactivated to draft", extra={"event_id": event.id, "user_id": user.id})
-    await db.flush()
-    await db.refresh(event)
+    await event_repo.flush_and_refresh(db, event)
     return event
 
 
@@ -171,7 +163,7 @@ async def extend_funding(
     if new_funding_goal_cents is not None:
         pending["funding_goal_cents"] = new_funding_goal_cents
     event.pending_extension = pending
-    await db.flush()
+    await event_repo.flush_event(db)
     return event
 
 
@@ -185,7 +177,7 @@ async def set_event_date(
 ) -> Event:
     """
     Set or update event start/end time.
-    Applies directly (no admin approval). Does NOT auto-transition — organizer must
+    Applies directly (no admin approval). Does NOT auto-transition -- organizer must
     manually start selling tickets via the dedicated action.
     """
     log_step(logger, "Set event date", event_id=event.id, user_id=user.id)
@@ -204,7 +196,7 @@ async def set_event_date(
     event.start_time = new_start_time
     event.end_time = new_end_time
 
-    await db.flush()
+    await event_repo.flush_event(db)
     return event
 
 
@@ -226,10 +218,8 @@ async def start_selling_tickets(
         raise ConflictError("Event start and end times must be set before selling tickets")
     if event.ticket_strategy_id is None:
         raise ConflictError("A ticket strategy is required before selling tickets")
-    tier_count = (await db.execute(
-        select(TicketTier.id).where(TicketTier.event_id == event.id).limit(1)
-    )).scalar_one_or_none()
-    if tier_count is None:
+    has_tiers = await event_repo.has_ticket_tiers(db, event.id)
+    if not has_tiers:
         raise ConflictError("At least one ticket tier must exist before selling tickets")
     # If approved with active funding, don't allow early ticket sales
     if event.status == EventStatus.approved and event.funding_end_at is not None:
@@ -241,7 +231,7 @@ async def start_selling_tickets(
     event.status = EventStatus.selling_tickets
     event.ticket_selling_started_at = datetime.now(timezone.utc)
     logger.info("Event transitioned to selling_tickets", extra={"event_id": event.id})
-    await db.flush()
+    await event_repo.flush_event(db)
     return event
 
 
@@ -267,7 +257,7 @@ async def reject_extension(db: AsyncSession, event: Event, admin: User) -> Event
     if not event.pending_extension:
         raise ConflictError("No pending extension to reject")
     event.pending_extension = None
-    await db.flush()
+    await event_repo.flush_event(db)
     return event
 
 
@@ -285,48 +275,8 @@ async def _apply_funding_extension(
     # If event was in waiting_event_date with new funding deadline, move back to approved (funding re-opens)
     if event.status == EventStatus.waiting_event_date and new_funding_end_at is not None:
         event.status = EventStatus.approved
-    await db.flush()
+    await event_repo.flush_event(db)
     return event
-
-
-async def _purge_event_children(db: AsyncSession, event_id: int) -> None:
-    """Delete all child records for an event before hard-deleting the event itself."""
-    from sqlalchemy import delete as sa_delete
-    from app.models.escrow import EscrowRelease, FundEscrow
-    from app.models.discount_strategy import CustomerDiscountClaim, EventDiscountStrategyLink
-
-    # Escrow releases (child of escrow)
-    escrow_ids_q = select(FundEscrow.id).where(FundEscrow.event_id == event_id)
-    await db.execute(sa_delete(EscrowRelease).where(EscrowRelease.escrow_id.in_(escrow_ids_q)))
-    await db.execute(sa_delete(FundEscrow).where(FundEscrow.event_id == event_id))
-
-    # Discount claims (child of strategy links)
-    link_ids_q = select(EventDiscountStrategyLink.id).where(EventDiscountStrategyLink.event_id == event_id)
-    await db.execute(sa_delete(CustomerDiscountClaim).where(CustomerDiscountClaim.link_id.in_(link_ids_q)))
-    await db.execute(sa_delete(EventDiscountStrategyLink).where(EventDiscountStrategyLink.event_id == event_id))
-
-    # Ticket sales (child of both event and ticket_tier)
-    await db.execute(sa_delete(TicketSale).where(TicketSale.event_id == event_id))
-    await db.execute(sa_delete(TicketTier).where(TicketTier.event_id == event_id))
-    await db.execute(sa_delete(UserEventDiscount).where(UserEventDiscount.event_id == event_id))
-
-    # Fundings, registrations
-    from app.models.registration import Registration
-    await db.execute(sa_delete(Funding).where(Funding.event_id == event_id))
-    await db.execute(sa_delete(Registration).where(Registration.event_id == event_id))
-
-    # Other children (organizers, posts, images, reactions, discounts) handled by ORM cascade
-    # but do explicit deletes for safety
-    from app.models.event import EventOrganizer, EventReaction, EventDiscount
-    from app.models.post import EventPost
-    from app.models.image import EventImage
-    await db.execute(sa_delete(EventOrganizer).where(EventOrganizer.event_id == event_id))
-    await db.execute(sa_delete(EventReaction).where(EventReaction.event_id == event_id))
-    await db.execute(sa_delete(EventDiscount).where(EventDiscount.event_id == event_id))
-    await db.execute(sa_delete(EventPost).where(EventPost.event_id == event_id))
-    await db.execute(sa_delete(EventImage).where(EventImage.event_id == event_id))
-
-    await db.flush()
 
 
 async def delete_or_cancel(db: AsyncSession, event: Event, user: User) -> None:
@@ -341,9 +291,8 @@ async def delete_or_cancel(db: AsyncSession, event: Event, user: User) -> None:
         raise ForbiddenError("You cannot delete this event")
     if event.status in (EventStatus.draft, EventStatus.cancelled):
         logger.info("Event hard deleted", extra={"event_id": event.id})
-        await _purge_event_children(db, event.id)
-        await db.delete(event)
-        await db.flush()
+        await event_repo.purge_event_children(db, event.id)
+        await event_repo.delete_event(db, event)
     elif event.status == EventStatus.completed:
         raise ConflictError("Cannot delete a completed event (clone it instead)")
     else:
@@ -357,4 +306,4 @@ async def delete_or_cancel(db: AsyncSession, event: Event, user: User) -> None:
         event.status = EventStatus.cancelled
         from app.services import funding as funding_service
         await funding_service.refund_all_pledges_for_event(db, event_id=event.id)
-        await db.flush()
+        await event_repo.flush_event(db)

@@ -7,7 +7,8 @@ import '../../../config/design_tokens.dart';
 import '../../../models/event.dart';
 import '../../../models/milestone.dart';
 import '../../../providers/auth_provider.dart';
-import '../../../services/api_service.dart';
+import '../../../repositories/event_repository.dart';
+import '../../../repositories/ticket_repository.dart';
 import '../../../widgets/app_toast.dart';
 
 class MilestoneTimeline extends StatefulWidget {
@@ -35,12 +36,12 @@ class _MilestoneTimelineState extends State<MilestoneTimeline> {
 
   Future<void> _load() async {
     try {
-      final api = context.read<ApiService>();
-
+      final repo = context.read<EventRepository>();
+      final ticketRepo = context.read<TicketRepository>();
       final auth = context.read<AuthProvider>();
       if (auth.user != null && auth.user!.isAdmin) {
         try {
-          final flags = await api.getFeatureFlags();
+          final flags = await repo.getFeatureFlags();
           if (flags['feature_milestones_enabled'] == false) {
             if (mounted) setState(() { _featureEnabled = false; _loading = false; });
             return;
@@ -48,7 +49,7 @@ class _MilestoneTimelineState extends State<MilestoneTimeline> {
         } catch (e) { debugPrint(e.toString()); }
       }
 
-      final list = await api.getMilestones(widget.eventId);
+      final list = await repo.getMilestones(widget.eventId);
       final milestones =
           list.map((j) => FundingMilestone.fromJson(j)).toList();
 
@@ -56,7 +57,7 @@ class _MilestoneTimelineState extends State<MilestoneTimeline> {
       if (auth.user != null) {
         for (final ms in milestones) {
           try {
-            final r = await api.getMyMilestoneReaction(widget.eventId, ms.id);
+            final r = await repo.getMyMilestoneReaction(widget.eventId, ms.id);
             reactions[ms.id] = r['reaction'];
           } catch (e) { debugPrint(e.toString()); }
         }
@@ -65,7 +66,7 @@ class _MilestoneTimelineState extends State<MilestoneTimeline> {
       final discMap = <int, int>{};
       if (auth.user != null && (auth.user!.isOrganizer || auth.user!.isAdmin)) {
         try {
-          final discounts = await api.getEventDiscounts(widget.eventId);
+          final discounts = await ticketRepo.getEventDiscounts(widget.eventId);
           for (final d in discounts) {
             if (d['discount_type'] == 'funding_milestone' && d['milestone_percent'] != null) {
               discMap[d['milestone_percent'] as int] = d['milestone_discount_value'] ?? d['value'] ?? 0;
@@ -89,9 +90,9 @@ class _MilestoneTimelineState extends State<MilestoneTimeline> {
 
   Future<void> _react(int milestoneId, String reaction) async {
     try {
-      final api = context.read<ApiService>();
+      final repo = context.read<EventRepository>();
       final resp =
-          await api.reactToMilestone(widget.eventId, milestoneId, reaction);
+          await repo.reactToMilestone(widget.eventId, milestoneId, reaction);
       if (mounted) {
         setState(() {
           final action = resp['action'];

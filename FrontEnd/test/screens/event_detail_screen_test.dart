@@ -9,35 +9,47 @@ import 'package:nested/nested.dart';
 import 'package:provider/provider.dart';
 
 import '../../lib/models/event.dart';
+import '../../lib/models/funding.dart';
+import '../../lib/models/ticket.dart';
 import '../../lib/models/user.dart';
+import '../../lib/repositories/base_repository.dart';
 import '../../lib/providers/auth_provider.dart';
 import '../../lib/providers/event_provider.dart';
+import '../../lib/repositories/event_repository.dart';
+import '../../lib/repositories/ticket_repository.dart';
+import '../../lib/repositories/funding_repository.dart';
 import '../../lib/services/api_service.dart';
 import '../../lib/services/sync_service.dart';
 import '../../lib/screens/event/event_detail_screen.dart';
 import '../../lib/widgets/shimmer_loaders.dart';
 import '../helpers/mock_providers.dart';
 import '../helpers/mock_api_service.dart';
+import '../helpers/mock_event_repository.dart';
+import '../helpers/mock_ticket_repository.dart';
 import '../helpers/fixtures.dart';
 import '../helpers/pump_app.dart';
 
 class MockSyncService extends Mock implements SyncService {}
+
+class MockFundingRepository extends Mock implements FundingRepository {}
 
 void main() {
   late MockAuthProvider mockAuth;
   late MockEventProvider mockEvent;
   late MockApiService mockApi;
   late MockSyncService mockSync;
+  late MockEventRepository mockEventRepo;
+  late MockTicketRepository mockTicketRepo;
+  late MockFundingRepository mockFundingRepo;
 
   setUp(() {
     mockAuth = MockAuthProvider();
     mockEvent = MockEventProvider();
     mockApi = MockApiService();
     mockSync = MockSyncService();
-
-    // Unstubbed API methods should throw (caught by widget try/catch)
-    // rather than returning null which causes type errors.
-    throwOnMissingStub(mockApi);
+    mockEventRepo = MockEventRepository();
+    mockTicketRepo = MockTicketRepository();
+    mockFundingRepo = MockFundingRepository();
 
     // Auth defaults
     when(() => mockAuth.user).thenReturn(makeUser(role: UserRole.customer));
@@ -58,27 +70,31 @@ void main() {
     when(() => mockEvent.addListener(any())).thenReturn(null);
     when(() => mockEvent.removeListener(any())).thenReturn(null);
 
-    // ApiService stubs for EventDetailScreen's initState calls
-    when(() => mockApi.getEventImages(any()))
+    // EventRepository stubs for EventDetailScreen's initState calls
+    when(() => mockEventRepo.getEventImages(any()))
         .thenAnswer((_) async => <Map<String, dynamic>>[]);
-    when(() => mockApi.getMyRegistration(any()))
+    when(() => mockEventRepo.getMyRegistration(any()))
         .thenAnswer((_) async => {'registered': false});
-    when(() => mockApi.getMyTickets(
-          offset: any(named: 'offset'),
-          limit: any(named: 'limit'),
-          sortBy: any(named: 'sortBy'),
-        )).thenAnswer((_) async => <dynamic>[]);
-    when(() => mockApi.getMyPledges(
-          offset: any(named: 'offset'),
-          limit: any(named: 'limit'),
-          sortBy: any(named: 'sortBy'),
-        )).thenAnswer((_) async => <dynamic>[]);
-    when(() => mockApi.checkBookmarks(any()))
+    when(() => mockEventRepo.checkBookmarks(any()))
         .thenAnswer((_) async => {'bookmarked_ids': <int>[]});
-    when(() => mockApi.getTicketSales(any(),
+
+    // TicketRepository stubs
+    when(() => mockTicketRepo.getMyTickets(
           offset: any(named: 'offset'),
           limit: any(named: 'limit'),
-        )).thenAnswer((_) async => <dynamic>[]);
+          sortBy: any(named: 'sortBy'),
+        )).thenAnswer((_) async => PaginatedResult<TicketSale>(items: [], hasMore: false));
+    when(() => mockTicketRepo.getTicketSales(any(),
+          offset: any(named: 'offset'),
+          limit: any(named: 'limit'),
+        )).thenAnswer((_) async => <TicketSale>[]);
+
+    // FundingRepository stubs
+    when(() => mockFundingRepo.getMyPledges(
+          offset: any(named: 'offset'),
+          limit: any(named: 'limit'),
+          sortBy: any(named: 'sortBy'),
+        )).thenAnswer((_) async => PaginatedResult<Pledge>(items: [], hasMore: false));
 
     // SyncService stubs
     when(() => mockSync.cacheTransportForEvent(
@@ -98,6 +114,9 @@ void main() {
         ChangeNotifierProvider<EventProvider>.value(value: mockEvent),
         Provider<ApiService>.value(value: mockApi),
         Provider<SyncService>.value(value: mockSync),
+        Provider<EventRepository>.value(value: mockEventRepo),
+        Provider<TicketRepository>.value(value: mockTicketRepo),
+        Provider<FundingRepository>.value(value: mockFundingRepo),
       ];
 
   group('EventDetailScreen', () {

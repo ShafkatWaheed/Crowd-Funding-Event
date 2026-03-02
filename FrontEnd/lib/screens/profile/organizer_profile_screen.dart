@@ -8,7 +8,8 @@ import '../../utils/date_time_utils.dart';
 
 import '../../config/theme.dart';
 import '../../models/event.dart';
-import '../../services/api_service.dart';
+import '../../repositories/base_repository.dart';
+import '../../repositories/user_repository.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/star_rating.dart';
@@ -68,12 +69,12 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
 
   Future<void> _loadProfile() async {
     try {
-      final api = context.read<ApiService>();
-      final data = await api.getPublicProfile(widget.userId);
+      final userRepo = context.read<UserRepository>();
+      final data = await userRepo.getPublicProfile(widget.userId);
       if (mounted) setState(() { _profile = data; _loadingProfile = false; });
     } catch (e) {
       if (mounted) {
-        AppToast.error(context, ApiService.extractError(e));
+        AppToast.error(context, ApiError.extractMessage(e));
         setState(() => _loadingProfile = false);
       }
     }
@@ -82,8 +83,8 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
   Future<void> _loadEvents() async {
     setState(() { _loadingEvents = true; _hasMoreEvents = true; });
     try {
-      final api = context.read<ApiService>();
-      final data = await api.getPublicEvents(
+      final userRepo = context.read<UserRepository>();
+      final data = await userRepo.getPublicEvents(
         widget.userId,
         offset: 0,
         limit: _pageSize,
@@ -106,8 +107,8 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
     if (_loadingMoreEvents || !_hasMoreEvents) return;
     setState(() => _loadingMoreEvents = true);
     try {
-      final api = context.read<ApiService>();
-      final data = await api.getPublicEvents(
+      final userRepo = context.read<UserRepository>();
+      final data = await userRepo.getPublicEvents(
         widget.userId,
         offset: _events.length,
         limit: _pageSize,
@@ -144,8 +145,8 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
 
   Future<void> _loadRatings() async {
     try {
-      final api = context.read<ApiService>();
-      final data = await api.getUserRatingsSummary(widget.userId);
+      final userRepo = context.read<UserRepository>();
+      final data = await userRepo.getUserRatingsSummary(widget.userId);
       if (mounted) setState(() => _ratingsSummary = data);
     } catch (e) { debugPrint(e.toString()); }
   }

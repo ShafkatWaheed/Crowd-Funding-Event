@@ -5,7 +5,8 @@ import 'package:provider/provider.dart';
 import '../../config/api_config.dart';
 import '../../config/theme.dart';
 import '../../models/sponsor.dart';
-import '../../services/api_service.dart';
+import '../../repositories/base_repository.dart';
+import '../../repositories/sponsor_repository.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/shimmer_loaders.dart';
 
@@ -30,7 +31,7 @@ class _SponsorDashboardScreenState extends State<SponsorDashboardScreen> {
 
   Future<void> _load() async {
     try {
-      final api = context.read<ApiService>();
+      final api = context.read<SponsorRepository>();
       final profileData = await api.getSponsorProfile();
       final ticketsData = await api.getMySponsorTickets();
       if (mounted) {
@@ -44,7 +45,7 @@ class _SponsorDashboardScreenState extends State<SponsorDashboardScreen> {
       }
     } catch (e) {
       if (mounted) {
-        AppToast.error(context, ApiService.extractError(e));
+        AppToast.error(context, ApiError.extractMessage(e));
         setState(() => _loading = false);
       }
     }

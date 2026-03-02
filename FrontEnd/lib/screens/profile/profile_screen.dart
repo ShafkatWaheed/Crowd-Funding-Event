@@ -11,7 +11,8 @@ import '../../config/design_tokens.dart';
 import '../../widgets/press_feedback.dart';
 import '../../widgets/kyc_section.dart';
 import '../../providers/auth_provider.dart';
-import '../../services/api_service.dart';
+import '../../repositories/sponsor_repository.dart';
+import '../../repositories/user_repository.dart';
 import '../../widgets/app_toast.dart';
 import 'profile_section_card.dart';
 import 'profile_header.dart';
@@ -125,7 +126,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadSponsorProfile() async {
     setState(() => _loadingSponsorProfile = true);
     try {
-      final data = await context.read<ApiService>().getSponsorProfile();
+      final data = await context.read<SponsorRepository>().getSponsorProfile();
       if (mounted) {
         setState(() {
           _hasSponsorProfile = true;
@@ -170,7 +171,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     setState(() => _saving = true);
     try {
-      final api = context.read<ApiService>();
+      final userRepo = context.read<UserRepository>();
+      final sponsorRepo = context.read<SponsorRepository>();
       final user = context.read<AuthProvider>().user!;
 
       final data = <String, dynamic>{};
@@ -197,7 +199,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       bool userUpdated = false;
       if (data.isNotEmpty) {
-        await api.updateMe(data);
+        await userRepo.updateMe(data);
         userUpdated = true;
       }
 
@@ -219,9 +221,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         };
 
         if (_hasSponsorProfile) {
-          await api.updateSponsorProfile(spData);
+          await sponsorRepo.updateSponsorProfile(spData);
         } else {
-          await api.createSponsorProfile(spData);
+          await sponsorRepo.createSponsorProfile(spData);
           _hasSponsorProfile = true;
         }
         sponsorUpdated = true;

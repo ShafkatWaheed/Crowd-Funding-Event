@@ -7,20 +7,20 @@ import 'package:provider/provider.dart';
 
 import '../../lib/models/user.dart';
 import '../../lib/providers/auth_provider.dart';
-import '../../lib/services/api_service.dart';
+import '../../lib/repositories/event_repository.dart';
 import '../../lib/screens/home/tabs/my_events_tab.dart';
 import '../helpers/mock_providers.dart';
-import '../helpers/mock_api_service.dart';
+import '../helpers/mock_event_repository.dart';
 import '../helpers/pump_app.dart';
 import '../helpers/fixtures.dart';
 
 void main() {
   late MockAuthProvider mockAuth;
-  late MockApiService mockApi;
+  late MockEventRepository mockEventRepo;
 
   setUp(() {
     mockAuth = MockAuthProvider();
-    mockApi = MockApiService();
+    mockEventRepo = MockEventRepository();
 
     when(() => mockAuth.user).thenReturn(makeUser(role: UserRole.organizer));
   });
@@ -42,7 +42,7 @@ void main() {
       ),
       overrides: [
         ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
-        Provider<ApiService>.value(value: mockApi),
+        Provider<EventRepository>.value(value: mockEventRepo),
       ],
     );
   }
@@ -50,7 +50,7 @@ void main() {
   group('MyEventsTab', () {
     testWidgets('shows Manage header and quick action buttons', (tester) async {
       final eventsCompleter = Completer<List<dynamic>>();
-      when(() => mockApi.getMyEvents(
+      when(() => mockEventRepo.getMyEvents(
             offset: any(named: 'offset'),
             limit: any(named: 'limit'),
             sortBy: any(named: 'sortBy'),
@@ -69,7 +69,7 @@ void main() {
     });
 
     testWidgets('shows empty state when no events', (tester) async {
-      when(() => mockApi.getMyEvents(
+      when(() => mockEventRepo.getMyEvents(
             offset: any(named: 'offset'),
             limit: any(named: 'limit'),
             sortBy: any(named: 'sortBy'),
@@ -82,7 +82,7 @@ void main() {
     });
 
     testWidgets('shows sort chips (Newest, Oldest, etc.)', (tester) async {
-      when(() => mockApi.getMyEvents(
+      when(() => mockEventRepo.getMyEvents(
             offset: any(named: 'offset'),
             limit: any(named: 'limit'),
             sortBy: any(named: 'sortBy'),

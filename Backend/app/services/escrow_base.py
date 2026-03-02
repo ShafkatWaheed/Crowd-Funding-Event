@@ -7,16 +7,13 @@ freeze, unfreeze, release_stage, and list_all.
 """
 from datetime import datetime, timezone
 
-from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ConflictError
 from app.models.escrow import EscrowRelease, EscrowStatus
-from app.models.event import Event
-from app.models.payment_info import BankVerificationStatus, OrganizerBankAccount
-from app.models.user import User, UserRole
 
 from app.logger import get_logger
+from app.repositories.escrow_repo import escrow_repo
 
 logger = get_logger("escrow")
 
@@ -29,7 +26,7 @@ def reject_if_frozen(escrow, *, label: str = "Escrow") -> None:
 async def generic_freeze(db: AsyncSession, model_class, *, event_id: int, get_or_create_fn):
     escrow = await get_or_create_fn(db, event_id=event_id)
     escrow.status = EscrowStatus.frozen
-    await db.flush()
+    await escrow_repo.flush(db)
     return escrow
 
 
@@ -43,7 +40,7 @@ async def generic_unfreeze(db: AsyncSession, model_class, *, event_id: int, get_
         escrow.status = EscrowStatus.partially_released
     else:
         escrow.status = EscrowStatus.holding
-    await db.flush()
+    await escrow_repo.flush(db)
 
     await _warn_admins_if_no_bank(db, event_id, label=label)
 
@@ -94,8 +91,7 @@ async def generic_release_stage(
     else:
         escrow.status = EscrowStatus.partially_released
 
-    await db.flush()
-    await db.refresh(escrow)
+    await escrow_repo.flush_and_refresh(db, escrow)
     return escrow
 
 
@@ -108,28 +104,9 @@ async def generic_list_all(
     search: str | None = None,
 ) -> tuple[list[dict], int]:
     """Paginated list of escrows with event + organizer info."""
-    base = (
-        select(
-            model_class,
-            Event.title.label("event_title"),
-            User.display_name.label("organizer_name"),
-            User.email.label("organizer_email"),
-        )
-        .join(Event, model_class.event_id == Event.id)
-        .join(User, Event.organizer_id == User.id)
+    rows, total = await escrow_repo.list_all_admin(
+        db, model_class, offset=offset, limit=limit, search=search
     )
-    if search:
-        filters = [Event.title.ilike(f"%{search}%")]
-        try:
-            filters.append(model_class.event_id == int(search))
-        except ValueError:
-            pass
-        base = base.where(or_(*filters))
-
-    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar_one()
-    rows = (await db.execute(
-        base.order_by(model_class.updated_at.desc()).offset(offset).limit(limit)
-    )).all()
 
     result = []
     for row in rows:
@@ -158,37 +135,31 @@ async def generic_list_all(
 
 async def organizer_has_verified_bank(db: AsyncSession, organizer_id: int) -> bool:
     """True if the organizer has a bank account with verification_status='verified'."""
-    q = select(OrganizerBankAccount).where(
-        OrganizerBankAccount.user_id == organizer_id,
-        OrganizerBankAccount.verified == True,  # noqa: E712
-    )
-    return (await db.execute(q)).scalar_one_or_none() is not None
+    return await escrow_repo.organizer_has_verified_bank(db, organizer_id)
 
 
 async def get_organizer_for_event(db: AsyncSession, event_id: int) -> int | None:
     """Return the organizer_id for a given event, or None."""
-    q = select(Event.organizer_id).where(Event.id == event_id)
-    return (await db.execute(q)).scalar_one_or_none()
+    return await escrow_repo.get_organizer_for_event(db, event_id)
 
 
 async def get_all_admin_ids(db: AsyncSession) -> list[int]:
     """Return IDs of all admin users."""
-    q = select(User.id).where(User.role == UserRole.admin)
-    return list((await db.execute(q)).scalars().all())
+    return await escrow_repo.get_all_admin_ids(db)
 
 
 async def _warn_admins_if_no_bank(db: AsyncSession, event_id: int, *, label: str = "Escrow") -> None:
     """After unfreezing, warn all admins if organizer has no verified bank account."""
-    organizer_id = await get_organizer_for_event(db, event_id)
+    organizer_id = await escrow_repo.get_organizer_for_event(db, event_id)
     if organizer_id is None:
         return
-    if await organizer_has_verified_bank(db, organizer_id):
+    if await escrow_repo.organizer_has_verified_bank(db, organizer_id):
         return
 
     from app.services import notification_service as notif_svc
     from app.models.notification import NotificationType
 
-    admin_ids = await get_all_admin_ids(db)
+    admin_ids = await escrow_repo.get_all_admin_ids(db)
     if admin_ids:
         await notif_svc.create_bulk_notifications(
             db, user_ids=admin_ids,
@@ -207,17 +178,7 @@ async def _warn_admins_if_no_bank(db: AsyncSession, event_id: int, *, label: str
 
 async def has_active_escrow(db: AsyncSession, organizer_id: int) -> bool:
     """True if organizer has any event with escrow in holding/partially_released."""
-    from app.models.escrow import FundEscrow, TicketEscrow, SponsorEscrow
-
-    event_ids_q = select(Event.id).where(Event.organizer_id == organizer_id)
-    for model in (FundEscrow, TicketEscrow, SponsorEscrow):
-        q = select(func.count()).select_from(model).where(
-            model.event_id.in_(event_ids_q),
-            model.status.in_([EscrowStatus.holding, EscrowStatus.partially_released]),
-        )
-        if (await db.execute(q)).scalar_one() > 0:
-            return True
-    return False
+    return await escrow_repo.has_active_escrow(db, organizer_id)
 
 
 # ---------------------------------------------------------------------------
@@ -241,8 +202,8 @@ async def rollback_release(
         released_by="system", reason=f"Rollback: {reason}",
         release_status="rolled_back",
     )
-    db.add(log)
-    await db.flush()
+    await escrow_repo.add_release_log(db, log)
+    await escrow_repo.flush(db)
     logger.warning(
         "Escrow %d stage %d rolled back: %s", escrow.id, stage, reason,
     )

@@ -3,7 +3,9 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
-import '../../services/api_service.dart';
+import '../../models/ticket.dart';
+import '../../repositories/event_repository.dart';
+import '../../repositories/ticket_repository.dart';
 import '../../providers/event_provider.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/shimmer_loaders.dart';
@@ -34,8 +36,8 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
   List<dynamic> _fundFiltered = [];
 
   // Ticket waitlist data
-  List<dynamic> _ticketAll = [];
-  List<dynamic> _ticketFiltered = [];
+  List<TicketSale> _ticketAll = [];
+  List<TicketSale> _ticketFiltered = [];
 
   // Capacity info
   int _maxCapacity = 0;
@@ -67,18 +69,18 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
       _error = null;
     });
     try {
-      final api = context.read<ApiService>();
+      final eventRepo = context.read<EventRepository>();
+      final ticketRepo = context.read<TicketRepository>();
 
       // Load waitlists + capacity in parallel
-      final results = await Future.wait([
-        api.getRegistrations(widget.eventId),
-        api.getWaitlistedTickets(widget.eventId),
-        api.getCapacityInfo(widget.eventId),
-      ]);
+      final regsFuture = eventRepo.getRegistrations(widget.eventId);
+      final ticketsFuture = ticketRepo.getWaitlistedTickets(widget.eventId);
+      final capFuture = eventRepo.getCapacityInfo(widget.eventId);
+      final results = await Future.wait([regsFuture, capFuture]);
 
       final regs = results[0] as List;
-      final tickets = results[1] as List;
-      final cap = results[2] as Map<String, dynamic>;
+      final tickets = await ticketsFuture;
+      final cap = results[1] as Map<String, dynamic>;
 
       setState(() {
         _fundAll = regs.where((r) => r['status'] == 'waitlist').toList();
@@ -110,9 +112,9 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
         return userId.contains(q) || id.contains(q);
       }).toList();
       _ticketFiltered = _ticketAll.where((t) {
-        final userId = '${t['user_id']}'.toLowerCase();
-        final tierName = (t['tier']?['name'] ?? '').toString().toLowerCase();
-        final ticketCode = (t['ticket_code'] ?? '').toString().toLowerCase();
+        final userId = '${t.userId}'.toLowerCase();
+        final tierName = (t.tierName ?? '').toLowerCase();
+        final ticketCode = t.ticketCode.toLowerCase();
         return userId.contains(q) || tierName.contains(q) || ticketCode.contains(q);
       }).toList();
     }
@@ -122,8 +124,8 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
 
   Future<void> _decideFund(int regId, String action) async {
     try {
-      final api = context.read<ApiService>();
-      await api.decideRegistration(widget.eventId, regId, action);
+      final repo = context.read<EventRepository>();
+      await repo.decideRegistration(widget.eventId, regId, action);
       if (mounted) {
         AppToast.success(context, action == 'approve'
             ? 'Registration approved!'
@@ -142,8 +144,8 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
 
   Future<void> _approveTicket(int ticketId) async {
     try {
-      final api = context.read<ApiService>();
-      await api.approveWaitlistedTicket(widget.eventId, ticketId);
+      final repo = context.read<TicketRepository>();
+      await repo.approveWaitlistedTicket(widget.eventId, ticketId);
       if (mounted) {
         AppToast.success(context, 'Ticket approved!');
         context.read<EventProvider>().loadEvent(widget.eventId);
@@ -158,8 +160,8 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
 
   Future<void> _rejectTicket(int ticketId) async {
     try {
-      final api = context.read<ApiService>();
-      await api.rejectWaitlistedTicket(widget.eventId, ticketId);
+      final repo = context.read<TicketRepository>();
+      await repo.rejectWaitlistedTicket(widget.eventId, ticketId);
       if (mounted) {
         AppToast.success(context, 'Ticket rejected.');
         context.read<EventProvider>().loadEvent(widget.eventId);
@@ -627,11 +629,11 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
 
   // ── Ticket waitlist card ──
 
-  Widget _ticketCard(dynamic ticket) {
-    final ticketId = ticket['id'] as int;
-    final userId = ticket['user_id'];
-    final tierName = ticket['tier']?['name'] ?? 'Unknown Tier';
-    final amountCents = ticket['amount_paid_cents'] ?? 0;
+  Widget _ticketCard(TicketSale ticket) {
+    final ticketId = ticket.id;
+    final userId = ticket.userId;
+    final tierName = ticket.tierName ?? 'Unknown Tier';
+    final amountCents = ticket.amountPaidCents;
     final price = amountCents == 0
         ? 'Free'
         : '\$${(amountCents / 100).toStringAsFixed(2)}';

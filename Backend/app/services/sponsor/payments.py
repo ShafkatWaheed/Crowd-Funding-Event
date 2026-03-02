@@ -3,20 +3,18 @@ import secrets
 from datetime import datetime
 
 from fastapi import HTTPException
-from sqlalchemy import select
-
-from app.logger import get_logger, log_step
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.logger import get_logger, log_step
 from app.models.user import User
 from app.models.sponsor import (
     SponsorBid,
     SponsorPayment,
     SponsorTicket,
-    SponsorshipCategory,
     BidStatus,
     PaymentStatus,
 )
+from app.repositories.sponsor_repo import sponsor_repo
 
 from app.services.sponsor.categories import _get_category, list_categories, _require_organizer
 
@@ -27,12 +25,7 @@ async def _ensure_sponsor_ticket(
     db: AsyncSession, event_id: int, sponsor_user_id: int
 ) -> SponsorTicket:
     """Create or update sponsor ticket with QR data."""
-    existing = (await db.execute(
-        select(SponsorTicket).where(
-            SponsorTicket.event_id == event_id,
-            SponsorTicket.sponsor_user_id == sponsor_user_id,
-        )
-    )).scalar_one_or_none()
+    existing = await sponsor_repo.get_sponsor_ticket(db, event_id, sponsor_user_id)
 
     from app.services.ticket_crypto import encrypt_ticket_qr
     ticket_code = secrets.token_hex(16)
@@ -41,9 +34,7 @@ async def _ensure_sponsor_ticket(
         existing.qr_data_encrypted = encrypt_ticket_qr(
             ticket_code, event_id, existing.id
         )
-        await db.flush()
-        await db.refresh(existing)
-        return existing
+        return await sponsor_repo.update_sponsor_ticket(db, existing)
 
     now = datetime.utcnow()
     ticket = SponsorTicket(
@@ -51,24 +42,18 @@ async def _ensure_sponsor_ticket(
         sponsor_user_id=sponsor_user_id,
         receipt_number=f"SPT-{now.strftime('%Y%m%d')}-{event_id}-0",
     )
-    db.add(ticket)
-    await db.flush()
-    await db.refresh(ticket)
+    ticket = await sponsor_repo.create_sponsor_ticket(db, ticket)
 
     ticket.receipt_number = f"SPT-{now.strftime('%Y%m%d')}-{event_id}-{ticket.id}"
     ticket.qr_data_encrypted = encrypt_ticket_qr(
         ticket_code, event_id, ticket.id
     )
-    await db.flush()
-    await db.refresh(ticket)
-    return ticket
+    return await sponsor_repo.update_sponsor_ticket(db, ticket)
 
 
 async def pay_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorPayment:
     log_step(logger, "Process sponsor payment", bid_id=bid_id, user_id=user.id)
-    bid = (await db.execute(
-        select(SponsorBid).where(SponsorBid.id == bid_id)
-    )).scalar_one_or_none()
+    bid = await sponsor_repo.get_bid(db, bid_id)
     if not bid:
         logger.warning("Pay bid: not found", extra={"bid_id": bid_id})
         raise HTTPException(status_code=404, detail="Bid not found")
@@ -79,22 +64,17 @@ async def pay_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorPayment:
         logger.warning("Pay bid: not accepted", extra={"bid_id": bid_id, "status": bid.status.value})
         raise HTTPException(status_code=400, detail="Can only pay for accepted bids")
 
-    existing_payment = (await db.execute(
-        select(SponsorPayment).where(SponsorPayment.bid_id == bid_id)
-    )).scalar_one_or_none()
+    existing_payment = await sponsor_repo.get_payment_by_bid(db, bid_id)
     if existing_payment:
         logger.warning("Pay bid: already paid", extra={"bid_id": bid_id})
         raise HTTPException(status_code=409, detail="Bid already paid")
 
     from app.services import platform_settings as settings_svc
     commission_pct = await settings_svc.get_int(db, "sponsor_commission_percent")
-    cat = (await db.execute(
-        select(SponsorshipCategory).where(SponsorshipCategory.id == bid.category_id)
-    )).scalar_one_or_none()
+    cat = await sponsor_repo.get_category(db, bid.category_id)
 
     if cat and cat.event_id:
-        from app.models.event import Event
-        event = (await db.execute(select(Event).where(Event.id == cat.event_id))).scalar_one_or_none()
+        event = await sponsor_repo.get_event(db, cat.event_id)
         if event:
             from app.services.age_verification import enforce_age_limit
             enforce_age_limit(user.birthday, event.age_restricted, event.min_age, "sponsor this event")
@@ -140,11 +120,10 @@ async def pay_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorPayment:
         gateway_transaction_id=gateway_txn_id,
         gateway_auth_code=gateway_auth,
     )
-    db.add(payment)
+    payment = await sponsor_repo.create_sponsor_payment(db, payment)
 
     bid.status = BidStatus.paid
-    await db.flush()
-    await db.refresh(payment)
+    await sponsor_repo.update_bid_status(db, bid)
 
     cat = await _get_category(db, bid.category_id)
     await _ensure_sponsor_ticket(db, cat.event_id, user.id)
@@ -162,9 +141,7 @@ async def pay_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorPayment:
 
 async def refund_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorPayment:
     log_step(logger, "Refund sponsor bid", bid_id=bid_id, user_id=user.id)
-    bid = (await db.execute(
-        select(SponsorBid).where(SponsorBid.id == bid_id)
-    )).scalar_one_or_none()
+    bid = await sponsor_repo.get_bid(db, bid_id)
     if not bid:
         logger.warning("Refund bid: not found", extra={"bid_id": bid_id})
         raise HTTPException(status_code=404, detail="Bid not found")
@@ -176,9 +153,7 @@ async def refund_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorPaymen
         logger.warning("Refund bid: not paid", extra={"bid_id": bid_id, "status": bid.status.value})
         raise HTTPException(status_code=400, detail="Can only refund paid bids")
 
-    payment = (await db.execute(
-        select(SponsorPayment).where(SponsorPayment.bid_id == bid_id)
-    )).scalar_one_or_none()
+    payment = await sponsor_repo.get_payment_by_bid(db, bid_id)
     if not payment:
         logger.warning("Refund bid: payment not found", extra={"bid_id": bid_id})
         raise HTTPException(status_code=404, detail="Payment not found")
@@ -191,41 +166,21 @@ async def refund_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorPaymen
     if cat.filled_spots > 0:
         cat.filled_spots -= 1
 
-    from sqlalchemy import func
-    other_active = (await db.execute(
-        select(func.count()).select_from(SponsorBid).where(
-            SponsorBid.sponsor_user_id == bid.sponsor_user_id,
-            SponsorBid.status.in_([BidStatus.accepted, BidStatus.paid]),
-            SponsorBid.id != bid.id,
-            SponsorBid.category_id.in_(
-                select(SponsorshipCategory.id).where(SponsorshipCategory.event_id == cat.event_id)
-            ),
-        )
-    )).scalar_one()
+    other_active = await sponsor_repo.count_other_active_bids_for_event(
+        db, bid.sponsor_user_id, cat.event_id, bid.id
+    )
 
-    refunded_with_payment = (await db.execute(
-        select(func.count()).select_from(SponsorBid)
-        .join(SponsorPayment, SponsorPayment.bid_id == SponsorBid.id)
-        .where(
-            SponsorBid.sponsor_user_id == bid.sponsor_user_id,
-            SponsorPayment.status.in_([PaymentStatus.refunded, PaymentStatus.refund_processing]),
-            SponsorBid.category_id.in_(
-                select(SponsorshipCategory.id).where(SponsorshipCategory.event_id == cat.event_id)
-            ),
-        )
-    )).scalar_one()
+    refunded_with_payment = await sponsor_repo.count_refunded_bids_for_event(
+        db, bid.sponsor_user_id, cat.event_id
+    )
 
     if other_active == 0 and refunded_with_payment == 0:
-        from sqlalchemy import delete as sa_delete
-        await db.execute(
-            sa_delete(SponsorTicket).where(
-                SponsorTicket.event_id == cat.event_id,
-                SponsorTicket.sponsor_user_id == bid.sponsor_user_id,
-            )
+        await sponsor_repo.delete_sponsor_tickets_for_event(
+            db, cat.event_id, bid.sponsor_user_id
         )
 
-    await db.flush()
-    await db.refresh(payment)
+    await sponsor_repo.flush(db)
+    payment = await sponsor_repo.get_payment_by_bid(db, bid_id)
 
     from app.worker.redis_pool import enqueue
     await enqueue("process_sponsor_refund", payment.id)
@@ -241,18 +196,12 @@ async def refund_all_sponsor_payments_for_event(db: AsyncSession, event_id: int)
     if not cat_ids:
         return 0
 
-    paid_bids_q = select(SponsorBid).where(
-        SponsorBid.category_id.in_(cat_ids),
-        SponsorBid.status == BidStatus.paid,
-    )
-    paid_bids = list((await db.execute(paid_bids_q)).scalars().all())
+    paid_bids = await sponsor_repo.get_paid_bids_for_categories(db, cat_ids)
 
     refund_payment_ids = []
     refunded_count = 0
     for bid in paid_bids:
-        payment = (await db.execute(
-            select(SponsorPayment).where(SponsorPayment.bid_id == bid.id)
-        )).scalar_one_or_none()
+        payment = await sponsor_repo.get_payment_by_bid(db, bid.id)
         if payment and payment.status == PaymentStatus.completed:
             payment.status = PaymentStatus.refund_processing
             refund_payment_ids.append(payment.id)
@@ -264,23 +213,15 @@ async def refund_all_sponsor_payments_for_event(db: AsyncSession, event_id: int)
 
         bid.status = BidStatus.rejected
 
-    accepted_bids_q = select(SponsorBid).where(
-        SponsorBid.category_id.in_(cat_ids),
-        SponsorBid.status == BidStatus.accepted,
-    )
-    accepted_bids = list((await db.execute(accepted_bids_q)).scalars().all())
+    accepted_bids = await sponsor_repo.get_accepted_bids_for_categories(db, cat_ids)
     for bid in accepted_bids:
         cat = next((c for c in cats if c.id == bid.category_id), None)
         if cat and cat.filled_spots > 0:
             cat.filled_spots -= 1
         bid.status = BidStatus.rejected
 
-    from sqlalchemy import delete as sa_delete
-    await db.execute(
-        sa_delete(SponsorTicket).where(SponsorTicket.event_id == event_id)
-    )
-
-    await db.flush()
+    await sponsor_repo.delete_sponsor_tickets_for_event(db, event_id)
+    await sponsor_repo.flush(db)
 
     from app.worker.redis_pool import enqueue
     for pid in refund_payment_ids:

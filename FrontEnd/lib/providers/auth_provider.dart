@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/user.dart';
-import '../services/api_service.dart';
+import '../repositories/user_repository.dart';
 
 void _log(String msg) {
   debugPrint('[AuthProvider] $msg');
@@ -13,7 +13,7 @@ void _log(String msg) {
 }
 
 class AuthProvider extends ChangeNotifier {
-  final ApiService _api;
+  final UserRepository _api;
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
 
   AppUser? _user;

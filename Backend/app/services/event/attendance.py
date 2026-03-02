@@ -1,14 +1,13 @@
 """
-Organizer–customer history: record_customer_attendance, list_organizer_customers, get_organizer_trust_score.
+Organizer-customer history: record_customer_attendance, list_organizer_customers, get_organizer_trust_score.
 """
 from datetime import datetime
 
-from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.logger import get_logger, log_step
-from app.models.event import Event, EventStatus, OrganizerCustomerHistory
-from app.models.user import User
+from app.models.event import OrganizerCustomerHistory
+from app.repositories.event_repo import event_repo
 
 logger = get_logger("svc.event.attendance")
 
@@ -18,15 +17,7 @@ async def record_customer_attendance(
 ) -> None:
     """Record that a customer attended an organizer's event. Idempotent (ignores duplicates)."""
     log_step(logger, "Record customer attendance", organizer_id=organizer_id, customer_id=customer_id, event_id=event_id)
-    existing = (
-        await db.execute(
-            select(OrganizerCustomerHistory).where(
-                OrganizerCustomerHistory.organizer_id == organizer_id,
-                OrganizerCustomerHistory.customer_id == customer_id,
-                OrganizerCustomerHistory.event_id == event_id,
-            )
-        )
-    ).scalar_one_or_none()
+    existing = await event_repo.get_attendance_record(db, organizer_id, customer_id, event_id)
     if existing:
         logger.debug("Attendance already recorded, skipping", extra={"organizer_id": organizer_id, "customer_id": customer_id, "event_id": event_id})
         return
@@ -34,8 +25,7 @@ async def record_customer_attendance(
         organizer_id=organizer_id, customer_id=customer_id,
         event_id=event_id, scanned_at=scanned_at,
     )
-    db.add(h)
-    await db.flush()
+    await event_repo.create_attendance_record(db, h)
     logger.info("Customer attendance recorded", extra={"organizer_id": organizer_id, "customer_id": customer_id, "event_id": event_id})
 
 
@@ -44,21 +34,7 @@ async def list_organizer_customers(
 ) -> list[dict]:
     """List all unique customers who attended events organized by this organizer, with event count."""
     logger.debug("List organizer customers", extra={"organizer_id": organizer_id, "offset": offset, "limit": limit})
-    q = (
-        select(
-            OrganizerCustomerHistory.customer_id,
-            User.display_name,
-            func.count(OrganizerCustomerHistory.id).label("events_attended"),
-            func.max(OrganizerCustomerHistory.scanned_at).label("last_attended"),
-        )
-        .join(User, User.id == OrganizerCustomerHistory.customer_id)
-        .where(OrganizerCustomerHistory.organizer_id == organizer_id)
-        .group_by(OrganizerCustomerHistory.customer_id, User.display_name)
-        .order_by(func.count(OrganizerCustomerHistory.id).desc())
-        .offset(offset)
-        .limit(limit)
-    )
-    rows = (await db.execute(q)).all()
+    rows = await event_repo.list_organizer_customers(db, organizer_id, offset=offset, limit=limit)
     return [
         {
             "customer_id": r.customer_id,
@@ -78,32 +54,11 @@ async def get_organizer_trust_score(db: AsyncSession, *, organizer_id: int) -> d
     Published means any event that has left the draft state at some point
     (approved, selling_tickets, waiting_event_date, live, completed, cancelled).
 
-    Returns dict with score (0.0–1.0), completed count, published count,
+    Returns dict with score (0.0-1.0), completed count, published count,
     and a label (New / Low / Good / Excellent).
     """
-    published_statuses = [
-        EventStatus.approved,
-        EventStatus.pending_approval,
-        EventStatus.selling_tickets,
-        EventStatus.waiting_event_date,
-        EventStatus.live,
-        EventStatus.completed,
-        EventStatus.cancelled,
-    ]
-
-    total_published = (await db.execute(
-        select(func.count()).where(
-            Event.organizer_id == organizer_id,
-            Event.status.in_(published_statuses),
-        )
-    )).scalar_one()
-
-    total_completed = (await db.execute(
-        select(func.count()).where(
-            Event.organizer_id == organizer_id,
-            Event.status == EventStatus.completed,
-        )
-    )).scalar_one()
+    total_published = await event_repo.count_published_events(db, organizer_id)
+    total_completed = await event_repo.count_completed_events(db, organizer_id)
 
     if total_published == 0:
         score = 0.0

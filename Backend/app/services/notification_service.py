@@ -5,10 +5,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.notification import Notification, NotificationType
+from app.repositories.notification_repo import notification_repo
 
 from app.logger import get_logger
 
@@ -25,15 +25,14 @@ async def create_notification(
     data: dict[str, Any] | None = None,
 ) -> Notification:
     """Create a single notification for one user."""
-    notif = Notification(
+    notif = await notification_repo.create_notification(
+        db,
         user_id=user_id,
         type=type,
         title=title,
         message=message,
         data=data,
     )
-    db.add(notif)
-    await db.flush()
 
     try:
         from app.worker.redis_pool import enqueue as arq_enqueue
@@ -61,16 +60,20 @@ async def create_bulk_notifications(
 ) -> int:
     """Create the same notification for multiple users. Returns count created."""
     unique_ids = list(set(user_ids))
-    for uid in unique_ids:
-        db.add(Notification(
-            user_id=uid,
-            type=type,
-            title=title,
-            message=message,
-            data=data,
-        ))
-    await db.flush()
-    logger.info("Created %d notifications of type %s", len(unique_ids), type.value)
+    notifications_data = [
+        {
+            "user_id": uid,
+            "type": type,
+            "title": title,
+            "message": message,
+            "data": data,
+        }
+        for uid in unique_ids
+    ]
+    count = await notification_repo.create_bulk_notifications(
+        db, notifications_data=notifications_data,
+    )
+    logger.info("Created %d notifications of type %s", count, type.value)
 
     try:
         from app.worker.redis_pool import enqueue as arq_enqueue
@@ -84,7 +87,7 @@ async def create_bulk_notifications(
     except Exception:
         logger.debug("Could not enqueue bulk push for %d users", len(unique_ids))
 
-    return len(unique_ids)
+    return count
 
 
 async def list_notifications(
@@ -95,48 +98,22 @@ async def list_notifications(
     offset: int = 0,
     limit: int = 20,
 ) -> list[Notification]:
-    q = select(Notification).where(Notification.user_id == user_id)
-    if unread_only:
-        q = q.where(Notification.is_read == False)  # noqa: E712
-    q = q.order_by(Notification.created_at.desc()).offset(offset).limit(limit)
-    return list((await db.execute(q)).scalars().all())
+    return await notification_repo.list_notifications(
+        db, user_id, unread_only=unread_only, offset=offset, limit=limit,
+    )
 
 
 async def unread_count(db: AsyncSession, *, user_id: int) -> int:
-    q = select(func.count()).where(
-        Notification.user_id == user_id,
-        Notification.is_read == False,  # noqa: E712
-    )
-    return (await db.execute(q)).scalar_one()
+    return await notification_repo.get_unread_count(db, user_id)
 
 
 async def mark_read(db: AsyncSession, *, notification_id: int, user_id: int) -> bool:
-    result = await db.execute(
-        update(Notification)
-        .where(Notification.id == notification_id, Notification.user_id == user_id)
-        .values(is_read=True)
-    )
-    return result.rowcount > 0
+    return await notification_repo.mark_read(db, notification_id, user_id)
 
 
 async def mark_all_read(db: AsyncSession, *, user_id: int) -> int:
-    result = await db.execute(
-        update(Notification)
-        .where(Notification.user_id == user_id, Notification.is_read == False)  # noqa: E712
-        .values(is_read=True)
-    )
-    return result.rowcount
+    return await notification_repo.mark_all_read(db, user_id)
 
 
 async def delete_notification(db: AsyncSession, *, notification_id: int, user_id: int) -> None:
-    from app.core.exceptions import NotFoundError, ForbiddenError
-    notif = (await db.execute(
-        select(Notification).where(Notification.id == notification_id)
-    )).scalar_one_or_none()
-    if not notif:
-        raise NotFoundError("Notification not found")
-    if notif.user_id != user_id:
-        raise ForbiddenError("Not your notification")
-    await db.execute(
-        delete(Notification).where(Notification.id == notification_id)
-    )
+    await notification_repo.delete_notification_row(db, notification_id, user_id)

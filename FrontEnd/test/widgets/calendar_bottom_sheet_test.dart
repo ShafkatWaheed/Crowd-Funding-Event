@@ -4,18 +4,18 @@ import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
 import '../../lib/models/event.dart';
-import '../../lib/services/api_service.dart';
+import '../../lib/repositories/event_repository.dart';
 import '../../lib/widgets/calendar_bottom_sheet.dart';
 import '../helpers/fixtures.dart';
-import '../helpers/mock_api_service.dart';
+import '../helpers/mock_event_repository.dart';
 import '../helpers/pump_app.dart';
 
 void main() {
-  late MockApiService mockApi;
+  late MockEventRepository mockEventRepo;
 
   setUp(() {
-    mockApi = MockApiService();
-    when(() => mockApi.calendarUrl(any())).thenReturn('https://example.com/cal/1.ics');
+    mockEventRepo = MockEventRepository();
+    when(() => mockEventRepo.calendarUrl(any())).thenReturn('https://example.com/cal/1.ics');
   });
 
   Future<void> pumpCalendarSheet(WidgetTester tester, Event event) async {
@@ -29,7 +29,7 @@ void main() {
           ),
         ),
       ),
-      overrides: [Provider<ApiService>.value(value: mockApi)],
+      overrides: [Provider<EventRepository>.value(value: mockEventRepo)],
     );
 
     await tester.tap(find.text('Open'));
@@ -77,7 +77,7 @@ void main() {
       // Sheet should be dismissed
       expect(find.text('Add to Calendar'), findsNothing);
       // calendarUrl was accessed
-      verify(() => mockApi.calendarUrl(event.id)).called(1);
+      verify(() => mockEventRepo.calendarUrl(event.id)).called(1);
     });
   });
 }

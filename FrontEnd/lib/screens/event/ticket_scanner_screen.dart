@@ -8,7 +8,9 @@ import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
 import '../../db/app_database.dart';
-import '../../services/api_service.dart';
+import '../../repositories/ticket_repository.dart';
+import '../../repositories/base_repository.dart';
+import '../../repositories/sponsor_repository.dart';
 import '../../services/sync_service.dart';
 
 
@@ -109,8 +111,6 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
     setState(() => _isProcessing = true);
 
     try {
-      final api = context.read<ApiService>();
-
       String? ticketCode;
       String? encryptedPayload;
 
@@ -126,10 +126,12 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
       }
 
       if (_sponsorMode) {
-        await _handleSponsorScan(api, rawData, encryptedPayload);
+        final repo = context.read<SponsorRepository>();
+        await _handleSponsorScan(repo, rawData, encryptedPayload);
       } else {
+        final repo = context.read<TicketRepository>();
         await _handleRegularScan(
-            api, rawData, ticketCode, encryptedPayload);
+            repo, rawData, ticketCode, encryptedPayload);
       }
     } catch (e) {
       if (mounted) {
@@ -137,7 +139,7 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
           _lastResult = rawData;
           _lastSuccess = false;
         });
-        final msg = ApiService.extractError(e, fallback: 'Invalid ticket');
+        final msg = ApiError.extractMessage(e, fallback: 'Invalid ticket');
         _showScanResult(
           success: false,
           title: 'Scan Failed',
@@ -150,14 +152,14 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
     if (mounted) setState(() => _isProcessing = false);
   }
 
-  Future<void> _handleRegularScan(ApiService api, String rawData,
+  Future<void> _handleRegularScan(TicketRepository repo, String rawData,
       String? ticketCode, String? encryptedPayload) async {
     if (_isOffline) {
       await _handleOfflineScan(rawData, ticketCode, encryptedPayload);
       return;
     }
 
-    final result = await api.scanTicket(
+    final result = await repo.scanTicket(
       widget.eventId,
       ticketCode: ticketCode,
       encryptedPayload: encryptedPayload,
@@ -263,7 +265,7 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
   }
 
   Future<void> _handleSponsorScan(
-      ApiService api, String rawData, String? encryptedPayload) async {
+      SponsorRepository repo, String rawData, String? encryptedPayload) async {
     if (encryptedPayload == null) {
       if (mounted) {
         setState(() {
@@ -280,7 +282,7 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
     }
 
     final result =
-        await api.scanSponsorTicket(widget.eventId, encryptedPayload);
+        await repo.scanSponsorTicket(widget.eventId, encryptedPayload);
 
     final alreadyScanned = result['already_scanned'] == true;
     final receiptNum = result['receipt_number'] ?? '';
@@ -1020,8 +1022,8 @@ class _SponsorDelegateSheetState extends State<_SponsorDelegateSheet> {
     if (delegate['checked_in'] == true) return;
 
     try {
-      final api = context.read<ApiService>();
-      final result = await api.checkInDelegate(widget.eventId, delegate['id']);
+      final repo = context.read<SponsorRepository>();
+      final result = await repo.checkInDelegate(widget.eventId, delegate['id']);
 
       if (mounted) {
         setState(() {
@@ -1034,7 +1036,7 @@ class _SponsorDelegateSheetState extends State<_SponsorDelegateSheet> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(ApiService.extractError(e))),
+          SnackBar(content: Text(ApiError.extractMessage(e))),
         );
       }
     }

@@ -6,13 +6,14 @@ import 'package:provider/provider.dart';
 import '../../config/design_tokens.dart';
 import '../../utils/date_time_utils.dart';
 import '../../config/theme.dart';
+import '../../models/funding.dart';
 import '../../widgets/animated_list_item.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/error_state.dart';
 import '../../widgets/loading_switcher.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../providers/auth_provider.dart';
-import '../../services/api_service.dart';
+import '../../providers/pledge_provider.dart';
 import '../../widgets/app_toast.dart';
 import '../event/pledge_receipt_screen.dart';
 
@@ -24,23 +25,21 @@ class MyPledgesScreen extends StatefulWidget {
 }
 
 class _MyPledgesScreenState extends State<MyPledgesScreen> {
-  static const _pageSize = 20;
-
   final _scrollCtrl = ScrollController();
-  List<Map<String, dynamic>> _pledges = [];
-  bool _loading = true;
-  bool _loadingMore = false;
-  bool _hasMore = true;
-  String? _error;
+  // Client-side UI state (not in provider)
   String _search = '';
   String _filterStatus = 'all';
-  String _sortBy = 'newest';
 
   @override
   void initState() {
     super.initState();
     _scrollCtrl.addListener(_onScroll);
-    _load();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final user = context.read<AuthProvider>().user;
+      if (user != null && (user.isCustomer || user.isSponsor)) {
+        context.read<PledgeProvider>().load();
+      }
+    });
   }
 
   @override
@@ -50,76 +49,33 @@ class _MyPledgesScreenState extends State<MyPledgesScreen> {
   }
 
   void _onScroll() {
+    final p = context.read<PledgeProvider>();
     if (_scrollCtrl.position.pixels >=
             _scrollCtrl.position.maxScrollExtent * 0.8 &&
-        !_loadingMore &&
-        _hasMore &&
-        !_loading) {
-      _loadMore();
+        !p.loadingMore &&
+        p.hasMore &&
+        !p.loading) {
+      p.loadMore();
     }
   }
 
-  Future<void> _load() async {
-    final user = context.read<AuthProvider>().user;
-    if (user == null || !(user.isCustomer || user.isSponsor)) {
-      if (mounted) setState(() { _loading = false; _error = 'Only customers and sponsors can view pledges'; });
-      return;
-    }
-    setState(() { _loading = true; _error = null; _hasMore = true; });
-    try {
-      final api = context.read<ApiService>();
-      final data = await api.getMyPledges(offset: 0, limit: _pageSize, sortBy: _sortBy);
-      if (mounted) {
-        setState(() {
-          _pledges = List<Map<String, dynamic>>.from(data);
-          _hasMore = data.length >= _pageSize;
-          _loading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _error = ApiService.extractError(e, fallback: 'Failed to load pledges');
-          _loading = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _loadMore() async {
-    if (_loadingMore || !_hasMore) return;
-    setState(() => _loadingMore = true);
-    try {
-      final api = context.read<ApiService>();
-      final data = await api.getMyPledges(offset: _pledges.length, limit: _pageSize, sortBy: _sortBy);
-      if (mounted) {
-        setState(() {
-          _pledges.addAll(List<Map<String, dynamic>>.from(data));
-          _hasMore = data.length >= _pageSize;
-          _loadingMore = false;
-        });
-      }
-    } catch (_) {
-      if (mounted) setState(() => _loadingMore = false);
-    }
-  }
-
-  List<Map<String, dynamic>> get _filtered {
-    var list = _pledges;
+  List<Pledge> get _filtered {
+    final p = context.read<PledgeProvider>();
+    var list = p.pledges;
 
     if (_filterStatus != 'all') {
       if (_filterStatus == 'donation') {
-        list = list.where((p) => p['is_guest'] == true).toList();
+        list = list.where((p) => p.isGuest).toList();
       } else {
-        list = list.where((p) => p['status'] == _filterStatus && p['is_guest'] != true).toList();
+        list = list.where((p) => p.status.name == _filterStatus && !p.isGuest).toList();
       }
     }
 
     if (_search.isNotEmpty) {
       final q = _search.toLowerCase();
       list = list.where((p) {
-        final title = (p['event_title'] ?? '').toString().toLowerCase();
-        final receipt = (p['receipt_number'] ?? '').toString().toLowerCase();
+        final title = (p.eventTitle ?? '').toLowerCase();
+        final receipt = (p.receiptNumber ?? '').toLowerCase();
         return title.contains(q) || receipt.contains(q);
       }).toList();
     }
@@ -127,44 +83,50 @@ class _MyPledgesScreenState extends State<MyPledgesScreen> {
     return list;
   }
 
-  Map<int, List<Map<String, dynamic>>> get _groupedByEvent {
-    final map = <int, List<Map<String, dynamic>>>{};
+  Map<int, List<Pledge>> get _groupedByEvent {
+    final map = <int, List<Pledge>>{};
     for (final p in _filtered) {
-      final eventId = p['event_id'] as int;
-      map.putIfAbsent(eventId, () => []).add(p);
+      map.putIfAbsent(p.eventId, () => []).add(p);
     }
     return map;
   }
 
   @override
   Widget build(BuildContext context) {
+    final p = context.watch<PledgeProvider>();
+    final user = context.read<AuthProvider>().user;
+    final roleError = (user == null || !(user.isCustomer || user.isSponsor))
+        ? 'Only customers and sponsors can view pledges'
+        : null;
+
     return Scaffold(
       backgroundColor: AppTheme.surfaceOf(context),
       appBar: AppBar(title: const Text('My Pledges')),
       body: LoadingSwitcher(
-        loading: _loading,
+        loading: p.loading,
         loadingChild: SingleChildScrollView(
           padding: AppSpacing.paddingLg,
           child: Column(
             children: List.generate(4, (_) => const ShimmerListTile()),
           ),
         ),
-        child: _error != null
-            ? ErrorState(message: _error!, onRetry: _load)
-            : _buildContent(),
+        child: (roleError ?? p.error) != null
+            ? ErrorState(message: roleError ?? p.error!, onRetry: p.load)
+            : _buildContent(p),
       ),
     );
   }
 
-  Widget _buildContent() {
+  Widget _buildContent(PledgeProvider p) {
     final grouped = _groupedByEvent;
-    final pledgedCount = _pledges.where((p) => p['status'] == 'pledged' && p['is_guest'] != true).length;
-    final donationCount = _pledges.where((p) => p['is_guest'] == true).length;
-    final refundedCount = _pledges.where((p) => p['status'] == 'refunded').length;
-    final totalCents = _pledges.fold<int>(0, (s, p) => s + ((p['amount_cents'] ?? 0) as int));
+    final pledges = p.pledges;
+    final pledgedCount = pledges.where((pl) => pl.status == PledgeStatus.pledged && !pl.isGuest).length;
+    final donationCount = pledges.where((pl) => pl.isGuest).length;
+    final refundedCount = pledges.where((pl) => pl.status == PledgeStatus.refunded).length;
+    final totalCents = pledges.fold<int>(0, (s, pl) => s + pl.amountCents);
 
     return RefreshIndicator(
-      onRefresh: _load,
+      onRefresh: p.refresh,
       color: AppTheme.primaryColor,
       child: CustomScrollView(
         controller: _scrollCtrl,
@@ -178,7 +140,7 @@ class _MyPledgesScreenState extends State<MyPledgesScreen> {
                 children: [
                   Row(
                     children: [
-                      _statChip(Icons.volunteer_activism_rounded, '${_pledges.length}', 'Total'),
+                      _statChip(Icons.volunteer_activism_rounded, '${pledges.length}', 'Total'),
                       AppSpacing.hMd,
                       _statChip(Icons.check_circle_rounded, '$pledgedCount', 'Pledged',
                           color: AppTheme.successColor),
@@ -247,22 +209,19 @@ class _MyPledgesScreenState extends State<MyPledgesScreen> {
                               padding: const EdgeInsets.only(right: AppSpacing.sm),
                               child: ChoiceChip(
                                 label: Text(e.value),
-                                selected: _sortBy == e.key,
-                                onSelected: (_) {
-                                  setState(() => _sortBy = e.key);
-                                  _load();
-                                },
+                                selected: p.sortBy == e.key,
+                                onSelected: (_) => p.setSortBy(e.key),
                                 selectedColor: context.sponsorAccent,
                                 backgroundColor: AppTheme.cardOf(context),
                                 side: BorderSide(
-                                  color: _sortBy == e.key
+                                  color: p.sortBy == e.key
                                       ? context.sponsorAccent
                                       : AppTheme.dividerOf(context),
                                 ),
                                 labelStyle: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
-                                  color: _sortBy == e.key
+                                  color: p.sortBy == e.key
                                       ? Colors.white
                                       : AppTheme.textPrimaryOf(context),
                                 ),
@@ -295,7 +254,7 @@ class _MyPledgesScreenState extends State<MyPledgesScreen> {
 
           if (grouped.isEmpty)
             SliverFillRemaining(
-              child: _pledges.isEmpty
+              child: pledges.isEmpty
                   ? EmptyState(
                       icon: Icons.volunteer_activism_outlined,
                       title: 'No pledges yet',
@@ -314,14 +273,14 @@ class _MyPledgesScreenState extends State<MyPledgesScreen> {
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
                     final eventId = grouped.keys.elementAt(index);
-                    final pledges = grouped[eventId]!;
-                    final eventTitle = (pledges.first['event_title'] ?? 'Event #$eventId').toString();
+                    final eventPledges = grouped[eventId]!;
+                    final eventTitle = eventPledges.first.eventTitle ?? 'Event #$eventId';
                     return AnimatedListItem(
                       index: index,
                       child: _EventPledgeGroup(
                         eventId: eventId,
                         eventTitle: eventTitle,
-                        pledges: pledges,
+                        pledges: eventPledges,
                         onEventTap: () => context.push('/events/$eventId'),
                       ),
                     );
@@ -330,7 +289,7 @@ class _MyPledgesScreenState extends State<MyPledgesScreen> {
                 ),
               ),
             ),
-          if (_loadingMore)
+          if (p.loadingMore)
             const SliverToBoxAdapter(
               child: Padding(
                 padding: EdgeInsets.symmetric(vertical: AppSpacing.xl),
@@ -393,7 +352,7 @@ class _MyPledgesScreenState extends State<MyPledgesScreen> {
 class _EventPledgeGroup extends StatelessWidget {
   final int eventId;
   final String eventTitle;
-  final List<Map<String, dynamic>> pledges;
+  final List<Pledge> pledges;
   final VoidCallback onEventTap;
 
   const _EventPledgeGroup({
@@ -405,8 +364,8 @@ class _EventPledgeGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final donationCount = pledges.where((p) => p['is_guest'] == true).length;
-    final totalCents = pledges.fold<int>(0, (s, p) => s + ((p['amount_cents'] ?? 0) as int));
+    final donationCount = pledges.where((p) => p.isGuest).length;
+    final totalCents = pledges.fold<int>(0, (s, p) => s + p.amountCents);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.xl),
@@ -473,31 +432,23 @@ class _EventPledgeGroup extends StatelessWidget {
 }
 
 class _PledgeCard extends StatelessWidget {
-  final Map<String, dynamic> pledge;
+  final Pledge pledge;
 
   const _PledgeCard({required this.pledge});
 
   @override
   Widget build(BuildContext context) {
     final isDark = AppTheme.isDark(context);
-    final amountCents = (pledge['amount_cents'] ?? 0) as int;
-    final reservedSpots = (pledge['reserved_spots'] ?? 0) as int;
-    final receipt = (pledge['receipt_number'] ?? '').toString();
-    final status = (pledge['status'] ?? 'pledged').toString();
-    final isGuest = pledge['is_guest'] == true;
-    final createdAt = pledge['created_at'] != null
-        ? DateTime.parse(pledge['created_at']).toLocal()
-        : null;
 
-    final statusLabel = isGuest ? 'DONATION' : status.toUpperCase();
-    final headerColor = isGuest ? context.photoAccent : context.sponsorAccent;
+    final statusLabel = pledge.isGuest ? 'DONATION' : pledge.status.name.toUpperCase();
+    final headerColor = pledge.isGuest ? context.photoAccent : context.sponsorAccent;
 
     return GestureDetector(
       onTap: () {
         Navigator.of(context).push(MaterialPageRoute(
           builder: (_) => PledgeReceiptScreen(
-            eventId: pledge['event_id'] as int,
-            pledgeId: pledge['id'] as int,
+            eventId: pledge.eventId,
+            pledgeId: pledge.id,
           ),
         ));
       },
@@ -525,7 +476,7 @@ class _PledgeCard extends StatelessWidget {
                       borderRadius: AppRadius.sm,
                     ),
                     child: Icon(
-                      isGuest ? Icons.card_giftcard_rounded : Icons.volunteer_activism_rounded,
+                      pledge.isGuest ? Icons.card_giftcard_rounded : Icons.volunteer_activism_rounded,
                       color: Colors.white, size: 20),
                   ),
                   AppSpacing.hMd,
@@ -534,17 +485,17 @@ class _PledgeCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isGuest ? 'Guest Donation' : 'Pledge',
+                          pledge.isGuest ? 'Guest Donation' : 'Pledge',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
-                        if (reservedSpots > 0) ...[
+                        if (pledge.reservedSpots > 0) ...[
                           AppSpacing.vXs,
                           Text(
-                            '$reservedSpots spot(s) reserved',
+                            '${pledge.reservedSpots} spot(s) reserved',
                             style: TextStyle(
                               color: Colors.white.withValues(alpha: 0.6),
                               fontSize: 12,
@@ -586,21 +537,21 @@ class _PledgeCard extends StatelessWidget {
               padding: AppSpacing.paddingLg,
               child: Column(
                 children: [
-                  _infoRow(context, Icons.receipt_outlined, 'Receipt', receipt.isNotEmpty ? receipt : '—',
-                      copyable: receipt.isNotEmpty),
+                  _infoRow(context, Icons.receipt_outlined, 'Receipt',
+                      pledge.receiptNumber?.isNotEmpty == true ? pledge.receiptNumber! : '—',
+                      copyable: pledge.receiptNumber?.isNotEmpty == true),
                   AppSpacing.vSm,
-                  if (reservedSpots > 0) ...[
-                    _infoRow(context, Icons.event_seat_rounded, 'Spots', '$reservedSpots reserved'),
+                  if (pledge.reservedSpots > 0) ...[
+                    _infoRow(context, Icons.event_seat_rounded, 'Spots', '${pledge.reservedSpots} reserved'),
                     AppSpacing.vSm,
                   ],
-                  if (createdAt != null) ...[
-                    _infoRow(context, Icons.calendar_today_rounded, 'Date', AppDateFormat.shortDateTime(createdAt)),
-                    AppSpacing.vSm,
-                  ],
-                  if (isGuest)
+                  _infoRow(context, Icons.calendar_today_rounded, 'Date',
+                      AppDateFormat.shortDateTime(pledge.createdAt.toLocal())),
+                  AppSpacing.vSm,
+                  if (pledge.isGuest)
                     _infoRow(context, Icons.info_outline_rounded, 'Type', 'Non-refundable donation',
                         valueColor: context.photoAccent),
-                  if (isGuest) AppSpacing.vSm,
+                  if (pledge.isGuest) AppSpacing.vSm,
 
                   AppSpacing.vXs,
                   Row(
@@ -612,7 +563,7 @@ class _PledgeCard extends StatelessWidget {
                           borderRadius: AppRadius.sm,
                         ),
                         child: Text(
-                          '\$${(amountCents / 100).toStringAsFixed(2)}',
+                          pledge.amountFormatted,
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w800,
@@ -683,5 +634,4 @@ class _PledgeCard extends StatelessWidget {
       ],
     );
   }
-
 }

@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
-import '../../services/api_service.dart';
+import '../../repositories/ticket_repository.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/shimmer_loaders.dart';
 
@@ -19,7 +19,6 @@ class ClaimDiscountsScreen extends StatefulWidget {
 }
 
 class _ClaimDiscountsScreenState extends State<ClaimDiscountsScreen> {
-  final _api = ApiService();
   List<Map<String, dynamic>> _discounts = [];
   bool _loading = true;
   String _search = '';
@@ -38,7 +37,8 @@ class _ClaimDiscountsScreenState extends State<ClaimDiscountsScreen> {
     }
     setState(() => _loading = true);
     try {
-      final data = await _api.getClaimableDiscounts(widget.eventId);
+      final repo = context.read<TicketRepository>();
+      final data = await repo.getClaimableDiscounts(widget.eventId);
       setState(() {
         _discounts = data.cast<Map<String, dynamic>>();
         _loading = false;
@@ -50,7 +50,8 @@ class _ClaimDiscountsScreenState extends State<ClaimDiscountsScreen> {
 
   Future<void> _claim(int linkId) async {
     try {
-      await _api.claimDiscount(widget.eventId, linkId);
+      final repo = context.read<TicketRepository>();
+      await repo.claimDiscount(widget.eventId, linkId);
       await _load();
       if (mounted) {
         AppToast.success(context, 'Discount claimed!');
@@ -64,7 +65,8 @@ class _ClaimDiscountsScreenState extends State<ClaimDiscountsScreen> {
 
   Future<void> _unclaim(int linkId) async {
     try {
-      await _api.unclaimDiscount(widget.eventId, linkId);
+      final repo = context.read<TicketRepository>();
+      await repo.unclaimDiscount(widget.eventId, linkId);
       await _load();
       if (mounted) {
         AppToast.success(context, 'Discount removed');

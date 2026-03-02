@@ -4,7 +4,8 @@ import 'package:provider/provider.dart';
 import '../../../config/theme.dart';
 import '../../../config/design_tokens.dart';
 import '../../../providers/auth_provider.dart';
-import '../../../services/api_service.dart';
+import '../../../repositories/base_repository.dart';
+import '../../../repositories/event_repository.dart';
 import '../../../widgets/app_toast.dart';
 import '../../../widgets/empty_state.dart';
 import '../../../widgets/star_rating.dart';
@@ -43,8 +44,8 @@ class _ReviewsSectionState extends State<ReviewsSection> {
 
   Future<void> _load() async {
     try {
-      final api = context.read<ApiService>();
-      final data = await api.getEventRatingsSummary(widget.eventId);
+      final repo = context.read<EventRepository>();
+      final data = await repo.getEventRatingsSummary(widget.eventId);
       if (mounted) setState(() { _summary = data; _loading = false; });
     } catch (_) {
       if (mounted) setState(() => _loading = false);
@@ -55,8 +56,8 @@ class _ReviewsSectionState extends State<ReviewsSection> {
     if (_selectedStars == 0 || _submitting) return;
     setState(() => _submitting = true);
     try {
-      final api = context.read<ApiService>();
-      await api.createRating(
+      final repo = context.read<EventRepository>();
+      await repo.createRating(
         widget.eventId,
         direction: 'customer_to_event',
         stars: _selectedStars,
@@ -69,7 +70,7 @@ class _ReviewsSectionState extends State<ReviewsSection> {
         _load();
       }
     } catch (e) {
-      if (mounted) AppToast.error(context, ApiService.extractError(e));
+      if (mounted) AppToast.error(context, ApiError.extractMessage(e));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -79,8 +80,8 @@ class _ReviewsSectionState extends State<ReviewsSection> {
     if (_selectedOrgStars == 0 || _submittingOrg) return;
     setState(() => _submittingOrg = true);
     try {
-      final api = context.read<ApiService>();
-      await api.createRating(
+      final repo = context.read<EventRepository>();
+      await repo.createRating(
         widget.eventId,
         direction: 'customer_to_organizer',
         ratedUserId: widget.organizerId,
@@ -94,7 +95,7 @@ class _ReviewsSectionState extends State<ReviewsSection> {
         _load();
       }
     } catch (e) {
-      if (mounted) AppToast.error(context, ApiService.extractError(e));
+      if (mounted) AppToast.error(context, ApiError.extractMessage(e));
     } finally {
       if (mounted) setState(() => _submittingOrg = false);
     }
@@ -391,8 +392,8 @@ class _AllReviewsSheetState extends State<AllReviewsSheet> {
 
   Future<void> _load() async {
     try {
-      final api = context.read<ApiService>();
-      final data = await api.getEventRatings(widget.eventId, direction: _directionFilter);
+      final repo = context.read<EventRepository>();
+      final data = await repo.getEventRatings(widget.eventId, direction: _directionFilter);
       if (mounted) setState(() { _reviews = data.cast<Map<String, dynamic>>(); _loading = false; });
     } catch (_) {
       if (mounted) setState(() => _loading = false);

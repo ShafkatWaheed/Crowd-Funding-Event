@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
+import '../../models/ticket.dart';
 import '../../utils/date_time_utils.dart';
 import '../../config/design_tokens.dart';
-import '../../services/api_service.dart';
+import '../../repositories/ticket_repository.dart';
 import '../../widgets/app_toast.dart';
 
 class RefundRequestsScreen extends StatefulWidget {
@@ -16,7 +17,7 @@ class RefundRequestsScreen extends StatefulWidget {
 }
 
 class _RefundRequestsScreenState extends State<RefundRequestsScreen> {
-  List<dynamic> _requests = [];
+  List<TicketSale> _requests = [];
   bool _loading = true;
   String? _error;
 
@@ -28,8 +29,8 @@ class _RefundRequestsScreenState extends State<RefundRequestsScreen> {
 
   Future<void> _load() async {
     try {
-      final api = context.read<ApiService>();
-      final data = await api.getRefundRequests(widget.eventId);
+      final repo = context.read<TicketRepository>();
+      final data = await repo.getRefundRequests(widget.eventId);
       if (mounted) setState(() { _requests = data; _loading = false; _error = null; });
     } catch (e) {
       if (mounted) setState(() { _loading = false; _error = e.toString(); });
@@ -38,8 +39,8 @@ class _RefundRequestsScreenState extends State<RefundRequestsScreen> {
 
   Future<void> _approve(int ticketId) async {
     try {
-      final api = context.read<ApiService>();
-      await api.approveTicketRefund(widget.eventId, ticketId);
+      final repo = context.read<TicketRepository>();
+      await repo.approveTicketRefund(widget.eventId, ticketId);
       if (mounted) {
         AppToast.success(context, 'Refund approved');
         _load();
@@ -68,8 +69,8 @@ class _RefundRequestsScreenState extends State<RefundRequestsScreen> {
     if (confirmed != true || !mounted) return;
 
     try {
-      final api = context.read<ApiService>();
-      await api.rejectTicketRefund(widget.eventId, ticketId);
+      final repo = context.read<TicketRepository>();
+      await repo.rejectTicketRefund(widget.eventId, ticketId);
       if (mounted) {
         AppToast.success(context, 'Refund rejected — ticket restored');
         _load();
@@ -112,16 +113,14 @@ class _RefundRequestsScreenState extends State<RefundRequestsScreen> {
     );
   }
 
-  Widget _buildCard(Map<String, dynamic> ticket) {
-    final amountCents = ticket['amount_paid_cents'] ?? 0;
+  Widget _buildCard(TicketSale ticket) {
+    final amountCents = ticket.amountPaidCents;
     final price = '\$${(amountCents / 100).toStringAsFixed(2)}';
-    final tierName = ticket['tier_name'] ?? 'General';
-    final attendee = ticket['attendee_display_name'] ?? 'Unknown';
-    final receiptNo = ticket['receipt_number'] ?? ticket['ticket_code'] ?? '';
-    final createdAt = ticket['created_at'] != null
-        ? AppDateFormat.isoShort(ticket['created_at'])
-        : '';
-    final ticketId = ticket['id'] as int;
+    final tierName = ticket.tierName ?? 'General';
+    final attendee = 'User #${ticket.userId}';
+    final receiptNo = ticket.receiptNumber ?? ticket.ticketCode;
+    final createdAt = AppDateFormat.shortDateTime(ticket.createdAt);
+    final ticketId = ticket.id;
     final isDark = AppTheme.isDark(context);
 
     return Container(

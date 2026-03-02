@@ -8,7 +8,8 @@ import '../../config/theme.dart';
 import '../../config/design_tokens.dart';
 import '../../models/ticket.dart';
 import '../../utils/date_time_utils.dart';
-import '../../services/api_service.dart';
+import '../../repositories/ticket_repository.dart';
+import '../../repositories/base_repository.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/loading_switcher.dart';
 import '../../widgets/shimmer_loaders.dart';
@@ -85,15 +86,15 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
       _error = null;
     });
     try {
-      final api = context.read<ApiService>();
+      final repo = context.read<TicketRepository>();
       final data = widget.eventId != null
-          ? await api.getTicketReceipt(widget.eventId!, widget.saleId)
-          : await api.getMyTicketReceipt(widget.saleId);
+          ? await repo.getTicketReceipt(widget.eventId!, widget.saleId)
+          : await repo.getMyTicketReceipt(widget.saleId);
       if (mounted) setState(() { _receipt = data; _loading = false; });
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = ApiService.extractError(e, fallback: 'Failed to load receipt');
+          _error = ApiError.extractMessage(e, fallback: 'Failed to load receipt');
           _loading = false;
         });
       }
@@ -168,8 +169,8 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
     if (confirmed != true || !mounted) return;
 
     try {
-      final api = context.read<ApiService>();
-      await api.requestTicketRefund(widget.eventId!, widget.saleId);
+      final repo = context.read<TicketRepository>();
+      await repo.requestTicketRefund(widget.eventId!, widget.saleId);
       if (mounted) {
         AppToast.success(context, 'Refund request sent to organizer');
         _load();

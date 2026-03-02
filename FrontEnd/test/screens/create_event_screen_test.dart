@@ -5,36 +5,48 @@ import 'package:provider/provider.dart';
 
 import '../../lib/models/user.dart';
 import '../../lib/providers/auth_provider.dart';
-import '../../lib/services/api_service.dart';
+import '../../lib/repositories/event_repository.dart';
+import '../../lib/repositories/ticket_repository.dart';
+import '../../lib/repositories/venue_repository.dart';
+import '../../lib/repositories/sponsor_repository.dart';
 import '../../lib/screens/event/create_event_screen.dart';
 import '../helpers/mock_providers.dart';
-import '../helpers/mock_api_service.dart';
+import '../helpers/mock_event_repository.dart';
+import '../helpers/mock_ticket_repository.dart';
+import '../helpers/mock_venue_repository.dart';
+import '../helpers/mock_sponsor_repository.dart';
 import '../helpers/pump_app.dart';
 import '../helpers/fixtures.dart';
 
 void main() {
   late MockAuthProvider mockAuth;
-  late MockApiService mockApi;
+  late MockEventRepository mockEventRepo;
+  late MockTicketRepository mockTicketRepo;
+  late MockVenueRepository mockVenueRepo;
+  late MockSponsorRepository mockSponsorRepo;
 
   setUp(() {
     mockAuth = MockAuthProvider();
-    mockApi = MockApiService();
+    mockEventRepo = MockEventRepository();
+    mockTicketRepo = MockTicketRepository();
+    mockVenueRepo = MockVenueRepository();
+    mockSponsorRepo = MockSponsorRepository();
 
     // Default: organizer user
     when(() => mockAuth.user).thenReturn(makeUser(role: UserRole.organizer));
 
     // Stub all data-loading methods called in initState
-    when(() => mockApi.getVenues()).thenAnswer((_) async => [
+    when(() => mockVenueRepo.getVenues()).thenAnswer((_) async => [
           venueJson(id: 1, name: 'Main Hall'),
           venueJson(id: 2, name: 'Outdoor Stage'),
         ]);
-    when(() => mockApi.getTicketStrategies()).thenAnswer((_) async => [
+    when(() => mockTicketRepo.getTicketStrategies()).thenAnswer((_) async => [
           ticketStrategyJson(id: 1, name: 'Concert Standard'),
         ]);
-    when(() => mockApi.getDiscountStrategies()).thenAnswer((_) async => []);
-    when(() => mockApi.getSponsorCategoryTemplates())
+    when(() => mockTicketRepo.getDiscountStrategies()).thenAnswer((_) async => []);
+    when(() => mockSponsorRepo.getSponsorCategoryTemplates())
         .thenAnswer((_) async => []);
-    when(() => mockApi.getPublicConfig()).thenAnswer((_) async => {
+    when(() => mockEventRepo.getPublicConfig()).thenAnswer((_) async => {
           'feature_community_rules_enabled': true,
         });
   });
@@ -45,7 +57,10 @@ void main() {
       const CreateEventScreen(),
       overrides: [
         ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
-        Provider<ApiService>.value(value: mockApi),
+        Provider<EventRepository>.value(value: mockEventRepo),
+        Provider<TicketRepository>.value(value: mockTicketRepo),
+        Provider<VenueRepository>.value(value: mockVenueRepo),
+        Provider<SponsorRepository>.value(value: mockSponsorRepo),
       ],
     );
   }

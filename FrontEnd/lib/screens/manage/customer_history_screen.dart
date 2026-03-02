@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
-import '../../services/api_service.dart';
+import '../../repositories/event_repository.dart';
 import '../../widgets/shimmer_loaders.dart';
 
 class CustomerHistoryScreen extends StatefulWidget {
@@ -53,8 +53,8 @@ class _CustomerHistoryScreenState extends State<CustomerHistoryScreen> {
       _hasMore = true;
     });
     try {
-      final api = context.read<ApiService>();
-      final list = await api.getOrganizerCustomers(offset: 0, limit: _pageSize);
+      final repo = context.read<EventRepository>();
+      final list = await repo.getOrganizerCustomers(offset: 0, limit: _pageSize);
       if (mounted) {
         setState(() {
           _customers = list.cast<Map<String, dynamic>>();
@@ -71,8 +71,8 @@ class _CustomerHistoryScreenState extends State<CustomerHistoryScreen> {
     if (_loadingMore || !_hasMore) return;
     setState(() => _loadingMore = true);
     try {
-      final api = context.read<ApiService>();
-      final list = await api.getOrganizerCustomers(
+      final repo = context.read<EventRepository>();
+      final list = await repo.getOrganizerCustomers(
         offset: _customers.length,
         limit: _pageSize,
       );

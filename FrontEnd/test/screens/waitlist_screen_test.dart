@@ -5,19 +5,24 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
+import '../../lib/models/ticket.dart';
 import '../../lib/providers/event_provider.dart';
-import '../../lib/services/api_service.dart';
+import '../../lib/repositories/event_repository.dart';
+import '../../lib/repositories/ticket_repository.dart';
 import '../../lib/screens/event/waitlist_screen.dart';
-import '../helpers/mock_api_service.dart';
+import '../helpers/mock_event_repository.dart';
+import '../helpers/mock_ticket_repository.dart';
 import '../helpers/mock_providers.dart';
 import '../helpers/pump_app.dart';
 
 void main() {
-  late MockApiService mockApi;
+  late MockEventRepository mockEventRepo;
+  late MockTicketRepository mockTicketRepo;
   late MockEventProvider mockEvent;
 
   setUp(() {
-    mockApi = MockApiService();
+    mockEventRepo = MockEventRepository();
+    mockTicketRepo = MockTicketRepository();
     mockEvent = MockEventProvider();
 
     // EventProvider.loadEvent is fire-and-forget; just stub it.
@@ -44,31 +49,38 @@ void main() {
   }) =>
       {'id': id, 'user_id': userId, 'status': status};
 
+  /// Build a JSON map suitable for TicketSale.fromJson.
   Map<String, dynamic> ticketWait({
     int id = 1,
     int userId = 200,
     int amountPaidCents = 5000,
-    Map<String, dynamic>? tier,
+    String tierName = 'General',
     String? ticketCode,
   }) =>
       {
         'id': id,
+        'event_id': 1,
         'user_id': userId,
-        'amount_paid_cents': amountPaidCents,
-        'tier': tier ?? {'name': 'General'},
+        'ticket_tier_id': 1,
         'ticket_code': ticketCode ?? 'TKT-$id',
+        'amount_paid_cents': amountPaidCents,
+        'discount_applied_cents': 0,
+        'tier_name': tierName,
+        'status': 'waitlist',
+        'created_at': '2025-02-01T10:00:00',
       };
 
   void stubAll({
     List<dynamic>? regs,
-    List<dynamic>? tickets,
+    List<Map<String, dynamic>>? tickets,
     Map<String, dynamic>? cap,
   }) {
-    when(() => mockApi.getRegistrations(any()))
+    when(() => mockEventRepo.getRegistrations(any()))
         .thenAnswer((_) async => regs ?? []);
-    when(() => mockApi.getWaitlistedTickets(any()))
-        .thenAnswer((_) async => tickets ?? []);
-    when(() => mockApi.getCapacityInfo(any()))
+    when(() => mockTicketRepo.getWaitlistedTickets(any()))
+        .thenAnswer((_) async =>
+            (tickets ?? []).map((t) => TicketSale.fromJson(t)).toList());
+    when(() => mockEventRepo.getCapacityInfo(any()))
         .thenAnswer((_) async => cap ?? capInfo());
   }
 
@@ -80,7 +92,8 @@ void main() {
       tester,
       WaitlistScreen(eventId: 1, initialTicketView: initialTicketView),
       overrides: [
-        Provider<ApiService>.value(value: mockApi),
+        Provider<EventRepository>.value(value: mockEventRepo),
+        Provider<TicketRepository>.value(value: mockTicketRepo),
         ChangeNotifierProvider<EventProvider>.value(value: mockEvent),
       ],
     );
@@ -89,11 +102,11 @@ void main() {
   group('WaitlistScreen — loading & error', () {
     testWidgets('shows shimmer while loading', (tester) async {
       final completer = Completer<List<dynamic>>();
-      when(() => mockApi.getRegistrations(any()))
+      when(() => mockEventRepo.getRegistrations(any()))
           .thenAnswer((_) => completer.future);
-      when(() => mockApi.getWaitlistedTickets(any()))
+      when(() => mockTicketRepo.getWaitlistedTickets(any()))
           .thenAnswer((_) async => []);
-      when(() => mockApi.getCapacityInfo(any()))
+      when(() => mockEventRepo.getCapacityInfo(any()))
           .thenAnswer((_) async => capInfo());
 
       await pumpWaitlist(tester);
@@ -107,11 +120,11 @@ void main() {
     });
 
     testWidgets('shows error state with retry button', (tester) async {
-      when(() => mockApi.getRegistrations(any()))
+      when(() => mockEventRepo.getRegistrations(any()))
           .thenThrow(Exception('Network error'));
-      when(() => mockApi.getWaitlistedTickets(any()))
+      when(() => mockTicketRepo.getWaitlistedTickets(any()))
           .thenAnswer((_) async => []);
-      when(() => mockApi.getCapacityInfo(any()))
+      when(() => mockEventRepo.getCapacityInfo(any()))
           .thenAnswer((_) async => capInfo());
 
       await pumpWaitlist(tester);
@@ -179,7 +192,7 @@ void main() {
 
     testWidgets('approve button calls decideRegistration', (tester) async {
       stubAll(regs: [fundReg(id: 42, userId: 100)]);
-      when(() => mockApi.decideRegistration(1, 42, 'approve'))
+      when(() => mockEventRepo.decideRegistration(1, 42, 'approve'))
           .thenAnswer((_) async => {});
 
       await pumpWaitlist(tester);
@@ -188,12 +201,12 @@ void main() {
       await tester.tap(find.text('Approve'));
       await tester.pumpAndSettle();
 
-      verify(() => mockApi.decideRegistration(1, 42, 'approve')).called(1);
+      verify(() => mockEventRepo.decideRegistration(1, 42, 'approve')).called(1);
     });
 
     testWidgets('reject button calls decideRegistration', (tester) async {
       stubAll(regs: [fundReg(id: 42, userId: 100)]);
-      when(() => mockApi.decideRegistration(1, 42, 'reject'))
+      when(() => mockEventRepo.decideRegistration(1, 42, 'reject'))
           .thenAnswer((_) async => {});
 
       await pumpWaitlist(tester);
@@ -202,7 +215,7 @@ void main() {
       await tester.tap(find.text('Reject'));
       await tester.pumpAndSettle();
 
-      verify(() => mockApi.decideRegistration(1, 42, 'reject')).called(1);
+      verify(() => mockEventRepo.decideRegistration(1, 42, 'reject')).called(1);
     });
 
     testWidgets('search filters fund waitlist by user ID', (tester) async {
@@ -268,7 +281,7 @@ void main() {
     testWidgets('approve ticket calls approveWaitlistedTicket',
         (tester) async {
       stubAll(tickets: [ticketWait(id: 55, userId: 300)]);
-      when(() => mockApi.approveWaitlistedTicket(1, 55))
+      when(() => mockTicketRepo.approveWaitlistedTicket(1, 55))
           .thenAnswer((_) async => {});
 
       await pumpWaitlist(tester, initialTicketView: true);
@@ -277,12 +290,12 @@ void main() {
       await tester.tap(find.text('Approve'));
       await tester.pumpAndSettle();
 
-      verify(() => mockApi.approveWaitlistedTicket(1, 55)).called(1);
+      verify(() => mockTicketRepo.approveWaitlistedTicket(1, 55)).called(1);
     });
 
     testWidgets('reject ticket calls rejectWaitlistedTicket', (tester) async {
       stubAll(tickets: [ticketWait(id: 55, userId: 300)]);
-      when(() => mockApi.rejectWaitlistedTicket(1, 55))
+      when(() => mockTicketRepo.rejectWaitlistedTicket(1, 55))
           .thenAnswer((_) async => {});
 
       await pumpWaitlist(tester, initialTicketView: true);
@@ -291,13 +304,13 @@ void main() {
       await tester.tap(find.text('Reject'));
       await tester.pumpAndSettle();
 
-      verify(() => mockApi.rejectWaitlistedTicket(1, 55)).called(1);
+      verify(() => mockTicketRepo.rejectWaitlistedTicket(1, 55)).called(1);
     });
 
     testWidgets('search filters ticket waitlist by tier name', (tester) async {
       stubAll(tickets: [
-        ticketWait(id: 1, userId: 200, tier: {'name': 'General'}),
-        ticketWait(id: 2, userId: 201, tier: {'name': 'VIP'}),
+        ticketWait(id: 1, userId: 200, tierName: 'General'),
+        ticketWait(id: 2, userId: 201, tierName: 'VIP'),
       ]);
 
       await pumpWaitlist(tester, initialTicketView: true);

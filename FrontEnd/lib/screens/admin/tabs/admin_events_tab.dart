@@ -5,7 +5,9 @@ import 'package:provider/provider.dart';
 import '../admin_shared.dart';
 import '../../../config/design_tokens.dart';
 import '../../../config/theme.dart';
-import '../../../services/api_service.dart';
+import '../../../repositories/admin_repository.dart';
+import '../../../repositories/base_repository.dart';
+import '../../../repositories/event_repository.dart';
 import '../../../widgets/admin/admin_empty_state.dart';
 import '../../../widgets/admin/admin_search_bar.dart';
 import '../../../widgets/admin/admin_warning_badge.dart';
@@ -181,52 +183,49 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
 
   Future<void> _approveEvent(int id, bool approve) async {
     try {
-      final api = context.read<ApiService>();
-      await api.adminApproveEvent(id, {
+      final admin = context.read<AdminRepository>();
+      await admin.approveEvent(id, {
         'approved': approve,
         if (!approve) 'reason': 'Rejected by admin',
       });
       widget.onEventsChanged();
     } catch (e) {
-      widget.onSnack('Action failed: ${ApiService.extractError(e)}');
+      widget.onSnack('Action failed: ${ApiError.extractMessage(e)}');
     }
   }
 
   Future<void> _decideExtension(int eventId, String action) async {
     try {
-      final api = context.read<ApiService>();
-      await api.decideExtension(eventId, action);
+      final eventRepo = context.read<EventRepository>();
+      await eventRepo.decideExtension(eventId, action);
       widget.onEventsChanged();
       widget.onSnack('Extension ${action}d');
     } catch (e) {
-      widget.onSnack('Action failed: ${ApiService.extractError(e)}');
+      widget.onSnack('Action failed: ${ApiError.extractMessage(e)}');
     }
   }
 
   Future<void> _decideCancellation(int eventId, String action) async {
     try {
-      final api = context.read<ApiService>();
-      await api.dio.post('/events/$eventId/cancellation/approve',
-          data: {'action': action});
+      final admin = context.read<AdminRepository>();
+      await admin.decideCancellation(eventId, action);
       widget.onEventsChanged();
       widget.onSnack('Cancellation ${action}d');
     } catch (e) {
-      widget.onSnack('Action failed: ${ApiService.extractError(e)}');
+      widget.onSnack('Action failed: ${ApiError.extractMessage(e)}');
     }
   }
 
   Future<void> _resolveReview(int eventId, String targetStatus,
       {String? notes}) async {
     try {
-      final api = context.read<ApiService>();
-      await api.dio.post('/admin/events/$eventId/resolve-review', data: {
-        'target_status': targetStatus,
-        if (notes != null && notes.isNotEmpty) 'notes': notes,
-      });
+      final admin = context.read<AdminRepository>();
+      await admin.resolveReview(eventId,
+          targetStatus: targetStatus, notes: notes);
       widget.onEventsChanged();
       widget.onSnack('Event moved to ${targetStatus.replaceAll('_', ' ')}');
     } catch (e) {
-      widget.onSnack('Action failed: ${ApiService.extractError(e)}');
+      widget.onSnack('Action failed: ${ApiError.extractMessage(e)}');
     }
   }
 
@@ -351,8 +350,8 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
 
     void loadCurrent(StateSetter setDialogState) async {
       try {
-        final api = context.read<ApiService>();
-        final eventData = await api.getEvent(eventId);
+        final eventRepo = context.read<EventRepository>();
+        final eventData = await eventRepo.getEvent(eventId);
         setDialogState(() {
           for (final key in ctrls.keys) {
             final v = eventData[key];
@@ -421,8 +420,8 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
                           body[entry.key] = v;
                         }
                         try {
-                          final api = context.read<ApiService>();
-                          await api.adminSetPolicyOverrides(eventId, body);
+                          final admin = context.read<AdminRepository>();
+                          await admin.setPolicyOverrides(eventId, body);
                           if (ctx.mounted) Navigator.of(ctx).pop();
                           widget.onSnack('Policy overrides saved');
                         } catch (e) {

@@ -7,24 +7,27 @@ import 'package:provider/provider.dart';
 
 import '../../lib/models/user.dart';
 import '../../lib/providers/auth_provider.dart';
-import '../../lib/services/api_service.dart';
+import '../../lib/repositories/sponsor_repository.dart';
+import '../../lib/repositories/user_repository.dart';
 import '../../lib/screens/profile/profile_screen.dart';
 import '../helpers/mock_providers.dart';
-import '../helpers/mock_api_service.dart';
+import '../helpers/mock_sponsor_repository.dart';
+import '../helpers/mock_user_repository.dart';
 import '../helpers/pump_app.dart';
 import '../helpers/fixtures.dart';
 
 void main() {
   late MockAuthProvider mockAuth;
-  late MockApiService mockApi;
+  late MockSponsorRepository mockSponsorRepo;
+  late MockUserRepository mockUserRepo;
 
   setUp(() {
     mockAuth = MockAuthProvider();
-    mockApi = MockApiService();
+    mockSponsorRepo = MockSponsorRepository();
+    mockUserRepo = MockUserRepository();
 
-    // Stub KYC status (called by KycSection in initState) — use a completer
-    // that resolves instantly to avoid pending timers.
-    when(() => mockApi.getKycStatus()).thenAnswer((_) async => {
+    // Stub KYC status (called by KycSection in initState)
+    when(() => mockUserRepo.getKycStatus()).thenAnswer((_) async => {
           'status': 'not_started',
           'documents': <dynamic>[],
         });
@@ -46,7 +49,7 @@ void main() {
 
     // For sponsor users, stub getSponsorProfile (called in initState)
     if (role == UserRole.sponsor) {
-      when(() => mockApi.getSponsorProfile()).thenAnswer((_) async => {
+      when(() => mockSponsorRepo.getSponsorProfile()).thenAnswer((_) async => {
             'company_name': 'Acme Corp',
             'contact_name': 'Alice',
             'profession': 'Marketing',
@@ -61,7 +64,8 @@ void main() {
       const ProfileScreen(),
       overrides: [
         ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
-        Provider<ApiService>.value(value: mockApi),
+        Provider<SponsorRepository>.value(value: mockSponsorRepo),
+        Provider<UserRepository>.value(value: mockUserRepo),
       ],
     );
     // Let all animations and async operations complete

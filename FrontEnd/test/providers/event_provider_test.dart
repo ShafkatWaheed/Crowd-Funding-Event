@@ -2,16 +2,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import '../../lib/providers/event_provider.dart';
 import '../../lib/models/event.dart';
-import '../helpers/mock_api_service.dart';
+import '../helpers/mock_event_repository.dart';
 import '../helpers/fixtures.dart';
 
 void main() {
-  late MockApiService mockApi;
+  late MockEventRepository mockRepo;
   late EventProvider provider;
 
   setUp(() {
-    mockApi = MockApiService();
-    provider = EventProvider(mockApi);
+    mockRepo = MockEventRepository();
+    provider = EventProvider(mockRepo);
   });
 
   group('EventProvider', () {
@@ -24,7 +24,7 @@ void main() {
     });
 
     test('loadEvents success', () async {
-      when(() => mockApi.getEvents(
+      when(() => mockRepo.getEvents(
             params: any(named: 'params'),
             limit: any(named: 'limit'),
             cursor: any(named: 'cursor'),
@@ -44,7 +44,7 @@ void main() {
     });
 
     test('loadEvents with filters', () async {
-      when(() => mockApi.getEvents(
+      when(() => mockRepo.getEvents(
             params: any(named: 'params'),
             limit: any(named: 'limit'),
             cursor: any(named: 'cursor'),
@@ -59,7 +59,7 @@ void main() {
     });
 
     test('loadEvents error sets error message', () async {
-      when(() => mockApi.getEvents(
+      when(() => mockRepo.getEvents(
             params: any(named: 'params'),
             limit: any(named: 'limit'),
             cursor: any(named: 'cursor'),
@@ -73,7 +73,7 @@ void main() {
 
     test('loadMoreEvents appends items', () async {
       // First load
-      when(() => mockApi.getEvents(
+      when(() => mockRepo.getEvents(
             params: any(named: 'params'),
             limit: any(named: 'limit'),
             cursor: any(named: 'cursor'),
@@ -86,7 +86,7 @@ void main() {
       expect(provider.hasMore, true);
 
       // Load more
-      when(() => mockApi.getEvents(
+      when(() => mockRepo.getEvents(
             params: any(named: 'params'),
             limit: any(named: 'limit'),
             cursor: any(named: 'cursor'),
@@ -101,7 +101,7 @@ void main() {
     });
 
     test('loadMoreEvents noop when not hasMore', () async {
-      when(() => mockApi.getEvents(
+      when(() => mockRepo.getEvents(
             params: any(named: 'params'),
             limit: any(named: 'limit'),
             cursor: any(named: 'cursor'),
@@ -113,7 +113,7 @@ void main() {
 
       await provider.loadMoreEvents();
       // Should not call API again since hasMore is false
-      verify(() => mockApi.getEvents(
+      verify(() => mockRepo.getEvents(
             params: any(named: 'params'),
             limit: any(named: 'limit'),
             cursor: any(named: 'cursor'),
@@ -121,7 +121,7 @@ void main() {
     });
 
     test('loadEvent success', () async {
-      when(() => mockApi.getEvent(1))
+      when(() => mockRepo.getEvent(1))
           .thenAnswer((_) async => eventJson(id: 1, title: 'Test Event'));
 
       await provider.loadEvent(1);
@@ -132,27 +132,27 @@ void main() {
     });
 
     test('loadEvent uses cache on second call', () async {
-      when(() => mockApi.getEvent(1))
+      when(() => mockRepo.getEvent(1))
           .thenAnswer((_) async => eventJson(id: 1));
 
       await provider.loadEvent(1);
       await provider.loadEvent(1); // Should use cache
 
-      verify(() => mockApi.getEvent(1)).called(1); // Only called once
+      verify(() => mockRepo.getEvent(1)).called(1); // Only called once
     });
 
     test('loadEvent forceRefresh bypasses cache', () async {
-      when(() => mockApi.getEvent(1))
+      when(() => mockRepo.getEvent(1))
           .thenAnswer((_) async => eventJson(id: 1));
 
       await provider.loadEvent(1);
       await provider.loadEvent(1, forceRefresh: true);
 
-      verify(() => mockApi.getEvent(1)).called(2);
+      verify(() => mockRepo.getEvent(1)).called(2);
     });
 
     test('loadEvent error sets error', () async {
-      when(() => mockApi.getEvent(1)).thenThrow(Exception('Not found'));
+      when(() => mockRepo.getEvent(1)).thenThrow(Exception('Not found'));
 
       await provider.loadEvent(1);
 
@@ -161,9 +161,9 @@ void main() {
     });
 
     test('createEvent success', () async {
-      when(() => mockApi.createEvent(any()))
+      when(() => mockRepo.createEvent(any()))
           .thenAnswer((_) async => eventJson(id: 99));
-      when(() => mockApi.getEvents(
+      when(() => mockRepo.getEvents(
             params: any(named: 'params'),
             limit: any(named: 'limit'),
             cursor: any(named: 'cursor'),
@@ -174,7 +174,7 @@ void main() {
     });
 
     test('createEvent failure returns false', () async {
-      when(() => mockApi.createEvent(any()))
+      when(() => mockRepo.createEvent(any()))
           .thenThrow(Exception('Validation error'));
 
       final result = await provider.createEvent({'title': ''});
@@ -183,8 +183,8 @@ void main() {
     });
 
     test('publishEvent success', () async {
-      when(() => mockApi.publishEvent(1)).thenAnswer((_) async => {});
-      when(() => mockApi.getEvent(1))
+      when(() => mockRepo.publishEvent(1)).thenAnswer((_) async => {});
+      when(() => mockRepo.getEvent(1))
           .thenAnswer((_) async => eventJson(id: 1, status: 'pending_approval'));
 
       final result = await provider.publishEvent(1);
@@ -192,15 +192,15 @@ void main() {
     });
 
     test('deleteEvent success clears selected', () async {
-      when(() => mockApi.deleteEvent(1)).thenAnswer((_) async => {});
-      when(() => mockApi.getEvents(
+      when(() => mockRepo.deleteEvent(1)).thenAnswer((_) async => {});
+      when(() => mockRepo.getEvents(
             params: any(named: 'params'),
             limit: any(named: 'limit'),
             cursor: any(named: 'cursor'),
           )).thenAnswer((_) async => {'items': [], 'next_cursor': null});
 
       // Set selected event first
-      when(() => mockApi.getEvent(1))
+      when(() => mockRepo.getEvent(1))
           .thenAnswer((_) async => eventJson(id: 1));
       await provider.loadEvent(1);
       expect(provider.selectedEvent, isNotNull);
@@ -211,7 +211,7 @@ void main() {
     });
 
     test('invalidateCache removes entry', () async {
-      when(() => mockApi.getEvent(1))
+      when(() => mockRepo.getEvent(1))
           .thenAnswer((_) async => eventJson(id: 1));
 
       await provider.loadEvent(1);
@@ -219,11 +219,11 @@ void main() {
 
       // Next call should hit API since cache was invalidated
       await provider.loadEvent(1);
-      verify(() => mockApi.getEvent(1)).called(2);
+      verify(() => mockRepo.getEvent(1)).called(2);
     });
 
     test('clearCache removes all entries', () async {
-      when(() => mockApi.getEvent(any()))
+      when(() => mockRepo.getEvent(any()))
           .thenAnswer((inv) async => eventJson(id: inv.positionalArguments[0] as int));
 
       await provider.loadEvent(1);
@@ -233,12 +233,12 @@ void main() {
       await provider.loadEvent(1);
       await provider.loadEvent(2);
 
-      verify(() => mockApi.getEvent(1)).called(2);
-      verify(() => mockApi.getEvent(2)).called(2);
+      verify(() => mockRepo.getEvent(1)).called(2);
+      verify(() => mockRepo.getEvent(2)).called(2);
     });
 
     test('clearSelected sets selectedEvent to null', () async {
-      when(() => mockApi.getEvent(1))
+      when(() => mockRepo.getEvent(1))
           .thenAnswer((_) async => eventJson(id: 1));
       await provider.loadEvent(1);
       expect(provider.selectedEvent, isNotNull);

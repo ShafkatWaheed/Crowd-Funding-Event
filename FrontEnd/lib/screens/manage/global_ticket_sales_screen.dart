@@ -4,7 +4,8 @@ import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
 import '../../utils/date_time_utils.dart';
-import '../../services/api_service.dart';
+import '../../models/ticket.dart';
+import '../../repositories/ticket_repository.dart';
 import '../event/ticket_receipt_screen.dart';
 import '../../widgets/shimmer_loaders.dart';
 
@@ -28,7 +29,7 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
 
   final _searchCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
-  List<Map<String, dynamic>> _all = [];
+  List<TicketSale> _all = [];
   bool _loading = true;
   bool _loadingMore = false;
   bool _hasMore = true;
@@ -65,8 +66,8 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
       _hasMore = true;
     });
     try {
-      final api = context.read<ApiService>();
-      final sales = await api.getOrganizerTicketSales(
+      final repo = context.read<TicketRepository>();
+      final sales = await repo.getOrganizerTicketSales(
         scannedOnly: widget.scannedOnly,
         eventStatus: widget.eventStatus,
         genre: widget.genre,
@@ -74,11 +75,9 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
         offset: 0,
         limit: _pageSize,
       );
-      final combined =
-          sales.map((s) => Map<String, dynamic>.from(s)).toList();
 
       setState(() {
-        _all = combined;
+        _all = sales;
         _hasMore = sales.length >= _pageSize;
         _loading = false;
       });
@@ -94,8 +93,8 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
     if (_loadingMore || !_hasMore) return;
     setState(() => _loadingMore = true);
     try {
-      final api = context.read<ApiService>();
-      final sales = await api.getOrganizerTicketSales(
+      final repo = context.read<TicketRepository>();
+      final sales = await repo.getOrganizerTicketSales(
         scannedOnly: widget.scannedOnly,
         eventStatus: widget.eventStatus,
         genre: widget.genre,
@@ -105,8 +104,7 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
       );
       if (mounted) {
         setState(() {
-          _all.addAll(
-              sales.map((s) => Map<String, dynamic>.from(s)));
+          _all.addAll(sales);
           _hasMore = sales.length >= _pageSize;
           _loadingMore = false;
         });
@@ -116,15 +114,14 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
     }
   }
 
-  List<Map<String, dynamic>> get _filtered {
+  List<TicketSale> get _filtered {
     final q = _searchCtrl.text.trim().toLowerCase();
     if (q.isEmpty) return _all;
     return _all.where((s) {
-      final attendee =
-          (s['attendee_display_name'] ?? '').toString().toLowerCase();
-      final tier = (s['tier_name'] ?? '').toString().toLowerCase();
-      final code = (s['ticket_code'] ?? '').toString().toLowerCase();
-      final event = (s['event_title'] ?? '').toString().toLowerCase();
+      final attendee = (s.attendeeDisplayName ?? '').toLowerCase();
+      final tier = (s.tierName ?? '').toLowerCase();
+      final code = s.ticketCode.toLowerCase();
+      final event = (s.eventTitle ?? '').toLowerCase();
       return attendee.contains(q) ||
           tier.contains(q) ||
           code.contains(q) ||
@@ -133,16 +130,13 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
   }
 
   int get _totalRevenue =>
-      _all.fold<int>(
-          0, (s, e) => s + ((e['amount_paid_cents'] ?? 0) as int));
+      _all.fold<int>(0, (s, e) => s + e.amountPaidCents);
 
   int get _totalCommission =>
-      _all.fold<int>(
-          0, (s, e) => s + ((e['commission_cents'] ?? 0) as int));
+      _all.fold<int>(0, (s, e) => s + e.commissionCents);
 
   int get _totalNetToOrganizer =>
-      _all.fold<int>(
-          0, (s, e) => s + ((e['net_to_organizer_cents'] ?? 0) as int));
+      _all.fold<int>(0, (s, e) => s + e.netToOrganizerCents);
 
   @override
   Widget build(BuildContext context) {
@@ -302,25 +296,23 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
     );
   }
 
-  Widget _card(Map<String, dynamic> sale) {
-    final saleId = sale['id'] as int?;
-    final eventId = sale['event_id'] as int?;
-    final tier = sale['tier_name'] ?? 'Unknown';
+  Widget _card(TicketSale sale) {
+    final saleId = sale.id;
+    final eventId = sale.eventId;
+    final tier = sale.tierName ?? 'Unknown';
     final attendee =
-        sale['attendee_display_name'] ?? 'User #${sale['user_id']}';
-    final code = sale['ticket_code'] ?? '';
-    final amount = (sale['amount_paid_cents'] ?? 0) as int;
-    final commission = (sale['commission_cents'] ?? 0) as int;
-    final netAmount = (sale['net_to_organizer_cents'] ?? 0) as int;
-    final scannedAt = sale['scanned_at'];
-    final scannedBy = sale['scanned_by_display_name'];
-    final isScanned = scannedAt != null;
-    final eventTitle = sale['event_title'] ?? '';
-    final createdAt = AppDateFormat.isoFull(sale['created_at']);
+        sale.attendeeDisplayName ?? 'User #${sale.userId}';
+    final code = sale.ticketCode;
+    final amount = sale.amountPaidCents;
+    final commission = sale.commissionCents;
+    final netAmount = sale.netToOrganizerCents;
+    final scannedBy = sale.scannedByDisplayName;
+    final isScanned = sale.isScanned;
+    final eventTitle = sale.eventTitle ?? '';
+    final createdAt = AppDateFormat.isoFull(sale.createdAt.toIso8601String());
 
     return GestureDetector(
-      onTap: saleId != null
-          ? () => Navigator.of(context).push(
+      onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (_) => TicketReceiptScreen(
                     eventId: eventId,
@@ -328,8 +320,7 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
                     isOrganizer: true,
                   ),
                 ),
-              )
-          : null,
+              ),
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         decoration: BoxDecoration(

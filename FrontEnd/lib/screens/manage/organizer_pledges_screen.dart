@@ -3,8 +3,9 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
+import '../../models/funding.dart';
 import '../../utils/date_time_utils.dart';
-import '../../services/api_service.dart';
+import '../../repositories/funding_repository.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../event/pledge_receipt_screen.dart';
 
@@ -24,7 +25,7 @@ class _OrganizerPledgesScreenState extends State<OrganizerPledgesScreen> {
 
   final _searchCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
-  List<Map<String, dynamic>> _all = [];
+  List<Pledge> _all = [];
   bool _loading = true;
   bool _loadingMore = false;
   bool _hasMore = true;
@@ -64,8 +65,8 @@ class _OrganizerPledgesScreenState extends State<OrganizerPledgesScreen> {
       _hasMore = true;
     });
     try {
-      final api = context.read<ApiService>();
-      final data = await api.getOrganizerPledges(
+      final repo = context.read<FundingRepository>();
+      final result = await repo.getOrganizerPledges(
         status: _statusFilter == 'all' ? null : _statusFilter,
         eventStatus: widget.eventStatus,
         genre: widget.genre,
@@ -75,8 +76,8 @@ class _OrganizerPledgesScreenState extends State<OrganizerPledgesScreen> {
       );
       if (mounted) {
         setState(() {
-          _all = data.map((e) => Map<String, dynamic>.from(e)).toList();
-          _hasMore = data.length >= _pageSize;
+          _all = result.items;
+          _hasMore = result.hasMore;
           _loading = false;
         });
       }
@@ -94,8 +95,8 @@ class _OrganizerPledgesScreenState extends State<OrganizerPledgesScreen> {
     if (_loadingMore || !_hasMore) return;
     setState(() => _loadingMore = true);
     try {
-      final api = context.read<ApiService>();
-      final data = await api.getOrganizerPledges(
+      final repo = context.read<FundingRepository>();
+      final result = await repo.getOrganizerPledges(
         status: _statusFilter == 'all' ? null : _statusFilter,
         eventStatus: widget.eventStatus,
         genre: widget.genre,
@@ -105,8 +106,8 @@ class _OrganizerPledgesScreenState extends State<OrganizerPledgesScreen> {
       );
       if (mounted) {
         setState(() {
-          _all.addAll(data.map((e) => Map<String, dynamic>.from(e)));
-          _hasMore = data.length >= _pageSize;
+          _all.addAll(result.items);
+          _hasMore = result.hasMore;
           _loadingMore = false;
         });
       }
@@ -115,23 +116,22 @@ class _OrganizerPledgesScreenState extends State<OrganizerPledgesScreen> {
     }
   }
 
-  List<Map<String, dynamic>> get _filtered {
+  List<Pledge> get _filtered {
     final q = _searchCtrl.text.trim().toLowerCase();
     if (q.isEmpty) return _all;
     return _all.where((p) {
-      final backer = (p['backer_name'] ?? '').toString().toLowerCase();
-      final event = (p['event_title'] ?? '').toString().toLowerCase();
-      final receipt = (p['receipt_number'] ?? '').toString().toLowerCase();
+      final backer = (p.backerName ?? '').toLowerCase();
+      final event = (p.eventTitle ?? '').toLowerCase();
+      final receipt = (p.receiptNumber ?? '').toLowerCase();
       return backer.contains(q) || event.contains(q) || receipt.contains(q);
     }).toList();
   }
 
   int get _totalAmount =>
-      _all.fold<int>(0, (s, p) => s + ((p['amount_cents'] ?? 0) as int));
+      _all.fold<int>(0, (s, p) => s + p.amountCents);
 
   int get _totalNet =>
-      _all.fold<int>(
-          0, (s, p) => s + ((p['net_to_organizer_cents'] ?? 0) as int));
+      _all.fold<int>(0, (s, p) => s + p.netToOrganizerCents);
 
   @override
   Widget build(BuildContext context) {
@@ -327,17 +327,17 @@ class _OrganizerPledgesScreenState extends State<OrganizerPledgesScreen> {
     );
   }
 
-  Widget _card(Map<String, dynamic> pledge) {
-    final pledgeId = pledge['id'] as int?;
-    final eventId = pledge['event_id'] as int?;
-    final backerName = pledge['backer_name'] ?? 'Anonymous';
-    final eventTitle = pledge['event_title'] ?? '';
-    final amount = (pledge['amount_cents'] ?? 0) as int;
-    final netAmount = (pledge['net_to_organizer_cents'] ?? 0) as int;
-    final spots = (pledge['reserved_spots'] ?? 0) as int;
-    final status = (pledge['status'] ?? 'pledged').toString();
-    final isGuest = pledge['is_guest'] == true;
-    final createdAt = AppDateFormat.isoFull(pledge['created_at']);
+  Widget _card(Pledge pledge) {
+    final pledgeId = pledge.id;
+    final eventId = pledge.eventId;
+    final backerName = pledge.backerName ?? 'Anonymous';
+    final eventTitle = pledge.eventTitle ?? '';
+    final amount = pledge.amountCents;
+    final netAmount = pledge.netToOrganizerCents;
+    final spots = pledge.reservedSpots;
+    final status = pledge.status.name;
+    final isGuest = pledge.isGuest;
+    final createdAt = AppDateFormat.fullDateTime(pledge.createdAt);
 
     final statusColor = switch (status) {
       'pledged' => AppTheme.successColor,
@@ -347,14 +347,12 @@ class _OrganizerPledgesScreenState extends State<OrganizerPledgesScreen> {
     };
 
     return GestureDetector(
-      onTap: pledgeId != null && eventId != null
-          ? () => Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => PledgeReceiptScreen(
-                  eventId: eventId,
-                  pledgeId: pledgeId,
-                ),
-              ))
-          : null,
+      onTap: () => Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => PledgeReceiptScreen(
+              eventId: eventId,
+              pledgeId: pledgeId,
+            ),
+          )),
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         decoration: BoxDecoration(

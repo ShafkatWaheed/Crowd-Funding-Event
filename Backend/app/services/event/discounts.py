@@ -1,22 +1,19 @@
 """
 Event discounts: list, create, delete; compute_event_discounts_for_user.
 """
-from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.event import EventDiscount
 from app.models.user import User
-from app.models.funding import Funding, FundingStatus
-from app.models.discount_strategy import EventDiscountStrategyLink
 from app.core.exceptions import ForbiddenError, ConflictError, NotFoundError
+from app.repositories.event_repo import event_repo
 
 from app.services.event.crud import get_or_404
 from app.services.event.permissions import user_can_edit_event
 
 
 async def list_event_discounts(db: AsyncSession, *, event_id: int) -> list[EventDiscount]:
-    q = select(EventDiscount).where(EventDiscount.event_id == event_id).order_by(EventDiscount.id)
-    return list((await db.execute(q)).scalars().all())
+    return await event_repo.list_event_discounts(db, event_id)
 
 
 async def create_event_discount(
@@ -37,61 +34,40 @@ async def create_event_discount(
     disc = EventDiscount(
         event_id=event_id, name=name, discount_type=discount_type, value=value, target=target,
     )
-    db.add(disc)
-    await db.flush()
-    await db.refresh(disc)
-    return disc
+    return await event_repo.create_event_discount(db, disc)
 
 
 async def delete_event_discount(db: AsyncSession, *, event_id: int, discount_id: int, user: User) -> None:
     event = await get_or_404(db, event_id)
     if not await user_can_edit_event(db, event, user):
         raise ForbiddenError("Only event organizer or admin can manage discounts")
-    q = select(EventDiscount).where(EventDiscount.id == discount_id, EventDiscount.event_id == event_id)
-    disc = (await db.execute(q)).scalar_one_or_none()
+    disc = await event_repo.get_event_discount(db, event_id, discount_id)
     if not disc:
         raise NotFoundError("Discount", discount_id)
-    await db.delete(disc)
-    await db.flush()
+    await event_repo.delete_event_discount(db, disc)
 
 
-# ═══════════════════════════════════════════
+# ===================================
 # Customer discounts (what discount a specific customer gets)
-# ═══════════════════════════════════════════
+# ===================================
 
 
 async def compute_event_discounts_for_user(
     db: AsyncSession, *, event_id: int, user_id: int,
 ) -> list[dict]:
     """Return all applicable discount rules for a user (inline + auto-applied linked strategies + claimed strategies)."""
-    from app.models.discount_strategy import CustomerDiscountClaim
-    from sqlalchemy.orm import selectinload as _sload
-
     event = await get_or_404(db, event_id)
-    inline_discounts = await list_event_discounts(db, event_id=event_id)
+    inline_discounts = await event_repo.list_event_discounts(db, event_id)
 
     # Linked strategies with auto_apply info
-    link_q = (
-        select(EventDiscountStrategyLink)
-        .options(_sload(EventDiscountStrategyLink.strategy))
-        .where(EventDiscountStrategyLink.event_id == event_id)
-    )
-    links = list((await db.execute(link_q)).scalars().all())
+    links = await event_repo.get_discount_strategy_links(db, event_id)
 
     # Claims by this user
-    claim_q = select(CustomerDiscountClaim.link_id).where(
-        CustomerDiscountClaim.user_id == user_id,
-        CustomerDiscountClaim.link_id.in_([l.id for l in links]) if links else False,
-    )
-    claimed_ids = set((await db.execute(claim_q)).scalars().all()) if links else set()
+    link_ids = [l.id for l in links]
+    claimed_ids = await event_repo.get_claimed_link_ids(db, user_id, link_ids) if links else set()
 
     # Check if user has pledged
-    pledge_q = select(func.coalesce(func.sum(Funding.amount_cents), 0)).where(
-        Funding.event_id == event_id,
-        Funding.user_id == user_id,
-        Funding.status == FundingStatus.pledged,
-    )
-    total_pledged = int((await db.execute(pledge_q)).scalar_one())
+    total_pledged = await event_repo.get_user_pledged_total(db, event_id, user_id)
     has_pledged = total_pledged > 0
 
     results = []
@@ -109,7 +85,7 @@ async def compute_event_discounts_for_user(
             "target": d.target,
             "total_pledged_cents": total_pledged if d.discount_type == "pledge_percent" else 0,
         })
-    # Linked DiscountStrategy rules — only auto-apply or claimed
+    # Linked DiscountStrategy rules -- only auto-apply or claimed
     for link in links:
         if not link.auto_apply and link.id not in claimed_ids:
             continue
@@ -132,7 +108,6 @@ async def compute_event_discounts_for_user(
     return results
 
 
-# ═══════════════════════════════════════════
-# Organizer–Customer History
-# ═══════════════════════════════════════════
-
+# ===================================
+# Organizer-Customer History
+# ===================================

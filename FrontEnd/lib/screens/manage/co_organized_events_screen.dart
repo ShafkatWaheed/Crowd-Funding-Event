@@ -7,7 +7,7 @@ import 'package:provider/provider.dart';
 import '../../config/design_tokens.dart';
 import '../../config/theme.dart';
 import '../../models/event.dart';
-import '../../services/api_service.dart';
+import '../../repositories/event_repository.dart';
 import '../../widgets/animated_list_item.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/event_card.dart';
@@ -75,8 +75,8 @@ class _CoOrganizedEventsScreenState extends State<CoOrganizedEventsScreen> {
       _hasMore = true;
     });
     try {
-      final api = context.read<ApiService>();
-      final data = await api.getCoOrganizedEvents(
+      final repo = context.read<EventRepository>();
+      final data = await repo.getCoOrganizedEvents(
         status: _selectedStatus,
         search: _search.isEmpty ? null : _search,
         offset: 0,
@@ -98,8 +98,8 @@ class _CoOrganizedEventsScreenState extends State<CoOrganizedEventsScreen> {
     if (_loadingMore || !_hasMore) return;
     setState(() => _loadingMore = true);
     try {
-      final api = context.read<ApiService>();
-      final data = await api.getCoOrganizedEvents(
+      final repo = context.read<EventRepository>();
+      final data = await repo.getCoOrganizedEvents(
         status: _selectedStatus,
         search: _search.isEmpty ? null : _search,
         offset: _events.length,

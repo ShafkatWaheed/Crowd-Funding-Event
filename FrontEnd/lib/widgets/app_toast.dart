@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../config/theme.dart';
-import '../services/api_service.dart';
+import '../repositories/base_repository.dart';
 
 /// Modern toast / snackbar helpers used across the app.
 ///
@@ -49,7 +49,7 @@ class AppToast {
 
   /// Auto-extract the error message from an exception and show an error toast.
   static void fromError(BuildContext context, Object e, {String fallback = 'Something went wrong'}) {
-    error(context, ApiService.extractError(e, fallback: fallback));
+    error(context, ApiError.extractMessage(e, fallback: fallback));
   }
 
   // ── Internal ──

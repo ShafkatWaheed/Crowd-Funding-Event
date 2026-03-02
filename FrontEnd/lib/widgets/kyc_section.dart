@@ -3,7 +3,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../config/theme.dart';
-import '../services/api_service.dart';
+import '../repositories/user_repository.dart';
 import '../widgets/app_toast.dart';
 
 class KycSection extends StatefulWidget {
@@ -38,7 +38,7 @@ class _KycSectionState extends State<KycSection> {
   Future<void> _loadKycStatus() async {
     setState(() => _loading = true);
     try {
-      final data = await context.read<ApiService>().getKycStatus();
+      final data = await context.read<UserRepository>().getKycStatus();
       if (mounted) setState(() => _kycData = data);
     } catch (e) {
       if (mounted) AppToast.fromError(context, e, fallback: 'Failed to load KYC status');
@@ -82,7 +82,7 @@ class _KycSectionState extends State<KycSection> {
     setState(() => _uploading = true);
     if (!mounted) return;
     try {
-      await context.read<ApiService>().uploadKycDocument(file.path!, docType);
+      await context.read<UserRepository>().uploadKycDocument(file.path!, docType);
       await _loadKycStatus();
       if (mounted) AppToast.success(context, 'Document uploaded');
     } catch (e) {
@@ -94,7 +94,7 @@ class _KycSectionState extends State<KycSection> {
 
   Future<void> _deleteDocument(int docId) async {
     try {
-      await context.read<ApiService>().deleteKycDocument(docId);
+      await context.read<UserRepository>().deleteKycDocument(docId);
       await _loadKycStatus();
       if (mounted) AppToast.success(context, 'Document removed');
     } catch (e) {
@@ -105,7 +105,7 @@ class _KycSectionState extends State<KycSection> {
   Future<void> _submitForReview() async {
     setState(() => _submitting = true);
     try {
-      final resp = await context.read<ApiService>().submitKyc();
+      final resp = await context.read<UserRepository>().submitKyc();
       await _loadKycStatus();
       if (mounted) AppToast.success(context, resp['message'] ?? 'Submitted');
     } catch (e) {

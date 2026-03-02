@@ -3,16 +3,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
-import '../../lib/services/api_service.dart';
+import '../../lib/repositories/sponsor_repository.dart';
 import '../../lib/screens/sponsor/sponsor_category_templates_screen.dart';
-import '../helpers/mock_api_service.dart';
+import '../helpers/mock_sponsor_repository.dart';
 import '../helpers/pump_app.dart';
 
 void main() {
-  late MockApiService mockApi;
+  late MockSponsorRepository mockSponsorRepo;
 
   setUp(() {
-    mockApi = MockApiService();
+    mockSponsorRepo = MockSponsorRepository();
   });
 
   Map<String, dynamic> templateJson({
@@ -31,7 +31,7 @@ void main() {
       };
 
   void stubTemplates({List<dynamic>? data}) {
-    when(() => mockApi.getSponsorCategoryTemplates())
+    when(() => mockSponsorRepo.getSponsorCategoryTemplates())
         .thenAnswer((_) async => data ?? []);
   }
 
@@ -39,7 +39,7 @@ void main() {
     await pumpApp(
       tester,
       const SponsorCategoryTemplatesScreen(),
-      overrides: [Provider<ApiService>.value(value: mockApi)],
+      overrides: [Provider<SponsorRepository>.value(value: mockSponsorRepo)],
     );
   }
 

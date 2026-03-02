@@ -5,16 +5,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
-import '../../lib/services/api_service.dart';
+import '../../lib/repositories/sponsor_repository.dart';
 import '../../lib/screens/sponsor/organizer_sponsors_screen.dart';
-import '../helpers/mock_api_service.dart';
+import '../helpers/mock_sponsor_repository.dart';
 import '../helpers/pump_app.dart';
 
 void main() {
-  late MockApiService mockApi;
+  late MockSponsorRepository mockSponsorRepo;
 
   setUp(() {
-    mockApi = MockApiService();
+    mockSponsorRepo = MockSponsorRepository();
   });
 
   Map<String, dynamic> sponsorJson({
@@ -35,7 +35,7 @@ void main() {
       };
 
   void stubSponsors({List<dynamic>? data}) {
-    when(() => mockApi.getOrganizerSponsors(
+    when(() => mockSponsorRepo.getOrganizerSponsors(
           eventStatus: any(named: 'eventStatus'),
           genre: any(named: 'genre'),
           eventId: any(named: 'eventId'),
@@ -48,7 +48,7 @@ void main() {
     await pumpApp(
       tester,
       OrganizerSponsorsScreen(eventId: eventId),
-      overrides: [Provider<ApiService>.value(value: mockApi)],
+      overrides: [Provider<SponsorRepository>.value(value: mockSponsorRepo)],
     );
   }
 

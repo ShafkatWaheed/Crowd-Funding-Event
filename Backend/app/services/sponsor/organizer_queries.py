@@ -1,60 +1,28 @@
 """Organizer and public sponsor queries: bid events, sponsorship available, organizer sponsors, paid sponsors."""
-from sqlalchemy import distinct, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
-from app.models.user import User
-from app.models.event import Event, EventStatus
-from app.models.sponsor import SponsorBid, SponsorProfile, SponsorshipCategory, BidStatus
+from app.models.event import Event
+from app.models.sponsor import BidStatus
+from app.repositories.sponsor_repo import sponsor_repo
 
 from app.services.sponsor.profile import get_profile
 
 
 async def get_sponsor_bid_events(db: AsyncSession, sponsor_user_id: int) -> list[Event]:
     """Return distinct events where this sponsor has placed at least one active bid."""
-    active_statuses = [BidStatus.pending, BidStatus.accepted, BidStatus.paid]
-    event_ids_q = (
-        select(distinct(SponsorshipCategory.event_id))
-        .join(SponsorBid, SponsorBid.category_id == SponsorshipCategory.id)
-        .where(
-            SponsorBid.sponsor_user_id == sponsor_user_id,
-            SponsorBid.status.in_(active_statuses),
-        )
-    )
-    q = (
-        select(Event)
-        .options(selectinload(Event.venue), selectinload(Event.ticket_strategy))
-        .where(Event.id.in_(event_ids_q))
-        .order_by(Event.created_at.desc())
-    )
-    return list((await db.execute(q)).scalars().all())
+    return await sponsor_repo.get_sponsor_bid_events(db, sponsor_user_id)
 
 
 async def get_sponsor_bids_detail_for_admin(
     db: AsyncSession, sponsor_user_id: int
 ) -> list[dict]:
     """Return events with bid details for a sponsor (admin user detail)."""
-    events = await get_sponsor_bid_events(db, sponsor_user_id)
+    events = await sponsor_repo.get_sponsor_bid_events(db, sponsor_user_id)
     if not events:
         return []
 
     event_ids = [e.id for e in events]
-    all_bid_rows = (await db.execute(
-        select(
-            SponsorshipCategory.event_id.label("event_id"),
-            SponsorshipCategory.id.label("cat_id"),
-            SponsorshipCategory.name.label("cat_name"),
-            SponsorBid.id.label("bid_id"),
-            SponsorBid.amount_cents,
-            SponsorBid.status,
-        )
-        .join(SponsorBid, SponsorBid.category_id == SponsorshipCategory.id)
-        .where(
-            SponsorshipCategory.event_id.in_(event_ids),
-            SponsorBid.sponsor_user_id == sponsor_user_id,
-            SponsorBid.status.in_([BidStatus.pending, BidStatus.accepted, BidStatus.paid]),
-        )
-    )).all()
+    all_bid_rows = await sponsor_repo.get_sponsor_bids_detail_rows(db, event_ids, sponsor_user_id)
 
     bids_by_event: dict[int, list] = {}
     for r in all_bid_rows:
@@ -77,15 +45,7 @@ async def get_sponsor_bid_summary_for_event(
     db: AsyncSession, event_id: int, sponsor_user_id: int
 ) -> dict:
     """Return bid counts by status for a sponsor on a given event."""
-    q = (
-        select(SponsorBid.status, SponsorBid.id)
-        .join(SponsorshipCategory, SponsorBid.category_id == SponsorshipCategory.id)
-        .where(
-            SponsorshipCategory.event_id == event_id,
-            SponsorBid.sponsor_user_id == sponsor_user_id,
-        )
-    )
-    rows = (await db.execute(q)).all()
+    rows = await sponsor_repo.get_sponsor_bid_summary_rows(db, event_id, sponsor_user_id)
     counts = {"pending": 0, "accepted": 0, "rejected": 0, "paid": 0, "withdrawn": 0}
     for row in rows:
         status_val = row[0].value if hasattr(row[0], 'value') else str(row[0])
@@ -100,42 +60,9 @@ async def get_events_with_sponsorship_available(
     exclude_my_bids: bool = False,
 ) -> list[dict]:
     """Return events that have at least one sponsorship category with open spots."""
-    open_cat_q = (
-        select(distinct(SponsorshipCategory.event_id))
-        .where(
-            SponsorshipCategory.event_id.isnot(None),
-            SponsorshipCategory.is_template == False,
-            SponsorshipCategory.filled_spots < SponsorshipCategory.total_spots,
-        )
+    events = await sponsor_repo.get_events_with_open_sponsorship(
+        db, sponsor_user_id=sponsor_user_id, exclude_my_bids=exclude_my_bids
     )
-
-    if exclude_my_bids and sponsor_user_id:
-        already_bid_event_ids = (
-            select(distinct(SponsorshipCategory.event_id))
-            .join(SponsorBid, SponsorBid.category_id == SponsorshipCategory.id)
-            .where(
-                SponsorBid.sponsor_user_id == sponsor_user_id,
-                SponsorBid.status.in_([BidStatus.pending, BidStatus.accepted, BidStatus.paid]),
-            )
-        )
-        open_cat_q = open_cat_q.where(
-            SponsorshipCategory.event_id.notin_(already_bid_event_ids)
-        )
-
-    q = (
-        select(Event)
-        .options(
-            selectinload(Event.venue),
-            selectinload(Event.ticket_strategy),
-            selectinload(Event.sponsorship_categories),
-        )
-        .where(
-            Event.id.in_(open_cat_q),
-            Event.status.notin_(["cancelled", "completed"]),
-        )
-        .order_by(Event.created_at.desc())
-    )
-    events = list((await db.execute(q)).scalars().all())
 
     results = []
     for e in events:
@@ -160,47 +87,17 @@ async def get_organizer_sponsors(
     offset: int = 0, limit: int = 20,
 ) -> list[dict]:
     """Distinct sponsors with active bids on any of this organizer's events."""
-    active = [BidStatus.pending, BidStatus.accepted, BidStatus.paid]
-
-    conditions = [
-        Event.organizer_id == organizer_id,
-        SponsorBid.status.in_(active),
-    ]
-    if event_status:
-        try:
-            conditions.append(Event.status == EventStatus(event_status))
-        except ValueError:
-            pass
-    if genre:
-        conditions.append(Event.genre == genre)
-    if event_id:
-        conditions.append(Event.id == event_id)
-
-    q = (
-        select(
-            SponsorBid.sponsor_user_id,
-            func.count(SponsorBid.id).label("total_bids"),
-            func.sum(SponsorBid.amount_cents).label("total_amount_cents"),
-        )
-        .join(SponsorshipCategory, SponsorBid.category_id == SponsorshipCategory.id)
-        .join(Event, SponsorshipCategory.event_id == Event.id)
-        .where(*conditions)
-        .group_by(SponsorBid.sponsor_user_id)
-        .order_by(func.sum(SponsorBid.amount_cents).desc())
-        .offset(offset)
-        .limit(limit)
+    rows = await sponsor_repo.get_organizer_sponsor_rows(
+        db, organizer_id,
+        event_status=event_status, genre=genre, event_id=event_id,
+        offset=offset, limit=limit,
     )
-    rows = (await db.execute(q)).all()
     if not rows:
         return []
 
     user_ids = [r.sponsor_user_id for r in rows]
-    profiles = {p.user_id: p for p in (await db.execute(
-        select(SponsorProfile).where(SponsorProfile.user_id.in_(user_ids))
-    )).scalars().all()}
-    users = {u.id: u for u in (await db.execute(
-        select(User).where(User.id.in_(user_ids))
-    )).scalars().all()}
+    profiles = await sponsor_repo.get_sponsor_profiles_by_user_ids(db, user_ids)
+    users = await sponsor_repo.get_users_by_ids(db, user_ids)
 
     result = []
     for r in rows:
@@ -234,41 +131,14 @@ async def get_sponsor_events_for_organizer(
     """Events where a specific sponsor has active bids, for this organizer."""
     active = [BidStatus.pending, BidStatus.accepted, BidStatus.paid]
 
-    event_ids_q = (
-        select(distinct(SponsorshipCategory.event_id))
-        .join(SponsorBid, SponsorBid.category_id == SponsorshipCategory.id)
-        .join(Event, SponsorshipCategory.event_id == Event.id)
-        .where(
-            Event.organizer_id == organizer_id,
-            SponsorBid.sponsor_user_id == sponsor_user_id,
-            SponsorBid.status.in_(active),
-        )
+    events = await sponsor_repo.get_sponsor_events_for_organizer_events(
+        db, organizer_id, sponsor_user_id
     )
-
-    events = list((await db.execute(
-        select(Event)
-        .options(selectinload(Event.venue), selectinload(Event.ticket_strategy))
-        .where(Event.id.in_(event_ids_q))
-        .order_by(Event.created_at.desc())
-    )).scalars().all())
-
     if not events:
         return []
 
     event_ids = [e.id for e in events]
-    all_bids = (await db.execute(
-        select(
-            SponsorshipCategory.event_id.label("event_id"),
-            SponsorshipCategory.name,
-            SponsorBid.amount_cents,
-            SponsorBid.status,
-        )
-        .join(SponsorBid, SponsorBid.category_id == SponsorshipCategory.id)
-        .where(
-            SponsorshipCategory.event_id.in_(event_ids),
-            SponsorBid.sponsor_user_id == sponsor_user_id,
-        )
-    )).all()
+    all_bids = await sponsor_repo.get_sponsor_bids_for_events(db, event_ids, sponsor_user_id)
 
     summary_by_event: dict[int, dict] = {}
     bids_by_event: dict[int, list] = {}
@@ -305,27 +175,7 @@ async def get_sponsor_events_for_organizer(
 
 async def get_paid_sponsors(db: AsyncSession, event_id: int) -> list[dict]:
     """Return company_name + logo_url for sponsors with paid bids on this event."""
-    q = (
-        select(
-            SponsorBid.sponsor_user_id,
-            SponsorProfile.company_name,
-            SponsorProfile.logo_url,
-            SponsorProfile.website_url,
-        )
-        .join(SponsorshipCategory, SponsorBid.category_id == SponsorshipCategory.id)
-        .join(SponsorProfile, SponsorBid.sponsor_user_id == SponsorProfile.user_id)
-        .where(
-            SponsorshipCategory.event_id == event_id,
-            SponsorBid.status == BidStatus.paid,
-        )
-        .group_by(
-            SponsorBid.sponsor_user_id,
-            SponsorProfile.company_name,
-            SponsorProfile.logo_url,
-            SponsorProfile.website_url,
-        )
-    )
-    rows = (await db.execute(q)).all()
+    rows = await sponsor_repo.get_paid_sponsors(db, event_id)
     return [
         {
             "sponsor_user_id": r.sponsor_user_id,

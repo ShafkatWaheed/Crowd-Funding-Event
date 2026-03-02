@@ -12,8 +12,10 @@ class Pledge {
   final PledgeStatus status;
   final bool isGuest;
   final DateTime createdAt;
-  // Included in /me/pledges response
+  // Included in /me/pledges and organizer/admin responses
   final String? eventTitle;
+  final String? backerName;
+  final String? userDisplayName;
 
   Pledge({
     required this.id,
@@ -28,6 +30,8 @@ class Pledge {
     this.isGuest = false,
     required this.createdAt,
     this.eventTitle,
+    this.backerName,
+    this.userDisplayName,
   });
 
   factory Pledge.fromJson(Map<String, dynamic> json) {
@@ -47,6 +51,8 @@ class Pledge {
       isGuest: json['is_guest'] ?? false,
       createdAt: DateTime.parse(json['created_at']),
       eventTitle: json['event_title'],
+      backerName: json['backer_name'],
+      userDisplayName: json['user_display_name'],
     );
   }
 

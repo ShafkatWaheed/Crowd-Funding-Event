@@ -1,12 +1,11 @@
 """Sponsor category templates and template prerequisites."""
 from fastapi import APIRouter, Depends, Form, HTTPException
-from sqlalchemy import select
 
 from app.dependencies import DbSession, ReadDbSession, CurrentUser, require_feature
 from app.models.user import UserRole
 from app.models.prerequisite import CategoryPrerequisite
-from app.models.sponsor import SponsorshipCategory
 from app.schemas.sponsor import CategoryCreate, CategoryUpdate
+from app.repositories.sponsor_repo import sponsor_repo
 from app.services import sponsor as sponsor_svc
 
 from app.api.v1.sponsors._helpers import _template_to_response
@@ -81,8 +80,7 @@ async def list_template_prerequisites(
     db: ReadDbSession,
     current_user: CurrentUser,
 ):
-    q = select(CategoryPrerequisite).where(CategoryPrerequisite.category_id == template_id)
-    items = (await db.execute(q)).scalars().all()
+    items = await sponsor_repo.list_prerequisites(db, template_id)
     return [
         {"id": p.id, "name": p.name, "description": p.description, "is_required": p.is_required, "requires_document": p.requires_document}
         for p in items
@@ -99,12 +97,7 @@ async def create_template_prerequisite(
     db: DbSession = None,
     current_user: CurrentUser = None,
 ):
-    cat = (await db.execute(
-        select(SponsorshipCategory).where(
-            SponsorshipCategory.id == template_id,
-            SponsorshipCategory.is_template == True,
-        )
-    )).scalar_one_or_none()
+    cat = await sponsor_repo.get_template(db, template_id)
     if not cat:
         raise HTTPException(status_code=404, detail="Template not found")
     if cat.organizer_id != current_user.id and current_user.role != UserRole.admin:
@@ -116,9 +109,7 @@ async def create_template_prerequisite(
         is_required=is_required,
         requires_document=requires_document,
     )
-    db.add(prereq)
-    await db.flush()
-    await db.refresh(prereq)
+    prereq = await sponsor_repo.create_prerequisite(db, prereq)
     await db.commit()
     return {"id": prereq.id, "name": prereq.name, "description": prereq.description, "is_required": prereq.is_required}
 
@@ -130,23 +121,13 @@ async def delete_template_prerequisite(
     db: DbSession = None,
     current_user: CurrentUser = None,
 ):
-    cat = (await db.execute(
-        select(SponsorshipCategory).where(
-            SponsorshipCategory.id == template_id,
-            SponsorshipCategory.is_template == True,
-        )
-    )).scalar_one_or_none()
+    cat = await sponsor_repo.get_template(db, template_id)
     if not cat:
         raise HTTPException(status_code=404, detail="Template not found")
     if cat.organizer_id != current_user.id and current_user.role != UserRole.admin:
         raise HTTPException(status_code=403, detail="Not your template")
-    prereq = (await db.execute(
-        select(CategoryPrerequisite).where(
-            CategoryPrerequisite.id == prereq_id,
-            CategoryPrerequisite.category_id == template_id,
-        )
-    )).scalar_one_or_none()
+    prereq = await sponsor_repo.get_prerequisite_for_category(db, prereq_id, template_id)
     if not prereq:
         raise HTTPException(status_code=404, detail="Prerequisite not found")
-    await db.delete(prereq)
+    await sponsor_repo.delete_prerequisite(db, prereq)
     await db.commit()

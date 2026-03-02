@@ -1,10 +1,11 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import '../models/event.dart';
-import '../services/api_service.dart';
+import '../repositories/base_repository.dart';
+import '../repositories/event_repository.dart';
 
 class EventProvider extends ChangeNotifier {
-  final ApiService _api;
+  final EventRepository _repo;
 
   List<Event> _events = [];
   Event? _selectedEvent;
@@ -22,7 +23,7 @@ class EventProvider extends ChangeNotifier {
   final Map<int, _CacheEntry<Event>> _eventCache = {};
   static const Duration _cacheTtl = Duration(seconds: 60);
 
-  EventProvider(this._api);
+  EventProvider(this._repo);
 
   List<Event> get events => _events;
   Event? get selectedEvent => _selectedEvent;
@@ -41,13 +42,13 @@ class EventProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final result = await _api.getEvents(params: filters, limit: _pageSize);
+      final result = await _repo.getEvents(params: filters, limit: _pageSize);
       final items = (result['items'] as List?) ?? [];
       _events = items.map((e) => Event.fromJson(e as Map<String, dynamic>)).toList();
       _nextCursor = result['next_cursor'] as String?;
       _hasMore = _nextCursor != null;
     } catch (e) {
-      _error = ApiService.extractError(e, fallback: 'Failed to load events.');
+      _error = ApiError.extractMessage(e, fallback: 'Failed to load events.');
     }
 
     _isLoading = false;
@@ -60,7 +61,7 @@ class EventProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final result = await _api.getEvents(
+      final result = await _repo.getEvents(
         params: _lastFilters,
         limit: _pageSize,
         cursor: _nextCursor,
@@ -71,7 +72,7 @@ class EventProvider extends ChangeNotifier {
       _nextCursor = result['next_cursor'] as String?;
       _hasMore = _nextCursor != null;
     } catch (e) {
-      _error = ApiService.extractError(e, fallback: 'Failed to load more events.');
+      _error = ApiError.extractMessage(e, fallback: 'Failed to load more events.');
     }
 
     _isLoadingMore = false;
@@ -94,11 +95,11 @@ class EventProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final data = await _api.getEvent(id);
+      final data = await _repo.getEvent(id);
       _selectedEvent = Event.fromJson(data);
       _eventCache[id] = _CacheEntry(_selectedEvent!, DateTime.now());
     } catch (e) {
-      _error = ApiService.extractError(e, fallback: 'Failed to load event details.');
+      _error = ApiError.extractMessage(e, fallback: 'Failed to load event details.');
     }
 
     _isLoading = false;
@@ -115,11 +116,11 @@ class EventProvider extends ChangeNotifier {
 
   Future<bool> createEvent(Map<String, dynamic> data) async {
     try {
-      await _api.createEvent(data);
+      await _repo.createEvent(data);
       await loadEvents();
       return true;
     } catch (e) {
-      _error = ApiService.extractError(e, fallback: 'Failed to create event.');
+      _error = ApiError.extractMessage(e, fallback: 'Failed to create event.');
       notifyListeners();
       return false;
     }
@@ -127,12 +128,12 @@ class EventProvider extends ChangeNotifier {
 
   Future<bool> publishEvent(int id) async {
     try {
-      await _api.publishEvent(id);
+      await _repo.publishEvent(id);
       invalidateCache(id);
       await loadEvent(id, forceRefresh: true);
       return true;
     } catch (e) {
-      _error = ApiService.extractError(e, fallback: 'Failed to publish event.');
+      _error = ApiError.extractMessage(e, fallback: 'Failed to publish event.');
       notifyListeners();
       return false;
     }
@@ -140,7 +141,7 @@ class EventProvider extends ChangeNotifier {
 
   Future<String?> cancelEvent(int id, {required String reason}) async {
     try {
-      await _api.cancelEvent(id, reason: reason);
+      await _repo.cancelEvent(id, reason: reason);
       invalidateCache(id);
       await loadEvent(id, forceRefresh: true);
       return 'Event cancelled successfully.';
@@ -152,11 +153,11 @@ class EventProvider extends ChangeNotifier {
         await loadEvent(id, forceRefresh: true);
         return msg;
       }
-      _error = msg ?? ApiService.extractError(e, fallback: 'Failed to cancel event.');
+      _error = msg ?? ApiError.extractMessage(e, fallback: 'Failed to cancel event.');
       notifyListeners();
       return null;
     } catch (e) {
-      _error = ApiService.extractError(e, fallback: 'Failed to cancel event.');
+      _error = ApiError.extractMessage(e, fallback: 'Failed to cancel event.');
       notifyListeners();
       return null;
     }
@@ -164,12 +165,12 @@ class EventProvider extends ChangeNotifier {
 
   Future<bool> reactivateEvent(int id) async {
     try {
-      await _api.reactivateEvent(id);
+      await _repo.reactivateEvent(id);
       invalidateCache(id);
       await loadEvent(id, forceRefresh: true);
       return true;
     } catch (e) {
-      _error = ApiService.extractError(e, fallback: 'Failed to reactivate event.');
+      _error = ApiError.extractMessage(e, fallback: 'Failed to reactivate event.');
       notifyListeners();
       return false;
     }
@@ -177,12 +178,12 @@ class EventProvider extends ChangeNotifier {
 
   Future<bool> startSellingTickets(int id) async {
     try {
-      await _api.startSellingTickets(id);
+      await _repo.startSellingTickets(id);
       invalidateCache(id);
       await loadEvent(id, forceRefresh: true);
       return true;
     } catch (e) {
-      _error = ApiService.extractError(e, fallback: 'Failed to start selling tickets.');
+      _error = ApiError.extractMessage(e, fallback: 'Failed to start selling tickets.');
       notifyListeners();
       return false;
     }
@@ -190,13 +191,13 @@ class EventProvider extends ChangeNotifier {
 
   Future<bool> deleteEvent(int id) async {
     try {
-      await _api.deleteEvent(id);
+      await _repo.deleteEvent(id);
       _selectedEvent = null;
       invalidateCache(id);
       await loadEvents();
       return true;
     } catch (e) {
-      _error = ApiService.extractError(e, fallback: 'Failed to delete event.');
+      _error = ApiError.extractMessage(e, fallback: 'Failed to delete event.');
       notifyListeners();
       return false;
     }

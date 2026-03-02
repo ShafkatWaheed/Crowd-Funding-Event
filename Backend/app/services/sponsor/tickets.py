@@ -1,19 +1,13 @@
 """Sponsor ticket list, won categories, scan."""
 from fastapi import HTTPException
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
-from app.models.event import Event
 from app.models.sponsor import (
-    SponsorBid,
-    SponsorDelegate,
-    SponsorPayment,
     SponsorTicket,
-    SponsorshipCategory,
     BidStatus,
     PaymentStatus,
 )
+from app.repositories.sponsor_repo import sponsor_repo
 
 from app.services.sponsor.profile import get_profile
 
@@ -21,72 +15,35 @@ from app.services.sponsor.profile import get_profile
 async def get_sponsor_ticket(
     db: AsyncSession, event_id: int, sponsor_user_id: int
 ) -> SponsorTicket | None:
-    return (await db.execute(
-        select(SponsorTicket).where(
-            SponsorTicket.event_id == event_id,
-            SponsorTicket.sponsor_user_id == sponsor_user_id,
-        )
-    )).scalar_one_or_none()
+    return await sponsor_repo.get_sponsor_ticket(db, event_id, sponsor_user_id)
 
 
 async def list_sponsor_tickets(
     db: AsyncSession, sponsor_user_id: int
 ) -> list[SponsorTicket]:
-    q = (
-        select(SponsorTicket)
-        .where(SponsorTicket.sponsor_user_id == sponsor_user_id)
-        .options(selectinload(SponsorTicket.event).selectinload(Event.venue))
-        .order_by(SponsorTicket.created_at.desc())
-    )
-    return list((await db.execute(q)).scalars().all())
+    return await sponsor_repo.list_sponsor_tickets(db, sponsor_user_id)
 
 
 async def get_won_categories(
     db: AsyncSession, event_id: int, sponsor_user_id: int
 ) -> list[dict]:
     """Return category info where sponsor has accepted, paid, or refunded bids."""
-    from app.models.prerequisite import CategoryPrerequisite, BidPrerequisiteUpload
-    q = (
-        select(
-            SponsorshipCategory.id,
-            SponsorshipCategory.name,
-            SponsorBid.id.label("bid_id"),
-            SponsorBid.amount_cents,
-            SponsorBid.status,
-        )
-        .join(SponsorBid, SponsorBid.category_id == SponsorshipCategory.id)
-        .where(
-            SponsorshipCategory.event_id == event_id,
-            SponsorBid.sponsor_user_id == sponsor_user_id,
-            SponsorBid.status.in_([BidStatus.accepted, BidStatus.paid, BidStatus.rejected]),
-        )
-    )
-    rows = (await db.execute(q)).all()
+    rows = await sponsor_repo.get_won_category_rows(db, event_id, sponsor_user_id)
 
     filtered = []
     for r in rows:
         if r.status == BidStatus.rejected:
-            payment = (await db.execute(
-                select(SponsorPayment).where(SponsorPayment.bid_id == r.bid_id)
-            )).scalar_one_or_none()
+            payment = await sponsor_repo.get_payment_by_bid(db, r.bid_id)
             if not payment or payment.status != PaymentStatus.refunded:
                 continue
         filtered.append(r)
 
     results = []
     for r in filtered:
-        prereqs_q = select(CategoryPrerequisite).where(
-            CategoryPrerequisite.category_id == r.id,
-        )
-        prereqs = (await db.execute(prereqs_q)).scalars().all()
+        prereqs = await sponsor_repo.list_prerequisites(db, r.id)
         prereq_list = []
         for p in prereqs:
-            upload = (await db.execute(
-                select(BidPrerequisiteUpload).where(
-                    BidPrerequisiteUpload.bid_id == r.bid_id,
-                    BidPrerequisiteUpload.prerequisite_id == p.id,
-                )
-            )).scalar_one_or_none()
+            upload = await sponsor_repo.get_bid_prerequisite_upload(db, r.bid_id, p.id)
             prereq_list.append({
                 "id": p.id,
                 "name": p.name,
@@ -95,9 +52,7 @@ async def get_won_categories(
                 "upload_status": upload.status.value if upload else None,
             })
 
-        payment = (await db.execute(
-            select(SponsorPayment).where(SponsorPayment.bid_id == r.bid_id)
-        )).scalar_one_or_none()
+        payment = await sponsor_repo.get_payment_by_bid(db, r.bid_id)
 
         cat_status = r.status.value
         if r.status == BidStatus.rejected and payment and payment.status == PaymentStatus.refunded:
@@ -132,11 +87,7 @@ async def scan_sponsor_ticket(
     if ticket_event_id != event_id:
         raise HTTPException(status_code=400, detail="QR does not belong to this event")
 
-    ticket = (await db.execute(
-        select(SponsorTicket)
-        .options(selectinload(SponsorTicket.delegates))
-        .where(SponsorTicket.id == ticket_id)
-    )).scalar_one_or_none()
+    ticket = await sponsor_repo.get_sponsor_ticket_with_delegates(db, ticket_id)
     if not ticket:
         raise HTTPException(status_code=404, detail="Sponsor ticket not found")
 
@@ -149,7 +100,7 @@ async def scan_sponsor_ticket(
         if not ticket.scanned_at:
             ticket.scanned_at = datetime.utcnow()
         ticket.scan_count = (ticket.scan_count or 0) + 1
-        await db.flush()
+        await sponsor_repo.flush(db)
 
     profile = await get_profile(db, ticket.sponsor_user_id)
     cats = await get_won_categories(db, event_id, ticket.sponsor_user_id)

@@ -6,7 +6,9 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../../models/event_form_models.dart';
-import '../../../services/api_service.dart';
+import '../../../repositories/sponsor_repository.dart';
+import '../../../repositories/ticket_repository.dart';
+import '../../../repositories/venue_repository.dart';
 import '../../../services/mapbox_geocoding_service.dart';
 import '../../../widgets/app_toast.dart';
 
@@ -86,8 +88,8 @@ Future<int?> createVenueInline(
     return null;
   }
   try {
-    final api = context.read<ApiService>();
-    final resp = await api.createVenue({
+    final repo = context.read<VenueRepository>();
+    final resp = await repo.createVenue({
       'name': nameCtrl.text.trim(),
       'address': addressCtrl.text.trim(),
       'city': cityCtrl.text.trim(),
@@ -120,7 +122,7 @@ Future<int?> createStrategyInline(
     }
   }
   try {
-    final api = context.read<ApiService>();
+    final ticketRepo = context.read<TicketRepository>();
     final tiersData = tiers.asMap().entries.map((e) {
       final data = <String, dynamic>{
         'name': e.value.nameCtrl.text.trim(),
@@ -130,7 +132,7 @@ Future<int?> createStrategyInline(
       if (e.value.descCtrl.text.trim().isNotEmpty) data['description'] = e.value.descCtrl.text.trim();
       return data;
     }).toList();
-    final resp = await api.createTicketStrategy({'name': nameCtrl.text.trim(), 'tiers': tiersData});
+    final resp = await ticketRepo.createTicketStrategy({'name': nameCtrl.text.trim(), 'tiers': tiersData});
     if (context.mounted) AppToast.success(context, 'Ticket strategy created and selected!');
     return resp['id'] as int?;
   } catch (e) {
@@ -218,7 +220,7 @@ Future<void> toggleSponsorTemplate(
   final minBid = t['min_bid_cents'] ?? 0;
   cat.minBidCtrl.text = (minBid / 100).toStringAsFixed(2);
   try {
-    final prereqs = await context.read<ApiService>().listTemplatePrerequisites(id);
+    final prereqs = await context.read<SponsorRepository>().listTemplatePrerequisites(id);
     for (final p in prereqs) {
       cat.prereqs.add(LocalPrerequisite(
         name: (p['name'] as String?) ?? '',

@@ -1,16 +1,15 @@
 """
 Ticket tier CRUD and user discount (selective) management.
 """
-from sqlalchemy import func, select
-
 from app.logger import get_logger, log_step
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Sequence
 
 from app.core.exceptions import ConflictError, ForbiddenError, NotFoundError
 from app.models.event import Event
-from app.models.ticket import TicketSale, TicketTier, UserEventDiscount
+from app.models.ticket import TicketTier, UserEventDiscount
 from app.models.user import User
+from app.repositories.ticket_repo import ticket_repo
 from app.services import event as event_service
 
 logger = get_logger("svc.ticket.tiers")
@@ -24,32 +23,14 @@ async def _can_manage_event_tickets(db: AsyncSession, user: User, event: Event) 
 async def list_tiers(db: AsyncSession, *, event_id: int) -> Sequence[TicketTier]:
     """List ticket tiers for an event (display_order, id)."""
     await event_service.get_or_404(db, event_id)
-    q = (
-        select(TicketTier)
-        .where(TicketTier.event_id == event_id)
-        .order_by(TicketTier.display_order.asc(), TicketTier.id.asc())
-    )
-    res = await db.execute(q)
-    return list(res.scalars().all())
+    return await ticket_repo.list_tiers(db, event_id=event_id)
 
 
 async def get_tier_or_404(db: AsyncSession, *, event_id: int, tier_id: int) -> TicketTier:
-    q = select(TicketTier).where(
-        TicketTier.id == tier_id,
-        TicketTier.event_id == event_id,
-    )
-    res = await db.execute(q)
-    tier = res.scalar_one_or_none()
+    tier = await ticket_repo.get_tier(db, event_id=event_id, tier_id=tier_id)
     if not tier:
         raise NotFoundError("TicketTier", tier_id)
     return tier
-
-
-async def _tier_has_sales(db: AsyncSession, tier_id: int) -> bool:
-    result = await db.execute(
-        select(func.count()).select_from(TicketSale).where(TicketSale.ticket_tier_id == tier_id)
-    )
-    return (result.scalar() or 0) > 0
 
 
 async def create_tier(
@@ -82,9 +63,7 @@ async def create_tier(
         max_reserved_spots=max_reserved_spots,
         display_order=display_order,
     )
-    db.add(tier)
-    await db.flush()
-    await db.refresh(tier)
+    tier = await ticket_repo.create_tier(db, tier)
     logger.info("Tier created", extra={"event_id": event_id, "tier_id": tier.id, "tier_name": name})
     return tier
 
@@ -105,7 +84,7 @@ async def update_tier(
     if not await _can_manage_event_tickets(db, user, event):
         raise ForbiddenError("Only the event organizer or admin can manage ticket tiers")
     if price_cents is not None and price_cents != tier.price_cents:
-        if await _tier_has_sales(db, tier.id):
+        if await ticket_repo.tier_has_sales(db, tier.id):
             logger.warning("Update tier rejected: price change on tier with sales", extra={"tier_id": tier.id})
             raise ConflictError("Cannot change price after tickets have been sold for this tier")
     if name is not None:
@@ -122,8 +101,7 @@ async def update_tier(
         tier.max_reserved_spots = max_reserved_spots
     if display_order is not None:
         tier.display_order = display_order
-    await db.flush()
-    await db.refresh(tier)
+    await ticket_repo.update_tier(db, tier)
     logger.info("Tier updated", extra={"event_id": tier.event_id, "tier_id": tier.id})
     return tier
 
@@ -135,8 +113,7 @@ async def delete_tier(db: AsyncSession, tier: TicketTier, user: User) -> None:
     from app.models.event import EventStatus
     if event.status in (EventStatus.selling_tickets, EventStatus.live, EventStatus.completed):
         raise ConflictError("Cannot delete ticket tiers once the event is published for ticket sales")
-    await db.delete(tier)
-    await db.flush()
+    await ticket_repo.delete_tier(db, tier)
 
 
 async def set_user_discount(
@@ -158,27 +135,10 @@ async def set_user_discount(
     if discount_type == "fixed_cents" and value < 0:
         raise ConflictError("fixed_cents must be >= 0")
 
-    q = select(UserEventDiscount).where(
-        UserEventDiscount.event_id == event_id,
-        UserEventDiscount.user_id == target_user_id,
+    existing = await ticket_repo.get_user_event_discount(db, event_id, target_user_id)
+    return await ticket_repo.upsert_user_event_discount(
+        db, existing, event_id, target_user_id, discount_type, value,
     )
-    existing = (await db.execute(q)).scalar_one_or_none()
-    if existing:
-        existing.discount_type = discount_type
-        existing.value = value
-        await db.flush()
-        await db.refresh(existing)
-        return existing
-    ued = UserEventDiscount(
-        event_id=event_id,
-        user_id=target_user_id,
-        discount_type=discount_type,
-        value=value,
-    )
-    db.add(ued)
-    await db.flush()
-    await db.refresh(ued)
-    return ued
 
 
 async def remove_user_discount(
@@ -191,12 +151,6 @@ async def remove_user_discount(
     event = await event_service.get_or_404(db, event_id)
     if not await _can_manage_event_tickets(db, current_user, event):
         raise ForbiddenError("Only the event organizer or admin can remove user discounts")
-    q = select(UserEventDiscount).where(
-        UserEventDiscount.event_id == event_id,
-        UserEventDiscount.user_id == target_user_id,
-    )
-    res = await db.execute(q)
-    ued = res.scalar_one_or_none()
+    ued = await ticket_repo.get_user_event_discount(db, event_id, target_user_id)
     if ued:
-        await db.delete(ued)
-        await db.flush()
+        await ticket_repo.delete_user_event_discount(db, ued)

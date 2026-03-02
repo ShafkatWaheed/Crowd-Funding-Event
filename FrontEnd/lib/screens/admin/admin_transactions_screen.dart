@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import 'package:provider/provider.dart';
+
 import '../../config/theme.dart';
-import '../../services/api_service.dart';
+import '../../repositories/admin_repository.dart';
 import '../../widgets/app_toast.dart';
 import 'admin_shared.dart';
 
@@ -45,7 +47,8 @@ class _AdminTransactionsScreenState extends State<AdminTransactionsScreen> {
 
   Future<void> _loadMockMode() async {
     try {
-      final overview = await ApiService.instance.adminGetBankingOverview();
+      final admin = context.read<AdminRepository>();
+      final overview = await admin.getBankingOverview();
       if (mounted) {
         setState(() => _mockModeActive = overview['mock_mode_active'] == true);
       }
@@ -55,7 +58,8 @@ class _AdminTransactionsScreenState extends State<AdminTransactionsScreen> {
   Future<void> _loadTransactions({int page = 0}) async {
     setState(() => _loading = true);
     try {
-      final resp = await ApiService.instance.adminGetTransactions(
+      final admin = context.read<AdminRepository>();
+      final resp = await admin.getTransactions(
         offset: page * 20,
         search: _searchText.isNotEmpty ? _searchText : null,
         status: _statusFilter != 'all' ? _statusFilter : null,
@@ -75,7 +79,7 @@ class _AdminTransactionsScreenState extends State<AdminTransactionsScreen> {
 
   Future<void> _simulateDispute(String transactionId) async {
     try {
-      await ApiService.instance.adminSimulateDispute(transactionId);
+      await context.read<AdminRepository>().simulateDispute(transactionId);
       _loadTransactions(page: _txnPage);
       if (!mounted) return;
       AppToast.success(context, 'Dispute simulated');

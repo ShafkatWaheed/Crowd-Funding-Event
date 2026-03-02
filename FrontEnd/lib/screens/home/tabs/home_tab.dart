@@ -10,7 +10,7 @@ import '../../../db/app_database.dart';
 import '../../../models/event.dart';
 import '../../../models/venue.dart';
 import '../../../providers/auth_provider.dart';
-import '../../../services/api_service.dart';
+import '../../../repositories/event_repository.dart';
 import '../../../services/location_helper.dart';
 import '../../../services/sync_service.dart';
 import '../../../widgets/animated_list_item.dart';
@@ -100,21 +100,18 @@ class _HomeTabState extends State<HomeTab> {
 
   Future<void> _loadFeatured() async {
     try {
-      final api = context.read<ApiService>();
+      final repo = context.read<EventRepository>();
       final auth = context.read<AuthProvider>();
       final isSponsor = auth.user != null &&
           auth.user!.isSponsor &&
           !(auth.user!.isOrganizer || auth.user!.isAdmin);
       final results = await Future.wait([
-        api.getFeaturedEvents(sponsorshipOnly: isSponsor),
-        api.dio
-            .get('/events', queryParameters: {
+        repo.getFeaturedEvents(sponsorshipOnly: isSponsor),
+        repo.getEvents(params: {
               'community_rules': 'true',
               if (isSponsor) 'sponsorship_only': true,
-            })
-            .then((r) {
-          final d = r.data;
-          return d is List ? d : (d as Map)['items'] as List? ?? [];
+            }).then((r) {
+          return (r['items'] as List?) ?? [];
         }),
       ]);
       final data = results[0] as Map<String, dynamic>;
@@ -221,12 +218,12 @@ class _HomeTabState extends State<HomeTab> {
     try {
       final pos = await LocationHelper.getCurrentPosition();
       if (pos == null || !mounted) return;
-      final api = context.read<ApiService>();
+      final repo = context.read<EventRepository>();
       final auth = context.read<AuthProvider>();
       final isSponsor = auth.user != null &&
           auth.user!.isSponsor &&
           !(auth.user!.isOrganizer || auth.user!.isAdmin);
-      final data = await api.getMapEvents(
+      final data = await repo.getMapEvents(
         lat: pos.latitude,
         lng: pos.longitude,
         radiusKm: 25,
@@ -236,7 +233,7 @@ class _HomeTabState extends State<HomeTab> {
             data.map((e) => e['id'] as int).take(10).toList();
         if (ids.isNotEmpty) {
           final fullEvents = <Event>[];
-          final result = await api.getEvents(params: {
+          final result = await repo.getEvents(params: {
             if (isSponsor) 'sponsorship_only': true,
           });
           final allEvents = (result['items'] as List?) ?? [];

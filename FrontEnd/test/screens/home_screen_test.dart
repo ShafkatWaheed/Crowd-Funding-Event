@@ -12,8 +12,10 @@ import '../../lib/providers/auth_provider.dart';
 import '../../lib/providers/chat_provider.dart';
 import '../../lib/providers/event_provider.dart';
 import '../../lib/providers/notification_provider.dart';
+import '../../lib/repositories/event_repository.dart';
 import '../../lib/services/api_service.dart';
 import '../../lib/screens/home/home_screen.dart';
+import '../helpers/mock_event_repository.dart';
 import '../helpers/mock_providers.dart';
 import '../helpers/mock_api_service.dart';
 import '../helpers/fixtures.dart';
@@ -25,6 +27,7 @@ void main() {
   late MockNotificationProvider mockNotif;
   late MockChatProvider mockChat;
   late MockApiService mockApi;
+  late MockEventRepository mockEventRepo;
 
   setUp(() {
     mockAuth = MockAuthProvider();
@@ -32,10 +35,7 @@ void main() {
     mockNotif = MockNotificationProvider();
     mockChat = MockChatProvider();
     mockApi = MockApiService();
-
-    // Unstubbed API methods should throw (caught by widget try/catch)
-    // rather than returning null which causes type errors.
-    throwOnMissingStub(mockApi);
+    mockEventRepo = MockEventRepository();
 
     // Default stubs shared by all tests
     when(() => mockEvent.events).thenReturn([]);
@@ -60,10 +60,10 @@ void main() {
     when(() => mockChat.addListener(any())).thenReturn(null);
     when(() => mockChat.removeListener(any())).thenReturn(null);
 
-    when(() => mockApi.getEventCities()).thenAnswer((_) async => <String>[]);
-    when(() => mockApi.checkBookmarks(any()))
+    when(() => mockEventRepo.getEventCities()).thenAnswer((_) async => <String>[]);
+    when(() => mockEventRepo.checkBookmarks(any()))
         .thenAnswer((_) async => {'bookmarked_ids': <int>[]});
-    when(() => mockApi.getMyEvents(
+    when(() => mockEventRepo.getMyEvents(
           offset: any(named: 'offset'),
           limit: any(named: 'limit'),
           sortBy: any(named: 'sortBy'),
@@ -83,6 +83,7 @@ void main() {
       ChangeNotifierProvider<NotificationProvider>.value(value: mockNotif),
       ChangeNotifierProvider<ChatProvider>.value(value: mockChat),
       Provider<ApiService>.value(value: mockApi),
+      Provider<EventRepository>.value(value: mockEventRepo),
     ];
   }
 

@@ -6,12 +6,11 @@ Provides balance verification and per-account summaries.
 """
 from __future__ import annotations
 
-from sqlalchemy import case, func, select
-
 from app.logger import get_logger, log_step
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.ledger_entry import LedgerEntry
+from app.repositories.ledger_repo import ledger_repo
 
 logger = get_logger("svc.ledger")
 
@@ -27,18 +26,17 @@ async def record_entries(
     Each entry dict: {"type": "debit"|"credit", "account": str, "amount_cents": int, "description": str}
     """
     log_step(logger, "Recording ledger entries", transaction_id=transaction_id, entry_count=len(entries))
-    rows = []
-    for e in entries:
-        row = LedgerEntry(
+    rows = [
+        LedgerEntry(
             transaction_id=transaction_id,
             entry_type=e["type"],
             account=e["account"],
             amount_cents=e["amount_cents"],
             description=e.get("description", ""),
         )
-        db.add(row)
-        rows.append(row)
-    await db.flush()
+        for e in entries
+    ]
+    rows = await ledger_repo.record_entries(db, rows)
     logger.info("Ledger entries recorded", extra={"transaction_id": transaction_id, "entry_count": len(rows)})
     return rows
 
@@ -80,48 +78,25 @@ async def record_charge(
 async def verify_balance(db: AsyncSession) -> dict:
     """Verify total debits equal total credits and return per-account balances."""
     log_step(logger, "Verifying ledger balance")
-    total_debits = (await db.execute(
-        select(func.coalesce(func.sum(LedgerEntry.amount_cents), 0)).where(
-            LedgerEntry.entry_type == "debit"
-        )
-    )).scalar_one()
+    total_debits = await ledger_repo.get_total_debits(db)
+    total_credits = await ledger_repo.get_total_credits(db)
+    accounts = await ledger_repo.get_account_balances(db)
 
-    total_credits = (await db.execute(
-        select(func.coalesce(func.sum(LedgerEntry.amount_cents), 0)).where(
-            LedgerEntry.entry_type == "credit"
-        )
-    )).scalar_one()
-
-    account_balances_q = (
-        select(
-            LedgerEntry.account,
-            func.sum(
-                case(
-                    (LedgerEntry.entry_type == "debit", LedgerEntry.amount_cents),
-                    else_=-LedgerEntry.amount_cents,
-                )
-            ).label("balance"),
-        )
-        .group_by(LedgerEntry.account)
-        .order_by(LedgerEntry.account)
-    )
-    rows = (await db.execute(account_balances_q)).all()
-    accounts = {row.account: int(row.balance) for row in rows}
-    delta = int(total_debits) - int(total_credits)
-    balanced = int(total_debits) == int(total_credits)
+    delta = total_debits - total_credits
+    balanced = total_debits == total_credits
     logger.debug(
         "Balance verification",
         extra={
-            "total_debits_cents": int(total_debits),
-            "total_credits_cents": int(total_credits),
+            "total_debits_cents": total_debits,
+            "total_credits_cents": total_credits,
             "balanced": balanced,
             "delta_cents": delta,
             "account_count": len(accounts),
         },
     )
     return {
-        "total_debits_cents": int(total_debits),
-        "total_credits_cents": int(total_credits),
+        "total_debits_cents": total_debits,
+        "total_credits_cents": total_credits,
         "balanced": balanced,
         "delta_cents": delta,
         "accounts": accounts,
@@ -130,17 +105,4 @@ async def verify_balance(db: AsyncSession) -> dict:
 
 async def get_account_balance(db: AsyncSession, account: str) -> int:
     """Get the net balance of a specific account (debits - credits)."""
-    result = (await db.execute(
-        select(
-            func.coalesce(
-                func.sum(
-                    case(
-                        (LedgerEntry.entry_type == "debit", LedgerEntry.amount_cents),
-                        else_=-LedgerEntry.amount_cents,
-                    )
-                ),
-                0,
-            )
-        ).where(LedgerEntry.account == account)
-    )).scalar_one()
-    return int(result)
+    return await ledger_repo.get_account_balance(db, account)

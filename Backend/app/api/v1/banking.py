@@ -13,20 +13,16 @@ from pydantic import BaseModel, field_validator
 from app.logger import get_logger, log_step
 
 logger = get_logger("api.banking")
-from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import CurrentUser, DbSession, ReadDbSession, require_role
 from app.rate_limit import limiter, dynamic_limit
 from app.models.dispute import Dispute, DisputeStatus
-from app.models.email_mock_log import EmailMockLog
 from app.models.email_template import EmailTemplate
-from app.models.escrow import EscrowStatus, FundEscrow, TicketEscrow, SponsorEscrow
-from app.models.ledger_entry import LedgerEntry
+from app.models.escrow import EscrowStatus
 from app.models.payment_info import OrganizerBankAccount, UserPaymentInfo
-from app.models.payment_mock_ledger import MockLedgerStatus, PaymentMockLedger
-from app.models.reconciliation import ReconciliationReport
 from app.models.user import User, UserRole
+from app.repositories.banking_repo import banking_repo
+from app.repositories.email_template_repo import email_template_repo
 from app.services import audit as audit_svc
 from app.services import encryption as enc
 from app.services import ledger as ledger_svc
@@ -107,15 +103,13 @@ class PaymentInfoUpdate(BaseModel):
 async def get_payment_info(db: ReadDbSession, current_user: CurrentUser):
     stripe_on = await settings_svc.get_bool(db, "stripe_enabled")
     if stripe_on:
-        user = (await db.execute(select(User).where(User.id == current_user.id))).scalar_one()
+        user = await banking_repo.get_user(db, current_user.id)
         return {
             "mode": "stripe",
             "stripe_customer_id": user.stripe_customer_id,
             "stripe_configured": user.stripe_customer_id is not None,
         }
-    info = (await db.execute(
-        select(UserPaymentInfo).where(UserPaymentInfo.user_id == current_user.id)
-    )).scalar_one_or_none()
+    info = await banking_repo.get_payment_info(db, current_user.id)
     if not info:
         return PaymentInfoResponse()
     return PaymentInfoResponse(
@@ -137,12 +131,10 @@ async def update_payment_info(request: Request, body: PaymentInfoUpdate, db: DbS
             detail="Payment methods managed by Stripe. Card details are stored securely by Stripe.",
         )
     log_step(logger, "Updating payment info", user_id=current_user.id)
-    info = (await db.execute(
-        select(UserPaymentInfo).where(UserPaymentInfo.user_id == current_user.id)
-    )).scalar_one_or_none()
+    info = await banking_repo.get_payment_info(db, current_user.id)
     if not info:
         info = UserPaymentInfo(user_id=current_user.id)
-        db.add(info)
+        await banking_repo.create_payment_info(db, info)
     if body.card_holder_name is not None:
         info.card_holder_name = body.card_holder_name
     if body.card_last_four is not None:
@@ -153,7 +145,7 @@ async def update_payment_info(request: Request, body: PaymentInfoUpdate, db: DbS
         info.billing_address = body.billing_address
     if body.payment_method_token is not None:
         info.payment_method_token = body.payment_method_token
-    await db.flush()
+    await banking_repo.flush(db)
     return PaymentInfoResponse(
         card_holder_name=info.card_holder_name,
         card_last_four=info.card_last_four,
@@ -230,15 +222,13 @@ async def get_bank_account(
 ):
     stripe_connect = await settings_svc.get_bool(db, "stripe_connect_enabled")
     if stripe_connect:
-        user = (await db.execute(select(User).where(User.id == current_user.id))).scalar_one()
+        user = await banking_repo.get_user(db, current_user.id)
         return {
             "mode": "stripe_connect",
             "stripe_connect_account_id": user.stripe_connect_account_id,
             "stripe_connected": user.stripe_connect_account_id is not None,
         }
-    acct = (await db.execute(
-        select(OrganizerBankAccount).where(OrganizerBankAccount.user_id == current_user.id)
-    )).scalar_one_or_none()
+    acct = await banking_repo.get_bank_account(db, current_user.id)
     if not acct:
         return BankAccountResponse()
     try:
@@ -285,16 +275,14 @@ async def update_bank_account(
     from app.services import notification_service as notif_svc
     from app.models.notification import NotificationType
 
-    acct = (await db.execute(
-        select(OrganizerBankAccount).where(OrganizerBankAccount.user_id == current_user.id)
-    )).scalar_one_or_none()
+    acct = await banking_repo.get_bank_account(db, current_user.id)
     if not acct:
         acct = OrganizerBankAccount(user_id=current_user.id,
                                      institution_number_encrypted=enc.encrypt(body.institution_number),
                                      transit_number_encrypted=enc.encrypt(body.transit_number),
                                      account_number_encrypted=enc.encrypt(body.account_number),
                                      account_holder_encrypted=enc.encrypt(body.account_holder))
-        db.add(acct)
+        await banking_repo.create_bank_account(db, acct)
     else:
         acct.institution_number_encrypted = enc.encrypt(body.institution_number)
         acct.transit_number_encrypted = enc.encrypt(body.transit_number)
@@ -311,7 +299,7 @@ async def update_bank_account(
         acct.payout_day = body.payout_day
     if body.min_payout_cents is not None:
         acct.min_payout_cents = body.min_payout_cents
-    await db.flush()
+    await banking_repo.flush(db)
 
     await notif_svc.create_notification(
         db, user_id=current_user.id,
@@ -377,11 +365,9 @@ async def request_refund_retry(
     from app.services import notification_service as notif_svc
     from app.services.escrow_base import get_all_admin_ids, get_organizer_for_event
     from app.models.notification import NotificationType
-    from app.models.event import Event
+    from app.repositories.event_repo import event_repo
 
-    event = (await db.execute(
-        select(Event).where(Event.id == event_id)
-    )).scalar_one_or_none()
+    event = await event_repo.get_by_id_with_relations(db, event_id)
     if not event:
         raise NotFoundError("Event", event_id)
     if event.organizer_id != current_user.id:
@@ -415,9 +401,7 @@ async def request_refund_retry(
 
 @router.get("/payments/{transaction_id}/status")
 async def get_payment_status(transaction_id: str, db: ReadDbSession, current_user: CurrentUser):
-    entry = (await db.execute(
-        select(PaymentMockLedger).where(PaymentMockLedger.transaction_id == transaction_id)
-    )).scalar_one_or_none()
+    entry = await banking_repo.get_mock_ledger_by_transaction_id(db, transaction_id)
     if not entry:
         return {"status": "not_found"}
     return {
@@ -502,59 +486,19 @@ async def admin_banking_overview(
             except Exception:
                 platform_last_four = raw_acct[-4:] if raw_acct else None
 
-    # Fund escrow aggregates
-    fe = (await db.execute(
-        select(
-            func.coalesce(func.sum(FundEscrow.total_held_cents), 0),
-            func.coalesce(func.sum(
-                FundEscrow.stage1_released_cents + FundEscrow.stage2_released_cents + FundEscrow.stage3_released_cents
-            ), 0),
-            func.count(),
-        ).where(FundEscrow.status.in_([EscrowStatus.holding, EscrowStatus.partially_released]))
-    )).one()
+    # Escrow aggregates via repo
+    fe = await banking_repo.get_fund_escrow_aggregates(db)
+    te = await banking_repo.get_ticket_escrow_aggregates(db)
+    se = await banking_repo.get_sponsor_escrow_aggregates(db)
 
-    # Ticket escrow aggregates
-    te = (await db.execute(
-        select(
-            func.coalesce(func.sum(TicketEscrow.total_held_cents), 0),
-            func.coalesce(func.sum(
-                TicketEscrow.stage1_released_cents + TicketEscrow.stage2_released_cents + TicketEscrow.stage3_released_cents
-            ), 0),
-            func.count(),
-        ).where(TicketEscrow.status.in_([EscrowStatus.holding, EscrowStatus.partially_released]))
-    )).one()
-
-    # Sponsor escrow aggregates
-    se = (await db.execute(
-        select(
-            func.coalesce(func.sum(SponsorEscrow.total_held_cents), 0),
-            func.coalesce(func.sum(
-                SponsorEscrow.stage1_released_cents + SponsorEscrow.stage2_released_cents + SponsorEscrow.stage3_released_cents
-            ), 0),
-            func.count(),
-        ).where(SponsorEscrow.status.in_([EscrowStatus.holding, EscrowStatus.partially_released]))
-    )).one()
-
-    # Commission from ledger
+    # Commission from ledger service
     commission_total = abs(await ledger_svc.get_account_balance(db, "platform_commission"))
     tax_total = abs(await ledger_svc.get_account_balance(db, "tax_collected"))
 
     cutoff = datetime.now(timezone.utc) - timedelta(days=delta_days)
 
     # Commission breakdown by source (ticket / funding / sponsor) within period
-    source_q = (
-        select(
-            LedgerEntry.description,
-            func.coalesce(func.sum(LedgerEntry.amount_cents), 0),
-        )
-        .where(
-            LedgerEntry.account == "platform_commission",
-            LedgerEntry.entry_type == "credit",
-            LedgerEntry.created_at >= cutoff,
-        )
-        .group_by(LedgerEntry.description)
-    )
-    source_rows = (await db.execute(source_q)).all()
+    source_rows = await banking_repo.get_commission_by_source(db, cutoff)
     commission_by_source = {"ticket": 0, "funding": 0, "sponsor": 0}
     commission_period_cents = 0
     for desc, amt in source_rows:
@@ -571,59 +515,20 @@ async def admin_banking_overview(
             commission_by_source["ticket"] += amt_int
 
     # Tax collected within the period
-    tax_period_q = (
-        select(func.coalesce(func.sum(LedgerEntry.amount_cents), 0))
-        .where(
-            LedgerEntry.account == "tax_collected",
-            LedgerEntry.entry_type == "credit",
-            LedgerEntry.created_at >= cutoff,
-        )
-    )
-    tax_collected_period_cents = abs(int((await db.execute(tax_period_q)).scalar_one()))
+    tax_collected_period_cents = await banking_repo.get_tax_collected_in_period(db, cutoff)
 
     # Disputes
-    disputes = (await db.execute(
-        select(
-            func.count(),
-            func.coalesce(func.sum(Dispute.amount_cents), 0),
-        ).where(Dispute.status == DisputeStatus.open)
-    )).one()
+    disputes = await banking_repo.get_open_dispute_stats(db)
 
     # Last reconciliation
-    last_recon = (await db.execute(
-        select(ReconciliationReport).order_by(ReconciliationReport.run_date.desc()).limit(1)
-    )).scalar_one_or_none()
+    last_recon = await banking_repo.get_latest_reconciliation(db)
 
-    # Payout summary (released escrow = pending payout since no payout tracking yet)
+    # Payout summary
     payout_pending_total = int(fe[1]) + int(te[1]) + int(se[1])
-
-    from app.models.event import Event as _Evt
-    payout_pending_count = 0
-    for _EscrowModel in (FundEscrow, TicketEscrow, SponsorEscrow):
-        _cnt = (await db.execute(
-            select(func.count(func.distinct(_Evt.organizer_id)))
-            .select_from(_EscrowModel)
-            .join(_Evt, _EscrowModel.event_id == _Evt.id)
-            .where(_EscrowModel.status.in_([EscrowStatus.holding, EscrowStatus.partially_released]))
-        )).scalar_one()
-        payout_pending_count = max(payout_pending_count, int(_cnt))
+    payout_pending_count = await banking_repo.get_payout_pending_organizer_count(db)
 
     # Transaction summary counts
-    txn_total = int((await db.execute(
-        select(func.count(PaymentMockLedger.id))
-    )).scalar_one())
-    txn_settled = int((await db.execute(
-        select(func.count(PaymentMockLedger.id)).where(
-            PaymentMockLedger.status == MockLedgerStatus.settled)
-    )).scalar_one())
-    txn_pending = int((await db.execute(
-        select(func.count(PaymentMockLedger.id)).where(
-            PaymentMockLedger.status == MockLedgerStatus.pending)
-    )).scalar_one())
-    txn_failed = int((await db.execute(
-        select(func.count(PaymentMockLedger.id)).where(
-            PaymentMockLedger.status == MockLedgerStatus.failed)
-    )).scalar_one())
+    txn_counts = await banking_repo.get_txn_status_counts(db)
 
     return BankingOverviewResponse(
         platform_account_configured=platform_configured,
@@ -648,10 +553,10 @@ async def admin_banking_overview(
         disputes_total_amount_cents=int(disputes[1]),
         payout_pending_count=payout_pending_count,
         payout_pending_total_cents=payout_pending_total,
-        transaction_total_count=txn_total,
-        transaction_settled_count=txn_settled,
-        transaction_pending_count=txn_pending,
-        transaction_failed_count=txn_failed,
+        transaction_total_count=txn_counts["total"],
+        transaction_settled_count=txn_counts["settled"],
+        transaction_pending_count=txn_counts["pending"],
+        transaction_failed_count=txn_counts["failed"],
         last_reconciliation_status=last_recon.status if last_recon else None,
         last_reconciliation_delta_cents=last_recon.delta_cents if last_recon else 0,
         mock_mode_active=mock_active,
@@ -755,16 +660,14 @@ async def admin_verify_bank_account(
     from app.models.notification import NotificationType
     from app.core.exceptions import NotFoundError
 
-    acct = (await db.execute(
-        select(OrganizerBankAccount).where(OrganizerBankAccount.user_id == user_id)
-    )).scalar_one_or_none()
+    acct = await banking_repo.get_bank_account(db, user_id)
     if not acct:
         raise NotFoundError("Bank account not found for user", user_id)
 
     acct.verified = True
     acct.verification_status = BankVerificationStatus.verified
     acct.rejection_reason = None
-    await db.flush()
+    await banking_repo.flush(db)
 
     await notif_svc.create_notification(
         db, user_id=user_id,
@@ -805,16 +708,14 @@ async def admin_reject_bank_account(
     from app.models.notification import NotificationType
     from app.core.exceptions import NotFoundError
 
-    acct = (await db.execute(
-        select(OrganizerBankAccount).where(OrganizerBankAccount.user_id == user_id)
-    )).scalar_one_or_none()
+    acct = await banking_repo.get_bank_account(db, user_id)
     if not acct:
         raise NotFoundError("Bank account not found for user", user_id)
 
     acct.verified = False
     acct.verification_status = BankVerificationStatus.rejected
     acct.rejection_reason = body.reason
-    await db.flush()
+    await banking_repo.flush(db)
 
     await notif_svc.create_notification(
         db, user_id=user_id,
@@ -871,9 +772,7 @@ async def list_email_templates(
     db: ReadDbSession,
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
-    rows = (await db.execute(
-        select(EmailTemplate).order_by(EmailTemplate.template_key)
-    )).scalars().all()
+    rows = await email_template_repo.list_all(db)
     db_map = {t.template_key: t for t in rows}
 
     result = []
@@ -910,19 +809,17 @@ async def update_email_template(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
-    tmpl = (await db.execute(
-        select(EmailTemplate).where(EmailTemplate.template_key == key)
-    )).scalar_one_or_none()
+    tmpl = await email_template_repo.get_by_key(db, key)
     if not tmpl:
         tmpl = EmailTemplate(template_key=key, subject="", body_html="", variables="[]")
-        db.add(tmpl)
+        await email_template_repo.create(db, tmpl)
     if body.subject is not None:
         tmpl.subject = body.subject
     if body.body_html is not None:
         tmpl.body_html = body.body_html
     if body.is_active is not None:
         tmpl.is_active = body.is_active
-    await db.flush()
+    await email_template_repo.flush(db)
     return {"ok": True, "template_key": tmpl.template_key}
 
 
@@ -932,12 +829,9 @@ async def reset_email_template(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
-    tmpl = (await db.execute(
-        select(EmailTemplate).where(EmailTemplate.template_key == key)
-    )).scalar_one_or_none()
+    tmpl = await email_template_repo.get_by_key(db, key)
     if tmpl:
-        await db.delete(tmpl)
-        await db.flush()
+        await email_template_repo.delete(db, tmpl)
     return {"ok": True, "message": f"Template '{key}' reset to default"}
 
 
@@ -946,10 +840,8 @@ async def reset_all_email_templates(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
-    from sqlalchemy import delete as sa_delete
-    result = await db.execute(sa_delete(EmailTemplate))
-    await db.flush()
-    return {"ok": True, "deleted_count": result.rowcount}
+    deleted = await email_template_repo.delete_all(db)
+    return {"ok": True, "deleted_count": deleted}
 
 
 @router.post("/admin/email-templates/{key}/test-send")
@@ -959,9 +851,7 @@ async def test_send_email_template(
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
     from app.services.email_service import send_email
-    tmpl = (await db.execute(
-        select(EmailTemplate).where(EmailTemplate.template_key == key)
-    )).scalar_one_or_none()
+    tmpl = await email_template_repo.get_by_key(db, key)
     subject = tmpl.subject if tmpl else f"Test: {key}"
     body = tmpl.body_html if tmpl else f"<p>Test email for template: {key}</p>"
     await send_email(to_email=current_user.email, subject=subject, body_html=body)
@@ -1015,33 +905,14 @@ async def admin_mock_overview(
     db: ReadDbSession,
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
-    txn_count = (await db.execute(select(func.count()).select_from(PaymentMockLedger))).scalar_one()
-    txn_volume = (await db.execute(
-        select(func.coalesce(func.sum(PaymentMockLedger.amount_cents), 0))
-    )).scalar_one()
-    txn_success = (await db.execute(
-        select(func.count()).select_from(PaymentMockLedger).where(
-            PaymentMockLedger.status == MockLedgerStatus.completed
-        )
-    )).scalar_one()
-    email_count = (await db.execute(select(func.count()).select_from(EmailMockLog))).scalar_one()
-    email_bounced = (await db.execute(
-        select(func.count()).select_from(EmailMockLog).where(EmailMockLog.status == "bounced")
-    )).scalar_one()
+    txn_data = await banking_repo.get_mock_ledger_overview(db)
+    email_data = await banking_repo.get_email_mock_overview(db)
 
-    last_txn_at = (await db.execute(
-        select(func.max(PaymentMockLedger.created_at))
-    )).scalar_one()
-    last_email_at = (await db.execute(
-        select(func.max(EmailMockLog.created_at))
-    )).scalar_one()
-
-    recent_txns = (await db.execute(
-        select(PaymentMockLedger).order_by(PaymentMockLedger.created_at.desc()).limit(20)
-    )).scalars().all()
-    recent_emails = (await db.execute(
-        select(EmailMockLog).order_by(EmailMockLog.created_at.desc()).limit(20)
-    )).scalars().all()
+    txn_count = txn_data["total"]
+    txn_volume = txn_data["volume"]
+    txn_success = txn_data["success"]
+    email_count = email_data["total"]
+    email_bounced = email_data["bounced"]
 
     return {
         "total_transactions": txn_count,
@@ -1051,8 +922,8 @@ async def admin_mock_overview(
         "total_emails": email_count,
         "email_bounce_count": email_bounced,
         "email_bounce_rate": round(email_bounced / email_count * 100, 1) if email_count > 0 else 0.0,
-        "last_transaction_at": last_txn_at.isoformat() if last_txn_at else None,
-        "last_email_at": last_email_at.isoformat() if last_email_at else None,
+        "last_transaction_at": txn_data["last_txn"].isoformat() if txn_data["last_txn"] else None,
+        "last_email_at": email_data["last_email"].isoformat() if email_data["last_email"] else None,
         "recent_transactions": [
             {
                 "id": t.id, "transaction_id": t.transaction_id,
@@ -1062,7 +933,7 @@ async def admin_mock_overview(
                 "receipt_reference": t.receipt_reference, "failure_reason": t.failure_reason,
                 "created_at": t.created_at.isoformat() if t.created_at else None,
             }
-            for t in recent_txns
+            for t in txn_data["recent"]
         ],
         "recent_emails": [
             {
@@ -1070,7 +941,7 @@ async def admin_mock_overview(
                 "template_key": e.template_key, "status": e.status,
                 "created_at": e.created_at.isoformat() if e.created_at else None,
             }
-            for e in recent_emails
+            for e in email_data["recent"]
         ],
     }
 
@@ -1091,10 +962,7 @@ async def clear_mock_data(
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
     await _require_mock_mode(db)
-    from sqlalchemy import delete
-    await db.execute(delete(PaymentMockLedger))
-    await db.execute(delete(EmailMockLog))
-    await db.flush()
+    await banking_repo.delete_all_mock_data(db)
     await audit_svc.log_action(
         db, admin_id=current_user.id, action="mock_clear",
         target_type="mock", target_id=None,
@@ -1108,14 +976,8 @@ async def settle_all_pending(
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
     await _require_mock_mode(db)
-    from sqlalchemy import update
-    result = await db.execute(
-        update(PaymentMockLedger)
-        .where(PaymentMockLedger.status == MockLedgerStatus.settlement_pending)
-        .values(status=MockLedgerStatus.settled, completed_at=datetime.now(timezone.utc))
-    )
-    await db.flush()
-    return {"ok": True, "settled_count": result.rowcount}
+    count = await banking_repo.settle_all_pending(db)
+    return {"ok": True, "settled_count": count}
 
 
 @router.post("/admin/mock/fail-next")
@@ -1171,14 +1033,9 @@ async def list_disputes(
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
 ):
-    q = select(Dispute).order_by(Dispute.created_at.desc())
-    if status_filter:
-        try:
-            q = q.where(Dispute.status == DisputeStatus(status_filter))
-        except ValueError:
-            pass
-    total = (await db.execute(select(func.count()).select_from(q.subquery()))).scalar_one()
-    rows = (await db.execute(q.offset(offset).limit(limit))).scalars().all()
+    rows, total = await banking_repo.list_disputes(
+        db, status=status_filter, offset=offset, limit=limit,
+    )
     return {
         "items": [
             DisputeResponse(
@@ -1215,26 +1072,18 @@ async def create_dispute(
         amount_cents=body.amount_cents,
         reason=body.reason,
     )
-    db.add(dispute)
+    await banking_repo.create_dispute(db, dispute)
 
     if body.event_id:
-        fe = (await db.execute(
-            select(FundEscrow).where(FundEscrow.event_id == body.event_id)
-        )).scalar_one_or_none()
+        fe, te, se_esc = await banking_repo.get_escrow_by_event(db, body.event_id)
         if fe and fe.status not in (EscrowStatus.frozen, EscrowStatus.fully_released):
             fe.status = EscrowStatus.frozen
-        te = (await db.execute(
-            select(TicketEscrow).where(TicketEscrow.event_id == body.event_id)
-        )).scalar_one_or_none()
         if te and te.status not in (EscrowStatus.frozen, EscrowStatus.fully_released):
             te.status = EscrowStatus.frozen
-        se_esc = (await db.execute(
-            select(SponsorEscrow).where(SponsorEscrow.event_id == body.event_id)
-        )).scalar_one_or_none()
         if se_esc and se_esc.status not in (EscrowStatus.frozen, EscrowStatus.fully_released):
             se_esc.status = EscrowStatus.frozen
 
-    await db.flush()
+    await banking_repo.flush(db)
     return {"ok": True, "dispute_id": dispute.id}
 
 
@@ -1251,9 +1100,7 @@ async def resolve_dispute(
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
     log_step(logger, "Resolving dispute", dispute_id=dispute_id, outcome=body.outcome, admin_id=current_user.id)
-    dispute = (await db.execute(
-        select(Dispute).where(Dispute.id == dispute_id)
-    )).scalar_one_or_none()
+    dispute = await banking_repo.get_dispute(db, dispute_id)
     if not dispute:
         from app.core.exceptions import NotFoundError
         raise NotFoundError("Dispute", dispute_id)
@@ -1267,10 +1114,8 @@ async def resolve_dispute(
     dispute.outcome_notes = body.notes
 
     if body.outcome == "won" and dispute.event_id:
-        for model in (FundEscrow, TicketEscrow, SponsorEscrow):
-            esc = (await db.execute(
-                select(model).where(model.event_id == dispute.event_id)
-            )).scalar_one_or_none()
+        fe, te, se = await banking_repo.get_escrow_by_event(db, dispute.event_id)
+        for esc in (fe, te, se):
             if esc and esc.status == EscrowStatus.frozen:
                 if esc.stage3_released_at:
                     esc.status = EscrowStatus.fully_released
@@ -1279,7 +1124,7 @@ async def resolve_dispute(
                 else:
                     esc.status = EscrowStatus.holding
 
-    await db.flush()
+    await banking_repo.flush(db)
     await audit_svc.log_action(
         db, admin_id=current_user.id, action="dispute_resolve",
         target_type="dispute", target_id=dispute_id,
@@ -1294,15 +1139,13 @@ async def submit_dispute_evidence(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
-    dispute = (await db.execute(
-        select(Dispute).where(Dispute.id == dispute_id)
-    )).scalar_one_or_none()
+    dispute = await banking_repo.get_dispute(db, dispute_id)
     if not dispute:
         from app.core.exceptions import NotFoundError
         raise NotFoundError("Dispute", dispute_id)
     dispute.status = DisputeStatus.evidence_submitted
     dispute.evidence_submitted_at = datetime.now(timezone.utc)
-    await db.flush()
+    await banking_repo.flush(db)
     return {"ok": True, "status": dispute.status.value}
 
 
@@ -1312,15 +1155,13 @@ async def accept_dispute_loss(
     db: DbSession,
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
-    dispute = (await db.execute(
-        select(Dispute).where(Dispute.id == dispute_id)
-    )).scalar_one_or_none()
+    dispute = await banking_repo.get_dispute(db, dispute_id)
     if not dispute:
         from app.core.exceptions import NotFoundError
         raise NotFoundError("Dispute", dispute_id)
     dispute.status = DisputeStatus.lost
     dispute.resolved_at = datetime.now(timezone.utc)
-    await db.flush()
+    await banking_repo.flush(db)
     return {"ok": True, "status": dispute.status.value}
 
 
@@ -1331,9 +1172,7 @@ async def simulate_dispute(
     transaction_id: str = Body(embed=True),
 ):
     await _require_mock_mode(db)
-    ledger_entry = (await db.execute(
-        select(PaymentMockLedger).where(PaymentMockLedger.transaction_id == transaction_id)
-    )).scalar_one_or_none()
+    ledger_entry = await banking_repo.get_mock_ledger_by_transaction_id(db, transaction_id)
     amount = ledger_entry.amount_cents if ledger_entry else 5000
     dispute = Dispute(
         transaction_id=transaction_id,
@@ -1343,8 +1182,7 @@ async def simulate_dispute(
         user_id=current_user.id,
         reason="fraudulent",
     )
-    db.add(dispute)
-    await db.flush()
+    await banking_repo.create_dispute(db, dispute)
     await audit_svc.log_action(
         db, admin_id=current_user.id, action="dispute_create",
         target_type="dispute", target_id=dispute.id,
@@ -1375,9 +1213,7 @@ async def list_reconciliation_reports(
     current_user: User = Depends(require_role(UserRole.admin)),
     limit: int = Query(30, ge=1, le=365),
 ):
-    rows = (await db.execute(
-        select(ReconciliationReport).order_by(ReconciliationReport.run_date.desc()).limit(limit)
-    )).scalars().all()
+    rows = await banking_repo.list_reconciliation_reports(db, limit=limit)
     return [
         {
             "run_date": r.run_date.isoformat(),
@@ -1413,37 +1249,13 @@ async def admin_payout_status(
     db: ReadDbSession,
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
-    from app.models.escrow import FundEscrow, TicketEscrow, SponsorEscrow, EscrowStatus
-    from app.models.event import Event
-
-    organizers_q = (
-        select(
-            User.id,
-            User.display_name,
-            User.email,
-        )
-        .where(User.role == UserRole.organizer)
-        .order_by(User.display_name)
-    )
-    organizers = (await db.execute(organizers_q)).all()
+    organizers = await banking_repo.list_organizer_users(db)
 
     items = []
     for org in organizers:
         org_id, org_name, org_email = org
-        bank = (await db.execute(
-            select(OrganizerBankAccount).where(OrganizerBankAccount.user_id == org_id)
-        )).scalar_one_or_none()
-
-        pending_cents = 0
-        for model in (FundEscrow, TicketEscrow, SponsorEscrow):
-            released_sum = (await db.execute(
-                select(func.coalesce(func.sum(
-                    model.stage1_released_cents + model.stage2_released_cents + model.stage3_released_cents
-                ), 0))
-                .join(Event, model.event_id == Event.id)
-                .where(Event.organizer_id == org_id)
-            )).scalar_one()
-            pending_cents += int(released_sum)
+        bank = await banking_repo.get_bank_account(db, org_id)
+        pending_cents = await banking_repo.get_released_escrow_cents_for_organizer(db, org_id)
 
         bank_status = "missing"
         if bank:
@@ -1491,39 +1303,14 @@ async def list_transactions(
     date_to: date | None = Query(None),
     search: str | None = Query(None),
 ):
-    q = select(PaymentMockLedger)
+    # Convert date to datetime for repo
+    dt_from = datetime.combine(date_from, datetime.min.time()) if date_from else None
+    dt_to = datetime.combine(date_to, datetime.max.time()) if date_to else None
 
-    if operation:
-        try:
-            from app.models.payment_mock_ledger import MockLedgerOperation
-            q = q.where(PaymentMockLedger.operation == MockLedgerOperation(operation))
-        except ValueError:
-            pass
-
-    if status:
-        try:
-            q = q.where(PaymentMockLedger.status == MockLedgerStatus(status))
-        except ValueError:
-            pass
-
-    if date_from:
-        q = q.where(PaymentMockLedger.created_at >= datetime.combine(date_from, datetime.min.time()))
-    if date_to:
-        q = q.where(PaymentMockLedger.created_at <= datetime.combine(date_to, datetime.max.time()))
-
-    if search:
-        from sqlalchemy import or_
-        q = q.where(or_(
-            PaymentMockLedger.transaction_id.ilike(f"%{search}%"),
-            PaymentMockLedger.receipt_reference.ilike(f"%{search}%"),
-            PaymentMockLedger.description.ilike(f"%{search}%"),
-        ))
-
-    total = (await db.execute(select(func.count()).select_from(q.subquery()))).scalar_one()
-
-    rows = (await db.execute(
-        q.order_by(PaymentMockLedger.created_at.desc()).offset(offset).limit(limit)
-    )).scalars().all()
+    rows, total = await banking_repo.list_transactions(
+        db, offset=offset, limit=limit, operation=operation, status=status,
+        date_from=dt_from, date_to=dt_to, search=search,
+    )
 
     return {
         "items": [
@@ -1559,11 +1346,7 @@ async def reconciliation_history(
     current_user: User = Depends(require_role(UserRole.admin)),
     limit: int = Query(30, ge=1, le=365),
 ):
-    rows = (await db.execute(
-        select(ReconciliationReport)
-        .order_by(ReconciliationReport.run_date.desc())
-        .limit(limit)
-    )).scalars().all()
+    rows = await banking_repo.list_reconciliation_reports(db, limit=limit)
     return [
         {
             "run_date": r.run_date.isoformat(),

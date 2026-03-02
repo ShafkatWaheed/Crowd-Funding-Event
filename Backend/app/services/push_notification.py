@@ -9,11 +9,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.logger import get_logger
 from app.models.device_token import DeviceToken
+from app.repositories.notification_repo import notification_repo
 
 logger = get_logger("push_notification")
 
@@ -33,9 +33,7 @@ async def send_push(
     if not await ps.get_bool(db, "push_notifications_enabled"):
         return 0
 
-    tokens = (await db.execute(
-        select(DeviceToken).where(DeviceToken.user_id == user_id)
-    )).scalars().all()
+    tokens = await notification_repo.get_device_tokens_for_user(db, user_id)
 
     if not tokens:
         return 0
@@ -58,9 +56,7 @@ async def send_push_bulk(
         return 0
 
     unique_ids = list(set(user_ids))
-    tokens = (await db.execute(
-        select(DeviceToken).where(DeviceToken.user_id.in_(unique_ids))
-    )).scalars().all()
+    tokens = await notification_repo.get_device_tokens_for_users(db, unique_ids)
 
     if not tokens:
         return 0
@@ -114,10 +110,7 @@ async def _send_to_tokens(
                 logger.info("Removing stale token id=%d", tokens[i].id)
 
     if stale_token_ids:
-        await db.execute(
-            delete(DeviceToken).where(DeviceToken.id.in_(stale_token_ids))
-        )
-        await db.flush()
+        await notification_repo.delete_stale_tokens(db, stale_token_ids)
 
     logger.info(
         "FCM: sent %d/%d, stale removed %d",

@@ -159,3 +159,48 @@ async def test_sponsor_public_profile_not_found(
         headers=auth_headers_customer,
     )
     assert r.status_code == 404
+
+
+# =====================================================================
+# 7. Phase 0D gap-fills: event metrics & sponsor bid stats
+# =====================================================================
+
+
+async def test_organizer_profile_event_metrics(
+    client: AsyncClient,
+    test_event_approved,
+    test_users,
+    auth_headers_customer,
+):
+    """GET /users/{id}/public-profile for organizer includes event_metrics with counts."""
+    organizer = test_users["organizer"]
+    r = await client.get(
+        f"/api/v1/users/{organizer.id}/public-profile",
+        headers=auth_headers_customer,
+    )
+    assert r.status_code == 200
+    data = r.json()
+    metrics = data["event_metrics"]
+    # Organizer owns at least 1 approved event (test_event_approved)
+    assert metrics["total"] >= 1
+    # Should have status breakdown (e.g. "approved" key)
+    assert "approved" in metrics
+
+
+async def test_sponsor_profile_bid_stats(
+    client: AsyncClient,
+    test_users_with_sponsor,
+    test_sponsor_bid,
+    auth_headers_customer,
+):
+    """GET /users/{id}/sponsor-public-profile for sponsor shows bid stats."""
+    sponsor = test_users_with_sponsor["sponsor"]
+    r = await client.get(
+        f"/api/v1/users/{sponsor.id}/sponsor-public-profile",
+        headers=auth_headers_customer,
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert data["id"] == sponsor.id
+    # Sponsor should have at least 1 bid from the fixture
+    assert data["total_bids"] >= 1

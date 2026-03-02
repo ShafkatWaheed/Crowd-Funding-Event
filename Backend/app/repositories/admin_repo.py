@@ -568,5 +568,98 @@ class AdminRepository:
         }
 
 
+    # ===================================================================
+    #  Platform Settings
+    # ===================================================================
+
+    async def get_all_settings(self, db: AsyncSession):
+        from app.models.platform_settings import PlatformSetting
+        q = select(PlatformSetting).order_by(PlatformSetting.key)
+        return list((await db.execute(q)).scalars().all())
+
+    async def get_setting(self, db: AsyncSession, key: str):
+        from app.models.platform_settings import PlatformSetting
+        q = select(PlatformSetting).where(PlatformSetting.key == key)
+        return (await db.execute(q)).scalar_one_or_none()
+
+    async def upsert_setting(self, db: AsyncSession, row, *, value: str, description: str | None = None):
+        """Update existing row or create new one. Returns the row."""
+        from app.models.platform_settings import PlatformSetting
+        if row:
+            row.value = value
+            if description is not None:
+                row.description = description
+            await db.flush()
+            await db.refresh(row)
+            return row
+        else:
+            new_row = PlatformSetting(key="", value=value, description=description)
+            return new_row
+
+    async def create_setting(self, db: AsyncSession, setting) -> None:
+        db.add(setting)
+        await db.flush()
+        await db.refresh(setting)
+
+    # ===================================================================
+    #  Audit Log
+    # ===================================================================
+
+    async def create_audit_log(self, db: AsyncSession, entry) -> None:
+        from app.models.audit_log import AuditLog
+        db.add(entry)
+        await db.flush()
+
+    async def list_audit_logs(
+        self, db: AsyncSession, *, offset: int = 0, limit: int = 50,
+        action: str | None = None, target_type: str | None = None, admin_id: int | None = None,
+    ) -> tuple[list, int]:
+        from app.models.audit_log import AuditLog
+        q = select(AuditLog)
+        if action:
+            q = q.where(AuditLog.action == action)
+        if target_type:
+            q = q.where(AuditLog.target_type == target_type)
+        if admin_id:
+            q = q.where(AuditLog.admin_id == admin_id)
+        total = (await db.execute(
+            select(func.count()).select_from(q.subquery())
+        )).scalar_one()
+        rows = (await db.execute(
+            q.order_by(AuditLog.created_at.desc()).offset(offset).limit(limit)
+        )).scalars().all()
+        return list(rows), int(total)
+
+    # ===================================================================
+    #  Reconciliation
+    # ===================================================================
+
+    async def get_reconciliation_report(self, db: AsyncSession, run_date):
+        from app.models.reconciliation import ReconciliationReport
+        q = select(ReconciliationReport).where(ReconciliationReport.run_date == run_date)
+        return (await db.execute(q)).scalar_one_or_none()
+
+    async def delete_reconciliation_report(self, db: AsyncSession, report) -> None:
+        await db.delete(report)
+        await db.flush()
+
+    async def create_reconciliation_report(self, db: AsyncSession, report) -> None:
+        db.add(report)
+        await db.flush()
+
+    async def get_mock_ledger_actual_balance(self, db: AsyncSession) -> int:
+        from app.models.payment_mock_ledger import MockLedgerStatus, PaymentMockLedger
+        actual = (await db.execute(
+            select(func.coalesce(func.sum(PaymentMockLedger.amount_cents), 0)).where(
+                PaymentMockLedger.status.in_([
+                    MockLedgerStatus.completed,
+                    MockLedgerStatus.settled,
+                    MockLedgerStatus.settlement_pending,
+                ])
+            )
+        )).scalar_one()
+        return int(actual)
+
+
 # Module-level singleton
 admin_repo = AdminRepository()

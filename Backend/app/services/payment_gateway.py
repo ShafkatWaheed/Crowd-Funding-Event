@@ -15,7 +15,6 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.payment_mock_ledger import (
@@ -23,6 +22,7 @@ from app.models.payment_mock_ledger import (
     MockLedgerStatus,
     PaymentMockLedger,
 )
+from app.repositories.ledger_repo import ledger_repo
 from app.services import platform_settings as settings_svc
 
 from app.logger import get_logger
@@ -170,11 +170,7 @@ class MockPaymentGateway(PaymentGateway):
         tax_cents: int = 0,
     ) -> ChargeResult:
         if idempotency_key:
-            existing = (await db.execute(
-                select(PaymentMockLedger).where(
-                    PaymentMockLedger.idempotency_key == idempotency_key
-                )
-            )).scalar_one_or_none()
+            existing = await ledger_repo.get_by_idempotency_key(db, idempotency_key)
             if existing:
                 return ChargeResult(
                     transaction_id=existing.transaction_id,
@@ -205,25 +201,28 @@ class MockPaymentGateway(PaymentGateway):
             processing_at=now,
             created_at=now,
         )
-        db.add(entry)
-        await db.flush()
+        await ledger_repo.create_entry(db, entry)
 
         await self._latency(db, "mock_charge_latency_min_ms", "mock_charge_latency_max_ms")
 
         failure = await self._should_fail(db)
         if failure:
-            entry.status = MockLedgerStatus.failed
-            entry.failure_reason = failure
-            entry.completed_at = datetime.now(timezone.utc)
-            await db.flush()
+            await ledger_repo.update_entry_status(
+                db, entry,
+                status=MockLedgerStatus.failed,
+                failure_reason=failure,
+                completed_at=datetime.now(timezone.utc),
+            )
             return ChargeResult(
                 transaction_id=txn_id, status="failed",
                 authorization_code=auth_code,
             )
 
-        entry.status = MockLedgerStatus.completed
-        entry.completed_at = datetime.now(timezone.utc)
-        await db.flush()
+        await ledger_repo.update_entry_status(
+            db, entry,
+            status=MockLedgerStatus.completed,
+            completed_at=datetime.now(timezone.utc),
+        )
 
         escrow_net = amount_cents - commission_cents - fee_cents - tax_cents
         from app.services import ledger as ledger_svc
@@ -270,14 +269,15 @@ class MockPaymentGateway(PaymentGateway):
             processing_at=now,
             created_at=now,
         )
-        db.add(entry)
-        await db.flush()
+        await ledger_repo.create_entry(db, entry)
 
         await self._latency(db, "mock_transfer_latency_min_ms", "mock_transfer_latency_max_ms")
 
-        entry.status = MockLedgerStatus.completed
-        entry.completed_at = datetime.now(timezone.utc)
-        await db.flush()
+        await ledger_repo.update_entry_status(
+            db, entry,
+            status=MockLedgerStatus.completed,
+            completed_at=datetime.now(timezone.utc),
+        )
 
         from app.services import ledger as ledger_svc
         await ledger_svc.record_entries(db, transaction_id=txn_id, entries=[
@@ -316,14 +316,15 @@ class MockPaymentGateway(PaymentGateway):
             processing_at=now,
             created_at=now,
         )
-        db.add(entry)
-        await db.flush()
+        await ledger_repo.create_entry(db, entry)
 
         await self._latency(db, "mock_refund_latency_min_ms", "mock_refund_latency_max_ms")
 
-        entry.status = MockLedgerStatus.completed
-        entry.completed_at = datetime.now(timezone.utc)
-        await db.flush()
+        await ledger_repo.update_entry_status(
+            db, entry,
+            status=MockLedgerStatus.completed,
+            completed_at=datetime.now(timezone.utc),
+        )
 
         from app.services import ledger as ledger_svc
         await ledger_svc.record_entries(db, transaction_id=txn_id, entries=[
@@ -363,8 +364,7 @@ class MockPaymentGateway(PaymentGateway):
             completed_at=now,
             created_at=now,
         )
-        db.add(entry)
-        await db.flush()
+        await ledger_repo.create_entry(db, entry)
 
         from app.services import ledger as ledger_svc
         await ledger_svc.record_entries(db, transaction_id=txn_id, entries=[
@@ -403,8 +403,7 @@ class MockPaymentGateway(PaymentGateway):
             processing_at=now,
             created_at=now,
         )
-        db.add(entry)
-        await db.flush()
+        await ledger_repo.create_entry(db, entry)
 
         from app.services import ledger as ledger_svc
         await ledger_svc.record_entries(db, transaction_id=txn_id, entries=[
@@ -416,9 +415,11 @@ class MockPaymentGateway(PaymentGateway):
 
         settlement_delay = await settings_svc.get_int(db, "mock_settlement_delay_seconds")
         if settlement_delay <= 0:
-            entry.status = MockLedgerStatus.settled
-            entry.completed_at = datetime.now(timezone.utc)
-            await db.flush()
+            await ledger_repo.update_entry_status(
+                db, entry,
+                status=MockLedgerStatus.settled,
+                completed_at=datetime.now(timezone.utc),
+            )
 
         return TransferResult(
             transaction_id=txn_id,

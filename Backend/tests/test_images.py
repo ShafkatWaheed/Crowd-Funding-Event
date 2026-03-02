@@ -122,3 +122,51 @@ async def test_delete_image_not_found(
         headers=auth_headers_organizer,
     )
     assert r.status_code == 404
+
+
+# ── Phase 0D gap-fills ──
+
+
+async def test_upload_event_image_file(
+    client: AsyncClient,
+    test_event_approved,
+    auth_headers_organizer,
+) -> None:
+    """POST /events/{id}/images/upload with a file creates an image record."""
+    # Create a minimal valid JPEG (SOI + EOI markers)
+    fake_jpeg = b"\xff\xd8\xff\xe0" + b"\x00" * 100 + b"\xff\xd9"
+    r = await client.post(
+        f"/api/v1/events/{test_event_approved.id}/images/upload",
+        files={"file": ("test.jpg", fake_jpeg, "image/jpeg")},
+        data={"caption": "Uploaded image", "display_order": "2"},
+        headers=auth_headers_organizer,
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert data["caption"] == "Uploaded image"
+    assert data["display_order"] == 2
+    assert "id" in data
+    assert data["image_url"].endswith(".jpg")
+
+
+async def test_max_images_policy(
+    client: AsyncClient,
+    test_event_approved,
+    test_event_image,
+    auth_headers_organizer,
+) -> None:
+    """Adding images beyond max limit returns 409."""
+    from unittest.mock import patch, AsyncMock
+
+    # Mock the policy to return max_images=1 (we already have 1 from fixture)
+    async def mock_policy(db, event):
+        return {"event_max_images": 1}
+
+    with patch("app.api.v1.events.images.event_service.get_effective_policy", side_effect=mock_policy):
+        r = await client.post(
+            _images_url(test_event_approved.id),
+            params={"image_url": "https://example.com/extra.jpg"},
+            headers=auth_headers_organizer,
+        )
+    assert r.status_code == 409
+    assert "Max" in r.json()["detail"]

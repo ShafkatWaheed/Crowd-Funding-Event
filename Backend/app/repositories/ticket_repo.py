@@ -630,5 +630,35 @@ class TicketRepository(BaseRepository[TicketSale]):
         return int((await db.execute(q)).scalar_one()) > 0
 
 
+    # ── Refund retry helpers ────────────────────────────────────────
+
+    async def get_sale_by_id(
+        self, db: AsyncSession, sale_id: int
+    ) -> TicketSale | None:
+        q = select(TicketSale).where(TicketSale.id == sale_id)
+        return (await db.execute(q)).scalar_one_or_none()
+
+    async def list_refund_failed_ids(
+        self, db: AsyncSession, event_id: int
+    ) -> list[int]:
+        q = select(TicketSale.id).where(
+            TicketSale.event_id == event_id,
+            TicketSale.status == TicketSaleStatus.refund_failed,
+        )
+        return list((await db.execute(q)).scalars().all())
+
+    async def count_refund_failed(
+        self, db: AsyncSession, event_id: int
+    ) -> int:
+        q = select(func.count()).select_from(TicketSale).where(
+            TicketSale.event_id == event_id,
+            TicketSale.status == TicketSaleStatus.refund_failed,
+        )
+        return int((await db.execute(q)).scalar_one())
+
+    async def flush(self, db: AsyncSession) -> None:
+        await db.flush()
+
+
 # Module-level singleton
 ticket_repo = TicketRepository()

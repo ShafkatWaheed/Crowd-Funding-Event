@@ -16,13 +16,14 @@ from pathlib import Path
 from typing import Any
 
 import redis.asyncio as aioredis
-from sqlalchemy import and_, select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.logger import get_logger
 from app.models.event import Event, EventStatus
 from app.models.sponsor import SponsorBid, BidStatus, SponsorshipCategory
+from app.repositories.sponsor_repo import sponsor_repo
+from app.repositories.event_repo import event_repo
 
 logger = get_logger("chat")
 
@@ -50,15 +51,15 @@ async def validate_participant(db: AsyncSession, bid_id: int, user_id: int) -> d
     Returns dict with bid, event, sponsor_user_id, organizer_user_id, is_writable.
     Raises ValueError if user is not a participant.
     """
-    bid = await db.get(SponsorBid, bid_id)
+    bid = await sponsor_repo.get_bid(db, bid_id)
     if not bid:
         raise ValueError("Bid not found")
 
-    cat = await db.get(SponsorshipCategory, bid.category_id)
+    cat = await sponsor_repo.get_category(db, bid.category_id)
     if not cat or not cat.event_id:
         raise ValueError("Sponsorship category not linked to event")
 
-    event = await db.get(Event, cat.event_id)
+    event = await event_repo.get_by_id_with_relations(db, cat.event_id)
     if not event:
         raise ValueError("Event not found")
 
@@ -191,7 +192,7 @@ async def update_pg_metadata(
     sender_is_sponsor: bool,
 ) -> None:
     """Update lightweight chat metadata on the sponsor_bids row."""
-    bid = await db.get(SponsorBid, bid_id)
+    bid = await sponsor_repo.get_bid(db, bid_id)
     if not bid:
         return
     bid.last_message_at = datetime.now(timezone.utc)
@@ -199,50 +200,24 @@ async def update_pg_metadata(
         bid.unread_count_organizer = (bid.unread_count_organizer or 0) + 1
     else:
         bid.unread_count_sponsor = (bid.unread_count_sponsor or 0) + 1
-    await db.flush()
+    await sponsor_repo.flush(db)
 
 
 async def clear_unread(db: AsyncSession, bid_id: int, user_is_sponsor: bool) -> None:
     """Clear unread count for the reading user."""
-    bid = await db.get(SponsorBid, bid_id)
+    bid = await sponsor_repo.get_bid(db, bid_id)
     if not bid:
         return
     if user_is_sponsor:
         bid.unread_count_sponsor = 0
     else:
         bid.unread_count_organizer = 0
-    await db.flush()
+    await sponsor_repo.flush(db)
 
 
 async def get_conversations(db: AsyncSession, user_id: int) -> list[dict[str, Any]]:
     """List bids with chat activity for the current user."""
-    from sqlalchemy.orm import aliased
-    from app.models.user import User
-
-    SponsorUser = aliased(User)
-    OrganizerUser = aliased(User)
-
-    q = (
-        select(SponsorBid, SponsorshipCategory, Event, SponsorUser, OrganizerUser)
-        .join(SponsorshipCategory, SponsorBid.category_id == SponsorshipCategory.id)
-        .join(Event, SponsorshipCategory.event_id == Event.id)
-        .join(SponsorUser, SponsorBid.sponsor_user_id == SponsorUser.id)
-        .join(OrganizerUser, Event.organizer_id == OrganizerUser.id)
-        .where(
-            or_(
-                # Sponsors see ALL their bids (even without messages yet)
-                SponsorBid.sponsor_user_id == user_id,
-                # Organizers only see bids with chat activity
-                and_(
-                    Event.organizer_id == user_id,
-                    SponsorBid.last_message_at.isnot(None),
-                ),
-            ),
-        )
-        .order_by(SponsorBid.last_message_at.desc().nullslast())
-    )
-    result = await db.execute(q)
-    rows = result.all()
+    rows = await sponsor_repo.list_chat_conversations(db, user_id)
 
     conversations = []
     for bid, cat, event, sponsor_user, organizer_user in rows:

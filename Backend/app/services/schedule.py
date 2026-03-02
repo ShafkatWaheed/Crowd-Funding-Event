@@ -5,13 +5,13 @@ from collections import defaultdict
 from datetime import date, time
 from io import BytesIO
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError, ForbiddenError, ConflictError
 from app.models.schedule import EventScheduleItem
 from app.models.event import Event
 from app.models.user import User
+from app.repositories.event_repo import event_repo
 from app.schemas.schedule import (
     ScheduleItemCreate,
     ScheduleItemUpdate,
@@ -22,8 +22,7 @@ from app.services import event as event_service
 
 
 async def _get_or_404(db: AsyncSession, item_id: int) -> EventScheduleItem:
-    q = select(EventScheduleItem).where(EventScheduleItem.id == item_id)
-    row = (await db.execute(q)).scalar_one_or_none()
+    row = await event_repo.get_schedule_item(db, item_id)
     if not row:
         raise NotFoundError("ScheduleItem", item_id)
     return row
@@ -74,12 +73,7 @@ def _compute_overlaps(items: list[EventScheduleItem]) -> dict[int, bool]:
 
 async def list_schedule(db: AsyncSession, event_id: int) -> list[ScheduleDayGroup]:
     await event_service.get_or_404(db, event_id)
-    q = (
-        select(EventScheduleItem)
-        .where(EventScheduleItem.event_id == event_id)
-        .order_by(EventScheduleItem.date, EventScheduleItem.start_time, EventScheduleItem.sort_order)
-    )
-    rows = list((await db.execute(q)).scalars().all())
+    rows = await event_repo.list_schedule_items(db, event_id)
     overlap_map = _compute_overlaps(rows)
 
     by_date: dict[str, list[ScheduleItemResponse]] = defaultdict(list)
@@ -136,9 +130,7 @@ async def create_item(
         link_url=data.link_url,
         sort_order=data.sort_order,
     )
-    db.add(item)
-    await db.flush()
-    await db.refresh(item)
+    item = await event_repo.create_schedule_item(db, item)
     return _item_to_response(item)
 
 
@@ -165,8 +157,7 @@ async def update_item(
         if field in update_data:
             setattr(item, field, update_data[field])
 
-    await db.flush()
-    await db.refresh(item)
+    item = await event_repo.update_schedule_item(db, item)
     return _item_to_response(item)
 
 
@@ -174,8 +165,7 @@ async def delete_item(db: AsyncSession, item_id: int, user: User) -> None:
     item = await _get_or_404(db, item_id)
     event = await event_service.get_or_404(db, item.event_id)
     await _check_organizer(db, event, user)
-    await db.delete(item)
-    await db.flush()
+    await event_repo.delete_schedule_item(db, item)
 
 
 async def bulk_create(
@@ -200,12 +190,9 @@ async def bulk_create(
             link_url=data.link_url,
             sort_order=data.sort_order,
         )
-        db.add(item)
         created.append(item)
 
-    await db.flush()
-    for it in created:
-        await db.refresh(it)
+    created = await event_repo.bulk_create_schedule_items(db, created)
     return [_item_to_response(it) for it in created]
 
 

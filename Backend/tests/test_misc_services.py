@@ -403,3 +403,162 @@ async def test_stripe_webhook_invalid_event(client, db_session):
     )
     # May return 200 (ignored) or 400
     assert resp.status_code in (200, 400)
+
+
+# ---------------------------------------------------------------------------
+# Platform settings — extended (Phase 0B.1)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_get_float_setting(db_session):
+    """get_float() returns float, falls back to DEFAULTS for unknown key."""
+    from app.services import platform_settings as ps
+    # Set a known float value
+    await ps.set_value(db_session, "mock_stripe_fee_percent", "3.5")
+    val = await ps.get_float(db_session, "mock_stripe_fee_percent")
+    assert val == 3.5
+    # Unknown key falls back to DEFAULTS
+    val2 = await ps.get_float(db_session, "default_tax_rate")
+    assert isinstance(val2, float)
+
+
+@pytest.mark.asyncio
+async def test_get_str_setting(db_session):
+    """get_str() returns string value, falls back to DEFAULTS for missing key."""
+    from app.services import platform_settings as ps
+    await ps.set_value(db_session, "platform_name", "TestPlatform")
+    val = await ps.get_str(db_session, "platform_name")
+    assert val == "TestPlatform"
+    # Key not in DB — should return default from DEFAULTS dict
+    val2 = await ps.get_str(db_session, "email_provider")
+    assert isinstance(val2, str)
+
+
+@pytest.mark.asyncio
+async def test_get_all_with_descriptions(db_session):
+    """get_all_with_descriptions() merges DB rows with DEFAULTS."""
+    from app.services import platform_settings as ps
+    await ps.set_value(db_session, "platform_name", "TestPlatform", description="Custom desc")
+    result = await ps.get_all_with_descriptions(db_session)
+    assert isinstance(result, list)
+    assert len(result) > 0
+    # Check our custom key is in the results with its description
+    custom = next((r for r in result if r["key"] == "platform_name"), None)
+    assert custom is not None
+    assert custom["value"] == "TestPlatform"
+    assert custom["description"] == "Custom desc"
+    # Check a default key is also in the results
+    default = next((r for r in result if r["key"] == "cache_enabled"), None)
+    assert default is not None
+
+
+@pytest.mark.asyncio
+async def test_set_value_special_keys(db_session):
+    """set_value() on cache_enabled triggers set_cache_enabled side effect."""
+    from app.services import platform_settings as ps
+    from unittest.mock import patch
+    with patch("app.cache.set_cache_enabled") as mock_set:
+        await ps.set_value(db_session, "cache_enabled", "false")
+        mock_set.assert_called_once_with(False)
+
+
+# ---------------------------------------------------------------------------
+# KYC — extended (Phase 0B.2)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_list_kyc_documents(db_session, test_users):
+    """list_documents returns user's KYC documents (empty initially)."""
+    from app.services.kyc_verification import list_documents
+    docs = await list_documents(db_session, test_users["customer"].id)
+    assert isinstance(docs, list)
+    assert len(docs) == 0
+
+
+@pytest.mark.asyncio
+async def test_upload_kyc_document(db_session, test_users, tmp_path):
+    """upload_document creates a KycDocument record."""
+    from app.services.kyc_verification import upload_document, list_documents
+    from app.models.kyc_document import KycDocumentType
+    # Create a temp file
+    fake_file = tmp_path / "id_front.jpg"
+    fake_file.write_text("fake image data")
+    doc = await upload_document(
+        db_session,
+        user_id=test_users["customer"].id,
+        document_type=KycDocumentType.id_front,
+        file_path=str(fake_file),
+        mime_type="image/jpeg",
+        original_filename="id_front.jpg",
+    )
+    assert doc is not None
+    assert doc.user_id == test_users["customer"].id
+    docs = await list_documents(db_session, test_users["customer"].id)
+    assert len(docs) == 1
+
+
+@pytest.mark.asyncio
+async def test_delete_kyc_document_pending(db_session, test_users, tmp_path):
+    """delete_document removes a pending document and cleans up file."""
+    from app.services.kyc_verification import upload_document, delete_document, list_documents
+    from app.models.kyc_document import KycDocumentType
+    fake_file = tmp_path / "id_front2.jpg"
+    fake_file.write_text("fake data")
+    doc = await upload_document(
+        db_session,
+        user_id=test_users["customer"].id,
+        document_type=KycDocumentType.id_front,
+        file_path=str(fake_file),
+        mime_type="image/jpeg",
+        original_filename="id_front2.jpg",
+    )
+    await delete_document(db_session, test_users["customer"].id, doc.id)
+    docs = await list_documents(db_session, test_users["customer"].id)
+    assert len(docs) == 0
+
+
+@pytest.mark.asyncio
+async def test_submit_kyc_for_review(db_session, test_users, tmp_path):
+    """submit_for_review with mock enabled auto-verifies."""
+    from app.services.kyc_verification import upload_document, submit_for_review
+    from app.models.kyc_document import KycDocumentType
+    user = test_users["customer"]
+    # Upload required docs
+    for doc_type in [KycDocumentType.id_front, KycDocumentType.proof_of_address]:
+        f = tmp_path / f"{doc_type.value}.jpg"
+        f.write_text("fake")
+        await upload_document(
+            db_session, user_id=user.id,
+            document_type=doc_type, file_path=str(f),
+            mime_type="image/jpeg", original_filename=f"{doc_type.value}.jpg",
+        )
+    result = await submit_for_review(db_session, user.id)
+    assert result.status in ("verified", "rejected")  # mock path
+
+
+@pytest.mark.asyncio
+async def test_admin_kyc_verify(db_session, test_users, tmp_path):
+    """admin_verify approves user and creates notification."""
+    from app.services.kyc_verification import upload_document, admin_verify
+    from app.models.kyc_document import KycDocumentType
+    customer = test_users["customer"]
+    admin = test_users["admin"]
+    # Upload required docs
+    for doc_type in [KycDocumentType.id_front, KycDocumentType.proof_of_address]:
+        f = tmp_path / f"{doc_type.value}.jpg"
+        f.write_text("fake")
+        await upload_document(
+            db_session, user_id=customer.id,
+            document_type=doc_type, file_path=str(f),
+            mime_type="image/jpeg", original_filename=f"{doc_type.value}.jpg",
+        )
+    status = await admin_verify(
+        db_session,
+        user_id=customer.id,
+        approved=True,
+        rejection_reason=None,
+        reviewed_by_id=admin.id,
+    )
+    assert status == "verified"

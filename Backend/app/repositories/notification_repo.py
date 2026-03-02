@@ -216,6 +216,30 @@ class NotificationRepository(BaseRepository[Notification]):
         q = select(DeviceToken).where(DeviceToken.user_id == user_id)
         return list((await db.execute(q)).scalars().all())
 
+    async def get_device_tokens_for_users(
+        self,
+        db: AsyncSession,
+        user_ids: list[int],
+    ) -> list[DeviceToken]:
+        """Return all device tokens for multiple users."""
+        if not user_ids:
+            return []
+        q = select(DeviceToken).where(DeviceToken.user_id.in_(user_ids))
+        return list((await db.execute(q)).scalars().all())
+
+    async def delete_stale_tokens(
+        self,
+        db: AsyncSession,
+        token_ids: list[int],
+    ) -> None:
+        """Delete device tokens by their IDs (stale/unregistered cleanup)."""
+        if not token_ids:
+            return
+        await db.execute(
+            sa_delete(DeviceToken).where(DeviceToken.id.in_(token_ids))
+        )
+        await db.flush()
+
 
 # Module-level singleton
 notification_repo = NotificationRepository()

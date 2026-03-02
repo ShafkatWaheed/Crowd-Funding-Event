@@ -9,7 +9,7 @@
 
 - **Screen/Widget:** `HomeScreen` (tabs: Home, Explore, Manage/My Events, Profile); FAB "New Event" (organizer/admin); bottom nav; inner screens (event detail, create, edit, venues, ticket strategies, admin, etc.) with close (X) and safe pop. Create Event: 5-step wizard (IndexedStack). Toasts: AppToast (success, error, warning, info). Loading: `LoadingSwitcher` (animated transition between shimmer placeholder and content); shimmer loaders use `AppTheme.shimmerOf` and `AppTheme.shimmerHighlightOf` for dark/light consistency.
 - **User action:** Switch tabs; tap cards to open detail; tap X to close (pop to previous tab/page); next/back in wizard; trigger toasts on success/error.
-- **API calls:** Various (each screen calls its own APIs). Router and navigation do not call API directly; ApiService used by providers/screens. Error extraction: ApiService.extractError for backend detail message.
+- **API calls:** Various (each screen calls its own APIs via providers). Under [Three-Layer Architecture](75-three-layer-architecture.md), screens use providers, providers use repositories (or ApiService); router and navigation do not call API directly. Error extraction: ApiService.extractError or ApiError.extractMessage for backend detail message.
 
 ## Backend routing
 

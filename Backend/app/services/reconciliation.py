@@ -3,15 +3,13 @@ Daily reconciliation: compares ledger balances against mock/real bank balance.
 """
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
-
-from sqlalchemy import func, select
+from datetime import date
 
 from app.logger import get_logger, log_step
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.payment_mock_ledger import MockLedgerStatus, PaymentMockLedger
 from app.models.reconciliation import ReconciliationReport
+from app.repositories.admin_repo import admin_repo
 from app.services import ledger as ledger_svc
 from app.services import platform_settings as settings_svc
 
@@ -23,26 +21,14 @@ async def run_reconciliation(db: AsyncSession) -> ReconciliationReport:
     today = date.today()
     log_step(logger, "Running reconciliation", run_date=str(today))
 
-    existing = (await db.execute(
-        select(ReconciliationReport).where(ReconciliationReport.run_date == today)
-    )).scalar_one_or_none()
+    existing = await admin_repo.get_reconciliation_report(db, today)
     if existing:
-        await db.delete(existing)
-        await db.flush()
+        await admin_repo.delete_reconciliation_report(db, existing)
 
     mock_active = await settings_svc.get_bool(db, "payment_mock_enabled")
 
     if mock_active:
-        actual = (await db.execute(
-            select(func.coalesce(func.sum(PaymentMockLedger.amount_cents), 0)).where(
-                PaymentMockLedger.status.in_([
-                    MockLedgerStatus.completed,
-                    MockLedgerStatus.settled,
-                    MockLedgerStatus.settlement_pending,
-                ])
-            )
-        )).scalar_one()
-        actual_balance = int(actual)
+        actual_balance = await admin_repo.get_mock_ledger_actual_balance(db)
     else:
         actual_balance = 0
 
@@ -73,7 +59,6 @@ async def run_reconciliation(db: AsyncSession) -> ReconciliationReport:
         delta_cents=delta,
         status=status,
     )
-    db.add(report)
-    await db.flush()
+    await admin_repo.create_reconciliation_report(db, report)
     logger.info("Reconciliation run completed", extra={"run_date": str(today), "status": status, "delta_cents": delta})
     return report

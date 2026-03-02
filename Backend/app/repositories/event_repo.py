@@ -36,6 +36,8 @@ from app.models.registration import Registration, RegistrationStatus
 from app.models.ticket import TicketSale, TicketSaleStatus, TicketTier, UserEventDiscount
 from app.models.user import User
 from app.models.venue import Venue
+from app.models.schedule import EventScheduleItem
+from app.models.post import EventPost
 from app.repositories.base import BaseRepository
 
 
@@ -976,6 +978,118 @@ class EventRepository(BaseRepository[Event]):
             Funding.status == FundingStatus.pledged,
         )
         return int((await db.execute(q)).scalar_one())
+
+
+    # ═══════════════════════════════════════════════════════════════════
+    #  Schedule Items
+    # ═══════════════════════════════════════════════════════════════════
+
+    async def get_schedule_item(
+        self, db: AsyncSession, item_id: int
+    ) -> EventScheduleItem | None:
+        q = select(EventScheduleItem).where(EventScheduleItem.id == item_id)
+        return (await db.execute(q)).scalar_one_or_none()
+
+    async def list_schedule_items(
+        self, db: AsyncSession, event_id: int
+    ) -> list[EventScheduleItem]:
+        q = (
+            select(EventScheduleItem)
+            .where(EventScheduleItem.event_id == event_id)
+            .order_by(
+                EventScheduleItem.date,
+                EventScheduleItem.start_time,
+                EventScheduleItem.sort_order,
+            )
+        )
+        return list((await db.execute(q)).scalars().all())
+
+    async def create_schedule_item(
+        self, db: AsyncSession, item: EventScheduleItem
+    ) -> EventScheduleItem:
+        db.add(item)
+        await db.flush()
+        await db.refresh(item)
+        return item
+
+    async def update_schedule_item(
+        self, db: AsyncSession, item: EventScheduleItem
+    ) -> EventScheduleItem:
+        await db.flush()
+        await db.refresh(item)
+        return item
+
+    async def delete_schedule_item(
+        self, db: AsyncSession, item: EventScheduleItem
+    ) -> None:
+        await db.delete(item)
+        await db.flush()
+
+    async def bulk_create_schedule_items(
+        self, db: AsyncSession, items: list[EventScheduleItem]
+    ) -> list[EventScheduleItem]:
+        for item in items:
+            db.add(item)
+        await db.flush()
+        for item in items:
+            await db.refresh(item)
+        return items
+
+    # ═══════════════════════════════════════════════════════════════════
+    #  Event Posts
+    # ═══════════════════════════════════════════════════════════════════
+
+    async def list_posts(
+        self, db: AsyncSession, event_id: int
+    ) -> list[EventPost]:
+        q = (
+            select(EventPost)
+            .where(EventPost.event_id == event_id)
+            .options(selectinload(EventPost.user))
+            .order_by(EventPost.created_at.desc())
+        )
+        return list((await db.execute(q)).scalars().unique().all())
+
+    async def get_post(
+        self, db: AsyncSession, post_id: int, event_id: int
+    ) -> EventPost | None:
+        q = select(EventPost).where(
+            EventPost.id == post_id, EventPost.event_id == event_id
+        )
+        return (await db.execute(q)).scalar_one_or_none()
+
+    async def create_post(
+        self, db: AsyncSession, post: EventPost
+    ) -> EventPost:
+        db.add(post)
+        await db.flush()
+        await db.refresh(post, attribute_names=["user"])
+        return post
+
+    async def delete_post(
+        self, db: AsyncSession, post: EventPost
+    ) -> None:
+        await db.delete(post)
+        await db.flush()
+
+    async def count_posts_today(
+        self, db: AsyncSession, event_id: int, since: "datetime"
+    ) -> int:
+        q = select(func.count()).where(
+            EventPost.event_id == event_id,
+            EventPost.created_at >= since,
+        )
+        return int((await db.execute(q)).scalar_one())
+
+    async def check_registration(
+        self, db: AsyncSession, event_id: int, user_id: int
+    ) -> Registration | None:
+        q = select(Registration).where(
+            Registration.event_id == event_id,
+            Registration.user_id == user_id,
+            Registration.status == RegistrationStatus.registered,
+        )
+        return (await db.execute(q)).scalar_one_or_none()
 
 
 # Module-level singleton

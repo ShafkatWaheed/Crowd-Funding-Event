@@ -277,3 +277,68 @@ async def test_cleanup_old_records_enabled():
             with patch("app.worker.tasks._log_cron_run", new_callable=AsyncMock):
                 from app.worker.tasks import cleanup_old_records
                 await cleanup_old_records(_mock_ctx())
+
+
+# ---------------------------------------------------------------------------
+# Bank / payout / settle tasks
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_mock_verify_bank_account():
+    """mock_verify_bank_account sets account to verified when pending."""
+    mock_sm, mock_session = _mock_session_maker()
+
+    mock_acct = MagicMock()
+    mock_acct.id = 1
+    mock_acct.user_id = 10
+    mock_acct.verified = False
+    mock_acct.verification_status = "pending"  # BankVerificationStatus.pending
+
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = mock_acct
+    mock_session.execute = AsyncMock(return_value=mock_result)
+
+    with patch("app.worker.tasks.async_session_maker", mock_sm):
+        with patch("app.services.notification_service.create_notification", new_callable=AsyncMock):
+            from app.worker.tasks import mock_verify_bank_account
+            await mock_verify_bank_account(_mock_ctx(), bank_account_id=1)
+
+    assert mock_acct.verified is True
+    assert mock_acct.verification_status.value == "verified" or mock_acct.verification_status == "verified"
+
+
+@pytest.mark.asyncio
+async def test_mock_auto_settle():
+    """mock_auto_settle settles pending entries past the delay cutoff."""
+    mock_sm, mock_session = _mock_session_maker()
+
+    mock_entry = MagicMock()
+    mock_entry.status = "settlement_pending"
+
+    mock_result = MagicMock()
+    mock_result.scalars.return_value.all.return_value = [mock_entry]
+    mock_session.execute = AsyncMock(return_value=mock_result)
+
+    with patch("app.worker.tasks._is_cron_enabled", new_callable=AsyncMock, return_value=True):
+        with patch("app.worker.tasks.async_session_maker", mock_sm):
+            with patch("app.services.platform_settings.get_int", new_callable=AsyncMock, return_value=60):
+                with patch("app.worker.tasks._log_cron_run", new_callable=AsyncMock):
+                    from app.worker.tasks import mock_auto_settle
+                    await mock_auto_settle(_mock_ctx())
+
+
+@pytest.mark.asyncio
+async def test_process_scheduled_payouts():
+    """process_scheduled_payouts runs and processes eligible accounts."""
+    mock_sm, mock_session = _mock_session_maker()
+
+    # Return empty list of accounts — no payouts to process
+    mock_result = MagicMock()
+    mock_result.scalars.return_value.all.return_value = []
+    mock_session.execute = AsyncMock(return_value=mock_result)
+
+    with patch("app.worker.tasks._is_cron_enabled", new_callable=AsyncMock, return_value=True):
+        with patch("app.worker.tasks.async_session_maker", mock_sm):
+            with patch("app.worker.tasks._log_cron_run", new_callable=AsyncMock):
+                from app.worker.tasks import process_scheduled_payouts
+                await process_scheduled_payouts(_mock_ctx())

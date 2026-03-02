@@ -101,3 +101,69 @@ async def test_chat_read_endpoint(
         headers=auth_headers_customer,
     )
     assert r.status_code in (403, 404)
+
+
+# =====================================================================
+# 6. Chat participant validation — Phase 0B.3
+# =====================================================================
+
+
+async def test_validate_participant_sponsor(
+    client: AsyncClient,
+    test_users_with_sponsor,
+    test_sponsor_bid,
+    auth_headers_sponsor,
+):
+    """Sponsor can access their own bid's chat messages endpoint."""
+    r = await client.get(
+        f"/api/v1/chat/bids/{test_sponsor_bid.id}/messages",
+        headers=auth_headers_sponsor,
+    )
+    # Should succeed (200) with empty messages, not 403/404
+    assert r.status_code == 200
+
+
+async def test_validate_participant_organizer(
+    client: AsyncClient,
+    test_users_with_sponsor,
+    test_sponsor_bid,
+    auth_headers_organizer,
+):
+    """Organizer can access chat for bids on their own event."""
+    r = await client.get(
+        f"/api/v1/chat/bids/{test_sponsor_bid.id}/messages",
+        headers=auth_headers_organizer,
+    )
+    assert r.status_code == 200
+
+
+async def test_validate_participant_wrong_user(
+    client: AsyncClient,
+    test_users_with_sponsor,
+    test_sponsor_bid,
+    auth_headers_customer,
+):
+    """Customer (non-participant) gets 403 on bid chat."""
+    r = await client.get(
+        f"/api/v1/chat/bids/{test_sponsor_bid.id}/messages",
+        headers=auth_headers_customer,
+    )
+    assert r.status_code in (403, 404)
+
+
+async def test_sponsor_conversations_with_bid(
+    client: AsyncClient,
+    test_users_with_sponsor,
+    test_sponsor_bid,
+    auth_headers_sponsor,
+):
+    """Sponsor with an active bid sees it in conversations list."""
+    r = await client.get(
+        "/api/v1/chat/conversations",
+        headers=auth_headers_sponsor,
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert isinstance(data, list)
+    # Should include the bid in conversations
+    assert any(c.get("bid_id") == test_sponsor_bid.id for c in data)

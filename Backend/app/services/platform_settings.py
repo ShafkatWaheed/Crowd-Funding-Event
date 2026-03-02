@@ -2,12 +2,12 @@
 Platform settings service: get / set / list settings.
 Casts values to int where needed. All values stored as strings.
 """
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.cache import cache_get, cache_set, cache_delete, safe_cache_key
 from app.core.exceptions import NotFoundError
 from app.models.platform_settings import PlatformSetting
+from app.repositories.admin_repo import admin_repo
 
 # Default values used when key not yet in DB
 DEFAULTS = {
@@ -393,15 +393,13 @@ DESCRIPTIONS = {
 
 async def get_all(db: AsyncSession) -> dict[str, str]:
     """Return all settings as {key: value}."""
-    q = select(PlatformSetting).order_by(PlatformSetting.key)
-    rows = (await db.execute(q)).scalars().all()
+    rows = await admin_repo.get_all_settings(db)
     return {r.key: r.value for r in rows}
 
 
 async def get_all_with_descriptions(db: AsyncSession) -> list[dict]:
     """Return all settings with descriptions for admin UI. Merges in defaults for any key not in DB."""
-    q = select(PlatformSetting).order_by(PlatformSetting.key)
-    rows = (await db.execute(q)).scalars().all()
+    rows = await admin_repo.get_all_settings(db)
     by_key = {r.key: {"key": r.key, "value": r.value, "description": r.description} for r in rows}
     result = []
     for key in sorted(set(DEFAULTS.keys()) | set(by_key.keys())):
@@ -423,8 +421,7 @@ async def _get_raw(db: AsyncSession, key: str) -> str | None:
     if cached is not None:
         return cached
 
-    q = select(PlatformSetting).where(PlatformSetting.key == key)
-    row = (await db.execute(q)).scalar_one_or_none()
+    row = await admin_repo.get_setting(db, key)
     if row is not None:
         await cache_set(cache_key, row.value, ttl=DEFAULTS["cache_ttl_settings"])
         return row.value
@@ -466,19 +463,15 @@ async def get_str(db: AsyncSession, key: str) -> str:
 
 async def set_value(db: AsyncSession, key: str, value: str, description: str | None = None) -> PlatformSetting:
     """Upsert a setting. Creates if missing, updates if exists."""
-    q = select(PlatformSetting).where(PlatformSetting.key == key)
-    row = (await db.execute(q)).scalar_one_or_none()
+    row = await admin_repo.get_setting(db, key)
     if row:
         row.value = value
         if description is not None:
             row.description = description
-        await db.flush()
-        await db.refresh(row)
+        await admin_repo.flush_and_refresh(db, row)
     else:
         row = PlatformSetting(key=key, value=value, description=description)
-        db.add(row)
-        await db.flush()
-        await db.refresh(row)
+        await admin_repo.create_setting(db, row)
     await cache_delete(safe_cache_key("settings", key))
     if key == "bank_encryption_key":
         from app.services.encryption import set_key as _set_enc_key

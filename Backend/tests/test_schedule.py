@@ -218,3 +218,95 @@ async def test_create_schedule_item_missing_fields(
         headers=auth_headers_organizer,
     )
     assert r.status_code == 422
+
+
+# =====================================================================
+# Overlap & validation — Phase 0B.4
+# =====================================================================
+
+
+async def test_schedule_overlap_detection(
+    client: AsyncClient,
+    test_event_approved,
+    test_users,
+    auth_headers_organizer,
+):
+    """Two overlapping items on the same date should have overlaps=True in response."""
+    # Create first item: 14:00-15:00
+    r1 = await client.post(
+        f"{BASE}/{test_event_approved.id}/schedule",
+        json={
+            "title": "Session A",
+            "date": _future_date,
+            "start_time": "14:00",
+            "end_time": "15:00",
+        },
+        headers=auth_headers_organizer,
+    )
+    assert r1.status_code == 201
+
+    # Create second overlapping item: 14:30-15:30
+    r2 = await client.post(
+        f"{BASE}/{test_event_approved.id}/schedule",
+        json={
+            "title": "Session B",
+            "date": _future_date,
+            "start_time": "14:30",
+            "end_time": "15:30",
+        },
+        headers=auth_headers_organizer,
+    )
+    assert r2.status_code == 201
+
+    # List schedule — both items on the same date should have overlaps flag
+    r3 = await client.get(f"{BASE}/{test_event_approved.id}/schedule")
+    assert r3.status_code == 200
+    data = r3.json()
+    # Find the day group for our future_date
+    day_group = next((g for g in data if g["date"] == _future_date), None)
+    assert day_group is not None
+    items = day_group["items"]
+    assert len(items) >= 2
+    # At least one item should have overlaps=True
+    assert any(item.get("overlaps") is True for item in items)
+
+
+async def test_schedule_time_validation_end_before_start(
+    client: AsyncClient,
+    test_event_approved,
+    test_users,
+    auth_headers_organizer,
+):
+    """Creating item with end_time before start_time returns 400/422."""
+    r = await client.post(
+        f"{BASE}/{test_event_approved.id}/schedule",
+        json={
+            "title": "Bad Time",
+            "date": _future_date,
+            "start_time": "15:00",
+            "end_time": "14:00",
+        },
+        headers=auth_headers_organizer,
+    )
+    assert r.status_code in (400, 409, 422)
+
+
+async def test_schedule_date_out_of_range(
+    client: AsyncClient,
+    test_event_approved,
+    test_users,
+    auth_headers_organizer,
+):
+    """Creating item with date far outside event range returns 400/422."""
+    past_date = "2020-01-01"
+    r = await client.post(
+        f"{BASE}/{test_event_approved.id}/schedule",
+        json={
+            "title": "Past Item",
+            "date": past_date,
+            "start_time": "10:00",
+            "end_time": "11:00",
+        },
+        headers=auth_headers_organizer,
+    )
+    assert r.status_code in (400, 409, 422)

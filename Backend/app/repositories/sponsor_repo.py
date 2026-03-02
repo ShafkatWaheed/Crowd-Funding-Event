@@ -11,7 +11,7 @@ from typing import Any, Sequence
 
 from sqlalchemy import delete as sa_delete, distinct, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import aliased, selectinload
 
 from app.models.event import Event, EventStatus
 from app.models.prerequisite import BidPrerequisiteUpload, CategoryPrerequisite
@@ -940,6 +940,77 @@ class SponsorRepository(BaseRepository[SponsorBid]):
                 .order_by(SponsorBid.created_at.desc())
             )
         ).scalars().first()
+
+
+    # ── Refund retry helpers ────────────────────────────────────────
+
+    async def get_payment_by_id(
+        self, db: AsyncSession, payment_id: int
+    ) -> SponsorPayment | None:
+        q = select(SponsorPayment).where(SponsorPayment.id == payment_id)
+        return (await db.execute(q)).scalar_one_or_none()
+
+    async def list_refund_failed_payment_ids_for_event(
+        self, db: AsyncSession, event_id: int
+    ) -> list[int]:
+        q = (
+            select(SponsorPayment.id)
+            .join(SponsorBid, SponsorPayment.bid_id == SponsorBid.id)
+            .join(SponsorshipCategory, SponsorBid.category_id == SponsorshipCategory.id)
+            .where(
+                SponsorshipCategory.event_id == event_id,
+                SponsorPayment.status == PaymentStatus.refund_failed,
+            )
+        )
+        return list((await db.execute(q)).scalars().all())
+
+    async def count_refund_failed_payments_for_event(
+        self, db: AsyncSession, event_id: int
+    ) -> int:
+        q = (
+            select(func.count()).select_from(SponsorPayment)
+            .join(SponsorBid, SponsorPayment.bid_id == SponsorBid.id)
+            .join(SponsorshipCategory, SponsorBid.category_id == SponsorshipCategory.id)
+            .where(
+                SponsorshipCategory.event_id == event_id,
+                SponsorPayment.status == PaymentStatus.refund_failed,
+            )
+        )
+        return int((await db.execute(q)).scalar_one())
+
+
+    # ── Chat conversation queries ───────────────────────────────────
+
+    async def list_chat_conversations(
+        self, db: AsyncSession, user_id: int
+    ) -> list:
+        """Return rows of (SponsorBid, SponsorshipCategory, Event, SponsorUser, OrganizerUser)
+        for bids with chat relevance."""
+        from sqlalchemy import and_, or_
+        from app.models.event import Event, EventStatus
+        from app.models.user import User
+
+        SponsorUser = aliased(User)
+        OrganizerUser = aliased(User)
+
+        q = (
+            select(SponsorBid, SponsorshipCategory, Event, SponsorUser, OrganizerUser)
+            .join(SponsorshipCategory, SponsorBid.category_id == SponsorshipCategory.id)
+            .join(Event, SponsorshipCategory.event_id == Event.id)
+            .join(SponsorUser, SponsorBid.sponsor_user_id == SponsorUser.id)
+            .join(OrganizerUser, Event.organizer_id == OrganizerUser.id)
+            .where(
+                or_(
+                    SponsorBid.sponsor_user_id == user_id,
+                    and_(
+                        Event.organizer_id == user_id,
+                        SponsorBid.last_message_at.isnot(None),
+                    ),
+                ),
+            )
+            .order_by(SponsorBid.last_message_at.desc().nullslast())
+        )
+        return list((await db.execute(q)).all())
 
 
 # Module-level singleton

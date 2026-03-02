@@ -581,5 +581,35 @@ class FundingRepository(BaseRepository[Funding]):
         await db.flush()
 
 
+    # ── Refund retry helpers ────────────────────────────────────────
+
+    async def get_funding_by_id(
+        self, db: AsyncSession, funding_id: int
+    ) -> Funding | None:
+        q = select(Funding).where(Funding.id == funding_id)
+        return (await db.execute(q)).scalar_one_or_none()
+
+    async def list_refund_failed_ids(
+        self, db: AsyncSession, event_id: int
+    ) -> list[int]:
+        q = select(Funding.id).where(
+            Funding.event_id == event_id,
+            Funding.status == FundingStatus.refund_failed,
+        )
+        return list((await db.execute(q)).scalars().all())
+
+    async def count_refund_failed(
+        self, db: AsyncSession, event_id: int
+    ) -> int:
+        q = select(func.count()).select_from(Funding).where(
+            Funding.event_id == event_id,
+            Funding.status == FundingStatus.refund_failed,
+        )
+        return int((await db.execute(q)).scalar_one())
+
+    async def flush(self, db: AsyncSession) -> None:
+        await db.flush()
+
+
 # Module-level singleton
 funding_repo = FundingRepository()

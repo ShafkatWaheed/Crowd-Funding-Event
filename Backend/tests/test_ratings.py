@@ -186,3 +186,66 @@ async def test_my_reaction(
     )
     assert r2.status_code == 200
     assert r2.json()["reaction"] == "like"
+
+
+# ── Phase 0D gap-fills: reaction toggle & switch ──
+
+
+async def test_toggle_reaction_off(
+    client: AsyncClient,
+    test_event_approved,
+    test_users,
+    auth_headers_customer,
+) -> None:
+    """POST /events/{id}/react?reaction=like twice removes the reaction."""
+    # Add like
+    r1 = await client.post(
+        _react_url(test_event_approved.id),
+        params={"reaction": "like"},
+        headers=auth_headers_customer,
+    )
+    assert r1.status_code == 200
+    assert r1.json()["action"] == "added"
+    like_count_after_add = r1.json()["like_count"]
+
+    # Same reaction again removes it
+    r2 = await client.post(
+        _react_url(test_event_approved.id),
+        params={"reaction": "like"},
+        headers=auth_headers_customer,
+    )
+    assert r2.status_code == 200
+    assert r2.json()["action"] == "removed"
+    assert r2.json()["like_count"] == like_count_after_add - 1
+
+
+async def test_switch_reaction_type(
+    client: AsyncClient,
+    test_event_approved,
+    test_users,
+    auth_headers_customer,
+) -> None:
+    """POST like then dislike switches the reaction and updates counts."""
+    # Add like
+    r1 = await client.post(
+        _react_url(test_event_approved.id),
+        params={"reaction": "like"},
+        headers=auth_headers_customer,
+    )
+    assert r1.status_code == 200
+    assert r1.json()["action"] == "added"
+    like_after = r1.json()["like_count"]
+    dislike_after = r1.json()["dislike_count"]
+
+    # Switch to dislike
+    r2 = await client.post(
+        _react_url(test_event_approved.id),
+        params={"reaction": "dislike"},
+        headers=auth_headers_customer,
+    )
+    assert r2.status_code == 200
+    assert r2.json()["action"] == "switched"
+    assert r2.json()["reaction"] == "dislike"
+    # like count should decrease by 1, dislike count should increase by 1
+    assert r2.json()["like_count"] == like_after - 1
+    assert r2.json()["dislike_count"] == dislike_after + 1

@@ -85,6 +85,7 @@ This folder documents each major feature of the Crowd Funding Event product: **e
 | 71 | [71-offline-sync-local-cache.md](71-offline-sync-local-cache.md) | Offline Sync & Local Cache |
 | 73 | [73-sslcommerz-payment-gateway.md](73-sslcommerz-payment-gateway.md) | SSLCommerz Payment Gateway (design) |
 | 74 | [74-test-coverage.md](74-test-coverage.md) | Backend & Frontend Test Coverage |
+| 75 | [75-three-layer-architecture.md](75-three-layer-architecture.md) | Three-Layer Architecture |
 
 ### Partially implemented
 

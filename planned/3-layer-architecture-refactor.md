@@ -662,12 +662,93 @@ At every step the app compiles, runs, and tests pass. No big-bang switchover.
 
 ## Key Rules During Migration
 
+### Layer Ownership
+
 1. **Backend repos** own ALL SQLAlchemy: `select`, `db.execute`, `db.add`, `db.flush`, `db.refresh`, `db.delete`
 2. **Backend services** must NOT import `select`, `func`, or call `db.execute` — only call repo methods
 3. **Frontend repos** own ALL Dio HTTP calls and return typed models (never raw Maps)
 4. **Frontend providers** own ALL state (loading, error, pagination, cache) — screens never manage these
 5. **Frontend screens** only call `context.watch<Provider>()` to read and `context.read<Provider>().method()` to dispatch
 6. **ApiService methods** are deleted only after ALL callers are migrated — grep to verify
+
+### Dio Sharing
+
+All frontend repositories use the **same Dio instance** that ApiService currently configures (base URL, Firebase auth headers, token refresh interceptor). In Phase 1, extract the configured Dio from ApiService and register it in MultiProvider as `Provider<Dio>.value()`. Repositories receive this Dio via constructor injection. ApiService continues to use its internal `_dio` during migration — both point to the same instance so auth headers stay in sync.
+
+```dart
+// main.dart — Phase 1
+final dio = Dio(BaseOptions(baseUrl: apiBaseUrl));
+// ... add auth interceptor, error interceptor (same ones ApiService uses)
+
+MultiProvider(
+  providers: [
+    Provider<Dio>.value(value: dio),
+    ChangeNotifierProvider(create: (_) => ApiService(dio)),  // ApiService uses same Dio
+    Provider(create: (ctx) => FundingRepository(ctx.read<Dio>())),  // repos use same Dio
+    // ...
+  ],
+)
+```
+
+### Mixed-Mode Screens
+
+During migration, screens can have **both** `context.read<ApiService>()` and `context.watch<Provider>()` calls simultaneously. This is expected and OK — e.g., `event_detail_screen.dart` will use PledgeProvider (Phase 2) alongside ApiService for tickets (until Phase 3). Clean up the remaining ApiService calls when that screen's domain is migrated. No special handling needed.
+
+### EventProvider Split
+
+`EventProvider` is too large for a single ChangeNotifier (browse + detail + images + posts + ratings + schedule + milestones). Split into:
+
+- **`EventBrowseProvider`** — browse list, featured, filters, pagination (used by home_tab, explore)
+- **`EventDetailProvider`** — single event + images + posts + ratings + schedule + milestones (used by event_detail and sub-screens)
+
+This prevents `notifyListeners()` on the detail screen from rebuilding the browse list and vice versa. Both share the same `EventRepository`.
+
+### Transaction Boundaries
+
+Repositories NEVER create their own database session. They always receive `db: AsyncSession` from the caller (service or route). This ensures multi-step operations (advisory lock → check → create → charge → ledger) all run in the same transaction. The route's session middleware handles commit/rollback.
+
+```python
+# ❌ BAD — repo creates its own session
+class FundingRepository:
+    async def create(self):
+        async with get_session() as db:  # NEVER DO THIS
+            db.add(obj)
+
+# ✅ GOOD — repo uses caller's session
+class FundingRepository:
+    async def create(self, db: AsyncSession, obj):  # caller passes session
+        db.add(obj)
+        await db.flush()
+```
+
+### Worker Tasks
+
+Worker tasks (`Backend/app/worker/tasks.py`) also call services that use `db.execute`. After refactoring services to use repos, worker tasks continue to call services the same way — no changes needed to task code itself. However, **verify worker-related tests pass** after each backend phase:
+
+- **Phase 2 (Funding):** Verify `process_pledge_refund` still works (calls pledge service → funding repo)
+- **Phase 3 (Tickets):** Verify `process_ticket_refund` still works (calls ticket service → ticket repo)
+- **Phase 4 (Events):** Verify `auto_transition_status` cron still works (calls lifecycle service → event repo)
+- **Phase 8 (Sponsors):** Verify `process_sponsor_refund` still works (calls sponsor service → sponsor repo)
+- **Phase 9 (Remaining):** Verify escrow release tasks (`release_stage_1/2/3`) still work (calls escrow service → multiple repos)
+
+Add to each phase's verification checklist:
+```bash
+# After backend refactor step — verify worker tasks aren't broken
+pytest tests/test_funding.py -k "refund" -v  # Phase 2
+pytest tests/test_tickets.py -k "refund" -v  # Phase 3
+pytest tests/test_events.py -k "transition" -v  # Phase 4
+```
+
+### Git Branching
+
+Each phase = one git branch off `main`. Branch naming: `refactor/phase-N-domain-name` (e.g., `refactor/phase-2-funding`). Merge to main only after all tests pass. If a phase goes wrong halfway, `git checkout main` reverts everything cleanly.
+
+```bash
+git checkout -b refactor/phase-2-funding
+# ... do all Phase 2 work, test after each step ...
+# When all Phase 2 tests pass:
+git checkout main && git merge refactor/phase-2-funding
+```
 
 ---
 

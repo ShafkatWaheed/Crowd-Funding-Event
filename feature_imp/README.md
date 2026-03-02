@@ -84,6 +84,7 @@ This folder documents each major feature of the Crowd Funding Event product: **e
 | 70 | [70-sponsor-negotiation-chat.md](70-sponsor-negotiation-chat.md) | Sponsor-Organizer Negotiation Chat |
 | 71 | [71-offline-sync-local-cache.md](71-offline-sync-local-cache.md) | Offline Sync & Local Cache |
 | 73 | [73-sslcommerz-payment-gateway.md](73-sslcommerz-payment-gateway.md) | SSLCommerz Payment Gateway (design) |
+| 74 | [74-test-coverage.md](74-test-coverage.md) | Backend & Frontend Test Coverage |
 
 ### Partially implemented
 

@@ -442,6 +442,7 @@ async def test_stripe_webhook_empty_body(client: AsyncClient, test_users):
 
 async def test_stripe_webhook_dispute_created(client: AsyncClient, test_users):
     """POST /webhooks/stripe with charge.dispute.created creates a dispute record."""
+    customer_id = test_users["customer"].id
     r = await client.post(
         "/api/v1/webhooks/stripe",
         json={
@@ -452,7 +453,7 @@ async def test_stripe_webhook_dispute_created(client: AsyncClient, test_users):
                     "charge": "ch_test_12345",
                     "amount": 5000,
                     "reason": "product_not_received",
-                    "metadata": {},
+                    "metadata": {"user_id": str(customer_id)},
                 },
             },
         },
@@ -463,6 +464,7 @@ async def test_stripe_webhook_dispute_created(client: AsyncClient, test_users):
 
 async def test_stripe_webhook_dispute_duplicate(client: AsyncClient, test_users):
     """POST /webhooks/stripe with same dispute ID twice returns duplicate message."""
+    customer_id = test_users["customer"].id
     payload = {
         "type": "charge.dispute.created",
         "data": {
@@ -471,7 +473,7 @@ async def test_stripe_webhook_dispute_duplicate(client: AsyncClient, test_users)
                 "charge": "ch_test_dup",
                 "amount": 1000,
                 "reason": "fraudulent",
-                "metadata": {},
+                "metadata": {"user_id": str(customer_id)},
             },
         },
     }

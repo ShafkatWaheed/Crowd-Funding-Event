@@ -67,8 +67,8 @@ async def test_delete_discount_rule(
         headers=auth_headers_organizer,
         json={
             "name": "Temp Rule",
-            "discount_type": "fixed_cents",
-            "value": 300,
+            "discount_type": "ticket_percent",
+            "value": 10,
             "target": "all",
         },
     )

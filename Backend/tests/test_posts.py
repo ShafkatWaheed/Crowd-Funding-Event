@@ -111,17 +111,16 @@ async def test_create_post_not_organizer(
     client: AsyncClient,
     test_event_approved,
     auth_headers_customer,
+    test_users,
 ) -> None:
-    """POST /events/{id}/posts as customer — endpoint allows customer role so expect 200."""
+    """POST /events/{id}/posts as unregistered customer returns 403."""
     r = await client.post(
         _posts_url(test_event_approved.id),
         json={"content": "Customer comment"},
         headers=auth_headers_customer,
     )
-    # The posts endpoint accepts customer, organizer, admin roles
-    assert r.status_code == 200
-    data = r.json()
-    assert data["content"] == "Customer comment"
+    # Customers must be registered for the event to post
+    assert r.status_code == 403
 
 
 async def test_posts_public(

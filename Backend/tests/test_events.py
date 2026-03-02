@@ -24,15 +24,18 @@ async def test_list_events_public(client: AsyncClient, test_event_approved) -> N
     r = await client.get("/api/v1/events")
     assert r.status_code == 200
     data = r.json()
-    assert isinstance(data, list)
-    titles = [e["title"] for e in data]
+    assert isinstance(data, dict)
+    assert "items" in data
+    titles = [e["title"] for e in data["items"]]
     assert "Test Event" in titles
 
 
 async def test_list_events_with_filters(client: AsyncClient, test_event) -> None:
     r = await client.get("/api/v1/events?city=Ottawa&has_funding=true")
     assert r.status_code == 200
-    assert isinstance(r.json(), list)
+    data = r.json()
+    assert isinstance(data, dict)
+    assert "items" in data
 
 
 async def test_get_event(client: AsyncClient, test_event) -> None:

@@ -2,7 +2,7 @@
 
 ## Context
 
-The codebase has grown organically into a ~2-layer system on both sides. Backend API routes contain business logic and direct DB queries; services mix business rules with 15-37 `db.execute()` calls each. Frontend has a 1737-line, 213-method `ApiService` god class; 73 screens bypass the 6 providers and call API directly, managing their own loading/error/pagination state. This makes the code hard to test, hard to swap layers, and blocks any future move to microservices.
+The codebase has grown organically into a ~2-layer system on both sides. Backend API routes contain business logic and direct DB queries; 46 service files mix business rules with 368 `db.execute()` calls (top offenders: admin 36, ticket/sales 28, funding/pledges 24, event/lifecycle 16). Frontend has a 1737-line, 235-method `ApiService` god class; 80 of 54 screens use `context.read<ApiService>()` directly, bypassing the 6 providers and managing their own loading/error/pagination state. This makes the code hard to test, hard to swap layers, and blocks any future move to microservices.
 
 **Goal:** Separate into clean Data → Service → API layers on both backend and frontend, starting with Funding/Pledges as the template domain, then applying the pattern to all others.
 
@@ -10,16 +10,261 @@ The codebase has grown organically into a ~2-layer system on both sides. Backend
 
 ---
 
+## Architecture Reference
+
+### The Problem (2-layer)
+
+```
+Backend (current):
+  API Route ──→ Service (business logic + db.execute mixed together)
+
+Frontend (current):
+  Screen (UI + loading/error/pagination state + ApiService.method() calls all in one place)
+```
+
+A service like `pledges.py` does both "should this user be allowed to pledge?" (business logic) AND `db.execute(select(Funding).where(...))` (data access) in the same function. On the frontend, `my_pledges_screen.dart` manages its own `_loading`, `_hasMore`, `_pledges` state AND calls `context.read<ApiService>().getMyPledges()` directly.
+
+### The Solution (3-layer)
+
+#### Backend
+
+```
+Layer 1: API Route     (Backend/app/api/v1/)        → thin: auth, validate input, return response
+Layer 2: Service       (Backend/app/services/)       → business logic ONLY, no db.execute
+Layer 3: Repository    (Backend/app/repositories/)   → ALL database queries
+```
+
+**Example — creating a pledge:**
+
+```python
+# Layer 1: API Route (thin — auth + call service)
+@router.post("/events/{id}/pledge")
+async def create_pledge(body: PledgeRequest, db: DbSession, user: CurrentUser):
+    return await pledge_service.create_pledge(db, user.id, body)
+
+# Layer 2: Service (business logic only — no db.execute)
+async def create_pledge(db, user_id, body):
+    event = await event_repo.get_by_id(db, body.event_id)             # repo call
+    existing = await funding_repo.get_by_user_and_event(db, user_id, event.id)  # repo call
+    if existing:
+        raise ConflictError("Already pledged")
+    # Commission calc, validation, payment gateway — pure business logic
+    gateway = await get_gateway(db)
+    result = await gateway.charge(...)
+    funding = Funding(user_id=user_id, amount_cents=body.amount, ...)
+    return await funding_repo.create(db, funding)                      # repo call
+
+# Layer 3: Repository (ALL queries here)
+class FundingRepository(BaseRepository):
+    async def get_by_user_and_event(self, db, user_id, event_id):
+        result = await db.execute(
+            select(Funding).where(Funding.user_id == user_id, Funding.event_id == event_id)
+        )
+        return result.scalar_one_or_none()
+```
+
+#### Frontend
+
+```
+Layer 1: Screen        (FrontEnd/lib/screens/)       → UI only, reads state from providers
+Layer 2: Provider      (FrontEnd/lib/providers/)      → state management (loading, error, pagination, cache)
+Layer 3: Repository    (FrontEnd/lib/repositories/)   → ALL HTTP calls, returns typed models
+```
+
+**Example — my pledges screen:**
+
+```dart
+// Layer 3: Repository (HTTP calls only — returns typed models)
+class FundingRepository extends BaseRepository {
+  FundingRepository(super.dio);
+
+  Future<PaginatedResult<Pledge>> getMyPledges({int offset = 0, int limit = 20}) async {
+    final r = await dio.get('/me/pledges', queryParameters: {'offset': offset, 'limit': limit});
+    final items = (r.data['items'] as List).map((j) => Pledge.fromJson(j)).toList();
+    return PaginatedResult(items: items, hasMore: r.data['has_more'] ?? false);
+  }
+
+  Future<Pledge> pledge(int eventId, int amountCents, {bool isGuest = false}) async {
+    final r = await dio.post('/events/$eventId/pledge', data: {'amount_cents': amountCents, 'is_guest': isGuest});
+    return Pledge.fromJson(r.data);
+  }
+}
+
+// Layer 2: Provider (state management — loading, pagination, cache)
+class PledgeProvider extends ChangeNotifier {
+  final FundingRepository _repo;
+  PledgeProvider(this._repo);
+
+  List<Pledge> pledges = [];
+  bool loading = false;
+  bool loadingMore = false;
+  bool hasMore = true;
+  String? error;
+
+  Future<void> load() async {
+    loading = true; error = null; notifyListeners();
+    try {
+      final result = await _repo.getMyPledges();
+      pledges = result.items;
+      hasMore = result.hasMore;
+    } catch (e) { error = e.toString(); }
+    loading = false; notifyListeners();
+  }
+
+  Future<void> loadMore() async {
+    if (loadingMore || !hasMore) return;
+    loadingMore = true; notifyListeners();
+    final result = await _repo.getMyPledges(offset: pledges.length);
+    pledges.addAll(result.items);
+    hasMore = result.hasMore;
+    loadingMore = false; notifyListeners();
+  }
+}
+
+// Layer 1: Screen (UI only — no API calls, no local state for data)
+class _MyPledgesScreenState extends State<MyPledgesScreen> {
+  @override
+  void initState() {
+    super.initState();
+    context.read<PledgeProvider>().load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.watch<PledgeProvider>();
+    if (p.loading) return const Center(child: CircularProgressIndicator());
+    if (p.error != null) return ErrorView(p.error!, onRetry: p.load);
+    return ListView.builder(
+      itemCount: p.pledges.length + (p.hasMore ? 1 : 0),
+      itemBuilder: (ctx, i) {
+        if (i == p.pledges.length) { p.loadMore(); return const LoadingTile(); }
+        return PledgeTile(pledge: p.pledges[i]);
+      },
+    );
+  }
+}
+```
+
+### Architecture Rules
+
+#### Backend
+
+1. **Repositories own ALL SQLAlchemy** — `select`, `db.execute`, `db.add`, `db.flush`, `db.refresh`, `db.delete` must ONLY appear in `Backend/app/repositories/`. Never in services or API routes.
+2. **Services must NOT import `select` or `func`** — they call repository methods instead. Services contain: validation, business rules, commission calcs, payment orchestration, notification dispatch.
+3. **API routes must be thin** — authenticate, parse input, call service, return response. No business logic, no direct DB queries.
+4. **New domain = new repository file** — e.g., "polls" feature → `Backend/app/repositories/poll_repo.py`.
+5. **Read/Write DB routing preserved** — repos accept `AsyncSession`, callers (services/routes) decide `DbSession` vs `ReadDbSession`.
+
+```python
+# ❌ BAD — db.execute in service
+async def create_pledge(db, user_id, body):
+    existing = await db.execute(select(Funding).where(Funding.user_id == user_id))
+
+# ✅ GOOD — service calls repository
+async def create_pledge(db, user_id, body):
+    existing = await funding_repo.get_by_user_and_event(db, user_id, body.event_id)
+```
+
+#### Frontend
+
+1. **Repositories own ALL Dio HTTP calls** — every `dio.get()`, `dio.post()` must live in `FrontEnd/lib/repositories/`. Never in providers, screens, or other files.
+2. **Repositories return typed models** — never return raw `Map<String, dynamic>`. Parse JSON into model classes (`Pledge.fromJson()`).
+3. **Providers own ALL state** — `loading`, `error`, `hasMore`, items lists, pagination offsets, filters, sort orders. Screens must NOT have local state for API data.
+4. **Screens only read from providers** — `context.watch<Provider>()` to read state, `context.read<Provider>().method()` to dispatch actions. Never call repositories directly from screens.
+5. **New domain = new repository + provider** — e.g., "polls" feature → `repositories/poll_repository.dart` + `providers/poll_provider.dart`.
+
+```dart
+// ❌ BAD — screen manages state and calls API directly
+class _State extends State<MyScreen> {
+  List<dynamic> _items = [];
+  bool _loading = true;
+  Future<void> _load() async {
+    final api = context.read<ApiService>();
+    final data = await api.getSomething();
+    setState(() { _items = data['items']; _loading = false; });
+  }
+}
+
+// ✅ GOOD — screen reads from provider, provider calls repository
+class _State extends State<MyScreen> {
+  @override
+  void initState() { super.initState(); context.read<MyProvider>().load(); }
+  @override
+  Widget build(BuildContext context) {
+    final p = context.watch<MyProvider>();
+    if (p.loading) return const CircularProgressIndicator();
+    return ListView(children: p.items.map((i) => ItemTile(item: i)).toList());
+  }
+}
+```
+
+### Why 3 Layers?
+
+| Benefit | How |
+|---------|-----|
+| **Testable** | Mock the repo to test business logic without a DB. Test queries without HTTP by testing repo directly. |
+| **Swappable** | Switch from PostgreSQL? Only change repositories. REST to GraphQL? Only change repositories. |
+| **No duplication** | Same query ("get pledge by ID with eager loads") written once in repo, called from multiple services. |
+| **Screens stay simple** | No loading/error/pagination state. Providers handle all of that. |
+| **Cross-screen state** | Pledge on event detail → PledgeProvider notifies → pledge list screen auto-updates. No manual refresh. |
+| **Single responsibility** | Each layer does exactly one thing. |
+
+### Cross-Screen State Sharing
+
+The biggest frontend win. Currently each screen is isolated — stale state everywhere:
+
+```
+❌ Before: Bookmark on EventDetail → go to HomeTab → bookmark icon still empty (stale)
+❌ Before: Purchase ticket on EventDetail → go to MyTickets → must manual refresh
+❌ Before: Cancel event in EditEvent → go to MyEvents → still shows "active"
+```
+
+With shared providers:
+
+```
+✅ After: Bookmark on EventDetail → EventProvider.toggleBookmark() → notifyListeners()
+          → EventDetail rebuilds with filled icon
+          → HomeTab rebuilds with filled icon (same provider!)
+          → BookmarkedEventsScreen rebuilds with event added
+
+✅ After: Purchase ticket → TicketProvider.purchase() → notifyListeners()
+          → MyTickets auto-refreshes with new ticket
+
+✅ After: Cancel event → EventProvider.cancelEvent() → notifyListeners()
+          → All screens watching this provider see "cancelled" immediately
+```
+
+### Adding a New Feature — Checklist
+
+When adding any feature that involves API calls or DB queries:
+
+**Backend:**
+- [ ] Add query methods to the appropriate repository (or create a new one)
+- [ ] Add business logic to the appropriate service (calls repo, not db.execute)
+- [ ] Add thin API route (calls service)
+- [ ] Classify endpoint as Read/Write and use correct DB session
+- [ ] Add tests for the new repository methods
+
+**Frontend:**
+- [ ] Add HTTP methods to the appropriate repository (or create a new one)
+- [ ] Add/update provider with state management
+- [ ] Screen only uses `context.watch` / `context.read<Provider>()`
+- [ ] No raw `Map<String, dynamic>` — use typed models
+- [ ] Run `dart analyze` on changed files
+
+---
+
 ## Existing Test Infrastructure
 
 | Component | Backend | Frontend |
 |-----------|---------|----------|
-| **Test dir** | `Backend/tests/` — 10 test files | `FrontEnd/test/` — 1 placeholder |
-| **Config** | `pytest.ini` + `conftest.py` (265 lines) | None |
-| **Mock auth** | Bearer token mock, Firebase override | None |
+| **Test dir** | `Backend/tests/` — 30 test files | `FrontEnd/test/` — 51 test files |
+| **Config** | `pytest.ini` + `conftest.py` (620 lines) | `flutter_test` + `mocktail` |
+| **Mock auth** | Bearer token mock, Firebase override, test lifespan | Mock ApiService, mock providers, pumpApp helper |
 | **Test DB** | `TEST_DATABASE_URL` + TRUNCATE isolation | N/A |
-| **Dependencies** | pytest, pytest-asyncio, httpx | flutter_test only (no mockito) |
-| **Fixtures** | client, db_session, test_users, test_venue, test_event, test_event_approved, test_ticket_tier | None |
+| **Dependencies** | pytest, pytest-asyncio, httpx, slowapi | flutter_test, mocktail, network_image_mock |
+| **Fixtures** | client, db_session, test_users, test_venue, test_event, test_event_approved, test_ticket_tier, test_pledge, test_ticket_sale, test_registration, test_sponsor_profile, test_sponsorship_category, test_sponsor_bid | fixtures.dart with Event, User, Pledge, Ticket factories |
+| **Test structure** | Flat: `tests/test_*.py` | Organized: `test/helpers/`, `test/models/` (14), `test/providers/` (6), `test/screens/` (26) |
 
 ---
 
@@ -27,91 +272,35 @@ The codebase has grown organically into a ~2-layer system on both sides. Backend
 
 ### 0A. Backend — Expand endpoint tests per domain
 
-Existing `conftest.py` already provides: async client, test DB, mock auth fixtures, test entities.
-Add/expand test files to cover every endpoint that will be touched during refactoring.
+`conftest.py` (620 lines) provides: async client, test DB with TRUNCATE isolation, mock Firebase auth, lightweight test lifespan, and fixtures for users, venues, events, tickets, pledges, registrations, sponsors, notifications, milestones, schedules, images, posts, ratings, strategies, and discounts.
 
-| Test File | Covers | Key Scenarios |
-|-----------|--------|---------------|
-| `tests/test_funding.py` (NEW) | `GET /me/pledges`, `POST /events/{id}/pledge`, `DELETE /events/{id}/pledge`, `GET /events/{id}/funding-summary`, `GET /events/{id}/pledge-preview`, `GET /me/pledges/{id}/receipt` | Pledge lifecycle: create, list (sorted), receipt, unpledge, refund status. Edge cases: insufficient funds, duplicate pledge, guest pledge, tier reservations |
-| `tests/test_tickets.py` (EXPAND) | Existing file — add: purchase with reserved spots, refund flow, waitlist approve/reject, scan, receipt, sort/pagination | Multi-tier purchase, discount application, capacity limits, scan validation |
-| `tests/test_events.py` (EXPAND) | Existing file — add: auto_transition_status, featured/trending/coming-soon queries, event clone, co-organizer, status filters, pagination | Status state machine transitions, keyset pagination, substantive change detection |
-| `tests/test_registration.py` (NEW) | `POST /events/{id}/register`, `DELETE /events/{id}/register`, waitlist, capacity enforcement | Open vs closed registration, age restriction, waitlist approval |
-| `tests/test_notifications.py` (NEW) | `GET /me/notifications`, `PATCH /me/notifications/{id}/read`, `PATCH /me/notifications/read-all`, device tokens | List, mark read, mark all read, register/unregister device token |
-| `tests/test_sponsors.py` (NEW) | Bids, categories, templates, prerequisites | Place bid, accept, reject, withdraw, pay, refund, category CRUD |
-| `tests/test_banking.py` (NEW) | Payment info, bank accounts, escrow endpoints | Encrypted storage, escrow stage release |
+30 test files already exist. Review coverage gaps and expand for domains that will be touched:
 
-**Test pattern** (follows existing conftest.py conventions):
-```python
-# tests/test_funding.py
-import pytest
-from httpx import AsyncClient
+| Test File | Status | Key Gaps to Fill |
+|-----------|--------|------------------|
+| `tests/test_funding.py` | Check if exists | Pledge lifecycle edge cases: duplicate pledge, guest pledge, tier reservations, refund flow |
+| `tests/test_tickets.py` | Exists | Add: purchase with reserved spots, multi-tier purchase, discount application, capacity limits |
+| `tests/test_events.py` | Exists | Add: auto_transition_status, featured/trending queries, clone, co-organizer, keyset pagination |
+| `tests/test_registration.py` | Check if exists | Open vs closed registration, age restriction, waitlist approval |
+| `tests/test_notifications.py` | Check if exists | List, mark read, mark all read, register/unregister device token |
+| `tests/test_sponsors.py` | Check if exists | Place bid, accept, reject, withdraw, pay, refund, category CRUD |
+| `tests/test_banking.py` | Check if exists | Encrypted storage, Stripe conditional logic, escrow stage release |
 
-@pytest.mark.asyncio
-async def test_create_pledge(client: AsyncClient, test_event_approved, auth_headers_customer):
-    resp = await client.post(
-        f"/api/v1/events/{test_event_approved.id}/pledge",
-        json={"amount_cents": 5000, "reserved_spots": 1},
-        headers=auth_headers_customer,
-    )
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["amount_cents"] == 5000
-    assert data["status"] == "pledged"
+### 0B. Frontend — Test infrastructure already exists
 
-@pytest.mark.asyncio
-async def test_list_pledges_sorted(client: AsyncClient, auth_headers_customer):
-    resp = await client.get(
-        "/api/v1/me/pledges?sort_by=newest&limit=10",
-        headers=auth_headers_customer,
-    )
-    assert resp.status_code == 200
-    assert isinstance(resp.json(), list)
-```
+Test infrastructure is already set up with 51 test files:
 
-**Fixtures to add** in `conftest.py`:
-- `test_pledge` — pledge on approved event by customer
-- `test_ticket_sale` — purchased ticket
-- `test_registration` — registration on approved event
-- `test_sponsor_profile` — sponsor user profile
-- `test_sponsorship_category` — category on event
-- `test_sponsor_bid` — bid on category
-
-### 0B. Frontend — Set up test infrastructure from scratch
-
-**Step 1: Add test dependencies** to `FrontEnd/pubspec.yaml`:
-```yaml
-dev_dependencies:
-  flutter_test:
-    sdk: flutter
-  mocktail: ^1.0.4        # Mock generation (simpler than mockito, no codegen)
-  network_image_mock: ^2.1.1  # Mock network images in widget tests
-```
-
-**Step 2: Create test helpers** `FrontEnd/test/helpers/`:
 ```
 test/
-├── helpers/
-│   ├── test_helpers.dart      # pumpApp wrapper with providers, mock navigation
-│   ├── mock_repositories.dart # Mock implementations of all repositories
-│   └── fixtures.dart          # Test data factories (Event, Pledge, Ticket, User)
-├── repositories/              # Unit tests for repositories
-│   ├── funding_repository_test.dart
-│   ├── ticket_repository_test.dart
-│   └── event_repository_test.dart
-├── providers/                 # Unit tests for providers
-│   ├── pledge_provider_test.dart
-│   ├── ticket_provider_test.dart
-│   └── event_provider_test.dart
-└── screens/                   # Widget tests for screens
-    ├── my_pledges_screen_test.dart
-    ├── my_tickets_screen_test.dart
-    └── home_screen_test.dart
+├── helpers/          (4 files: fixtures.dart, mock_api_service.dart, mock_providers.dart, pump_app.dart)
+├── models/           (14 files: all major models tested)
+├── providers/        (6 files: all 6 existing providers tested)
+└── screens/          (26 files: major screens tested)
 ```
 
-**Step 3: Write tests AFTER repositories/providers exist** (Phase 2+):
-- Frontend tests are written alongside each new repository/provider
-- Each domain phase: create repo → write repo test → create provider → write provider test → migrate screen → write widget test
-- Tests validate the new layer works before migrating screens to use it
+Dependencies already installed: `flutter_test`, `mocktail`, `network_image_mock`.
+
+**Phase 0B work:** Add `mock_repositories.dart` to `test/helpers/` and a `test/repositories/` directory as new repos are created. Update `mock_api_service.dart` to also mock new repository interfaces.
 
 ### 0C. Run baseline
 
@@ -119,8 +308,8 @@ test/
 # Backend — run all existing tests, record pass count
 cd Backend && pytest -v --tb=short 2>&1 | tee test_baseline.txt
 
-# Frontend — just verify it compiles
-cd FrontEnd && flutter test
+# Frontend — run all existing tests, record pass count
+cd FrontEnd && flutter test 2>&1 | tee test_baseline.txt
 ```
 
 Save the baseline pass count. After every refactoring phase, run tests and confirm the count only goes up, never down.
@@ -300,8 +489,8 @@ Each domain follows the same 4-step pattern:
 
 | Step | File | What |
 |------|------|------|
-| 2.1 | `Backend/app/repositories/funding_repo.py` | Extract from `services/funding/pledges.py`: get_pledge, list_by_user, list_by_event, count_by_event, get_pledged_total, create_pledge, update_status, get_user_reserved_spots, advisory_lock |
-| 2.2 | `Backend/app/services/funding/pledges.py` | Replace all db.execute calls with funding_repo.xxx calls. Service keeps: validation, commission calc, payment orchestration, notification dispatch |
+| 2.1 | `Backend/app/repositories/funding_repo.py` | Extract 24 db.execute calls from `services/funding/pledges.py` + 8 from `services/funding/reservations.py`: get_pledge, list_by_user, list_by_event, count_by_event, get_pledged_total, create_pledge, update_status, get_user_reserved_spots, advisory_lock |
+| 2.2 | `Backend/app/services/funding/pledges.py` | Replace all 32 db.execute calls with funding_repo.xxx calls. Service keeps: validation, commission calc, payment orchestration, notification dispatch |
 
 **Frontend:**
 
@@ -310,7 +499,7 @@ Each domain follows the same 4-step pattern:
 | 2.3 | `FrontEnd/lib/repositories/funding_repository.dart` | Own Dio instance. Methods: getMyPledges, getPledgeReceipt, getFundingSummary, getPledgePreview, pledge, unpledge, getRefundStatus, getOrganizerPledges. All return typed models (Pledge, FundingSummary, PaginatedResult<Pledge>) |
 | 2.4 | `FrontEnd/lib/providers/pledge_provider.dart` | State: pledges, loading, loadingMore, hasMore, error, sortBy, filterStatus. Methods: load, loadMore, setSortBy, setFilter. Calls FundingRepository |
 | 2.5 | `FrontEnd/lib/screens/profile/my_pledges_screen.dart` | Remove all ApiService calls, loading/pagination state. Use `context.watch<PledgeProvider>()`. Screen becomes ~50% smaller |
-| 2.6 | Delete methods from ApiService | Remove: getMyPledges, getOrganizerPledges, pledge, unpledge, getPledgePreview, getPledgeReceipt, getMyPledgeReceipt, getFundingSummary, getRefundStatus |
+| 2.6 | Delete methods from ApiService | Remove ~12 funding/pledge methods (getMyPledges, getOrganizerPledges, pledge, unpledge, getPledgePreview, getPledgeReceipt, getMyPledgeReceipt, getFundingSummary, getRefundStatus, etc.) |
 
 ### Phase 3: Tickets
 
@@ -318,8 +507,8 @@ Each domain follows the same 4-step pattern:
 
 | Step | File | What |
 |------|------|------|
-| 3.1 | `Backend/app/repositories/ticket_repo.py` | Extract from `services/ticket/sales.py`: count_purchased, get_tier, list_tiers, create_sale, get_by_user, get_sales_for_event, get_waitlisted, update_status, count_by_tier |
-| 3.2 | `Backend/app/services/ticket/sales.py` | Replace db.execute with repo calls. Service keeps: pricing logic, spot consumption, payment, advisory locks, receipt generation |
+| 3.1 | `Backend/app/repositories/ticket_repo.py` | Extract 28 db.execute calls from `services/ticket/sales.py` + 9 from `services/ticket/pricing.py`: count_purchased, get_tier, list_tiers, create_sale, get_by_user, get_sales_for_event, get_waitlisted, update_status, count_by_tier |
+| 3.2 | `Backend/app/services/ticket/sales.py` | Replace all 37 db.execute calls with repo calls. Service keeps: pricing logic, spot consumption, payment, advisory locks, receipt generation |
 
 **Frontend:**
 
@@ -328,7 +517,7 @@ Each domain follows the same 4-step pattern:
 | 3.3 | `FrontEnd/lib/repositories/ticket_repository.dart` | Methods: getMyTickets, getTicketTiers, purchaseTickets, getTicketReceipt, requestRefund, getRefundRequests, approveRefund, rejectRefund, scanTicket, getWaitlisted, approveWaitlisted, rejectWaitlisted, getTicketPrice, startSellingTickets, getTicketSalesStats |
 | 3.4 | `FrontEnd/lib/providers/ticket_provider.dart` | State: myTickets, loading, hasMore, sortBy. Methods: load, loadMore |
 | 3.5 | Migrate screens | my_tickets_screen.dart, ticket_tiers_section.dart, ticket_receipt_screen.dart, refund_requests_screen.dart, ticket_scanner_screen.dart, ticket_waitlist_screen.dart, ticket_sales_screen.dart |
-| 3.6 | Delete methods from ApiService | ~35 ticket methods |
+| 3.6 | Delete methods from ApiService | ~48 ticket/refund/waitlist/discount methods |
 
 ### Phase 4: Events
 
@@ -336,8 +525,8 @@ Each domain follows the same 4-step pattern:
 
 | Step | File | What |
 |------|------|------|
-| 4.1 | `Backend/app/repositories/event_repo.py` | Extract from `services/event/crud.py` + `queries.py`: get_event, list_events, list_featured, list_trending, list_coming_soon, create_event, update_event, update_status, get_by_organizer, count_by_organizer, get_with_relations |
-| 4.2 | `Backend/app/services/event/crud.py` | Replace db.execute with repo. Service keeps: auto_transition_status state machine, substantive_change detection, approval logic |
+| 4.1 | `Backend/app/repositories/event_repo.py` | Extract 15 db.execute calls from `services/event/crud.py` + 16 from `services/event/lifecycle.py`: get_event, list_events, list_featured, list_trending, list_coming_soon, create_event, update_event, update_status, get_by_organizer, count_by_organizer, get_with_relations |
+| 4.2 | `Backend/app/services/event/crud.py` + `lifecycle.py` | Replace all 31 db.execute calls with repo. Service keeps: auto_transition_status state machine, substantive_change detection, approval logic |
 
 **Frontend:**
 
@@ -346,7 +535,7 @@ Each domain follows the same 4-step pattern:
 | 4.3 | `FrontEnd/lib/repositories/event_repository.dart` | Methods: getEvents, getEvent, getFeaturedEvents, getMapEvents, createEvent, updateEvent, deleteEvent, publishEvent, cancelEvent, reactivateEvent, cloneEvent, setEventDate, getEventCities, getGenres, getEventImages, addEventImage, uploadEventImage, deleteEventImage, getEventPosts, createEventPost, deleteEventPost, getEventRatings, getRatingsSummary, createRating, getMyReaction, reactToEvent |
 | 4.4 | Expand `EventProvider` | Add image, post, rating methods. Move loading logic from screens |
 | 4.5 | Migrate screens | home_tab.dart, explore_tab.dart, event_detail_screen.dart, create_event_screen.dart, edit_event_screen.dart, my_events_tab.dart, organizer_dashboard_tab.dart + all event_detail/ sub-screens |
-| 4.6 | Delete methods from ApiService | ~60 event methods |
+| 4.6 | Delete methods from ApiService | ~65 event/image/post/rating/schedule/milestone methods |
 
 ### Phase 5: Users & Auth
 
@@ -364,7 +553,7 @@ Each domain follows the same 4-step pattern:
 | 5.3 | `FrontEnd/lib/repositories/user_repository.dart` | Methods: getMe, updateMe, verifyToken, getPaymentInfo, updatePaymentInfo, getBankAccount, updateBankAccount, getPublicProfile, getUserRatingsSummary, getKycStatus, uploadKycDocument, submitKyc |
 | 5.4 | Refactor `AuthProvider` | Use UserRepository instead of ApiService |
 | 5.5 | Migrate screens | profile_screen.dart, profile_payment_section.dart, profile_bank_section.dart |
-| 5.6 | Delete methods from ApiService | ~15 user methods |
+| 5.6 | Delete methods from ApiService | ~20 user/profile/kyc/bank/payment methods |
 
 ### Phase 6: Registration
 
@@ -372,8 +561,8 @@ Each domain follows the same 4-step pattern:
 
 | Step | File | What |
 |------|------|------|
-| 6.1 | `Backend/app/repositories/registration_repo.py` | Extract from registration.py: get_registration, count_registered, create, update_status, list_by_event |
-| 6.2 | `Backend/app/services/registration.py` | Replace db.execute with repo calls |
+| 6.1 | `Backend/app/repositories/registration_repo.py` | Extract 15 db.execute calls from `services/registration.py`: get_registration, count_registered, create, update_status, list_by_event |
+| 6.2 | `Backend/app/services/registration.py` | Replace all 15 db.execute calls with repo calls |
 
 **Frontend:**
 
@@ -381,7 +570,7 @@ Each domain follows the same 4-step pattern:
 |------|------|------|
 | 6.3 | `FrontEnd/lib/repositories/registration_repository.dart` | Methods: register, unregister, getMyRegistration, getRegistrations, decideRegistration |
 | 6.4 | Integrate into EventProvider | Registration is part of event detail flow |
-| 6.5 | Delete methods from ApiService | ~4 registration methods |
+| 6.5 | Delete methods from ApiService | ~5 registration methods |
 
 ### Phase 7: Notifications
 
@@ -398,7 +587,7 @@ Each domain follows the same 4-step pattern:
 |------|------|------|
 | 7.3 | `FrontEnd/lib/repositories/notification_repository.dart` | Methods: getNotifications, getUnreadCount, markRead, markAllRead, deleteNotification, registerDevice, unregisterDevice |
 | 7.4 | Refactor `NotificationProvider` | Replace direct Dio calls with repository |
-| 7.5 | Delete methods from ApiService | ~6 notification methods |
+| 7.5 | Delete methods from ApiService | ~8 notification/device token methods |
 
 ### Phase 8: Sponsors
 
@@ -416,7 +605,7 @@ Each domain follows the same 4-step pattern:
 | 8.3 | `FrontEnd/lib/repositories/sponsor_repository.dart` | Methods: all 30+ sponsor/bid/category/template/ticket/delegate methods |
 | 8.4 | `FrontEnd/lib/providers/sponsor_provider.dart` | State for sponsor dashboard, bids, tickets |
 | 8.5 | Migrate screens | All 15 sponsor screens |
-| 8.6 | Delete methods from ApiService | ~30 sponsor methods |
+| 8.6 | Delete methods from ApiService | ~44 sponsor/bid/category/template/ticket/delegate methods |
 
 ### Phase 9: Remaining Domains
 
@@ -482,6 +671,50 @@ At every step the app compiles, runs, and tests pass. No big-bang switchover.
 
 ---
 
+## Current Metrics (as of 2026-03-02)
+
+### Backend: 368 db.execute calls across 46 service files
+
+| Service File | db.execute | Phase |
+|-------------|-----------|-------|
+| `services/admin.py` | 36 | 9 (Admin) |
+| `services/ticket/sales.py` | 28 | 3 |
+| `services/funding/pledges.py` | 24 | 2 |
+| `services/event/lifecycle.py` | 16 | 4 |
+| `services/registration.py` | 15 | 6 |
+| `services/event/crud.py` | 15 | 4 |
+| `services/sponsor/payments.py` | 14 | 8 |
+| `services/sponsor/categories.py` | 14 | 8 |
+| `services/dashboard.py` | 12 | 9 |
+| `services/escrow.py` | 11 | 9 |
+| `services/discount_strategy.py` | 11 | 9 |
+| `services/ticket_escrow.py` | 10 | 9 |
+| `services/sponsor/organizer_queries.py` | 10 | 8 |
+| `services/sponsor/bids.py` | 10 | 8 |
+| `services/ticket/pricing.py` | 9 | 3 |
+| `services/refund_retry.py` | 9 | 9 |
+| `services/milestone.py` | 9 | 9 |
+| `services/sponsor_escrow.py` | 8 | 9 |
+| `services/sponsor/tickets.py` | 8 | 8 |
+| `services/funding/reservations.py` | 8 | 2 |
+| Other 26 files | ~71 | Various |
+
+### Frontend: 235 ApiService methods, 80 screens using context.read<ApiService>()
+
+| Phase | Domain | ApiService Methods | Screens to Migrate |
+|-------|--------|-------------------|-------------------|
+| 2 | Funding/Pledges | ~12 | 2 |
+| 3 | Tickets | ~48 | 7 |
+| 4 | Events | ~65 | 12+ |
+| 5 | Users & Auth | ~20 | 3 |
+| 6 | Registration | ~5 | 1 |
+| 7 | Notifications | ~8 | 1 |
+| 8 | Sponsors | ~44 | 15 |
+| 9 | Remaining | ~33 | ~13 |
+| **Total** | | **235** | **54** |
+
+---
+
 ## Verification
 
 After each phase:
@@ -493,13 +726,13 @@ cd Backend && pytest -v --tb=short
 cd FrontEnd && flutter test && dart analyze lib/
 
 # Migration completeness — grep for old patterns
-grep -r "context.read<ApiService>()" FrontEnd/lib/   # decreases each phase
-grep -r "db\.execute" Backend/app/services/           # decreases each phase
+grep -rc "context.read<ApiService>()" FrontEnd/lib/screens/ | grep -v ':0$' | wc -l   # starts at 80, decreases each phase
+grep -rc "db\.execute" Backend/app/services/ | grep -v ':0$' | wc -l                  # starts at 46 files, decreases each phase
 ```
 
 **Final (Phase 10):**
 - `grep -r "context.read<ApiService>()" FrontEnd/lib/` → zero matches
-- `grep -r "db\.execute" Backend/app/services/` → zero matches (all moved to repos)
-- `pytest` → all backend tests pass
-- `flutter test` → all frontend tests pass
+- `grep -r "db\.execute" Backend/app/services/` → zero matches (all 368 moved to repos)
+- `pytest` → all backend tests pass (30+ files)
+- `flutter test` → all frontend tests pass (51+ files)
 - Manual smoke test: login → browse events → pledge → buy ticket → check profile lists

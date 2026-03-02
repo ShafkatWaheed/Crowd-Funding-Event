@@ -19,4 +19,6 @@ pytestmark = [
 async def test_list_events_empty_or_ok(client: AsyncClient) -> None:
     r = await client.get("/api/v1/events")
     assert r.status_code == 200
-    assert isinstance(r.json(), list)
+    data = r.json()
+    assert isinstance(data, dict)
+    assert "items" in data

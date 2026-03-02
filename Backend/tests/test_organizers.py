@@ -173,12 +173,12 @@ async def test_update_permission(
     # Update permission as main organizer
     r = await client.patch(
         _organizer_url(test_event_approved.id, organizer2.id),
-        json={"permission": "manage"},
+        json={"permission": "full"},
         headers=auth_headers_organizer,
     )
     assert r.status_code == 200
     data = r.json()
-    assert data["permission"] == "manage"
+    assert data["permission"] == "full"
     assert data["user_id"] == organizer2.id
 
 

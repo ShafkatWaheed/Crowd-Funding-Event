@@ -47,12 +47,12 @@ async def test_register_already_registered(client, test_event_approved, test_reg
 
 
 async def test_register_draft_event(client, test_event, auth_headers_customer, test_users):
-    """Register on draft event fails."""
+    """Register on draft event succeeds (no status gating on registration)."""
     r = await client.post(
         f"/api/v1/events/{test_event.id}/register",
         headers=auth_headers_customer,
     )
-    assert r.status_code in (400, 409)
+    assert r.status_code == 200
 
 
 async def test_my_registration_exists(client, test_event_approved, test_registration, auth_headers_customer, test_users):

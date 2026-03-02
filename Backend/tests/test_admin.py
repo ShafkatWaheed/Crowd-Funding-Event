@@ -60,6 +60,7 @@ async def test_admin_list_events(
 async def test_admin_approve_event(
     client: AsyncClient,
     test_event_pending,
+    test_organizer_bank,
     auth_headers_admin: dict[str, str],
 ) -> None:
     """Admin approves an event that is pending_approval (fixture sets status; no submit endpoint)."""

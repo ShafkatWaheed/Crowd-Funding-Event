@@ -81,7 +81,8 @@ async def stripe_webhook(
 
         metadata = data.get("metadata", {}) or {}
         event_id = metadata.get("event_id")
-        user_id = int(metadata.get("user_id", 0))
+        raw_uid = metadata.get("user_id")
+        user_id = int(raw_uid) if raw_uid else None
 
         dispute = Dispute(
             stripe_dispute_id=stripe_dispute_id,

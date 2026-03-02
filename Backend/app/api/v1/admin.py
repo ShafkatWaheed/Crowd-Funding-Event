@@ -1366,10 +1366,10 @@ async def admin_set_policy_overrides(
         await db.flush()
         await audit_svc.log_action(
             db,
-            user_id=current_user.id,
+            admin_id=current_user.id,
             action="admin_policy_override",
-            resource_type="event",
-            resource_id=event_id,
+            target_type="event",
+            target_id=event_id,
             details=changes,
         )
         await db.refresh(event)
@@ -1462,10 +1462,10 @@ async def admin_verify_kyc(
         )
         await audit_svc.log_action(
             db,
-            user_id=current_user.id,
+            admin_id=current_user.id,
             action="kyc_verify" if body.approved else "kyc_reject",
-            resource_type="user",
-            resource_id=user_id,
+            target_type="user",
+            target_id=user_id,
             details={"approved": body.approved, "reason": body.rejection_reason},
         )
         await db.commit()

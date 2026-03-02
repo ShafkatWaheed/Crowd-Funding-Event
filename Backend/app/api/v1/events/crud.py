@@ -1,7 +1,6 @@
 """
 Events CRUD: list, featured, genres, create, get, patch, delete, calendar.ics.
 """
-import asyncio
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -89,12 +88,10 @@ async def list_events(
         cursor=cursor,
     )
     event_ids = [e.id for e in events]
-    pledged, reserved, tickets_sold, first_images = await asyncio.gather(
-        funding_service.get_pledged_totals_for_events(db, event_ids=event_ids),
-        funding_service.get_total_reserved_spots_for_events(db, event_ids=event_ids),
-        ticket_service.get_ticket_sold_counts_for_events(db, event_ids=event_ids),
-        _get_first_images(db, event_ids),
-    )
+    pledged = await funding_service.get_pledged_totals_for_events(db, event_ids=event_ids)
+    reserved = await funding_service.get_total_reserved_spots_for_events(db, event_ids=event_ids)
+    tickets_sold = await ticket_service.get_ticket_sold_counts_for_events(db, event_ids=event_ids)
+    first_images = await _get_first_images(db, event_ids)
     now = datetime.now(timezone.utc)
     out = []
     for e in events:
@@ -159,12 +156,10 @@ async def get_featured_events(request: Request, db: ReadDbSession, sponsorship_o
         popular_ids = [e.id for e in popular]
         coming_soon_ids = [e.id for e in coming_soon]
         all_ids = list(set(trending_ids + popular_ids + coming_soon_ids))
-        pledged, reserved, tickets_sold, first_images = await asyncio.gather(
-            funding_service.get_pledged_totals_for_events(db, event_ids=all_ids),
-            funding_service.get_total_reserved_spots_for_events(db, event_ids=all_ids),
-            ticket_service.get_ticket_sold_counts_for_events(db, event_ids=all_ids),
-            _get_first_images(db, all_ids),
-        )
+        pledged = await funding_service.get_pledged_totals_for_events(db, event_ids=all_ids)
+        reserved = await funding_service.get_total_reserved_spots_for_events(db, event_ids=all_ids)
+        tickets_sold = await ticket_service.get_ticket_sold_counts_for_events(db, event_ids=all_ids)
+        first_images = await _get_first_images(db, all_ids)
 
         now = datetime.now(timezone.utc)
 

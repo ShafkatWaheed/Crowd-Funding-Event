@@ -311,6 +311,7 @@ async def _purge_event_children(db: AsyncSession, event_id: int) -> None:
     await db.execute(sa_delete(UserEventDiscount).where(UserEventDiscount.event_id == event_id))
 
     # Fundings, registrations
+    from app.models.registration import Registration
     await db.execute(sa_delete(Funding).where(Funding.event_id == event_id))
     await db.execute(sa_delete(Registration).where(Registration.event_id == event_id))
 

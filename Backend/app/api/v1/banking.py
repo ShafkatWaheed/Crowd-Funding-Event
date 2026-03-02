@@ -686,10 +686,10 @@ async def update_platform_account(
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
     log_step(logger, "Updating platform account", admin_id=current_user.id)
-    await settings_svc.set_value(db, "platform_holding_institution_number", enc.encrypt(body.institution_number))
-    await settings_svc.set_value(db, "platform_holding_transit_number", enc.encrypt(body.transit_number))
-    await settings_svc.set_value(db, "platform_holding_account_number", enc.encrypt(body.account_number))
-    await settings_svc.set_value(db, "platform_holding_account_holder", enc.encrypt(body.account_holder))
+    await settings_svc.set_value(db, "platform_holding_institution_number", enc.encrypt(body.institution_number).decode())
+    await settings_svc.set_value(db, "platform_holding_transit_number", enc.encrypt(body.transit_number).decode())
+    await settings_svc.set_value(db, "platform_holding_account_number", enc.encrypt(body.account_number).decode())
+    await settings_svc.set_value(db, "platform_holding_account_holder", enc.encrypt(body.account_holder).decode())
     await settings_svc.set_value(db, "platform_holding_configured", "true")
     return PlatformAccountResponse(
         institution_number=body.institution_number,

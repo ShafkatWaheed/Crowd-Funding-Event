@@ -67,15 +67,15 @@ async def test_reactivate_cancelled(client, test_event_approved, auth_headers_or
     assert data["status"] == "draft"
 
 
-async def test_clone_event(client, test_event_approved, auth_headers_organizer, test_users):
-    """Clone creates a new event."""
+async def test_clone_event(client, test_event_completed, auth_headers_organizer, test_users):
+    """Clone creates a new event from a completed one."""
     r = await client.post(
-        f"/api/v1/events/{test_event_approved.id}/clone",
+        f"/api/v1/events/{test_event_completed.id}/clone",
         headers=auth_headers_organizer,
     )
     assert r.status_code == 200
     data = r.json()
-    assert data["id"] != test_event_approved.id
+    assert data["id"] != test_event_completed.id
     assert data["status"] == "draft"
 
 

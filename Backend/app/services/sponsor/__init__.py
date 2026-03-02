@@ -14,6 +14,7 @@ from app.services.sponsor.categories import (
     _require_organizer,
     copy_template_to_event,
     create_category,
+    create_template,
     delete_category,
     delete_template,
     get_bid_stats,

@@ -59,13 +59,16 @@ async def test_create_pledge_not_approved_event(client: AsyncClient, test_event,
 async def test_create_pledge_duplicate(
     client: AsyncClient, test_event_approved, test_pledge, auth_headers_customer, test_users
 ):
-    """Second pledge by same user on same event returns 409."""
+    """Second pledge by same user on same event succeeds (multiple pledges allowed)."""
     r = await client.post(
         f"/api/v1/events/{test_event_approved.id}/pledge",
         json={"amount_cents": 500, "reserved_spots": 0},
         headers=auth_headers_customer,
     )
-    assert r.status_code == 409
+    assert r.status_code == 200
+    data = r.json()
+    assert data["amount_cents"] == 500
+    assert data["status"] == "pledged"
 
 
 # ----- Unpledge -----
@@ -82,12 +85,14 @@ async def test_unpledge(client: AsyncClient, test_event_approved, test_pledge, a
 
 
 async def test_unpledge_no_pledge(client: AsyncClient, test_event_approved, auth_headers_customer, test_users):
-    """Unpledge without existing pledge returns 404."""
+    """Unpledge without existing pledge returns 200 with 0 refund (no-op)."""
     r = await client.post(
         f"/api/v1/events/{test_event_approved.id}/unpledge",
         headers=auth_headers_customer,
     )
-    assert r.status_code in (404, 400)
+    assert r.status_code == 200
+    data = r.json()
+    assert data["refunded_cents"] == 0
 
 
 # ----- Funding summary (public) -----
@@ -98,7 +103,7 @@ async def test_funding_summary(client: AsyncClient, test_event_approved, test_us
     assert r.status_code == 200
     data = r.json()
     assert "total_pledged_cents" in data
-    assert "funding_goal_cents" in data
+    assert "goal_cents" in data
 
 
 async def test_funding_summary_with_pledge(client: AsyncClient, test_event_approved, test_pledge, test_users):

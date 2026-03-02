@@ -25,8 +25,21 @@ from app.config import settings
 from app.core import security
 from app.models.user import User, UserRole
 from app.models.venue import Venue
-from app.models.event import Event, EventStatus, RegistrationType
-from app.models.ticket import TicketTier
+from app.models.event import Event, EventOrganizer, EventStatus, RegistrationType
+from app.models.ticket import TicketTier, TicketSale, TicketSaleStatus
+from app.models.funding import Funding, FundingStatus
+from app.models.registration import Registration, RegistrationStatus
+from app.models.notification import Notification, NotificationType
+from app.models.device_token import DeviceToken
+from app.models.sponsor import SponsorProfile, SponsorshipCategory, SponsorBid, BidStatus
+from app.models.milestone import FundingMilestone, EarlyBirdDiscount
+from app.models.schedule import EventScheduleItem
+from app.models.image import EventImage
+from app.models.post import EventPost
+from app.models.rating import Rating, RatingDirection
+from app.models.ticket_strategy import TicketStrategy, TicketStrategyTier
+from app.models.discount_strategy import DiscountStrategy
+from app.models.payment_info import UserPaymentInfo, OrganizerBankAccount
 
 
 # Skip DB-dependent tests when requested (e.g. in CI without DB)
@@ -74,7 +87,7 @@ async def _mock_verify_firebase(
 ) -> str | None:
     if not credentials:
         return None
-    if credentials.credentials in ("test-admin", "test-organizer", "test-organizer2", "test-customer"):
+    if credentials.credentials in ("test-admin", "test-organizer", "test-organizer2", "test-customer", "test-sponsor"):
         return credentials.credentials
     from fastapi import HTTPException
     raise HTTPException(status_code=401, detail="Invalid or expired token")
@@ -262,3 +275,344 @@ async def test_ticket_tier(
     db_session.add(tier)
     await db_session.commit()
     return tier
+
+
+# ── Sponsor user & fixtures ──
+
+@pytest_asyncio.fixture
+async def test_users_with_sponsor(db_session: AsyncSession, test_users: dict[str, User]) -> dict[str, User]:
+    """Extend test_users with a sponsor user."""
+    sponsor = User(
+        firebase_uid="test-sponsor",
+        email="sponsor@test.com",
+        display_name="Sponsor",
+        role=UserRole.sponsor,
+    )
+    db_session.add(sponsor)
+    await db_session.commit()
+    return {**test_users, "sponsor": sponsor}
+
+
+@pytest_asyncio.fixture
+async def auth_headers_sponsor() -> dict[str, str]:
+    return _auth_headers("test-sponsor")
+
+
+# ── Funding fixtures ──
+
+@pytest_asyncio.fixture
+async def test_pledge(
+    db_session: AsyncSession,
+    test_event_approved: Event,
+    test_users: dict[str, User],
+) -> Funding:
+    """A pledge by the customer on the approved event."""
+    pledge = Funding(
+        event_id=test_event_approved.id,
+        user_id=test_users["customer"].id,
+        amount_cents=2000,
+        platform_cut_cents=200,
+        net_to_organizer_cents=1800,
+        status=FundingStatus.pledged,
+        receipt_number="PLG-TEST-001",
+    )
+    db_session.add(pledge)
+    await db_session.commit()
+    return pledge
+
+
+# ── Ticket sale fixture ──
+
+@pytest_asyncio.fixture
+async def test_ticket_sale(
+    db_session: AsyncSession,
+    test_event_approved: Event,
+    test_ticket_tier: TicketTier,
+    test_users: dict[str, User],
+) -> TicketSale:
+    """A purchased ticket by the customer."""
+    sale = TicketSale(
+        event_id=test_event_approved.id,
+        user_id=test_users["customer"].id,
+        ticket_tier_id=test_ticket_tier.id,
+        ticket_code="TKT-TEST-001",
+        receipt_number="TKT-REC-001",
+        amount_paid_cents=2500,
+        status=TicketSaleStatus.purchased,
+    )
+    db_session.add(sale)
+    await db_session.commit()
+    return sale
+
+
+# ── Registration fixture ──
+
+@pytest_asyncio.fixture
+async def test_registration(
+    db_session: AsyncSession,
+    test_event_approved: Event,
+    test_users: dict[str, User],
+) -> Registration:
+    """A registration by the customer on the approved event."""
+    reg = Registration(
+        event_id=test_event_approved.id,
+        user_id=test_users["customer"].id,
+        status=RegistrationStatus.registered,
+    )
+    db_session.add(reg)
+    await db_session.commit()
+    return reg
+
+
+# ── Notification fixtures ──
+
+@pytest_asyncio.fixture
+async def test_notification(
+    db_session: AsyncSession,
+    test_users: dict[str, User],
+) -> Notification:
+    """A notification for the customer."""
+    notif = Notification(
+        user_id=test_users["customer"].id,
+        type=NotificationType.pledge_confirmed,
+        title="Test Notification",
+        message="This is a test notification.",
+        data={"test": True},
+    )
+    db_session.add(notif)
+    await db_session.commit()
+    return notif
+
+
+@pytest_asyncio.fixture
+async def test_device_token(
+    db_session: AsyncSession,
+    test_users: dict[str, User],
+) -> DeviceToken:
+    """A device token for the customer."""
+    dt = DeviceToken(
+        user_id=test_users["customer"].id,
+        token="fcm-test-token-12345",
+        platform="web",
+    )
+    db_session.add(dt)
+    await db_session.commit()
+    return dt
+
+
+# ── Sponsor profile & bid fixtures ──
+
+@pytest_asyncio.fixture
+async def test_sponsor_profile(
+    db_session: AsyncSession,
+    test_users_with_sponsor: dict[str, User],
+) -> SponsorProfile:
+    """A sponsor profile for the sponsor user."""
+    profile = SponsorProfile(
+        user_id=test_users_with_sponsor["sponsor"].id,
+        company_name="Test Corp",
+        contact_name="Sponsor Person",
+        profession="Marketing",
+    )
+    db_session.add(profile)
+    await db_session.commit()
+    return profile
+
+
+@pytest_asyncio.fixture
+async def test_sponsorship_category(
+    db_session: AsyncSession,
+    test_event_approved: Event,
+) -> SponsorshipCategory:
+    """A sponsorship category on the approved event."""
+    cat = SponsorshipCategory(
+        event_id=test_event_approved.id,
+        name="Gold Sponsor",
+        total_spots=3,
+        min_bid_cents=5000,
+    )
+    db_session.add(cat)
+    await db_session.commit()
+    return cat
+
+
+@pytest_asyncio.fixture
+async def test_sponsor_bid(
+    db_session: AsyncSession,
+    test_sponsorship_category: SponsorshipCategory,
+    test_users_with_sponsor: dict[str, User],
+) -> SponsorBid:
+    """A pending bid on the sponsorship category."""
+    bid = SponsorBid(
+        category_id=test_sponsorship_category.id,
+        sponsor_user_id=test_users_with_sponsor["sponsor"].id,
+        amount_cents=10000,
+        proposal_text="We want to sponsor this event.",
+        status=BidStatus.pending,
+    )
+    db_session.add(bid)
+    await db_session.commit()
+    return bid
+
+
+# ── Milestone fixtures ──
+
+@pytest_asyncio.fixture
+async def test_milestone(
+    db_session: AsyncSession,
+    test_event_approved: Event,
+) -> FundingMilestone:
+    """A milestone on the approved event."""
+    ms = FundingMilestone(
+        event_id=test_event_approved.id,
+        title="50% Funded",
+        unlock_percent=50,
+        description="Halfway there!",
+    )
+    db_session.add(ms)
+    await db_session.commit()
+    return ms
+
+
+@pytest_asyncio.fixture
+async def test_early_bird_discount(
+    db_session: AsyncSession,
+    test_event_approved: Event,
+) -> EarlyBirdDiscount:
+    """An early-bird discount on the approved event."""
+    ebd = EarlyBirdDiscount(
+        event_id=test_event_approved.id,
+        applies_to="funding",
+        window_end=datetime.now(timezone.utc) + timedelta(days=7),
+        discount_type="percent",
+        value=10,
+    )
+    db_session.add(ebd)
+    await db_session.commit()
+    return ebd
+
+
+# ── Schedule fixture ──
+
+@pytest_asyncio.fixture
+async def test_schedule_item(
+    db_session: AsyncSession,
+    test_event_approved: Event,
+) -> EventScheduleItem:
+    """A schedule item on the approved event."""
+    from datetime import date, time
+    item = EventScheduleItem(
+        event_id=test_event_approved.id,
+        date=date.today() + timedelta(days=30),
+        start_time=time(10, 0),
+        end_time=time(11, 0),
+        title="Opening Ceremony",
+    )
+    db_session.add(item)
+    await db_session.commit()
+    return item
+
+
+# ── Image & Post fixtures ──
+
+@pytest_asyncio.fixture
+async def test_event_image(
+    db_session: AsyncSession,
+    test_event_approved: Event,
+) -> EventImage:
+    """An image on the approved event."""
+    img = EventImage(
+        event_id=test_event_approved.id,
+        image_url="https://example.com/test.jpg",
+        caption="Test image",
+    )
+    db_session.add(img)
+    await db_session.commit()
+    return img
+
+
+@pytest_asyncio.fixture
+async def test_event_post(
+    db_session: AsyncSession,
+    test_event_approved: Event,
+    test_users: dict[str, User],
+) -> EventPost:
+    """A post on the approved event."""
+    post = EventPost(
+        event_id=test_event_approved.id,
+        user_id=test_users["organizer"].id,
+        content="Test post content",
+    )
+    db_session.add(post)
+    await db_session.commit()
+    return post
+
+
+# ── Rating fixtures ──
+
+@pytest_asyncio.fixture
+async def test_event_completed(db_session: AsyncSession, test_event: Event) -> Event:
+    """Event with status=completed (for rating tests)."""
+    test_event.status = EventStatus.completed
+    await db_session.commit()
+    return test_event
+
+
+@pytest_asyncio.fixture
+async def test_rating(
+    db_session: AsyncSession,
+    test_event_completed: Event,
+    test_users: dict[str, User],
+) -> Rating:
+    """A rating on a completed event."""
+    rating = Rating(
+        rater_user_id=test_users["customer"].id,
+        event_id=test_event_completed.id,
+        direction=RatingDirection.customer_to_event,
+        stars=4,
+        description="Great event!",
+    )
+    db_session.add(rating)
+    await db_session.commit()
+    return rating
+
+
+# ── Strategy fixtures ──
+
+@pytest_asyncio.fixture
+async def test_ticket_strategy(
+    db_session: AsyncSession,
+    test_users: dict[str, User],
+) -> TicketStrategy:
+    """A ticket strategy owned by the organizer."""
+    strategy = TicketStrategy(
+        organizer_id=test_users["organizer"].id,
+        name="Concert Standard",
+    )
+    db_session.add(strategy)
+    await db_session.flush()
+    tier = TicketStrategyTier(
+        strategy_id=strategy.id,
+        name="General",
+        price_cents=2500,
+    )
+    db_session.add(tier)
+    await db_session.commit()
+    return strategy
+
+
+@pytest_asyncio.fixture
+async def test_discount_strategy(
+    db_session: AsyncSession,
+    test_users: dict[str, User],
+) -> DiscountStrategy:
+    """A discount strategy owned by the organizer."""
+    ds = DiscountStrategy(
+        organizer_id=test_users["organizer"].id,
+        name="Early Bird 10%",
+        discount_type="ticket_percent",
+        value=10,
+    )
+    db_session.add(ds)
+    await db_session.commit()
+    return ds

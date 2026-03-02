@@ -3,7 +3,7 @@
 ## Initiator
 
 - **Who:** System / backend (charge on ticket purchase, pledge, sponsor payment; transfer on escrow release; refund on refund request; hold/release for escrow). No direct user call to the gateway; callers use `get_gateway(db)` to obtain the implementation.
-- **When:** Ticket purchase, pledge payment, sponsor payment (charge); payout to organizer (transfer); refund flow (refund); escrow hold/release (hold, release_hold). Gateway choice is determined by platform setting `payment_mock_enabled`.
+- **When:** Ticket purchase, pledge payment, sponsor payment (charge); payout to organizer (transfer); refund flow (refund); escrow hold/release (hold, release_hold). Gateway choice is determined by platform settings: `stripe_enabled` (if true, Stripe is selected but raises until implemented) else Mock.
 
 ## Frontend flow
 
@@ -28,13 +28,13 @@
 - **Result data classes:** `ChargeResult`, `TransferResult`, `RefundResult`, `HoldResult` (each with `transaction_id`, `status`, `authorization_code`; charge/transfer/refund have optional `receipt_reference`).
 - **Implementations:**
   - `MockPaymentGateway`: configurable latency (platform settings e.g. `mock_charge_latency_min_ms`, `mock_charge_latency_max_ms`), failure rate (`mock_failure_rate_percent`), one-off fail-next (`mock_fail_next_charge`). Idempotency: when `idempotency_key` is provided, returns existing `PaymentMockLedger` result if present. Writes to `PaymentMockLedger` and uses `ledger_svc.record_charge` / `record_entries` for double-entry.
-  - `StripePaymentGateway`: stub that raises `NotImplementedError` for all methods (for future real Stripe integration).
-- **Factory:** `get_gateway(db: AsyncSession) -> PaymentGateway` — returns `MockPaymentGateway()` when `payment_mock_enabled` is true, else `StripePaymentGateway()`.
+  - `StripePaymentGateway`: abstract base (no methods implemented); subclass and implement for real Stripe. When `stripe_enabled` is true, `get_gateway(db)` raises `RuntimeError` until a concrete Stripe implementation is wired in.
+- **Factory:** `get_gateway(db: AsyncSession) -> PaymentGateway` — if `stripe_enabled` is true, raises `RuntimeError` ("Stripe is enabled but not yet implemented"); else returns `MockPaymentGateway()`. Platform settings: `stripe_enabled`, `stripe_publishable_key`, `stripe_secret_key`, `stripe_webhook_secret`, `stripe_connect_enabled` (see [66](66-admin-settings-expansion.md)).
 
 ## Models and DB
 
 - **Models:** Uses `PaymentMockLedger`, `LedgerEntry` (via ledger service). No models defined in this module.
-- **Tables updated/read:** `payment_mock_ledger`, `ledger_entries` (via ledger), `platform_settings` (for mock_enabled, latency, failure rate, fee config).
+- **Tables updated/read:** `payment_mock_ledger`, `ledger_entries` (via ledger), `platform_settings` (for stripe_enabled, Stripe keys, mock latency, failure rate, fee config).
 
 ## Dependencies
 
@@ -60,7 +60,7 @@ flowchart LR
 
 ## Vulnerabilities
 
-- Mock must only be used when `payment_mock_enabled` is true; production should use real gateway. Ensure admin controls for mock (clear, fail-next, etc.) are gated per [53](53-banking-financial-management.md).
+- When Stripe is enabled but not implemented, `get_gateway` raises; admins are notified via [34](34-in-app-notifications.md) (settings_warning). Mock remains default until Stripe (or another gateway) is fully implemented. Ensure admin controls for mock (clear, fail-next, etc.) are gated per [53](53-banking-financial-management.md).
 - Idempotency keys must be unique per logical operation to avoid double charges.
 
 ## Improvements

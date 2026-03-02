@@ -30,6 +30,13 @@
 - **Models:** `Dispute` (stripe_dispute_id, transaction_id, event_id, user_id, amount_cents, reason, status, resolved_at, etc.). Escrow models: `FundEscrow`, `TicketEscrow`, `SponsorEscrow` (status and stage fields updated).
 - **Tables updated/read:** `disputes` (insert/update), `fund_escrows`, `ticket_escrows`, `sponsor_escrows` (status updates).
 
+## Recently implemented (Stripe integration preparation)
+
+- **Platform settings:** `stripe_enabled`, `stripe_publishable_key`, `stripe_secret_key`, `stripe_webhook_secret`, `stripe_connect_enabled` added to `platform_settings` (see [66](66-admin-settings-expansion.md)). When admin sets `stripe_enabled` to true, all admins receive a [settings_warning](34-in-app-notifications.md) notification that Stripe is not yet fully implemented.
+- **DB fields (migration zz03_stripe_fields):** `User`: `stripe_customer_id`, `stripe_connect_account_id`; `TicketSale`, `Funding`, `SponsorPayment`: `stripe_payment_intent_id`, `gateway_refund_id` (for PaymentIntent and refund tracking when Stripe is used).
+- **Banking API:** GET `/banking/stripe/config` returns `stripe_enabled`, `stripe_connect_enabled`, `publishable_key` for frontend. GET `/me/payment-info` when Stripe enabled returns `mode: "stripe"`, `stripe_customer_id`, `stripe_configured`. POST `/banking/payments/create-intent` (501 stub) reserved for Stripe Payment Sheet; returns "not yet implemented" until `StripePaymentGateway` is built.
+- **Refund worker:** `process_pledge_refund` (and ticket/sponsor refund tasks) now call `get_gateway(db)` and gateway `refund()`; when Stripe is enabled but not implemented, `get_gateway` raises and refunds would fail until gateway is implemented.
+
 ## Dependencies
 
 - **Requires:** [Banking & Financial Management](53-banking-financial-management.md) (disputes, platform settings for webhook secret), [Fund Escrow](29-fund-escrow.md), [Ticket & Sponsor Escrow](54-ticket-sponsor-escrow.md) (all three escrow types are auto-frozen on dispute and auto-unfrozen on resolution).

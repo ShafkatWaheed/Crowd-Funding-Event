@@ -1,0 +1,225 @@
+import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
+import 'package:provider/provider.dart';
+
+import '../../lib/models/event.dart';
+import '../../lib/models/user.dart';
+import '../../lib/providers/auth_provider.dart';
+import '../../lib/providers/event_provider.dart';
+import '../../lib/services/api_service.dart';
+import '../../lib/screens/event/event_detail/ticket_tiers_section.dart';
+import '../helpers/mock_providers.dart';
+import '../helpers/mock_api_service.dart';
+import '../helpers/pump_app.dart';
+import '../helpers/fixtures.dart';
+
+void main() {
+  late MockAuthProvider mockAuth;
+  late MockApiService mockApi;
+  late MockEventProvider mockEvent;
+
+  /// Build a Dio Response wrapping [data].
+  Response<dynamic> dioResponse(dynamic data) {
+    return Response(
+      data: data,
+      statusCode: 200,
+      requestOptions: RequestOptions(path: ''),
+    );
+  }
+
+  setUp(() {
+    mockAuth = MockAuthProvider();
+    mockApi = MockApiService();
+    mockEvent = MockEventProvider();
+
+    // Default: logged-in customer (not organizer/admin)
+    when(() => mockAuth.user).thenReturn(makeUser(role: UserRole.customer));
+
+    // Register fallback for Dio get calls
+    registerFallbackValue(RequestOptions(path: ''));
+  });
+
+  /// Helper to pump TicketTiersSection with injected providers.
+  Future<void> pumpTiersSection(
+    WidgetTester tester, {
+    Event? event,
+    int myTicketCount = 0,
+    int myReservedSpots = 0,
+    List<Map<String, dynamic>>? myEventTickets,
+    bool isOrganizer = false,
+    bool isAdmin = false,
+    bool isRegistered = true,
+  }) async {
+    // Event with ticketStrategyId set so tiers section is visible
+    final ev = event ??
+        Event.fromJson(eventJson(
+          id: 1,
+          status: 'selling_tickets',
+          fundingGoalCents: 100000,
+          totalPledgedCents: 50000,
+        )..['ticket_strategy_id'] = 1);
+
+    await pumpApp(
+      tester,
+      Scaffold(
+        body: SingleChildScrollView(
+          child: TicketTiersSection(
+            event: ev,
+            myTicketCount: myTicketCount,
+            myReservedSpots: myReservedSpots,
+            myEventTickets: myEventTickets ?? [],
+            isOrganizer: isOrganizer,
+            isAdmin: isAdmin,
+            isRegistered: isRegistered,
+            onPurchaseComplete: () {},
+          ),
+        ),
+      ),
+      overrides: [
+        ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
+        ChangeNotifierProvider<EventProvider>.value(value: mockEvent),
+        Provider<ApiService>.value(value: mockApi),
+      ],
+    );
+  }
+
+  /// Stubs the MockDio to return [tiers] when the tiers endpoint is called.
+  void stubTiers(MockApiService api, List<Map<String, dynamic>> tiers) {
+    when(() => api.mockDio.get(
+          any(that: contains('ticket-tiers')),
+          data: any(named: 'data'),
+          queryParameters: any(named: 'queryParameters'),
+          options: any(named: 'options'),
+          cancelToken: any(named: 'cancelToken'),
+          onReceiveProgress: any(named: 'onReceiveProgress'),
+        )).thenAnswer((_) async => dioResponse(tiers));
+  }
+
+  group('TicketTiersSection', () {
+    testWidgets('renders tier list', (tester) async {
+      stubTiers(mockApi, [
+        {
+          'id': 1,
+          'name': 'General',
+          'price_cents': 5000,
+          'max_reserved_spots': 100,
+          'tickets_sold': 20,
+          'spots_reserved': 5,
+        },
+        {
+          'id': 2,
+          'name': 'VIP',
+          'price_cents': 15000,
+          'max_reserved_spots': 20,
+          'tickets_sold': 5,
+          'spots_reserved': 2,
+        },
+      ]);
+
+      await pumpTiersSection(tester);
+      await tester.pumpAndSettle();
+
+      expect(find.text('General'), findsOneWidget);
+      expect(find.text('VIP'), findsOneWidget);
+    });
+
+    testWidgets('shows tier name and price', (tester) async {
+      stubTiers(mockApi, [
+        {
+          'id': 1,
+          'name': 'Standard',
+          'price_cents': 7500,
+          'max_reserved_spots': 0,
+          'tickets_sold': 0,
+          'spots_reserved': 0,
+        },
+      ]);
+
+      await pumpTiersSection(tester);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Standard'), findsOneWidget);
+      // Price shown as "$75.00"
+      expect(find.text('\$75.00'), findsOneWidget);
+    });
+
+    testWidgets('free tier shows FREE label', (tester) async {
+      stubTiers(mockApi, [
+        {
+          'id': 1,
+          'name': 'Community',
+          'price_cents': 0,
+          'max_reserved_spots': 50,
+          'tickets_sold': 10,
+          'spots_reserved': 0,
+        },
+      ]);
+
+      await pumpTiersSection(tester);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Community'), findsOneWidget);
+      expect(find.text('FREE'), findsOneWidget);
+    });
+
+    testWidgets('sold-out state handling', (tester) async {
+      stubTiers(mockApi, [
+        {
+          'id': 1,
+          'name': 'Limited',
+          'price_cents': 10000,
+          'max_reserved_spots': 10,
+          'tickets_sold': 8,
+          'spots_reserved': 2,
+        },
+      ]);
+
+      await pumpTiersSection(tester);
+      await tester.pumpAndSettle();
+
+      // spotsLeft = 10 - 8 - 2 = 0 => "Sold out"
+      expect(find.text('Sold out'), findsOneWidget);
+    });
+
+    testWidgets('buy button exists for customer on selling_tickets event',
+        (tester) async {
+      stubTiers(mockApi, [
+        {
+          'id': 1,
+          'name': 'General',
+          'price_cents': 5000,
+          'max_reserved_spots': 0,
+          'tickets_sold': 0,
+          'spots_reserved': 0,
+        },
+      ]);
+
+      await pumpTiersSection(tester);
+      await tester.pumpAndSettle();
+
+      // The "Buy Tickets" button is rendered for customer on selling_tickets events
+      expect(find.text('Buy Tickets'), findsOneWidget);
+    });
+
+    testWidgets('quantity display when spots are available', (tester) async {
+      stubTiers(mockApi, [
+        {
+          'id': 1,
+          'name': 'General',
+          'price_cents': 5000,
+          'max_reserved_spots': 50,
+          'tickets_sold': 10,
+          'spots_reserved': 5,
+        },
+      ]);
+
+      await pumpTiersSection(tester);
+      await tester.pumpAndSettle();
+
+      // Should show available spots text "35 of 50 spots available"
+      expect(find.textContaining('35 of 50 spots available'), findsOneWidget);
+    });
+  });
+}

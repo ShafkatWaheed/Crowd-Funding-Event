@@ -77,7 +77,9 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
                   ],
                 ),
               )
-            : _buildReceipt(),
+            : _receipt != null
+                ? _buildReceipt()
+                : const SizedBox.shrink(),
       ),
     );
   }

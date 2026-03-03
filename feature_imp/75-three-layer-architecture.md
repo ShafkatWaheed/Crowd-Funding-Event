@@ -3,22 +3,22 @@
 ## Initiator
 
 - **Who:** Developers (all new features and refactors); system (every request flows through the layers).
-- **When:** Backend: every API request (API → Service → Repository → DB). Frontend: every screen/flow (Screen → Provider → Repository → ApiService). Refactoring and new code follow this structure.
+- **When:** Backend: every API request (API → Service → Repository → DB). Frontend: every screen/flow (Screen → Provider → Repository → Dio). Refactoring and new code follow this structure.
 
 ## Frontend flow
 
-- **Layers:** **Screen** (UI only; reads from providers, dispatches actions to providers) → **Provider** (state + business logic; uses repositories and optionally ApiService for raw calls) → **Repository** (data access; calls API, returns domain models or throws ApiError). Screens do not call ApiService or repositories directly; they use providers. Providers use repositories (or ApiService where repos are not yet introduced).
-- **Repositories:** `lib/repositories/` — `base_repository.dart` (PaginatedResult, ApiError, extractMessage), `admin_repository.dart`, `bookmark_repository.dart`, `chat_repository.dart`, `event_repository.dart`, `funding_repository.dart`, `notification_repository.dart`, `sponsor_repository.dart`, `ticket_repository.dart`, `user_repository.dart`, `venue_repository.dart`. Each encapsulates API calls for a domain and exposes typed methods.
+- **Layers:** **Screen** (UI only; reads from providers, dispatches actions to providers) → **Provider** (state + business logic; uses repositories) → **Repository** (data access; uses Dio from dio_factory, returns domain models or throws ApiError). Screens do not call repositories directly; they use providers. **ApiService** has been removed; repositories use **Dio** from `lib/config/dio_factory.dart` (`createAuthDio()` — base URL, timeouts, Firebase auth interceptor, 401 retry).
+- **Repositories:** `lib/repositories/` — `base_repository.dart` (PaginatedResult, ApiError, extractMessage), `admin_repository.dart`, `bookmark_repository.dart`, `chat_repository.dart`, `event_repository.dart`, `funding_repository.dart`, `notification_repository.dart`, **`payment_repository.dart`**, `sponsor_repository.dart`, `ticket_repository.dart`, `user_repository.dart`, `venue_repository.dart`. Each encapsulates API calls for a domain and exposes typed methods.
 - **Providers:** Existing (auth, chat, config, event, notification, theme) plus **pledge_provider** (pledge/pledges state and actions). Providers hold repositories (injected or created) and expose state and methods to screens.
 - **Screens:** Admin dashboard and tabs, bookmarks, event detail and create/edit, funding card, home tabs, manage screens, profile, sponsor screens, ticket screens, venue screens, etc. — updated to consume providers (and thus repositories) instead of calling ApiService directly where the 3-layer migration is applied.
-- **Tests:** `test/helpers/mock_*_repository.dart` (mock_admin_repository, mock_bookmark_repository, mock_chat_repository, mock_event_repository, mock_funding_repository, mock_sponsor_repository, mock_ticket_repository, mock_user_repository, mock_venue_repository) for widget and provider tests. Provider and screen tests updated to inject mock repositories.
+- **Tests:** `test/helpers/mock_*_repository.dart` (mock_admin_repository, mock_bookmark_repository, mock_chat_repository, mock_event_repository, mock_funding_repository, **mock_payment_repository**, mock_sponsor_repository, mock_ticket_repository, mock_user_repository, mock_venue_repository) for widget and provider tests. Provider and screen tests updated to inject mock repositories. ApiService mock replaced by repository mocks where applicable.
 
 ## Backend flow
 
 - **Layers:** **API** (thin: auth, validation, request/response shaping; calls services) → **Service** (business logic; calls repositories, no direct `db.execute` in route handlers) → **Repository** (data layer; all SQLAlchemy queries, returns models or raises). API routes do not query the DB directly; they call service functions. Services call repositories for reads/writes.
-- **Repositories:** `app/repositories/` — `base.py` (BaseRepository with get_by_id, get_or_404, create, count, list_paginated), `admin_repo.py`, `dashboard_repo.py`, `escrow_repo.py`, `event_repo.py`, `funding_repo.py`, `notification_repo.py`, `registration_repo.py`, `sponsor_repo.py`, `ticket_repo.py`, `user_repo.py`, `venue_repo.py`. Each encapsulates DB access for a domain.
-- **Services:** `app/services/` — admin, auth, dashboard, escrow, escrow_base, event (attendance, crud, discounts, lifecycle, organizers, permissions, queries), funding (pledges, reservations, summary), kyc_verification, notification_service, registration, sponsor (bids, categories, delegates, organizer_queries, payments, profile, tickets), sponsor_escrow, ticket (pricing, sales, tiers), ticket_escrow, venue. Services accept `db: AsyncSession` and repository instances (or obtain them); they contain business rules and orchestration; they do not build raw SQL/select in API handlers.
-- **API:** `app/api/v1/` — notifications, sponsors (organizer_views, templates), users, venues (and other routers) updated to call service layer; handlers stay thin (parse body, call service, return response).
+- **Repositories:** `app/repositories/` — `base.py` (BaseRepository with get_by_id, get_or_404, create, count, list_paginated), `admin_repo.py`, **`banking_repo.py`**, `dashboard_repo.py`, **`email_template_repo.py`**, `escrow_repo.py`, `event_repo.py`, `funding_repo.py`, **`ledger_repo.py`**, `notification_repo.py`, **`rating_repo.py`**, `registration_repo.py`, `sponsor_repo.py`, `ticket_repo.py`, `user_repo.py`, `venue_repo.py`, **`worker_run_repo.py`**. Each encapsulates DB access for a domain.
+- **Services:** `app/services/` — admin, auth, dashboard, escrow, escrow_base, event (attendance, crud, discounts, lifecycle, organizers, permissions, queries), funding (pledges, reservations, summary), kyc_verification, notification_service, registration, sponsor (bids, categories, delegates, organizer_queries, payments, profile, tickets), sponsor_escrow, ticket (pricing, sales, tiers), ticket_escrow, venue; **email_notifications**, **email_service**, **email_templates** and **worker/tasks** use repositories (e.g. email_template_repo, worker_run_repo). Services accept `db: AsyncSession` and repository instances (or obtain them); they contain business rules and orchestration; they do not build raw SQL/select in API handlers.
+- **API:** `app/api/v1/` — **admin**, **chat**, **events** (_helpers, crud, images, lifecycle, pledge, reactions, registration, tickets), **notifications**, **public_profiles**, **ratings**, **schedule**, **sponsors** (bids, categories, payments, profile, templates, tickets), **users**, **webhooks** — endpoints refactored to use repository pattern for data access; handlers delegate to services/repositories (no direct SQLAlchemy in routes).
 
 ## Backend routing
 
@@ -27,12 +27,17 @@
 ## Service layer
 
 - **Backend:** Services are in `app.services.*`. They receive `db` and optionally repositories; they orchestrate business logic and call repositories for persistence. N+1 prevention and eager loading are applied in repository or service layer (selectinload/joinedload in repo queries where needed).
-- **Frontend:** Providers are the “service” layer: they hold state and invoke repositories (or ApiService) and update state. Repositories are the data layer.
+- **Frontend:** Providers are the “service” layer: they hold state and invoke repositories and update state. Repositories are the data layer; they use Dio from dio_factory for HTTP.
 
 ## Models and DB
 
 - **Backend:** Models remain in `app.models.*`; repositories read/write them via SQLAlchemy AsyncSession. No schema change for the 3-layer split; only code organization.
 - **Frontend:** Models remain in `lib/models/*`; repositories return them (or DTOs) from API responses. `base_repository.dart` provides PaginatedResult and ApiError for consistent handling.
+
+## Recently implemented (repository-pattern refactor)
+
+- **Backend:** API endpoints refactored to use repository methods for data access: admin, chat, events (_helpers, crud, images, lifecycle, pledge, reactions, registration, tickets), notifications, public_profiles, ratings, schedule, sponsors (bids, categories, payments, profile, templates, tickets), users, webhooks. New repositories: **rating_repo.py**, **worker_run_repo.py**. Repositories added/updated: **banking_repo**, **email_template_repo**, **ledger_repo**. Services (email_notifications, email_service, email_templates, kyc_verification) and worker tasks use repositories. Error handling and data retrieval streamlined; event images and ratings centralized through repositories.
+- **Frontend:** **ApiService removed**; HTTP is done via **Dio** from `lib/config/dio_factory.dart` (`createAuthDio()` — base URL, timeouts, Firebase auth interceptor, 401 retry). New **payment_repository.dart**. Repositories use the shared Dio instance. Config provider, funding_card, ticket_tiers_section, my_bid_actions, sync_service updated. Tests: **mock_payment_repository.dart** (replacing mock_api_service where applicable); chat_provider, config_provider, and several screen tests updated to use mock repositories.
 
 ## Dependencies
 
@@ -41,7 +46,7 @@
 
 ## Prompt
 
-Implement and maintain **Three-Layer Architecture** for the Crowd Funding Event app. Backend: API (thin) → Service (business logic) → Repository (DB access); repositories in `app/repositories/` (base, admin, dashboard, escrow, event, funding, notification, registration, sponsor, ticket, user, venue). Frontend: Screen (UI) → Provider (state + logic) → Repository (API calls); repositories in `lib/repositories/` (base_repository, admin, bookmark, chat, event, funding, notification, sponsor, ticket, user, venue); pledge_provider added; screens use providers. Tests use mock repositories. Follow the flow and dependencies in this document and in planned/3-layer-architecture-refactor.md.
+Implement and maintain **Three-Layer Architecture** for the Crowd Funding Event app. Backend: API (thin) → Service (business logic) → Repository (DB access); repositories in `app/repositories/` (base, admin, banking, dashboard, email_template, escrow, event, funding, ledger, notification, rating, registration, sponsor, ticket, user, venue, worker_run). Frontend: Screen (UI) → Provider (state + logic) → Repository (API calls via Dio); `lib/config/dio_factory.dart` provides `createAuthDio()`; repositories in `lib/repositories/` (base_repository, admin, bookmark, chat, event, funding, notification, payment, sponsor, ticket, user, venue); ApiService removed; screens use providers. Tests use mock repositories (including mock_payment_repository). Follow the flow and dependencies in this document and in planned/3-layer-architecture-refactor.md.
 
 ## Flow diagram
 
@@ -58,7 +63,7 @@ flowchart TB
     E[Screens]
     F[Providers]
     G[Repositories]
-    H[ApiService]
+    H[Dio / dio_factory]
     E --> F --> G --> H
   end
 ```

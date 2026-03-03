@@ -34,6 +34,10 @@ String? resolveNotificationRoute(String type, Map<String, dynamic> data) {
 
     // ── Pledges ──
     case 'pledge_confirmed':
+      final pledgeId = data['pledge_id'];
+      if (eventId != null && pledgeId != null) {
+        return '/events/$eventId/pledges/$pledgeId/receipt';
+      }
       return '/my-pledges';
 
     // ── Sponsors / Bids ──
@@ -192,7 +196,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
       case 'ticket_refund_failed':
         return 'View refund';
       case 'pledge_confirmed':
-        return 'View pledges';
+        return 'View receipt';
       case 'funding_goal_reached':
       case 'milestone_reached':
       case 'pledge_refund_failed':

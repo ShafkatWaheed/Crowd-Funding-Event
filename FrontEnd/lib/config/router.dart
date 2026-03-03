@@ -9,6 +9,7 @@ import '../screens/event/create_event_screen.dart';
 import '../screens/event/edit_event_screen.dart';
 import '../screens/event/event_detail_screen.dart';
 import '../screens/event/ticket_receipt_screen.dart';
+import '../screens/event/pledge_receipt_screen.dart';
 import '../screens/event/waitlist_screen.dart';
 import '../screens/event/ticket_sales_screen.dart';
 import '../screens/event/refund_requests_screen.dart';
@@ -233,6 +234,15 @@ GoRouter createRouter(AuthProvider authProvider) {
           final saleId = int.parse(state.pathParameters['saleId']!);
           return fadeScalePage(
               child: TicketReceiptScreen(eventId: id, saleId: saleId));
+        },
+      ),
+      GoRoute(
+        path: '/events/:id/pledges/:pledgeId/receipt',
+        pageBuilder: (context, state) {
+          final id = int.parse(state.pathParameters['id']!);
+          final pledgeId = int.parse(state.pathParameters['pledgeId']!);
+          return fadeScalePage(
+              child: PledgeReceiptScreen(eventId: id, pledgeId: pledgeId));
         },
       ),
       GoRoute(

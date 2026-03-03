@@ -9,7 +9,7 @@
 
 - **Screen/Widget:** `HomeScreen` (tabs: Home, Explore, Manage/My Events, Profile); FAB "New Event" (organizer/admin); bottom nav; inner screens (event detail, create, edit, venues, ticket strategies, admin, etc.) with close (X) and safe pop. Create Event: 5-step wizard (IndexedStack). Toasts: AppToast (success, error, warning, info). Loading: `LoadingSwitcher` (animated transition between shimmer placeholder and content); shimmer loaders use `AppTheme.shimmerOf` and `AppTheme.shimmerHighlightOf` for dark/light consistency.
 - **User action:** Switch tabs; tap cards to open detail; tap X to close (pop to previous tab/page); next/back in wizard; trigger toasts on success/error.
-- **API calls:** Various (each screen calls its own APIs via providers). Under [Three-Layer Architecture](75-three-layer-architecture.md), screens use providers, providers use repositories (or ApiService); router and navigation do not call API directly. Error extraction: ApiService.extractError or ApiError.extractMessage for backend detail message.
+- **API calls:** Various (each screen calls its own APIs via providers). Under [Three-Layer Architecture](75-three-layer-architecture.md), screens use providers, providers use repositories (Dio from dio_factory); ApiService removed. Error extraction: ApiError.extractMessage (base_repository) for backend detail message.
 
 ## Backend routing
 
@@ -17,8 +17,8 @@
 
 ## Service layer
 
-- Frontend: `GoRouter` (router.dart), `AuthProvider` (redirect, refresh), `ApiService` (extractError). No backend service for "UX" itself.
-- **App root:** `CrowdFundApp` is a **StatefulWidget**; `ApiService`, `ChatSocketService`, `AppDatabase`, and `SyncService` are created in `initState()` and held as instance variables (`_apiService`, `_chatSocket`, `_appDatabase`, `_syncService`). Provider values in `build()` use these instance variables so services are initialized once and survive rebuilds. This improves lifecycle management and avoids recreating services on every build.
+- Frontend: `GoRouter` (router.dart), `AuthProvider` (redirect, refresh), repositories (Dio from `dio_factory.createAuthDio()`). No backend service for "UX" itself.
+- **App root:** `CrowdFundApp` is a **StatefulWidget**; Dio (or auth Dio from dio_factory), `ChatSocketService`, `AppDatabase`, and `SyncService` are created/obtained in `initState()` and held as instance variables so providers and repositories get a shared HTTP client and services. Provider values in `build()` use these so services are initialized once and survive rebuilds. This improves lifecycle management and avoids recreating services on every build.
 - **AppShell:** Uses `context.watch<AuthProvider>()` and `context.watch<ThemeProvider>()` in `build()` so the shell rebuilds when auth or theme changes. Auth transition side-effects (chat connect/disconnect, sync) and the loading check are performed in `build()`; the router is created from the watched auth provider. Route `/account` uses **_AccountShell** (in router.dart): a Scaffold with an AppBar (close button, title "Account") wrapping **ProfileTab**, so the account view can be closed or popped. Profile screen (when used as main tab) uses a close-style leading button for consistency.
 
 ## Models and DB
@@ -32,7 +32,7 @@
 
 ## Prompt
 
-Implement **Frontend Screens and UX** for the Crowd Funding Event app. Frontend: GoRouter with tabs (Home, Explore, Manage, Profile); FAB New Event for organizer/admin; 5-step Create Event wizard (IndexedStack); AppToast; close and safe pop; ApiService.extractError for errors. No new backend; ensure all feature screens plug into router and home structure. Follow the flow, dependencies, and diagrams in this document.
+Implement **Frontend Screens and UX** for the Crowd Funding Event app. Frontend: GoRouter with tabs (Home, Explore, Manage, Profile); FAB New Event for organizer/admin; 5-step Create Event wizard (IndexedStack); AppToast; close and safe pop; ApiError.extractMessage for errors (repositories use Dio from dio_factory). No new backend; ensure all feature screens plug into router and home structure. Follow the flow, dependencies, and diagrams in this document.
 
 ## Flow diagram
 
@@ -64,7 +64,7 @@ flowchart LR
 ## Improvements
 
 - Wizard unsaved-changes dialog: prevent accidental close. Step validation and error indicators on steps (red circle) improve UX. Contextual "Next: Funding" button label.
-- AppToast and extractError: consistent error handling across app; ensure all catch blocks use them.
+- AppToast and ApiError.extractMessage: consistent error handling across app; ensure all catch blocks use them.
 
 ## Feedback
 

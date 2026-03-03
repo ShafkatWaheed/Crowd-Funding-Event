@@ -9,7 +9,13 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.escrow import EscrowRelease, EscrowStatus
+from app.models.escrow import (
+    EscrowRelease,
+    EscrowStatus,
+    FundEscrow,
+    SponsorEscrow,
+    TicketEscrow,
+)
 from app.models.event import Event
 from app.models.funding import Funding, FundingStatus
 from app.models.payment_info import OrganizerBankAccount
@@ -238,6 +244,92 @@ class EscrowRepository:
                 Dispute.status.in_([DisputeStatus.open, DisputeStatus.evidence_submitted]),
             )
         )).scalar_one())
+
+    # ═══════════════════════════════════════════════════════════════════
+    #  Dispute
+    # ═══════════════════════════════════════════════════════════════════
+
+    async def get_dispute_by_stripe_id(
+        self, db: AsyncSession, stripe_dispute_id: str,
+    ):
+        from app.models.dispute import Dispute
+        q = select(Dispute).where(Dispute.stripe_dispute_id == stripe_dispute_id)
+        return (await db.execute(q)).scalar_one_or_none()
+
+    async def create_dispute(self, db: AsyncSession, dispute) -> None:
+        db.add(dispute)
+        await db.flush()
+
+    async def freeze_escrows_for_event(self, db: AsyncSession, event_id: int) -> None:
+        """Freeze all escrow types for an event."""
+        from app.models.escrow import FundEscrow, TicketEscrow, SponsorEscrow
+        for model in (FundEscrow, TicketEscrow, SponsorEscrow):
+            esc = (await db.execute(
+                select(model).where(model.event_id == event_id)
+            )).scalar_one_or_none()
+            if esc and esc.status not in (EscrowStatus.frozen, EscrowStatus.fully_released):
+                esc.status = EscrowStatus.frozen
+
+    async def unfreeze_escrows_for_event(self, db: AsyncSession, event_id: int) -> None:
+        """Unfreeze all escrow types for an event."""
+        from app.models.escrow import FundEscrow, TicketEscrow, SponsorEscrow
+        for model in (FundEscrow, TicketEscrow, SponsorEscrow):
+            esc = (await db.execute(
+                select(model).where(model.event_id == event_id)
+            )).scalar_one_or_none()
+            if esc and esc.status == EscrowStatus.frozen:
+                if esc.stage3_released_at:
+                    esc.status = EscrowStatus.fully_released
+                elif esc.stage1_released_at:
+                    esc.status = EscrowStatus.partially_released
+                else:
+                    esc.status = EscrowStatus.holding
+
+    async def get_all_escrows_for_event(self, db: AsyncSession, event_id: int) -> dict:
+        """Return {fund, ticket, sponsor} escrow records for an event."""
+        from app.models.escrow import FundEscrow, TicketEscrow, SponsorEscrow
+        fund = (await db.execute(select(FundEscrow).where(FundEscrow.event_id == event_id))).scalar_one_or_none()
+        ticket = (await db.execute(select(TicketEscrow).where(TicketEscrow.event_id == event_id))).scalar_one_or_none()
+        sponsor = (await db.execute(select(SponsorEscrow).where(SponsorEscrow.event_id == event_id))).scalar_one_or_none()
+        return {"fund": fund, "ticket": ticket, "sponsor": sponsor}
+
+    async def flush(self, db: AsyncSession) -> None:
+        await db.flush()
+
+    async def flush_and_refresh(self, db: AsyncSession, obj) -> None:
+        await db.flush()
+        await db.refresh(obj)
+
+    # ── Worker task helpers ────────────────────────────────────────
+
+    async def get_escrow_by_type_and_id(
+        self, db: AsyncSession, escrow_type: str, escrow_id: int,
+    ):
+        """Get an escrow record by type ('fund'/'ticket'/'sponsor') and primary key."""
+        model_map = {
+            "fund": FundEscrow,
+            "ticket": TicketEscrow,
+            "sponsor": SponsorEscrow,
+        }
+        model = model_map.get(escrow_type)
+        if not model:
+            return None
+        q = select(model).where(model.id == escrow_id)
+        return (await db.execute(q)).scalar_one_or_none()
+
+    async def get_active_ticket_escrow_event_ids(self, db: AsyncSession) -> list[int]:
+        """Event IDs with active ticket escrows (holding or partially_released)."""
+        q = select(TicketEscrow.event_id).where(
+            TicketEscrow.status.in_([EscrowStatus.holding, EscrowStatus.partially_released])
+        )
+        return list((await db.execute(q)).scalars().all())
+
+    async def get_active_sponsor_escrow_event_ids(self, db: AsyncSession) -> list[int]:
+        """Event IDs with active sponsor escrows (holding or partially_released)."""
+        q = select(SponsorEscrow.event_id).where(
+            SponsorEscrow.status.in_([EscrowStatus.holding, EscrowStatus.partially_released])
+        )
+        return list((await db.execute(q)).scalars().all())
 
 
 # Module-level singleton

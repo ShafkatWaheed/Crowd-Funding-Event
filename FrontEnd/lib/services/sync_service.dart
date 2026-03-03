@@ -7,22 +7,21 @@ import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 
 import '../db/app_database.dart';
-import 'api_service.dart';
 
-/// Handles pull sync (server → device) and push sync (offline scans → server).
+/// Handles pull sync (server -> device) and push sync (offline scans -> server).
 ///
 /// Usage: create once, call [init] on app start, [dispose] on app close.
 class SyncService {
-  SyncService({required this.db, required this.api});
+  SyncService({required this.db, required this.dio});
 
   final AppDatabase db;
-  final ApiService api;
+  final Dio dio;
 
   StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
   Timer? _pushTimer;
   bool _isSyncing = false;
 
-  // ── Lifecycle ──
+  // -- Lifecycle --
 
   void init() {
     // connectivity_plus stream listener throws MissingPluginException on web
@@ -60,12 +59,60 @@ class SyncService {
     }
   }
 
-  // ── Pull Sync (Server → Device) ──
+  // -- Private HTTP helpers (inlined from former ApiService) --
+
+  Future<Map<String, dynamic>> _fetchEvents({int limit = 20}) async {
+    final resp = await dio.get('/events', queryParameters: {'limit': limit});
+    final data = resp.data;
+    if (data is List) {
+      return {'items': data, 'next_cursor': null};
+    }
+    return data as Map<String, dynamic>;
+  }
+
+  Future<List<dynamic>> _fetchMyTickets({int offset = 0, int limit = 20}) async {
+    final resp = await dio.get('/me/tickets', queryParameters: {
+      'offset': offset,
+      'limit': limit,
+    });
+    return resp.data;
+  }
+
+  Future<List<dynamic>> _fetchTicketSales(int eventId, {int offset = 0, int limit = 20}) async {
+    final resp = await dio.get('/events/$eventId/ticket-sales', queryParameters: {
+      'offset': offset,
+      'limit': limit,
+    });
+    return resp.data;
+  }
+
+  Future<Map<String, dynamic>> _postScanTicket(int eventId, {String? ticketCode, String? encryptedPayload}) async {
+    final body = <String, dynamic>{};
+    if (encryptedPayload != null && encryptedPayload.isNotEmpty) {
+      body['encrypted_payload'] = encryptedPayload;
+    } else if (ticketCode != null) {
+      body['ticket_code'] = ticketCode;
+    }
+    final resp = await dio.post('/events/$eventId/scan-ticket', data: body);
+    return resp.data;
+  }
+
+  Future<List<dynamic>> _fetchSchedule(int eventId) async {
+    final resp = await dio.get('/events/$eventId/schedule');
+    return resp.data;
+  }
+
+  Future<List<dynamic>> _fetchSponsorTickets() async {
+    final resp = await dio.get('/me/sponsor-tickets');
+    return resp.data as List;
+  }
+
+  // -- Pull Sync (Server -> Device) --
 
   /// Pull first 2 pages of events and cache locally.
   Future<void> pullEvents() async {
     try {
-      final result = await api.getEvents(limit: 40);
+      final result = await _fetchEvents(limit: 40);
       final items = result['items'] as List? ?? [];
       final now = DateTime.now();
       for (final item in items) {
@@ -103,7 +150,7 @@ class SyncService {
   Future<int> downloadTicketsForEvent(int eventId) async {
     try {
       // Fetch all ticket sales (API returns List<dynamic>)
-      final items = await api.getTicketSales(eventId, limit: 5000);
+      final items = await _fetchTicketSales(eventId, limit: 5000);
       final now = DateTime.now();
       await db.clearOfflineTickets(eventId);
       for (final item in items) {
@@ -138,7 +185,7 @@ class SyncService {
       final now = DateTime.now();
       int offset = 0;
       while (true) {
-        final items = await api.getMyTickets(offset: offset, limit: pageSize);
+        final items = await _fetchMyTickets(offset: offset, limit: pageSize);
         for (final item in items) {
           final map = item as Map<String, dynamic>;
           final eventStatus = map['event_status'] as String?;
@@ -178,7 +225,7 @@ class SyncService {
   /// Cache schedule items for an event (for offline viewing).
   Future<void> cacheScheduleForEvent(int eventId) async {
     try {
-      final list = await api.getSchedule(eventId);
+      final list = await _fetchSchedule(eventId);
       final now = DateTime.now();
       final entries = <CachedScheduleItemsCompanion>[];
       for (final dayJson in list) {
@@ -235,7 +282,7 @@ class SyncService {
   /// Only caches tickets for events in selling_tickets or live status.
   Future<void> pullSponsorTickets() async {
     try {
-      final items = await api.getMySponsorTickets();
+      final items = await _fetchSponsorTickets();
       final now = DateTime.now();
       final entries = <CachedSponsorTicketsCompanion>[];
       for (final item in items) {
@@ -309,7 +356,7 @@ class SyncService {
       final allIds = <int>[];
       int offset = 0;
       while (true) {
-        final resp = await api.dio.get('/me/bookmarks', queryParameters: {
+        final resp = await dio.get('/me/bookmarks', queryParameters: {
           'offset': offset,
           'limit': pageSize,
         });
@@ -324,7 +371,7 @@ class SyncService {
     }
   }
 
-  // ── Push Sync (Device → Server) ──
+  // -- Push Sync (Device -> Server) --
 
   /// Push all unsynced offline scan records to the server.
   Future<void> pushOfflineScans() async {
@@ -334,7 +381,7 @@ class SyncService {
       final scans = await db.getUnsyncedScans();
       for (final scan in scans) {
         try {
-          await api.scanTicket(scan.eventId, ticketCode: scan.ticketCode);
+          await _postScanTicket(scan.eventId, ticketCode: scan.ticketCode);
           await db.markScanSynced(scan.id);
         } catch (e) {
           debugPrint('Failed to sync scan ${scan.id}: $e');
@@ -346,7 +393,7 @@ class SyncService {
     }
   }
 
-  // ── App Launch Sync ──
+  // -- App Launch Sync --
 
   /// Called on app launch — pulls events and bookmarks if online.
   /// Pass [role] to skip API calls the user's role doesn't have access to.
@@ -361,7 +408,7 @@ class SyncService {
     ]);
   }
 
-  // ── Helpers ──
+  // -- Helpers --
 
   /// 403 (role mismatch) and 404 are expected when a user doesn't have the
   /// customer or sponsor role — suppress noisy console output for these.

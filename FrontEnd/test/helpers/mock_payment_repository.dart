@@ -1,17 +1,12 @@
-/// Mock ApiService for tests using mocktail.
+/// Mock payment repository and shared test mocks using mocktail.
 library;
 
 import 'package:dio/dio.dart';
 import 'package:mocktail/mocktail.dart';
-import '../../lib/services/api_service.dart';
+import '../../lib/repositories/payment_repository.dart';
 import '../../lib/services/chat_socket_service.dart';
 
-class MockApiService extends Mock implements ApiService {
-  final MockDio mockDio = MockDio();
-
-  @override
-  Dio get dio => mockDio;
-}
+class MockPaymentRepository extends Mock implements PaymentRepository {}
 
 class MockDio extends Mock implements Dio {}
 

@@ -255,6 +255,24 @@ class UserRepository(BaseRepository[User]):
         result = await db.execute(q)
         return list(result.scalars().all())
 
+    async def get_admin_ids(self, db: AsyncSession) -> list[int]:
+        """Return all admin user IDs."""
+        q = select(User.id).where(User.role == UserRole.admin)
+        return list((await db.execute(q)).scalars().all())
+
+    async def get_kyc_document_by_id_and_user(
+        self, db: AsyncSession, document_id: int, user_id: int,
+    ) -> KycDocument | None:
+        """Fetch a single KYC document by id and user."""
+        q = select(KycDocument).where(
+            KycDocument.id == document_id,
+            KycDocument.user_id == user_id,
+        )
+        return (await db.execute(q)).scalar_one_or_none()
+
+    async def flush(self, db: AsyncSession) -> None:
+        await db.flush()
+
 
 # Module-level singleton
 user_repo = UserRepository()

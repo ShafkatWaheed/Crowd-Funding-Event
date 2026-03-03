@@ -5,14 +5,16 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import Response
-from sqlalchemy import select
 
 from app.dependencies import CurrentUserOptional, DbSession, ReadDbSession, require_role, require_kyc
 from app.logger import get_logger, log_step
 from app.rate_limit import limiter, dynamic_limit
 from app.models.event import Event, EventStatus, RegistrationType
-from app.models.registration import Registration, RegistrationStatus
+from app.models.registration import RegistrationStatus
 from app.models.user import User, UserRole
+from app.repositories.event_repo import event_repo
+from app.repositories.registration_repo import registration_repo as reg_repo
+from app.repositories.venue_repo import venue_repo
 from app.schemas import (
     EVENT_GENRES,
     EventCreate,
@@ -127,12 +129,8 @@ async def list_cities(request: Request, db: ReadDbSession):
     from app.services.platform_settings import get_int as get_setting_int
 
     async def _compute():
-        from app.models.venue import Venue
-        rows = (await db.execute(
-            select(Venue.city).where(Venue.city.isnot(None), Venue.city != "")
-            .distinct().order_by(Venue.city)
-        )).scalars().all()
-        return {"cities": list(rows)}
+        rows = await venue_repo.list_distinct_cities(db)
+        return {"cities": rows}
 
     ttl = await get_setting_int(db, "cache_ttl_cities")
     return await cache_get_or_compute("cities", _compute, ttl=ttl, beta=0.5)
@@ -246,7 +244,7 @@ async def create_event(
     validate_organizer_can_restrict_age(current_user.birthday, body.age_restricted)
     event.age_restricted = body.age_restricted
     event.min_age = body.min_age
-    await db.flush()
+    await event_repo.flush(db)
     event = await event_service.get_by_id(db, event.id, load_venue=True)
     return _event_to_response(event)
 
@@ -403,19 +401,17 @@ async def update_event(
         updated.age_restricted = body.age_restricted
     if body.min_age is not None:
         updated.min_age = body.min_age
-    await db.flush()
+    await event_repo.flush(db)
 
     if needs_approval:
         updated.status = EventStatus.pending_approval
-        await db.flush()
+        await event_repo.flush(db)
 
     if event.status in (EventStatus.approved, EventStatus.waiting_event_date,
                         EventStatus.selling_tickets, EventStatus.live):
-        reg_q = select(Registration.user_id).where(
-            Registration.event_id == event.id,
-            Registration.status.in_([RegistrationStatus.registered, RegistrationStatus.waitlist]),
+        reg_ids = await reg_repo.get_registered_user_ids(
+            db, event.id, [RegistrationStatus.registered, RegistrationStatus.waitlist],
         )
-        reg_ids = [r for r in (await db.execute(reg_q)).scalars().all()]
         if reg_ids:
             await notif_svc.create_bulk_notifications(
                 db, user_ids=reg_ids,

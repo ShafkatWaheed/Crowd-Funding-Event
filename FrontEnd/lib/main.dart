@@ -15,7 +15,8 @@ import 'config/theme.dart';
 import 'config/router.dart';
 import 'db/app_database.dart';
 import 'screens/auth/splash_screen.dart';
-import 'services/api_service.dart';
+import 'config/dio_factory.dart';
+import 'repositories/payment_repository.dart';
 import 'services/sync_service.dart';
 import 'providers/auth_provider.dart';
 import 'providers/event_provider.dart';
@@ -82,7 +83,7 @@ class CrowdFundApp extends StatefulWidget {
 }
 
 class _CrowdFundAppState extends State<CrowdFundApp> {
-  late final ApiService _apiService;
+  late final Dio _dio;
   late final ChatSocketService _chatSocket;
   late final AppDatabase _appDatabase;
   late final SyncService _syncService;
@@ -90,10 +91,10 @@ class _CrowdFundAppState extends State<CrowdFundApp> {
   @override
   void initState() {
     super.initState();
-    _apiService = ApiService();
+    _dio = createAuthDio();
     _chatSocket = ChatSocketService();
     _appDatabase = AppDatabase();
-    _syncService = SyncService(db: _appDatabase, api: _apiService);
+    _syncService = SyncService(db: _appDatabase, dio: _dio);
   }
 
   @override
@@ -101,7 +102,7 @@ class _CrowdFundAppState extends State<CrowdFundApp> {
     return MultiProvider(
       providers: [
         // Shared Dio — repositories receive this same instance (has auth interceptors).
-        Provider<Dio>.value(value: _apiService.dio),
+        Provider<Dio>.value(value: _dio),
         Provider<EventRepository>(create: (ctx) => EventRepository(ctx.read<Dio>())),
         Provider<FundingRepository>(create: (ctx) => FundingRepository(ctx.read<Dio>())),
         Provider<TicketRepository>(create: (ctx) => TicketRepository(ctx.read<Dio>())),
@@ -112,13 +113,13 @@ class _CrowdFundAppState extends State<CrowdFundApp> {
         Provider<NotificationRepository>(create: (ctx) => NotificationRepository(ctx.read<Dio>())),
         Provider<ChatRepository>(create: (ctx) => ChatRepository(ctx.read<Dio>())),
         Provider<AdminRepository>(create: (ctx) => AdminRepository(ctx.read<Dio>())),
-        Provider<ApiService>.value(value: _apiService),
+        Provider<PaymentRepository>(create: (ctx) => PaymentRepository(ctx.read<Dio>())),
         Provider<ChatSocketService>.value(value: _chatSocket),
         Provider<AppDatabase>.value(value: _appDatabase),
         Provider<SyncService>.value(value: _syncService),
         ChangeNotifierProvider(create: (ctx) => AuthProvider(ctx.read<UserRepository>())),
         ChangeNotifierProvider(create: (ctx) => EventProvider(ctx.read<EventRepository>())),
-        ChangeNotifierProvider(create: (ctx) => ConfigProvider(ctx.read<EventRepository>())..fetchConfig()),
+        ChangeNotifierProvider(create: (ctx) => ConfigProvider(ctx.read<EventRepository>(), ctx.read<PaymentRepository>())..fetchConfig()),
         ChangeNotifierProvider(create: (ctx) => NotificationProvider(ctx.read<NotificationRepository>())),
         ChangeNotifierProvider(create: (ctx) => ChatProvider(ctx.read<ChatRepository>(), _chatSocket)),
         ChangeNotifierProvider(create: (ctx) => PledgeProvider(ctx.read<FundingRepository>())),

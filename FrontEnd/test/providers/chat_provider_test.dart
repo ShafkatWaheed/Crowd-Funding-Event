@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import '../../lib/providers/chat_provider.dart';
 import '../../lib/models/chat_message.dart';
-import '../helpers/mock_api_service.dart';
+import '../helpers/mock_payment_repository.dart';
 import '../helpers/mock_chat_repository.dart';
 import '../helpers/fixtures.dart';
 

@@ -4,14 +4,12 @@ Shared helpers for events API: parsing, response builders, batch image fetch.
 from datetime import date, datetime, timezone
 from urllib.parse import quote_plus
 
-from sqlalchemy import func, inspect as sa_inspect, select
+from sqlalchemy import inspect as sa_inspect
 
 from app.models.event import Event
-from app.models.funding import PledgeSpotReservation
-from app.models.image import EventImage
-from app.models.ticket import TicketTier
 from app.models.user import UserRole
 from app.schemas import EventResponse, EventVenueInfo, OrganizerTrustInfo
+from app.repositories.event_repo import event_repo
 
 
 def safe_display_name(user, *, viewer_role=None) -> str:
@@ -53,42 +51,12 @@ def _directions_url(e: Event) -> str | None:
 
 async def _get_first_images(db, event_ids: list[int]) -> dict[int, str]:
     """Batch-fetch the first image URL for each event (by display_order)."""
-    if not event_ids:
-        return {}
-    subq = (
-        select(
-            EventImage.event_id,
-            func.min(EventImage.id).label("min_id"),
-        )
-        .where(EventImage.event_id.in_(event_ids))
-        .group_by(EventImage.event_id)
-        .subquery()
-    )
-    rows = (
-        await db.execute(
-            select(EventImage.event_id, EventImage.image_url)
-            .join(subq, EventImage.id == subq.c.min_id)
-        )
-    ).all()
-    return {r.event_id: r.image_url for r in rows}
+    return await event_repo.get_first_images(db, event_ids)
 
 
 async def _build_tier_reservation_response(db, funding_id: int) -> list[dict]:
-    """Build tier reservation list for a pledge response."""
-    rows = list((await db.execute(
-        select(PledgeSpotReservation).where(PledgeSpotReservation.funding_id == funding_id)
-    )).scalars().all())
-    if not rows:
-        return []
-    result = []
-    for r in rows:
-        tier = (await db.execute(select(TicketTier).where(TicketTier.id == r.ticket_tier_id))).scalar_one_or_none()
-        result.append({
-            "tier_id": r.ticket_tier_id,
-            "tier_name": tier.name if tier else None,
-            "spots": r.spots,
-        })
-    return result
+    """Build tier reservation list for a pledge response. Uses batch tier loading (N+1 fix)."""
+    return await event_repo.build_tier_reservation_response(db, funding_id)
 
 
 def _event_to_response(

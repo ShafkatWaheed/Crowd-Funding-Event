@@ -2,14 +2,10 @@
 Event tickets: tiers CRUD, price, purchase, refund, scan, receipts, stats, waitlist, capacity.
 """
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from sqlalchemy import func, select
 
 from app.dependencies import CurrentUser, DbSession, ReadDbSession, require_role, require_kyc
 from app.logger import get_logger, log_step
-from app.models.funding import Funding, FundingStatus, PledgeSpotReservation
-from app.models.ticket import TicketSale, TicketSaleStatus
 from app.models.user import User, UserRole
-from app.models.venue import Venue
 from app.schemas import (
     PurchaseGroupReceiptResponse,
     ScanTicketBody,
@@ -83,43 +79,15 @@ def _ticket_sale_to_organizer_response(sale) -> TicketSaleResponse:
 @router.get("/{event_id}/ticket-tiers", response_model=list[TicketTierResponse])
 async def list_ticket_tiers(event_id: int, db: DbSession):
     """List ticket tiers for an event (public), with sold and reserved counts."""
+    from app.repositories.ticket_repo import ticket_repo as _t_repo
     tiers = await ticket_service.list_tiers(db, event_id=event_id)
     tier_ids = [t.id for t in tiers]
     sold_counts: dict[int, int] = {}
     reserved_counts: dict[int, int] = {}
 
     if tier_ids:
-        sold_rows = (await db.execute(
-            select(TicketSale.ticket_tier_id, func.count())
-            .where(
-                TicketSale.ticket_tier_id.in_(tier_ids),
-                TicketSale.status == TicketSaleStatus.purchased,
-            )
-            .group_by(TicketSale.ticket_tier_id)
-        )).all()
-        sold_counts = {r[0]: r[1] for r in sold_rows}
-
-        buyers_sub = (
-            select(TicketSale.user_id)
-            .where(
-                TicketSale.ticket_tier_id == PledgeSpotReservation.ticket_tier_id,
-                TicketSale.event_id == event_id,
-                TicketSale.status == TicketSaleStatus.purchased,
-            )
-            .correlate(PledgeSpotReservation)
-        )
-        res_rows = (await db.execute(
-            select(PledgeSpotReservation.ticket_tier_id, func.coalesce(func.sum(PledgeSpotReservation.spots), 0))
-            .join(Funding, Funding.id == PledgeSpotReservation.funding_id)
-            .where(
-                PledgeSpotReservation.ticket_tier_id.in_(tier_ids),
-                Funding.event_id == event_id,
-                Funding.status.in_([FundingStatus.pledged, FundingStatus.collected]),
-                ~Funding.user_id.in_(buyers_sub),
-            )
-            .group_by(PledgeSpotReservation.ticket_tier_id)
-        )).all()
-        reserved_counts = {r[0]: int(r[1]) for r in res_rows}
+        sold_counts = await _t_repo.get_tier_sold_counts(db, tier_ids)
+        reserved_counts = await _t_repo.get_tier_reserved_counts(db, tier_ids, event_id)
 
     return [
         TicketTierResponse(
@@ -400,10 +368,12 @@ async def get_ticket_receipt(
         if not await event_service.user_can_edit_event(db, event, current_user):
             raise ForbiddenError("You cannot view receipts for this event")
 
+    from app.repositories.event_repo import event_repo as _ev_repo
+    from app.repositories.user_repo import user_repo as _u_repo
     venue_name = None
     venue_address = None
     if sale.event and sale.event.venue_id:
-        venue = (await db.execute(select(Venue).where(Venue.id == sale.event.venue_id))).scalar_one_or_none()
+        venue = await _ev_repo.get_venue(db, sale.event.venue_id)
         if venue:
             venue_name = venue.name
             parts = [p for p in [venue.address, venue.city, venue.province] if p]
@@ -413,8 +383,7 @@ async def get_ticket_receipt(
     organizer_email = None
     organizer_phone = None
     if sale.event and sale.event.organizer_id:
-        from app.models.user import User as UserModel
-        organizer = (await db.execute(select(UserModel).where(UserModel.id == sale.event.organizer_id))).scalar_one_or_none()
+        organizer = await _u_repo.get_by_id(db, sale.event.organizer_id)
         if organizer:
             organizer_name = organizer.display_name
             organizer_email = organizer.email
@@ -463,6 +432,8 @@ async def get_purchase_group_receipt(
     current_user: User = Depends(require_role(UserRole.customer, UserRole.organizer, UserRole.admin)),
 ):
     """Get aggregated receipt for a multi-ticket purchase group."""
+    from app.repositories.event_repo import event_repo as _ev_repo
+    from app.repositories.user_repo import user_repo as _u_repo
     sales = await ticket_service.get_purchase_group_tickets(db, purchase_group_id=group_id)
     if not sales or sales[0].event_id != event_id:
         raise NotFoundError("PurchaseGroup", group_id)
@@ -478,7 +449,7 @@ async def get_purchase_group_receipt(
     venue_name = None
     venue_address = None
     if sale0.event and sale0.event.venue_id:
-        venue = (await db.execute(select(Venue).where(Venue.id == sale0.event.venue_id))).scalar_one_or_none()
+        venue = await _ev_repo.get_venue(db, sale0.event.venue_id)
         if venue:
             venue_name = venue.name
             parts = [p for p in [venue.address, venue.city, venue.province] if p]
@@ -488,8 +459,7 @@ async def get_purchase_group_receipt(
     organizer_email = None
     organizer_phone = None
     if sale0.event and sale0.event.organizer_id:
-        from app.models.user import User as UserModel
-        organizer = (await db.execute(select(UserModel).where(UserModel.id == sale0.event.organizer_id))).scalar_one_or_none()
+        organizer = await _u_repo.get_by_id(db, sale0.event.organizer_id)
         if organizer:
             organizer_name = organizer.display_name
             organizer_email = organizer.email
@@ -671,10 +641,9 @@ async def get_capacity_info(
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
 ):
     """Capacity breakdown for waitlist management (organizer/admin)."""
+    from app.repositories.ticket_repo import ticket_repo as _t_repo
     event = await event_service.get_or_404(db, event_id)
-    tickets_sold = int((await db.execute(
-        select(func.count()).where(TicketSale.event_id == event_id, TicketSale.status == TicketSaleStatus.purchased)
-    )).scalar_one())
+    tickets_sold = await _t_repo.count_purchased_for_event(db, event_id)
     total_reserved = await funding_service.get_total_reserved_spots(db, event_id=event_id)
     return {
         "max_capacity": event.max_capacity,

@@ -22,6 +22,7 @@ from sqlalchemy import (
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.models.bookmark import Bookmark
 from app.models.event import (
     Event,
     EventDiscount,
@@ -32,6 +33,7 @@ from app.models.event import (
     RegistrationType,
 )
 from app.models.funding import Funding, FundingStatus
+from app.models.image import EventImage
 from app.models.registration import Registration, RegistrationStatus
 from app.models.ticket import TicketSale, TicketSaleStatus, TicketTier, UserEventDiscount
 from app.models.user import User
@@ -1090,6 +1092,334 @@ class EventRepository(BaseRepository[Event]):
             Registration.status == RegistrationStatus.registered,
         )
         return (await db.execute(q)).scalar_one_or_none()
+
+    # ═══════════════════════════════════════════════════════════════════
+    #  Registration user IDs (for notifications)
+    # ═══════════════════════════════════════════════════════════════════
+
+    async def get_active_registrant_ids(
+        self, db: AsyncSession, event_id: int
+    ) -> list[int]:
+        """Return user IDs with registered or waitlisted status for an event."""
+        q = select(Registration.user_id).where(
+            Registration.event_id == event_id,
+            Registration.status.in_([
+                RegistrationStatus.registered,
+                RegistrationStatus.waitlist,
+            ]),
+        )
+        return list((await db.execute(q)).scalars().all())
+
+    # ═══════════════════════════════════════════════════════════════════
+    #  Event Images
+    # ═══════════════════════════════════════════════════════════════════
+
+    async def list_images(
+        self, db: AsyncSession, event_id: int
+    ) -> list[EventImage]:
+        q = (
+            select(EventImage)
+            .where(EventImage.event_id == event_id)
+            .order_by(EventImage.display_order.asc(), EventImage.created_at.asc())
+        )
+        return list((await db.execute(q)).scalars().all())
+
+    async def count_images(self, db: AsyncSession, event_id: int) -> int:
+        q = select(func.count()).where(EventImage.event_id == event_id)
+        return int((await db.execute(q)).scalar_one())
+
+    async def get_image(
+        self, db: AsyncSession, image_id: int, event_id: int
+    ) -> EventImage | None:
+        q = select(EventImage).where(
+            EventImage.id == image_id, EventImage.event_id == event_id,
+        )
+        return (await db.execute(q)).scalar_one_or_none()
+
+    async def create_image(
+        self, db: AsyncSession, image: EventImage
+    ) -> EventImage:
+        db.add(image)
+        await db.flush()
+        await db.refresh(image)
+        return image
+
+    async def delete_image(self, db: AsyncSession, image: EventImage) -> None:
+        await db.delete(image)
+        await db.flush()
+
+    async def get_first_images(
+        self, db: AsyncSession, event_ids: list[int]
+    ) -> dict[int, str]:
+        """Batch-fetch the first image URL for each event (by min id)."""
+        if not event_ids:
+            return {}
+        subq = (
+            select(
+                EventImage.event_id,
+                func.min(EventImage.id).label("min_id"),
+            )
+            .where(EventImage.event_id.in_(event_ids))
+            .group_by(EventImage.event_id)
+            .subquery()
+        )
+        rows = (
+            await db.execute(
+                select(EventImage.event_id, EventImage.image_url)
+                .join(subq, EventImage.id == subq.c.min_id)
+            )
+        ).all()
+        return {r.event_id: r.image_url for r in rows}
+
+    # ═══════════════════════════════════════════════════════════════════
+    #  Event Reactions
+    # ═══════════════════════════════════════════════════════════════════
+
+    async def get_user_reaction(
+        self, db: AsyncSession, event_id: int, user_id: int
+    ) -> EventReaction | None:
+        q = select(EventReaction).where(
+            EventReaction.event_id == event_id,
+            EventReaction.user_id == user_id,
+        )
+        return (await db.execute(q)).scalar_one_or_none()
+
+    async def create_reaction(
+        self, db: AsyncSession, reaction: EventReaction
+    ) -> EventReaction:
+        db.add(reaction)
+        await db.flush()
+        return reaction
+
+    async def delete_reaction(
+        self, db: AsyncSession, reaction: EventReaction
+    ) -> None:
+        await db.delete(reaction)
+        await db.flush()
+
+    async def flush(self, db: AsyncSession) -> None:
+        await db.flush()
+
+    # ═══════════════════════════════════════════════════════════════════
+    #  Bookmarks
+    # ═══════════════════════════════════════════════════════════════════
+
+    async def get_bookmark(
+        self, db: AsyncSession, user_id: int, event_id: int
+    ) -> Bookmark | None:
+        q = select(Bookmark).where(
+            Bookmark.user_id == user_id, Bookmark.event_id == event_id,
+        )
+        return (await db.execute(q)).scalar_one_or_none()
+
+    async def create_bookmark(
+        self, db: AsyncSession, bookmark: Bookmark
+    ) -> Bookmark:
+        db.add(bookmark)
+        await db.flush()
+        return bookmark
+
+    async def delete_bookmark(
+        self, db: AsyncSession, bookmark: Bookmark
+    ) -> None:
+        await db.delete(bookmark)
+        await db.flush()
+
+    async def check_bookmarks(
+        self, db: AsyncSession, user_id: int, event_ids: list[int]
+    ) -> list[int]:
+        """Return list of event_ids that are bookmarked by the user."""
+        if not event_ids:
+            return []
+        q = select(Bookmark.event_id).where(
+            Bookmark.user_id == user_id,
+            Bookmark.event_id.in_(event_ids),
+        )
+        return list((await db.execute(q)).scalars().all())
+
+    async def list_bookmarked_events(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        *,
+        search: str | None = None,
+        status: str | None = None,
+        offset: int = 0,
+        limit: int = 20,
+    ) -> list[Event]:
+        """List events bookmarked by the user, with optional search/status filters."""
+        q = (
+            select(Event)
+            .join(Bookmark, Bookmark.event_id == Event.id)
+            .where(Bookmark.user_id == user_id)
+            .options(
+                selectinload(Event.venue),
+                selectinload(Event.organizer),
+                selectinload(Event.ticket_strategy),
+            )
+            .order_by(Bookmark.created_at.desc())
+        )
+        if search and search.strip():
+            term = f"%{search.strip()}%"
+            q = q.outerjoin(Venue, Event.venue_id == Venue.id)
+            q = q.where(or_(
+                Event.title.ilike(term),
+                Venue.name.ilike(term),
+                Venue.city.ilike(term),
+            ))
+        if status:
+            q = q.where(Event.status == status)
+        q = q.offset(offset).limit(limit)
+        return list((await db.execute(q)).scalars().unique().all())
+
+    # ═══════════════════════════════════════════════════════════════════
+    #  Tier reservation response (fix N+1)
+    # ═══════════════════════════════════════════════════════════════════
+
+    async def build_tier_reservation_response(
+        self, db: AsyncSession, funding_id: int
+    ) -> list[dict]:
+        """Build tier reservation list for a pledge response. Batch loads tiers."""
+        from app.models.funding import PledgeSpotReservation
+
+        rows = list((await db.execute(
+            select(PledgeSpotReservation).where(
+                PledgeSpotReservation.funding_id == funding_id
+            )
+        )).scalars().all())
+        if not rows:
+            return []
+        tier_ids = [r.ticket_tier_id for r in rows]
+        tiers = {
+            t.id: t
+            for t in (await db.execute(
+                select(TicketTier).where(TicketTier.id.in_(tier_ids))
+            )).scalars().all()
+        }
+        return [
+            {
+                "tier_id": r.ticket_tier_id,
+                "tier_name": tiers[r.ticket_tier_id].name if r.ticket_tier_id in tiers else None,
+                "spots": r.spots,
+            }
+            for r in rows
+        ]
+
+
+    async def get_organizer_event_metrics(
+        self, db: AsyncSession, user_id: int,
+    ) -> dict[str, int]:
+        """Return {status_value: count, total: N} for events organized by user."""
+        q = (
+            select(Event.status, func.count())
+            .where(Event.organizer_id == user_id)
+            .group_by(Event.status)
+        )
+        rows = (await db.execute(q)).all()
+        metrics = {r[0].value: r[1] for r in rows}
+        metrics["total"] = sum(metrics.values())
+        return metrics
+
+    async def list_public_events_for_user(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        *,
+        offset: int = 0,
+        limit: int = 20,
+        search: str | None = None,
+        status: str | None = None,
+    ) -> list[Event]:
+        """List public (non-draft) events organized by a user."""
+        from app.models.event import EventStatus as ES
+        visible = [ES.approved, ES.selling_tickets, ES.waiting_event_date, ES.live, ES.completed, ES.cancelled]
+        q = select(Event).where(Event.organizer_id == user_id)
+        if status:
+            try:
+                q = q.where(Event.status == ES(status))
+            except ValueError:
+                pass
+        else:
+            q = q.where(Event.status.in_(visible))
+        if search:
+            q = q.where(Event.title.ilike(f"%{search}%"))
+        q = (
+            q.options(
+                selectinload(Event.venue),
+                selectinload(Event.organizer),
+                selectinload(Event.ticket_strategy),
+            )
+            .order_by(Event.created_at.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+        return list((await db.execute(q)).scalars().unique().all())
+
+    async def list_events_for_organizer_admin(
+        self, db: AsyncSession, organizer_id: int, *, limit: int = 200,
+    ) -> list[Event]:
+        """List events for admin user-detail (organizer view) with eager loads."""
+        q = (
+            select(Event)
+            .where(Event.organizer_id == organizer_id)
+            .options(
+                selectinload(Event.venue),
+                selectinload(Event.ticket_strategy),
+                selectinload(Event.ticket_tiers),
+                selectinload(Event.milestones),
+                selectinload(Event.sponsorship_categories),
+            )
+            .order_by(Event.created_at.desc())
+            .limit(limit)
+        )
+        return list((await db.execute(q)).scalars().unique().all())
+
+    async def list_events_for_customer_registrations(
+        self, db: AsyncSession, user_id: int, *, limit: int = 100,
+    ) -> list[Event]:
+        """List events a customer is registered/waitlisted for (admin detail view)."""
+        from app.models.registration import Registration, RegistrationStatus
+        q = (
+            select(Event)
+            .join(Registration, Registration.event_id == Event.id)
+            .where(
+                Registration.user_id == user_id,
+                Registration.status.in_([RegistrationStatus.registered, RegistrationStatus.waitlist]),
+            )
+            .options(
+                selectinload(Event.venue),
+                selectinload(Event.ticket_strategy),
+                selectinload(Event.ticket_tiers),
+                selectinload(Event.milestones),
+                selectinload(Event.sponsorship_categories),
+            )
+            .order_by(Event.created_at.desc())
+            .limit(limit)
+        )
+        return list((await db.execute(q)).scalars().unique().all())
+
+    async def freeze_organizer_events(
+        self, db: AsyncSession, organizer_id: int,
+    ) -> int:
+        """Set payout_frozen=True on all events for an organizer. Returns rowcount."""
+        from sqlalchemy import update
+        result = await db.execute(
+            update(Event)
+            .where(Event.organizer_id == organizer_id)
+            .values(payout_frozen=True)
+        )
+        await db.flush()
+        return result.rowcount or 0
+
+    async def get_event_by_id_basic(
+        self, db: AsyncSession, event_id: int,
+    ) -> Event | None:
+        """Get event without eager loads (for admin resolve-review etc.)."""
+        q = select(Event).where(Event.id == event_id)
+        return (await db.execute(q)).scalar_one_or_none()
+
+    async def refresh(self, db: AsyncSession, obj) -> None:
+        await db.refresh(obj)
 
 
 # Module-level singleton

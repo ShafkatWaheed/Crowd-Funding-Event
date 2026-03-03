@@ -9,25 +9,32 @@ import '../../lib/models/user.dart';
 import '../../lib/providers/auth_provider.dart';
 import '../../lib/providers/event_provider.dart';
 import '../../lib/repositories/ticket_repository.dart';
-import '../../lib/services/api_service.dart';
+import '../../lib/providers/config_provider.dart';
+import '../../lib/repositories/payment_repository.dart';
 import '../../lib/screens/event/event_detail/ticket_tiers_section.dart';
 import '../helpers/mock_providers.dart';
-import '../helpers/mock_api_service.dart';
+import '../helpers/mock_payment_repository.dart';
 import '../helpers/mock_ticket_repository.dart';
 import '../helpers/pump_app.dart';
 import '../helpers/fixtures.dart';
 
 void main() {
   late MockAuthProvider mockAuth;
-  late MockApiService mockApi;
+  late MockConfigProvider mockConfig;
+  late MockPaymentRepository mockPaymentRepo;
   late MockEventProvider mockEvent;
   late MockTicketRepository mockTicketRepo;
 
   setUp(() {
     mockAuth = MockAuthProvider();
-    mockApi = MockApiService();
+    mockConfig = MockConfigProvider();
+    mockPaymentRepo = MockPaymentRepository();
     mockEvent = MockEventProvider();
     mockTicketRepo = MockTicketRepository();
+
+    when(() => mockConfig.stripeEnabled).thenReturn(false);
+    when(() => mockConfig.addListener(any())).thenReturn(null);
+    when(() => mockConfig.removeListener(any())).thenReturn(null);
 
     // Default: logged-in customer (not organizer/admin)
     when(() => mockAuth.user).thenReturn(makeUser(role: UserRole.customer));
@@ -72,7 +79,8 @@ void main() {
       overrides: [
         ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
         ChangeNotifierProvider<EventProvider>.value(value: mockEvent),
-        Provider<ApiService>.value(value: mockApi),
+        ChangeNotifierProvider<ConfigProvider>.value(value: mockConfig),
+        Provider<PaymentRepository>.value(value: mockPaymentRepo),
         Provider<TicketRepository>.value(value: mockTicketRepo),
       ],
     );

@@ -2,12 +2,12 @@
 Event registration: register, unregister, my-registration, registrations list, decision.
 """
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import select
 
 from app.dependencies import CurrentUser, DbSession, ReadDbSession, require_role, require_kyc
 from app.logger import get_logger, log_step
 from app.models.event import EventStatus
-from app.models.registration import Registration, RegistrationStatus
+from app.models.registration import RegistrationStatus
+from app.repositories.registration_repo import registration_repo
 from app.models.user import User, UserRole
 from app.schemas import RegistrationDecisionBody, RegistrationResponse, UnregisterResponse
 from app.core.exceptions import ForbiddenError
@@ -74,12 +74,7 @@ async def get_my_registration(
     current_user: User = Depends(require_role(UserRole.customer, UserRole.organizer, UserRole.admin, UserRole.sponsor)),
 ):
     """Check if the current user is registered for this event."""
-    q = select(Registration).where(
-        Registration.event_id == event_id,
-        Registration.user_id == current_user.id,
-    )
-    result = await db.execute(q)
-    reg = result.scalar_one_or_none()
+    reg = await registration_repo.get_user_registration(db, event_id, current_user.id)
     if reg:
         is_active = reg.status in (RegistrationStatus.registered, RegistrationStatus.waitlist)
         return {"registered": is_active, "status": reg.status.value}

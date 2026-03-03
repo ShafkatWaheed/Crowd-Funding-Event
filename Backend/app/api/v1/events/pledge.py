@@ -2,12 +2,10 @@
 Event pledge: preview, pledge, unpledge, receipt, refund-status, funding, escrow.
 """
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from sqlalchemy import func, select
-from sqlalchemy.orm import selectinload
 
 from app.dependencies import CurrentUser, DbSession, ReadDbSession, require_role, require_kyc
 from app.logger import get_logger, log_step
-from app.models.funding import Funding, FundingStatus
+from app.models.funding import FundingStatus
 from app.models.user import User, UserRole
 from app.schemas import (
     FundingSummaryResponse,
@@ -114,11 +112,8 @@ async def get_pledge_receipt(
     current_user: CurrentUser,
 ):
     """Get a pledge receipt."""
-    pledge = (await db.execute(
-        select(Funding)
-        .where(Funding.id == pledge_id, Funding.event_id == event_id)
-        .options(selectinload(Funding.user))
-    )).scalar_one_or_none()
+    from app.repositories.funding_repo import funding_repo
+    pledge = await funding_repo.get_funding_with_user(db, pledge_id, event_id)
     if not pledge:
         raise NotFoundError("Pledge", pledge_id)
     is_own_pledge = pledge.user_id == current_user.id
@@ -179,29 +174,11 @@ async def get_refund_status(
     current_user: User = Depends(require_role(UserRole.customer, UserRole.sponsor)),
 ):
     """Poll refund status for the current user's pledges on this event."""
-    processing = int((await db.execute(
-        select(func.count()).where(
-            Funding.event_id == event_id,
-            Funding.user_id == current_user.id,
-            Funding.status == FundingStatus.refund_processing,
-        )
-    )).scalar_one())
-
-    completed = int((await db.execute(
-        select(func.count()).where(
-            Funding.event_id == event_id,
-            Funding.user_id == current_user.id,
-            Funding.status == FundingStatus.refunded,
-        )
-    )).scalar_one())
-
-    failed = int((await db.execute(
-        select(func.count()).where(
-            Funding.event_id == event_id,
-            Funding.user_id == current_user.id,
-            Funding.status == FundingStatus.refund_failed,
-        )
-    )).scalar_one())
+    from app.repositories.funding_repo import funding_repo
+    counts = await funding_repo.get_refund_status_counts(db, event_id, current_user.id)
+    processing = counts["processing"]
+    completed = counts["completed"]
+    failed = counts["failed"]
 
     if processing > 0:
         status = "processing"

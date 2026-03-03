@@ -15,10 +15,9 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.kyc_document import KycDocument, KycDocumentStatus, KycDocumentType
+from app.models.kyc_document import KycDocumentStatus, KycDocumentType
 from app.models.notification import NotificationType
 from app.models.user import User
 from app.repositories.user_repo import user_repo
@@ -121,14 +120,7 @@ async def upload_document(
 
 async def delete_document(db: AsyncSession, user_id: int, document_id: int) -> None:
     # Fetch the document first to get file_path for cleanup and validate existence
-    doc = (
-        await db.execute(
-            select(KycDocument).where(
-                KycDocument.id == document_id,
-                KycDocument.user_id == user_id,
-            )
-        )
-    ).scalar_one_or_none()
+    doc = await user_repo.get_kyc_document_by_id_and_user(db, document_id, user_id)
     if not doc:
         raise ValueError("Document not found")
     if doc.status != KycDocumentStatus.pending:
@@ -167,7 +159,7 @@ async def submit_for_review(db: AsyncSession, user_id: int) -> KycResult:
             for doc in docs:
                 doc.status = KycDocumentStatus.rejected
                 doc.rejection_reason = result.reason
-        await db.flush()
+        await user_repo.flush(db)
         return result
 
     # Manual review path: status stays "submitted"
@@ -203,7 +195,7 @@ async def admin_verify(
             doc.reviewed_at = now
             doc.reviewed_by_id = reviewed_by_id
 
-    await db.flush()
+    await user_repo.flush(db)
 
     from app.services import notification_service as notif_svc
 

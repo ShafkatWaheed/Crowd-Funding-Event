@@ -18,12 +18,13 @@ import '../../lib/providers/event_provider.dart';
 import '../../lib/repositories/event_repository.dart';
 import '../../lib/repositories/ticket_repository.dart';
 import '../../lib/repositories/funding_repository.dart';
-import '../../lib/services/api_service.dart';
+import '../../lib/providers/config_provider.dart';
+import '../../lib/repositories/payment_repository.dart';
 import '../../lib/services/sync_service.dart';
 import '../../lib/screens/event/event_detail_screen.dart';
 import '../../lib/widgets/shimmer_loaders.dart';
 import '../helpers/mock_providers.dart';
-import '../helpers/mock_api_service.dart';
+import '../helpers/mock_payment_repository.dart';
 import '../helpers/mock_event_repository.dart';
 import '../helpers/mock_ticket_repository.dart';
 import '../helpers/fixtures.dart';
@@ -36,7 +37,8 @@ class MockFundingRepository extends Mock implements FundingRepository {}
 void main() {
   late MockAuthProvider mockAuth;
   late MockEventProvider mockEvent;
-  late MockApiService mockApi;
+  late MockConfigProvider mockConfig;
+  late MockPaymentRepository mockPaymentRepo;
   late MockSyncService mockSync;
   late MockEventRepository mockEventRepo;
   late MockTicketRepository mockTicketRepo;
@@ -45,8 +47,14 @@ void main() {
   setUp(() {
     mockAuth = MockAuthProvider();
     mockEvent = MockEventProvider();
-    mockApi = MockApiService();
+    mockConfig = MockConfigProvider();
+    mockPaymentRepo = MockPaymentRepository();
     mockSync = MockSyncService();
+
+    // ConfigProvider stubs
+    when(() => mockConfig.stripeEnabled).thenReturn(false);
+    when(() => mockConfig.addListener(any())).thenReturn(null);
+    when(() => mockConfig.removeListener(any())).thenReturn(null);
     mockEventRepo = MockEventRepository();
     mockTicketRepo = MockTicketRepository();
     mockFundingRepo = MockFundingRepository();
@@ -112,7 +120,8 @@ void main() {
   List<SingleChildWidget> buildProviders() => [
         ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
         ChangeNotifierProvider<EventProvider>.value(value: mockEvent),
-        Provider<ApiService>.value(value: mockApi),
+        ChangeNotifierProvider<ConfigProvider>.value(value: mockConfig),
+        Provider<PaymentRepository>.value(value: mockPaymentRepo),
         Provider<SyncService>.value(value: mockSync),
         Provider<EventRepository>.value(value: mockEventRepo),
         Provider<TicketRepository>.value(value: mockTicketRepo),

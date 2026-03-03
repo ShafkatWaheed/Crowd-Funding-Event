@@ -64,11 +64,10 @@ async def _authenticate_ws(token: str) -> User | None:
     except (ValueError, Exception):
         return None
 
-    from sqlalchemy import select
+    from app.repositories.user_repo import user_repo
 
     async with async_session_maker() as db:
-        result = await db.execute(select(User).where(User.firebase_uid == uid))
-        return result.scalar_one_or_none()
+        return await user_repo.get_by_firebase_uid(db, uid)
 
 
 @router.websocket("/ws/chat")

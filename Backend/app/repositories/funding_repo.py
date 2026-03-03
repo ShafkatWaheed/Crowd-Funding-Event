@@ -562,6 +562,51 @@ class FundingRepository(BaseRepository[Funding]):
         )
         return list((await db.execute(q)).scalars().all())
 
+    async def get_funder_ids(
+        self, db: AsyncSession, event_id: int, statuses: list[FundingStatus],
+    ) -> list[int]:
+        """Return distinct user IDs for fundings matching any of the given statuses."""
+        q = select(func.distinct(Funding.user_id)).where(
+            Funding.event_id == event_id,
+            Funding.status.in_(statuses),
+        )
+        return list((await db.execute(q)).scalars().all())
+
+    async def get_funding_with_user(
+        self, db: AsyncSession, funding_id: int, event_id: int,
+    ) -> Funding | None:
+        q = (
+            select(Funding)
+            .where(Funding.id == funding_id, Funding.event_id == event_id)
+            .options(selectinload(Funding.user))
+        )
+        return (await db.execute(q)).scalar_one_or_none()
+
+    async def get_refund_status_counts(
+        self, db: AsyncSession, event_id: int, user_id: int,
+    ) -> dict[str, int]:
+        """Return {processing, completed, failed} counts for a user's pledges."""
+        q = (
+            select(Funding.status, func.count())
+            .where(
+                Funding.event_id == event_id,
+                Funding.user_id == user_id,
+                Funding.status.in_([
+                    FundingStatus.refund_processing,
+                    FundingStatus.refunded,
+                    FundingStatus.refund_failed,
+                ]),
+            )
+            .group_by(Funding.status)
+        )
+        rows = (await db.execute(q)).all()
+        counts = {s.value: c for s, c in rows}
+        return {
+            "processing": counts.get("refund_processing", 0),
+            "completed": counts.get("refunded", 0),
+            "failed": counts.get("refund_failed", 0),
+        }
+
     async def create_milestone_snapshot(
         self,
         db: AsyncSession,
@@ -609,6 +654,54 @@ class FundingRepository(BaseRepository[Funding]):
 
     async def flush(self, db: AsyncSession) -> None:
         await db.flush()
+
+    # ── Worker task helpers ────────────────────────────────────────
+
+    async def get_refundable_pledge_ids(
+        self, db: AsyncSession, event_id: int, *, guest_refund: bool = True,
+    ) -> list[int]:
+        """IDs of pledges in refund_processing for an event (for bulk refund task)."""
+        conditions = [
+            Funding.event_id == event_id,
+            Funding.status == FundingStatus.refund_processing,
+        ]
+        if not guest_refund:
+            conditions.append(Funding.is_guest == False)  # noqa: E712
+        q = select(Funding.id).where(*conditions)
+        return list((await db.execute(q)).scalars().all())
+
+    async def mark_refund_failed(self, db: AsyncSession, funding_id: int) -> None:
+        """Set a pledge to refund_failed status."""
+        from sqlalchemy import update
+        await db.execute(
+            update(Funding)
+            .where(Funding.id == funding_id, Funding.status == FundingStatus.refund_processing)
+            .values(status=FundingStatus.refund_failed)
+        )
+
+    async def get_funding_with_user_and_event(
+        self, db: AsyncSession, funding_id: int,
+    ) -> Funding | None:
+        """Funding with user + event eager-loaded (for refund email)."""
+        from sqlalchemy.orm import selectinload
+        q = (
+            select(Funding)
+            .options(selectinload(Funding.user), selectinload(Funding.event))
+            .where(Funding.id == funding_id)
+        )
+        return (await db.execute(q)).scalar_one_or_none()
+
+    async def get_event_pledgers_with_users(
+        self, db: AsyncSession, event_id: int, statuses: list,
+    ) -> list[Funding]:
+        """Pledges for an event with user eager-loaded (for email notifications)."""
+        from sqlalchemy.orm import selectinload
+        q = (
+            select(Funding)
+            .where(Funding.event_id == event_id, Funding.status.in_(statuses))
+            .options(selectinload(Funding.user))
+        )
+        return list((await db.execute(q)).scalars().all())
 
 
 # Module-level singleton

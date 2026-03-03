@@ -8,14 +8,12 @@ import 'package:provider/provider.dart';
 import '../../lib/models/user.dart';
 import '../../lib/models/ticket.dart';
 import '../../lib/providers/auth_provider.dart';
-import '../../lib/services/api_service.dart';
 import '../../lib/services/sync_service.dart';
 import '../../lib/db/app_database.dart';
 import '../../lib/repositories/ticket_repository.dart';
 import '../../lib/repositories/base_repository.dart';
 import '../../lib/screens/profile/my_tickets_screen.dart';
 import '../helpers/mock_providers.dart';
-import '../helpers/mock_api_service.dart';
 import '../helpers/mock_ticket_repository.dart';
 import '../helpers/pump_app.dart';
 import '../helpers/fixtures.dart';
@@ -26,14 +24,12 @@ class MockAppDatabase extends Mock implements AppDatabase {}
 
 void main() {
   late MockAuthProvider mockAuth;
-  late MockApiService mockApi;
   late MockSyncService mockSync;
   late MockAppDatabase mockDb;
   late MockTicketRepository mockTicketRepo;
 
   setUp(() {
     mockAuth = MockAuthProvider();
-    mockApi = MockApiService();
     mockSync = MockSyncService();
     mockDb = MockAppDatabase();
     mockTicketRepo = MockTicketRepository();
@@ -55,7 +51,6 @@ void main() {
       const MyTicketsScreen(),
       overrides: [
         ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
-        Provider<ApiService>.value(value: mockApi),
         Provider<SyncService>.value(value: mockSync),
         Provider<AppDatabase>.value(value: mockDb),
         Provider<TicketRepository>.value(value: mockTicketRepo),

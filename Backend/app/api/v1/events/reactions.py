@@ -2,13 +2,13 @@
 Event reactions: like/dislike, my-reaction.
 """
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from sqlalchemy import select
 
 from app.dependencies import DbSession, ReadDbSession, require_role
 from app.rate_limit import limiter, dynamic_limit
 from app.models.event import EventReaction
 from app.models.user import User, UserRole
 from app.services import event as event_service
+from app.repositories.event_repo import event_repo
 
 router = APIRouter()
 
@@ -28,11 +28,7 @@ async def react_to_event(
 
     event = await event_service.get_or_404(db, event_id)
 
-    q = select(EventReaction).where(
-        EventReaction.event_id == event_id,
-        EventReaction.user_id == current_user.id,
-    )
-    existing = (await db.execute(q)).scalar_one_or_none()
+    existing = await event_repo.get_user_reaction(db, event_id, current_user.id)
 
     if existing:
         if existing.reaction == reaction:
@@ -40,8 +36,7 @@ async def react_to_event(
                 event.like_count = max(0, event.like_count - 1)
             else:
                 event.dislike_count = max(0, event.dislike_count - 1)
-            await db.delete(existing)
-            await db.flush()
+            await event_repo.delete_reaction(db, existing)
             return {"action": "removed", "reaction": reaction, "like_count": event.like_count, "dislike_count": event.dislike_count}
         else:
             if existing.reaction == "like":
@@ -53,7 +48,7 @@ async def react_to_event(
                 event.like_count += 1
             else:
                 event.dislike_count += 1
-            await db.flush()
+            await event_repo.flush(db)
             return {"action": "switched", "reaction": reaction, "like_count": event.like_count, "dislike_count": event.dislike_count}
     else:
         new_reaction = EventReaction(
@@ -61,12 +56,12 @@ async def react_to_event(
             user_id=current_user.id,
             reaction=reaction,
         )
-        db.add(new_reaction)
+        await event_repo.create_reaction(db, new_reaction)
         if reaction == "like":
             event.like_count += 1
         else:
             event.dislike_count += 1
-        await db.flush()
+        await event_repo.flush(db)
         return {"action": "added", "reaction": reaction, "like_count": event.like_count, "dislike_count": event.dislike_count}
 
 
@@ -77,9 +72,5 @@ async def get_my_reaction(
     current_user: User = Depends(require_role(UserRole.customer, UserRole.organizer, UserRole.admin, UserRole.sponsor)),
 ):
     """Check the current user's reaction on an event."""
-    q = select(EventReaction).where(
-        EventReaction.event_id == event_id,
-        EventReaction.user_id == current_user.id,
-    )
-    existing = (await db.execute(q)).scalar_one_or_none()
+    existing = await event_repo.get_user_reaction(db, event_id, current_user.id)
     return {"reaction": existing.reaction if existing else None}

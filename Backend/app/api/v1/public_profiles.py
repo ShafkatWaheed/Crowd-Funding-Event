@@ -4,12 +4,10 @@ No email or phone exposed.
 """
 from fastapi import APIRouter, Query
 
-from sqlalchemy import select, func
-from sqlalchemy.orm import selectinload
-
 from app.dependencies import CurrentUser, ReadDbSession
-from app.models.user import User
-from app.models.event import Event, EventStatus
+from app.repositories.user_repo import user_repo
+from app.repositories.event_repo import event_repo
+from app.repositories.sponsor_repo import sponsor_repo
 
 router = APIRouter()
 
@@ -21,9 +19,7 @@ async def get_public_profile(
     current_user: CurrentUser,
 ):
     """Public profile for any user. No email/phone."""
-    user = (await db.execute(
-        select(User).where(User.id == user_id)
-    )).scalar_one_or_none()
+    user = await user_repo.get_by_id(db, user_id)
     if not user:
         from app.core.exceptions import NotFoundError
         raise NotFoundError("User", user_id)
@@ -60,14 +56,7 @@ async def get_public_profile(
 
     profile["sponsor_profile"] = sponsor_profile
 
-    metrics_q = (
-        select(Event.status, func.count())
-        .where(Event.organizer_id == user_id)
-        .group_by(Event.status)
-    )
-    rows = (await db.execute(metrics_q)).all()
-    event_metrics = {r[0].value: r[1] for r in rows}
-    event_metrics["total"] = sum(event_metrics.values())
+    event_metrics = await event_repo.get_organizer_event_metrics(db, user_id)
     profile["event_metrics"] = event_metrics
 
     return profile
@@ -81,38 +70,13 @@ async def get_sponsor_public_profile(
 ):
     """Public sponsor profile with bid statistics. No email/phone."""
     from app.core.exceptions import NotFoundError
-    from app.models.sponsor import SponsorProfile, SponsorBid, BidStatus, SponsorshipCategory
 
-    user = (await db.execute(
-        select(User).where(User.id == user_id)
-    )).scalar_one_or_none()
+    user = await user_repo.get_by_id(db, user_id)
     if not user:
         raise NotFoundError("User", user_id)
 
-    profile = (await db.execute(
-        select(SponsorProfile).where(SponsorProfile.user_id == user_id)
-    )).scalar_one_or_none()
-
-    total_bids = (await db.execute(
-        select(func.count()).select_from(SponsorBid).where(SponsorBid.sponsor_user_id == user_id)
-    )).scalar_one()
-
-    accepted_bids = (await db.execute(
-        select(func.count()).select_from(SponsorBid).where(
-            SponsorBid.sponsor_user_id == user_id,
-            SponsorBid.status.in_([BidStatus.accepted, BidStatus.paid]),
-        )
-    )).scalar_one()
-
-    events_sponsored = (await db.execute(
-        select(func.count(func.distinct(SponsorshipCategory.event_id)))
-        .select_from(SponsorBid)
-        .join(SponsorshipCategory, SponsorBid.category_id == SponsorshipCategory.id)
-        .where(
-            SponsorBid.sponsor_user_id == user_id,
-            SponsorBid.status.in_([BidStatus.accepted, BidStatus.paid]),
-        )
-    )).scalar_one()
+    profile = await sponsor_repo.get_sponsor_profile(db, user_id)
+    total_bids, accepted_bids, events_sponsored = await sponsor_repo.get_sponsor_bid_counts(db, user_id)
 
     return {
         "id": user_id,
@@ -141,35 +105,9 @@ async def get_public_events(
     status: str | None = Query(None),
 ):
     """List public (non-draft) events organized by this user."""
-    visible_statuses = [
-        EventStatus.approved,
-        EventStatus.selling_tickets,
-        EventStatus.waiting_event_date,
-        EventStatus.live,
-        EventStatus.completed,
-        EventStatus.cancelled,
-    ]
-
-    q = select(Event).where(Event.organizer_id == user_id)
-
-    if status:
-        try:
-            q = q.where(Event.status == EventStatus(status))
-        except ValueError:
-            pass
-    else:
-        q = q.where(Event.status.in_(visible_statuses))
-
-    if search:
-        q = q.where(Event.title.ilike(f"%{search}%"))
-
-    q = (
-        q.options(selectinload(Event.venue), selectinload(Event.organizer), selectinload(Event.ticket_strategy))
-        .order_by(Event.created_at.desc())
-        .offset(offset)
-        .limit(limit)
+    events = await event_repo.list_public_events_for_user(
+        db, user_id, offset=offset, limit=limit, search=search, status=status,
     )
-    events = (await db.execute(q)).scalars().unique().all()
 
     from app.api.v1.events import _event_to_response
     return [_event_to_response(e) for e in events]

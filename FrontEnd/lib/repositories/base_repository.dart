@@ -41,7 +41,6 @@ class ApiError implements Exception {
   }
 
   /// Extract a human-readable error message from any exception.
-  /// Drop-in replacement for ApiService.extractError during migration.
   static String extractMessage(Object e, {String fallback = 'Something went wrong'}) {
     if (e is DioException) return ApiError.fromDioException(e).message;
     if (e is ApiError) return e.message;

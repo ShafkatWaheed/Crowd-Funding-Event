@@ -44,6 +44,28 @@ class EmailTemplateRepository:
         await db.flush()
         return result.rowcount
 
+    async def create_mock_log(
+        self,
+        db: AsyncSession,
+        *,
+        to_email: str,
+        subject: str,
+        body_html: str,
+        template_key: str | None,
+        status: str,
+    ) -> None:
+        """Create an EmailMockLog entry."""
+        from app.models.email_mock_log import EmailMockLog
+        log = EmailMockLog(
+            to_email=to_email,
+            subject=subject,
+            body_html=body_html,
+            template_key=template_key,
+            status=status,
+        )
+        db.add(log)
+        await db.flush()
+
 
 # Module-level singleton
 email_template_repo = EmailTemplateRepository()

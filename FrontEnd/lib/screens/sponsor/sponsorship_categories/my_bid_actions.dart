@@ -5,7 +5,8 @@ import 'package:provider/provider.dart';
 import '../../../config/theme.dart';
 import '../../../repositories/base_repository.dart';
 import '../../../repositories/sponsor_repository.dart';
-import '../../../services/api_service.dart';
+import '../../../providers/config_provider.dart';
+import '../../../repositories/payment_repository.dart';
 import '../../../widgets/app_toast.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 
@@ -84,12 +85,13 @@ class _MyBidActionsState extends State<MyBidActions> {
     setState(() => _busy = true);
     _showPaymentProcessing();
     try {
-      final api = context.read<ApiService>();
+      final config = context.read<ConfigProvider>();
+      final paymentRepo = context.read<PaymentRepository>();
       final repo = context.read<SponsorRepository>();
 
       // Stripe Payment Sheet flow when Stripe is enabled
-      if (api.isStripeEnabled) {
-        final intent = await api.createPaymentIntent(
+      if (config.stripeEnabled) {
+        final intent = await paymentRepo.createPaymentIntent(
           amountCents: widget.bid['amount_cents'] as int? ?? 0,
           description: 'Sponsorship payment for bid $_bidId',
         );

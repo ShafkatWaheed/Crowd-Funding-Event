@@ -1,16 +1,14 @@
 """Sponsor bid endpoints."""
 from fastapi import APIRouter, Depends
-from sqlalchemy import select
 
 from app.dependencies import DbSession, ReadDbSession, CurrentUser, require_feature, require_kyc
 from app.logger import get_logger, log_step
-from app.models.user import User
 from app.schemas.sponsor import BidCreate, BidUpdate, BidResponse
 from app.services import sponsor as sponsor_svc
 from app.services import notification_service as notif_svc
 from app.models.notification import NotificationType
-from app.models.sponsor import SponsorshipCategory
-from app.models.event import Event
+from app.repositories.sponsor_repo import sponsor_repo
+from app.repositories.user_repo import user_repo
 from app.worker.redis_pool import enqueue as arq_enqueue
 
 logger = get_logger("api.sponsors.bids")
@@ -31,9 +29,7 @@ async def _bid_to_response(db, bid) -> dict:
             "website_url": profile.website_url,
         }
     else:
-        user = (await db.execute(
-            select(User).where(User.id == bid.sponsor_user_id)
-        )).scalar_one_or_none()
+        user = await user_repo.get_by_id(db, bid.sponsor_user_id)
         fallback_name = user.display_name if user else "Unknown"
         profile_data = {
             "id": 0,
@@ -69,9 +65,8 @@ async def place_bid(
     log_step(logger, "Placing bid", event_id=event_id, cat_id=cat_id, user_id=current_user.id, amount_cents=data.amount_cents)
     logger.debug("Bid proposal", extra={"proposal_length": len(data.proposal_text or "")})
     bid = await sponsor_svc.place_bid(db, cat_id, current_user, data)
-    from sqlalchemy import select as sel
-    cat = (await db.execute(sel(SponsorshipCategory).where(SponsorshipCategory.id == cat_id))).scalar_one()
-    event = (await db.execute(sel(Event).where(Event.id == cat.event_id))).scalar_one()
+    cat = await sponsor_repo.get_category(db, cat_id)
+    event = await sponsor_repo.get_event(db, cat.event_id)
     await notif_svc.create_notification(
         db, user_id=event.organizer_id,
         type=NotificationType.bid_received,
@@ -80,7 +75,7 @@ async def place_bid(
         data={"event_id": cat.event_id, "category_id": cat_id, "bid_id": bid.id},
     )
     await db.commit()
-    await db.refresh(bid)
+    await sponsor_repo.refresh(db, bid)
     return await _bid_to_response(db, bid)
 
 
@@ -99,7 +94,7 @@ async def update_bid(
     log_step(logger, "Updating bid", event_id=event_id, cat_id=cat_id, bid_id=bid_id, user_id=current_user.id)
     bid = await sponsor_svc.update_bid(db, bid_id, current_user, data)
     await db.commit()
-    await db.refresh(bid)
+    await sponsor_repo.refresh(db, bid)
     return await _bid_to_response(db, bid)
 
 
@@ -116,10 +111,7 @@ async def withdraw_bid(
 ):
     log_step(logger, "Withdrawing bid", event_id=event_id, cat_id=cat_id, bid_id=bid_id, user_id=current_user.id)
     bid = await sponsor_svc.withdraw_bid(db, bid_id, current_user)
-    from sqlalchemy import select as sa_select
-    event_obj = (await db.execute(
-        sa_select(Event).where(Event.id == event_id)
-    )).scalar_one_or_none()
+    event_obj = await sponsor_repo.get_event(db, event_id)
     if event_obj:
         await notif_svc.create_notification(
             db, user_id=event_obj.organizer_id,
@@ -129,7 +121,7 @@ async def withdraw_bid(
             data={"event_id": event_id, "category_id": cat_id, "bid_id": bid_id},
         )
     await db.commit()
-    await db.refresh(bid)
+    await sponsor_repo.refresh(db, bid)
     return await _bid_to_response(db, bid)
 
 
@@ -168,10 +160,10 @@ async def accept_bid(
         data={"event_id": event_id, "category_id": cat_id, "bid_id": bid.id},
     )
     await db.commit()
-    await db.refresh(bid)
-    sponsor = (await db.execute(select(User).where(User.id == bid.sponsor_user_id))).scalar_one_or_none()
-    cat = (await db.execute(select(SponsorshipCategory).where(SponsorshipCategory.id == bid.category_id))).scalar_one_or_none()
-    event = (await db.execute(select(Event).where(Event.id == event_id))).scalar_one_or_none()
+    await sponsor_repo.refresh(db, bid)
+    sponsor = await user_repo.get_by_id(db, bid.sponsor_user_id)
+    cat = await sponsor_repo.get_category(db, bid.category_id)
+    event = await sponsor_repo.get_event(db, event_id)
     if sponsor and sponsor.email:
         await arq_enqueue(
             "send_sponsor_bid_approved_email",
@@ -205,10 +197,10 @@ async def reject_bid(
         data={"event_id": event_id, "category_id": cat_id, "bid_id": bid.id},
     )
     await db.commit()
-    await db.refresh(bid)
-    sponsor = (await db.execute(select(User).where(User.id == bid.sponsor_user_id))).scalar_one_or_none()
-    cat = (await db.execute(select(SponsorshipCategory).where(SponsorshipCategory.id == bid.category_id))).scalar_one_or_none()
-    event = (await db.execute(select(Event).where(Event.id == event_id))).scalar_one_or_none()
+    await sponsor_repo.refresh(db, bid)
+    sponsor = await user_repo.get_by_id(db, bid.sponsor_user_id)
+    cat = await sponsor_repo.get_category(db, bid.category_id)
+    event = await sponsor_repo.get_event(db, event_id)
     if sponsor and sponsor.email:
         await arq_enqueue(
             "send_sponsor_bid_rejected_email",

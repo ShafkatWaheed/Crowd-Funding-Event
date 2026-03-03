@@ -64,6 +64,16 @@ class VenueRepository(BaseRepository[Venue]):
         )
         return int(result.scalar_one())
 
+    async def list_distinct_cities(self, db: AsyncSession) -> list[str]:
+        """Return sorted list of distinct non-empty venue cities."""
+        q = (
+            select(Venue.city)
+            .where(Venue.city.isnot(None), Venue.city != "")
+            .distinct()
+            .order_by(Venue.city)
+        )
+        return list((await db.execute(q)).scalars().all())
+
 
 # Module-level singleton
 venue_repo = VenueRepository()

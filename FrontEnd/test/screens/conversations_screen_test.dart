@@ -9,10 +9,8 @@ import '../../lib/models/user.dart';
 import '../../lib/models/chat_message.dart';
 import '../../lib/providers/auth_provider.dart';
 import '../../lib/providers/chat_provider.dart';
-import '../../lib/services/api_service.dart';
 import '../../lib/screens/chat/conversations_screen.dart';
 import '../helpers/mock_providers.dart';
-import '../helpers/mock_api_service.dart';
 import '../helpers/pump_app.dart';
 import '../helpers/fixtures.dart';
 

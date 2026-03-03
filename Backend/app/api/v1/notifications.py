@@ -97,7 +97,7 @@ async def register_device_token(
     if existing:
         existing.user_id = current_user.id
         existing.platform = body.platform
-        await db.flush()
+        await notification_repo.flush(db)
     else:
         await notification_repo.create_device_token(
             db, user_id=current_user.id, token=body.token, platform=body.platform,

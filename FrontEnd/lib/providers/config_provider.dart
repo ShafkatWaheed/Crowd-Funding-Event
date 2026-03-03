@@ -1,9 +1,11 @@
 import 'package:flutter/foundation.dart';
 
 import '../repositories/event_repository.dart';
+import '../repositories/payment_repository.dart';
 
 class ConfigProvider extends ChangeNotifier {
   final EventRepository _api;
+  final PaymentRepository? _paymentRepo;
 
   int maxTicketsPerPurchase = 10;
   bool maxTicketsFrontendEnabled = false;
@@ -11,11 +13,12 @@ class ConfigProvider extends ChangeNotifier {
   bool featureScheduleEnabled = true;
   bool featureSponsorsEnabled = true;
   bool featureCommunityRulesEnabled = true;
+  bool stripeEnabled = false;
 
   bool _loaded = false;
   bool get loaded => _loaded;
 
-  ConfigProvider(this._api);
+  ConfigProvider(this._api, [this._paymentRepo]);
 
   Future<void> fetchConfig() async {
     try {
@@ -30,6 +33,16 @@ class ConfigProvider extends ChangeNotifier {
       notifyListeners();
     } catch (_) {
       // Graceful degradation: keep defaults if config fetch fails
+    }
+    // Fetch Stripe config separately (different endpoint)
+    if (_paymentRepo != null) {
+      try {
+        final stripeData = await _paymentRepo.getStripeConfig();
+        stripeEnabled = stripeData['stripe_enabled'] == true;
+        notifyListeners();
+      } catch (_) {
+        // Stripe config unavailable — keep default (false)
+      }
     }
   }
 }

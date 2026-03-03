@@ -7,6 +7,7 @@ from fastapi.responses import StreamingResponse
 
 from app.dependencies import DbSession, ReadDbSession, require_role, require_feature
 from app.rate_limit import limiter, dynamic_limit
+from app.repositories.event_repo import event_repo
 from app.services.upload_validation import validate_upload
 from app.models.user import User, UserRole
 from app.schemas.schedule import (
@@ -147,8 +148,7 @@ async def upload_schedule_image(
     item.image_url = f"/static/uploads/schedule/{event_id}/{filename}"
     if caption is not None:
         item.image_caption = caption
-    await db.flush()
-    await db.refresh(item)
+    await event_repo.flush_and_refresh(db, item)
     return schedule_service._item_to_response(item)
 
 
@@ -182,8 +182,7 @@ async def delete_schedule_image(
 
     item.image_url = None
     item.image_caption = None
-    await db.flush()
-    await db.refresh(item)
+    await event_repo.flush_and_refresh(db, item)
     return schedule_service._item_to_response(item)
 
 

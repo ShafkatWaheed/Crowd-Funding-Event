@@ -11,7 +11,8 @@ import '../../../providers/auth_provider.dart';
 import '../../../providers/event_provider.dart';
 import '../../../repositories/event_repository.dart';
 import '../../../repositories/ticket_repository.dart';
-import '../../../services/api_service.dart';
+import '../../../providers/config_provider.dart';
+import '../../../repositories/payment_repository.dart';
 import '../../../widgets/app_toast.dart';
 import 'package:flutter_stripe/flutter_stripe.dart' hide Card;
 import '../ticket_receipt_screen.dart';
@@ -722,12 +723,13 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
   Future<void> _purchaseTickets(int eventId, int tierId, int quantity) async {
     _showPaymentProcessing();
     try {
-      final api = context.read<ApiService>();
+      final config = context.read<ConfigProvider>();
+      final paymentRepo = context.read<PaymentRepository>();
       final ticketRepo = context.read<TicketRepository>();
 
       // Stripe Payment Sheet flow when Stripe is enabled
-      if (api.isStripeEnabled) {
-        final intent = await api.createPaymentIntent(
+      if (config.stripeEnabled) {
+        final intent = await paymentRepo.createPaymentIntent(
           amountCents: 0, // actual amount computed by backend
           description: 'Ticket purchase for event $eventId',
         );

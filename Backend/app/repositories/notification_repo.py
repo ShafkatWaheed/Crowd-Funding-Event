@@ -240,6 +240,25 @@ class NotificationRepository(BaseRepository[Notification]):
         )
         await db.flush()
 
+    # ── Cleanup helpers (worker tasks) ─────────────────────────────
+
+    async def delete_notifications_before(self, db: AsyncSession, cutoff) -> int:
+        """Delete notifications older than cutoff. Returns rowcount."""
+        result = await db.execute(
+            sa_delete(Notification).where(Notification.created_at < cutoff)
+        )
+        return result.rowcount
+
+    async def delete_device_tokens_before(self, db: AsyncSession, cutoff) -> int:
+        """Delete device tokens not updated since cutoff. Returns rowcount."""
+        result = await db.execute(
+            sa_delete(DeviceToken).where(DeviceToken.updated_at < cutoff)
+        )
+        return result.rowcount
+
+    async def flush(self, db: AsyncSession) -> None:
+        await db.flush()
+
 
 # Module-level singleton
 notification_repo = NotificationRepository()

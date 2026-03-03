@@ -1,12 +1,10 @@
 """Sponsor ticket endpoints."""
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import select
-from sqlalchemy.orm import selectinload
 
 from app.dependencies import DbSession, ReadDbSession, CurrentUser, require_feature
 from app.logger import get_logger, log_step
-from app.models.sponsor import SponsorTicket, SponsorDelegate
 from app.rate_limit import limiter, dynamic_limit
+from app.repositories.sponsor_repo import sponsor_repo
 from app.schemas.sponsor import SponsorTicketResponse
 from app.services import sponsor as sponsor_svc
 
@@ -88,13 +86,7 @@ async def scanned_sponsor_tickets(
         logger.warning("User cannot view scanned tickets", extra={"event_id": event_id, "user_id": current_user.id})
         raise Forbidden("You cannot view scanned tickets for this event")
 
-    q = (
-        select(SponsorTicket)
-        .options(selectinload(SponsorTicket.delegates))
-        .where(SponsorTicket.event_id == event_id, SponsorTicket.scan_count > 0)
-        .order_by(SponsorTicket.scanned_at.desc())
-    )
-    tickets = list((await db.execute(q)).scalars().all())
+    tickets = await sponsor_repo.list_scanned_tickets_with_delegates(db, event_id)
 
     results = []
     for t in tickets:

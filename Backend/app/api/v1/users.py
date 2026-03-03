@@ -135,19 +135,18 @@ async def get_my_pledge_receipt(
     current_user: User = Depends(require_role(UserRole.customer, UserRole.sponsor)),
 ):
     """Get a pledge receipt for the current user."""
-    from sqlalchemy import select
-    from app.models.funding import Funding
-    pledge = (await db.execute(
-        select(Funding).where(Funding.id == pledge_id, Funding.user_id == current_user.id)
-    )).scalar_one_or_none()
-    if not pledge:
-        from app.core.exceptions import NotFoundError
+    from app.repositories.funding_repo import funding_repo
+    from app.repositories.event_repo import event_repo
+    from app.core.exceptions import NotFoundError
+
+    pledge = await funding_repo.get_by_id_and_event(db, pledge_id, event_id=0)
+    # Need to look up by pledge_id + user_id
+    pledge = await funding_repo.get_funding_by_id(db, pledge_id)
+    if not pledge or pledge.user_id != current_user.id:
         raise NotFoundError("Pledge", pledge_id)
     event = await event_service.get_or_404(db, pledge.event_id)
-    from app.services import platform_settings as settings_svc
     funding_pct = await settings_svc.get_int(db, "funding_commission_percent")
-    from app.api.v1.events import _build_tier_reservation_response
-    tier_resp = await _build_tier_reservation_response(db, pledge.id)
+    tier_resp = await event_repo.build_tier_reservation_response(db, pledge.id)
     return PledgeReceiptResponse(
         id=pledge.id,
         receipt_number=pledge.receipt_number,
@@ -250,12 +249,11 @@ async def get_my_ticket_receipt(
     sale = await ticket_service.get_ticket_receipt(db, sale_id=sale_id, user_id=current_user.id)
 
     # Load venue info
+    from app.repositories.event_repo import event_repo as _evt_repo
     venue_name = None
     venue_address = None
     if sale.event and sale.event.venue_id:
-        from app.models.venue import Venue
-        from sqlalchemy import select as sel
-        venue = (await db.execute(sel(Venue).where(Venue.id == sale.event.venue_id))).scalar_one_or_none()
+        venue = await _evt_repo.get_venue(db, sale.event.venue_id)
         if venue:
             venue_name = venue.name
             parts = [p for p in [venue.address, venue.city, venue.province] if p]
@@ -266,8 +264,7 @@ async def get_my_ticket_receipt(
     organizer_email = None
     organizer_phone = None
     if sale.event and sale.event.organizer_id:
-        from sqlalchemy import select as sel2
-        organizer = (await db.execute(sel2(User).where(User.id == sale.event.organizer_id))).scalar_one_or_none()
+        organizer = await user_repo.get_by_id(db, sale.event.organizer_id)
         if organizer:
             organizer_name = organizer.display_name
             organizer_email = organizer.email
@@ -415,23 +412,17 @@ async def toggle_bookmark(
     current_user: CurrentUser,
 ):
     """Toggle bookmark on an event. Returns current bookmarked state."""
-    from sqlalchemy import select, delete
     from app.models.bookmark import Bookmark
+    from app.repositories.event_repo import event_repo
 
-    existing = (await db.execute(
-        select(Bookmark).where(Bookmark.user_id == current_user.id, Bookmark.event_id == event_id)
-    )).scalar_one_or_none()
+    existing = await event_repo.get_bookmark(db, current_user.id, event_id)
 
     if existing:
-        await db.execute(
-            delete(Bookmark).where(Bookmark.id == existing.id)
-        )
-        await db.flush()
+        await event_repo.delete_bookmark(db, existing)
         return {"bookmarked": False}
 
     await event_service.get_or_404(db, event_id)
-    db.add(Bookmark(user_id=current_user.id, event_id=event_id))
-    await db.flush()
+    await event_repo.create_bookmark(db, Bookmark(user_id=current_user.id, event_id=event_id))
     return {"bookmarked": True}
 
 
@@ -442,8 +433,7 @@ async def check_bookmarks(
     event_ids: str = Query("", description="Comma-separated event IDs"),
 ):
     """Batch check which events are bookmarked by the current user."""
-    from sqlalchemy import select
-    from app.models.bookmark import Bookmark
+    from app.repositories.event_repo import event_repo
 
     if not event_ids.strip():
         return {"bookmarked_ids": []}
@@ -452,13 +442,8 @@ async def check_bookmarks(
     if not ids:
         return {"bookmarked_ids": []}
 
-    result = await db.execute(
-        select(Bookmark.event_id).where(
-            Bookmark.user_id == current_user.id,
-            Bookmark.event_id.in_(ids),
-        )
-    )
-    return {"bookmarked_ids": list(result.scalars().all())}
+    bookmarked = await event_repo.check_bookmarks(db, current_user.id, ids)
+    return {"bookmarked_ids": bookmarked}
 
 
 @router.get("/bookmarks", response_model=list[EventResponse])
@@ -472,34 +457,11 @@ async def list_bookmarked_events(
 ):
     """List events bookmarked by the current user, with optional search/status filters."""
     from datetime import datetime, timezone
-    from sqlalchemy import select
-    from sqlalchemy.orm import selectinload
-    from app.models.bookmark import Bookmark
-    from app.models.event import Event as EventModel
+    from app.repositories.event_repo import event_repo
 
-    q = (
-        select(EventModel)
-        .join(Bookmark, Bookmark.event_id == EventModel.id)
-        .where(Bookmark.user_id == current_user.id)
-        .options(selectinload(EventModel.venue), selectinload(EventModel.organizer), selectinload(EventModel.ticket_strategy))
-        .order_by(Bookmark.created_at.desc())
+    events = await event_repo.list_bookmarked_events(
+        db, current_user.id, search=search, status=status, offset=offset, limit=limit,
     )
-
-    if search and search.strip():
-        term = f"%{search.strip()}%"
-        from sqlalchemy import or_
-        from app.models.venue import Venue
-        q = q.outerjoin(Venue, EventModel.venue_id == Venue.id)
-        q = q.where(or_(
-            EventModel.title.ilike(term),
-            Venue.name.ilike(term),
-            Venue.city.ilike(term),
-        ))
-    if status:
-        q = q.where(EventModel.status == status)
-
-    q = q.offset(offset).limit(limit)
-    events = (await db.execute(q)).scalars().unique().all()
 
     now = datetime.now(timezone.utc)
     event_ids = [e.id for e in events]

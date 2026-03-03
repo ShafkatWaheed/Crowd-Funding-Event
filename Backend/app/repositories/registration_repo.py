@@ -209,6 +209,28 @@ class RegistrationRepository(BaseRepository[Registration]):
         """Flush pending changes."""
         await db.flush()
 
+    async def get_registered_user_ids(
+        self, db: AsyncSession, event_id: int, statuses: list,
+    ) -> list[int]:
+        """Return user IDs with registrations matching the given statuses."""
+        q = select(Registration.user_id).where(
+            Registration.event_id == event_id,
+            Registration.status.in_(statuses),
+        )
+        return list((await db.execute(q)).scalars().all())
+
+    async def get_event_registrants_with_users(
+        self, db: AsyncSession, event_id: int, statuses: list,
+    ) -> list[Registration]:
+        """Get registrations for an event with user eager-loaded."""
+        from sqlalchemy.orm import selectinload
+        q = (
+            select(Registration)
+            .where(Registration.event_id == event_id, Registration.status.in_(statuses))
+            .options(selectinload(Registration.user))
+        )
+        return list((await db.execute(q)).scalars().all())
+
 
 # Module-level singleton
 registration_repo = RegistrationRepository()

@@ -30,12 +30,9 @@ async def _try_db_template(
     if db is None:
         return None
     try:
-        from sqlalchemy import select
-        from app.models.email_template import EmailTemplate
+        from app.repositories.email_template_repo import email_template_repo
 
-        tmpl = (await db.execute(
-            select(EmailTemplate).where(EmailTemplate.template_key == template_key)
-        )).scalar_one_or_none()
+        tmpl = await email_template_repo.get_by_key(db, template_key)
         if tmpl and tmpl.is_active:
             html = tmpl.body_html
             for k, v in variables.items():

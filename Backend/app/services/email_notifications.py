@@ -10,11 +10,12 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.logger import get_logger
+from app.repositories.funding_repo import funding_repo
+from app.repositories.registration_repo import registration_repo
+from app.repositories.ticket_repo import ticket_repo
 from app.services.email_service import send_email, send_email_bulk
 from app.services import email_templates as tpl
 
@@ -46,20 +47,16 @@ async def notify_event_cancelled(
     Pledgers receive a variant that mentions their refund.
     """
     try:
-        from app.models.registration import Registration, RegistrationStatus
-        from app.models.funding import Funding, FundingStatus
-        from app.models.ticket import TicketSale, TicketSaleStatus
+        from app.models.registration import RegistrationStatus
+        from app.models.funding import FundingStatus
+        from app.models.ticket import TicketSaleStatus
 
         date_str = _format_date(event_date)
 
         # 1. Pledgers (they get the refund variant)
-        pledger_q = (
-            select(Funding)
-            .where(Funding.event_id == event_id)
-            .where(Funding.status.in_([FundingStatus.refunded, FundingStatus.pledged]))
-            .options(selectinload(Funding.user))
+        pledger_rows = await funding_repo.get_event_pledgers_with_users(
+            db, event_id, [FundingStatus.refunded, FundingStatus.pledged],
         )
-        pledger_rows = (await db.execute(pledger_q)).scalars().all()
 
         # Build sets for deduplication
         pledger_emails: set[str] = set()
@@ -85,21 +82,13 @@ async def notify_event_cancelled(
             await send_email(pr["email"], pr["name"], f"Event Cancelled — {event_title}", html)
 
         # 2. Registrants + ticket buyers (without refund — deduplicate against pledgers)
-        reg_q = (
-            select(Registration)
-            .where(Registration.event_id == event_id)
-            .where(Registration.status.in_([RegistrationStatus.registered, RegistrationStatus.waitlist]))
-            .options(selectinload(Registration.user))
+        reg_rows = await registration_repo.get_event_registrants_with_users(
+            db, event_id, [RegistrationStatus.registered, RegistrationStatus.waitlist],
         )
-        reg_rows = (await db.execute(reg_q)).scalars().all()
 
-        ticket_q = (
-            select(TicketSale)
-            .where(TicketSale.event_id == event_id)
-            .where(TicketSale.status == TicketSaleStatus.purchased)
-            .options(selectinload(TicketSale.user))
+        ticket_rows = await ticket_repo.get_event_ticket_buyers_with_users(
+            db, event_id, TicketSaleStatus.purchased,
         )
-        ticket_rows = (await db.execute(ticket_q)).scalars().all()
 
         non_pledger_recipients: list[dict[str, str]] = []
         seen: set[str] = set(pledger_emails)

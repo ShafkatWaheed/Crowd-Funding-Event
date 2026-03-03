@@ -102,5 +102,17 @@ class LedgerRepository:
         )).scalar_one()
         return int(result)
 
+    # ── Worker task helpers ────────────────────────────────────────
+
+    async def get_pending_settlements(
+        self, db: AsyncSession, cutoff,
+    ) -> list[PaymentMockLedger]:
+        """Get mock ledger entries in settlement_pending status created before cutoff."""
+        q = select(PaymentMockLedger).where(
+            PaymentMockLedger.status == MockLedgerStatus.settlement_pending,
+            PaymentMockLedger.created_at <= cutoff,
+        )
+        return list((await db.execute(q)).scalars().all())
+
 
 ledger_repo = LedgerRepository()

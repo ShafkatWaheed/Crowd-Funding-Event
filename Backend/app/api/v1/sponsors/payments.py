@@ -1,19 +1,16 @@
 """Sponsor payment and receipt endpoints."""
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import select
-from sqlalchemy.orm import selectinload
 
 from app.dependencies import DbSession, ReadDbSession, CurrentUser, require_feature, require_kyc
 from app.logger import get_logger, log_step
 from app.rate_limit import limiter, dynamic_limit
 from app.models.user import UserRole
-from app.models.sponsor import SponsorPayment, SponsorBid, SponsorshipCategory
-from app.models.event import Event
-from app.models.user import User
 from app.schemas.sponsor import PaymentResponse
 from app.services import sponsor as sponsor_svc
 from app.services import notification_service as notif_svc
 from app.models.notification import NotificationType
+from app.repositories.sponsor_repo import sponsor_repo
+from app.repositories.user_repo import user_repo
 from app.worker.redis_pool import enqueue as arq_enqueue
 
 logger = get_logger("api.sponsors.payments")
@@ -37,10 +34,7 @@ async def pay_bid(
     log_step(logger, "Paying bid", event_id=event_id, cat_id=cat_id, bid_id=bid_id, user_id=current_user.id)
     logger.debug("Payment initiated", extra={"bid_id": bid_id})
     payment = await sponsor_svc.pay_bid(db, bid_id, current_user)
-    from sqlalchemy import select as sa_select
-    event_obj = (await db.execute(
-        sa_select(Event).where(Event.id == event_id)
-    )).scalar_one_or_none()
+    event_obj = await sponsor_repo.get_event(db, event_id)
     if event_obj:
         await notif_svc.create_notification(
             db, user_id=event_obj.organizer_id,
@@ -50,7 +44,7 @@ async def pay_bid(
             data={"event_id": event_id, "category_id": cat_id, "bid_id": bid_id, "payment_id": payment.id},
         )
     await db.commit()
-    await db.refresh(payment)
+    await sponsor_repo.refresh(db, payment)
     return payment
 
 
@@ -68,10 +62,7 @@ async def refund_bid(
     current_user: CurrentUser,
 ):
     log_step(logger, "Refunding bid", event_id=event_id, cat_id=cat_id, bid_id=bid_id, user_id=current_user.id)
-    from sqlalchemy import select as sa_select
-    bid_obj = (await db.execute(
-        sa_select(SponsorBid).where(SponsorBid.id == bid_id)
-    )).scalar_one_or_none()
+    bid_obj = await sponsor_repo.get_bid(db, bid_id)
     sponsor_user_id = bid_obj.sponsor_user_id if bid_obj else None
     payment = await sponsor_svc.refund_bid(db, bid_id, current_user)
     if sponsor_user_id:
@@ -82,9 +73,7 @@ async def refund_bid(
             message=f"Your sponsorship refund of ${payment.amount_cents / 100:.2f} is being processed.",
             data={"event_id": event_id, "category_id": cat_id, "bid_id": bid_id, "payment_id": payment.id},
         )
-    event_obj = (await db.execute(
-        sa_select(Event).where(Event.id == event_id)
-    )).scalar_one_or_none()
+    event_obj = await sponsor_repo.get_event(db, event_id)
     if event_obj:
         await notif_svc.create_notification(
             db, user_id=event_obj.organizer_id,
@@ -94,10 +83,10 @@ async def refund_bid(
             data={"event_id": event_id, "category_id": cat_id, "bid_id": bid_id, "payment_id": payment.id},
         )
     await db.commit()
-    await db.refresh(payment)
+    await sponsor_repo.refresh(db, payment)
     if sponsor_user_id:
-        sponsor = (await db.execute(select(User).where(User.id == sponsor_user_id))).scalar_one_or_none()
-        cat = (await db.execute(select(SponsorshipCategory).where(SponsorshipCategory.id == cat_id))).scalar_one_or_none()
+        sponsor = await user_repo.get_by_id(db, sponsor_user_id)
+        cat = await sponsor_repo.get_category(db, cat_id)
         if sponsor and sponsor.email:
             await arq_enqueue(
                 "send_sponsor_refund_email",
@@ -117,40 +106,27 @@ async def get_sponsor_payment_receipt(
     db: ReadDbSession,
     current_user: CurrentUser,
 ):
-    payment = (await db.execute(
-        select(SponsorPayment).where(SponsorPayment.id == payment_id)
-    )).scalar_one_or_none()
+    from app.services import event as event_service
+    payment = await sponsor_repo.get_payment_by_id(db, payment_id)
     if not payment:
         logger.warning("Payment not found", extra={"payment_id": payment_id, "user_id": current_user.id})
         raise HTTPException(status_code=404, detail="Payment not found")
-    bid = (await db.execute(
-        select(SponsorBid).where(SponsorBid.id == payment.bid_id)
-    )).scalar_one_or_none()
+    bid = await sponsor_repo.get_bid(db, payment.bid_id)
     if not bid:
         logger.warning("Bid not found for receipt", extra={"payment_id": payment_id, "bid_id": payment.bid_id})
         raise HTTPException(status_code=404, detail="Bid not found")
     if bid.sponsor_user_id != current_user.id and current_user.role != UserRole.admin:
-        cat_check = (await db.execute(
-            select(SponsorshipCategory).where(SponsorshipCategory.id == bid.category_id)
-        )).scalar_one_or_none()
+        cat_check = await sponsor_repo.get_category(db, bid.category_id)
         if not cat_check:
             logger.warning("Not authorized to view receipt", extra={"payment_id": payment_id, "user_id": current_user.id})
             raise HTTPException(status_code=403, detail="Not authorized")
-        evt_check = (await db.execute(
-            select(Event).where(Event.id == cat_check.event_id)
-        )).scalar_one_or_none()
+        evt_check = await sponsor_repo.get_event(db, cat_check.event_id)
         if not evt_check or evt_check.organizer_id != current_user.id:
             logger.warning("Not authorized to view receipt", extra={"payment_id": payment_id, "user_id": current_user.id})
             raise HTTPException(status_code=403, detail="Not authorized")
-    cat = (await db.execute(
-        select(SponsorshipCategory).where(SponsorshipCategory.id == bid.category_id)
-    )).scalar_one_or_none()
-    event = (await db.execute(
-        select(Event).options(selectinload(Event.venue)).where(Event.id == cat.event_id)
-    )).scalar_one_or_none() if cat else None
-    sponsor = (await db.execute(
-        select(User).where(User.id == bid.sponsor_user_id)
-    )).scalar_one_or_none()
+    cat = await sponsor_repo.get_category(db, bid.category_id)
+    event = await event_service.get_by_id(db, cat.event_id, load_venue=True) if cat else None
+    sponsor = await user_repo.get_by_id(db, bid.sponsor_user_id)
     is_refund = payment.status.value in ("refunded", "refund_processing")
     return {
         "payment_id": payment.id,

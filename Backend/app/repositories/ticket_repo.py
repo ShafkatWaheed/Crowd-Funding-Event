@@ -659,6 +659,104 @@ class TicketRepository(BaseRepository[TicketSale]):
     async def flush(self, db: AsyncSession) -> None:
         await db.flush()
 
+    async def get_tier_sold_counts(
+        self, db: AsyncSession, tier_ids: list[int],
+    ) -> dict[int, int]:
+        """Return {tier_id: sold_count} for purchased tickets per tier."""
+        if not tier_ids:
+            return {}
+        q = (
+            select(TicketSale.ticket_tier_id, func.count())
+            .where(
+                TicketSale.ticket_tier_id.in_(tier_ids),
+                TicketSale.status == TicketSaleStatus.purchased,
+            )
+            .group_by(TicketSale.ticket_tier_id)
+        )
+        return {r[0]: r[1] for r in (await db.execute(q)).all()}
+
+    async def get_tier_reserved_counts(
+        self, db: AsyncSession, tier_ids: list[int], event_id: int,
+    ) -> dict[int, int]:
+        """Return {tier_id: reserved_spots} for pledge spot reservations per tier.
+
+        Excludes backers who already bought tickets for that tier.
+        """
+        from app.models.funding import Funding, FundingStatus, PledgeSpotReservation
+
+        if not tier_ids:
+            return {}
+        buyers_sub = (
+            select(TicketSale.user_id)
+            .where(
+                TicketSale.ticket_tier_id == PledgeSpotReservation.ticket_tier_id,
+                TicketSale.event_id == event_id,
+                TicketSale.status == TicketSaleStatus.purchased,
+            )
+            .correlate(PledgeSpotReservation)
+        )
+        q = (
+            select(
+                PledgeSpotReservation.ticket_tier_id,
+                func.coalesce(func.sum(PledgeSpotReservation.spots), 0),
+            )
+            .join(Funding, Funding.id == PledgeSpotReservation.funding_id)
+            .where(
+                PledgeSpotReservation.ticket_tier_id.in_(tier_ids),
+                Funding.event_id == event_id,
+                Funding.status.in_([FundingStatus.pledged, FundingStatus.collected]),
+                ~Funding.user_id.in_(buyers_sub),
+            )
+            .group_by(PledgeSpotReservation.ticket_tier_id)
+        )
+        return {r[0]: int(r[1]) for r in (await db.execute(q)).all()}
+
+    async def count_purchased_for_event(
+        self, db: AsyncSession, event_id: int,
+    ) -> int:
+        """Count purchased tickets for an event."""
+        q = select(func.count()).where(
+            TicketSale.event_id == event_id,
+            TicketSale.status == TicketSaleStatus.purchased,
+        )
+        return int((await db.execute(q)).scalar_one())
+
+    async def list_discounts_for_organizer(
+        self, db: AsyncSession, organizer_id: int,
+    ) -> list[UserEventDiscount]:
+        """List discounts for all events owned by an organizer (admin detail view)."""
+        from sqlalchemy.orm import selectinload as sil
+        q = (
+            select(UserEventDiscount)
+            .join(Event, UserEventDiscount.event_id == Event.id)
+            .where(Event.organizer_id == organizer_id)
+            .options(sil(UserEventDiscount.event), sil(UserEventDiscount.user))
+        )
+        return list((await db.execute(q)).scalars().unique().all())
+
+    # ── Worker task helpers ────────────────────────────────────────
+
+    async def mark_refund_failed(self, db: AsyncSession, ticket_sale_id: int) -> None:
+        """Set a ticket sale to refund_failed status."""
+        from sqlalchemy import update
+        await db.execute(
+            update(TicketSale)
+            .where(TicketSale.id == ticket_sale_id, TicketSale.status == TicketSaleStatus.refund_processing)
+            .values(status=TicketSaleStatus.refund_failed)
+        )
+
+    async def get_event_ticket_buyers_with_users(
+        self, db: AsyncSession, event_id: int, status,
+    ) -> list[TicketSale]:
+        """Ticket sales for an event with user eager-loaded (for email notifications)."""
+        from sqlalchemy.orm import selectinload
+        q = (
+            select(TicketSale)
+            .where(TicketSale.event_id == event_id, TicketSale.status == status)
+            .options(selectinload(TicketSale.user))
+        )
+        return list((await db.execute(q)).scalars().all())
+
 
 # Module-level singleton
 ticket_repo = TicketRepository()

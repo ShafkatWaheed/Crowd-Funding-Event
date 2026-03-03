@@ -11,7 +11,8 @@ import '../../../providers/auth_provider.dart';
 import '../../../repositories/base_repository.dart';
 import '../../../repositories/funding_repository.dart';
 import '../../../repositories/ticket_repository.dart';
-import '../../../services/api_service.dart';
+import '../../../providers/config_provider.dart';
+import '../../../repositories/payment_repository.dart';
 import '../../../widgets/app_toast.dart';
 import '../pledge_receipt_screen.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
@@ -603,12 +604,13 @@ class _FundingCardState extends State<FundingCard> {
     setState(() => _pledging = true);
     _showPaymentProcessing();
     try {
-      final api = context.read<ApiService>();
+      final config = context.read<ConfigProvider>();
+      final paymentRepo = context.read<PaymentRepository>();
       final repo = context.read<FundingRepository>();
 
       // Stripe Payment Sheet flow when Stripe is enabled
-      if (api.isStripeEnabled) {
-        final intent = await api.createPaymentIntent(
+      if (config.stripeEnabled) {
+        final intent = await paymentRepo.createPaymentIntent(
           amountCents: amountCents,
           description: 'Pledge for event ${widget.eventId}',
         );

@@ -922,6 +922,71 @@ class SponsorRepository(BaseRepository[SponsorBid]):
     #  API-level helpers (used by organizer_views / templates routes)
     # ═══════════════════════════════════════════════════════════════════
 
+    async def get_admin_sponsor_bids_for_events(
+        self, db: AsyncSession, event_ids: list[int],
+    ) -> list:
+        """Return bid rows for admin user-detail (organizer view)."""
+        if not event_ids:
+            return []
+        q = (
+            select(
+                SponsorshipCategory.id.label("cat_id"),
+                SponsorshipCategory.name.label("cat_name"),
+                SponsorshipCategory.event_id,
+                SponsorBid.id.label("bid_id"),
+                SponsorBid.amount_cents,
+                SponsorBid.status,
+                SponsorBid.sponsor_user_id,
+            )
+            .join(SponsorBid, SponsorBid.category_id == SponsorshipCategory.id)
+            .where(
+                SponsorshipCategory.event_id.in_(event_ids),
+                SponsorBid.status.in_([BidStatus.pending, BidStatus.accepted, BidStatus.paid]),
+            )
+            .order_by(SponsorshipCategory.event_id)
+        )
+        return list((await db.execute(q)).all())
+
+    async def get_fund_escrows_for_events(
+        self, db: AsyncSession, event_ids: list[int],
+    ) -> list:
+        """Return FundEscrow rows for admin user-detail (organizer view)."""
+        if not event_ids:
+            return []
+        from app.models.escrow import FundEscrow
+        q = (
+            select(FundEscrow)
+            .where(FundEscrow.event_id.in_(event_ids))
+            .order_by(FundEscrow.updated_at.desc())
+        )
+        return list((await db.execute(q)).scalars().all())
+
+    async def get_sponsor_bid_counts(
+        self, db: AsyncSession, sponsor_user_id: int,
+    ) -> tuple[int, int, int]:
+        """Return (total_bids, accepted_bids, events_sponsored) for a sponsor."""
+        total = int((await db.execute(
+            select(func.count()).select_from(SponsorBid)
+            .where(SponsorBid.sponsor_user_id == sponsor_user_id)
+        )).scalar_one())
+        accepted = int((await db.execute(
+            select(func.count()).select_from(SponsorBid)
+            .where(
+                SponsorBid.sponsor_user_id == sponsor_user_id,
+                SponsorBid.status.in_([BidStatus.accepted, BidStatus.paid]),
+            )
+        )).scalar_one())
+        events_sponsored = int((await db.execute(
+            select(func.count(func.distinct(SponsorshipCategory.event_id)))
+            .select_from(SponsorBid)
+            .join(SponsorshipCategory, SponsorBid.category_id == SponsorshipCategory.id)
+            .where(
+                SponsorBid.sponsor_user_id == sponsor_user_id,
+                SponsorBid.status.in_([BidStatus.accepted, BidStatus.paid]),
+            )
+        )).scalar_one())
+        return total, accepted, events_sponsored
+
     async def get_bid_for_category_by_sponsor(
         self,
         db: AsyncSession,
@@ -1011,6 +1076,90 @@ class SponsorRepository(BaseRepository[SponsorBid]):
             .order_by(SponsorBid.last_message_at.desc().nullslast())
         )
         return list((await db.execute(q)).all())
+
+    # ── Worker task helpers ───────────────────────────────────────
+
+    async def mark_payment_refund_failed(self, db: AsyncSession, payment_id: int) -> None:
+        """Set a sponsor payment to refund_failed status."""
+        from sqlalchemy import update
+        await db.execute(
+            update(SponsorPayment)
+            .where(SponsorPayment.id == payment_id, SponsorPayment.status == PaymentStatus.refund_processing)
+            .values(status=PaymentStatus.refund_failed)
+        )
+
+    async def get_refundable_payment_ids_for_event(
+        self, db: AsyncSession, event_id: int,
+    ) -> list[int]:
+        """IDs of sponsor payments in refund_processing for an event."""
+        q = (
+            select(SponsorPayment.id)
+            .join(SponsorBid, SponsorPayment.bid_id == SponsorBid.id)
+            .join(SponsorshipCategory, SponsorBid.category_id == SponsorshipCategory.id)
+            .where(
+                SponsorshipCategory.event_id == event_id,
+                SponsorPayment.status == PaymentStatus.refund_processing,
+            )
+        )
+        return list((await db.execute(q)).scalars().all())
+
+    async def get_archivable_bid_ids_by_event_status(
+        self, db: AsyncSession, cutoff,
+    ) -> list[int]:
+        """Bid IDs whose events are completed/cancelled with end_date past cutoff."""
+        from app.models.event import Event, EventStatus
+        q = (
+            select(SponsorBid.id)
+            .join(SponsorshipCategory, SponsorBid.category_id == SponsorshipCategory.id)
+            .join(Event, SponsorshipCategory.event_id == Event.id)
+            .where(
+                SponsorBid.last_message_at.isnot(None),
+                Event.status.in_([EventStatus.completed, EventStatus.cancelled]),
+                Event.end_date < cutoff,
+            )
+        )
+        return list((await db.execute(q)).scalars().all())
+
+    async def get_archivable_bid_ids_by_bid_status(
+        self, db: AsyncSession, cutoff,
+    ) -> list[int]:
+        """Bid IDs that are rejected/withdrawn with last_message past cutoff."""
+        q = select(SponsorBid.id).where(
+            SponsorBid.last_message_at.isnot(None),
+            SponsorBid.status.in_([BidStatus.rejected, BidStatus.withdrawn]),
+            SponsorBid.last_message_at < cutoff,
+        )
+        return list((await db.execute(q)).scalars().all())
+
+    async def get_bid_by_pk(self, db: AsyncSession, bid_id: int) -> SponsorBid | None:
+        """Get bid by primary key (db.get equivalent)."""
+        return await db.get(SponsorBid, bid_id)
+
+    async def clear_bid_chat_metadata(self, db: AsyncSession, bid_id: int) -> None:
+        """Clear chat metadata on a bid (for archiving)."""
+        bid = await db.get(SponsorBid, bid_id)
+        if bid:
+            bid.last_message_at = None
+            bid.unread_count_organizer = 0
+            bid.unread_count_sponsor = 0
+
+    async def refresh(self, db: AsyncSession, obj) -> None:
+        await db.refresh(obj)
+
+    async def flush(self, db: AsyncSession) -> None:
+        await db.flush()
+
+    async def list_scanned_tickets_with_delegates(
+        self, db: AsyncSession, event_id: int,
+    ) -> list[SponsorTicket]:
+        """Scanned sponsor tickets with delegates eager-loaded (for scan history)."""
+        q = (
+            select(SponsorTicket)
+            .options(selectinload(SponsorTicket.delegates))
+            .where(SponsorTicket.event_id == event_id, SponsorTicket.scan_count > 0)
+            .order_by(SponsorTicket.scanned_at.desc())
+        )
+        return list((await db.execute(q)).scalars().all())
 
 
 # Module-level singleton

@@ -201,7 +201,7 @@ async def _log_mock_email(
 ) -> str:
     """Write to EmailMockLog with bounce-rate simulation. Returns status."""
     from app.db.base import async_session_maker
-    from app.models.email_mock_log import EmailMockLog
+    from app.repositories.email_template_repo import email_template_repo
     from app.services import platform_settings as settings_svc
 
     status = "sent"
@@ -210,14 +210,14 @@ async def _log_mock_email(
             bounce_rate = await settings_svc.get_int(db, "mock_email_bounce_rate_percent")
             if bounce_rate > 0 and random.randint(1, 100) <= bounce_rate:
                 status = "bounced"
-            log = EmailMockLog(
+            await email_template_repo.create_mock_log(
+                db,
                 to_email=to_email,
                 subject=subject,
                 body_html=body_html,
                 template_key=template_key,
                 status=status,
             )
-            db.add(log)
             await db.commit()
     except Exception:
         logger.exception("Failed to log mock email to %s", to_email)

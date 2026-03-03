@@ -5,7 +5,6 @@ import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
-from sqlalchemy import select
 
 from app.cache import invalidate_event_cascade
 from app.dependencies import DbSession, ReadDbSession, require_role
@@ -17,6 +16,7 @@ from app.models.user import User, UserRole
 from app.schemas import EventImageResponse
 from app.core.exceptions import ForbiddenError, NotFoundError
 from app.services import event as event_service
+from app.repositories.event_repo import event_repo
 
 router = APIRouter()
 logger = get_logger("api.events.images")
@@ -25,13 +25,8 @@ logger = get_logger("api.events.images")
 @router.get("/{event_id}/images", response_model=list[EventImageResponse])
 async def list_event_images(event_id: int, db: ReadDbSession):
     """List images for an event (public)."""
-    q = (
-        select(EventImage)
-        .where(EventImage.event_id == event_id)
-        .order_by(EventImage.display_order.asc(), EventImage.created_at.asc())
-    )
-    result = await db.execute(q)
-    return [EventImageResponse.model_validate(img) for img in result.scalars().all()]
+    images = await event_repo.list_images(db, event_id)
+    return [EventImageResponse.model_validate(img) for img in images]
 
 
 @router.post("/{event_id}/images", response_model=EventImageResponse)
@@ -52,11 +47,8 @@ async def add_event_image(
     policy = await event_service.get_effective_policy(db, event)
     max_imgs = policy.get("event_max_images")
     if max_imgs and max_imgs > 0:
-        from sqlalchemy import func as _fn
-        current = (await db.execute(
-            select(_fn.count()).where(EventImage.event_id == event_id)
-        )).scalar_one()
-        if int(current) >= max_imgs:
+        current_count = await event_repo.count_images(db, event_id)
+        if current_count >= max_imgs:
             logger.warning("Add image rejected: max images reached", extra={"event_id": event_id, "max_imgs": max_imgs})
             raise HTTPException(status_code=409, detail=f"Max {max_imgs} images per event")
     img = EventImage(
@@ -65,9 +57,7 @@ async def add_event_image(
         caption=caption,
         display_order=display_order,
     )
-    db.add(img)
-    await db.flush()
-    await db.refresh(img)
+    img = await event_repo.create_image(db, img)
     await invalidate_event_cascade(event_id)
     return EventImageResponse.model_validate(img)
 
@@ -92,11 +82,8 @@ async def upload_event_image(
     policy = await event_service.get_effective_policy(db, event)
     max_imgs = policy.get("event_max_images")
     if max_imgs and max_imgs > 0:
-        from sqlalchemy import func as _fn
-        current = (await db.execute(
-            select(_fn.count()).where(EventImage.event_id == event_id)
-        )).scalar_one()
-        if int(current) >= max_imgs:
+        current_count = await event_repo.count_images(db, event_id)
+        if current_count >= max_imgs:
             logger.warning("Upload image rejected: max images reached", extra={"event_id": event_id, "max_imgs": max_imgs})
             raise HTTPException(status_code=409, detail=f"Max {max_imgs} images per event")
 
@@ -119,9 +106,7 @@ async def upload_event_image(
         caption=caption,
         display_order=display_order,
     )
-    db.add(img)
-    await db.flush()
-    await db.refresh(img)
+    img = await event_repo.create_image(db, img)
     await invalidate_event_cascade(event_id)
     return EventImageResponse.model_validate(img)
 
@@ -139,12 +124,9 @@ async def delete_event_image(
     if not await event_service.user_can_edit_event(db, event, current_user):
         logger.warning("Image operation rejected: user cannot edit event", extra={"user_id": current_user.id, "event_id": event_id})
         raise ForbiddenError("You cannot manage this event")
-    q = select(EventImage).where(EventImage.id == image_id, EventImage.event_id == event_id)
-    result = await db.execute(q)
-    img = result.scalar_one_or_none()
+    img = await event_repo.get_image(db, image_id, event_id)
     if not img:
         raise NotFoundError("Image", image_id)
-    await db.delete(img)
-    await db.flush()
+    await event_repo.delete_image(db, img)
     await invalidate_event_cascade(event_id)
     return {"ok": True}

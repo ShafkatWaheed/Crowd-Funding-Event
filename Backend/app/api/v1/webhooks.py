@@ -6,36 +6,11 @@ from fastapi import APIRouter, Header, Request
 from app.dependencies import DbSession
 from app.logger import get_logger
 from app.models.dispute import Dispute, DisputeStatus
-from app.models.escrow import EscrowStatus, FundEscrow, SponsorEscrow, TicketEscrow
 from app.services import platform_settings as settings_svc
-
-from sqlalchemy import select
+from app.repositories.escrow_repo import escrow_repo
 
 router = APIRouter()
 log = get_logger(__name__)
-
-
-async def _freeze_escrows(db, event_id: int) -> None:
-    for model in (FundEscrow, TicketEscrow, SponsorEscrow):
-        esc = (await db.execute(
-            select(model).where(model.event_id == event_id)
-        )).scalar_one_or_none()
-        if esc and esc.status not in (EscrowStatus.frozen, EscrowStatus.fully_released):
-            esc.status = EscrowStatus.frozen
-
-
-async def _unfreeze_escrows(db, event_id: int) -> None:
-    for model in (FundEscrow, TicketEscrow, SponsorEscrow):
-        esc = (await db.execute(
-            select(model).where(model.event_id == event_id)
-        )).scalar_one_or_none()
-        if esc and esc.status == EscrowStatus.frozen:
-            if esc.stage3_released_at:
-                esc.status = EscrowStatus.fully_released
-            elif esc.stage1_released_at:
-                esc.status = EscrowStatus.partially_released
-            else:
-                esc.status = EscrowStatus.holding
 
 
 @router.post("/webhooks/stripe")
@@ -73,9 +48,7 @@ async def stripe_webhook(
         amount = data.get("amount", 0)
         reason = data.get("reason", "product_not_received")
 
-        existing = (await db.execute(
-            select(Dispute).where(Dispute.stripe_dispute_id == stripe_dispute_id)
-        )).scalar_one_or_none()
+        existing = await escrow_repo.get_dispute_by_stripe_id(db, stripe_dispute_id)
         if existing:
             return {"ok": True, "message": "duplicate"}
 
@@ -92,12 +65,11 @@ async def stripe_webhook(
             amount_cents=amount,
             reason=reason,
         )
-        db.add(dispute)
+        await escrow_repo.create_dispute(db, dispute)
 
         if event_id:
-            await _freeze_escrows(db, int(event_id))
+            await escrow_repo.freeze_escrows_for_event(db, int(event_id))
 
-        await db.flush()
         log.info("Dispute created from webhook: %s", stripe_dispute_id)
 
     elif event_type == "charge.dispute.closed":
@@ -105,19 +77,17 @@ async def stripe_webhook(
         stripe_dispute_id = data.get("id", "")
         status = data.get("status", "")
 
-        dispute = (await db.execute(
-            select(Dispute).where(Dispute.stripe_dispute_id == stripe_dispute_id)
-        )).scalar_one_or_none()
+        dispute = await escrow_repo.get_dispute_by_stripe_id(db, stripe_dispute_id)
         if dispute:
             from datetime import datetime, timezone
             dispute.resolved_at = datetime.now(timezone.utc)
             if status == "won":
                 dispute.status = DisputeStatus.won
                 if dispute.event_id:
-                    await _unfreeze_escrows(db, dispute.event_id)
+                    await escrow_repo.unfreeze_escrows_for_event(db, dispute.event_id)
             else:
                 dispute.status = DisputeStatus.lost
-            await db.flush()
+            await escrow_repo.flush(db)
             log.info("Dispute resolved from webhook: %s -> %s", stripe_dispute_id, status)
 
     return {"ok": True}

@@ -398,6 +398,18 @@ class BankingRepository:
             total += int(released)
         return total
 
+    # ── Worker task helpers ────────────────────────────────────────
+
+    async def get_account_by_id(
+        self, db: AsyncSession, bank_account_id: int,
+    ) -> OrganizerBankAccount | None:
+        q = select(OrganizerBankAccount).where(OrganizerBankAccount.id == bank_account_id)
+        return (await db.execute(q)).scalar_one_or_none()
+
+    async def list_all_accounts(self, db: AsyncSession) -> list[OrganizerBankAccount]:
+        q = select(OrganizerBankAccount)
+        return list((await db.execute(q)).scalars().all())
+
 
 # Module-level singleton
 banking_repo = BankingRepository()

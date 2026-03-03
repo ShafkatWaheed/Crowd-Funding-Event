@@ -39,9 +39,9 @@ async def cancel_event(
 ):
     """Organizer (main or co-) cancels the event. A reason is required."""
     log_step(logger, "Cancelling event", user_id=current_user.id, event_id=event_id)
-    from sqlalchemy import select as sel
-    from app.models.registration import Registration, RegistrationStatus
-    from app.models.funding import Funding, FundingStatus
+    from app.models.funding import FundingStatus
+    from app.repositories.event_repo import event_repo
+    from app.repositories.funding_repo import funding_repo
 
     event = await event_service.get_or_404(db, event_id)
     if not await event_service.user_can_edit_event(db, event, current_user):
@@ -55,16 +55,10 @@ async def cancel_event(
         body.reason,
         event.start_time,
     )
-    affected_q = sel(Registration.user_id).where(
-        Registration.event_id == event.id,
-        Registration.status.in_([RegistrationStatus.registered, RegistrationStatus.waitlist]),
+    affected_ids = await event_repo.get_active_registrant_ids(db, event.id)
+    pledger_ids = await funding_repo.get_funder_ids(
+        db, event.id, [FundingStatus.pledged, FundingStatus.refunded],
     )
-    affected_ids = [r for r in (await db.execute(affected_q)).scalars().all()]
-    pledger_q = sel(Funding.user_id).where(
-        Funding.event_id == event.id,
-        Funding.status.in_([FundingStatus.pledged, FundingStatus.refunded]),
-    )
-    pledger_ids = [r for r in (await db.execute(pledger_q)).scalars().all()]
     all_ids = list(set(affected_ids + pledger_ids))
     if all_ids:
         await notif_svc.create_bulk_notifications(
@@ -241,7 +235,8 @@ async def approve_cancellation(
         await funding_service.refund_all_pledges_for_event(db, event_id=event.id)
         await sponsor_service.refund_all_sponsor_payments_for_event(db, event_id=event.id)
         await ticket_service.refund_all_tickets_for_event(db, event_id=event.id)
-        await db.flush()
+        from app.repositories.event_repo import event_repo as _ev_repo
+        await _ev_repo.flush(db)
         await arq_enqueue(
             "send_event_cancelled_email",
             event.id,
@@ -251,7 +246,8 @@ async def approve_cancellation(
         )
     elif body.action == "reject":
         event.pending_cancellation = None
-        await db.flush()
+        from app.repositories.event_repo import event_repo as _ev_repo
+        await _ev_repo.flush(db)
     else:
         logger.warning("Approve cancellation rejected: invalid action", extra={"event_id": event_id, "action": body.action})
         raise HTTPException(status_code=400, detail="action must be 'approve' or 'reject'")

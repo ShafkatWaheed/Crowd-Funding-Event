@@ -11,13 +11,11 @@ import traceback
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from sqlalchemy import select, update
-
 from app.db.base import async_session_maker
 from app.logger import get_logger
-from app.models.funding import Funding, FundingStatus
-from app.models.ticket import TicketSale, TicketSaleStatus
-from app.models.sponsor import SponsorBid, SponsorPayment, PaymentStatus, BidStatus, SponsorshipCategory
+from app.models.funding import FundingStatus
+from app.models.ticket import TicketSaleStatus
+from app.models.sponsor import PaymentStatus
 from app.services import email_notifications as email_notify
 
 logger = get_logger("arq.tasks")
@@ -34,9 +32,10 @@ async def _log_cron_run(
 ) -> None:
     """Persist a cron run record to worker_run_logs."""
     try:
-        from app.models.worker_run_log import WorkerRunLog
+        from app.repositories.worker_run_repo import worker_run_repo
         async with async_session_maker() as db:
-            db.add(WorkerRunLog(
+            await worker_run_repo.create_run_log(
+                db,
                 task_name=task_name,
                 status=status,
                 started_at=started_at,
@@ -44,7 +43,7 @@ async def _log_cron_run(
                 duration_ms=duration_ms,
                 items_processed=items_processed,
                 error=error,
-            ))
+            )
             await db.commit()
     except Exception:
         logger.exception("Failed to log cron run for %s", task_name)
@@ -266,12 +265,11 @@ async def process_pledge_refund(ctx: dict, funding_id: int) -> None:
     Called after the API has already set status=refund_processing and released reserved spots.
     """
     from app.services.payment_gateway import get_gateway
+    from app.repositories.funding_repo import funding_repo
 
     async with async_session_maker() as db:
         try:
-            funding = (await db.execute(
-                select(Funding).where(Funding.id == funding_id)
-            )).scalar_one_or_none()
+            funding = await funding_repo.get_funding_by_id(db, funding_id)
 
             if not funding or funding.status != FundingStatus.refund_processing:
                 logger.warning("Pledge %d: skip (not in refund_processing)", funding_id)
@@ -305,16 +303,12 @@ async def process_bulk_pledge_refunds(ctx: dict, event_id: int, guest_refund: bo
     Process all pledge refunds for a cancelled event.
     Each pledge is handled individually so one failure doesn't block the rest.
     """
-    async with async_session_maker() as db:
-        conditions = [
-            Funding.event_id == event_id,
-            Funding.status == FundingStatus.refund_processing,
-        ]
-        if not guest_refund:
-            conditions.append(Funding.is_guest == False)  # noqa: E712
+    from app.repositories.funding_repo import funding_repo
 
-        result = await db.execute(select(Funding.id).where(*conditions))
-        funding_ids = [row[0] for row in result.all()]
+    async with async_session_maker() as db:
+        funding_ids = await funding_repo.get_refundable_pledge_ids(
+            db, event_id, guest_refund=guest_refund,
+        )
 
     for fid in funding_ids:
         await process_pledge_refund(ctx, fid)
@@ -327,12 +321,11 @@ async def process_ticket_refund(ctx: dict, ticket_sale_id: int) -> None:
     Complete a single ticket refund via payment gateway.
     """
     from app.services.payment_gateway import get_gateway
+    from app.repositories.ticket_repo import ticket_repo
 
     async with async_session_maker() as db:
         try:
-            sale = (await db.execute(
-                select(TicketSale).where(TicketSale.id == ticket_sale_id)
-            )).scalar_one_or_none()
+            sale = await ticket_repo.get_sale_by_id(db, ticket_sale_id)
 
             if not sale or sale.status != TicketSaleStatus.refund_processing:
                 logger.warning("Ticket %d: skip (not in refund_processing)", ticket_sale_id)
@@ -364,12 +357,11 @@ async def process_sponsor_refund(ctx: dict, payment_id: int) -> None:
     Complete a sponsor payment refund via payment gateway.
     """
     from app.services.payment_gateway import get_gateway
+    from app.repositories.sponsor_repo import sponsor_repo
 
     async with async_session_maker() as db:
         try:
-            payment = (await db.execute(
-                select(SponsorPayment).where(SponsorPayment.id == payment_id)
-            )).scalar_one_or_none()
+            payment = await sponsor_repo.get_payment_by_id(db, payment_id)
 
             if not payment or payment.status != PaymentStatus.refund_processing:
                 logger.warning("SponsorPayment %d: skip (not in refund_processing)", payment_id)
@@ -398,17 +390,10 @@ async def process_sponsor_refund(ctx: dict, payment_id: int) -> None:
 
 async def process_bulk_sponsor_refunds(ctx: dict, event_id: int) -> None:
     """Process all sponsor payment refunds for a cancelled event."""
+    from app.repositories.sponsor_repo import sponsor_repo
+
     async with async_session_maker() as db:
-        result = await db.execute(
-            select(SponsorPayment.id)
-            .join(SponsorBid, SponsorPayment.bid_id == SponsorBid.id)
-            .join(SponsorshipCategory, SponsorBid.category_id == SponsorshipCategory.id)
-            .where(
-                SponsorshipCategory.event_id == event_id,
-                SponsorPayment.status == PaymentStatus.refund_processing,
-            )
-        )
-        payment_ids = [row[0] for row in result.all()]
+        payment_ids = await sponsor_repo.get_refundable_payment_ids_for_event(db, event_id)
 
     for pid in payment_ids:
         await process_sponsor_refund(ctx, pid)
@@ -419,34 +404,25 @@ async def process_bulk_sponsor_refunds(ctx: dict, event_id: int) -> None:
 # ── Helpers ──
 
 async def _mark_funding_failed(db, funding_id: int) -> None:
+    from app.repositories.funding_repo import funding_repo
     async with async_session_maker() as session:
-        await session.execute(
-            update(Funding)
-            .where(Funding.id == funding_id, Funding.status == FundingStatus.refund_processing)
-            .values(status=FundingStatus.refund_failed)
-        )
+        await funding_repo.mark_refund_failed(session, funding_id)
         await session.commit()
         await _notify_refund_failure(session, "pledge", funding_id)
 
 
 async def _mark_ticket_failed(db, ticket_sale_id: int) -> None:
+    from app.repositories.ticket_repo import ticket_repo
     async with async_session_maker() as session:
-        await session.execute(
-            update(TicketSale)
-            .where(TicketSale.id == ticket_sale_id, TicketSale.status == TicketSaleStatus.refund_processing)
-            .values(status=TicketSaleStatus.refund_failed)
-        )
+        await ticket_repo.mark_refund_failed(session, ticket_sale_id)
         await session.commit()
         await _notify_refund_failure(session, "ticket", ticket_sale_id)
 
 
 async def _mark_sponsor_payment_failed(db, payment_id: int) -> None:
+    from app.repositories.sponsor_repo import sponsor_repo
     async with async_session_maker() as session:
-        await session.execute(
-            update(SponsorPayment)
-            .where(SponsorPayment.id == payment_id, SponsorPayment.status == PaymentStatus.refund_processing)
-            .values(status=PaymentStatus.refund_failed)
-        )
+        await sponsor_repo.mark_payment_refund_failed(session, payment_id)
         await session.commit()
         await _notify_refund_failure(session, "sponsor", payment_id)
 
@@ -455,10 +431,12 @@ async def _notify_refund_failure(db, item_type: str, item_id: int) -> None:
     """Send failure notifications to admins (technical) and organizer (soft)."""
     try:
         from app.services import notification_service as notif_svc
-        from app.services.escrow_base import get_all_admin_ids
         from app.models.notification import NotificationType
-        from app.models.event import Event
-        from app.models.user import UserRole, User
+        from app.repositories.ticket_repo import ticket_repo
+        from app.repositories.funding_repo import funding_repo
+        from app.repositories.sponsor_repo import sponsor_repo
+        from app.repositories.event_repo import event_repo
+        from app.repositories.user_repo import user_repo
 
         type_map = {
             "ticket": NotificationType.ticket_refund_failed,
@@ -472,44 +450,32 @@ async def _notify_refund_failure(db, item_type: str, item_id: int) -> None:
         amount_cents = 0
 
         if item_type == "ticket":
-            sale = (await db.execute(
-                select(TicketSale).where(TicketSale.id == item_id)
-            )).scalar_one_or_none()
+            sale = await ticket_repo.get_sale_by_id(db, item_id)
             if sale:
                 event_id = sale.event_id
                 amount_cents = sale.amount_paid_cents
         elif item_type == "pledge":
-            funding = (await db.execute(
-                select(Funding).where(Funding.id == item_id)
-            )).scalar_one_or_none()
+            funding = await funding_repo.get_funding_by_id(db, item_id)
             if funding:
                 event_id = funding.event_id
                 amount_cents = funding.amount_cents
         elif item_type == "sponsor":
-            payment = (await db.execute(
-                select(SponsorPayment).where(SponsorPayment.id == item_id)
-            )).scalar_one_or_none()
+            payment = await sponsor_repo.get_payment_by_id(db, item_id)
             if payment:
-                bid = (await db.execute(
-                    select(SponsorBid).where(SponsorBid.id == payment.bid_id)
-                )).scalar_one_or_none()
+                bid = await sponsor_repo.get_bid(db, payment.bid_id)
                 if bid:
-                    cat = (await db.execute(
-                        select(SponsorshipCategory).where(SponsorshipCategory.id == bid.category_id)
-                    )).scalar_one_or_none()
+                    cat = await sponsor_repo.get_category(db, bid.category_id)
                     if cat:
                         event_id = cat.event_id
                 amount_cents = payment.amount_cents
 
         if event_id:
-            event = (await db.execute(
-                select(Event).where(Event.id == event_id)
-            )).scalar_one_or_none()
+            event = await event_repo.get_event_by_id_basic(db, event_id)
             if event:
                 event_title = event.title
                 organizer_id = event.organizer_id
 
-        admin_ids = await get_all_admin_ids(db)
+        admin_ids = await user_repo.get_admin_ids(db)
         if admin_ids:
             await notif_svc.create_bulk_notifications(
                 db, user_ids=admin_ids,
@@ -585,13 +551,12 @@ async def mock_verify_bank_account(ctx: dict, bank_account_id: int) -> None:
     """Mock: auto-verify a bank account after the configured delay."""
     async with async_session_maker() as db:
         try:
-            from app.models.payment_info import OrganizerBankAccount, BankVerificationStatus
+            from app.models.payment_info import BankVerificationStatus
             from app.services import notification_service as notif_svc
             from app.models.notification import NotificationType
+            from app.repositories.banking_repo import banking_repo
 
-            acct = (await db.execute(
-                select(OrganizerBankAccount).where(OrganizerBankAccount.id == bank_account_id)
-            )).scalar_one_or_none()
+            acct = await banking_repo.get_account_by_id(db, bank_account_id)
 
             if not acct or acct.verification_status != BankVerificationStatus.pending:
                 logger.info("Bank account %d: skip mock verify (not pending)", bank_account_id)
@@ -628,14 +593,10 @@ async def mock_auto_settle(ctx: dict) -> None:
             if delay_seconds <= 0:
                 await _log_cron_run("mock_auto_settle", status="skipped", started_at=started_at, duration_ms=(time.monotonic() - t0) * 1000)
                 return
-            from app.models.payment_mock_ledger import PaymentMockLedger, MockLedgerStatus
+            from app.models.payment_mock_ledger import MockLedgerStatus
+            from app.repositories.ledger_repo import ledger_repo
             cutoff = datetime.now(timezone.utc) - timedelta(seconds=delay_seconds)
-            pending = (await db.execute(
-                select(PaymentMockLedger).where(
-                    PaymentMockLedger.status == MockLedgerStatus.settlement_pending,
-                    PaymentMockLedger.created_at <= cutoff,
-                )
-            )).scalars().all()
+            pending = await ledger_repo.get_pending_settlements(db, cutoff)
 
             for entry in pending:
                 entry.status = MockLedgerStatus.settled
@@ -655,22 +616,10 @@ async def process_escrow_release(ctx: dict, escrow_type: str, escrow_id: int, st
     """Process an escrow stage release via payment gateway."""
     async with async_session_maker() as db:
         try:
-            from app.models.escrow import FundEscrow, TicketEscrow, SponsorEscrow
             from app.services.payment_gateway import get_gateway
+            from app.repositories.escrow_repo import escrow_repo
 
-            model_map = {
-                "fund": FundEscrow,
-                "ticket": TicketEscrow,
-                "sponsor": SponsorEscrow,
-            }
-            model = model_map.get(escrow_type)
-            if not model:
-                logger.error("Unknown escrow type: %s", escrow_type)
-                return
-
-            escrow = (await db.execute(
-                select(model).where(model.id == escrow_id)
-            )).scalar_one_or_none()
+            escrow = await escrow_repo.get_escrow_by_type_and_id(db, escrow_type, escrow_id)
             if not escrow:
                 logger.warning("Escrow %s/%d not found", escrow_type, escrow_id)
                 return
@@ -708,14 +657,14 @@ async def process_scheduled_payouts(ctx: dict) -> None:
     count = 0
     try:
         from datetime import date as date_type
-        from app.models.payment_info import OrganizerBankAccount
+        from app.repositories.banking_repo import banking_repo
 
         async with async_session_maker() as db:
             today = date_type.today()
             weekday = today.isoweekday()
             day_of_month = today.day
 
-            accounts = (await db.execute(select(OrganizerBankAccount))).scalars().all()
+            accounts = await banking_repo.list_all_accounts(db)
 
             for acct in accounts:
                 should_pay = False
@@ -759,10 +708,8 @@ async def daily_reconciliation(ctx: dict) -> None:
             if abs(report.delta_cents) > 100:
                 from app.services import notification_service as notif_svc
                 from app.models.notification import NotificationType
-                from app.models.user import User, UserRole
-                admins = (await db.execute(
-                    select(User.id).where(User.role == UserRole.admin)
-                )).scalars().all()
+                from app.repositories.user_repo import user_repo
+                admins = await user_repo.get_admin_ids(db)
                 for admin_id in admins:
                     await notif_svc.create_notification(
                         db,
@@ -788,14 +735,10 @@ async def check_all_ticket_escrows(ctx: dict) -> None:
     count = 0
     try:
         async with async_session_maker() as db:
-            from app.models.escrow import TicketEscrow, EscrowStatus
             from app.services import ticket_escrow as te_svc
+            from app.repositories.escrow_repo import escrow_repo
 
-            escrows = (await db.execute(
-                select(TicketEscrow.event_id).where(
-                    TicketEscrow.status.in_([EscrowStatus.holding, EscrowStatus.partially_released])
-                )
-            )).scalars().all()
+            escrows = await escrow_repo.get_active_ticket_escrow_event_ids(db)
             count = len(escrows)
 
             for event_id in escrows:
@@ -823,14 +766,10 @@ async def check_all_sponsor_escrows(ctx: dict) -> None:
     count = 0
     try:
         async with async_session_maker() as db:
-            from app.models.escrow import SponsorEscrow, EscrowStatus
             from app.services import sponsor_escrow as se_svc
+            from app.repositories.escrow_repo import escrow_repo as _esc_repo
 
-            escrows = (await db.execute(
-                select(SponsorEscrow.event_id).where(
-                    SponsorEscrow.status.in_([EscrowStatus.holding, EscrowStatus.partially_released])
-                )
-            )).scalars().all()
+            escrows = await _esc_repo.get_active_sponsor_escrow_event_ids(db)
             count = len(escrows)
 
             for event_id in escrows:
@@ -857,37 +796,26 @@ async def cleanup_old_records(ctx: dict) -> None:
     try:
         async with async_session_maker() as db:
             from app.services import platform_settings as settings_svc
-            from app.models.worker_run_log import WorkerRunLog
-            from app.models.notification import Notification
-            from sqlalchemy import delete
+            from app.repositories.worker_run_repo import worker_run_repo
+            from app.repositories.notification_repo import notification_repo
 
             log_days = await settings_svc.get_int(db, "worker_run_log_retention_days")
             notif_days = await settings_svc.get_int(db, "notification_retention_days")
 
             if log_days > 0:
                 cutoff = datetime.now(timezone.utc) - timedelta(days=log_days)
-                result = await db.execute(
-                    delete(WorkerRunLog).where(WorkerRunLog.started_at < cutoff)
-                )
-                total_deleted += result.rowcount
+                total_deleted += await worker_run_repo.delete_before(db, cutoff)
 
             if notif_days > 0:
                 cutoff = datetime.now(timezone.utc) - timedelta(days=notif_days)
-                result = await db.execute(
-                    delete(Notification).where(Notification.created_at < cutoff)
-                )
-                total_deleted += result.rowcount
+                total_deleted += await notification_repo.delete_notifications_before(db, cutoff)
 
             # Clean up stale device tokens (orphaned from logout failures,
             # app uninstalls, force-quits, etc.)
-            from app.models.device_token import DeviceToken
             device_token_days = await settings_svc.get_int(db, "device_token_retention_days")
             if device_token_days > 0:
                 cutoff = datetime.now(timezone.utc) - timedelta(days=device_token_days)
-                result = await db.execute(
-                    delete(DeviceToken).where(DeviceToken.updated_at < cutoff)
-                )
-                total_deleted += result.rowcount
+                total_deleted += await notification_repo.delete_device_tokens_before(db, cutoff)
 
             await db.commit()
             logger.info("Cleanup: deleted %d old records", total_deleted)
@@ -904,44 +832,23 @@ async def archive_resolved_chats(ctx: dict) -> None:
     try:
         from app.services import chat_service
         from app.services import platform_settings as settings_svc
-        from app.models.event import Event, EventStatus
-        from app.models.sponsor import SponsorBid, BidStatus, SponsorshipCategory
+        from app.repositories.sponsor_repo import sponsor_repo
 
         async with async_session_maker() as db:
             retention_days = await settings_svc.get_int(db, "chat_archive_retention_days")
             cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
 
             # 1) Bids whose events are completed/cancelled with end_date past cutoff
-            q_event = (
-                select(SponsorBid.id)
-                .join(SponsorshipCategory, SponsorBid.category_id == SponsorshipCategory.id)
-                .join(Event, SponsorshipCategory.event_id == Event.id)
-                .where(
-                    SponsorBid.last_message_at.isnot(None),
-                    Event.status.in_([EventStatus.completed, EventStatus.cancelled]),
-                    Event.end_date < cutoff,
-                )
-            )
+            event_ids = await sponsor_repo.get_archivable_bid_ids_by_event_status(db, cutoff)
             # 2) Rejected/withdrawn bids past cutoff
-            q_bid = select(SponsorBid.id).where(
-                SponsorBid.last_message_at.isnot(None),
-                SponsorBid.status.in_([BidStatus.rejected, BidStatus.withdrawn]),
-                SponsorBid.last_message_at < cutoff,
-            )
-
-            event_ids = list((await db.execute(q_event)).scalars().all())
-            bid_ids = list((await db.execute(q_bid)).scalars().all())
+            bid_ids = await sponsor_repo.get_archivable_bid_ids_by_bid_status(db, cutoff)
             all_ids = set(event_ids + bid_ids)
 
             archived = 0
             for bid_id in all_ids:
                 if await chat_service.archive_stream(bid_id):
                     archived += 1
-                bid = await db.get(SponsorBid, bid_id)
-                if bid:
-                    bid.last_message_at = None
-                    bid.unread_count_organizer = 0
-                    bid.unread_count_sponsor = 0
+                await sponsor_repo.clear_bid_chat_metadata(db, bid_id)
 
             await db.commit()
             logger.info("archive_resolved_chats: archived %d / %d streams", archived, len(all_ids))
@@ -970,18 +877,14 @@ async def purge_old_chat_archives(ctx: dict) -> None:
         await _log_cron_run("purge_old_chat_archives", status="error", started_at=started_at, duration_ms=(time.monotonic() - t0) * 1000, error=traceback.format_exc()[-500:])
 
 
-async def _send_pledge_refund_email(db, funding: Funding) -> None:
+async def _send_pledge_refund_email(db, funding) -> None:
     """Best-effort email after successful refund."""
     try:
-        from sqlalchemy.orm import selectinload
+        from app.repositories.funding_repo import funding_repo
         async with async_session_maker() as session:
-            f = (await session.execute(
-                select(Funding)
-                .options(selectinload(Funding.user), selectinload(Funding.event))
-                .where(Funding.id == funding.id)
-            )).scalar_one()
+            f = await funding_repo.get_funding_with_user_and_event(session, funding.id)
 
-            if f.user and f.event:
+            if f and f.user and f.event:
                 await email_notify.notify_unpledge_refund(
                     user_email=f.user.email,
                     user_name=f.user.display_name or "",

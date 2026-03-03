@@ -1,9 +1,6 @@
 """
 Admin: approve/reject events, list pending, stats, platform settings.
 """
-from sqlalchemy import select
-from sqlalchemy.orm import selectinload
-
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel as _BaseModel
 
@@ -12,9 +9,11 @@ from app.logger import get_logger, log_step
 from app.rate_limit import limiter
 from app.services import audit as audit_svc
 
-from app.models.event import Event
-from app.models.ticket import UserEventDiscount
 from app.models.user import User, UserRole
+from app.repositories.user_repo import user_repo
+from app.repositories.event_repo import event_repo as ev_repo
+from app.repositories.sponsor_repo import sponsor_repo
+from app.repositories.escrow_repo import escrow_repo
 from app.schemas import (
     AdminEventItem,
     AdminStats,
@@ -86,7 +85,7 @@ async def admin_get_user_detail(
     from app.services import funding as funding_service
     from app.services import sponsor as sponsor_svc
 
-    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    user = await user_repo.get_by_id(db, user_id)
     if not user:
         raise NotFoundError("User", user_id)
 
@@ -99,28 +98,9 @@ async def admin_get_user_detail(
     }
 
     if user.role == UserRole.customer:
-        from app.models.registration import Registration, RegistrationStatus
-
         tickets = await ticket_service.list_tickets_for_user_admin(db, user_id=user_id)
         pledges = await funding_service.list_pledges_by_user(db, user_id=user_id, limit=200)
-        events_q = (
-            select(Event)
-            .join(Registration, Registration.event_id == Event.id)
-            .where(
-                Registration.user_id == user_id,
-                Registration.status.in_([RegistrationStatus.registered, RegistrationStatus.waitlist]),
-            )
-            .options(
-                selectinload(Event.venue),
-                selectinload(Event.ticket_strategy),
-                selectinload(Event.ticket_tiers),
-                selectinload(Event.milestones),
-                selectinload(Event.sponsorship_categories),
-            )
-            .order_by(Event.created_at.desc())
-            .limit(100)
-        )
-        events = list((await db.execute(events_q)).scalars().unique().all())
+        events = await ev_repo.list_events_for_customer_registrations(db, user_id)
 
         # Per-event ticket/pledge/donation counts for this customer
         ticket_counts: dict[int, int] = {}
@@ -206,25 +186,12 @@ async def admin_get_user_detail(
         )
 
     if user.role == UserRole.organizer:
-        from app.models.escrow import FundEscrow
-        from app.models.sponsor import SponsorBid, SponsorshipCategory as SpCat, BidStatus
+        from app.models.sponsor import BidStatus
         from app.services.admin import compute_event_warnings
+        from app.repositories.ticket_repo import ticket_repo as _t_repo
         from collections import defaultdict
 
-        events_q = (
-            select(Event)
-            .where(Event.organizer_id == user_id)
-            .options(
-                selectinload(Event.venue),
-                selectinload(Event.ticket_strategy),
-                selectinload(Event.ticket_tiers),
-                selectinload(Event.milestones),
-                selectinload(Event.sponsorship_categories),
-            )
-            .order_by(Event.created_at.desc())
-            .limit(200)
-        )
-        events = list((await db.execute(events_q)).scalars().unique().all())
+        events = await ev_repo.list_events_for_organizer_admin(db, user_id)
 
         ticket_sales = await ticket_service.list_organizer_ticket_sales(
             db, organizer_id=user_id, limit=200
@@ -233,40 +200,13 @@ async def admin_get_user_detail(
             db, organizer_id=user_id, limit=200
         )
         sponsors = await sponsor_svc.get_organizer_sponsors(db, organizer_id=user_id, limit=100)
-        discounts_q = (
-            select(UserEventDiscount)
-            .join(Event, UserEventDiscount.event_id == Event.id)
-            .where(Event.organizer_id == user_id)
-            .options(
-                selectinload(UserEventDiscount.event),
-                selectinload(UserEventDiscount.user),
-            )
-        )
-        discounts_res = await db.execute(discounts_q)
-        discounts = list(discounts_res.scalars().unique().all())
+        discounts = await _t_repo.list_discounts_for_organizer(db, user_id)
 
         # Sponsor bids on this organizer's events
         event_ids = [e.id for e in events]
         sponsor_bids_list: list[AdminSponsorshipEventItem] = []
         if event_ids:
-            bids_q = (
-                select(
-                    SpCat.id.label("cat_id"),
-                    SpCat.name.label("cat_name"),
-                    SpCat.event_id,
-                    SponsorBid.id.label("bid_id"),
-                    SponsorBid.amount_cents,
-                    SponsorBid.status,
-                    SponsorBid.sponsor_user_id,
-                )
-                .join(SponsorBid, SponsorBid.category_id == SpCat.id)
-                .where(
-                    SpCat.event_id.in_(event_ids),
-                    SponsorBid.status.in_([BidStatus.pending, BidStatus.accepted, BidStatus.paid]),
-                )
-                .order_by(SpCat.event_id)
-            )
-            bid_rows = (await db.execute(bids_q)).all()
+            bid_rows = await sponsor_repo.get_admin_sponsor_bids_for_events(db, event_ids)
             events_by_id = {e.id: e for e in events}
             grouped: dict[int, list] = defaultdict(list)
             for r in bid_rows:
@@ -294,12 +234,7 @@ async def admin_get_user_detail(
         escrows_list: list[dict] = []
         if event_ids:
             event_title_map = {e.id: e.title for e in events}
-            escrow_q = (
-                select(FundEscrow)
-                .where(FundEscrow.event_id.in_(event_ids))
-                .order_by(FundEscrow.updated_at.desc())
-            )
-            escrow_rows = (await db.execute(escrow_q)).scalars().all()
+            escrow_rows = await sponsor_repo.get_fund_escrows_for_events(db, event_ids)
             for esc in escrow_rows:
                 total_released = esc.stage1_released_cents + esc.stage2_released_cents + esc.stage3_released_cents
                 escrows_list.append({
@@ -699,13 +634,8 @@ async def admin_refund_sponsor_bid(
     """Admin refund a paid sponsor bid."""
     log_step(logger, "Admin refunding sponsor bid", event_id=event_id, bid_id=bid_id, admin_id=current_user.id)
     from app.services import sponsor as sponsor_svc
-    from app.services import notification_service as notif_svc
-    from app.models.notification import NotificationType
-    from app.models.sponsor import SponsorBid
     payment = await sponsor_svc.refund_bid(db, bid_id, current_user)
-    bid_obj = (await db.execute(
-        select(SponsorBid).where(SponsorBid.id == bid_id)
-    )).scalar_one_or_none()
+    bid_obj = await sponsor_repo.get_bid(db, bid_id)
     sponsor_user_id = bid_obj.sponsor_user_id if bid_obj else None
     if sponsor_user_id:
         await notif_svc.create_notification(
@@ -1066,8 +996,7 @@ async def toggle_auto_release(
         if val is not None:
             setattr(escrow, field, val)
             changed[field] = val
-    await db.flush()
-    await db.refresh(escrow)
+    await escrow_repo.flush_and_refresh(db, escrow)
 
     await audit_svc.log_action(
         db, admin_id=current_user.id, action="escrow_auto_release_toggle",
@@ -1084,17 +1013,13 @@ async def get_event_escrows(
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
     """Return all 3 escrow types for one event."""
-    from app.models.escrow import FundEscrow, TicketEscrow, SponsorEscrow
-
-    fund = (await db.execute(select(FundEscrow).where(FundEscrow.event_id == event_id))).scalar_one_or_none()
-    ticket = (await db.execute(select(TicketEscrow).where(TicketEscrow.event_id == event_id))).scalar_one_or_none()
-    sponsor = (await db.execute(select(SponsorEscrow).where(SponsorEscrow.event_id == event_id))).scalar_one_or_none()
+    all_escrows = await escrow_repo.get_all_escrows_for_event(db, event_id)
 
     return {
         "event_id": event_id,
-        "fund": _escrow_to_dict(fund) if fund else None,
-        "ticket": _escrow_to_dict(ticket) if ticket else None,
-        "sponsor": _escrow_to_dict(sponsor) if sponsor else None,
+        "fund": _escrow_to_dict(all_escrows["fund"]) if all_escrows["fund"] else None,
+        "ticket": _escrow_to_dict(all_escrows["ticket"]) if all_escrows["ticket"] else None,
+        "sponsor": _escrow_to_dict(all_escrows["sponsor"]) if all_escrows["sponsor"] else None,
     }
 
 
@@ -1105,15 +1030,8 @@ async def freeze_organizer_payouts(
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
     """Admin freezes all payout for an organizer (sets payout_frozen on all their events)."""
-    from app.models.event import Event
-    from sqlalchemy import update
-    result = await db.execute(
-        update(Event)
-        .where(Event.organizer_id == organizer_id)
-        .values(payout_frozen=True)
-    )
-    await db.flush()
-    return {"ok": True, "events_frozen": result.rowcount or 0}
+    count = await ev_repo.freeze_organizer_events(db, organizer_id)
+    return {"ok": True, "events_frozen": count}
 
 
 class ResolveReviewBody(_BaseModel):
@@ -1129,12 +1047,10 @@ async def resolve_review(
 ):
     """Resolve an under_review event by moving it to the specified status."""
     log_step(logger, "Resolving event review", event_id=event_id, target_status=body.target_status, admin_id=current_user.id)
-    from app.models.event import Event, EventStatus
+    from app.models.event import EventStatus
     from app.core.exceptions import NotFoundError, ConflictError
     from datetime import datetime, timezone as tz
-    event = (await db.execute(
-        select(Event).where(Event.id == event_id)
-    )).scalar_one_or_none()
+    event = await ev_repo.get_event_by_id_basic(db, event_id)
     if not event:
         raise NotFoundError("Event", event_id)
     if event.status != EventStatus.under_review:
@@ -1152,7 +1068,7 @@ async def resolve_review(
         "to_status": body.target_status,
         "message": body.notes or f"Resolved → {body.target_status}",
     }]
-    await db.flush()
+    await ev_repo.flush(db)
     notif_msg = f'Your event "{event.title}" has been reviewed and moved to {body.target_status.replace("_", " ")}.'
     if body.notes:
         notif_msg += f" Admin notes: {body.notes}"
@@ -1214,29 +1130,11 @@ async def list_worker_runs(
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
     """List ARQ cron job run logs with optional filters."""
-    from sqlalchemy import func
-    from app.models.worker_run_log import WorkerRunLog
+    from app.repositories.worker_run_repo import worker_run_repo
 
-    conditions = []
-    if task_name:
-        conditions.append(WorkerRunLog.task_name == task_name)
-    if status:
-        conditions.append(WorkerRunLog.status == status)
-
-    count_q = select(func.count(WorkerRunLog.id))
-    if conditions:
-        count_q = count_q.where(*conditions)
-    total = (await db.execute(count_q)).scalar() or 0
-
-    q = (
-        select(WorkerRunLog)
-        .order_by(WorkerRunLog.started_at.desc())
-        .offset(offset)
-        .limit(limit)
+    rows, total = await worker_run_repo.list_runs(
+        db, task_name=task_name, status=status, offset=offset, limit=limit,
     )
-    if conditions:
-        q = q.where(*conditions)
-    rows = (await db.execute(q)).scalars().all()
 
     return {
         "items": [
@@ -1264,19 +1162,9 @@ async def worker_summary(
     current_user: User = Depends(require_role(UserRole.admin)),
 ):
     """Summary of each cron job: last run time, last status, total runs, total errors."""
-    from sqlalchemy import func, case
-    from app.models.worker_run_log import WorkerRunLog
+    from app.repositories.worker_run_repo import worker_run_repo
 
-    q = (
-        select(
-            WorkerRunLog.task_name,
-            func.count(WorkerRunLog.id).label("total_runs"),
-            func.count(case((WorkerRunLog.status == "error", 1))).label("total_errors"),
-            func.max(WorkerRunLog.started_at).label("last_run_at"),
-        )
-        .group_by(WorkerRunLog.task_name)
-    )
-    rows = (await db.execute(q)).all()
+    rows, last_status_map = await worker_run_repo.get_summary(db)
 
     task_names = [
         "mock_auto_settle",
@@ -1295,14 +1183,6 @@ async def worker_summary(
     }
 
     by_name = {r.task_name: r for r in rows}
-
-    last_status_q = (
-        select(WorkerRunLog.task_name, WorkerRunLog.status)
-        .distinct(WorkerRunLog.task_name)
-        .order_by(WorkerRunLog.task_name, WorkerRunLog.started_at.desc())
-    )
-    last_rows = (await db.execute(last_status_q)).all()
-    last_status_map = {r.task_name: r.status for r in last_rows}
 
     enabled_map = {}
     for tn, sk in setting_keys.items():
@@ -1363,7 +1243,7 @@ async def admin_set_policy_overrides(
             setattr(event, field, new_val)
 
     if changes:
-        await db.flush()
+        await ev_repo.flush(db)
         await audit_svc.log_action(
             db,
             admin_id=current_user.id,
@@ -1372,7 +1252,7 @@ async def admin_set_policy_overrides(
             target_id=event_id,
             details=changes,
         )
-        await db.refresh(event)
+        await ev_repo.flush_and_refresh(db, event)
 
     policy = await event_svc.get_effective_policy(db, event)
     return {

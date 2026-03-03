@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
 import '../../models/ticket.dart';
-import '../../repositories/ticket_repository.dart';
+import '../../providers/ticket_provider.dart';
 import '../../providers/event_provider.dart';
 import '../../widgets/app_toast.dart';
 
@@ -41,7 +41,7 @@ class _TicketWaitlistScreenState extends State<TicketWaitlistScreen> {
       _error = null;
     });
     try {
-      final repo = context.read<TicketRepository>();
+      final repo = context.read<TicketProvider>();
       final tickets = await repo.getWaitlistedTickets(widget.eventId);
       setState(() {
         _all = tickets;
@@ -72,7 +72,7 @@ class _TicketWaitlistScreenState extends State<TicketWaitlistScreen> {
 
   Future<void> _approve(int ticketId) async {
     try {
-      final repo = context.read<TicketRepository>();
+      final repo = context.read<TicketProvider>();
       await repo.approveWaitlistedTicket(widget.eventId, ticketId);
       if (mounted) {
         AppToast.success(context, 'Ticket approved!');
@@ -88,7 +88,7 @@ class _TicketWaitlistScreenState extends State<TicketWaitlistScreen> {
 
   Future<void> _reject(int ticketId) async {
     try {
-      final repo = context.read<TicketRepository>();
+      final repo = context.read<TicketProvider>();
       await repo.rejectWaitlistedTicket(widget.eventId, ticketId);
       if (mounted) {
         AppToast.success(context, 'Ticket rejected.');

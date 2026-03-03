@@ -6,7 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
 import '../../widgets/app_toast.dart';
-import '../../repositories/venue_repository.dart';
+import '../../providers/venue_provider.dart';
 import '../../services/mapbox_geocoding_service.dart';
 
 class CreateVenueScreen extends StatefulWidget {
@@ -79,7 +79,7 @@ class _CreateVenueScreenState extends State<CreateVenueScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final repo = context.read<VenueRepository>();
+      final repo = context.read<VenueProvider>();
       await repo.createVenue({
         'name': _nameCtrl.text.trim(),
         'address': _addressCtrl.text.trim(),

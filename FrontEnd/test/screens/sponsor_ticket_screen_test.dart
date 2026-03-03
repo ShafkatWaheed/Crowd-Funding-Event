@@ -4,6 +4,8 @@ import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
 import '../../lib/db/app_database.dart';
+import '../../lib/models/sponsor.dart';
+import '../../lib/providers/sponsor_provider.dart';
 import '../../lib/repositories/sponsor_repository.dart';
 import '../../lib/services/sync_service.dart';
 import '../../lib/screens/sponsor/sponsor_ticket_screen.dart';
@@ -27,7 +29,7 @@ void main() {
     when(() => mockSync.pullSponsorTickets()).thenAnswer((_) async {});
   });
 
-  Map<String, dynamic> ticketJson({
+  SponsorTicketModel makeTicket({
     int id = 1,
     int eventId = 10,
     int sponsorUserId = 5,
@@ -43,37 +45,37 @@ void main() {
     String? venueCity = 'NYC',
     int categoryCount = 1,
     int scanCount = 0,
-    List<Map<String, dynamic>>? categories,
+    List<SponsorTicketCategory>? categories,
     List<String>? categoryNames,
   }) =>
-      {
-        'id': id,
-        'event_id': eventId,
-        'sponsor_user_id': sponsorUserId,
-        'receipt_number': receiptNumber,
-        'encrypted_qr_payload': encryptedQrPayload,
-        'scanned_at': scannedAt,
-        'created_at': createdAt,
-        'event_title': eventTitle,
-        'event_status': eventStatus,
-        'event_start_time': eventStartTime,
-        'venue_name': venueName,
-        'venue_address': venueAddress,
-        'venue_city': venueCity,
-        'category_count': categoryCount,
-        'scan_count': scanCount,
-        'categories': categories ?? [
-          {'id': 1, 'name': 'Gold Sponsor', 'min_bid_cents': 10000}
+      SponsorTicketModel(
+        id: id,
+        eventId: eventId,
+        sponsorUserId: sponsorUserId,
+        receiptNumber: receiptNumber,
+        encryptedQrPayload: encryptedQrPayload,
+        scannedAt: scannedAt,
+        createdAt: createdAt,
+        eventTitle: eventTitle,
+        eventStatus: eventStatus,
+        eventStartTime: eventStartTime,
+        venueName: venueName,
+        venueAddress: venueAddress,
+        venueCity: venueCity,
+        categoryCount: categoryCount,
+        scanCount: scanCount,
+        categories: categories ?? [
+          SponsorTicketCategory(name: 'Gold Sponsor', amountCents: 10000, status: 'accepted'),
         ],
-        'category_names': categoryNames ?? ['Gold Sponsor'],
-      };
+        categoryNames: categoryNames ?? ['Gold Sponsor'],
+      );
 
   Future<void> pumpScreen(WidgetTester tester) async {
     await pumpApp(
       tester,
       const SponsorTicketScreen(),
       overrides: [
-        Provider<SponsorRepository>.value(value: mockSponsorRepo),
+        ChangeNotifierProvider<SponsorProvider>.value(value: SponsorProvider(mockSponsorRepo)),
         Provider<AppDatabase>.value(value: mockDb),
         Provider<SyncService>.value(value: mockSync),
       ],
@@ -83,7 +85,7 @@ void main() {
   group('SponsorTicketScreen', () {
     testWidgets('shows title', (tester) async {
       when(() => mockSponsorRepo.getMySponsorTickets())
-          .thenAnswer((_) async => [ticketJson()]);
+          .thenAnswer((_) async => [makeTicket()]);
 
       await pumpScreen(tester);
       await tester.pumpAndSettle();
@@ -105,8 +107,8 @@ void main() {
 
     testWidgets('renders ticket list after load', (tester) async {
       when(() => mockSponsorRepo.getMySponsorTickets()).thenAnswer((_) async => [
-            ticketJson(id: 1, eventTitle: 'Rock Concert'),
-            ticketJson(id: 2, eventTitle: 'Jazz Night', receiptNumber: 'REC-SP-002'),
+            makeTicket(id: 1, eventTitle: 'Rock Concert'),
+            makeTicket(id: 2, eventTitle: 'Jazz Night', receiptNumber: 'REC-SP-002'),
           ]);
 
       await pumpScreen(tester);
@@ -130,7 +132,7 @@ void main() {
 
     testWidgets('syncs tickets in background after load', (tester) async {
       when(() => mockSponsorRepo.getMySponsorTickets())
-          .thenAnswer((_) async => [ticketJson()]);
+          .thenAnswer((_) async => [makeTicket()]);
 
       await pumpScreen(tester);
       await tester.pumpAndSettle();

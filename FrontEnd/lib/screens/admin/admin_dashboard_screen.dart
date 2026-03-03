@@ -5,7 +5,7 @@ import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../widgets/shimmer_loaders.dart';
-import '../../repositories/admin_repository.dart';
+import '../../providers/admin_provider.dart';
 import '../../repositories/base_repository.dart';
 import 'admin_shared.dart';
 import 'tabs/admin_banking_tab.dart';
@@ -84,7 +84,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       return;
     }
     setState(() => _isLoading = true);
-    final admin = context.read<AdminRepository>();
+    final admin = context.read<AdminProvider>();
     try {
       final results = await Future.wait([
         admin.getStats(),
@@ -111,7 +111,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Future<void> _loadSettings() async {
     try {
-      final admin = context.read<AdminRepository>();
+      final admin = context.read<AdminProvider>();
       final data = await admin.getSettings();
       if (mounted) {
         setState(() => _settings = data
@@ -123,7 +123,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Future<void> _loadEvents() async {
     try {
-      final admin = context.read<AdminRepository>();
+      final admin = context.read<AdminProvider>();
       final results = await Future.wait([
         admin.getEvents(offset: 0, limit: adminPageSize),
         admin.getStats(),
@@ -143,7 +143,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     if (_eventsLoadingMore || _allEvents.length >= _eventsTotal) return;
     setState(() => _eventsLoadingMore = true);
     try {
-      final admin = context.read<AdminRepository>();
+      final admin = context.read<AdminProvider>();
       final resp =
           await admin.getEvents(offset: _allEvents.length, limit: adminPageSize);
       final items = (resp['items'] as List<dynamic>?) ?? [];
@@ -157,7 +157,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Future<void> _loadMockData() async {
     try {
-      final admin = context.read<AdminRepository>();
+      final admin = context.read<AdminProvider>();
       final data = await admin.getMockOverview();
       if (mounted) setState(() => _mockData = data);
     } catch (e) { debugPrint(e.toString()); }
@@ -185,7 +185,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       }
     });
     try {
-      final admin = context.read<AdminRepository>();
+      final admin = context.read<AdminProvider>();
       await admin.updateSetting(key, newValue);
       _loadSettings();
       _snack('Setting "$key" updated');
@@ -504,7 +504,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           usersTotal: _usersTotal,
           onSnack: _snack,
           onLoadMore: (offset, limit, {search, role}) =>
-              context.read<AdminRepository>().getUsers(
+              context.read<AdminProvider>().getUsers(
                     offset: offset,
                     limit: limit,
                     search: search,

@@ -62,7 +62,6 @@ void main() {
       const MyPledgesScreen(),
       overrides: [
         ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
-        Provider<FundingRepository>.value(value: mockFundingRepo),
         ChangeNotifierProvider<PledgeProvider>.value(value: provider),
       ],
     );

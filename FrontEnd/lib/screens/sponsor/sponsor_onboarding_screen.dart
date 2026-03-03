@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../repositories/base_repository.dart';
-import '../../repositories/sponsor_repository.dart';
+import '../../providers/sponsor_provider.dart';
 import '../../widgets/app_toast.dart';
 
 class SponsorOnboardingScreen extends StatefulWidget {
@@ -36,14 +36,14 @@ class _SponsorOnboardingScreenState extends State<SponsorOnboardingScreen> {
 
   Future<void> _loadExisting() async {
     try {
-      final api = context.read<SponsorRepository>();
-      final data = await api.getSponsorProfile();
-      _companyNameCtrl.text = data['company_name'] ?? '';
-      _contactNameCtrl.text = data['contact_name'] ?? '';
-      _professionCtrl.text = data['profession'] ?? '';
-      _logoUrlCtrl.text = data['logo_url'] ?? '';
-      _descriptionCtrl.text = data['description'] ?? '';
-      _websiteUrlCtrl.text = data['website_url'] ?? '';
+      final api = context.read<SponsorProvider>();
+      final profile = await api.getSponsorProfile();
+      _companyNameCtrl.text = profile.companyName;
+      _contactNameCtrl.text = profile.contactName;
+      _professionCtrl.text = profile.profession;
+      _logoUrlCtrl.text = profile.logoUrl ?? '';
+      _descriptionCtrl.text = profile.description ?? '';
+      _websiteUrlCtrl.text = profile.websiteUrl ?? '';
       _isEdit = true;
     } catch (_) {
       // No existing profile — create mode
@@ -79,7 +79,7 @@ class _SponsorOnboardingScreenState extends State<SponsorOnboardingScreen> {
     };
 
     try {
-      final api = context.read<SponsorRepository>();
+      final api = context.read<SponsorProvider>();
       if (_isEdit) {
         await api.updateSponsorProfile(payload);
       } else {

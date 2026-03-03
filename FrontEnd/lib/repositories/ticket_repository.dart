@@ -1,4 +1,5 @@
 import '../models/ticket.dart';
+import '../models/ticket_strategy.dart';
 import 'base_repository.dart';
 
 class TicketRepository extends BaseRepository {
@@ -6,20 +7,22 @@ class TicketRepository extends BaseRepository {
 
   // ─── Ticket Strategies ───
 
-  Future<List<dynamic>> getTicketStrategies() async {
+  Future<List<TicketStrategy>> getTicketStrategies() async {
     final r = await dio.get('/ticket-strategies');
-    return r.data;
+    return (r.data as List)
+        .map((j) => TicketStrategy.fromJson(Map<String, dynamic>.from(j)))
+        .toList();
   }
 
-  Future<Map<String, dynamic>> createTicketStrategy(
+  Future<TicketStrategy> createTicketStrategy(
       Map<String, dynamic> data) async {
     final r = await dio.post('/ticket-strategies', data: data);
-    return r.data;
+    return TicketStrategy.fromJson(Map<String, dynamic>.from(r.data as Map));
   }
 
-  Future<Map<String, dynamic>> getTicketStrategy(int id) async {
+  Future<TicketStrategy> getTicketStrategy(int id) async {
     final r = await dio.get('/ticket-strategies/$id');
-    return r.data;
+    return TicketStrategy.fromJson(Map<String, dynamic>.from(r.data as Map));
   }
 
   Future<void> deleteTicketStrategy(int id) async {
@@ -43,6 +46,19 @@ class TicketRepository extends BaseRepository {
     );
   }
 
+  /// Raw list for offline sync (returns unparsed JSON maps).
+  Future<List<dynamic>> getMyTicketsRaw({int offset = 0, int limit = 20}) async {
+    final r = await dio.get('/me/tickets', queryParameters: {'offset': offset, 'limit': limit});
+    return r.data as List;
+  }
+
+  /// Raw list for offline sync (returns unparsed JSON maps).
+  Future<List<dynamic>> getTicketSalesRaw(int eventId, {int offset = 0, int limit = 20}) async {
+    final r = await dio.get('/events/$eventId/ticket-sales',
+        queryParameters: {'offset': offset, 'limit': limit});
+    return r.data as List;
+  }
+
   // ─── Ticket tiers ───
 
   Future<List<TicketTier>> getTicketTiers(int eventId) async {
@@ -52,16 +68,16 @@ class TicketRepository extends BaseRepository {
         .toList();
   }
 
-  Future<Map<String, dynamic>> createTicketTier(
+  Future<TicketTier> createTicketTier(
       int eventId, Map<String, dynamic> data) async {
     final r = await dio.post('/events/$eventId/ticket-tiers', data: data);
-    return Map<String, dynamic>.from(r.data as Map);
+    return TicketTier.fromJson(Map<String, dynamic>.from(r.data as Map));
   }
 
-  Future<Map<String, dynamic>> updateTicketTier(
+  Future<TicketTier> updateTicketTier(
       int eventId, int tierId, Map<String, dynamic> data) async {
     final r = await dio.patch('/events/$eventId/ticket-tiers/$tierId', data: data);
-    return Map<String, dynamic>.from(r.data as Map);
+    return TicketTier.fromJson(Map<String, dynamic>.from(r.data as Map));
   }
 
   Future<void> deleteTicketTier(int eventId, int tierId) async {

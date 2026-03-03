@@ -63,15 +63,17 @@ class Pledge {
 class FundingSummary {
   final int goalCents;
   final int totalPledgedCents;
-  final int pledgeCount;
+  final int backersCount;
   final int totalReservedSpots;
+  final int fundingCommissionPercent;
   final DateTime? fundingEndAt;
 
   FundingSummary({
     required this.goalCents,
     required this.totalPledgedCents,
-    required this.pledgeCount,
+    required this.backersCount,
     this.totalReservedSpots = 0,
+    this.fundingCommissionPercent = 0,
     this.fundingEndAt,
   });
 
@@ -79,8 +81,9 @@ class FundingSummary {
     return FundingSummary(
       goalCents: json['goal_cents'] ?? 0,
       totalPledgedCents: json['total_pledged_cents'] ?? 0,
-      pledgeCount: json['pledge_count'] ?? 0,
+      backersCount: json['backers_count'] ?? 0,
       totalReservedSpots: json['total_reserved_spots'] ?? 0,
+      fundingCommissionPercent: json['funding_commission_percent'] ?? 0,
       fundingEndAt: json['funding_end_at'] != null
           ? DateTime.parse(json['funding_end_at'])
           : null,

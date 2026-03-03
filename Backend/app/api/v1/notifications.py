@@ -93,15 +93,9 @@ async def register_device_token(
     """Register or update a device token for push notifications."""
     if body.platform not in ("android", "ios", "web"):
         raise HTTPException(status_code=400, detail="platform must be android, ios, or web")
-    existing = await notification_repo.get_device_token(db, body.token)
-    if existing:
-        existing.user_id = current_user.id
-        existing.platform = body.platform
-        await notification_repo.flush(db)
-    else:
-        await notification_repo.create_device_token(
-            db, user_id=current_user.id, token=body.token, platform=body.platform,
-        )
+    await notif_svc.register_device_token(
+        db, user_id=current_user.id, token=body.token, platform=body.platform,
+    )
     return {"ok": True}
 
 

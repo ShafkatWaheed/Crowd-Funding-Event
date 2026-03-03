@@ -339,6 +339,10 @@ async def create(
     max_posts_per_day: int | None = None,
     max_co_organizers: int | None = None,
     refund_deadline_percent: int | None = None,
+    max_discount_percent: int | None = None,
+    age_restricted: bool = False,
+    min_age: int | None = None,
+    organizer_birthday=None,
 ) -> Event:
     """Create event. At least one of funding_end_at or start_time must be provided."""
     from datetime import timedelta
@@ -452,6 +456,11 @@ async def create(
         pct_max_val = await settings_svc.get_int(db, "refund_deadline_percent_max")
         refund_deadline_percent = max(pct_min, min(refund_deadline_percent, pct_max_val))
 
+    # Age restriction validation
+    if age_restricted and organizer_birthday is not None:
+        from app.services.age_verification import validate_organizer_can_restrict_age
+        validate_organizer_can_restrict_age(organizer_birthday, age_restricted)
+
     use_lat = lat if lat is not None else venue.lat
     use_lng = lng if lng is not None else venue.lng
     event = Event(
@@ -488,8 +497,12 @@ async def create(
         max_posts_per_day=max_posts_per_day,
         max_co_organizers=max_co_organizers,
         refund_deadline_percent=refund_deadline_percent,
+        age_restricted=age_restricted,
+        min_age=min_age,
         status=EventStatus.approved if publish else EventStatus.draft,
     )
+    if max_discount_percent is not None:
+        event.max_discount_percent = max(0, min(100, max_discount_percent))
     return await event_repo.create_event(db, event)
 
 
@@ -527,6 +540,11 @@ async def update(
     max_posts_per_day: int | None = None,
     max_co_organizers: int | None = None,
     refund_deadline_percent: int | None = None,
+    max_discount_percent: int | None = None,
+    age_restricted: bool | None = None,
+    min_age: int | None = None,
+    organizer_birthday=None,
+    needs_approval: bool = False,
 ) -> Event:
     """Update event fields (only provided ones). When switching closed->open, auto-approve waitlist up to capacity."""
     old_registration_type = event.registration_type
@@ -650,6 +668,17 @@ async def update(
             pct_min = await _ps.get_int(db, "refund_deadline_percent_min")
             pct_max_val = await _ps.get_int(db, "refund_deadline_percent_max")
             event.refund_deadline_percent = max(pct_min, min(refund_deadline_percent, pct_max_val))
+    # max_discount_percent, age_restricted, min_age
+    if max_discount_percent is not None:
+        event.max_discount_percent = max(0, min(100, max_discount_percent))
+    if age_restricted is not None and age_restricted and organizer_birthday is not None:
+        from app.services.age_verification import validate_organizer_can_restrict_age
+        validate_organizer_can_restrict_age(organizer_birthday, age_restricted)
+    if age_restricted is not None:
+        event.age_restricted = age_restricted
+    if min_age is not None:
+        event.min_age = min_age
+
     # Validate dates if both are set
     if event.start_time is not None and event.end_time is not None and event.end_time <= event.start_time:
         raise ConflictError("end_time must be after start_time")
@@ -659,6 +688,9 @@ async def update(
     if event.funding_end_at is not None and (event.funding_goal_cents is None or event.funding_goal_cents <= 0):
         raise ConflictError("Funding goal is required when a funding deadline is set")
     await event_repo.flush_event(db)
+    if needs_approval:
+        event.status = EventStatus.pending_approval
+        await event_repo.flush_event(db)
     if registration_type is not None and old_registration_type == RegistrationType.closed and registration_type == RegistrationType.open:
         from app.services import registration as registration_service
         await registration_service.auto_approve_waitlist_when_switching_to_open(

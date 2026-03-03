@@ -6,7 +6,6 @@ import '../../../config/design_tokens.dart';
 import '../../../models/event.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/event_provider.dart';
-import '../../../repositories/event_repository.dart';
 import '../../../widgets/app_toast.dart';
 import '../../../widgets/press_feedback.dart';
 
@@ -36,7 +35,7 @@ class _QuickActionBarState extends State<QuickActionBar> {
   Future<void> _register() async {
     setState(() => _loading = true);
     try {
-      final api = context.read<EventRepository>();
+      final api = context.read<EventProvider>();
       final result = await api.register(widget.event.id);
       widget.onRegistrationChanged();
       if (!mounted) return;
@@ -105,7 +104,7 @@ class _QuickActionBarState extends State<QuickActionBar> {
 
     setState(() => _loading = true);
     try {
-      final api = context.read<EventRepository>();
+      final api = context.read<EventProvider>();
       final result = await api.unregister(widget.event.id);
       widget.onRegistrationChanged();
       if (!mounted) return;

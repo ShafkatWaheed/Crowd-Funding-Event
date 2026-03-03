@@ -8,10 +8,10 @@ import 'package:image_picker/image_picker.dart';
 import '../../models/event_form_models.dart';
 import '../../models/venue.dart';
 import '../../models/ticket_strategy.dart';
-import '../../repositories/event_repository.dart';
-import '../../repositories/ticket_repository.dart';
-import '../../repositories/sponsor_repository.dart';
-import '../../repositories/venue_repository.dart';
+import '../../providers/event_provider.dart';
+import '../../providers/ticket_provider.dart';
+import '../../providers/sponsor_provider.dart';
+import '../../providers/venue_provider.dart';
 import '../../services/mapbox_geocoding_service.dart';
 import '../../widgets/app_toast.dart';
 import 'package:provider/provider.dart';
@@ -162,7 +162,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
   Future<void> _loadFeatureFlags() async {
     try {
-      final repo = context.read<EventRepository>();
+      final repo = context.read<EventProvider>();
       final config = await repo.getPublicConfig();
       if (mounted) { setState(() {
         _communityRulesFeatureEnabled = config['feature_community_rules_enabled'] == true;
@@ -181,23 +181,23 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   Future<void> _loadVenues() async {
     setState(() { _venuesLoading = true; _venuesError = null; });
     try {
-      final data = await context.read<VenueRepository>().getVenues();
-      if (mounted) setState(() { _venues = data.map((v) => Venue.fromJson(v)).toList(); _venuesLoading = false; });
+      final data = await context.read<VenueProvider>().getVenues();
+      if (mounted) setState(() { _venues = data; _venuesLoading = false; });
     } catch (e) { if (mounted) setState(() { _venuesError = 'Failed to load venues'; _venuesLoading = false; }); }
   }
 
   Future<void> _loadStrategies() async {
     setState(() { _strategiesLoading = true; _strategiesError = null; });
     try {
-      final data = await context.read<TicketRepository>().getTicketStrategies();
-      if (mounted) setState(() { _strategies = data.map((d) => TicketStrategy.fromJson(d)).toList(); _strategiesLoading = false; });
+      final data = await context.read<TicketProvider>().getTicketStrategies();
+      if (mounted) setState(() { _strategies = data; _strategiesLoading = false; });
     } catch (e) { if (mounted) setState(() { _strategiesError = 'Failed to load strategies'; _strategiesLoading = false; }); }
   }
 
   Future<void> _loadDiscounts() async {
     setState(() { _discountsLoading = true; _discountsError = null; });
     try {
-      final data = await context.read<TicketRepository>().getDiscountStrategies();
+      final data = await context.read<TicketProvider>().getDiscountStrategies();
       if (mounted) setState(() { _discountStrategies = data.cast<Map<String, dynamic>>(); _discountsLoading = false; });
     } catch (e) { if (mounted) setState(() { _discountsError = 'Failed to load discounts'; _discountsLoading = false; }); }
   }
@@ -205,8 +205,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   Future<void> _loadSponsorTemplates() async {
     setState(() => _loadingTemplates = true);
     try {
-      final data = await context.read<SponsorRepository>().getSponsorCategoryTemplates();
-      if (mounted) setState(() { _sponsorTemplates = data.cast<Map<String, dynamic>>(); _loadingTemplates = false; });
+      final data = await context.read<SponsorProvider>().getSponsorCategoryTemplates();
+      if (mounted) setState(() { _sponsorTemplates = data; _loadingTemplates = false; });
     } catch (_) { if (mounted) setState(() => _loadingTemplates = false); }
   }
 
@@ -406,8 +406,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         maxCoOrganizers: int.tryParse(_maxCoOrganizersCtrl.text.trim()),
       );
       await executeCreateEventSubmission(
-        sponsorRepo: context.read<SponsorRepository>(), eventRepo: context.read<EventRepository>(),
-        ticketRepo: context.read<TicketRepository>(),
+        sponsorRepo: context.read<SponsorProvider>(), eventRepo: context.read<EventProvider>(),
+        ticketRepo: context.read<TicketProvider>(),
         eventData: payload,
         selectedDiscounts: _selectedDiscounts, localTiers: _localTiers,
         milestones: _milestones, earlyBirdDiscounts: _earlyBirdDiscounts,

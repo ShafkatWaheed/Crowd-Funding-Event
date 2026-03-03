@@ -7,6 +7,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:nested/nested.dart';
 import 'package:provider/provider.dart';
 
+import '../../lib/models/event.dart';
 import '../../lib/models/user.dart';
 import '../../lib/providers/auth_provider.dart';
 import '../../lib/providers/chat_provider.dart';
@@ -63,7 +64,7 @@ void main() {
           offset: any(named: 'offset'),
           limit: any(named: 'limit'),
           sortBy: any(named: 'sortBy'),
-        )).thenAnswer((_) async => <dynamic>[]);
+        )).thenAnswer((_) async => <Event>[]);
   });
 
   List<SingleChildWidget> _providers(AppUser? user) {
@@ -78,7 +79,6 @@ void main() {
       ChangeNotifierProvider<EventProvider>.value(value: mockEvent),
       ChangeNotifierProvider<NotificationProvider>.value(value: mockNotif),
       ChangeNotifierProvider<ChatProvider>.value(value: mockChat),
-      Provider<EventRepository>.value(value: mockEventRepo),
     ];
   }
 

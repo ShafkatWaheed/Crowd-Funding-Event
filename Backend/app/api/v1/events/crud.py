@@ -237,14 +237,11 @@ async def create_event(
         max_posts_per_day=body.max_posts_per_day,
         max_co_organizers=body.max_co_organizers,
         refund_deadline_percent=body.refund_deadline_percent,
+        max_discount_percent=body.max_discount_percent,
+        age_restricted=body.age_restricted,
+        min_age=body.min_age,
+        organizer_birthday=current_user.birthday,
     )
-    if body.max_discount_percent is not None:
-        event.max_discount_percent = max(0, min(100, body.max_discount_percent))
-    from app.services.age_verification import validate_organizer_can_restrict_age
-    validate_organizer_can_restrict_age(current_user.birthday, body.age_restricted)
-    event.age_restricted = body.age_restricted
-    event.min_age = body.min_age
-    await event_repo.flush(db)
     event = await event_service.get_by_id(db, event.id, load_venue=True)
     return _event_to_response(event)
 
@@ -265,6 +262,9 @@ async def get_event(event_id: int, db: ReadDbSession, current_user: CurrentUserO
                 if event_obj:
                     co_perm = await event_service.get_co_organizer_role(db, event_obj, current_user)
                     cached["viewer_co_organizer_permission"] = co_perm
+                reg = await reg_repo.get_user_registration(db, event_id, current_user.id)
+                cached["viewer_is_registered"] = reg is not None and reg.status.value in ("registered", "waitlist")
+                cached["viewer_registration_status"] = reg.status.value if reg else None
             return cached
 
     event = await event_service.get_by_id(db, event_id, load_venue=True, load_organizer=True)
@@ -300,6 +300,9 @@ async def get_event(event_id: int, db: ReadDbSession, current_user: CurrentUserO
     if current_user is not None:
         co_perm = await event_service.get_co_organizer_role(db, event, current_user)
         resp.viewer_co_organizer_permission = co_perm
+        reg = await reg_repo.get_user_registration(db, event_id, current_user.id)
+        resp.viewer_is_registered = reg is not None and reg.status.value in ("registered", "waitlist")
+        resp.viewer_registration_status = reg.status.value if reg else None
 
     return resp
 
@@ -390,22 +393,12 @@ async def update_event(
         max_posts_per_day=body.max_posts_per_day,
         max_co_organizers=body.max_co_organizers,
         refund_deadline_percent=body.refund_deadline_percent,
+        max_discount_percent=body.max_discount_percent,
+        age_restricted=body.age_restricted,
+        min_age=body.min_age,
+        organizer_birthday=current_user.birthday,
+        needs_approval=needs_approval,
     )
-
-    if body.max_discount_percent is not None:
-        updated.max_discount_percent = max(0, min(100, body.max_discount_percent))
-    if body.age_restricted is not None and body.age_restricted:
-        from app.services.age_verification import validate_organizer_can_restrict_age
-        validate_organizer_can_restrict_age(current_user.birthday, body.age_restricted)
-    if body.age_restricted is not None:
-        updated.age_restricted = body.age_restricted
-    if body.min_age is not None:
-        updated.min_age = body.min_age
-    await event_repo.flush(db)
-
-    if needs_approval:
-        updated.status = EventStatus.pending_approval
-        await event_repo.flush(db)
 
     if event.status in (EventStatus.approved, EventStatus.waiting_event_date,
                         EventStatus.selling_tickets, EventStatus.live):

@@ -1,6 +1,10 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import '../models/event.dart';
+import '../models/event_image.dart';
+import '../models/milestone.dart';
+import '../models/post.dart';
+import '../models/schedule.dart';
 import '../repositories/base_repository.dart';
 import '../repositories/event_repository.dart';
 
@@ -207,6 +211,312 @@ class EventProvider extends ChangeNotifier {
     _selectedEvent = null;
     notifyListeners();
   }
+
+  // ─── Forwarded EventRepository methods ─────────────────────────────────
+  // Screens call these via context.read<EventProvider>() instead of touching
+  // the repository directly.
+
+  // -- Raw list (used by screens that manage their own pagination)
+
+  Future<Map<String, dynamic>> getEvents({
+    Map<String, dynamic>? params,
+    int? offset,
+    int limit = 20,
+    String? cursor,
+  }) =>
+      _repo.getEvents(
+          params: params, offset: offset, limit: limit, cursor: cursor);
+
+  // -- CRUD --
+
+  Future<Map<String, dynamic>> getEvent(int id) => _repo.getEvent(id);
+
+  Future<Event> createEventRaw(Map<String, dynamic> data) =>
+      _repo.createEvent(data);
+
+  Future<Event> updateEvent(int id, Map<String, dynamic> data) =>
+      _repo.updateEvent(id, data);
+
+  Future<Event> cloneEvent(int eventId) => _repo.cloneEvent(eventId);
+
+  // -- My Events --
+
+  Future<List<Event>> getMyEvents(
+          {int offset = 0, int limit = 20, String? sortBy}) =>
+      _repo.getMyEvents(offset: offset, limit: limit, sortBy: sortBy);
+
+  Future<List<Event>> getCoOrganizedEvents({
+    String? status,
+    String? search,
+    int offset = 0,
+    int limit = 20,
+  }) =>
+      _repo.getCoOrganizedEvents(
+          status: status, search: search, offset: offset, limit: limit);
+
+  // -- Discovery --
+
+  Future<Map<String, dynamic>> getFeaturedEvents(
+          {bool sponsorshipOnly = false}) =>
+      _repo.getFeaturedEvents(sponsorshipOnly: sponsorshipOnly);
+
+  Future<List<Event>> getMapEvents({
+    double? lat,
+    double? lng,
+    double? radiusKm,
+    String? city,
+    bool? live,
+    int? organizerId,
+    String? search,
+    String? genre,
+    String? status,
+    bool sponsorshipOnly = false,
+  }) =>
+      _repo.getMapEvents(
+        lat: lat,
+        lng: lng,
+        radiusKm: radiusKm,
+        city: city,
+        live: live,
+        organizerId: organizerId,
+        search: search,
+        genre: genre,
+        status: status,
+        sponsorshipOnly: sponsorshipOnly,
+      );
+
+  Future<List<dynamic>> getGenres() => _repo.getGenres();
+
+  // -- Event Images --
+
+  Future<List<EventImage>> getEventImages(int eventId) =>
+      _repo.getEventImages(eventId);
+
+  Future<EventImage> addEventImage(int eventId,
+          {required String imageUrl, String? caption, int displayOrder = 0}) =>
+      _repo.addEventImage(eventId,
+          imageUrl: imageUrl, caption: caption, displayOrder: displayOrder);
+
+  Future<EventImage> uploadEventImage(int eventId,
+          {required List<int> fileBytes,
+          required String fileName,
+          String? caption,
+          int displayOrder = 0}) =>
+      _repo.uploadEventImage(eventId,
+          fileBytes: fileBytes,
+          fileName: fileName,
+          caption: caption,
+          displayOrder: displayOrder);
+
+  Future<void> deleteEventImage(int eventId, int imageId) =>
+      _repo.deleteEventImage(eventId, imageId);
+
+  // -- Posts/Feed --
+
+  Future<List<EventPost>> getEventPosts(int eventId) =>
+      _repo.getEventPosts(eventId);
+
+  Future<EventPost> createEventPost(int eventId, String content) =>
+      _repo.createEventPost(eventId, content);
+
+  Future<void> deleteEventPost(int eventId, int postId) =>
+      _repo.deleteEventPost(eventId, postId);
+
+  Future<Map<String, dynamic>> toggleEventPosts(int eventId) =>
+      _repo.toggleEventPosts(eventId);
+
+  // -- Reactions --
+
+  Future<Map<String, dynamic>> reactToEvent(int eventId, String reaction) =>
+      _repo.reactToEvent(eventId, reaction);
+
+  Future<Map<String, dynamic>> getMyReaction(int eventId) =>
+      _repo.getMyReaction(eventId);
+
+  // -- Co-Organizers --
+
+  Future<List<dynamic>> getEventOrganizers(int eventId) =>
+      _repo.getEventOrganizers(eventId);
+
+  Future<Map<String, dynamic>> addEventOrganizer(
+          int eventId, Map<String, dynamic> data) =>
+      _repo.addEventOrganizer(eventId, data);
+
+  Future<Map<String, dynamic>> updateOrganizerPermission(
+          int eventId, int userId, String permission) =>
+      _repo.updateOrganizerPermission(eventId, userId, permission);
+
+  Future<Map<String, dynamic>> respondToInvitation(
+          int eventId, int userId, bool accept) =>
+      _repo.respondToInvitation(eventId, userId, accept);
+
+  Future<void> selfRemoveFromEvent(int eventId) =>
+      _repo.selfRemoveFromEvent(eventId);
+
+  Future<void> removeEventOrganizer(int eventId, int userId) =>
+      _repo.removeEventOrganizer(eventId, userId);
+
+  Future<List<dynamic>> searchOrganizers(String query) =>
+      _repo.searchOrganizers(query);
+
+  // -- Milestones --
+
+  Future<List<FundingMilestone>> getMilestones(int eventId) =>
+      _repo.getMilestones(eventId);
+
+  Future<FundingMilestone> createMilestone(
+          int eventId, Map<String, dynamic> data) =>
+      _repo.createMilestone(eventId, data);
+
+  Future<FundingMilestone> updateMilestone(
+          int eventId, int milestoneId, Map<String, dynamic> data) =>
+      _repo.updateMilestone(eventId, milestoneId, data);
+
+  Future<void> deleteMilestone(int eventId, int milestoneId) =>
+      _repo.deleteMilestone(eventId, milestoneId);
+
+  Future<Map<String, dynamic>> reactToMilestone(
+          int eventId, int milestoneId, String reaction) =>
+      _repo.reactToMilestone(eventId, milestoneId, reaction);
+
+  Future<Map<String, dynamic>> getMyMilestoneReaction(
+          int eventId, int milestoneId) =>
+      _repo.getMyMilestoneReaction(eventId, milestoneId);
+
+  Future<List<dynamic>> getMilestoneSnapshots(int eventId) =>
+      _repo.getMilestoneSnapshots(eventId);
+
+  // -- Schedule --
+
+  Future<List<ScheduleDay>> getSchedule(int eventId) =>
+      _repo.getSchedule(eventId);
+
+  Future<ScheduleItem> createScheduleItem(
+          int eventId, Map<String, dynamic> data) =>
+      _repo.createScheduleItem(eventId, data);
+
+  Future<List<ScheduleItem>> bulkCreateSchedule(
+          int eventId, List<Map<String, dynamic>> items) =>
+      _repo.bulkCreateSchedule(eventId, items);
+
+  Future<ScheduleItem> updateScheduleItem(
+          int eventId, int itemId, Map<String, dynamic> data) =>
+      _repo.updateScheduleItem(eventId, itemId, data);
+
+  Future<void> deleteScheduleItem(int eventId, int itemId) =>
+      _repo.deleteScheduleItem(eventId, itemId);
+
+  Future<Map<String, dynamic>> uploadScheduleImage(
+          int eventId, int itemId, dynamic fileBytes, String fileName,
+          {String? caption}) =>
+      _repo.uploadScheduleImage(eventId, itemId, fileBytes, fileName,
+          caption: caption);
+
+  Future<Map<String, dynamic>> deleteScheduleImage(int eventId, int itemId) =>
+      _repo.deleteScheduleImage(eventId, itemId);
+
+  String getScheduleExportUrl(int eventId) =>
+      _repo.getScheduleExportUrl(eventId);
+
+  // -- Bookmarks --
+
+  Future<Map<String, dynamic>> toggleBookmark(int eventId) =>
+      _repo.toggleBookmark(eventId);
+
+  Future<Map<String, dynamic>> checkBookmarks(List<int> eventIds) =>
+      _repo.checkBookmarks(eventIds);
+
+  Future<List<Event>> getBookmarkedEvents(
+          {String? search, String? status, int offset = 0, int limit = 20}) =>
+      _repo.getBookmarkedEvents(
+          search: search, status: status, offset: offset, limit: limit);
+
+  // -- Ratings --
+
+  Future<Map<String, dynamic>> createRating(
+    int eventId, {
+    required String direction,
+    int? ratedUserId,
+    required int stars,
+    String? description,
+  }) =>
+      _repo.createRating(eventId,
+          direction: direction,
+          ratedUserId: ratedUserId,
+          stars: stars,
+          description: description);
+
+  Future<Map<String, dynamic>> getEventRatingsSummary(int eventId) =>
+      _repo.getEventRatingsSummary(eventId);
+
+  Future<List<dynamic>> getEventRatings(int eventId,
+          {String? direction}) =>
+      _repo.getEventRatings(eventId, direction: direction);
+
+  // -- Registration --
+
+  Future<Map<String, dynamic>> register(int eventId) =>
+      _repo.register(eventId);
+
+  Future<Map<String, dynamic>> unregister(int eventId) =>
+      _repo.unregister(eventId);
+
+  Future<Map<String, dynamic>> getMyRegistration(int eventId) =>
+      _repo.getMyRegistration(eventId);
+
+  Future<List<dynamic>> getRegistrations(int eventId) =>
+      _repo.getRegistrations(eventId);
+
+  Future<Map<String, dynamic>> decideRegistration(
+          int eventId, int registrationId, String action) =>
+      _repo.decideRegistration(eventId, registrationId, action);
+
+  Future<Map<String, dynamic>> getCapacityInfo(int eventId) =>
+      _repo.getCapacityInfo(eventId);
+
+  // -- Extension --
+
+  Future<Map<String, dynamic>> extendFunding(
+          int eventId, Map<String, dynamic> data) =>
+      _repo.extendFunding(eventId, data);
+
+  Future<Map<String, dynamic>> setEventDate(
+          int eventId, Map<String, dynamic> data) =>
+      _repo.setEventDate(eventId, data);
+
+  Future<Map<String, dynamic>> decideExtension(
+          int eventId, String action) =>
+      _repo.decideExtension(eventId, action);
+
+  // -- Cities --
+
+  Future<List<String>> getEventCities() => _repo.getEventCities();
+
+  // -- Organizer Dashboard --
+
+  Future<Map<String, dynamic>> getOrganizerDashboard(
+          {String? status, int? eventId, String? genre, String? period}) =>
+      _repo.getOrganizerDashboard(
+          status: status, eventId: eventId, genre: genre, period: period);
+
+  Future<Map<String, dynamic>> getOrganizerTimeSeries(
+          {int days = 30, String? status, int? eventId, String? genre}) =>
+      _repo.getOrganizerTimeSeries(
+          days: days, status: status, eventId: eventId, genre: genre);
+
+  Future<List<dynamic>> getOrganizerCustomers(
+          {int offset = 0, int limit = 20}) =>
+      _repo.getOrganizerCustomers(offset: offset, limit: limit);
+
+  // -- Public Config --
+
+  Future<Map<String, dynamic>> getPublicConfig() => _repo.getPublicConfig();
+
+  Future<Map<String, bool>> getFeatureFlags() => _repo.getFeatureFlags();
+
+  // -- Calendar --
+
+  String calendarUrl(int eventId) => _repo.calendarUrl(eventId);
 }
 
 class _CacheEntry<T> {

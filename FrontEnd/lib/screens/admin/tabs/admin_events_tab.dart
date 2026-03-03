@@ -5,9 +5,9 @@ import 'package:provider/provider.dart';
 import '../admin_shared.dart';
 import '../../../config/design_tokens.dart';
 import '../../../config/theme.dart';
-import '../../../repositories/admin_repository.dart';
+import '../../../providers/admin_provider.dart';
 import '../../../repositories/base_repository.dart';
-import '../../../repositories/event_repository.dart';
+import '../../../providers/event_provider.dart';
 import '../../../widgets/admin/admin_empty_state.dart';
 import '../../../widgets/admin/admin_search_bar.dart';
 import '../../../widgets/admin/admin_warning_badge.dart';
@@ -183,7 +183,7 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
 
   Future<void> _approveEvent(int id, bool approve) async {
     try {
-      final admin = context.read<AdminRepository>();
+      final admin = context.read<AdminProvider>();
       await admin.approveEvent(id, {
         'approved': approve,
         if (!approve) 'reason': 'Rejected by admin',
@@ -196,7 +196,7 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
 
   Future<void> _decideExtension(int eventId, String action) async {
     try {
-      final eventRepo = context.read<EventRepository>();
+      final eventRepo = context.read<EventProvider>();
       await eventRepo.decideExtension(eventId, action);
       widget.onEventsChanged();
       widget.onSnack('Extension ${action}d');
@@ -207,7 +207,7 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
 
   Future<void> _decideCancellation(int eventId, String action) async {
     try {
-      final admin = context.read<AdminRepository>();
+      final admin = context.read<AdminProvider>();
       await admin.decideCancellation(eventId, action);
       widget.onEventsChanged();
       widget.onSnack('Cancellation ${action}d');
@@ -219,7 +219,7 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
   Future<void> _resolveReview(int eventId, String targetStatus,
       {String? notes}) async {
     try {
-      final admin = context.read<AdminRepository>();
+      final admin = context.read<AdminProvider>();
       await admin.resolveReview(eventId,
           targetStatus: targetStatus, notes: notes);
       widget.onEventsChanged();
@@ -350,7 +350,7 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
 
     void loadCurrent(StateSetter setDialogState) async {
       try {
-        final eventRepo = context.read<EventRepository>();
+        final eventRepo = context.read<EventProvider>();
         final eventData = await eventRepo.getEvent(eventId);
         setDialogState(() {
           for (final key in ctrls.keys) {
@@ -420,7 +420,7 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
                           body[entry.key] = v;
                         }
                         try {
-                          final admin = context.read<AdminRepository>();
+                          final admin = context.read<AdminProvider>();
                           await admin.setPolicyOverrides(eventId, body);
                           if (ctx.mounted) Navigator.of(ctx).pop();
                           widget.onSnack('Policy overrides saved');

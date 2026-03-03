@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
 import '../../../repositories/base_repository.dart';
-import '../../../repositories/sponsor_repository.dart';
+import '../../../providers/sponsor_provider.dart';
 import '../../../widgets/app_toast.dart';
 
 class CategoryRequirements extends StatefulWidget {
@@ -38,21 +38,21 @@ class _CategoryRequirementsState extends State<CategoryRequirements> {
     if (_prereqs.isNotEmpty) return;
     setState(() => _loading = true);
     try {
-      final api = context.read<SponsorRepository>();
+      final api = context.read<SponsorProvider>();
       final prereqs = await api.listPrerequisites(widget.eventId, widget.categoryId);
 
       Map<int, Map<String, dynamic>> uploads = {};
       if (widget.myBids.isNotEmpty) {
         final latestBidId = widget.myBids.first['id'] as int;
         final bidUploads = await api.listBidPrerequisiteUploads(latestBidId);
-        for (final u in bidUploads.cast<Map<String, dynamic>>()) {
+        for (final u in bidUploads) {
           uploads[u['prerequisite_id'] as int] = u;
         }
       }
 
       if (mounted) {
         setState(() {
-          _prereqs = prereqs.cast<Map<String, dynamic>>();
+          _prereqs = prereqs;
           _uploads = uploads;
           _loading = false;
         });
@@ -74,7 +74,7 @@ class _CategoryRequirementsState extends State<CategoryRequirements> {
     setState(() => _uploading[prereqId] = true);
     if (!mounted) return;
     try {
-      final api = context.read<SponsorRepository>();
+      final api = context.read<SponsorProvider>();
       final resp = await api.uploadCategoryPrerequisite(
         widget.eventId, widget.categoryId, prereqId,
         filePath: file.path,

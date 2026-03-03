@@ -7,11 +7,8 @@ from app.rate_limit import limiter, dynamic_limit
 from app.models.user import UserRole
 from app.schemas.sponsor import PaymentResponse
 from app.services import sponsor as sponsor_svc
-from app.services import notification_service as notif_svc
-from app.models.notification import NotificationType
 from app.repositories.sponsor_repo import sponsor_repo
 from app.repositories.user_repo import user_repo
-from app.worker.redis_pool import enqueue as arq_enqueue
 
 logger = get_logger("api.sponsors.payments")
 router = APIRouter(dependencies=[Depends(require_feature("feature_sponsors_enabled"))])
@@ -32,19 +29,7 @@ async def pay_bid(
     _kyc=Depends(require_kyc()),
 ):
     log_step(logger, "Paying bid", event_id=event_id, cat_id=cat_id, bid_id=bid_id, user_id=current_user.id)
-    logger.debug("Payment initiated", extra={"bid_id": bid_id})
     payment = await sponsor_svc.pay_bid(db, bid_id, current_user)
-    event_obj = await sponsor_repo.get_event(db, event_id)
-    if event_obj:
-        await notif_svc.create_notification(
-            db, user_id=event_obj.organizer_id,
-            type=NotificationType.sponsor_payment_received,
-            title="Sponsor Payment Received",
-            message=f"A sponsor has paid ${payment.amount_cents / 100:.2f} for their sponsorship.",
-            data={"event_id": event_id, "category_id": cat_id, "bid_id": bid_id, "payment_id": payment.id},
-        )
-    await db.commit()
-    await sponsor_repo.refresh(db, payment)
     return payment
 
 
@@ -62,41 +47,7 @@ async def refund_bid(
     current_user: CurrentUser,
 ):
     log_step(logger, "Refunding bid", event_id=event_id, cat_id=cat_id, bid_id=bid_id, user_id=current_user.id)
-    bid_obj = await sponsor_repo.get_bid(db, bid_id)
-    sponsor_user_id = bid_obj.sponsor_user_id if bid_obj else None
     payment = await sponsor_svc.refund_bid(db, bid_id, current_user)
-    if sponsor_user_id:
-        await notif_svc.create_notification(
-            db, user_id=sponsor_user_id,
-            type=NotificationType.sponsor_refunded,
-            title="Sponsorship Refunded",
-            message=f"Your sponsorship refund of ${payment.amount_cents / 100:.2f} is being processed.",
-            data={"event_id": event_id, "category_id": cat_id, "bid_id": bid_id, "payment_id": payment.id},
-        )
-    event_obj = await sponsor_repo.get_event(db, event_id)
-    if event_obj:
-        await notif_svc.create_notification(
-            db, user_id=event_obj.organizer_id,
-            type=NotificationType.sponsor_refunded,
-            title="Sponsorship Refund Processed",
-            message=f"Refund of ${payment.amount_cents / 100:.2f} is being processed for bid #{bid_id}.",
-            data={"event_id": event_id, "category_id": cat_id, "bid_id": bid_id, "payment_id": payment.id},
-        )
-    await db.commit()
-    await sponsor_repo.refresh(db, payment)
-    if sponsor_user_id:
-        sponsor = await user_repo.get_by_id(db, sponsor_user_id)
-        cat = await sponsor_repo.get_category(db, cat_id)
-        if sponsor and sponsor.email:
-            await arq_enqueue(
-                "send_sponsor_refund_email",
-                sponsor_email=sponsor.email,
-                sponsor_name=sponsor.display_name or "",
-                event_title=event_obj.title if event_obj else f"Event #{event_id}",
-                category_name=cat.name if cat else f"Category #{cat_id}",
-                refunded_cents=payment.amount_cents,
-                receipt_number=getattr(payment, "receipt_number", None),
-            )
     return payment
 
 

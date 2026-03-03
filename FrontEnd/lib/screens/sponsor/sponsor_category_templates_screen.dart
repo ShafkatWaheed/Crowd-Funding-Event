@@ -7,7 +7,7 @@ import '../../config/theme.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../repositories/base_repository.dart';
-import '../../repositories/sponsor_repository.dart';
+import '../../providers/sponsor_provider.dart';
 
 class SponsorCategoryTemplatesScreen extends StatefulWidget {
   const SponsorCategoryTemplatesScreen({super.key});
@@ -38,11 +38,11 @@ class _SponsorCategoryTemplatesScreenState
 
   Future<void> _load() async {
     try {
-      final api = context.read<SponsorRepository>();
+      final api = context.read<SponsorProvider>();
       final data = await api.getSponsorCategoryTemplates();
       if (!mounted) return;
       setState(() {
-        _templates = data.cast<Map<String, dynamic>>();
+        _templates = data;
         _applySearch();
         _loading = false;
       });
@@ -88,7 +88,7 @@ class _SponsorCategoryTemplatesScreenState
     if (confirmed != true) return;
     if (!mounted) return;
     try {
-      final api = context.read<SponsorRepository>();
+      final api = context.read<SponsorProvider>();
       await api.deleteSponsorCategoryTemplate(id);
       if (mounted) AppToast.success(context, 'Template deleted');
       _load();
@@ -442,7 +442,7 @@ class _TemplateFormScreenState extends State<_TemplateFormScreen> {
     };
 
     try {
-      final api = context.read<SponsorRepository>();
+      final api = context.read<SponsorProvider>();
       if (_isEditing) {
         await api.updateSponsorCategoryTemplate(
             widget.existing!['id'] as int, data);
@@ -582,11 +582,11 @@ class _TemplatePrerequisiteSheetState
 
   Future<void> _load() async {
     try {
-      final api = context.read<SponsorRepository>();
+      final api = context.read<SponsorProvider>();
       final data = await api.listTemplatePrerequisites(widget.templateId);
       if (mounted) {
         setState(() {
-          _prereqs = data.cast<Map<String, dynamic>>();
+          _prereqs = data;
           _loading = false;
         });
       }
@@ -680,7 +680,7 @@ class _TemplatePrerequisiteSheetState
     if (!mounted) return;
 
     try {
-      final api = context.read<SponsorRepository>();
+      final api = context.read<SponsorProvider>();
       await api.createTemplatePrerequisite(
         widget.templateId,
         name: nameCtrl.text.trim(),
@@ -698,7 +698,7 @@ class _TemplatePrerequisiteSheetState
 
   Future<void> _delete(int prereqId) async {
     try {
-      final api = context.read<SponsorRepository>();
+      final api = context.read<SponsorProvider>();
       await api.deleteTemplatePrerequisite(widget.templateId, prereqId);
       if (mounted) AppToast.success(context, 'Requirement removed');
       _load();

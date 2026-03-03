@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '../config/design_tokens.dart';
 import '../config/theme.dart';
 import '../models/ticket.dart';
-import '../repositories/ticket_repository.dart';
+import '../providers/ticket_provider.dart';
 import '../screens/event/ticket_receipt_screen.dart';
 
 /// Bottom sheet showing the customer's tickets in a searchable, scrollable list.
@@ -31,7 +31,7 @@ class _TicketsBottomSheetState extends State<TicketsBottomSheet> {
 
   Future<void> _load() async {
     try {
-      final repo = context.read<TicketRepository>();
+      final repo = context.read<TicketProvider>();
       final result = await repo.getMyTickets(offset: 0, limit: 100);
       if (mounted) {
         setState(() {

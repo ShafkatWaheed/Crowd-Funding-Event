@@ -5,7 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../config/theme.dart';
 import '../config/design_tokens.dart';
 import '../models/event.dart';
-import '../repositories/event_repository.dart';
+import '../providers/event_provider.dart';
 import '../utils/share_utils.dart';
 import '../widgets/app_bottom_sheet.dart';
 import '../widgets/app_toast.dart';
@@ -88,7 +88,7 @@ class _CalendarSheetContent extends StatelessWidget {
 
   Future<void> _downloadIcs(BuildContext context) async {
     Navigator.pop(context);
-    final repo = context.read<EventRepository>();
+    final repo = context.read<EventProvider>();
     final url = Uri.parse(repo.calendarUrl(event.id));
 
     if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {

@@ -6,7 +6,7 @@ import '../../config/theme.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../models/ticket_strategy.dart';
-import '../../repositories/ticket_repository.dart';
+import '../../providers/ticket_provider.dart';
 
 class TicketStrategiesScreen extends StatefulWidget {
   const TicketStrategiesScreen({super.key});
@@ -35,10 +35,10 @@ class _TicketStrategiesScreenState extends State<TicketStrategiesScreen> {
 
   Future<void> _load() async {
     try {
-      final api = context.read<TicketRepository>();
+      final api = context.read<TicketProvider>();
       final data = await api.getTicketStrategies();
       setState(() {
-        _strategies = data.map((d) => TicketStrategy.fromJson(d)).toList();
+        _strategies = data;
         _applySearch();
         _loading = false;
       });
@@ -71,7 +71,7 @@ class _TicketStrategiesScreenState extends State<TicketStrategiesScreen> {
 
   Future<void> _delete(int id) async {
     try {
-      final api = context.read<TicketRepository>();
+      final api = context.read<TicketProvider>();
       await api.deleteTicketStrategy(id);
       _load();
     } catch (e) {
@@ -321,7 +321,7 @@ class _CreateTicketStrategyScreenState
     }).toList();
 
     try {
-      final api = context.read<TicketRepository>();
+      final api = context.read<TicketProvider>();
       await api.createTicketStrategy({
         'name': _nameCtrl.text.trim(),
         'tiers': tiersData,

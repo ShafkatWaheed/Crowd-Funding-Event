@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
+import '../../lib/providers/sponsor_provider.dart';
 import '../../lib/repositories/sponsor_repository.dart';
 import '../../lib/screens/sponsor/sponsor_payment_receipt_screen.dart';
 import '../helpers/mock_sponsor_repository.dart';
@@ -53,7 +54,7 @@ void main() {
     await pumpApp(
       tester,
       const SponsorPaymentReceiptScreen(paymentId: 1),
-      overrides: [Provider<SponsorRepository>.value(value: mockSponsorRepo)],
+      overrides: [ChangeNotifierProvider<SponsorProvider>.value(value: SponsorProvider(mockSponsorRepo))],
     );
   }
 

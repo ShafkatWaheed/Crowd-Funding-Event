@@ -3,8 +3,9 @@ import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
+import '../../../models/sponsor.dart';
 import '../../../repositories/base_repository.dart';
-import '../../../repositories/sponsor_repository.dart';
+import '../../../providers/sponsor_provider.dart';
 import '../../../widgets/app_toast.dart';
 
 class SponsorUploadSheet extends StatefulWidget {
@@ -25,7 +26,7 @@ class SponsorUploadSheet extends StatefulWidget {
 
 class _SponsorUploadSheetState extends State<SponsorUploadSheet> {
   List<Map<String, dynamic>> _prereqs = [];
-  List<Map<String, dynamic>> _bids = [];
+  List<SponsorBid> _bids = [];
   final Map<int, List<Map<String, dynamic>>> _uploadsByBid = {};
   bool _loading = true;
   int? _selectedBidId;
@@ -38,20 +39,19 @@ class _SponsorUploadSheetState extends State<SponsorUploadSheet> {
 
   Future<void> _load() async {
     try {
-      final api = context.read<SponsorRepository>();
+      final api = context.read<SponsorProvider>();
       final prereqs = await api.listPrerequisites(widget.eventId, widget.categoryId);
       final allBids = await api.listBids(widget.eventId, widget.categoryId);
       final myBids = allBids
-          .cast<Map<String, dynamic>>()
-          .where((b) => b['sponsor_user_id'] != null)
+          .where((b) => b.sponsorUserId != 0)
           .toList();
 
       if (mounted) {
         setState(() {
-          _prereqs = prereqs.cast<Map<String, dynamic>>();
+          _prereqs = prereqs;
           _bids = myBids;
           if (_bids.isNotEmpty && _selectedBidId == null) {
-            _selectedBidId = _bids.first['id'];
+            _selectedBidId = _bids.first.id;
           }
           _loading = false;
         });
@@ -67,11 +67,11 @@ class _SponsorUploadSheetState extends State<SponsorUploadSheet> {
 
   Future<void> _loadUploads(int bidId) async {
     try {
-      final api = context.read<SponsorRepository>();
+      final api = context.read<SponsorProvider>();
       final uploads = await api.listBidPrerequisiteUploads(bidId);
       if (mounted) {
         setState(() {
-          _uploadsByBid[bidId] = uploads.cast<Map<String, dynamic>>();
+          _uploadsByBid[bidId] = uploads;
         });
       }
     } catch (e) { debugPrint(e.toString()); }
@@ -86,7 +86,7 @@ class _SponsorUploadSheetState extends State<SponsorUploadSheet> {
 
     if (!mounted) return;
     try {
-      final api = context.read<SponsorRepository>();
+      final api = context.read<SponsorProvider>();
       await api.uploadPrerequisiteDocument(
         _selectedBidId!,
         prereqId,
@@ -144,17 +144,16 @@ class _SponsorUploadSheetState extends State<SponsorUploadSheet> {
                 child: ListView(
                   scrollDirection: Axis.horizontal,
                   children: _bids.map((b) {
-                    final isSelected = _selectedBidId == b['id'];
-                    final cents = b['amount_cents'] ?? 0;
+                    final isSelected = _selectedBidId == b.id;
                     return Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: ChoiceChip(
-                        label: Text('Bid \$${(cents / 100).toStringAsFixed(2)}'),
+                        label: Text('Bid ${b.amountDisplay}'),
                         selected: isSelected,
                         onSelected: (sel) {
                           if (sel) {
-                            setState(() => _selectedBidId = b['id']);
-                            _loadUploads(b['id']);
+                            setState(() => _selectedBidId = b.id);
+                            _loadUploads(b.id);
                           }
                         },
                         selectedColor: AppTheme.accentColor,

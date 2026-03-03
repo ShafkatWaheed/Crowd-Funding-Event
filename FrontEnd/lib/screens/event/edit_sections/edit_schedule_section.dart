@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
 import '../../../repositories/base_repository.dart';
-import '../../../repositories/event_repository.dart';
+import '../../../providers/event_provider.dart';
 import '../../../widgets/app_toast.dart';
 
 class EditScheduleItem {
@@ -51,26 +51,24 @@ class _EditScheduleSectionState extends State<EditScheduleSection> {
 
   Future<void> _loadSchedule() async {
     try {
-      final api = context.read<EventRepository>();
+      final api = context.read<EventProvider>();
       final list = await api.getSchedule(widget.eventId);
       if (mounted) {
         final parsed = <EditScheduleItem>[];
         for (final dayGroup in list) {
-          for (final item in (dayGroup['items'] as List)) {
-            final si = EditScheduleItem(id: item['id']);
-            si.date = DateTime.tryParse(item['date'] ?? '');
-            final sParts =
-                (item['start_time'] as String? ?? '09:00').split(':');
+          for (final item in dayGroup.items) {
+            final si = EditScheduleItem(id: item.id);
+            si.date = DateTime.tryParse(item.date);
+            final sParts = item.startTime.split(':');
             si.startTime = TimeOfDay(
                 hour: int.parse(sParts[0]),
                 minute: int.parse(sParts[1]));
-            final eParts =
-                (item['end_time'] as String? ?? '10:00').split(':');
+            final eParts = item.endTime.split(':');
             si.endTime = TimeOfDay(
                 hour: int.parse(eParts[0]),
                 minute: int.parse(eParts[1]));
-            si.titleCtrl.text = item['title'] ?? '';
-            si.descCtrl.text = item['description'] ?? '';
+            si.titleCtrl.text = item.title;
+            si.descCtrl.text = item.description ?? '';
             parsed.add(si);
           }
         }
@@ -90,7 +88,7 @@ class _EditScheduleSectionState extends State<EditScheduleSection> {
           : 'Date is required');
       return;
     }
-    final api = context.read<EventRepository>();
+    final api = context.read<EventProvider>();
     final dateStr =
         '${si.date!.year}-${si.date!.month.toString().padLeft(2, '0')}-${si.date!.day.toString().padLeft(2, '0')}';
     final startStr =
@@ -119,7 +117,7 @@ class _EditScheduleSectionState extends State<EditScheduleSection> {
           if (si.descCtrl.text.trim().isNotEmpty)
             'description': si.descCtrl.text.trim(),
         });
-        si.id = resp['id'] as int;
+        si.id = resp.id;
         if (mounted) {
           setState(() => si.error = null);
           AppToast.success(context, 'Schedule item created');
@@ -137,7 +135,7 @@ class _EditScheduleSectionState extends State<EditScheduleSection> {
     final si = _items[idx];
     if (si.id != null) {
       try {
-        final api = context.read<EventRepository>();
+        final api = context.read<EventProvider>();
         await api.deleteScheduleItem(widget.eventId, si.id!);
       } catch (e) {
         if (mounted) {

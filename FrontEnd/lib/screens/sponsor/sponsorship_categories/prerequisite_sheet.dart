@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
 import '../../../repositories/base_repository.dart';
-import '../../../repositories/sponsor_repository.dart';
+import '../../../providers/sponsor_provider.dart';
 import '../../../widgets/app_toast.dart';
 
 class PrerequisiteSheet extends StatefulWidget {
@@ -36,9 +36,9 @@ class _PrerequisiteSheetState extends State<PrerequisiteSheet> {
 
   Future<void> _load() async {
     try {
-      final api = context.read<SponsorRepository>();
+      final api = context.read<SponsorProvider>();
       final data = await api.listPrerequisites(widget.eventId, widget.categoryId);
-      if (mounted) setState(() { _prereqs = data.cast<Map<String, dynamic>>(); _loading = false; });
+      if (mounted) setState(() { _prereqs = data; _loading = false; });
     } catch (e) {
       if (mounted) {
         AppToast.error(context, ApiError.extractMessage(e));
@@ -125,7 +125,7 @@ class _PrerequisiteSheetState extends State<PrerequisiteSheet> {
     if (!mounted) return;
 
     try {
-      final api = context.read<SponsorRepository>();
+      final api = context.read<SponsorProvider>();
       await api.createPrerequisite(
         widget.eventId,
         widget.categoryId,
@@ -143,7 +143,7 @@ class _PrerequisiteSheetState extends State<PrerequisiteSheet> {
 
   Future<void> _delete(int prereqId) async {
     try {
-      final api = context.read<SponsorRepository>();
+      final api = context.read<SponsorProvider>();
       await api.deletePrerequisite(widget.eventId, widget.categoryId, prereqId);
       if (mounted) AppToast.success(context, 'Requirement removed');
       _load();

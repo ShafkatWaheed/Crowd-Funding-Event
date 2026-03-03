@@ -1,5 +1,7 @@
 import 'package:dio/dio.dart';
 
+import '../models/event.dart';
+import '../models/user.dart';
 import 'base_repository.dart';
 
 class UserRepository extends BaseRepository {
@@ -7,7 +9,7 @@ class UserRepository extends BaseRepository {
 
   // ─── Auth ───
 
-  Future<Map<String, dynamic>> verifyToken(
+  Future<AppUser> verifyToken(
     String idToken,
     String role, {
     String? displayName,
@@ -22,19 +24,19 @@ class UserRepository extends BaseRepository {
     if (termsAcceptedAt != null) data['terms_accepted_at'] = termsAcceptedAt;
     if (birthday != null) data['birthday'] = birthday;
     final resp = await dio.post('/auth/verify', data: data);
-    return resp.data;
+    return AppUser.fromJson(resp.data);
   }
 
   // ─── User Profile ───
 
-  Future<Map<String, dynamic>> getMe() async {
+  Future<AppUser> getMe() async {
     final resp = await dio.get('/me');
-    return resp.data;
+    return AppUser.fromJson(resp.data);
   }
 
-  Future<Map<String, dynamic>> updateMe(Map<String, dynamic> data) async {
+  Future<AppUser> updateMe(Map<String, dynamic> data) async {
     final resp = await dio.patch('/me', data: data);
-    return resp.data;
+    return AppUser.fromJson(resp.data);
   }
 
   // ─── Payment Info ───
@@ -75,7 +77,7 @@ class UserRepository extends BaseRepository {
     return resp.data;
   }
 
-  Future<List<dynamic>> getPublicEvents(
+  Future<List<Event>> getPublicEvents(
     int userId, {
     int offset = 0,
     int limit = 20,
@@ -87,7 +89,7 @@ class UserRepository extends BaseRepository {
     if (status != null && status.isNotEmpty) params['status'] = status;
     final resp = await dio.get('/users/$userId/public-events',
         queryParameters: params);
-    return resp.data as List;
+    return (resp.data as List).map((e) => Event.fromJson(e)).toList();
   }
 
   // ─── User Ratings ───
@@ -126,9 +128,9 @@ class UserRepository extends BaseRepository {
     return resp.data as Map<String, dynamic>;
   }
 
-  Future<List<dynamic>> adminGetKycPending() async {
+  Future<List<AppUser>> adminGetKycPending() async {
     final resp = await dio.get('/admin/kyc-pending');
-    return resp.data as List<dynamic>;
+    return (resp.data as List).map((e) => AppUser.fromJson(e)).toList();
   }
 
   Future<List<dynamic>> adminGetUserKycDocuments(int userId) async {

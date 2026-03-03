@@ -8,7 +8,7 @@ import '../../config/theme.dart';
 import '../../config/design_tokens.dart';
 import '../../models/ticket.dart';
 import '../../utils/date_time_utils.dart';
-import '../../repositories/ticket_repository.dart';
+import '../../providers/ticket_provider.dart';
 import '../../repositories/base_repository.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/loading_switcher.dart';
@@ -86,7 +86,7 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
       _error = null;
     });
     try {
-      final repo = context.read<TicketRepository>();
+      final repo = context.read<TicketProvider>();
       final data = widget.eventId != null
           ? await repo.getTicketReceipt(widget.eventId!, widget.saleId)
           : await repo.getMyTicketReceipt(widget.saleId);
@@ -169,7 +169,7 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
     if (confirmed != true || !mounted) return;
 
     try {
-      final repo = context.read<TicketRepository>();
+      final repo = context.read<TicketProvider>();
       await repo.requestTicketRefund(widget.eventId!, widget.saleId);
       if (mounted) {
         AppToast.success(context, 'Refund request sent to organizer');

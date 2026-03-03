@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../utils/date_time_utils.dart';
 import '../../repositories/base_repository.dart';
-import '../../repositories/sponsor_repository.dart';
+import '../../providers/sponsor_provider.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/shimmer_loaders.dart';
 
@@ -33,7 +33,7 @@ class _SponsorPaymentReceiptScreenState
 
   Future<void> _load() async {
     try {
-      final api = context.read<SponsorRepository>();
+      final api = context.read<SponsorProvider>();
       final data = await api.getSponsorPaymentReceipt(widget.paymentId);
       if (mounted) setState(() { _receipt = data; _loading = false; });
     } catch (e) {

@@ -16,14 +16,13 @@ import '../../models/funding.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/event_provider.dart';
 import '../../models/ticket.dart';
-import '../../repositories/funding_repository.dart';
-import '../../repositories/ticket_repository.dart';
+import '../../providers/pledge_provider.dart';
+import '../../providers/ticket_provider.dart';
 import '../../widgets/animated_list_item.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/error_state.dart';
 import '../../widgets/event_lifecycle_bar.dart';
 import '../../widgets/shimmer_loaders.dart';
-import '../../repositories/event_repository.dart';
 import '../../services/sync_service.dart';
 import '../../widgets/share_bottom_sheet.dart';
 import '../../widgets/calendar_bottom_sheet.dart';
@@ -60,6 +59,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
   bool _isRegistered = false;
   String? _regStatus;
+  bool _registrationSeeded = false;
   int _myTicketCount = 0;
   List<TicketSale> _myEventTickets = [];
   int _myReservedSpots = 0;
@@ -116,7 +116,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
   Future<void> _checkBookmark() async {
     try {
-      final repo = context.read<EventRepository>();
+      final repo = context.read<EventProvider>();
       final res = await repo.checkBookmarks([widget.eventId]);
       final ids = (res['bookmarked_ids'] as List?)?.cast<int>() ?? [];
       if (mounted) setState(() => _bookmarked = ids.contains(widget.eventId));
@@ -127,7 +127,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
   Future<void> _toggleBookmark() async {
     try {
-      final repo = context.read<EventRepository>();
+      final repo = context.read<EventProvider>();
       final res = await repo.toggleBookmark(widget.eventId);
       if (mounted) setState(() => _bookmarked = res['bookmarked'] == true);
     } catch (e) {
@@ -137,11 +137,11 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
   Future<void> _loadImages() async {
     try {
-      final repo = context.read<EventRepository>();
+      final repo = context.read<EventProvider>();
       final data = await repo.getEventImages(widget.eventId);
       if (mounted) {
         setState(() {
-          _images = data.map((i) => EventImage.fromJson(i)).toList();
+          _images = data;
         });
       }
     } catch (e) {
@@ -165,7 +165,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     final auth = context.read<AuthProvider>();
     if (auth.user == null) return;
     try {
-      final repo = context.read<EventRepository>();
+      final repo = context.read<EventProvider>();
       final data = await repo.getMyRegistration(widget.eventId);
       if (mounted) {
         setState(() {
@@ -183,7 +183,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     final user = auth.user;
     if (user == null || !user.isCustomer) return;
     try {
-      final ticketRepo = context.read<TicketRepository>();
+      final ticketRepo = context.read<TicketProvider>();
       final result = await ticketRepo.getMyTickets();
       final myTickets = result.items
           .where((t) =>
@@ -208,7 +208,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     final user = auth.user;
     if (user == null || !(user.isCustomer || user.isSponsor)) return;
     try {
-      final repo = context.read<FundingRepository>();
+      final repo = context.read<PledgeProvider>();
       final result = await repo.getMyPledges();
       final spots = result.items
           .where((p) =>
@@ -250,7 +250,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       if (event == null || !event.viewerIsCoOrganizer) return;
     }
     try {
-      final ticketRepo = context.read<TicketRepository>();
+      final ticketRepo = context.read<TicketProvider>();
       final sales = await ticketRepo.getTicketSales(widget.eventId);
       final total = sales.fold<int>(0, (s, t) => s + t.amountPaidCents);
       if (mounted) setState(() => _revenueCents = total);
@@ -268,6 +268,13 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
         widget.isPreview ? widget.previewEvent : eventProvider!.selectedEvent;
     final user = widget.isPreview ? null : auth.user;
     final isDark = AppTheme.isDark(context);
+
+    // Seed registration state from event model (avoids flash of "unregistered")
+    if (!_registrationSeeded && event?.viewerIsRegistered != null) {
+      _registrationSeeded = true;
+      _isRegistered = event!.viewerIsRegistered!;
+      _regStatus = event.viewerRegistrationStatus;
+    }
 
     // Cache transport + schedule for offline use when event is loaded
     if (!widget.isPreview && event != null) {

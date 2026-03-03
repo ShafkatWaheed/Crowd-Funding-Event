@@ -9,7 +9,7 @@ import '../../utils/date_time_utils.dart';
 import '../../config/theme.dart';
 import '../../models/event.dart';
 import '../../repositories/base_repository.dart';
-import '../../repositories/user_repository.dart';
+import '../../providers/user_provider.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/star_rating.dart';
@@ -69,7 +69,7 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
 
   Future<void> _loadProfile() async {
     try {
-      final userRepo = context.read<UserRepository>();
+      final userRepo = context.read<UserProvider>();
       final data = await userRepo.getPublicProfile(widget.userId);
       if (mounted) setState(() { _profile = data; _loadingProfile = false; });
     } catch (e) {
@@ -83,7 +83,7 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
   Future<void> _loadEvents() async {
     setState(() { _loadingEvents = true; _hasMoreEvents = true; });
     try {
-      final userRepo = context.read<UserRepository>();
+      final userRepo = context.read<UserProvider>();
       final data = await userRepo.getPublicEvents(
         widget.userId,
         offset: 0,
@@ -93,7 +93,7 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
       );
       if (mounted) {
         setState(() {
-          _events = data.map((j) => Event.fromJson(j)).toList();
+          _events = data;
           _hasMoreEvents = data.length >= _pageSize;
           _loadingEvents = false;
         });
@@ -107,7 +107,7 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
     if (_loadingMoreEvents || !_hasMoreEvents) return;
     setState(() => _loadingMoreEvents = true);
     try {
-      final userRepo = context.read<UserRepository>();
+      final userRepo = context.read<UserProvider>();
       final data = await userRepo.getPublicEvents(
         widget.userId,
         offset: _events.length,
@@ -117,7 +117,7 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
       );
       if (mounted) {
         setState(() {
-          _events.addAll(data.map((j) => Event.fromJson(j)));
+          _events.addAll(data);
           _hasMoreEvents = data.length >= _pageSize;
           _loadingMoreEvents = false;
         });
@@ -145,7 +145,7 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
 
   Future<void> _loadRatings() async {
     try {
-      final userRepo = context.read<UserRepository>();
+      final userRepo = context.read<UserProvider>();
       final data = await userRepo.getUserRatingsSummary(widget.userId);
       if (mounted) setState(() => _ratingsSummary = data);
     } catch (e) { debugPrint(e.toString()); }

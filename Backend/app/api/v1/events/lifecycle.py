@@ -228,26 +228,9 @@ async def approve_cancellation(
         logger.warning("Approve cancellation rejected: no pending cancellation", extra={"event_id": event_id})
         raise HTTPException(status_code=400, detail="No pending cancellation for this event")
     if body.action == "approve":
-        reason = event.pending_cancellation.get("reason", "Admin-approved cancellation")
-        event.pending_cancellation = None
-        event.status = EventStatus.cancelled
-        event.cancellation_reason = reason
-        await funding_service.refund_all_pledges_for_event(db, event_id=event.id)
-        await sponsor_service.refund_all_sponsor_payments_for_event(db, event_id=event.id)
-        await ticket_service.refund_all_tickets_for_event(db, event_id=event.id)
-        from app.repositories.event_repo import event_repo as _ev_repo
-        await _ev_repo.flush(db)
-        await arq_enqueue(
-            "send_event_cancelled_email",
-            event.id,
-            event.title or f"Event #{event.id}",
-            reason,
-            event.start_time,
-        )
+        event = await event_service.approve_cancellation(db, event)
     elif body.action == "reject":
-        event.pending_cancellation = None
-        from app.repositories.event_repo import event_repo as _ev_repo
-        await _ev_repo.flush(db)
+        event = await event_service.reject_cancellation(db, event)
     else:
         logger.warning("Approve cancellation rejected: invalid action", extra={"event_id": event_id, "action": body.action})
         raise HTTPException(status_code=400, detail="action must be 'approve' or 'reject'")

@@ -6,7 +6,7 @@ import '../../../config/theme.dart';
 import '../../../db/app_database.dart';
 import '../../../models/sponsor.dart';
 import '../../../repositories/base_repository.dart';
-import '../../../repositories/sponsor_repository.dart';
+import '../../../providers/sponsor_provider.dart';
 import '../../../services/sync_service.dart';
 import '../../../utils/date_time_utils.dart';
 import '../../../widgets/app_toast.dart';
@@ -33,18 +33,18 @@ class _DelegatesCardState extends State<DelegatesCard> {
 
   Future<void> _load() async {
     try {
-      final api = context.read<SponsorRepository>();
-      final data = await api.listDelegates(widget.ticketId);
+      final api = context.read<SponsorProvider>();
+      final delegates = await api.listDelegates(widget.ticketId);
       if (mounted) {
         setState(() {
-          _delegates = data.map((j) => SponsorDelegate.fromJson(j)).toList();
+          _delegates = delegates;
           _isOffline = false;
           _loading = false;
         });
         // Background-cache for offline use
         context
             .read<SyncService>()
-            .cacheSponsorDelegates(widget.ticketId, data);
+            .cacheSponsorDelegates(widget.ticketId, delegates);
       }
     } catch (_) {
       // Try loading from offline cache
@@ -128,7 +128,7 @@ class _DelegatesCardState extends State<DelegatesCard> {
     if (!mounted) return;
 
     try {
-      final api = context.read<SponsorRepository>();
+      final api = context.read<SponsorProvider>();
       await api.addDelegate(
         widget.ticketId,
         nameCtrl.text.trim(),
@@ -146,7 +146,7 @@ class _DelegatesCardState extends State<DelegatesCard> {
 
   Future<void> _remove(SponsorDelegate d) async {
     try {
-      final api = context.read<SponsorRepository>();
+      final api = context.read<SponsorProvider>();
       await api.removeDelegate(widget.ticketId, d.id);
       if (mounted) AppToast.success(context, '${d.name} removed');
       _load();

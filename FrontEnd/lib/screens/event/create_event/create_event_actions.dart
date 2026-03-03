@@ -6,9 +6,9 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../../models/event_form_models.dart';
-import '../../../repositories/sponsor_repository.dart';
-import '../../../repositories/ticket_repository.dart';
-import '../../../repositories/venue_repository.dart';
+import '../../../providers/sponsor_provider.dart';
+import '../../../providers/ticket_provider.dart';
+import '../../../providers/venue_provider.dart';
 import '../../../services/mapbox_geocoding_service.dart';
 import '../../../widgets/app_toast.dart';
 
@@ -88,7 +88,7 @@ Future<int?> createVenueInline(
     return null;
   }
   try {
-    final repo = context.read<VenueRepository>();
+    final repo = context.read<VenueProvider>();
     final resp = await repo.createVenue({
       'name': nameCtrl.text.trim(),
       'address': addressCtrl.text.trim(),
@@ -99,7 +99,7 @@ Future<int?> createVenueInline(
       if (lng != null) 'lng': lng,
     });
     if (context.mounted) AppToast.success(context, 'Venue created and selected!');
-    return resp['id'] as int?;
+    return resp.id;
   } catch (e) {
     if (context.mounted) AppToast.fromError(context, e, fallback: 'Failed to create venue');
     return null;
@@ -122,7 +122,7 @@ Future<int?> createStrategyInline(
     }
   }
   try {
-    final ticketRepo = context.read<TicketRepository>();
+    final ticketRepo = context.read<TicketProvider>();
     final tiersData = tiers.asMap().entries.map((e) {
       final data = <String, dynamic>{
         'name': e.value.nameCtrl.text.trim(),
@@ -134,7 +134,7 @@ Future<int?> createStrategyInline(
     }).toList();
     final resp = await ticketRepo.createTicketStrategy({'name': nameCtrl.text.trim(), 'tiers': tiersData});
     if (context.mounted) AppToast.success(context, 'Ticket strategy created and selected!');
-    return resp['id'] as int?;
+    return resp.id;
   } catch (e) {
     if (context.mounted) AppToast.fromError(context, e, fallback: 'Failed to create ticket strategy');
     return null;
@@ -220,7 +220,7 @@ Future<void> toggleSponsorTemplate(
   final minBid = t['min_bid_cents'] ?? 0;
   cat.minBidCtrl.text = (minBid / 100).toStringAsFixed(2);
   try {
-    final prereqs = await context.read<SponsorRepository>().listTemplatePrerequisites(id);
+    final prereqs = await context.read<SponsorProvider>().listTemplatePrerequisites(id);
     for (final p in prereqs) {
       cat.prereqs.add(LocalPrerequisite(
         name: (p['name'] as String?) ?? '',

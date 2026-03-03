@@ -5,7 +5,7 @@ import '../../config/theme.dart';
 import '../../models/ticket.dart';
 import '../../utils/date_time_utils.dart';
 import '../../config/design_tokens.dart';
-import '../../repositories/ticket_repository.dart';
+import '../../providers/ticket_provider.dart';
 import '../../widgets/app_toast.dart';
 
 class RefundRequestsScreen extends StatefulWidget {
@@ -29,7 +29,7 @@ class _RefundRequestsScreenState extends State<RefundRequestsScreen> {
 
   Future<void> _load() async {
     try {
-      final repo = context.read<TicketRepository>();
+      final repo = context.read<TicketProvider>();
       final data = await repo.getRefundRequests(widget.eventId);
       if (mounted) setState(() { _requests = data; _loading = false; _error = null; });
     } catch (e) {
@@ -39,7 +39,7 @@ class _RefundRequestsScreenState extends State<RefundRequestsScreen> {
 
   Future<void> _approve(int ticketId) async {
     try {
-      final repo = context.read<TicketRepository>();
+      final repo = context.read<TicketProvider>();
       await repo.approveTicketRefund(widget.eventId, ticketId);
       if (mounted) {
         AppToast.success(context, 'Refund approved');
@@ -69,7 +69,7 @@ class _RefundRequestsScreenState extends State<RefundRequestsScreen> {
     if (confirmed != true || !mounted) return;
 
     try {
-      final repo = context.read<TicketRepository>();
+      final repo = context.read<TicketProvider>();
       await repo.rejectTicketRefund(widget.eventId, ticketId);
       if (mounted) {
         AppToast.success(context, 'Refund rejected — ticket restored');

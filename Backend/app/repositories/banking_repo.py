@@ -208,6 +208,12 @@ class BankingRepository:
         q = select(Dispute).where(Dispute.id == dispute_id)
         return (await db.execute(q)).scalar_one_or_none()
 
+    async def get_dispute_by_stripe_id(
+        self, db: AsyncSession, stripe_dispute_id: str
+    ) -> Dispute | None:
+        q = select(Dispute).where(Dispute.stripe_dispute_id == stripe_dispute_id)
+        return (await db.execute(q)).scalar_one_or_none()
+
     async def create_dispute(self, db: AsyncSession, dispute: Dispute) -> Dispute:
         db.add(dispute)
         await db.flush()

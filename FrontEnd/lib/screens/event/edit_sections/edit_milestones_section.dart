@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
-import '../../../repositories/event_repository.dart';
+import '../../../providers/event_provider.dart';
 import '../../../widgets/app_toast.dart';
 
 class EditMilestone {
@@ -33,15 +33,15 @@ class _EditMilestonesSectionState extends State<EditMilestonesSection> {
 
   Future<void> _loadMilestones() async {
     try {
-      final api = context.read<EventRepository>();
+      final api = context.read<EventProvider>();
       final list = await api.getMilestones(widget.eventId);
       if (mounted) {
         setState(() {
           _milestones = list.map((j) {
-            final ms = EditMilestone(id: j['id']);
-            ms.titleCtrl.text = j['title'] ?? '';
-            ms.benefitCtrl.text = j['benefit_description'] ?? '';
-            ms.unlockPercent = j['unlock_percent'] ?? 50;
+            final ms = EditMilestone(id: j.id);
+            ms.titleCtrl.text = j.title;
+            ms.benefitCtrl.text = j.benefitDescription ?? '';
+            ms.unlockPercent = j.unlockPercent;
             return ms;
           }).toList();
           if (_milestones.isNotEmpty) _expanded = true;
@@ -53,7 +53,7 @@ class _EditMilestonesSectionState extends State<EditMilestonesSection> {
   Future<void> _saveMilestone(EditMilestone ms) async {
     final title = ms.titleCtrl.text.trim();
     if (title.isEmpty) return;
-    final api = context.read<EventRepository>();
+    final api = context.read<EventProvider>();
     try {
       if (ms.id != null) {
         await api.updateMilestone(widget.eventId, ms.id!, {
@@ -69,7 +69,7 @@ class _EditMilestonesSectionState extends State<EditMilestonesSection> {
           if (ms.benefitCtrl.text.trim().isNotEmpty)
             'benefit_description': ms.benefitCtrl.text.trim(),
         });
-        ms.id = resp['id'] as int;
+        ms.id = resp.id;
         if (mounted) AppToast.success(context, 'Milestone created');
       }
     } catch (e) {
@@ -83,7 +83,7 @@ class _EditMilestonesSectionState extends State<EditMilestonesSection> {
     final ms = _milestones[idx];
     if (ms.id != null) {
       try {
-        final api = context.read<EventRepository>();
+        final api = context.read<EventProvider>();
         await api.deleteMilestone(widget.eventId, ms.id!);
       } catch (e) {
         if (mounted) {

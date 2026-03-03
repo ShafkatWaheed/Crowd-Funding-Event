@@ -5,8 +5,8 @@ import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../models/ticket.dart';
 import '../../utils/date_time_utils.dart';
-import '../../repositories/ticket_repository.dart';
-import '../../repositories/sponsor_repository.dart';
+import '../../providers/ticket_provider.dart';
+import '../../providers/sponsor_provider.dart';
 import '../../widgets/shimmer_loaders.dart';
 import 'ticket_receipt_screen.dart';
 
@@ -41,7 +41,7 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
 
   // Scanned-view filter: 0 = All, 1 = Customer, 2 = Sponsor
   int _scannedFilter = 0;
-  List<dynamic> _sponsorScanned = [];
+  List<Map<String, dynamic>> _sponsorScanned = [];
   bool _sponsorLoading = false;
 
   @override
@@ -76,7 +76,7 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
       _hasMore = true;
     });
     try {
-      final repo = context.read<TicketRepository>();
+      final repo = context.read<TicketProvider>();
       final data = widget.scannedOnly
           ? await repo.getScannedTickets(widget.eventId, offset: 0, limit: _pageSize)
           : await repo.getTicketSales(widget.eventId, offset: 0, limit: _pageSize);
@@ -102,7 +102,7 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
     if (_loadingMore || !_hasMore) return;
     setState(() => _loadingMore = true);
     try {
-      final repo = context.read<TicketRepository>();
+      final repo = context.read<TicketProvider>();
       final data = widget.scannedOnly
           ? await repo.getScannedTickets(widget.eventId, offset: _all.length, limit: _pageSize)
           : await repo.getTicketSales(widget.eventId, offset: _all.length, limit: _pageSize);
@@ -121,7 +121,7 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
   Future<void> _loadSponsorScanned() async {
     setState(() => _sponsorLoading = true);
     try {
-      final repo = context.read<SponsorRepository>();
+      final repo = context.read<SponsorProvider>();
       final data = await repo.getScannedSponsorTickets(widget.eventId);
       if (mounted) {
         setState(() {

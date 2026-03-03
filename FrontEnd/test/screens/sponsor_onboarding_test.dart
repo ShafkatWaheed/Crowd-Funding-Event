@@ -5,8 +5,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
+import '../../lib/models/sponsor.dart';
 import '../../lib/models/user.dart';
 import '../../lib/providers/auth_provider.dart';
+import '../../lib/providers/sponsor_provider.dart';
 import '../../lib/repositories/sponsor_repository.dart';
 import '../../lib/screens/sponsor/sponsor_onboarding_screen.dart';
 import '../helpers/mock_providers.dart';
@@ -32,14 +34,14 @@ void main() {
       const SponsorOnboardingScreen(),
       overrides: [
         ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
-        Provider<SponsorRepository>.value(value: mockSponsorRepo),
+        ChangeNotifierProvider<SponsorProvider>.value(value: SponsorProvider(mockSponsorRepo)),
       ],
     );
   }
 
   group('SponsorOnboardingScreen', () {
     testWidgets('shows loading spinner during initial load', (tester) async {
-      final profileCompleter = Completer<Map<String, dynamic>>();
+      final profileCompleter = Completer<SponsorProfile>();
       when(() => mockSponsorRepo.getSponsorProfile())
           .thenAnswer((_) => profileCompleter.future);
 

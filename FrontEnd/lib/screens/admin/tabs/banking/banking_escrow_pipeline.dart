@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../config/theme.dart';
-import '../../../../repositories/admin_repository.dart';
+import '../../../../providers/admin_provider.dart';
 import '../../../../repositories/base_repository.dart';
 import '../../admin_shared.dart';
 
@@ -216,7 +216,7 @@ class _EscrowDetailColumn extends StatelessWidget {
                         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         onChanged: (val) async {
                           try {
-                            await context.read<AdminRepository>().toggleAutoRelease(
+                            await context.read<AdminProvider>().toggleAutoRelease(
                               eventId, type,
                               stage1: stageNum == 1 ? val : null,
                               stage2: stageNum == 2 ? val : null,
@@ -235,7 +235,7 @@ class _EscrowDetailColumn extends StatelessWidget {
                     TextButton(
                       onPressed: () async {
                         try {
-                          await context.read<AdminRepository>().releaseEscrowStage(eventId, type, stageNum);
+                          await context.read<AdminProvider>().releaseEscrowStage(eventId, type, stageNum);
                           await onReloadEventDetail(eventId);
                           onReloadPipeline();
                           onSnack('$label Stage $stageNum released');
@@ -256,7 +256,7 @@ class _EscrowDetailColumn extends StatelessWidget {
                 icon: const Icon(Icons.ac_unit, size: 14),
                 label: const Text('Freeze', style: TextStyle(fontSize: 12)),
                 onPressed: () async {
-                  await context.read<AdminRepository>().freezeEscrow(eventId, type);
+                  await context.read<AdminProvider>().freezeEscrow(eventId, type);
                   await onReloadEventDetail(eventId);
                   onReloadPipeline();
                 },
@@ -266,7 +266,7 @@ class _EscrowDetailColumn extends StatelessWidget {
                 icon: const Icon(Icons.play_arrow, size: 14),
                 label: const Text('Unfreeze', style: TextStyle(fontSize: 12)),
                 onPressed: () async {
-                  await context.read<AdminRepository>().unfreezeEscrow(eventId, type);
+                  await context.read<AdminProvider>().unfreezeEscrow(eventId, type);
                   await onReloadEventDetail(eventId);
                   onReloadPipeline();
                 },

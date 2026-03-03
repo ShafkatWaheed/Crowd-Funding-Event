@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../../lib/models/user.dart';
 import '../../lib/providers/auth_provider.dart';
+import '../../lib/providers/event_provider.dart';
 import '../../lib/repositories/event_repository.dart';
 import '../../lib/screens/home/tabs/organizer_dashboard_tab.dart';
 import '../helpers/mock_providers.dart';
@@ -87,7 +88,7 @@ void main() {
       ),
       overrides: [
         ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
-        Provider<EventRepository>.value(value: mockEventRepo),
+        ChangeNotifierProvider<EventProvider>.value(value: EventProvider(mockEventRepo)),
       ],
     );
   }

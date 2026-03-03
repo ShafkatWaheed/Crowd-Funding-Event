@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
 import '../../../repositories/base_repository.dart';
-import '../../../repositories/funding_repository.dart';
+import '../../../providers/pledge_provider.dart';
 import '../../../widgets/admin/admin_empty_state.dart';
 import 'user_detail_shared.dart';
 
@@ -45,7 +45,7 @@ class _UserPledgesTabState extends State<UserPledgesTab> {
   Future<void> _refundPledge(int eventId, int fundingId) async {
     try {
       await context
-          .read<FundingRepository>()
+          .read<PledgeProvider>()
           .adminRefundPledge(eventId, fundingId);
       widget.onRefresh();
       widget.onSnack('Pledge refunded');

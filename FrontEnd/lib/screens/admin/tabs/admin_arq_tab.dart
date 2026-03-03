@@ -5,7 +5,7 @@ import '../admin_shared.dart';
 import '../../../config/theme.dart';
 import 'package:provider/provider.dart';
 
-import '../../../repositories/admin_repository.dart';
+import '../../../providers/admin_provider.dart';
 import '../../../widgets/app_toast.dart';
 
 class AdminArqTab extends StatefulWidget {
@@ -37,7 +37,7 @@ class _AdminArqTabState extends State<AdminArqTab> {
   Future<void> _loadSummary() async {
     setState(() => _summaryLoading = true);
     try {
-      final data = await context.read<AdminRepository>().getWorkerSummary();
+      final data = await context.read<AdminProvider>().getWorkerSummary();
       if (mounted) {
         setState(() {
           _tasks = (data['tasks'] as List).cast<Map<String, dynamic>>();

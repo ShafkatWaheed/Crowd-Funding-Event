@@ -7,15 +7,29 @@ import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 
 import '../db/app_database.dart';
+import '../models/sponsor.dart';
+import '../repositories/bookmark_repository.dart';
+import '../repositories/event_repository.dart';
+import '../repositories/sponsor_repository.dart';
+import '../repositories/ticket_repository.dart';
 
 /// Handles pull sync (server -> device) and push sync (offline scans -> server).
 ///
 /// Usage: create once, call [init] on app start, [dispose] on app close.
 class SyncService {
-  SyncService({required this.db, required this.dio});
+  SyncService({
+    required this.db,
+    required this.eventRepo,
+    required this.ticketRepo,
+    required this.sponsorRepo,
+    required this.bookmarkRepo,
+  });
 
   final AppDatabase db;
-  final Dio dio;
+  final EventRepository eventRepo;
+  final TicketRepository ticketRepo;
+  final SponsorRepository sponsorRepo;
+  final BookmarkRepository bookmarkRepo;
 
   StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
   Timer? _pushTimer;
@@ -59,60 +73,12 @@ class SyncService {
     }
   }
 
-  // -- Private HTTP helpers (inlined from former ApiService) --
-
-  Future<Map<String, dynamic>> _fetchEvents({int limit = 20}) async {
-    final resp = await dio.get('/events', queryParameters: {'limit': limit});
-    final data = resp.data;
-    if (data is List) {
-      return {'items': data, 'next_cursor': null};
-    }
-    return data as Map<String, dynamic>;
-  }
-
-  Future<List<dynamic>> _fetchMyTickets({int offset = 0, int limit = 20}) async {
-    final resp = await dio.get('/me/tickets', queryParameters: {
-      'offset': offset,
-      'limit': limit,
-    });
-    return resp.data;
-  }
-
-  Future<List<dynamic>> _fetchTicketSales(int eventId, {int offset = 0, int limit = 20}) async {
-    final resp = await dio.get('/events/$eventId/ticket-sales', queryParameters: {
-      'offset': offset,
-      'limit': limit,
-    });
-    return resp.data;
-  }
-
-  Future<Map<String, dynamic>> _postScanTicket(int eventId, {String? ticketCode, String? encryptedPayload}) async {
-    final body = <String, dynamic>{};
-    if (encryptedPayload != null && encryptedPayload.isNotEmpty) {
-      body['encrypted_payload'] = encryptedPayload;
-    } else if (ticketCode != null) {
-      body['ticket_code'] = ticketCode;
-    }
-    final resp = await dio.post('/events/$eventId/scan-ticket', data: body);
-    return resp.data;
-  }
-
-  Future<List<dynamic>> _fetchSchedule(int eventId) async {
-    final resp = await dio.get('/events/$eventId/schedule');
-    return resp.data;
-  }
-
-  Future<List<dynamic>> _fetchSponsorTickets() async {
-    final resp = await dio.get('/me/sponsor-tickets');
-    return resp.data as List;
-  }
-
   // -- Pull Sync (Server -> Device) --
 
   /// Pull first 2 pages of events and cache locally.
   Future<void> pullEvents() async {
     try {
-      final result = await _fetchEvents(limit: 40);
+      final result = await eventRepo.getEvents(limit: 40);
       final items = result['items'] as List? ?? [];
       final now = DateTime.now();
       for (final item in items) {
@@ -150,7 +116,7 @@ class SyncService {
   Future<int> downloadTicketsForEvent(int eventId) async {
     try {
       // Fetch all ticket sales (API returns List<dynamic>)
-      final items = await _fetchTicketSales(eventId, limit: 5000);
+      final items = await ticketRepo.getTicketSalesRaw(eventId, limit: 5000);
       final now = DateTime.now();
       await db.clearOfflineTickets(eventId);
       for (final item in items) {
@@ -185,7 +151,7 @@ class SyncService {
       final now = DateTime.now();
       int offset = 0;
       while (true) {
-        final items = await _fetchMyTickets(offset: offset, limit: pageSize);
+        final items = await ticketRepo.getMyTicketsRaw(offset: offset, limit: pageSize);
         for (final item in items) {
           final map = item as Map<String, dynamic>;
           final eventStatus = map['event_status'] as String?;
@@ -225,7 +191,7 @@ class SyncService {
   /// Cache schedule items for an event (for offline viewing).
   Future<void> cacheScheduleForEvent(int eventId) async {
     try {
-      final list = await _fetchSchedule(eventId);
+      final list = await eventRepo.getScheduleRaw(eventId);
       final now = DateTime.now();
       final entries = <CachedScheduleItemsCompanion>[];
       for (final dayJson in list) {
@@ -282,7 +248,7 @@ class SyncService {
   /// Only caches tickets for events in selling_tickets or live status.
   Future<void> pullSponsorTickets() async {
     try {
-      final items = await _fetchSponsorTickets();
+      final items = await sponsorRepo.getMySponsorTicketsRaw();
       final now = DateTime.now();
       final entries = <CachedSponsorTicketsCompanion>[];
       for (final item in items) {
@@ -326,20 +292,19 @@ class SyncService {
 
   /// Cache sponsor delegates for a ticket (for offline viewing).
   Future<void> cacheSponsorDelegates(
-      int ticketId, List<dynamic> data) async {
+      int ticketId, List<SponsorDelegate> data) async {
     try {
       final now = DateTime.now();
-      final entries = data.map((item) {
-        final map = item as Map<String, dynamic>;
+      final entries = data.map((d) {
         return CachedSponsorDelegatesCompanion.insert(
-          id: Value(map['id'] as int),
+          id: Value(d.id),
           sponsorTicketId: ticketId,
-          name: Value(map['name'] as String? ?? ''),
-          email: Value(map['email'] as String?),
-          phone: Value(map['phone'] as String?),
-          checkedIn: Value(map['checked_in'] as bool? ?? false),
-          checkedInAt: Value(map['checked_in_at'] as String?),
-          createdAt: Value(map['created_at'] as String?),
+          name: Value(d.name),
+          email: Value(d.email),
+          phone: Value(d.phone),
+          checkedIn: Value(d.checkedIn),
+          checkedInAt: Value(d.checkedInAt),
+          createdAt: Value(d.createdAt),
           syncedAt: now,
         );
       }).toList();
@@ -356,13 +321,9 @@ class SyncService {
       final allIds = <int>[];
       int offset = 0;
       while (true) {
-        final resp = await dio.get('/me/bookmarks', queryParameters: {
-          'offset': offset,
-          'limit': pageSize,
-        });
-        final items = resp.data as List;
-        allIds.addAll(items.map<int>((e) => (e as Map<String, dynamic>)['id'] as int));
-        if (items.length < pageSize) break;
+        final events = await bookmarkRepo.getBookmarkedEvents(offset: offset, limit: pageSize);
+        allIds.addAll(events.map((e) => e.id));
+        if (events.length < pageSize) break;
         offset += pageSize;
       }
       await db.replaceBookmarks(allIds);
@@ -381,7 +342,7 @@ class SyncService {
       final scans = await db.getUnsyncedScans();
       for (final scan in scans) {
         try {
-          await _postScanTicket(scan.eventId, ticketCode: scan.ticketCode);
+          await ticketRepo.scanTicket(scan.eventId, ticketCode: scan.ticketCode);
           await db.markScanSynced(scan.id);
         } catch (e) {
           debugPrint('Failed to sync scan ${scan.id}: $e');

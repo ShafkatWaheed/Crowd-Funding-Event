@@ -25,6 +25,12 @@ import 'providers/config_provider.dart';
 import 'providers/chat_provider.dart';
 import 'providers/notification_provider.dart';
 import 'providers/pledge_provider.dart';
+import 'providers/admin_provider.dart';
+import 'providers/sponsor_provider.dart';
+import 'providers/ticket_provider.dart';
+import 'providers/user_provider.dart';
+import 'providers/venue_provider.dart';
+import 'providers/bookmark_provider.dart';
 import 'repositories/admin_repository.dart';
 import 'repositories/bookmark_repository.dart';
 import 'repositories/chat_repository.dart';
@@ -86,15 +92,12 @@ class _CrowdFundAppState extends State<CrowdFundApp> {
   late final Dio _dio;
   late final ChatSocketService _chatSocket;
   late final AppDatabase _appDatabase;
-  late final SyncService _syncService;
-
   @override
   void initState() {
     super.initState();
     _dio = createAuthDio();
     _chatSocket = ChatSocketService();
     _appDatabase = AppDatabase();
-    _syncService = SyncService(db: _appDatabase, dio: _dio);
   }
 
   @override
@@ -116,13 +119,25 @@ class _CrowdFundAppState extends State<CrowdFundApp> {
         Provider<PaymentRepository>(create: (ctx) => PaymentRepository(ctx.read<Dio>())),
         Provider<ChatSocketService>.value(value: _chatSocket),
         Provider<AppDatabase>.value(value: _appDatabase),
-        Provider<SyncService>.value(value: _syncService),
+        Provider<SyncService>(create: (ctx) => SyncService(
+          db: _appDatabase,
+          eventRepo: ctx.read<EventRepository>(),
+          ticketRepo: ctx.read<TicketRepository>(),
+          sponsorRepo: ctx.read<SponsorRepository>(),
+          bookmarkRepo: ctx.read<BookmarkRepository>(),
+        )),
         ChangeNotifierProvider(create: (ctx) => AuthProvider(ctx.read<UserRepository>())),
         ChangeNotifierProvider(create: (ctx) => EventProvider(ctx.read<EventRepository>())),
         ChangeNotifierProvider(create: (ctx) => ConfigProvider(ctx.read<EventRepository>(), ctx.read<PaymentRepository>())..fetchConfig()),
         ChangeNotifierProvider(create: (ctx) => NotificationProvider(ctx.read<NotificationRepository>())),
         ChangeNotifierProvider(create: (ctx) => ChatProvider(ctx.read<ChatRepository>(), _chatSocket)),
         ChangeNotifierProvider(create: (ctx) => PledgeProvider(ctx.read<FundingRepository>())),
+        ChangeNotifierProvider(create: (ctx) => AdminProvider(ctx.read<AdminRepository>())),
+        ChangeNotifierProvider(create: (ctx) => SponsorProvider(ctx.read<SponsorRepository>())),
+        ChangeNotifierProvider(create: (ctx) => TicketProvider(ctx.read<TicketRepository>())),
+        ChangeNotifierProvider(create: (ctx) => UserProvider(ctx.read<UserRepository>())),
+        ChangeNotifierProvider(create: (ctx) => VenueProvider(ctx.read<VenueRepository>())),
+        ChangeNotifierProvider(create: (ctx) => BookmarkProvider(ctx.read<BookmarkRepository>())),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
       ],
       child: const _AppShell(),

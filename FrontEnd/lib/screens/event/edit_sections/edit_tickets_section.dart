@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
-import '../../../repositories/ticket_repository.dart';
+import '../../../providers/ticket_provider.dart';
 import '../../../widgets/app_toast.dart';
 
 class EditTier {
@@ -34,7 +34,7 @@ class _EditTicketsSectionState extends State<EditTicketsSection> {
 
   Future<void> _loadTiers() async {
     try {
-      final ticketRepo = context.read<TicketRepository>();
+      final ticketRepo = context.read<TicketProvider>();
       final list = await ticketRepo.getTicketTiers(widget.eventId);
       if (mounted) {
         setState(() {
@@ -60,7 +60,7 @@ class _EditTicketsSectionState extends State<EditTicketsSection> {
     if (name.isEmpty) return;
     final priceCents =
         ((double.tryParse(t.priceCtrl.text.trim()) ?? 0) * 100).toInt();
-    final ticketRepo = context.read<TicketRepository>();
+    final ticketRepo = context.read<TicketProvider>();
     try {
       if (t.id != null) {
         await ticketRepo.updateTicketTier(widget.eventId, t.id!, {
@@ -78,7 +78,7 @@ class _EditTicketsSectionState extends State<EditTicketsSection> {
           if (t.descCtrl.text.trim().isNotEmpty)
             'description': t.descCtrl.text.trim(),
         });
-        t.id = resp['id'] as int;
+        t.id = resp.id;
         if (mounted) AppToast.success(context, 'Tier created');
       }
     } catch (e) {
@@ -92,7 +92,7 @@ class _EditTicketsSectionState extends State<EditTicketsSection> {
     final t = _tiers[idx];
     if (t.id != null) {
       try {
-        final ticketRepo = context.read<TicketRepository>();
+        final ticketRepo = context.read<TicketProvider>();
         await ticketRepo.deleteTicketTier(widget.eventId, t.id!);
       } catch (e) {
         if (mounted) {

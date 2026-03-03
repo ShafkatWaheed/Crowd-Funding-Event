@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
-import '../../repositories/admin_repository.dart';
+import '../../providers/admin_provider.dart';
 import '../../repositories/base_repository.dart';
 import '../../widgets/admin/admin_empty_state.dart';
 import 'user_detail_tabs/user_discounts_tab.dart';
@@ -75,7 +75,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
   Future<void> _loadDetail() async {
     setState(() { _loading = true; _error = null; });
     try {
-      final admin = context.read<AdminRepository>();
+      final admin = context.read<AdminProvider>();
       final data = await admin.getUserDetail(widget.userId);
       if (mounted) {
         final role = data['role'] as String? ?? 'customer';
@@ -92,7 +92,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
 
   Future<void> _refreshDetail() async {
     try {
-      final admin = context.read<AdminRepository>();
+      final admin = context.read<AdminProvider>();
       final data = await admin.getUserDetail(widget.userId);
       if (mounted) {
         final role = data['role'] as String? ?? 'customer';

@@ -1047,39 +1047,16 @@ async def resolve_review(
 ):
     """Resolve an under_review event by moving it to the specified status."""
     log_step(logger, "Resolving event review", event_id=event_id, target_status=body.target_status, admin_id=current_user.id)
-    from app.models.event import EventStatus
-    from app.core.exceptions import NotFoundError, ConflictError
-    from datetime import datetime, timezone as tz
+    from app.core.exceptions import NotFoundError
     event = await ev_repo.get_event_by_id_basic(db, event_id)
     if not event:
         raise NotFoundError("Event", event_id)
-    if event.status != EventStatus.under_review:
-        raise ConflictError(f"Event is not under review (current: {event.status.value})")
-    allowed = {s.value for s in EventStatus} - {"under_review"}
-    if body.target_status not in allowed:
-        raise ConflictError(f"Invalid target status '{body.target_status}'")
-    event.status = EventStatus(body.target_status)
-    event.review_notes = body.notes or f"Resolved by admin → {body.target_status}"
-    event.review_log = (event.review_log or []) + [{
-        "timestamp": datetime.now(tz.utc).isoformat(),
-        "actor": f"admin:{current_user.email}",
-        "action": "resolved",
-        "from_status": "under_review",
-        "to_status": body.target_status,
-        "message": body.notes or f"Resolved → {body.target_status}",
-    }]
-    await ev_repo.flush(db)
-    notif_msg = f'Your event "{event.title}" has been reviewed and moved to {body.target_status.replace("_", " ")}.'
-    if body.notes:
-        notif_msg += f" Admin notes: {body.notes}"
-    await notif_svc.create_notification(
-        db, user_id=event.organizer_id,
-        type=NotificationType.event_approved,
-        title="Event Review Resolved",
-        message=notif_msg,
-        data={"event_id": event.id},
+    return await admin_service.resolve_review(
+        db, event,
+        target_status=body.target_status,
+        notes=body.notes,
+        admin_email=current_user.email,
     )
-    return {"ok": True, "event_id": event.id, "status": event.status.value}
 
 
 # ----- Audit Log -----
@@ -1227,45 +1204,12 @@ async def admin_set_policy_overrides(
     from app.services import event as event_svc
 
     event = await event_svc.get_or_404(db, event_id)
-
-    changes: dict[str, dict] = {}
-    for field in [
-        "admin_override_waitlist_max_size",
-        "admin_override_event_max_images",
-        "admin_override_max_posts_per_day",
-        "admin_override_max_co_organizers",
-        "admin_override_refund_deadline_percent",
-    ]:
-        new_val = getattr(body, field)
-        old_val = getattr(event, field, None)
-        if new_val != old_val:
-            changes[field] = {"old": old_val, "new": new_val}
-            setattr(event, field, new_val)
-
-    if changes:
-        await ev_repo.flush(db)
-        await audit_svc.log_action(
-            db,
-            admin_id=current_user.id,
-            action="admin_policy_override",
-            target_type="event",
-            target_id=event_id,
-            details=changes,
-        )
-        await ev_repo.flush_and_refresh(db, event)
-
-    policy = await event_svc.get_effective_policy(db, event)
-    return {
-        "event_id": event_id,
-        "overrides": {
-            "admin_override_waitlist_max_size": event.admin_override_waitlist_max_size,
-            "admin_override_event_max_images": event.admin_override_event_max_images,
-            "admin_override_max_posts_per_day": event.admin_override_max_posts_per_day,
-            "admin_override_max_co_organizers": event.admin_override_max_co_organizers,
-            "admin_override_refund_deadline_percent": event.admin_override_refund_deadline_percent,
-        },
-        "effective": policy,
-    }
+    result = await admin_service.set_policy_overrides(
+        db, event, body=body, admin_id=current_user.id,
+    )
+    # Rename key for backwards compat with existing API response shape
+    result["effective"] = result.pop("effective_policy")
+    return result
 
 
 # ═══════════════════════════════════════

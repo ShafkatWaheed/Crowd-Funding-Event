@@ -7,8 +7,8 @@ import '../../models/event.dart';
 import '../../models/sponsor.dart';
 import '../../providers/auth_provider.dart';
 import '../../repositories/base_repository.dart';
-import '../../repositories/event_repository.dart';
-import '../../repositories/sponsor_repository.dart';
+import '../../providers/event_provider.dart';
+import '../../providers/sponsor_provider.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/shimmer_loaders.dart';
 import 'sponsorship_categories/bid_leaderboard.dart';
@@ -40,19 +40,18 @@ class _SponsorshipCategoriesScreenState
 
   Future<void> _load() async {
     try {
-      final sponsorRepo = context.read<SponsorRepository>();
-      final eventRepo = context.read<EventRepository>();
+      final sponsorRepo = context.read<SponsorProvider>();
+      final eventRepo = context.read<EventProvider>();
       final results = await Future.wait([
         sponsorRepo.getSponsorshipCategories(widget.eventId),
         eventRepo.getEvent(widget.eventId),
       ]);
-      final data = results[0] as List;
+      final categories = results[0] as List<SponsorshipCategory>;
       final eventData = results[1] as Map<String, dynamic>;
       final statusStr = eventData['status'] as String? ?? 'draft';
       if (mounted) {
         setState(() {
-          _categories =
-              data.map((j) => SponsorshipCategory.fromJson(j as Map<String, dynamic>)).toList();
+          _categories = categories;
           _eventStatus = EventStatus.values.firstWhere(
             (e) => e.name == statusStr,
             orElse: () => EventStatus.draft,
@@ -80,7 +79,7 @@ class _SponsorshipCategoriesScreenState
     if (result == null || !mounted) return;
 
     try {
-      final api = context.read<SponsorRepository>();
+      final api = context.read<SponsorProvider>();
       await api.placeBid(widget.eventId, cat.id, {
         'amount_cents': result.amountCents,
         if (result.proposalText != null)
@@ -174,7 +173,7 @@ class _SponsorshipCategoriesScreenState
 
     if (!mounted) return;
     try {
-      final api = context.read<SponsorRepository>();
+      final api = context.read<SponsorProvider>();
       await api.createSponsorshipCategory(widget.eventId, {
         'name': name,
         'description': descCtrl.text.trim(),

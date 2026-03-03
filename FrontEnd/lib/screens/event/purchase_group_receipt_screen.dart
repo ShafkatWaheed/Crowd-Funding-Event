@@ -7,7 +7,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../../utils/date_time_utils.dart';
 
 import '../../config/theme.dart';
-import '../../repositories/ticket_repository.dart';
+import '../../providers/ticket_provider.dart';
 import '../../repositories/base_repository.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/shimmer_loaders.dart';
@@ -52,7 +52,7 @@ class _PurchaseGroupReceiptScreenState
       _error = null;
     });
     try {
-      final repo = context.read<TicketRepository>();
+      final repo = context.read<TicketProvider>();
       final data = await repo.getPurchaseGroupReceipt(
           widget.eventId, widget.purchaseGroupId);
       if (mounted) setState(() { _receipt = data; _loading = false; });

@@ -3,8 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
-import '../../repositories/event_repository.dart';
-import '../../repositories/ticket_repository.dart';
+import '../../providers/event_provider.dart';
+import '../../providers/ticket_provider.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/shimmer_loaders.dart';
 
@@ -58,16 +58,16 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
       _error = null;
     });
     try {
-      final eventRepo = context.read<EventRepository>();
-      final ticketRepo = context.read<TicketRepository>();
+      final eventRepo = context.read<EventProvider>();
+      final ticketRepo = context.read<TicketProvider>();
       final events = await eventRepo.getMyEvents();
 
       final List<Map<String, dynamic>> fundCombined = [];
       final List<Map<String, dynamic>> ticketCombined = [];
 
       for (final evt in events) {
-        final eventId = evt['id'] as int;
-        final eventTitle = evt['title'] ?? 'Event #$eventId';
+        final eventId = evt.id;
+        final eventTitle = evt.title;
 
         // Fund waitlist
         try {
@@ -134,7 +134,7 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
 
   Future<void> _decideFund(int eventId, int regId, String action) async {
     try {
-      final eventRepo = context.read<EventRepository>();
+      final eventRepo = context.read<EventProvider>();
       await eventRepo.decideRegistration(eventId, regId, action);
       if (mounted) {
         AppToast.success(context, action == 'approve'
@@ -153,7 +153,7 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
 
   Future<void> _approveTicket(int eventId, int ticketId) async {
     try {
-      final repo = context.read<TicketRepository>();
+      final repo = context.read<TicketProvider>();
       await repo.approveWaitlistedTicket(eventId, ticketId);
       if (mounted) {
         AppToast.success(context, 'Ticket approved!');
@@ -168,7 +168,7 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
 
   Future<void> _rejectTicket(int eventId, int ticketId) async {
     try {
-      final repo = context.read<TicketRepository>();
+      final repo = context.read<TicketProvider>();
       await repo.rejectWaitlistedTicket(eventId, ticketId);
       if (mounted) {
         AppToast.success(context, 'Ticket rejected.');

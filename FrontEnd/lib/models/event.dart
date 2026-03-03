@@ -70,6 +70,8 @@ class Event {
   final String? directionsUrl;
   final String? firstImageUrl;
   final String? viewerCoOrganizerPermission;
+  final bool? viewerIsRegistered;
+  final String? viewerRegistrationStatus;
   final Venue? venue;
   final DateTime createdAt;
 
@@ -127,6 +129,8 @@ class Event {
     this.directionsUrl,
     this.firstImageUrl,
     this.viewerCoOrganizerPermission,
+    this.viewerIsRegistered,
+    this.viewerRegistrationStatus,
     this.venue,
     required this.createdAt,
   });
@@ -200,6 +204,8 @@ class Event {
       directionsUrl: json['directions_url'],
       firstImageUrl: json['first_image_url'],
       viewerCoOrganizerPermission: json['viewer_co_organizer_permission'],
+      viewerIsRegistered: json['viewer_is_registered'],
+      viewerRegistrationStatus: json['viewer_registration_status'],
       venue: json['venue'] != null ? Venue.fromJson(json['venue']) : null,
       createdAt: DateTime.parse(json['created_at']),
     );

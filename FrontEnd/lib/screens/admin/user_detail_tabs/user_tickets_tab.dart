@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
 import '../../../repositories/base_repository.dart';
-import '../../../repositories/ticket_repository.dart';
+import '../../../providers/ticket_provider.dart';
 import '../../../widgets/admin/admin_empty_state.dart';
 import 'user_detail_shared.dart';
 
@@ -46,7 +46,7 @@ class _UserTicketsTabState extends State<UserTicketsTab> {
 
   Future<void> _approveTicketRefund(int eventId, int ticketId) async {
     try {
-      await context.read<TicketRepository>().approveTicketRefund(eventId, ticketId);
+      await context.read<TicketProvider>().approveTicketRefund(eventId, ticketId);
       widget.onRefresh();
       widget.onSnack('Refund approved');
     } catch (e) {

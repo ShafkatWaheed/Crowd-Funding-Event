@@ -7,7 +7,7 @@ import '../../../config/design_tokens.dart';
 import '../../../config/theme.dart';
 import '../../../models/event.dart';
 import '../../../providers/auth_provider.dart';
-import '../../../repositories/event_repository.dart';
+import '../../../providers/event_provider.dart';
 import '../../../widgets/animated_list_item.dart';
 import '../../../widgets/empty_state.dart';
 import '../../../widgets/event_card.dart';
@@ -73,16 +73,15 @@ class _MyEventsTabState extends State<MyEventsTab> {
       _myEventsHasMore = true;
     });
     try {
-      final repo = context.read<EventRepository>();
+      final repo = context.read<EventProvider>();
       final data = await repo.getMyEvents(offset: 0, limit: _myEventsPageSize, sortBy: _myEventsSortBy);
       if (mounted) {
-        final list = data.map((e) => Event.fromJson(e)).toList();
         setState(() {
-          _myEvents = list;
+          _myEvents = data;
           _myEventsHasMore = data.length >= _myEventsPageSize;
         });
-        if (list.isNotEmpty) {
-          _batchCheckBookmarks(list.map((e) => e.id).toList());
+        if (data.isNotEmpty) {
+          _batchCheckBookmarks(data.map((e) => e.id).toList());
         }
       }
     } catch (e) {
@@ -96,7 +95,7 @@ class _MyEventsTabState extends State<MyEventsTab> {
   Future<void> _batchCheckBookmarks(List<int> eventIds) async {
     if (eventIds.isEmpty) return;
     try {
-      final repo = context.read<EventRepository>();
+      final repo = context.read<EventProvider>();
       final res = await repo.checkBookmarks(eventIds);
       final ids = (res['bookmarked_ids'] as List?)?.cast<int>() ?? [];
       if (mounted) widget.onBookmarksSynced?.call(ids);
@@ -107,12 +106,12 @@ class _MyEventsTabState extends State<MyEventsTab> {
     if (_myEventsLoadingMore || !_myEventsHasMore) return;
     setState(() => _myEventsLoadingMore = true);
     try {
-      final repo = context.read<EventRepository>();
+      final repo = context.read<EventProvider>();
       final data =
           await repo.getMyEvents(offset: _myEvents.length, limit: _myEventsPageSize, sortBy: _myEventsSortBy);
       if (mounted) {
         setState(() {
-          _myEvents.addAll(data.map((e) => Event.fromJson(e)));
+          _myEvents.addAll(data);
           _myEventsHasMore = data.length >= _myEventsPageSize;
         });
       }

@@ -6,7 +6,7 @@ import 'package:provider/provider.dart';
 import '../../../config/design_tokens.dart';
 import '../../../utils/date_time_utils.dart';
 import '../../../config/theme.dart';
-import '../../../repositories/admin_repository.dart';
+import '../../../providers/admin_provider.dart';
 import '../../../repositories/base_repository.dart';
 
 // ---------------------------------------------------------------------------
@@ -496,7 +496,7 @@ Future<void> escrowAction(
   required void Function(String) onSnack,
 }) async {
   try {
-    final admin = context.read<AdminRepository>();
+    final admin = context.read<AdminProvider>();
     await admin.escrowAction(eventId, action, stage: stage);
     onRefresh();
     onSnack('Escrow action completed');

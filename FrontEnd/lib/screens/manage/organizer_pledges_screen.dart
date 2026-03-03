@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../models/funding.dart';
 import '../../utils/date_time_utils.dart';
-import '../../repositories/funding_repository.dart';
+import '../../providers/pledge_provider.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../event/pledge_receipt_screen.dart';
 
@@ -65,7 +65,7 @@ class _OrganizerPledgesScreenState extends State<OrganizerPledgesScreen> {
       _hasMore = true;
     });
     try {
-      final repo = context.read<FundingRepository>();
+      final repo = context.read<PledgeProvider>();
       final result = await repo.getOrganizerPledges(
         status: _statusFilter == 'all' ? null : _statusFilter,
         eventStatus: widget.eventStatus,
@@ -95,7 +95,7 @@ class _OrganizerPledgesScreenState extends State<OrganizerPledgesScreen> {
     if (_loadingMore || !_hasMore) return;
     setState(() => _loadingMore = true);
     try {
-      final repo = context.read<FundingRepository>();
+      final repo = context.read<PledgeProvider>();
       final result = await repo.getOrganizerPledges(
         status: _statusFilter == 'all' ? null : _statusFilter,
         eventStatus: widget.eventStatus,

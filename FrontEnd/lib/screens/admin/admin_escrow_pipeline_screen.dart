@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
-import '../../repositories/admin_repository.dart';
+import '../../providers/admin_provider.dart';
 import '../../widgets/app_toast.dart';
 import 'tabs/banking/banking_escrow_pipeline.dart';
 
@@ -64,7 +64,7 @@ class _AdminEscrowPipelineScreenState extends State<AdminEscrowPipelineScreen> {
   Future<void> _loadPipeline() async {
     setState(() => _pipelineLoading = true);
     try {
-      final admin = context.read<AdminRepository>();
+      final admin = context.read<AdminProvider>();
       final results = await Future.wait([
         admin.getEscrows(type: 'fund'),
         admin.getEscrows(type: 'ticket'),
@@ -85,7 +85,7 @@ class _AdminEscrowPipelineScreenState extends State<AdminEscrowPipelineScreen> {
 
   Future<void> _loadEventEscrowDetail(int eventId) async {
     try {
-      final admin = context.read<AdminRepository>();
+      final admin = context.read<AdminProvider>();
       final data = await admin.getEventEscrows(eventId);
       if (mounted) {
         setState(() {

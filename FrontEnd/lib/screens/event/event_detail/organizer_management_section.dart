@@ -10,7 +10,6 @@ import '../../../models/venue.dart';
 import '../../../models/ticket_strategy.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/event_provider.dart';
-import '../../../repositories/event_repository.dart';
 import '../../../widgets/app_toast.dart';
 import '../../../widgets/press_feedback.dart';
 import '../venue_picker_screen.dart';
@@ -400,10 +399,10 @@ class _OrganizerManagementSectionState
 
   Future<void> _cloneEvent(int eventId) async {
     try {
-      final repo = context.read<EventRepository>();
+      final repo = context.read<EventProvider>();
       final data = await repo.cloneEvent(eventId);
       if (!mounted) return;
-      final newId = data['id'];
+      final newId = data.id;
       AppToast.success(
           context, 'Event cloned as draft! Redirecting to edit...');
       context.push('/events/$newId/edit');
@@ -455,7 +454,7 @@ class _OrganizerManagementSectionState
     );
     if (selected == null || !mounted) return;
     try {
-      final repo = context.read<EventRepository>();
+      final repo = context.read<EventProvider>();
       final eventProvider = context.read<EventProvider>();
       await repo.updateEvent(event.id, {'venue_id': selected.id});
       await eventProvider.loadEvent(event.id);
@@ -477,7 +476,7 @@ class _OrganizerManagementSectionState
     );
     if (selected == null || !mounted) return;
     try {
-      final repo = context.read<EventRepository>();
+      final repo = context.read<EventProvider>();
       final eventProvider = context.read<EventProvider>();
       await repo.updateEvent(
           event.id, {'ticket_strategy_id': selected.id});
@@ -495,7 +494,7 @@ class _OrganizerManagementSectionState
   Future<void> _showChangeCapacityDialog(Event event) async {
     final controller =
         TextEditingController(text: event.maxCapacity.toString());
-    final repo = context.read<EventRepository>();
+    final repo = context.read<EventProvider>();
     final eventProvider = context.read<EventProvider>();
     final secondaryColor = AppTheme.textSecondaryOf(context);
 
@@ -698,7 +697,7 @@ class _OrganizerManagementSectionState
   }
 
   Future<void> _togglePosts() async {
-    final repo = context.read<EventRepository>();
+    final repo = context.read<EventProvider>();
     final ep = context.read<EventProvider>();
     try {
       await repo.toggleEventPosts(_event.id);
@@ -1148,7 +1147,7 @@ class _OrganizerManagementSectionState
 
   Future<void> _decideExtension(int eventId, String action) async {
     try {
-      await context.read<EventRepository>().decideExtension(eventId, action);
+      await context.read<EventProvider>().decideExtension(eventId, action);
       if (!mounted) return;
       AppToast.success(context, 'Extension ${action}d');
       context.read<EventProvider>().loadEvent(eventId);

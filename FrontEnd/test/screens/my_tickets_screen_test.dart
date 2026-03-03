@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import '../../lib/models/user.dart';
 import '../../lib/models/ticket.dart';
 import '../../lib/providers/auth_provider.dart';
+import '../../lib/providers/ticket_provider.dart';
 import '../../lib/services/sync_service.dart';
 import '../../lib/db/app_database.dart';
 import '../../lib/repositories/ticket_repository.dart';
@@ -53,7 +54,7 @@ void main() {
         ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
         Provider<SyncService>.value(value: mockSync),
         Provider<AppDatabase>.value(value: mockDb),
-        Provider<TicketRepository>.value(value: mockTicketRepo),
+        ChangeNotifierProvider<TicketProvider>.value(value: TicketProvider(mockTicketRepo)),
       ],
     );
   }

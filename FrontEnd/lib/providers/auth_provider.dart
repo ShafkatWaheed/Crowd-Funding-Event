@@ -79,7 +79,7 @@ class AuthProvider extends ChangeNotifier {
 
       final data = await _api.getMe();
       _log('_onAuthStateChanged: backend /me response: $data');
-      _user = AppUser.fromJson(data);
+      _user = data;
       _errorMessage = null;
     } catch (e) {
       _log('_onAuthStateChanged: failed to fetch /me: $e');
@@ -138,7 +138,7 @@ class AuthProvider extends ChangeNotifier {
       // Now fetch full profile
       final meData = await _api.getMe();
       _log('signUp: backend /me response: $meData');
-      _user = AppUser.fromJson(meData);
+      _user = meData;
       _errorMessage = null;
     } on FirebaseAuthException catch (e) {
       _log('signUp: FirebaseAuthException: ${e.code} - ${e.message}');
@@ -178,7 +178,7 @@ class AuthProvider extends ChangeNotifier {
       // Only set _user (and thus isAuthenticated) if backend confirms.
       final meData = await _api.getMe();
       _log('signIn: backend /me response: $meData');
-      _user = AppUser.fromJson(meData);
+      _user = meData;
       _errorMessage = null;
     } on FirebaseAuthException catch (e) {
       _log('signIn: FirebaseAuthException: ${e.code} - ${e.message}');
@@ -203,7 +203,7 @@ class AuthProvider extends ChangeNotifier {
   Future<void> refreshUser() async {
     try {
       final meData = await _api.getMe();
-      _user = AppUser.fromJson(meData);
+      _user = meData;
       notifyListeners();
     } catch (e) { debugPrint(e.toString()); }
   }

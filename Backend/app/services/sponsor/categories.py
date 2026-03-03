@@ -47,7 +47,10 @@ async def create_category(
         min_bid_cents=data.min_bid_cents,
         sort_order=data.sort_order,
     )
-    return await sponsor_repo.create_category(db, cat)
+    cat = await sponsor_repo.create_category(db, cat)
+    await db.commit()
+    await sponsor_repo.refresh(db, cat)
+    return cat
 
 
 async def update_category(
@@ -60,7 +63,10 @@ async def update_category(
 
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(cat, field, value)
-    return await sponsor_repo.update_category(db, cat)
+    cat = await sponsor_repo.update_category(db, cat)
+    await db.commit()
+    await sponsor_repo.refresh(db, cat)
+    return cat
 
 
 async def delete_category(db: AsyncSession, cat_id: int, user: User) -> None:
@@ -69,6 +75,7 @@ async def delete_category(db: AsyncSession, cat_id: int, user: User) -> None:
         raise HTTPException(status_code=404, detail="Category not found")
     await _require_organizer(db, cat.event_id, user)
     await sponsor_repo.delete_category(db, cat)
+    await db.commit()
 
 
 async def list_templates(db: AsyncSession, user: User) -> list[SponsorshipCategory]:

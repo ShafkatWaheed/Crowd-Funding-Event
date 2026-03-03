@@ -4,6 +4,8 @@ import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
 import '../../lib/providers/auth_provider.dart';
+import '../../lib/providers/bookmark_provider.dart';
+import '../../lib/models/event.dart';
 import '../../lib/repositories/bookmark_repository.dart';
 import '../../lib/screens/bookmark/bookmarked_events_screen.dart';
 import '../helpers/mock_providers.dart';
@@ -28,7 +30,7 @@ void main() {
       const BookmarkedEventsScreen(),
       overrides: [
         ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
-        Provider<BookmarkRepository>.value(value: mockBookmarkRepo),
+        ChangeNotifierProvider<BookmarkProvider>.value(value: BookmarkProvider(mockBookmarkRepo)),
       ],
     );
   }
@@ -41,8 +43,8 @@ void main() {
             offset: any(named: 'offset'),
             limit: any(named: 'limit'),
           )).thenAnswer((_) async => [
-            eventJson(id: 1, title: 'Music Fest', status: 'approved'),
-            eventJson(id: 2, title: 'Tech Conf', status: 'selling_tickets'),
+            Event.fromJson(eventJson(id: 1, title: 'Music Fest', status: 'approved')),
+            Event.fromJson(eventJson(id: 2, title: 'Tech Conf', status: 'selling_tickets')),
           ]);
 
       await pumpBookmarks(tester);
@@ -81,7 +83,7 @@ void main() {
             offset: any(named: 'offset'),
             limit: any(named: 'limit'),
           )).thenAnswer((_) async => [
-            eventJson(id: 1, title: 'Demo Event'),
+            Event.fromJson(eventJson(id: 1, title: 'Demo Event')),
           ]);
 
       await pumpBookmarks(tester);

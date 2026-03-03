@@ -9,6 +9,7 @@ import '../../lib/models/ticket.dart';
 import '../../lib/providers/event_provider.dart';
 import '../../lib/repositories/event_repository.dart';
 import '../../lib/repositories/ticket_repository.dart';
+import '../../lib/providers/ticket_provider.dart';
 import '../../lib/screens/event/waitlist_screen.dart';
 import '../helpers/mock_event_repository.dart';
 import '../helpers/mock_ticket_repository.dart';
@@ -18,15 +19,10 @@ import '../helpers/pump_app.dart';
 void main() {
   late MockEventRepository mockEventRepo;
   late MockTicketRepository mockTicketRepo;
-  late MockEventProvider mockEvent;
 
   setUp(() {
     mockEventRepo = MockEventRepository();
     mockTicketRepo = MockTicketRepository();
-    mockEvent = MockEventProvider();
-
-    // EventProvider.loadEvent is fire-and-forget; just stub it.
-    when(() => mockEvent.loadEvent(any())).thenAnswer((_) async {});
   });
 
   Map<String, dynamic> capInfo({
@@ -92,9 +88,8 @@ void main() {
       tester,
       WaitlistScreen(eventId: 1, initialTicketView: initialTicketView),
       overrides: [
-        Provider<EventRepository>.value(value: mockEventRepo),
-        Provider<TicketRepository>.value(value: mockTicketRepo),
-        ChangeNotifierProvider<EventProvider>.value(value: mockEvent),
+        ChangeNotifierProvider<TicketProvider>.value(value: TicketProvider(mockTicketRepo)),
+        ChangeNotifierProvider<EventProvider>.value(value: EventProvider(mockEventRepo)),
       ],
     );
   }

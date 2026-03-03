@@ -279,6 +279,41 @@ async def _apply_funding_extension(
     return event
 
 
+async def approve_cancellation(db: AsyncSession, event: Event) -> Event:
+    """Admin approves a pending cancellation — cancel event, issue all refunds, send email."""
+    log_step(logger, "Approve cancellation", event_id=event.id)
+    reason = event.pending_cancellation.get("reason", "Admin-approved cancellation")
+    event.pending_cancellation = None
+    event.status = EventStatus.cancelled
+    event.cancellation_reason = reason
+
+    from app.services import funding as funding_service
+    from app.services import sponsor as sponsor_service
+    from app.services import ticket as ticket_service
+    await funding_service.refund_all_pledges_for_event(db, event_id=event.id)
+    await sponsor_service.refund_all_sponsor_payments_for_event(db, event_id=event.id)
+    await ticket_service.refund_all_tickets_for_event(db, event_id=event.id)
+    await event_repo.flush_event(db)
+
+    from app.worker.redis_pool import enqueue as arq_enqueue
+    await arq_enqueue(
+        "send_event_cancelled_email",
+        event.id,
+        event.title or f"Event #{event.id}",
+        reason,
+        event.start_time,
+    )
+    return event
+
+
+async def reject_cancellation(db: AsyncSession, event: Event) -> Event:
+    """Admin rejects a pending cancellation — clear the pending flag."""
+    log_step(logger, "Reject cancellation", event_id=event.id)
+    event.pending_cancellation = None
+    await event_repo.flush_event(db)
+    return event
+
+
 async def delete_or_cancel(db: AsyncSession, event: Event, user: User) -> None:
     """
     Delete event (hard) if draft or cancelled; otherwise set status to cancelled (soft).

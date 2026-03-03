@@ -7,7 +7,7 @@ import '../admin_shared.dart';
 import '../../../config/theme.dart';
 import 'package:provider/provider.dart';
 
-import '../../../repositories/admin_repository.dart';
+import '../../../providers/admin_provider.dart';
 import 'banking/banking_disputes_payout.dart';
 import 'banking/banking_tax_health.dart';
 
@@ -60,7 +60,7 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
     // Only show full-page spinner on first load; reloads update in-place
     if (_bankingData == null) setState(() => _bankingLoading = true);
     try {
-      final admin = context.read<AdminRepository>();
+      final admin = context.read<AdminProvider>();
       final data = await admin.getBankingOverview();
       if (mounted) setState(() { _bankingData = data; _bankingLoading = false; });
     } catch (e) {
@@ -71,7 +71,7 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
   Future<void> _loadReconHistory() async {
     setState(() => _reconHistoryLoading = true);
     try {
-      final admin = context.read<AdminRepository>();
+      final admin = context.read<AdminProvider>();
       final resp = await admin.getReconciliationHistory();
       setState(() => _reconHistory = resp);
     } catch (e) { debugPrint(e.toString()); }
@@ -81,7 +81,7 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
   Future<void> _loadLedgerHealth() async {
     setState(() => _ledgerHealthLoading = true);
     try {
-      final admin = context.read<AdminRepository>();
+      final admin = context.read<AdminProvider>();
       final resp = await admin.getLedgerHealth();
       setState(() => _ledgerHealth = resp);
     } catch (e) { debugPrint(e.toString()); }
@@ -91,7 +91,7 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
   Future<void> _loadDisputes() async {
     setState(() => _disputesLoading = true);
     try {
-      final admin = context.read<AdminRepository>();
+      final admin = context.read<AdminProvider>();
       final resp = await admin.getDisputes();
       setState(() => _disputes = (resp['items'] as List?) ?? []);
     } catch (e) { debugPrint(e.toString()); }

@@ -11,6 +11,7 @@ import '../../lib/providers/event_provider.dart';
 import '../../lib/repositories/ticket_repository.dart';
 import '../../lib/providers/config_provider.dart';
 import '../../lib/repositories/payment_repository.dart';
+import '../../lib/providers/ticket_provider.dart';
 import '../../lib/screens/event/event_detail/ticket_tiers_section.dart';
 import '../helpers/mock_providers.dart';
 import '../helpers/mock_payment_repository.dart';
@@ -81,7 +82,7 @@ void main() {
         ChangeNotifierProvider<EventProvider>.value(value: mockEvent),
         ChangeNotifierProvider<ConfigProvider>.value(value: mockConfig),
         Provider<PaymentRepository>.value(value: mockPaymentRepo),
-        Provider<TicketRepository>.value(value: mockTicketRepo),
+        ChangeNotifierProvider<TicketProvider>.value(value: TicketProvider(mockTicketRepo)),
       ],
     );
   }

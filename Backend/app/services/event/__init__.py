@@ -21,15 +21,18 @@ from app.services.event.crud import (
     update,
 )
 from app.services.event.lifecycle import (
+    approve_cancellation,
     approve_extension,
     cancel_event,
     delete_or_cancel,
     extend_funding,
     reactivate_event,
+    reject_cancellation,
     reject_extension,
     set_event_date,
     start_selling_tickets,
 )
+from app.services.event.reactions import react_to_event
 from app.services.event.organizers import (
     add_event_organizer,
     list_event_organizers,
@@ -61,6 +64,7 @@ from app.services.event.attendance import (
 __all__ = [
     "_event_can_edit",
     "add_event_organizer",
+    "approve_cancellation",
     "get_co_organizer_role",
     "approve_extension",
     "auto_transition_status",
@@ -88,8 +92,10 @@ __all__ = [
     "list_events_for_map",
     "list_organizer_customers",
     "publish_event",
+    "react_to_event",
     "reactivate_event",
     "record_customer_attendance",
+    "reject_cancellation",
     "reject_extension",
     "remove_event_organizer",
     "respond_to_invitation",

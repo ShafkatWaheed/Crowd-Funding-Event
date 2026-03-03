@@ -9,9 +9,13 @@ import '../../lib/models/user.dart';
 import '../../lib/providers/auth_provider.dart';
 import '../../lib/providers/event_provider.dart';
 import '../../lib/screens/event/edit_event_screen.dart';
+import '../../lib/models/venue.dart';
+import '../../lib/models/ticket_strategy.dart';
 import '../../lib/repositories/event_repository.dart';
 import '../../lib/repositories/ticket_repository.dart';
 import '../../lib/repositories/venue_repository.dart';
+import '../../lib/providers/ticket_provider.dart';
+import '../../lib/providers/venue_provider.dart';
 import '../helpers/mock_providers.dart';
 import '../helpers/mock_event_repository.dart';
 import '../helpers/mock_ticket_repository.dart';
@@ -21,14 +25,12 @@ import '../helpers/fixtures.dart';
 
 void main() {
   late MockAuthProvider mockAuth;
-  late MockEventProvider mockEvent;
   late MockEventRepository mockEventRepo;
   late MockTicketRepository mockTicketRepo;
   late MockVenueRepository mockVenueRepo;
 
   setUp(() {
     mockAuth = MockAuthProvider();
-    mockEvent = MockEventProvider();
     mockEventRepo = MockEventRepository();
     mockTicketRepo = MockTicketRepository();
     mockVenueRepo = MockVenueRepository();
@@ -42,10 +44,9 @@ void main() {
       const EditEventScreen(eventId: 1),
       overrides: [
         ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
-        ChangeNotifierProvider<EventProvider>.value(value: mockEvent),
-        Provider<EventRepository>.value(value: mockEventRepo),
-        Provider<TicketRepository>.value(value: mockTicketRepo),
-        Provider<VenueRepository>.value(value: mockVenueRepo),
+        ChangeNotifierProvider<EventProvider>.value(value: EventProvider(mockEventRepo)),
+        ChangeNotifierProvider<TicketProvider>.value(value: TicketProvider(mockTicketRepo)),
+        ChangeNotifierProvider<VenueProvider>.value(value: VenueProvider(mockVenueRepo)),
       ],
     );
   }
@@ -54,8 +55,8 @@ void main() {
     testWidgets('shows loading indicator initially', (tester) async {
       // Use completers so the API calls never complete during this test
       final eventCompleter = Completer<Map<String, dynamic>>();
-      final strategiesCompleter = Completer<List<dynamic>>();
-      final venuesCompleter = Completer<List<dynamic>>();
+      final strategiesCompleter = Completer<List<TicketStrategy>>();
+      final venuesCompleter = Completer<List<Venue>>();
       final configCompleter = Completer<Map<String, dynamic>>();
 
       when(() => mockEventRepo.getEvent(1))
@@ -89,7 +90,7 @@ void main() {
       when(() => mockTicketRepo.getTicketStrategies())
           .thenAnswer((_) async => []);
       when(() => mockVenueRepo.getVenues())
-          .thenAnswer((_) async => [venueJson()]);
+          .thenAnswer((_) async => [Venue.fromJson(venueJson())]);
       when(() => mockEventRepo.getPublicConfig())
           .thenAnswer((_) async => {});
 

@@ -77,17 +77,8 @@ async def stripe_webhook(
         stripe_dispute_id = data.get("id", "")
         status = data.get("status", "")
 
-        dispute = await escrow_repo.get_dispute_by_stripe_id(db, stripe_dispute_id)
-        if dispute:
-            from datetime import datetime, timezone
-            dispute.resolved_at = datetime.now(timezone.utc)
-            if status == "won":
-                dispute.status = DisputeStatus.won
-                if dispute.event_id:
-                    await escrow_repo.unfreeze_escrows_for_event(db, dispute.event_id)
-            else:
-                dispute.status = DisputeStatus.lost
-            await escrow_repo.flush(db)
-            log.info("Dispute resolved from webhook: %s -> %s", stripe_dispute_id, status)
+        from app.services import banking_service as banking_svc
+        await banking_svc.handle_dispute_webhook(db, stripe_dispute_id, status)
+        log.info("Dispute resolved from webhook: %s -> %s", stripe_dispute_id, status)
 
     return {"ok": True}

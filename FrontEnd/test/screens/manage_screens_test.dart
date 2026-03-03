@@ -6,6 +6,8 @@ import '../../lib/models/user.dart';
 import '../../lib/models/funding.dart';
 import '../../lib/models/ticket.dart';
 import '../../lib/providers/auth_provider.dart';
+import '../../lib/providers/pledge_provider.dart';
+import '../../lib/providers/ticket_provider.dart';
 import '../../lib/repositories/funding_repository.dart';
 import '../../lib/repositories/ticket_repository.dart';
 import '../../lib/repositories/base_repository.dart';
@@ -38,7 +40,7 @@ void main() {
         const OrganizerPledgesScreen(),
         overrides: [
           ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
-          Provider<FundingRepository>.value(value: mockFundingRepo),
+          ChangeNotifierProvider<PledgeProvider>.value(value: PledgeProvider(mockFundingRepo)),
         ],
       );
     }
@@ -86,7 +88,7 @@ void main() {
         GlobalTicketSalesScreen(scannedOnly: scannedOnly),
         overrides: [
           ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
-          Provider<TicketRepository>.value(value: mockTicketRepo),
+          ChangeNotifierProvider<TicketProvider>.value(value: TicketProvider(mockTicketRepo)),
         ],
       );
     }
@@ -131,7 +133,7 @@ void main() {
         const GlobalRefundRequestsScreen(),
         overrides: [
           ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
-          Provider<TicketRepository>.value(value: mockTicketRepo),
+          ChangeNotifierProvider<TicketProvider>.value(value: TicketProvider(mockTicketRepo)),
         ],
       );
     }

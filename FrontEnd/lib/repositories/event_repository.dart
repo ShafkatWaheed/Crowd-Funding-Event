@@ -1,5 +1,10 @@
 import 'package:dio/dio.dart';
 
+import '../models/event.dart';
+import '../models/event_image.dart';
+import '../models/milestone.dart';
+import '../models/post.dart';
+import '../models/schedule.dart';
 import 'base_repository.dart';
 
 class EventRepository extends BaseRepository {
@@ -36,56 +41,58 @@ class EventRepository extends BaseRepository {
     return resp.data;
   }
 
-  Future<Map<String, dynamic>> createEvent(Map<String, dynamic> data) async {
+  Future<Event> createEvent(Map<String, dynamic> data) async {
     final resp = await dio.post('/events', data: data);
-    return resp.data;
+    return Event.fromJson(resp.data as Map<String, dynamic>);
   }
 
-  Future<Map<String, dynamic>> updateEvent(
+  Future<Event> updateEvent(
       int id, Map<String, dynamic> data) async {
     final resp = await dio.patch('/events/$id', data: data);
-    return resp.data;
+    return Event.fromJson(resp.data as Map<String, dynamic>);
   }
 
   Future<void> deleteEvent(int id) async {
     await dio.delete('/events/$id');
   }
 
-  Future<Map<String, dynamic>> publishEvent(int id) async {
+  Future<Event> publishEvent(int id) async {
     final resp = await dio.post('/events/$id/publish');
-    return resp.data;
+    return Event.fromJson(resp.data as Map<String, dynamic>);
   }
 
-  Future<Map<String, dynamic>> cancelEvent(int id,
+  Future<Event> cancelEvent(int id,
       {required String reason}) async {
     final resp =
         await dio.post('/events/$id/cancel', data: {'reason': reason});
-    return resp.data;
+    return Event.fromJson(resp.data as Map<String, dynamic>);
   }
 
-  Future<Map<String, dynamic>> reactivateEvent(int id) async {
+  Future<Event> reactivateEvent(int id) async {
     final resp = await dio.post('/events/$id/reactivate');
-    return resp.data;
+    return Event.fromJson(resp.data as Map<String, dynamic>);
   }
 
-  Future<Map<String, dynamic>> startSellingTickets(int id) async {
+  Future<Event> startSellingTickets(int id) async {
     final resp = await dio.post('/events/$id/start-selling');
-    return resp.data;
+    return Event.fromJson(resp.data as Map<String, dynamic>);
   }
 
   // ─── My Events ───
 
-  Future<List<dynamic>> getMyEvents(
+  Future<List<Event>> getMyEvents(
       {int offset = 0, int limit = 20, String? sortBy}) async {
     final resp = await dio.get('/me/events', queryParameters: {
       'offset': offset,
       'limit': limit,
       if (sortBy != null) 'sort_by': sortBy,
     });
-    return resp.data;
+    return (resp.data as List)
+        .map((e) => Event.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
-  Future<List<dynamic>> getCoOrganizedEvents({
+  Future<List<Event>> getCoOrganizedEvents({
     String? status,
     String? search,
     int offset = 0,
@@ -97,7 +104,9 @@ class EventRepository extends BaseRepository {
       'offset': offset,
       'limit': limit,
     });
-    return resp.data;
+    return (resp.data as List)
+        .map((e) => Event.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   // ─── Discovery ───
@@ -110,7 +119,7 @@ class EventRepository extends BaseRepository {
     return resp.data;
   }
 
-  Future<List<dynamic>> getMapEvents({
+  Future<List<Event>> getMapEvents({
     double? lat,
     double? lng,
     double? radiusKm,
@@ -134,7 +143,9 @@ class EventRepository extends BaseRepository {
     if (status != null) params['status'] = status;
     if (sponsorshipOnly) params['sponsorship_only'] = true;
     final resp = await dio.get('/events/map', queryParameters: params);
-    return resp.data;
+    return (resp.data as List)
+        .map((e) => Event.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   Future<List<dynamic>> getGenres() async {
@@ -144,22 +155,24 @@ class EventRepository extends BaseRepository {
 
   // ─── Event Images ───
 
-  Future<List<dynamic>> getEventImages(int eventId) async {
+  Future<List<EventImage>> getEventImages(int eventId) async {
     final resp = await dio.get('/events/$eventId/images');
-    return resp.data;
+    return (resp.data as List)
+        .map((e) => EventImage.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
-  Future<Map<String, dynamic>> addEventImage(int eventId,
+  Future<EventImage> addEventImage(int eventId,
       {required String imageUrl, String? caption, int displayOrder = 0}) async {
     final resp = await dio.post('/events/$eventId/images', queryParameters: {
       'image_url': imageUrl,
       if (caption != null) 'caption': caption,
       'display_order': displayOrder,
     });
-    return resp.data;
+    return EventImage.fromJson(resp.data as Map<String, dynamic>);
   }
 
-  Future<Map<String, dynamic>> uploadEventImage(int eventId,
+  Future<EventImage> uploadEventImage(int eventId,
       {required List<int> fileBytes,
       required String fileName,
       String? caption,
@@ -171,7 +184,7 @@ class EventRepository extends BaseRepository {
     });
     final resp =
         await dio.post('/events/$eventId/images/upload', data: formData);
-    return resp.data;
+    return EventImage.fromJson(resp.data as Map<String, dynamic>);
   }
 
   Future<void> deleteEventImage(int eventId, int imageId) async {
@@ -180,16 +193,18 @@ class EventRepository extends BaseRepository {
 
   // ─── Event Posts/Feed ───
 
-  Future<List<dynamic>> getEventPosts(int eventId) async {
+  Future<List<EventPost>> getEventPosts(int eventId) async {
     final resp = await dio.get('/events/$eventId/posts');
-    return resp.data;
+    return (resp.data as List)
+        .map((e) => EventPost.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
-  Future<Map<String, dynamic>> createEventPost(
+  Future<EventPost> createEventPost(
       int eventId, String content) async {
     final resp = await dio
         .post('/events/$eventId/posts', data: {'content': content});
-    return resp.data;
+    return EventPost.fromJson(resp.data as Map<String, dynamic>);
   }
 
   Future<void> deleteEventPost(int eventId, int postId) async {
@@ -217,9 +232,9 @@ class EventRepository extends BaseRepository {
 
   // ─── Clone ───
 
-  Future<Map<String, dynamic>> cloneEvent(int eventId) async {
+  Future<Event> cloneEvent(int eventId) async {
     final resp = await dio.post('/events/$eventId/clone');
-    return resp.data;
+    return Event.fromJson(resp.data as Map<String, dynamic>);
   }
 
   // ─── Co-Organizers ───
@@ -265,22 +280,24 @@ class EventRepository extends BaseRepository {
 
   // ─── Milestones ───
 
-  Future<List<dynamic>> getMilestones(int eventId) async {
+  Future<List<FundingMilestone>> getMilestones(int eventId) async {
     final resp = await dio.get('/events/$eventId/milestones');
-    return resp.data;
+    return (resp.data as List)
+        .map((e) => FundingMilestone.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
-  Future<Map<String, dynamic>> createMilestone(
+  Future<FundingMilestone> createMilestone(
       int eventId, Map<String, dynamic> data) async {
     final resp = await dio.post('/events/$eventId/milestones', data: data);
-    return resp.data;
+    return FundingMilestone.fromJson(resp.data as Map<String, dynamic>);
   }
 
-  Future<Map<String, dynamic>> updateMilestone(
+  Future<FundingMilestone> updateMilestone(
       int eventId, int milestoneId, Map<String, dynamic> data) async {
     final resp = await dio
         .patch('/events/$eventId/milestones/$milestoneId', data: data);
-    return resp.data;
+    return FundingMilestone.fromJson(resp.data as Map<String, dynamic>);
   }
 
   Future<void> deleteMilestone(int eventId, int milestoneId) async {
@@ -310,28 +327,38 @@ class EventRepository extends BaseRepository {
 
   // ─── Schedule ───
 
-  Future<List<dynamic>> getSchedule(int eventId) async {
+  /// Raw schedule data for offline sync (returns unparsed JSON).
+  Future<List<dynamic>> getScheduleRaw(int eventId) async {
     final resp = await dio.get('/events/$eventId/schedule');
-    return resp.data;
-  }
-
-  Future<Map<String, dynamic>> createScheduleItem(
-      int eventId, Map<String, dynamic> data) async {
-    final resp = await dio.post('/events/$eventId/schedule', data: data);
-    return resp.data;
-  }
-
-  Future<List<dynamic>> bulkCreateSchedule(
-      int eventId, List<Map<String, dynamic>> items) async {
-    final resp = await dio.post('/events/$eventId/schedule/bulk', data: items);
     return resp.data as List;
   }
 
-  Future<Map<String, dynamic>> updateScheduleItem(
+  Future<List<ScheduleDay>> getSchedule(int eventId) async {
+    final resp = await dio.get('/events/$eventId/schedule');
+    return (resp.data as List)
+        .map((e) => ScheduleDay.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<ScheduleItem> createScheduleItem(
+      int eventId, Map<String, dynamic> data) async {
+    final resp = await dio.post('/events/$eventId/schedule', data: data);
+    return ScheduleItem.fromJson(resp.data as Map<String, dynamic>);
+  }
+
+  Future<List<ScheduleItem>> bulkCreateSchedule(
+      int eventId, List<Map<String, dynamic>> items) async {
+    final resp = await dio.post('/events/$eventId/schedule/bulk', data: items);
+    return (resp.data as List)
+        .map((e) => ScheduleItem.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<ScheduleItem> updateScheduleItem(
       int eventId, int itemId, Map<String, dynamic> data) async {
     final resp =
         await dio.patch('/events/$eventId/schedule/$itemId', data: data);
-    return resp.data;
+    return ScheduleItem.fromJson(resp.data as Map<String, dynamic>);
   }
 
   Future<void> deleteScheduleItem(int eventId, int itemId) async {
@@ -377,13 +404,15 @@ class EventRepository extends BaseRepository {
     return resp.data;
   }
 
-  Future<List<dynamic>> getBookmarkedEvents(
+  Future<List<Event>> getBookmarkedEvents(
       {String? search, String? status, int offset = 0, int limit = 20}) async {
     final params = <String, dynamic>{'offset': offset, 'limit': limit};
     if (search != null && search.isNotEmpty) params['search'] = search;
     if (status != null && status.isNotEmpty) params['status'] = status;
     final resp = await dio.get('/me/bookmarks', queryParameters: params);
-    return resp.data as List;
+    return (resp.data as List)
+        .map((e) => Event.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   // ─── Ratings/Reviews ───

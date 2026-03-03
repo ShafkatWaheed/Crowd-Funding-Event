@@ -40,7 +40,7 @@
 │                                 │                                            │
 │  ┌──────────────┐  ┌───────────▼──────────┐  ┌──────────────────────┐       │
 │  │  Middleware   │  │   Service Layer      │  │   Background Tasks   │       │
-│  │  ─────────── │  │   (32 services)      │  │   (ARQ + Redis)      │       │
+│  │  ─────────── │  │   (53 services)      │  │   (ARQ + Redis)      │       │
 │  │  Rate Limit  │  │   event, funding,    │  │   ──────────────     │       │
 │  │  (slowapi)   │  │   ticket, sponsor,   │  │   • 9 email tasks    │       │
 │  │  Request Log │  │   escrow, email,     │  │   • 5 refund tasks   │       │
@@ -48,19 +48,24 @@
 │  └──────────────┘  └───────────┬──────────┘  │   • 2 push notif     │       │
 │                                │              │   • 2 bank mock      │       │
 │                     ┌──────────▼──────────┐   └──────────┬───────────┘       │
-│                     │   SQLAlchemy ORM    │              │                   │
-│                     │   (async, pooled)   │   ┌──────────▼───────────┐       │
-│                     │   40+ models        │   │   Redis               │       │
-│                     └──────────┬──────────┘   │   • ARQ task queue    │       │
-│                                │              │   • Server-side cache  │       │
-│  ┌─────────────┐  ┌───────────▼──────────┐   │   • Chat Streams      │       │
-│  │  Advisory   │  │  Connection Pool     │   │   • Chat Pub/Sub      │       │
-│  │  Locks      │  │  pool_size=10        │   └───────────────────────┘       │
-│  │  (per-event │  │  max_overflow=20     │  ┌───────────────────┐           │
-│  │  capacity)  │  │  pool_recycle=1800   │  │  Health Probes    │           │
-│  └─────────────┘  └───────────┬──────────┘  │  /healthz (live)  │           │
-│                                │             │  /health (ready)  │           │
-└────────────────────────────────┼─────────────└───────────────────┘───────────┘
+│                     │  Repository Layer   │              │                   │
+│                     │  (20 repos — ALL    │              │                   │
+│                     │   DB queries here)  │              │                   │
+│                     └──────────┬──────────┘              │                   │
+│                     ┌──────────▼──────────┐   ┌──────────▼───────────┐       │
+│                     │   SQLAlchemy ORM    │   │   Redis               │       │
+│                     │   (async, pooled)   │   │   • ARQ task queue    │       │
+│                     │   40+ models        │   │   • Server-side cache  │       │
+│                     └──────────┬──────────┘   │   • Chat Streams      │       │
+│                                │              │   • Chat Pub/Sub      │       │
+│  ┌─────────────┐  ┌───────────▼──────────┐   └───────────────────────┘       │
+│  │  Advisory   │  │  Connection Pool     │                                   │
+│  │  Locks      │  │  pool_size=10        │  ┌───────────────────┐           │
+│  │  (per-event │  │  max_overflow=20     │  │  Health Probes    │           │
+│  │  capacity)  │  │  pool_recycle=1800   │  │  /healthz (live)  │           │
+│  └─────────────┘  └───────────┬──────────┘  │  /health (ready)  │           │
+│                                │             └───────────────────┘           │
+└────────────────────────────────┼────────────────────────────────────────────┘
                                  │
                                  ▼
 ┌──────────────────────────────────────────────────────────────────────────────┐
@@ -94,7 +99,7 @@
 ```
 Backend/
 ├── app/
-│   ├── api/v1/                    # 18 top-level route modules
+│   ├── api/v1/                    # 18 top-level route modules (thin: auth, validate, return)
 │   │   ├── auth.py                # Firebase token verify (rate limited: 10/min)
 │   │   ├── events/                # Event subpackage (11 modules)
 │   │   │   ├── crud.py            #   Create, read, update, delete
@@ -122,14 +127,45 @@ Backend/
 │   │   ├── milestones.py          # Funding milestones (feature-flagged)
 │   │   ├── schedule.py            # Event schedule/agenda (feature-flagged)
 │   │   └── ...                    # venues, ratings, notifications, users, map, config
+│   ├── repositories/              # 20 repository modules (ALL database queries)
+│   │   ├── base.py                #   Base repo helpers
+│   │   ├── event_repo.py          #   Event CRUD, search, images, posts, reactions
+│   │   ├── funding_repo.py        #   Pledges, refunds, organizer/admin views
+│   │   ├── ticket_repo.py         #   Ticket sales, tiers, waitlist, refunds, scanning
+│   │   ├── sponsor_repo.py        #   Bids, categories, payments, delegates, templates
+│   │   ├── user_repo.py           #   User profiles, KYC, device tokens
+│   │   ├── admin_repo.py          #   Admin queries (users, events, settings, run logs)
+│   │   ├── banking_repo.py        #   Bank accounts, disputes, email templates
+│   │   ├── escrow_repo.py         #   Escrow lifecycle, releases
+│   │   ├── venue_repo.py          #   Venue CRUD, search
+│   │   ├── notification_repo.py   #   Notifications, device tokens
+│   │   ├── registration_repo.py   #   Event registrations, waitlist
+│   │   ├── dashboard_repo.py      #   Dashboard aggregation queries
+│   │   ├── milestone_repo.py      #   Milestone CRUD, reactions, snapshots
+│   │   ├── rating_repo.py         #   User/event ratings
+│   │   ├── discount_repo.py       #   Discount strategies, claims
+│   │   ├── ticket_strategy_repo.py #  Ticket strategy templates
+│   │   ├── ledger_repo.py         #   Ledger entries, reconciliation data
+│   │   ├── email_template_repo.py #   Custom email templates
+│   │   └── worker_run_repo.py     #   ARQ worker run logs
 │   ├── models/                    # 31 files, 40+ SQLAlchemy models
 │   ├── schemas/                   # Pydantic request/response models
-│   ├── services/                  # 32 service modules (business logic)
+│   ├── services/                  # 53 service modules (business logic only, no DB ops)
+│   │   ├── event/                 #   7 modules: crud, lifecycle, queries, organizers,
+│   │   │                          #     permissions, attendance, discounts, reactions
+│   │   ├── funding/               #   3 modules: pledges, reservations, summary
+│   │   ├── ticket/                #   3 modules: sales, pricing, tiers
+│   │   ├── sponsor/               #   7 modules: bids, categories, payments, profile,
+│   │   │                          #     delegates, tickets, organizer_queries
 │   │   ├── chat_service.py        #   Redis Streams CRUD, Pub/Sub, archive
 │   │   ├── push_notification.py   #   FCM push notifications
 │   │   ├── payment_gateway.py     #   Payment processing (mock)
+│   │   ├── banking_service.py     #   Bank account + dispute logic
 │   │   ├── reconciliation.py      #   Ledger reconciliation
-│   │   └── ...                    #   event, funding, ticket, sponsor, escrow, email, ...
+│   │   ├── escrow.py              #   Escrow orchestration (fund, ticket, sponsor)
+│   │   ├── email_service.py       #   Email delivery (SendGrid / Console)
+│   │   ├── email_notifications.py #   HTML template rendering (11 types)
+│   │   └── ...                    #   auth, registration, venue, milestone, audit, ...
 │   ├── worker/                    # ARQ background task system
 │   │   ├── tasks.py               # 32 task functions (see §3.4)
 │   │   ├── main.py                # WorkerSettings (entry point for arq CLI)
@@ -190,9 +226,41 @@ API Request                          ARQ Worker (separate process)
 
 **Graceful degradation**: If Redis is unavailable, the app starts normally — emails are silently skipped, refunds complete inline (synchronous fallback).
 
+### 3.5 Strict 3-Layer Architecture
+
+```
+API Route (thin)  →  Service (business logic)  →  Repository (all SQLAlchemy)
+```
+
+The backend enforces a strict separation of concerns across three layers:
+
+| Layer | Location | Allowed Operations | Forbidden |
+|-------|----------|-------------------|-----------|
+| **API Route** | `app/api/v1/` | Auth, validate input, call service, return response | Business logic, `db.execute`, `select()`, `db.add` |
+| **Service** | `app/services/` | Validation, business rules, commission calculations, orchestration | `db.execute`, `select()`, `func`, `db.add`, `db.flush` |
+| **Repository** | `app/repositories/` | `select`, `db.execute`, `db.add`, `db.flush`, `db.refresh`, `db.delete` | Business logic, HTTP responses |
+
+- **20 repository modules** own all SQLAlchemy operations — zero direct DB calls in services or routes
+- **53 service modules** contain pure business logic — they call repository methods, never `db.execute`
+- **18 route modules** are thin wrappers — authenticate, parse, delegate to service, return response
+- **1,906 backend tests** verify this architecture — all passing
+
 ---
 
 ## 4. Frontend Architecture (Flutter Web)
+
+### 4.1 3-Layer Pattern
+
+```
+Screen (UI only)  →  Provider (state mgmt)  →  Repository (Dio HTTP, typed models)
+      ↑ context.watch/read         ↑ forwarding methods        ↑ returns typed models
+```
+
+- **Screens** use `context.watch<XProvider>()` to read state and `context.read<XProvider>().method()` to dispatch actions. No direct repository access.
+- **Providers** (13 total) hold loading/error/pagination state and forward calls to their repository. Registered in `MultiProvider` in `main.dart`.
+- **Repositories** (12 total, extending `BaseRepository`) own all `Dio` HTTP calls and return typed Dart model classes — never raw `Map<String, dynamic>`.
+
+### 4.2 Directory Structure
 
 ```
 FrontEnd/
@@ -200,41 +268,77 @@ FrontEnd/
 │   ├── config/
 │   │   ├── router.dart              # GoRouter (~40 routes, role-based)
 │   │   ├── theme.dart               # AppTheme (light + dark palettes)
-│   │   └── design_tokens.dart       # Spacing, radius, elevation tokens
+│   │   ├── design_tokens.dart       # Spacing, radius, elevation tokens
+│   │   ├── dio_factory.dart         # createAuthDio() — Firebase auth interceptor + 401 retry
+│   │   └── page_transitions.dart    # Shared page transition builders
 │   ├── db/
-│   │   ├── app_database.dart        # Drift schema (12 tables, schema v3)
+│   │   ├── app_database.dart        # Drift schema (12 tables, schema v4)
 │   │   └── app_database.g.dart      # Generated Drift code
-│   ├── models/                      # 14 Dart data classes
-│   │   ├── chat_message.dart        #   ChatMessage, ChatConversation
+│   ├── models/                      # 14 typed Dart data classes
+│   │   ├── event.dart               #   Event, EventStatus
+│   │   ├── user.dart                #   AppUser
+│   │   ├── ticket.dart              #   Ticket, TicketSale, TicketTier
+│   │   ├── funding.dart             #   Pledge, FundingSummary
 │   │   ├── sponsor.dart             #   SponsorProfile, SponsorBid, SponsorTicketModel, ...
-│   │   └── ...                      #   Event, User, Ticket, Venue, Milestone, etc.
-│   ├── providers/                   # State management (ThemeProvider, NotificationProvider)
+│   │   ├── chat_message.dart        #   ChatMessage, ChatConversation
+│   │   ├── venue.dart, milestone.dart, schedule.dart, post.dart
+│   │   ├── map_event.dart, event_image.dart, ticket_strategy.dart
+│   │   └── event_form_models.dart   #   Create/edit form state
+│   ├── repositories/                # 12 repository modules (ALL Dio HTTP calls)
+│   │   ├── base_repository.dart     #   BaseRepository, PaginatedResult<T>, ApiError
+│   │   ├── event_repository.dart    #   Event CRUD, images, posts, ratings, schedules,
+│   │   │                            #     milestones, config, co-organizers, customers
+│   │   ├── funding_repository.dart  #   Pledges, receipts, refunds, organizer/admin views
+│   │   ├── ticket_repository.dart   #   Purchase, tiers, sales, waitlist, refunds, scanner
+│   │   ├── sponsor_repository.dart  #   Bids, categories, payments, delegates, templates
+│   │   ├── user_repository.dart     #   Profile, KYC, ratings, payment info, bank accounts
+│   │   ├── admin_repository.dart    #   Users, disputes, payouts, escrow, settings, run logs
+│   │   ├── notification_repository.dart  # Notification listing, read/unread, device tokens
+│   │   ├── chat_repository.dart     #   Conversations, messages, create/resolve threads
+│   │   ├── venue_repository.dart    #   Venue CRUD, search
+│   │   ├── bookmark_repository.dart #   Bookmark toggle, list bookmarked events
+│   │   └── payment_repository.dart  #   Stripe config + PaymentIntent creation
+│   ├── providers/                   # 13 providers (state management)
+│   │   ├── auth_provider.dart       #   Firebase auth state, login/register/logout
+│   │   ├── event_provider.dart      #   Event list, detail, create/edit + 50+ forwarding methods
+│   │   ├── pledge_provider.dart     #   Pledge list, pagination, sort/filter state
+│   │   ├── ticket_provider.dart     #   Ticket strategies, tiers, purchase, sales, refunds
+│   │   ├── sponsor_provider.dart    #   Sponsor bids, categories, payments, delegates
+│   │   ├── admin_provider.dart      #   Admin users, events, escrows, disputes, settings
+│   │   ├── user_provider.dart       #   User profile, KYC, payment info, bank account
+│   │   ├── venue_provider.dart      #   Venue CRUD
+│   │   ├── bookmark_provider.dart   #   Bookmark list, toggle
+│   │   ├── chat_provider.dart       #   Chat state, unread counts
+│   │   ├── notification_provider.dart  # In-app notifications, FCM, polling
+│   │   ├── config_provider.dart     #   Platform config + feature flags
+│   │   └── theme_provider.dart      #   Light/dark mode toggle
 │   ├── services/
-│   │   ├── api_service.dart         # Dio HTTP client (all REST calls)
-│   │   ├── sync_service.dart        # Offline sync: pull/push/cache (10 methods)
+│   │   ├── sync_service.dart        # Offline sync via repositories (EventRepo, TicketRepo,
+│   │   │                            #   SponsorRepo, BookmarkRepo) + Drift local DB
 │   │   ├── chat_socket_service.dart # WebSocket for real-time chat
 │   │   ├── location_helper.dart     # Geolocation utilities
 │   │   └── mapbox_geocoding_service.dart
-│   ├── screens/                     # 16 screen directories
+│   ├── screens/                     # 16 screen directories (~93 screen files)
 │   │   ├── auth/                    # Login, register, terms
 │   │   ├── chat/                    # Conversations list, bid chat (WebSocket)
 │   │   ├── event/                   # Create wizard, detail, edit, scan, waitlist
-│   │   ├── home/                    # Home + tabs (explore, manage, channel)
+│   │   ├── home/                    # Home + tabs (explore, manage, dashboard)
 │   │   ├── profile/                 # My tickets, bookmarks, settings
-│   │   ├── admin/                   # Dashboard, payouts, transactions, escrow
+│   │   ├── admin/                   # Dashboard (tabbed), user detail, payouts, escrow
 │   │   ├── sponsor/                 # Dashboard, bids, payments, ticket receipts
 │   │   ├── manage/                  # Ticket sales, refunds, sponsors, pledges
 │   │   └── ...                      # bookmark, notification, pledges, venue, etc.
-│   └── widgets/                     # Reusable components
+│   └── widgets/                     # Reusable components (also use providers, not repos)
 └── pubspec.yaml
 ```
 
 **Key patterns:**
+- **3-layer architecture** — screens never import repositories; all data access goes through providers
 - **5-step event creation wizard** with `IndexedStack` for state persistence
 - **Self-contained widgets** (FundingCard, ReactionBar, EventFeed) — refresh only themselves
 - **Dark mode** with context-aware color helpers
 - **Mapbox** integration (dark-v11 tiles, geocoding, venue markers)
-- **Offline-first** via Drift (SQLite, 12 tables at schema v3) for ticket QR display, event browsing, bookmarks, sponsor tickets, schedules, delegates
+- **Offline-first** via Drift (SQLite, 12 tables at schema v4) for ticket QR display, event browsing, bookmarks, sponsor tickets, schedules, delegates
 - **Real-time chat** via WebSocket with auto-reconnect, typing indicators, delivery/read receipts
 
 ---
@@ -406,10 +510,11 @@ No passwords stored in PostgreSQL — only `firebase_uid`, email, display_name, 
 | ✅ Done | Health probes | Implemented | K8s readiness/liveness |
 | ✅ Done | ARQ + Redis | Implemented | Background task queue |
 | ✅ Done | Redis caching | Implemented | Read scaling (stampede prevention, cascade invalidation, circuit breaker) |
-| ✅ Done | Embedded DB (Drift) | Implemented | Offline: ticket QR, events, bookmarks, schedules, sponsor tickets, delegates (12 tables, schema v3) |
+| ✅ Done | Embedded DB (Drift) | Implemented | Offline: ticket QR, events, bookmarks, schedules, sponsor tickets, delegates (12 tables, schema v4) |
 | ✅ Done | Real-time chat | Implemented | Sponsor ↔ organizer WebSocket chat (Redis Streams + Pub/Sub) |
 | ✅ Done | Push notifications | Implemented | FCM push for offline chat messages |
 | ✅ Done | Canadian banking | Implemented | Encrypted bank fields, verification workflow |
+| ✅ Done | 3-Layer architecture | Implemented | Route→Service→Repo (backend, 20 repos), Screen→Provider→Repo (frontend, 13 providers, 12 repos) |
 | ⏳ Next | Dockerfile | Planned | Multi-stage build for deployment |
 | ⏳ Next | K8s manifests | Planned | Deployments, HPA, PDB, Ingress |
 | ⏳ Next | S3 storage | Planned | Multi-pod file sharing |
@@ -418,7 +523,7 @@ No passwords stored in PostgreSQL — only `firebase_uid`, email, display_name, 
 ### Why Not Microservices
 
 - **Tight transactional coupling**: A single ticket purchase touches tickets, funding (reserved spots), escrow, events (capacity), platform settings (commission), and registration — all in one DB transaction
-- **Small codebase**: 32 service files in a single deployable. Microservices add value at 50k+ lines with multiple teams
+- **Small codebase**: ~90 backend modules (20 repos + 53 services + 18 routes) in a single deployable. Microservices add value at 50k+ lines with multiple teams
 - **Advisory locks solve the bottleneck**: The scaling problem is DB write contention on capacity checks, not service-level scaling
 - **Revisit when**: 3+ teams deploying independently, 50k+ users, or a module with 10x different scaling needs
 
@@ -498,7 +603,7 @@ Event cancelled ─────────► Bulk: all pledges,
 │  ┌──────────────────┐  ┌───────────────────┐  ┌──────────────────────────┐  │
 │  │  Drift / SQLite  │  │  Sync Service      │  │  Connectivity Monitor   │  │
 │  │  (12 tables,     │  │  (10 methods)      │  │  (connectivity_plus)    │  │
-│  │   schema v3)     │  │                    │  │  online → API           │  │
+│  │   schema v4)     │  │                    │  │  online → API           │  │
 │  │                  │  │  pull: events,     │  │  offline → local DB     │  │
 │  │  cached_events   │  │    my_tickets,     │  │                          │  │
 │  │  cached_my_tix   │  │    sponsor_tix,    │  │                          │  │
@@ -561,7 +666,7 @@ Event cancelled ─────────► Bulk: all pledges,
 | `GET /events` (list/search) | **NOT CACHED** | — | — | Infinite filter combos; use DB replica |
 | Ticket availability | **NOT CACHED** | — | — | Must be real-time from primary DB |
 
-### Embedded DB (Drift/SQLite) — 12 Tables, Schema v3
+### Embedded DB (Drift/SQLite) — 12 Tables, Schema v4
 
 | Local Table | Synced From | Sync Trigger | Offline Use |
 |-------------|-------------|-------------|-------------|
@@ -578,7 +683,7 @@ Event cancelled ─────────► Bulk: all pledges,
 | `cached_transport` | Event detail response | On event detail view | Directions at venue |
 | `sync_metadata` | — (local) | — | Track last sync cursor/timestamp |
 
-**Schema migrations:** v1 → v2 (added my_tickets, schedule_items) → v3 (added sponsor_tickets, sponsor_delegates)
+**Schema migrations:** v1 → v2 (added my_tickets, schedule_items) → v3 (added sponsor_tickets, sponsor_delegates) → v4 (added eventStatus column to CachedMyTickets)
 
 ### Key Design Rules
 

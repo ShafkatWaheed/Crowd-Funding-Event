@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
+import '../../lib/providers/user_provider.dart';
 import '../../lib/repositories/user_repository.dart';
 import '../../lib/widgets/kyc_section.dart';
 import '../helpers/mock_user_repository.dart';
@@ -21,7 +22,7 @@ void main() {
     await pumpApp(
       tester,
       const Scaffold(body: SingleChildScrollView(child: KycSection())),
-      overrides: [Provider<UserRepository>.value(value: mockUserRepo)],
+      overrides: [ChangeNotifierProvider<UserProvider>.value(value: UserProvider(mockUserRepo))],
     );
   }
 

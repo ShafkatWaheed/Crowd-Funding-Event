@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
 import '../../../config/design_tokens.dart';
-import '../../../repositories/ticket_repository.dart';
+import '../../../providers/ticket_provider.dart';
 import '../../../widgets/app_toast.dart';
 
 class EventDiscountDropdown extends StatefulWidget {
@@ -20,7 +20,7 @@ class _EventDiscountDropdownState extends State<EventDiscountDropdown> {
   bool _loading = true;
   String _search = '';
 
-  TicketRepository get _ticketRepo => context.read<TicketRepository>();
+  TicketProvider get _ticketRepo => context.read<TicketProvider>();
 
   @override
   void initState() {

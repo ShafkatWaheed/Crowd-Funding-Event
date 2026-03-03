@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../lib/db/app_database.dart';
 import '../../lib/services/sync_service.dart';
 import '../../lib/repositories/ticket_repository.dart';
+import '../../lib/providers/ticket_provider.dart';
 import '../../lib/screens/event/ticket_scanner_screen.dart';
 import '../helpers/mock_ticket_repository.dart';
 import '../helpers/pump_app.dart';
@@ -39,7 +40,7 @@ void main() {
       overrides: [
         Provider<AppDatabase>.value(value: mockDb),
         Provider<SyncService>.value(value: mockSync),
-        Provider<TicketRepository>.value(value: mockTicketRepo),
+        ChangeNotifierProvider<TicketProvider>.value(value: TicketProvider(mockTicketRepo)),
       ],
     );
   }

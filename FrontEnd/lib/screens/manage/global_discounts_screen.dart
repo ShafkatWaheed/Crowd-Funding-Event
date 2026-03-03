@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
-import '../../repositories/ticket_repository.dart';
+import '../../providers/ticket_provider.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/shimmer_loaders.dart';
 
@@ -34,7 +34,7 @@ class _GlobalDiscountsScreenState extends State<GlobalDiscountsScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final list = await context.read<TicketRepository>().getDiscountStrategies();
+      final list = await context.read<TicketProvider>().getDiscountStrategies();
       if (mounted) {
         setState(() {
           _strategies = list.cast<Map<String, dynamic>>();
@@ -54,7 +54,7 @@ class _GlobalDiscountsScreenState extends State<GlobalDiscountsScreen> {
       return;
     }
     try {
-      await context.read<TicketRepository>().createDiscountStrategy({
+      await context.read<TicketProvider>().createDiscountStrategy({
         'name': name,
         'discount_type': _discountType,
         'value': value,
@@ -75,7 +75,7 @@ class _GlobalDiscountsScreenState extends State<GlobalDiscountsScreen> {
 
   Future<void> _delete(int id) async {
     try {
-      await context.read<TicketRepository>().deleteDiscountStrategy(id);
+      await context.read<TicketProvider>().deleteDiscountStrategy(id);
       _load();
     } catch (e) {
       if (mounted) {

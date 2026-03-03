@@ -2,8 +2,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
+import '../../lib/models/sponsor.dart';
 import '../../lib/models/user.dart';
 import '../../lib/providers/auth_provider.dart';
+import '../../lib/providers/event_provider.dart';
+import '../../lib/providers/sponsor_provider.dart';
 import '../../lib/repositories/event_repository.dart';
 import '../../lib/repositories/sponsor_repository.dart';
 import '../../lib/screens/sponsor/sponsorship_categories_screen.dart';
@@ -23,7 +26,7 @@ void main() {
     mockAuth = MockAuthProvider();
   });
 
-  Map<String, dynamic> categoryJson({
+  SponsorshipCategory makeCategory({
     int id = 1,
     int eventId = 1,
     String name = 'Gold Sponsor',
@@ -37,23 +40,23 @@ void main() {
     List<Map<String, dynamic>>? myBids,
     int prereqCount = 0,
   }) =>
-      {
-        'id': id,
-        'event_id': eventId,
-        'name': name,
-        'description': description,
-        'total_spots': totalSpots,
-        'filled_spots': filledSpots,
-        'min_bid_cents': minBidCents,
-        'bid_count': bidCount,
-        'bid_amounts': bidAmounts ?? [],
-        'my_bid_count': myBidCount,
-        'my_bids': myBids ?? [],
-        'prereq_count': prereqCount,
-      };
+      SponsorshipCategory(
+        id: id,
+        eventId: eventId,
+        name: name,
+        description: description,
+        totalSpots: totalSpots,
+        filledSpots: filledSpots,
+        minBidCents: minBidCents,
+        bidCount: bidCount,
+        bidAmounts: bidAmounts ?? [],
+        myBidCount: myBidCount,
+        myBids: myBids ?? [],
+        prereqCount: prereqCount,
+      );
 
   void stubData({
-    List<dynamic>? categories,
+    List<SponsorshipCategory>? categories,
     String eventStatus = 'approved',
   }) {
     when(() => mockSponsorRepo.getSponsorshipCategories(any()))
@@ -74,8 +77,8 @@ void main() {
       tester,
       const SponsorshipCategoriesScreen(eventId: 1),
       overrides: [
-        Provider<SponsorRepository>.value(value: mockSponsorRepo),
-        Provider<EventRepository>.value(value: mockEventRepo),
+        ChangeNotifierProvider<SponsorProvider>.value(value: SponsorProvider(mockSponsorRepo)),
+        ChangeNotifierProvider<EventProvider>.value(value: EventProvider(mockEventRepo)),
         ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
       ],
     );
@@ -100,8 +103,8 @@ void main() {
 
     testWidgets('renders category cards with name and info', (tester) async {
       stubData(categories: [
-        categoryJson(name: 'Gold Sponsor', totalSpots: 5, filledSpots: 2, minBidCents: 10000, bidCount: 3),
-        categoryJson(id: 2, name: 'Silver Sponsor', totalSpots: 10, filledSpots: 0, minBidCents: 5000, bidCount: 0),
+        makeCategory(name: 'Gold Sponsor', totalSpots: 5, filledSpots: 2, minBidCents: 10000, bidCount: 3),
+        makeCategory(id: 2, name: 'Silver Sponsor', totalSpots: 10, filledSpots: 0, minBidCents: 5000, bidCount: 0),
       ]);
 
       await pumpScreen(tester);
@@ -117,7 +120,7 @@ void main() {
 
     testWidgets('shows Place Bid button for sponsors', (tester) async {
       stubData(categories: [
-        categoryJson(totalSpots: 5, filledSpots: 0, myBidCount: 0),
+        makeCategory(totalSpots: 5, filledSpots: 0, myBidCount: 0),
       ]);
 
       await pumpScreen(tester, role: UserRole.sponsor);
@@ -128,7 +131,7 @@ void main() {
 
     testWidgets('hides Place Bid for non-sponsors', (tester) async {
       stubData(categories: [
-        categoryJson(totalSpots: 5, filledSpots: 0),
+        makeCategory(totalSpots: 5, filledSpots: 0),
       ]);
 
       await pumpScreen(tester, role: UserRole.customer);
@@ -139,7 +142,7 @@ void main() {
 
     testWidgets('shows View Bids and Reqs for organizer', (tester) async {
       stubData(categories: [
-        categoryJson(bidCount: 3),
+        makeCategory(bidCount: 3),
       ]);
 
       await pumpScreen(tester, role: UserRole.organizer);
@@ -167,7 +170,7 @@ void main() {
 
     testWidgets('shows min bid display', (tester) async {
       stubData(categories: [
-        categoryJson(minBidCents: 25000),
+        makeCategory(minBidCents: 25000),
       ]);
 
       await pumpScreen(tester);

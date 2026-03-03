@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
-import '../../repositories/admin_repository.dart';
+import '../../providers/admin_provider.dart';
 import '../../widgets/app_toast.dart';
 import 'admin_shared.dart';
 
@@ -47,7 +47,7 @@ class _AdminTransactionsScreenState extends State<AdminTransactionsScreen> {
 
   Future<void> _loadMockMode() async {
     try {
-      final admin = context.read<AdminRepository>();
+      final admin = context.read<AdminProvider>();
       final overview = await admin.getBankingOverview();
       if (mounted) {
         setState(() => _mockModeActive = overview['mock_mode_active'] == true);
@@ -58,7 +58,7 @@ class _AdminTransactionsScreenState extends State<AdminTransactionsScreen> {
   Future<void> _loadTransactions({int page = 0}) async {
     setState(() => _loading = true);
     try {
-      final admin = context.read<AdminRepository>();
+      final admin = context.read<AdminProvider>();
       final resp = await admin.getTransactions(
         offset: page * 20,
         search: _searchText.isNotEmpty ? _searchText : null,
@@ -79,7 +79,7 @@ class _AdminTransactionsScreenState extends State<AdminTransactionsScreen> {
 
   Future<void> _simulateDispute(String transactionId) async {
     try {
-      await context.read<AdminRepository>().simulateDispute(transactionId);
+      await context.read<AdminProvider>().simulateDispute(transactionId);
       _loadTransactions(page: _txnPage);
       if (!mounted) return;
       AppToast.success(context, 'Dispute simulated');

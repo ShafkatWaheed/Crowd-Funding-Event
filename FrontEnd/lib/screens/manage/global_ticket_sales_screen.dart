@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../utils/date_time_utils.dart';
 import '../../models/ticket.dart';
-import '../../repositories/ticket_repository.dart';
+import '../../providers/ticket_provider.dart';
 import '../event/ticket_receipt_screen.dart';
 import '../../widgets/shimmer_loaders.dart';
 
@@ -66,7 +66,7 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
       _hasMore = true;
     });
     try {
-      final repo = context.read<TicketRepository>();
+      final repo = context.read<TicketProvider>();
       final sales = await repo.getOrganizerTicketSales(
         scannedOnly: widget.scannedOnly,
         eventStatus: widget.eventStatus,
@@ -93,7 +93,7 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
     if (_loadingMore || !_hasMore) return;
     setState(() => _loadingMore = true);
     try {
-      final repo = context.read<TicketRepository>();
+      final repo = context.read<TicketProvider>();
       final sales = await repo.getOrganizerTicketSales(
         scannedOnly: widget.scannedOnly,
         eventStatus: widget.eventStatus,

@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../models/sponsor.dart';
 import '../../repositories/base_repository.dart';
-import '../../repositories/sponsor_repository.dart';
+import '../../providers/sponsor_provider.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../profile/sponsor_profile_screen.dart';
@@ -42,11 +42,11 @@ class _BidManagementScreenState extends State<BidManagementScreen> {
 
   Future<void> _load() async {
     try {
-      final api = context.read<SponsorRepository>();
+      final api = context.read<SponsorProvider>();
       final data = await api.listBids(widget.eventId, widget.categoryId);
       if (mounted) {
         setState(() {
-          _bids = data.map((j) => SponsorBid.fromJson(j)).toList();
+          _bids = data;
           _loading = false;
         });
       }
@@ -76,7 +76,7 @@ class _BidManagementScreenState extends State<BidManagementScreen> {
 
   Future<void> _accept(SponsorBid bid) async {
     try {
-      final api = context.read<SponsorRepository>();
+      final api = context.read<SponsorProvider>();
       await api.acceptBid(widget.eventId, widget.categoryId, bid.id);
       if (mounted) AppToast.success(context, 'Bid accepted');
       _load();
@@ -87,7 +87,7 @@ class _BidManagementScreenState extends State<BidManagementScreen> {
 
   Future<void> _reject(SponsorBid bid) async {
     try {
-      final api = context.read<SponsorRepository>();
+      final api = context.read<SponsorProvider>();
       await api.rejectBid(widget.eventId, widget.categoryId, bid.id);
       if (mounted) AppToast.success(context, 'Bid rejected');
       _load();
@@ -114,7 +114,7 @@ class _BidManagementScreenState extends State<BidManagementScreen> {
     );
     if (confirmed != true || !mounted) return;
     try {
-      final api = context.read<SponsorRepository>();
+      final api = context.read<SponsorProvider>();
       await api.refundBid(widget.eventId, widget.categoryId, bid.id);
       if (mounted) AppToast.success(context, 'Bid refunded');
       _load();
@@ -306,13 +306,13 @@ class _BidCardState extends State<_BidCard> {
     if (_loadingDocs) return;
     setState(() => _loadingDocs = true);
     try {
-      final api = context.read<SponsorRepository>();
+      final api = context.read<SponsorProvider>();
       final uploads = await api.listBidPrerequisiteUploads(widget.bid.id);
       final prereqs = await api.listPrerequisites(widget.eventId, widget.categoryId);
       if (mounted) {
         setState(() {
-          _uploads = uploads.cast<Map<String, dynamic>>();
-          _prereqs = prereqs.cast<Map<String, dynamic>>();
+          _uploads = uploads;
+          _prereqs = prereqs;
           _loadingDocs = false;
         });
       }
@@ -328,7 +328,7 @@ class _BidCardState extends State<_BidCard> {
 
   Future<void> _reviewUpload(int prereqId, String newStatus) async {
     try {
-      final api = context.read<SponsorRepository>();
+      final api = context.read<SponsorProvider>();
       await api.reviewPrerequisiteUpload(widget.bid.id, prereqId, status: newStatus);
       if (mounted) AppToast.success(context, 'Document $newStatus');
       _loadDocs();

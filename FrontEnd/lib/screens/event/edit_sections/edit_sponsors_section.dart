@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
-import '../../../repositories/sponsor_repository.dart';
+import '../../../providers/sponsor_provider.dart';
 import '../../../widgets/app_toast.dart';
 
 class EditLocalPrereq {
@@ -52,17 +52,17 @@ class _EditSponsorsSectionState extends State<EditSponsorsSection> {
 
   Future<void> _loadCategories() async {
     try {
-      final api = context.read<SponsorRepository>();
+      final api = context.read<SponsorProvider>();
       final list = await api.getSponsorshipCategories(widget.eventId);
       if (mounted) {
         setState(() {
-          _categories = list.map((j) {
-            final sc = EditSponsorCategory(id: j['id']);
-            sc.nameCtrl.text = j['name'] ?? '';
-            sc.descCtrl.text = j['description'] ?? '';
-            sc.spotsCtrl.text = (j['total_spots'] ?? 1).toString();
+          _categories = list.map((cat) {
+            final sc = EditSponsorCategory(id: cat.id);
+            sc.nameCtrl.text = cat.name;
+            sc.descCtrl.text = cat.description ?? '';
+            sc.spotsCtrl.text = cat.totalSpots.toString();
             sc.minBidCtrl.text =
-                ((j['min_bid_cents'] ?? 0) / 100).toStringAsFixed(2);
+                (cat.minBidCents / 100).toStringAsFixed(2);
             return sc;
           }).toList();
           _loaded = true;
@@ -82,7 +82,7 @@ class _EditSponsorsSectionState extends State<EditSponsorsSection> {
     final spots = int.tryParse(sc.spotsCtrl.text.trim()) ?? 1;
     final minBid =
         ((double.tryParse(sc.minBidCtrl.text.trim()) ?? 0) * 100).round();
-    final api = context.read<SponsorRepository>();
+    final api = context.read<SponsorProvider>();
     try {
       if (sc.id != null) {
         await api.updateSponsorshipCategory(widget.eventId, sc.id!, {
@@ -93,7 +93,7 @@ class _EditSponsorsSectionState extends State<EditSponsorsSection> {
         });
         if (mounted) AppToast.success(context, 'Sponsorship updated');
       } else {
-        final resp =
+        final created =
             await api.createSponsorshipCategory(widget.eventId, {
           'name': name,
           if (sc.descCtrl.text.trim().isNotEmpty)
@@ -102,7 +102,7 @@ class _EditSponsorsSectionState extends State<EditSponsorsSection> {
           'min_bid_cents': minBid,
           'sort_order': _categories.indexOf(sc),
         });
-        sc.id = resp['id'] as int;
+        sc.id = created.id;
         if (mounted) AppToast.success(context, 'Sponsorship created');
       }
       if (sc.id != null && sc.prereqs.isNotEmpty) {
@@ -129,7 +129,7 @@ class _EditSponsorsSectionState extends State<EditSponsorsSection> {
     final sc = _categories[idx];
     if (sc.id != null) {
       try {
-        final api = context.read<SponsorRepository>();
+        final api = context.read<SponsorProvider>();
         await api.deleteSponsorshipCategory(widget.eventId, sc.id!);
       } catch (e) {
         if (mounted) {
@@ -145,10 +145,10 @@ class _EditSponsorsSectionState extends State<EditSponsorsSection> {
   // ── Template picker ──
 
   Future<void> _showTemplatePicker() async {
-    final api = context.read<SponsorRepository>();
+    final api = context.read<SponsorProvider>();
     try {
       final data = await api.getSponsorCategoryTemplates();
-      _templates = data.cast<Map<String, dynamic>>();
+      _templates = data;
     } catch (_) {
       if (mounted) AppToast.error(context, 'Failed to load templates');
       return;
@@ -264,12 +264,12 @@ class _EditSponsorsSectionState extends State<EditSponsorsSection> {
 
   Future<void> _showPrerequisiteSheet(EditSponsorCategory sc) async {
     if (sc.id == null) return;
-    final api = context.read<SponsorRepository>();
+    final api = context.read<SponsorProvider>();
     List<Map<String, dynamic>> prereqs = [];
     try {
       final data =
           await api.listPrerequisites(widget.eventId, sc.id!);
-      prereqs = data.cast<Map<String, dynamic>>();
+      prereqs = data;
     } catch (e) { debugPrint(e.toString()); }
     if (!mounted) return;
 

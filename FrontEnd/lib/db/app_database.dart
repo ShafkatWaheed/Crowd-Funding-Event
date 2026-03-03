@@ -338,18 +338,21 @@ class AppDatabase extends _$AppDatabase {
   // ── Bookmark helpers ──
 
   Future<void> replaceBookmarks(List<int> eventIds) async {
-    await delete(cachedBookmarks).go();
-    final now = DateTime.now();
-    await batch((b) {
-      b.insertAll(
-        cachedBookmarks,
-        eventIds
-            .map((id) => CachedBookmarksCompanion.insert(
-                  eventId: Value(id),
-                  syncedAt: now,
-                ))
-            .toList(),
-      );
+    await transaction(() async {
+      await delete(cachedBookmarks).go();
+      final now = DateTime.now();
+      await batch((b) {
+        b.insertAll(
+          cachedBookmarks,
+          eventIds
+              .map((id) => CachedBookmarksCompanion.insert(
+                    eventId: Value(id),
+                    syncedAt: now,
+                  ))
+              .toList(),
+          mode: InsertMode.insertOrReplace,
+        );
+      });
     });
   }
 
@@ -389,9 +392,12 @@ class AppDatabase extends _$AppDatabase {
   // ── Customer ticket helpers (offline QR) ──
 
   Future<void> replaceMyTickets(List<CachedMyTicketsCompanion> entries) async {
-    await delete(cachedMyTickets).go();
-    if (entries.isEmpty) return;
-    await batch((b) => b.insertAll(cachedMyTickets, entries));
+    await transaction(() async {
+      await delete(cachedMyTickets).go();
+      if (entries.isEmpty) return;
+      await batch((b) => b.insertAll(cachedMyTickets, entries,
+          mode: InsertMode.insertOrReplace));
+    });
   }
 
   Future<List<CachedMyTicket>> getMyTicketsFromCache() {
@@ -410,11 +416,14 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> replaceScheduleForEvent(
       int eventId, List<CachedScheduleItemsCompanion> entries) async {
-    await (delete(cachedScheduleItems)
-          ..where((s) => s.eventId.equals(eventId)))
-        .go();
-    if (entries.isEmpty) return;
-    await batch((b) => b.insertAll(cachedScheduleItems, entries));
+    await transaction(() async {
+      await (delete(cachedScheduleItems)
+            ..where((s) => s.eventId.equals(eventId)))
+          .go();
+      if (entries.isEmpty) return;
+      await batch((b) => b.insertAll(cachedScheduleItems, entries,
+          mode: InsertMode.insertOrReplace));
+    });
   }
 
   Future<List<CachedScheduleItem>> getScheduleForEvent(int eventId) {
@@ -432,9 +441,12 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> replaceSponsorTickets(
       List<CachedSponsorTicketsCompanion> entries) async {
-    await delete(cachedSponsorTickets).go();
-    if (entries.isEmpty) return;
-    await batch((b) => b.insertAll(cachedSponsorTickets, entries));
+    await transaction(() async {
+      await delete(cachedSponsorTickets).go();
+      if (entries.isEmpty) return;
+      await batch((b) => b.insertAll(cachedSponsorTickets, entries,
+          mode: InsertMode.insertOrReplace));
+    });
   }
 
   Future<List<CachedSponsorTicket>> getSponsorTicketsFromCache() {
@@ -447,11 +459,14 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> replaceSponsorDelegates(
       int ticketId, List<CachedSponsorDelegatesCompanion> entries) async {
-    await (delete(cachedSponsorDelegates)
-          ..where((d) => d.sponsorTicketId.equals(ticketId)))
-        .go();
-    if (entries.isEmpty) return;
-    await batch((b) => b.insertAll(cachedSponsorDelegates, entries));
+    await transaction(() async {
+      await (delete(cachedSponsorDelegates)
+            ..where((d) => d.sponsorTicketId.equals(ticketId)))
+          .go();
+      if (entries.isEmpty) return;
+      await batch((b) => b.insertAll(cachedSponsorDelegates, entries,
+          mode: InsertMode.insertOrReplace));
+    });
   }
 
   Future<List<CachedSponsorDelegate>> getSponsorDelegatesFromCache(

@@ -3,7 +3,9 @@ import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
 import '../../lib/models/user.dart';
+import '../../lib/models/venue.dart';
 import '../../lib/providers/auth_provider.dart';
+import '../../lib/providers/venue_provider.dart';
 import '../../lib/repositories/venue_repository.dart';
 import '../../lib/screens/venue/venue_list_screen.dart';
 import '../../lib/screens/venue/create_venue_screen.dart';
@@ -30,14 +32,14 @@ void main() {
         const VenueListScreen(),
         overrides: [
           ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
-          Provider<VenueRepository>.value(value: mockVenueRepo),
+          ChangeNotifierProvider<VenueProvider>.value(value: VenueProvider(mockVenueRepo)),
         ],
       );
     }
 
     testWidgets('shows My Venues title and Add Venue FAB', (tester) async {
       when(() => mockVenueRepo.getVenues())
-          .thenAnswer((_) async => [venueJson()]);
+          .thenAnswer((_) async => [Venue.fromJson(venueJson())]);
 
       await pumpVenueList(tester);
       await tester.pumpAndSettle();
@@ -59,7 +61,7 @@ void main() {
     testWidgets('shows venue card with name and address', (tester) async {
       when(() => mockVenueRepo.getVenues())
           .thenAnswer((_) async => [
-                venueJson(name: 'Grand Arena', address: '123 Main St', city: 'NYC'),
+                Venue.fromJson(venueJson(name: 'Grand Arena', address: '123 Main St', city: 'NYC')),
               ]);
 
       await pumpVenueList(tester);
@@ -76,7 +78,7 @@ void main() {
         const CreateVenueScreen(),
         overrides: [
           ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
-          Provider<VenueRepository>.value(value: mockVenueRepo),
+          ChangeNotifierProvider<VenueProvider>.value(value: VenueProvider(mockVenueRepo)),
         ],
       );
     }

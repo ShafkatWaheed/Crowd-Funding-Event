@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 
+import '../models/event.dart';
 import 'base_repository.dart';
 
 /// Repository for all `/admin/*` endpoints.
@@ -43,15 +44,15 @@ class AdminRepository extends BaseRepository {
     return resp.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> approveEvent(
+  Future<Event> approveEvent(
     int id,
     Map<String, dynamic> data,
   ) async {
     final resp = await dio.post('/admin/events/$id/approve', data: data);
-    return resp.data;
+    return Event.fromJson(resp.data as Map<String, dynamic>);
   }
 
-  Future<Map<String, dynamic>> resolveReview(
+  Future<Event> resolveReview(
     int eventId, {
     required String targetStatus,
     String? notes,
@@ -61,10 +62,10 @@ class AdminRepository extends BaseRepository {
       'target_status': targetStatus,
       if (notes != null && notes.isNotEmpty) 'notes': notes,
     });
-    return resp.data as Map<String, dynamic>;
+    return Event.fromJson(resp.data as Map<String, dynamic>);
   }
 
-  Future<Map<String, dynamic>> decideCancellation(
+  Future<Event> decideCancellation(
     int eventId,
     String action,
   ) async {
@@ -72,7 +73,7 @@ class AdminRepository extends BaseRepository {
       '/events/$eventId/cancellation/approve',
       data: {'action': action},
     );
-    return resp.data as Map<String, dynamic>;
+    return Event.fromJson(resp.data as Map<String, dynamic>);
   }
 
   Future<Map<String, dynamic>> setPolicyOverrides(

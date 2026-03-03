@@ -8,9 +8,9 @@ import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
 import '../../db/app_database.dart';
-import '../../repositories/ticket_repository.dart';
+import '../../providers/ticket_provider.dart';
 import '../../repositories/base_repository.dart';
-import '../../repositories/sponsor_repository.dart';
+import '../../providers/sponsor_provider.dart';
 import '../../services/sync_service.dart';
 
 
@@ -126,10 +126,10 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
       }
 
       if (_sponsorMode) {
-        final repo = context.read<SponsorRepository>();
+        final repo = context.read<SponsorProvider>();
         await _handleSponsorScan(repo, rawData, encryptedPayload);
       } else {
-        final repo = context.read<TicketRepository>();
+        final repo = context.read<TicketProvider>();
         await _handleRegularScan(
             repo, rawData, ticketCode, encryptedPayload);
       }
@@ -152,7 +152,7 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
     if (mounted) setState(() => _isProcessing = false);
   }
 
-  Future<void> _handleRegularScan(TicketRepository repo, String rawData,
+  Future<void> _handleRegularScan(TicketProvider repo, String rawData,
       String? ticketCode, String? encryptedPayload) async {
     if (_isOffline) {
       await _handleOfflineScan(rawData, ticketCode, encryptedPayload);
@@ -265,7 +265,7 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
   }
 
   Future<void> _handleSponsorScan(
-      SponsorRepository repo, String rawData, String? encryptedPayload) async {
+      SponsorProvider repo, String rawData, String? encryptedPayload) async {
     if (encryptedPayload == null) {
       if (mounted) {
         setState(() {
@@ -1022,7 +1022,7 @@ class _SponsorDelegateSheetState extends State<_SponsorDelegateSheet> {
     if (delegate['checked_in'] == true) return;
 
     try {
-      final repo = context.read<SponsorRepository>();
+      final repo = context.read<SponsorProvider>();
       final result = await repo.checkInDelegate(widget.eventId, delegate['id']);
 
       if (mounted) {

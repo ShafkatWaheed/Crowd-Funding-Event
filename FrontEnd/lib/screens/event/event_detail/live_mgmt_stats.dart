@@ -5,8 +5,8 @@ import 'package:provider/provider.dart';
 import '../../../config/theme.dart';
 import '../../../config/design_tokens.dart';
 import '../../../models/event.dart';
-import '../../../repositories/ticket_repository.dart';
-import '../../../repositories/event_repository.dart';
+import '../../../providers/ticket_provider.dart';
+import '../../../providers/event_provider.dart';
 
 // ═══════════════════════════════════════════
 // Live Management Stats — clickable stat chips
@@ -52,8 +52,8 @@ class _LiveMgmtStatsState extends State<LiveMgmtStats> {
 
   Future<void> _load() async {
     try {
-      final api = context.read<EventRepository>();
-      final ticketRepo = context.read<TicketRepository>();
+      final api = context.read<EventProvider>();
+      final ticketRepo = context.read<TicketProvider>();
 
       if (_isEarlyPhase) {
         // Only need registrations for early phases

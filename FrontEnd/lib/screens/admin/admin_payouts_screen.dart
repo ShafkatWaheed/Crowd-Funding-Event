@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
-import '../../repositories/admin_repository.dart';
+import '../../providers/admin_provider.dart';
 import '../../widgets/app_toast.dart';
 import 'admin_shared.dart';
 
@@ -50,7 +50,7 @@ class _AdminPayoutsScreenState extends State<AdminPayoutsScreen> {
       _error = null;
     });
     try {
-      final admin = context.read<AdminRepository>();
+      final admin = context.read<AdminProvider>();
       final resp = await admin.getPayoutStatus();
       if (!mounted) return;
       setState(() {
@@ -68,7 +68,7 @@ class _AdminPayoutsScreenState extends State<AdminPayoutsScreen> {
 
   Future<void> _forcePayout(int organizerId) async {
     try {
-      await context.read<AdminRepository>().forcePayout(organizerId);
+      await context.read<AdminProvider>().forcePayout(organizerId);
       _loadPayouts();
       if (!mounted) return;
       AppToast.success(context, 'Payout initiated');

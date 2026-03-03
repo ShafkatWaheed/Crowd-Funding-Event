@@ -5,8 +5,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
+import '../../lib/models/sponsor.dart';
 import '../../lib/models/user.dart';
 import '../../lib/providers/auth_provider.dart';
+import '../../lib/providers/sponsor_provider.dart';
 import '../../lib/repositories/sponsor_repository.dart';
 import '../../lib/screens/sponsor/sponsor_dashboard_screen.dart';
 import '../helpers/mock_providers.dart';
@@ -26,8 +28,8 @@ void main() {
     when(() => mockAuth.user).thenReturn(makeUser(role: UserRole.sponsor));
   });
 
-  /// Build a proper SponsorTicketModel-compatible JSON.
-  Map<String, dynamic> _sponsorTicketJson({
+  /// Build a proper SponsorTicketModel instance.
+  SponsorTicketModel makeSponsorTicket({
     int id = 1,
     int eventId = 1,
     int sponsorUserId = 5,
@@ -35,45 +37,37 @@ void main() {
     int categoryCount = 2,
     String? scannedAt,
   }) =>
-      {
-        'id': id,
-        'event_id': eventId,
-        'sponsor_user_id': sponsorUserId,
-        'receipt_number': receiptNumber,
-        'encrypted_qr_payload': null,
-        'scanned_at': scannedAt,
-        'created_at': '2025-01-20T10:00:00',
-        'categories': <dynamic>[],
-        'category_names': <dynamic>[],
-        'category_count': categoryCount,
-        'event_title': null,
-        'event_status': null,
-        'event_start_time': null,
-        'venue_name': null,
-        'venue_address': null,
-        'venue_city': null,
-        'scan_count': 0,
-      };
+      SponsorTicketModel(
+        id: id,
+        eventId: eventId,
+        sponsorUserId: sponsorUserId,
+        receiptNumber: receiptNumber,
+        scannedAt: scannedAt,
+        createdAt: '2025-01-20T10:00:00',
+        categories: [],
+        categoryNames: [],
+        categoryCount: categoryCount,
+      );
+
+  /// Build a default SponsorProfile instance.
+  SponsorProfile defaultProfile() => SponsorProfile(
+        id: 1,
+        userId: 5,
+        companyName: 'Acme Corp',
+        contactName: 'John Doe',
+        profession: 'Marketing',
+        description: 'A sponsor company',
+      );
 
   /// Stub sponsor profile and tickets for a successful load.
   void stubSponsorSuccess({
-    Map<String, dynamic>? profile,
-    List<Map<String, dynamic>>? tickets,
+    SponsorProfile? profile,
+    List<SponsorTicketModel>? tickets,
   }) {
-    when(() => mockSponsorRepo.getSponsorProfile()).thenAnswer((_) async =>
-        profile ??
-        {
-          'id': 1,
-          'user_id': 5,
-          'company_name': 'Acme Corp',
-          'contact_name': 'John Doe',
-          'profession': 'Marketing',
-          'logo_url': null,
-          'description': 'A sponsor company',
-          'website_url': null,
-        });
-    when(() => mockSponsorRepo.getMySponsorTickets()).thenAnswer((_) async =>
-        tickets ?? [_sponsorTicketJson()]);
+    when(() => mockSponsorRepo.getSponsorProfile())
+        .thenAnswer((_) async => profile ?? defaultProfile());
+    when(() => mockSponsorRepo.getMySponsorTickets())
+        .thenAnswer((_) async => tickets ?? [makeSponsorTicket()]);
   }
 
   Future<void> pumpSponsorDashboard(WidgetTester tester) async {
@@ -82,7 +76,7 @@ void main() {
       const SponsorDashboardScreen(),
       overrides: [
         ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
-        Provider<SponsorRepository>.value(value: mockSponsorRepo),
+        ChangeNotifierProvider<SponsorProvider>.value(value: SponsorProvider(mockSponsorRepo)),
       ],
     );
   }
@@ -120,8 +114,8 @@ void main() {
     testWidgets('loading state shows app bar while content loads',
         (tester) async {
       // Use completers to control when the futures resolve.
-      final profileCompleter = Completer<Map<String, dynamic>>();
-      final ticketsCompleter = Completer<List<dynamic>>();
+      final profileCompleter = Completer<SponsorProfile>();
+      final ticketsCompleter = Completer<List<SponsorTicketModel>>();
 
       when(() => mockSponsorRepo.getSponsorProfile())
           .thenAnswer((_) => profileCompleter.future);
@@ -137,16 +131,13 @@ void main() {
       expect(find.byType(Scaffold), findsOneWidget);
 
       // Complete the futures to avoid pending timer issues
-      profileCompleter.complete({
-        'id': 1,
-        'user_id': 5,
-        'company_name': 'Acme Corp',
-        'contact_name': 'John Doe',
-        'profession': 'Marketing',
-        'logo_url': null,
-        'description': null,
-        'website_url': null,
-      });
+      profileCompleter.complete(SponsorProfile(
+        id: 1,
+        userId: 5,
+        companyName: 'Acme Corp',
+        contactName: 'John Doe',
+        profession: 'Marketing',
+      ));
       ticketsCompleter.complete([]);
       await tester.pumpAndSettle();
     });

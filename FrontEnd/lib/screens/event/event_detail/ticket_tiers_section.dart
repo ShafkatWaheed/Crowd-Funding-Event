@@ -9,8 +9,7 @@ import '../../../models/event.dart';
 import '../../../models/ticket.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/event_provider.dart';
-import '../../../repositories/event_repository.dart';
-import '../../../repositories/ticket_repository.dart';
+import '../../../providers/ticket_provider.dart';
 import '../../../providers/config_provider.dart';
 import '../../../repositories/payment_repository.dart';
 import '../../../widgets/app_toast.dart';
@@ -47,7 +46,7 @@ class TicketTiersSection extends StatefulWidget {
 
 class _TicketTiersSectionState extends State<TicketTiersSection> {
   Widget _buildTicketTiersSection() {
-    final ticketRepo = context.read<TicketRepository>();
+    final ticketRepo = context.read<TicketProvider>();
     final user = context.read<AuthProvider>().user;
     final isCustomer = user != null && !user.isOrganizer && !user.isAdmin;
 
@@ -160,7 +159,7 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
   Future<void> _showBuyTicketDialog() async {
     final event = widget.event;
     try {
-      final ticketRepo = context.read<TicketRepository>();
+      final ticketRepo = context.read<TicketProvider>();
       final tiers = await ticketRepo.getTicketTiers(event.id);
       if (tiers.isEmpty) {
         if (mounted) {
@@ -326,7 +325,7 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
 
   Future<void> _showInvoiceDialog(
       TicketTier tier, Map<String, dynamic>? preview) async {
-    final eventRepo = context.read<EventRepository>();
+    final eventRepo = context.read<EventProvider>();
     final event = widget.event;
     final tierName = tier.name;
     final tierId = tier.id;
@@ -725,7 +724,7 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
     try {
       final config = context.read<ConfigProvider>();
       final paymentRepo = context.read<PaymentRepository>();
-      final ticketRepo = context.read<TicketRepository>();
+      final ticketRepo = context.read<TicketProvider>();
 
       // Stripe Payment Sheet flow when Stripe is enabled
       if (config.stripeEnabled) {

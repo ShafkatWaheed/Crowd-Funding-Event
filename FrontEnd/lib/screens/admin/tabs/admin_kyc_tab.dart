@@ -5,7 +5,7 @@ import '../admin_shared.dart';
 import '../../../config/design_tokens.dart';
 import '../../../config/theme.dart';
 import '../../../repositories/base_repository.dart';
-import '../../../repositories/user_repository.dart';
+import '../../../providers/user_provider.dart';
 import '../../../widgets/admin/admin_empty_state.dart';
 
 class AdminKycTab extends StatefulWidget {
@@ -49,7 +49,7 @@ class _AdminKycTabState extends State<AdminKycTab> {
   Future<void> _loadPending() async {
     setState(() => _loading = true);
     try {
-      final data = await context.read<UserRepository>().adminGetKycPending();
+      final data = await context.read<UserProvider>().adminGetKycPending();
       if (mounted) setState(() => _pendingUsers = data);
     } catch (e) {
       widget.onSnack(ApiError.extractMessage(e), isError: true);
@@ -157,7 +157,7 @@ class _KycUserCardState extends State<_KycUserCard> {
     setState(() => _loadingDocs = true);
     try {
       final docs = await context
-          .read<UserRepository>()
+          .read<UserProvider>()
           .adminGetUserKycDocuments(widget.user['user_id']);
       if (mounted) setState(() => _documents = docs);
     } catch (e) {
@@ -171,7 +171,7 @@ class _KycUserCardState extends State<_KycUserCard> {
     setState(() => _acting = true);
     try {
       await context
-          .read<UserRepository>()
+          .read<UserProvider>()
           .adminVerifyKyc(widget.user['user_id'], approved: true);
       widget.onSnack('KYC approved');
       widget.onDone();
@@ -215,7 +215,7 @@ class _KycUserCardState extends State<_KycUserCard> {
 
     setState(() => _acting = true);
     try {
-      await context.read<UserRepository>().adminVerifyKyc(
+      await context.read<UserProvider>().adminVerifyKyc(
             widget.user['user_id'],
             approved: false,
             rejectionReason: reason,

@@ -8,6 +8,8 @@ import 'package:provider/provider.dart';
 import '../../lib/models/ticket.dart';
 import '../../lib/repositories/sponsor_repository.dart';
 import '../../lib/repositories/ticket_repository.dart';
+import '../../lib/providers/sponsor_provider.dart';
+import '../../lib/providers/ticket_provider.dart';
 import '../../lib/screens/event/ticket_sales_screen.dart';
 import '../helpers/mock_sponsor_repository.dart';
 import '../helpers/mock_ticket_repository.dart';
@@ -85,8 +87,8 @@ void main() {
       tester,
       TicketSalesScreen(eventId: 1, scannedOnly: scannedOnly),
       overrides: [
-        Provider<SponsorRepository>.value(value: mockSponsorRepo),
-        Provider<TicketRepository>.value(value: mockTicketRepo),
+        ChangeNotifierProvider<SponsorProvider>.value(value: SponsorProvider(mockSponsorRepo)),
+        ChangeNotifierProvider<TicketProvider>.value(value: TicketProvider(mockTicketRepo)),
       ],
     );
   }

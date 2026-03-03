@@ -5,7 +5,7 @@ import '../../config/theme.dart';
 import '../../config/design_tokens.dart';
 import '../../utils/date_time_utils.dart';
 import '../../models/ticket.dart';
-import '../../repositories/ticket_repository.dart';
+import '../../providers/ticket_provider.dart';
 import '../../widgets/app_toast.dart';
 
 class GlobalRefundRequestsScreen extends StatefulWidget {
@@ -42,7 +42,7 @@ class _GlobalRefundRequestsScreenState
       _error = null;
     });
     try {
-      final repo = context.read<TicketRepository>();
+      final repo = context.read<TicketProvider>();
       final data = await repo.getOrganizerRefundRequests();
       if (mounted) {
         setState(() {
@@ -77,7 +77,7 @@ class _GlobalRefundRequestsScreenState
 
   Future<void> _approve(int eventId, int ticketId) async {
     try {
-      final repo = context.read<TicketRepository>();
+      final repo = context.read<TicketProvider>();
       await repo.approveTicketRefund(eventId, ticketId);
       if (mounted) {
         AppToast.success(context, 'Refund approved');
@@ -110,7 +110,7 @@ class _GlobalRefundRequestsScreenState
     if (confirmed != true || !mounted) return;
 
     try {
-      final repo = context.read<TicketRepository>();
+      final repo = context.read<TicketProvider>();
       await repo.rejectTicketRefund(eventId, ticketId);
       if (mounted) {
         AppToast.success(context, 'Refund rejected — ticket restored');

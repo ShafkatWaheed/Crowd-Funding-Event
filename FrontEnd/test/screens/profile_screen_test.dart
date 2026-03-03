@@ -5,8 +5,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
+import '../../lib/models/sponsor.dart';
 import '../../lib/models/user.dart';
 import '../../lib/providers/auth_provider.dart';
+import '../../lib/providers/sponsor_provider.dart';
+import '../../lib/providers/user_provider.dart';
 import '../../lib/repositories/sponsor_repository.dart';
 import '../../lib/repositories/user_repository.dart';
 import '../../lib/screens/profile/profile_screen.dart';
@@ -49,14 +52,14 @@ void main() {
 
     // For sponsor users, stub getSponsorProfile (called in initState)
     if (role == UserRole.sponsor) {
-      when(() => mockSponsorRepo.getSponsorProfile()).thenAnswer((_) async => {
-            'company_name': 'Acme Corp',
-            'contact_name': 'Alice',
-            'profession': 'Marketing',
-            'logo_url': null,
-            'description': null,
-            'website_url': null,
-          });
+      when(() => mockSponsorRepo.getSponsorProfile()).thenAnswer((_) async =>
+          SponsorProfile(
+            id: 1,
+            userId: 1,
+            companyName: 'Acme Corp',
+            contactName: 'Alice',
+            profession: 'Marketing',
+          ));
     }
 
     await pumpApp(
@@ -64,8 +67,8 @@ void main() {
       const ProfileScreen(),
       overrides: [
         ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
-        Provider<SponsorRepository>.value(value: mockSponsorRepo),
-        Provider<UserRepository>.value(value: mockUserRepo),
+        ChangeNotifierProvider<SponsorProvider>.value(value: SponsorProvider(mockSponsorRepo)),
+        ChangeNotifierProvider<UserProvider>.value(value: UserProvider(mockUserRepo)),
       ],
     );
     // Let all animations and async operations complete

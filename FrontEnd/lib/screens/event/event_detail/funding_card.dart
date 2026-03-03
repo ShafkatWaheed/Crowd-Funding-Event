@@ -9,8 +9,8 @@ import '../../../config/design_tokens.dart';
 import '../../../models/event.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../repositories/base_repository.dart';
-import '../../../repositories/funding_repository.dart';
-import '../../../repositories/ticket_repository.dart';
+import '../../../providers/pledge_provider.dart';
+import '../../../providers/ticket_provider.dart';
 import '../../../providers/config_provider.dart';
 import '../../../repositories/payment_repository.dart';
 import '../../../widgets/app_toast.dart';
@@ -64,7 +64,7 @@ class _FundingCardState extends State<FundingCard> {
 
   Future<void> _loadEarlyBirdDiscounts() async {
     try {
-      final ticketRepo = context.read<TicketRepository>();
+      final ticketRepo = context.read<TicketProvider>();
       final data = await ticketRepo.getEarlyBirdDiscounts(widget.eventId);
       if (mounted) setState(() => _earlyBirdDiscounts = data);
     } catch (e) { debugPrint(e.toString()); }
@@ -72,15 +72,15 @@ class _FundingCardState extends State<FundingCard> {
 
   Future<void> _loadFunding() async {
     try {
-      final repo = context.read<FundingRepository>();
+      final repo = context.read<PledgeProvider>();
       final data = await repo.getFundingSummary(widget.eventId);
       if (mounted) {
         setState(() {
-          _totalPledgedCents = data['total_pledged_cents'] ?? 0;
-          _backersCount = data['backers_count'] ?? 0;
-          _goalCents = data['goal_cents'];
-          _fundingCommissionPercent = data['funding_commission_percent'] ?? 0;
-          _totalReservedSpots = data['total_reserved_spots'] ?? 0;
+          _totalPledgedCents = data.totalPledgedCents;
+          _backersCount = data.backersCount;
+          _goalCents = data.goalCents > 0 ? data.goalCents : null;
+          _fundingCommissionPercent = data.fundingCommissionPercent;
+          _totalReservedSpots = data.totalReservedSpots;
         });
       }
     } catch (e) { debugPrint(e.toString()); }
@@ -135,7 +135,7 @@ class _FundingCardState extends State<FundingCard> {
 
     if (isTierLinked) {
       try {
-        final repo = context.read<FundingRepository>();
+        final repo = context.read<PledgeProvider>();
         final preview = await repo.getPledgePreview(widget.eventId, 0, 0);
         tierAvailability = List<Map<String, dynamic>>.from(preview['tier_availability'] ?? []);
         availableSpotsForUser = (preview['available_spots_for_user'] as int?) ?? maxPerUser;
@@ -463,7 +463,7 @@ class _FundingCardState extends State<FundingCard> {
     String? previewError;
 
     try {
-      final repo = context.read<FundingRepository>();
+      final repo = context.read<PledgeProvider>();
       preview = await repo.getPledgePreview(widget.eventId, amountCents, reservedSpots);
       loadingPreview = false;
     } catch (e) {
@@ -606,7 +606,7 @@ class _FundingCardState extends State<FundingCard> {
     try {
       final config = context.read<ConfigProvider>();
       final paymentRepo = context.read<PaymentRepository>();
-      final repo = context.read<FundingRepository>();
+      final repo = context.read<PledgeProvider>();
 
       // Stripe Payment Sheet flow when Stripe is enabled
       if (config.stripeEnabled) {
@@ -628,8 +628,8 @@ class _FundingCardState extends State<FundingCard> {
           tierReservations: tierReservations);
       _dismissPaymentProcessing();
       if (mounted) {
-        final isGuest = result['is_guest'] == true;
-        final pledgeId = result['id'] as int;
+        final isGuest = result.isGuest;
+        final pledgeId = result.id;
         AppToast.success(context, isGuest
             ? 'Guest pledge (non-refundable)'
             : 'Pledge confirmed!');
@@ -716,7 +716,7 @@ class _FundingCardState extends State<FundingCard> {
 
     if (confirmed != true || !mounted) return;
     try {
-      final repo = context.read<FundingRepository>();
+      final repo = context.read<PledgeProvider>();
       final result = await repo.unpledge(widget.eventId);
       if (!mounted) return;
       final refunded = result['refunded_cents'] ?? 0;
@@ -749,7 +749,7 @@ class _FundingCardState extends State<FundingCard> {
     _refundPollTimer?.cancel();
     _refundPollTimer = Timer.periodic(const Duration(seconds: 3), (_) async {
       try {
-        final repo = context.read<FundingRepository>();
+        final repo = context.read<PledgeProvider>();
         final result = await repo.getRefundStatus(widget.eventId);
         final status = result['status'] as String? ?? 'none';
 

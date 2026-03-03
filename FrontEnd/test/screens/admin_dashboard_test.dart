@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../lib/models/user.dart';
 import '../../lib/providers/auth_provider.dart';
 import '../../lib/providers/theme_provider.dart';
+import '../../lib/providers/admin_provider.dart';
 import '../../lib/repositories/admin_repository.dart';
 import '../../lib/screens/admin/admin_dashboard_screen.dart';
 import '../helpers/mock_providers.dart';
@@ -87,7 +88,7 @@ void main() {
       overrides: [
         ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
         ChangeNotifierProvider<ThemeProvider>.value(value: mockTheme),
-        Provider<AdminRepository>.value(value: mockAdmin),
+        ChangeNotifierProvider<AdminProvider>.value(value: AdminProvider(mockAdmin)),
       ],
     );
   }

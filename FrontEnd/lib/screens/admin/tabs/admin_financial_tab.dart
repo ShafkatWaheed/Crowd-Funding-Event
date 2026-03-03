@@ -6,11 +6,11 @@ import 'package:provider/provider.dart';
 import '../../../config/design_tokens.dart';
 import '../../../config/theme.dart';
 import '../../../models/funding.dart';
-import '../../../repositories/funding_repository.dart';
+import '../../../providers/pledge_provider.dart';
 import '../../../models/ticket.dart';
 import '../../../repositories/base_repository.dart';
-import '../../../repositories/ticket_repository.dart';
-import '../../../repositories/admin_repository.dart';
+import '../../../providers/ticket_provider.dart';
+import '../../../providers/admin_provider.dart';
 import '../../../widgets/admin/admin_empty_state.dart';
 import '../../../widgets/admin/admin_search_bar.dart';
 import '../admin_shared.dart';
@@ -137,7 +137,7 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
 
   Future<void> _loadTickets() async {
     try {
-      final ticketRepo = context.read<TicketRepository>();
+      final ticketRepo = context.read<TicketProvider>();
       final result = await ticketRepo.adminGetTickets(
         offset: 0,
         limit: _pageSize,
@@ -155,7 +155,7 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
 
   Future<void> _loadPledges() async {
     try {
-      final repo = context.read<FundingRepository>();
+      final repo = context.read<PledgeProvider>();
       final result = await repo.adminGetPledges(
         offset: 0,
         limit: _pageSize,
@@ -174,7 +174,7 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
 
   Future<void> _loadEscrowsOnly() async {
     try {
-      final admin = context.read<AdminRepository>();
+      final admin = context.read<AdminProvider>();
       final data = await admin.getEscrowList(
         offset: 0,
         limit: _pageSize,
@@ -193,7 +193,7 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
     if (_ticketsLoadingMore || _adminTickets.length >= _ticketsTotal) return;
     setState(() => _ticketsLoadingMore = true);
     try {
-      final ticketRepo = context.read<TicketRepository>();
+      final ticketRepo = context.read<TicketProvider>();
       final result = await ticketRepo.adminGetTickets(
         offset: _adminTickets.length,
         limit: _pageSize,
@@ -212,7 +212,7 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
     if (_pledgesLoadingMore || _adminPledges.length >= _pledgesTotal) return;
     setState(() => _pledgesLoadingMore = true);
     try {
-      final repo = context.read<FundingRepository>();
+      final repo = context.read<PledgeProvider>();
       final result = await repo.adminGetPledges(
         offset: _adminPledges.length,
         limit: _pageSize,
@@ -232,7 +232,7 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
     if (_escrowsLoadingMore || _escrows.length >= _escrowsTotal) return;
     setState(() => _escrowsLoadingMore = true);
     try {
-      final admin = context.read<AdminRepository>();
+      final admin = context.read<AdminProvider>();
       final data = await admin.getEscrowList(
         offset: _escrows.length,
         limit: _pageSize,
@@ -259,8 +259,8 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
   }
 
   Future<void> _reloadFinancialData() async {
-    final ticketRepo = context.read<TicketRepository>();
-    final fundingRepo = context.read<FundingRepository>();
+    final ticketRepo = context.read<TicketProvider>();
+    final fundingRepo = context.read<PledgeProvider>();
     try {
       final search = _financialSearch.isEmpty ? null : _financialSearch;
       final ticketsResult = await ticketRepo.adminGetTickets(
@@ -299,7 +299,7 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
   }
 
   Future<void> _reloadEscrowData() async {
-    final admin = context.read<AdminRepository>();
+    final admin = context.read<AdminProvider>();
     try {
       final data = await admin.getEscrowList(
         offset: 0,
@@ -317,7 +317,7 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
 
   Future<void> _escrowAction(int eventId, String action, {int? stage}) async {
     try {
-      final admin = context.read<AdminRepository>();
+      final admin = context.read<AdminProvider>();
       await admin.escrowAction(eventId, action, stage: stage);
       _loadEscrowsOnly();
       _snack('Escrow action completed');
@@ -677,7 +677,7 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
                       'Approve refund for this ticket?',
                       () async {
                         await context
-                            .read<TicketRepository>()
+                            .read<TicketProvider>()
                             .approveTicketRefund(eventId, ticketId);
                         _loadTickets();
                         _snack('Refund approved');
@@ -741,7 +741,7 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
                 'Are you sure you want to refund this pledge of ${centsToStr(amountCents)}?',
                 () async {
                   await context
-                      .read<FundingRepository>()
+                      .read<PledgeProvider>()
                       .adminRefundPledge(eventId, fundingId);
                   _loadPledges();
                   _snack('Pledge refunded');

@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
 import '../../../repositories/base_repository.dart';
-import '../../../repositories/sponsor_repository.dart';
+import '../../../providers/sponsor_provider.dart';
 import '../../../widgets/admin/admin_empty_state.dart';
 import 'user_detail_shared.dart';
 
@@ -38,7 +38,7 @@ class _UserSponsorBidsTabState extends State<UserSponsorBidsTab> {
       int eventId, int catId, int bidId) async {
     try {
       await context
-          .read<SponsorRepository>()
+          .read<SponsorProvider>()
           .adminRefundSponsorBid(eventId, catId, bidId);
       widget.onRefresh();
       widget.onSnack('Sponsor bid refunded');

@@ -9,6 +9,8 @@ import '../../lib/models/user.dart';
 import '../../lib/providers/auth_provider.dart';
 import '../../lib/repositories/ticket_repository.dart';
 import '../../lib/repositories/funding_repository.dart';
+import '../../lib/providers/ticket_provider.dart';
+import '../../lib/providers/pledge_provider.dart';
 import '../../lib/screens/event/ticket_receipt_screen.dart';
 import '../../lib/screens/event/pledge_receipt_screen.dart';
 import '../helpers/mock_providers.dart';
@@ -37,7 +39,7 @@ void main() {
         const TicketReceiptScreen(eventId: 1, saleId: 1),
         overrides: [
           ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
-          Provider<TicketRepository>.value(value: mockTicketRepo),
+          ChangeNotifierProvider<TicketProvider>.value(value: TicketProvider(mockTicketRepo)),
         ],
       );
     }
@@ -111,7 +113,7 @@ void main() {
         const PledgeReceiptScreen(eventId: 1, pledgeId: 1),
         overrides: [
           ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
-          Provider<FundingRepository>.value(value: mockFundingRepo),
+          ChangeNotifierProvider<PledgeProvider>.value(value: PledgeProvider(mockFundingRepo)),
         ],
       );
     }

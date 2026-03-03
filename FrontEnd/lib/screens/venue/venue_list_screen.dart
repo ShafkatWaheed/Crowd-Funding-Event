@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
 import '../../models/venue.dart';
-import '../../repositories/venue_repository.dart';
+import '../../providers/venue_provider.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/shimmer_loaders.dart';
 
@@ -36,11 +36,10 @@ class _VenueListScreenState extends State<VenueListScreen> {
   Future<void> _loadVenues() async {
     setState(() => _isLoading = true);
     try {
-      final repo = context.read<VenueRepository>();
+      final repo = context.read<VenueProvider>();
       final data = await repo.getVenues();
-      final parsed = data.map((v) => Venue.fromJson(v)).toList();
       setState(() {
-        _venues = parsed;
+        _venues = data;
         _applySearch();
       });
     } catch (e) {
@@ -66,7 +65,7 @@ class _VenueListScreenState extends State<VenueListScreen> {
 
   Future<void> _deleteVenue(int id) async {
     try {
-      final repo = context.read<VenueRepository>();
+      final repo = context.read<VenueProvider>();
       await repo.deleteVenue(id);
       _loadVenues();
     } catch (e) {

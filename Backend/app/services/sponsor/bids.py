@@ -7,8 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.logger import get_logger, log_step
 from app.models.user import User, UserRole
 from app.models.sponsor import SponsorBid, BidStatus, SponsorshipCategory
+from app.models.notification import NotificationType
 from app.schemas.sponsor import BidCreate, BidUpdate
 from app.repositories.sponsor_repo import sponsor_repo
+from app.repositories.user_repo import user_repo
+from app.services import notification_service as notif_svc
+from app.worker.redis_pool import enqueue as arq_enqueue
 
 from app.services.sponsor.categories import _get_category, _require_organizer
 from app.services.sponsor.payments import _ensure_sponsor_ticket
@@ -53,6 +57,19 @@ async def place_bid(
         proposal_text=data.proposal_text,
     )
     bid = await sponsor_repo.create_bid(db, bid)
+
+    event = await sponsor_repo.get_event(db, cat.event_id)
+    if event:
+        await notif_svc.create_notification(
+            db, user_id=event.organizer_id,
+            type=NotificationType.bid_received,
+            title="New Sponsor Bid",
+            message=f"A new bid of ${data.amount_cents / 100:.2f} was placed on '{cat.name}'.",
+            data={"event_id": cat.event_id, "category_id": cat_id, "bid_id": bid.id},
+        )
+
+    await db.commit()
+    await sponsor_repo.refresh(db, bid)
     logger.info("Bid placed", extra={"bid_id": bid.id, "cat_id": cat_id, "user_id": user.id})
     return bid
 
@@ -77,6 +94,8 @@ async def update_bid(
         bid.proposal_text = data.proposal_text
 
     bid = await sponsor_repo.update_bid(db, bid)
+    await db.commit()
+    await sponsor_repo.refresh(db, bid)
     return bid
 
 
@@ -95,6 +114,21 @@ async def withdraw_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorBid:
 
     bid.status = BidStatus.withdrawn
     bid = await sponsor_repo.update_bid(db, bid)
+
+    cat = await sponsor_repo.get_category(db, bid.category_id)
+    if cat:
+        event = await sponsor_repo.get_event(db, cat.event_id)
+        if event:
+            await notif_svc.create_notification(
+                db, user_id=event.organizer_id,
+                type=NotificationType.bid_rejected,
+                title="Bid Withdrawn",
+                message="A sponsor has withdrawn their bid.",
+                data={"event_id": cat.event_id, "category_id": bid.category_id, "bid_id": bid_id},
+            )
+
+    await db.commit()
+    await sponsor_repo.refresh(db, bid)
     logger.info("Bid withdrawn", extra={"bid_id": bid.id})
     return bid
 
@@ -145,6 +179,30 @@ async def accept_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorBid:
     bid = await sponsor_repo.flush_and_refresh_bid(db, bid)
 
     await _ensure_sponsor_ticket(db, cat.event_id, bid.sponsor_user_id)
+
+    await notif_svc.create_notification(
+        db, user_id=bid.sponsor_user_id,
+        type=NotificationType.bid_accepted,
+        title="Bid Accepted",
+        message="Your sponsorship bid has been accepted!",
+        data={"event_id": cat.event_id, "category_id": bid.category_id, "bid_id": bid.id},
+    )
+
+    await db.commit()
+    await sponsor_repo.refresh(db, bid)
+
+    sponsor = await user_repo.get_by_id(db, bid.sponsor_user_id)
+    event = await sponsor_repo.get_event(db, cat.event_id)
+    if sponsor and sponsor.email:
+        await arq_enqueue(
+            "send_sponsor_bid_approved_email",
+            sponsor_email=sponsor.email,
+            sponsor_name=sponsor.display_name or "",
+            event_title=event.title if event else f"Event #{cat.event_id}",
+            category_name=cat.name,
+            bid_amount_cents=bid.amount_cents,
+        )
+
     logger.info("Bid accepted", extra={"bid_id": bid.id, "cat_id": bid.category_id})
     return bid
 
@@ -165,5 +223,29 @@ async def reject_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorBid:
 
     bid.status = BidStatus.rejected
     bid = await sponsor_repo.update_bid(db, bid)
+
+    await notif_svc.create_notification(
+        db, user_id=bid.sponsor_user_id,
+        type=NotificationType.bid_rejected,
+        title="Bid Rejected",
+        message="Your sponsorship bid was not accepted.",
+        data={"event_id": cat.event_id, "category_id": bid.category_id, "bid_id": bid.id},
+    )
+
+    await db.commit()
+    await sponsor_repo.refresh(db, bid)
+
+    sponsor = await user_repo.get_by_id(db, bid.sponsor_user_id)
+    event = await sponsor_repo.get_event(db, cat.event_id)
+    if sponsor and sponsor.email:
+        await arq_enqueue(
+            "send_sponsor_bid_rejected_email",
+            sponsor_email=sponsor.email,
+            sponsor_name=sponsor.display_name or "",
+            event_title=event.title if event else f"Event #{cat.event_id}",
+            category_name=cat.name,
+            bid_amount_cents=bid.amount_cents,
+        )
+
     logger.info("Bid rejected", extra={"bid_id": bid.id})
     return bid

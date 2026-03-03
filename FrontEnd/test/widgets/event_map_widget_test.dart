@@ -6,33 +6,20 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
+import '../../lib/models/event.dart';
+import '../../lib/providers/event_provider.dart';
 import '../../lib/repositories/event_repository.dart';
 import '../../lib/widgets/event_map_widget.dart';
 import '../helpers/mock_event_repository.dart';
+import '../helpers/fixtures.dart';
 import '../helpers/pump_app.dart';
 
-Map<String, dynamic> _markerJson({
+Event _markerEvent({
   int id = 1,
   String title = 'Test Event',
-  double lat = 45.4215,
-  double lng = -75.6972,
   String status = 'approved',
-  bool isLive = false,
-  int? venueId = 1,
-  String? venueName = 'Grand Hall',
-  String? startTime,
 }) =>
-    {
-      'id': id,
-      'title': title,
-      'lat': lat,
-      'lng': lng,
-      'status': status,
-      'is_live': isLive,
-      'venue_id': venueId,
-      'venue_name': venueName,
-      'start_time': startTime,
-    };
+    Event.fromJson(eventJson(id: id, title: title, status: status));
 
 void main() {
   late MockEventRepository mockEventRepo;
@@ -52,7 +39,7 @@ void main() {
   });
 
   /// Stub all getMapEvents named params.
-  void stubMapEvents(MockEventRepository repo, FutureOr<List<dynamic>> Function() result) {
+  void stubMapEvents(MockEventRepository repo, FutureOr<List<Event>> Function() result) {
     when(() => repo.getMapEvents(
           lat: any(named: 'lat'),
           lng: any(named: 'lng'),
@@ -76,13 +63,13 @@ void main() {
           child: EventMapWidget(),
         ),
       ),
-      overrides: [Provider<EventRepository>.value(value: mockEventRepo)],
+      overrides: [ChangeNotifierProvider<EventProvider>.value(value: EventProvider(mockEventRepo))],
     );
   }
 
   group('EventMapWidget', () {
     testWidgets('builds without error and shows loading indicator', (tester) async {
-      final completer = Completer<List<dynamic>>();
+      final completer = Completer<List<Event>>();
       stubMapEvents(mockEventRepo, () => completer.future);
 
       await pumpMap(tester);
@@ -99,8 +86,8 @@ void main() {
 
     testWidgets('calls getMapEvents on load', (tester) async {
       stubMapEvents(mockEventRepo, () => [
-            _markerJson(id: 1, title: 'Event A'),
-            _markerJson(id: 2, title: 'Event B', venueId: 2, venueName: 'Arena'),
+            _markerEvent(id: 1, title: 'Event A'),
+            _markerEvent(id: 2, title: 'Event B'),
           ]);
 
       await pumpMap(tester);
@@ -130,7 +117,7 @@ void main() {
     });
 
     testWidgets('hides loading indicator after data loads', (tester) async {
-      stubMapEvents(mockEventRepo, () => [_markerJson()]);
+      stubMapEvents(mockEventRepo, () => [_markerEvent()]);
 
       await pumpMap(tester);
       await tester.pumpAndSettle();

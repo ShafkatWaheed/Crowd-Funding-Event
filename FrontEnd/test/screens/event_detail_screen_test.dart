@@ -9,6 +9,7 @@ import 'package:nested/nested.dart';
 import 'package:provider/provider.dart';
 
 import '../../lib/models/event.dart';
+import '../../lib/models/event_image.dart';
 import '../../lib/models/funding.dart';
 import '../../lib/models/ticket.dart';
 import '../../lib/models/user.dart';
@@ -18,6 +19,8 @@ import '../../lib/providers/event_provider.dart';
 import '../../lib/repositories/event_repository.dart';
 import '../../lib/repositories/ticket_repository.dart';
 import '../../lib/repositories/funding_repository.dart';
+import '../../lib/providers/ticket_provider.dart';
+import '../../lib/providers/pledge_provider.dart';
 import '../../lib/providers/config_provider.dart';
 import '../../lib/repositories/payment_repository.dart';
 import '../../lib/services/sync_service.dart';
@@ -80,7 +83,7 @@ void main() {
 
     // EventRepository stubs for EventDetailScreen's initState calls
     when(() => mockEventRepo.getEventImages(any()))
-        .thenAnswer((_) async => <Map<String, dynamic>>[]);
+        .thenAnswer((_) async => <EventImage>[]);
     when(() => mockEventRepo.getMyRegistration(any()))
         .thenAnswer((_) async => {'registered': false});
     when(() => mockEventRepo.checkBookmarks(any()))
@@ -123,9 +126,8 @@ void main() {
         ChangeNotifierProvider<ConfigProvider>.value(value: mockConfig),
         Provider<PaymentRepository>.value(value: mockPaymentRepo),
         Provider<SyncService>.value(value: mockSync),
-        Provider<EventRepository>.value(value: mockEventRepo),
-        Provider<TicketRepository>.value(value: mockTicketRepo),
-        Provider<FundingRepository>.value(value: mockFundingRepo),
+        ChangeNotifierProvider<TicketProvider>.value(value: TicketProvider(mockTicketRepo)),
+        ChangeNotifierProvider<PledgeProvider>.value(value: PledgeProvider(mockFundingRepo)),
       ];
 
   group('EventDetailScreen', () {

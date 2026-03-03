@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
-import '../../repositories/ticket_repository.dart';
+import '../../providers/ticket_provider.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/shimmer_loaders.dart';
 
@@ -37,7 +37,7 @@ class _ClaimDiscountsScreenState extends State<ClaimDiscountsScreen> {
     }
     setState(() => _loading = true);
     try {
-      final repo = context.read<TicketRepository>();
+      final repo = context.read<TicketProvider>();
       final data = await repo.getClaimableDiscounts(widget.eventId);
       setState(() {
         _discounts = data.cast<Map<String, dynamic>>();
@@ -50,7 +50,7 @@ class _ClaimDiscountsScreenState extends State<ClaimDiscountsScreen> {
 
   Future<void> _claim(int linkId) async {
     try {
-      final repo = context.read<TicketRepository>();
+      final repo = context.read<TicketProvider>();
       await repo.claimDiscount(widget.eventId, linkId);
       await _load();
       if (mounted) {
@@ -65,7 +65,7 @@ class _ClaimDiscountsScreenState extends State<ClaimDiscountsScreen> {
 
   Future<void> _unclaim(int linkId) async {
     try {
-      final repo = context.read<TicketRepository>();
+      final repo = context.read<TicketProvider>();
       await repo.unclaimDiscount(widget.eventId, linkId);
       await _load();
       if (mounted) {

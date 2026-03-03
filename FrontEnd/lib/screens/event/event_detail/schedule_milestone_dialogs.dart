@@ -5,8 +5,9 @@ import '../../../config/theme.dart';
 import '../../../utils/date_time_utils.dart';
 import '../../../config/design_tokens.dart';
 import '../../../models/event.dart';
+import '../../../models/milestone.dart';
+import '../../../models/schedule.dart';
 import '../../../providers/event_provider.dart';
-import '../../../repositories/event_repository.dart';
 import '../../../repositories/base_repository.dart';
 import '../../../widgets/app_toast.dart';
 
@@ -17,12 +18,23 @@ class ScheduleMilestoneDialogs {
   // Flatten schedule day-groups into a sorted flat list
   // ═══════════════════════════════════════════
 
-  static List<Map<String, dynamic>> flattenScheduleDays(List<dynamic> dayGroups) {
+  static List<Map<String, dynamic>> flattenScheduleDays(List<ScheduleDay> dayGroups) {
     final flat = <Map<String, dynamic>>[];
     for (final group in dayGroups) {
-      final items = group['items'] as List? ?? [];
-      for (final item in items) {
-        flat.add(Map<String, dynamic>.from(item as Map));
+      for (final item in group.items) {
+        flat.add({
+          'id': item.id,
+          'event_id': item.eventId,
+          'date': item.date,
+          'start_time': item.startTime,
+          'end_time': item.endTime,
+          'title': item.title,
+          'description': item.description,
+          'image_url': item.imageUrl,
+          'image_caption': item.imageCaption,
+          'link_url': item.linkUrl,
+          'sort_order': item.sortOrder,
+        });
       }
     }
     flat.sort((a, b) {
@@ -40,7 +52,7 @@ class ScheduleMilestoneDialogs {
   static Future<void> showManageScheduleSheet(
     BuildContext context, Event event, VoidCallback onRefresh,
   ) async {
-    final api = context.read<EventRepository>();
+    final api = context.read<EventProvider>();
     List<Map<String, dynamic>> items = [];
     bool loading = true;
 
@@ -200,7 +212,7 @@ class ScheduleMilestoneDialogs {
   // ═══════════════════════════════════════════
 
   static Future<void> showScheduleItemEditor(
-    BuildContext parentCtx, EventRepository api, Event event,
+    BuildContext parentCtx, EventProvider api, Event event,
     Map<String, dynamic>? existing, Function(Map<String, dynamic>) onSaved,
   ) async {
     final titleCtrl = TextEditingController(text: existing?['title'] ?? '');
@@ -363,13 +375,25 @@ class ScheduleMilestoneDialogs {
                     'end_time': fmtTime(endTime),
                   };
                   try {
-                    Map<String, dynamic> resp;
+                    final ScheduleItem item;
                     if (existing != null && existing['id'] != null) {
-                      resp = await api.updateScheduleItem(event.id, existing['id'], payload);
+                      item = await api.updateScheduleItem(event.id, existing['id'], payload);
                     } else {
-                      resp = await api.createScheduleItem(event.id, payload);
+                      item = await api.createScheduleItem(event.id, payload);
                     }
-                    onSaved(resp);
+                    onSaved({
+                      'id': item.id,
+                      'event_id': item.eventId,
+                      'date': item.date,
+                      'start_time': item.startTime,
+                      'end_time': item.endTime,
+                      'title': item.title,
+                      'description': item.description,
+                      'image_url': item.imageUrl,
+                      'image_caption': item.imageCaption,
+                      'link_url': item.linkUrl,
+                      'sort_order': item.sortOrder,
+                    });
                     if (ctx.mounted) Navigator.pop(ctx);
                     if (parentCtx.mounted) AppToast.success(parentCtx, existing != null ? 'Session updated' : 'Session added');
                   } catch (e) {
@@ -399,7 +423,7 @@ class ScheduleMilestoneDialogs {
   static Future<void> showManageMilestonesSheet(
     BuildContext context, Event event, VoidCallback onRefresh,
   ) async {
-    final api = context.read<EventRepository>();
+    final api = context.read<EventProvider>();
     List<Map<String, dynamic>> items = [];
     bool loading = true;
 
@@ -414,7 +438,18 @@ class ScheduleMilestoneDialogs {
           if (loading) {
             api.getMilestones(event.id).then((list) {
               setSheetState(() {
-                items = List<Map<String, dynamic>>.from(list);
+                items = list.map((m) => {
+                  'id': m.id,
+                  'event_id': m.eventId,
+                  'title': m.title,
+                  'description': m.description,
+                  'unlock_percent': m.unlockPercent,
+                  'benefit': m.benefitDescription,
+                  'sort_order': m.sortOrder,
+                  'like_count': m.likeCount,
+                  'dislike_count': m.dislikeCount,
+                  'is_unlocked': m.isUnlocked,
+                }).toList();
                 loading = false;
               });
             }).catchError((_) {
@@ -551,7 +586,7 @@ class ScheduleMilestoneDialogs {
   // ═══════════════════════════════════════════
 
   static Future<void> showMilestoneEditor(
-    BuildContext parentCtx, EventRepository api, int eventId,
+    BuildContext parentCtx, EventProvider api, int eventId,
     Map<String, dynamic>? existing, Function(Map<String, dynamic>) onSaved,
   ) async {
     final titleCtrl = TextEditingController(text: existing?['title'] ?? '');
@@ -618,13 +653,24 @@ class ScheduleMilestoneDialogs {
 
     if (result != null) {
       try {
+        final FundingMilestone ms;
         if (existing != null && existing['id'] != null) {
-          final resp = await api.updateMilestone(eventId, existing['id'], result);
-          onSaved(resp);
+          ms = await api.updateMilestone(eventId, existing['id'], result);
         } else {
-          final resp = await api.createMilestone(eventId, result);
-          onSaved(resp);
+          ms = await api.createMilestone(eventId, result);
         }
+        onSaved({
+          'id': ms.id,
+          'event_id': ms.eventId,
+          'title': ms.title,
+          'description': ms.description,
+          'unlock_percent': ms.unlockPercent,
+          'benefit': ms.benefitDescription,
+          'sort_order': ms.sortOrder,
+          'like_count': ms.likeCount,
+          'dislike_count': ms.dislikeCount,
+          'is_unlocked': ms.isUnlocked,
+        });
         if (parentCtx.mounted) AppToast.success(parentCtx, existing != null ? 'Milestone updated' : 'Milestone added');
       } catch (e) {
         if (parentCtx.mounted) AppToast.fromError(parentCtx, e, fallback: 'Failed to save milestone');
@@ -750,7 +796,7 @@ class ScheduleMilestoneDialogs {
     if (result == null || result.isEmpty) return;
     if (!context.mounted) return;
     try {
-      await context.read<EventRepository>().extendFunding(event.id, result);
+      await context.read<EventProvider>().extendFunding(event.id, result);
       if (context.mounted) {
         AppToast.success(context, 'Extension request submitted for admin approval');
         context.read<EventProvider>().loadEvent(event.id);
@@ -770,7 +816,7 @@ class ScheduleMilestoneDialogs {
   static Future<void> showSetEventDateDialog(
     BuildContext context, Event event, VoidCallback onRefresh,
   ) async {
-    final api = context.read<EventRepository>();
+    final api = context.read<EventProvider>();
 
     DateTime? pickedStart;
     DateTime? pickedEnd;

@@ -1,9 +1,10 @@
+import '../models/event.dart';
 import 'base_repository.dart';
 
 class BookmarkRepository extends BaseRepository {
   BookmarkRepository(super.dio);
 
-  Future<List<dynamic>> getBookmarkedEvents({
+  Future<List<Event>> getBookmarkedEvents({
     String? search,
     String? status,
     int offset = 0,
@@ -13,7 +14,7 @@ class BookmarkRepository extends BaseRepository {
     if (search != null && search.isNotEmpty) params['search'] = search;
     if (status != null && status.isNotEmpty) params['status'] = status;
     final resp = await dio.get('/me/bookmarks', queryParameters: params);
-    return resp.data as List;
+    return (resp.data as List).map((e) => Event.fromJson(e)).toList();
   }
 
   Future<Map<String, dynamic>> toggleBookmark(int eventId) async {

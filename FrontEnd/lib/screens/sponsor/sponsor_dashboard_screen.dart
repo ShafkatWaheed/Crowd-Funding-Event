@@ -6,7 +6,7 @@ import '../../config/api_config.dart';
 import '../../config/theme.dart';
 import '../../models/sponsor.dart';
 import '../../repositories/base_repository.dart';
-import '../../repositories/sponsor_repository.dart';
+import '../../providers/sponsor_provider.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/shimmer_loaders.dart';
 
@@ -31,15 +31,13 @@ class _SponsorDashboardScreenState extends State<SponsorDashboardScreen> {
 
   Future<void> _load() async {
     try {
-      final api = context.read<SponsorRepository>();
-      final profileData = await api.getSponsorProfile();
-      final ticketsData = await api.getMySponsorTickets();
+      final api = context.read<SponsorProvider>();
+      final profile = await api.getSponsorProfile();
+      final tickets = await api.getMySponsorTickets();
       if (mounted) {
         setState(() {
-          _profile = SponsorProfile.fromJson(profileData);
-          _tickets = ticketsData
-              .map((j) => SponsorTicketModel.fromJson(j))
-              .toList();
+          _profile = profile;
+          _tickets = tickets;
           _loading = false;
         });
       }

@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.logger import get_logger, log_step
 from app.models.user import User
+from app.models.notification import NotificationType
 from app.models.sponsor import (
     SponsorBid,
     SponsorPayment,
@@ -15,6 +16,9 @@ from app.models.sponsor import (
     PaymentStatus,
 )
 from app.repositories.sponsor_repo import sponsor_repo
+from app.repositories.user_repo import user_repo
+from app.services import notification_service as notif_svc
+from app.worker.redis_pool import enqueue as arq_enqueue
 
 from app.services.sponsor.categories import _get_category, list_categories, _require_organizer
 
@@ -135,6 +139,18 @@ async def pay_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorPayment:
     except Exception:
         pass
 
+    event = await sponsor_repo.get_event(db, cat.event_id)
+    if event:
+        await notif_svc.create_notification(
+            db, user_id=event.organizer_id,
+            type=NotificationType.sponsor_payment_received,
+            title="Sponsor Payment Received",
+            message=f"A sponsor has paid ${payment.amount_cents / 100:.2f} for their sponsorship.",
+            data={"event_id": cat.event_id, "category_id": bid.category_id, "bid_id": bid_id, "payment_id": payment.id},
+        )
+
+    await db.commit()
+    await sponsor_repo.refresh(db, payment)
     logger.info("Sponsor payment completed", extra={"payment_id": payment.id, "bid_id": bid_id, "amount_cents": bid.amount_cents})
     return payment
 
@@ -182,10 +198,41 @@ async def refund_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorPaymen
     await sponsor_repo.flush(db)
     payment = await sponsor_repo.get_payment_by_bid(db, bid_id)
 
-    from app.worker.redis_pool import enqueue
-    await enqueue("process_sponsor_refund", payment.id)
-    logger.info("Sponsor refund initiated", extra={"payment_id": payment.id, "bid_id": bid_id})
+    await arq_enqueue("process_sponsor_refund", payment.id)
 
+    await notif_svc.create_notification(
+        db, user_id=bid.sponsor_user_id,
+        type=NotificationType.sponsor_refunded,
+        title="Sponsorship Refunded",
+        message=f"Your sponsorship refund of ${payment.amount_cents / 100:.2f} is being processed.",
+        data={"event_id": cat.event_id, "category_id": bid.category_id, "bid_id": bid_id, "payment_id": payment.id},
+    )
+    event = await sponsor_repo.get_event(db, cat.event_id)
+    if event:
+        await notif_svc.create_notification(
+            db, user_id=event.organizer_id,
+            type=NotificationType.sponsor_refunded,
+            title="Sponsorship Refund Processed",
+            message=f"Refund of ${payment.amount_cents / 100:.2f} is being processed for bid #{bid_id}.",
+            data={"event_id": cat.event_id, "category_id": bid.category_id, "bid_id": bid_id, "payment_id": payment.id},
+        )
+
+    await db.commit()
+    await sponsor_repo.refresh(db, payment)
+
+    sponsor = await user_repo.get_by_id(db, bid.sponsor_user_id)
+    if sponsor and sponsor.email:
+        await arq_enqueue(
+            "send_sponsor_refund_email",
+            sponsor_email=sponsor.email,
+            sponsor_name=sponsor.display_name or "",
+            event_title=event.title if event else f"Event #{cat.event_id}",
+            category_name=cat.name,
+            refunded_cents=payment.amount_cents,
+            receipt_number=getattr(payment, "receipt_number", None),
+        )
+
+    logger.info("Sponsor refund initiated", extra={"payment_id": payment.id, "bid_id": bid_id})
     return payment
 
 

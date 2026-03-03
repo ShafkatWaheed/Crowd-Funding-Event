@@ -10,8 +10,8 @@ import '../../utils/date_time_utils.dart';
 import '../../config/api_config.dart';
 import '../../config/theme.dart';
 import '../../repositories/base_repository.dart';
-import '../../repositories/user_repository.dart';
-import '../../repositories/sponsor_repository.dart';
+import '../../providers/user_provider.dart';
+import '../../providers/sponsor_provider.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/star_rating.dart';
@@ -100,7 +100,7 @@ class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
 
   Future<void> _load() async {
     try {
-      final userRepo = context.read<UserRepository>();
+      final userRepo = context.read<UserProvider>();
       final data = await userRepo.getSponsorPublicProfile(widget.userId);
       if (mounted) setState(() { _profile = data; _loading = false; });
     } catch (e) {
@@ -113,7 +113,7 @@ class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
 
   Future<void> _loadRatings() async {
     try {
-      final userRepo = context.read<UserRepository>();
+      final userRepo = context.read<UserProvider>();
       final data = await userRepo.getUserRatingsSummary(widget.userId);
       if (mounted) setState(() => _ratingsSummary = data);
     } catch (e) { debugPrint(e.toString()); }
@@ -121,11 +121,11 @@ class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
 
   Future<void> _loadEvents() async {
     try {
-      final api = context.read<SponsorRepository>();
+      final api = context.read<SponsorProvider>();
       final data = await api.getSponsorEventsForOrganizer(widget.userId);
       if (mounted) {
         setState(() {
-          _events = data.cast<Map<String, dynamic>>();
+          _events = data;
           _loadingEvents = false;
         });
       }
@@ -863,7 +863,7 @@ class _SponsorEventCard extends StatelessWidget {
 
 /// Quick-view bottom sheet for sponsor profile.
 void showSponsorProfileSheet(BuildContext context, int sponsorUserId, {bool isOrganizerView = false}) {
-  final userRepo = context.read<UserRepository>();
+  final userRepo = context.read<UserProvider>();
   showModalBottomSheet(
     context: context,
     shape: const RoundedRectangleBorder(

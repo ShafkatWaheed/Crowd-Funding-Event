@@ -135,15 +135,17 @@ Map<String, dynamic> pledgeJson({
 Map<String, dynamic> fundingSummaryJson({
   int goalCents = 100000,
   int totalPledgedCents = 50000,
-  int pledgeCount = 25,
+  int backersCount = 25,
   int totalReservedSpots = 10,
+  int fundingCommissionPercent = 0,
   String? fundingEndAt,
 }) =>
     {
       'goal_cents': goalCents,
       'total_pledged_cents': totalPledgedCents,
-      'pledge_count': pledgeCount,
+      'backers_count': backersCount,
       'total_reserved_spots': totalReservedSpots,
+      'funding_commission_percent': fundingCommissionPercent,
       'funding_end_at': fundingEndAt,
     };
 

@@ -117,3 +117,18 @@ async def mark_all_read(db: AsyncSession, *, user_id: int) -> int:
 
 async def delete_notification(db: AsyncSession, *, notification_id: int, user_id: int) -> None:
     await notification_repo.delete_notification_row(db, notification_id, user_id)
+
+
+async def register_device_token(
+    db: AsyncSession, *, user_id: int, token: str, platform: str
+) -> None:
+    """Upsert a device token for push notifications."""
+    existing = await notification_repo.get_device_token(db, token)
+    if existing:
+        existing.user_id = user_id
+        existing.platform = platform
+        await notification_repo.flush(db)
+    else:
+        await notification_repo.create_device_token(
+            db, user_id=user_id, token=token, platform=platform,
+        )

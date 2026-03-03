@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../widgets/app_toast.dart';
 import '../../models/venue.dart';
-import '../../repositories/venue_repository.dart';
+import '../../providers/venue_provider.dart';
 
 /// Full-page venue picker. Returns the selected [Venue] via Navigator.pop.
 /// Highlights the currently active venue when [currentVenueId] is provided.
@@ -36,12 +36,11 @@ class _VenuePickerScreenState extends State<VenuePickerScreen> {
 
   Future<void> _load() async {
     try {
-      final repo = context.read<VenueRepository>();
+      final repo = context.read<VenueProvider>();
       final data = await repo.getVenues();
-      final parsed = data.map((v) => Venue.fromJson(v)).toList();
       if (mounted) {
         setState(() {
-          _venues = parsed;
+          _venues = data;
           _applySearch();
           _loading = false;
         });

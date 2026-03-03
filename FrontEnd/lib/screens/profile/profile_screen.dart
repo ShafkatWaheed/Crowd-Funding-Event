@@ -11,8 +11,8 @@ import '../../config/design_tokens.dart';
 import '../../widgets/press_feedback.dart';
 import '../../widgets/kyc_section.dart';
 import '../../providers/auth_provider.dart';
-import '../../repositories/sponsor_repository.dart';
-import '../../repositories/user_repository.dart';
+import '../../providers/sponsor_provider.dart';
+import '../../providers/user_provider.dart';
 import '../../widgets/app_toast.dart';
 import 'profile_section_card.dart';
 import 'profile_header.dart';
@@ -126,16 +126,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadSponsorProfile() async {
     setState(() => _loadingSponsorProfile = true);
     try {
-      final data = await context.read<SponsorRepository>().getSponsorProfile();
+      final profile = await context.read<SponsorProvider>().getSponsorProfile();
       if (mounted) {
         setState(() {
           _hasSponsorProfile = true;
-          _companyNameCtrl.text = data['company_name'] ?? '';
-          _contactNameCtrl.text = data['contact_name'] ?? '';
-          _professionCtrl.text = data['profession'] ?? '';
-          _logoUrlCtrl.text = data['logo_url'] ?? '';
-          _descriptionCtrl.text = data['description'] ?? '';
-          _websiteUrlCtrl.text = data['website_url'] ?? '';
+          _companyNameCtrl.text = profile.companyName;
+          _contactNameCtrl.text = profile.contactName;
+          _professionCtrl.text = profile.profession;
+          _logoUrlCtrl.text = profile.logoUrl ?? '';
+          _descriptionCtrl.text = profile.description ?? '';
+          _websiteUrlCtrl.text = profile.websiteUrl ?? '';
         });
       }
     } on DioException catch (e) {
@@ -171,8 +171,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     setState(() => _saving = true);
     try {
-      final userRepo = context.read<UserRepository>();
-      final sponsorRepo = context.read<SponsorRepository>();
+      final userRepo = context.read<UserProvider>();
+      final sponsorRepo = context.read<SponsorProvider>();
       final user = context.read<AuthProvider>().user!;
 
       final data = <String, dynamic>{};

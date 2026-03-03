@@ -8,8 +8,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.logger import get_logger, log_step
 from app.models.event import Event, EventStatus
+from app.models.notification import NotificationType
 from app.repositories.admin_repo import admin_repo, _period_cutoff
+from app.repositories.event_repo import event_repo
 from app.services import event as event_service
+from app.services import notification_service as notif_svc
+from app.services import audit as audit_svc
 
 logger = get_logger("svc.admin")
 
@@ -73,6 +77,95 @@ async def approve_or_reject_event(
         logger.info("Event rejected", extra={"event_id": event_id})
     await admin_repo.flush_and_refresh(db, event)
     return event
+
+
+async def resolve_review(
+    db: AsyncSession,
+    event: Event,
+    *,
+    target_status: str,
+    notes: str | None,
+    admin_email: str,
+) -> dict:
+    """Resolve an under_review event — set new status, update review log, send notification."""
+    from app.core.exceptions import ConflictError
+    if event.status != EventStatus.under_review:
+        raise ConflictError(f"Event is not under review (current: {event.status.value})")
+    allowed = {s.value for s in EventStatus} - {"under_review"}
+    if target_status not in allowed:
+        raise ConflictError(f"Invalid target status '{target_status}'")
+
+    event.status = EventStatus(target_status)
+    event.review_notes = notes or f"Resolved by admin → {target_status}"
+    event.review_log = (event.review_log or []) + [{
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "actor": f"admin:{admin_email}",
+        "action": "resolved",
+        "from_status": "under_review",
+        "to_status": target_status,
+        "message": notes or f"Resolved → {target_status}",
+    }]
+    await event_repo.flush(db)
+
+    notif_msg = f'Your event "{event.title}" has been reviewed and moved to {target_status.replace("_", " ")}.'
+    if notes:
+        notif_msg += f" Admin notes: {notes}"
+    await notif_svc.create_notification(
+        db, user_id=event.organizer_id,
+        type=NotificationType.event_approved,
+        title="Event Review Resolved",
+        message=notif_msg,
+        data={"event_id": event.id},
+    )
+    return {"ok": True, "event_id": event.id, "status": event.status.value}
+
+
+async def set_policy_overrides(
+    db: AsyncSession,
+    event: Event,
+    *,
+    body,
+    admin_id: int,
+) -> dict:
+    """Set or clear admin per-event policy overrides. Returns effective policy."""
+    changes: dict[str, dict] = {}
+    for field in [
+        "admin_override_waitlist_max_size",
+        "admin_override_event_max_images",
+        "admin_override_max_posts_per_day",
+        "admin_override_max_co_organizers",
+        "admin_override_refund_deadline_percent",
+    ]:
+        new_val = getattr(body, field)
+        old_val = getattr(event, field, None)
+        if new_val != old_val:
+            changes[field] = {"old": old_val, "new": new_val}
+            setattr(event, field, new_val)
+
+    if changes:
+        await event_repo.flush(db)
+        await audit_svc.log_action(
+            db,
+            admin_id=admin_id,
+            action="admin_policy_override",
+            target_type="event",
+            target_id=event.id,
+            details=changes,
+        )
+        await event_repo.flush_and_refresh(db, event)
+
+    policy = await event_service.get_effective_policy(db, event)
+    return {
+        "event_id": event.id,
+        "overrides": {
+            "admin_override_waitlist_max_size": event.admin_override_waitlist_max_size,
+            "admin_override_event_max_images": event.admin_override_event_max_images,
+            "admin_override_max_posts_per_day": event.admin_override_max_posts_per_day,
+            "admin_override_max_co_organizers": event.admin_override_max_co_organizers,
+            "admin_override_refund_deadline_percent": event.admin_override_refund_deadline_percent,
+        },
+        "effective_policy": policy,
+    }
 
 
 def compute_event_warnings(event: Event) -> list[str]:

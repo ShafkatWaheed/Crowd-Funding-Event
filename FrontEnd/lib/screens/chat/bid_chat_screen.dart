@@ -12,7 +12,7 @@ import '../../config/theme.dart';
 import '../../models/chat_message.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/chat_provider.dart';
-import '../../repositories/sponsor_repository.dart';
+import '../../providers/sponsor_provider.dart';
 import '../../widgets/fullscreen_image_viewer.dart';
 
 class BidChatScreen extends StatefulWidget {
@@ -111,7 +111,7 @@ class _BidChatScreenState extends State<BidChatScreen> {
   }
 
   Future<void> _pickAndSendImage(ImageSource source) async {
-    final api = context.read<SponsorRepository>();
+    final api = context.read<SponsorProvider>();
     final picker = ImagePicker();
     final picked = await picker.pickImage(
       source: source,

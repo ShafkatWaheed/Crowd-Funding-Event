@@ -4,6 +4,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
 import '../../lib/models/ticket.dart';
+import '../../lib/providers/ticket_provider.dart';
 import '../../lib/repositories/base_repository.dart';
 import '../../lib/repositories/ticket_repository.dart';
 import '../../lib/widgets/tickets_bottom_sheet.dart';
@@ -56,8 +57,8 @@ void main() {
               context: ctx,
               isScrollControlled: true,
               backgroundColor: Colors.transparent,
-              builder: (_) => Provider<TicketRepository>.value(
-                value: mockTicketRepo,
+              builder: (_) => ChangeNotifierProvider<TicketProvider>.value(
+                value: TicketProvider(mockTicketRepo),
                 child: const SizedBox(
                   height: 500,
                   child: TicketsBottomSheet(),
@@ -68,7 +69,7 @@ void main() {
           ),
         ),
       ),
-      overrides: [Provider<TicketRepository>.value(value: mockTicketRepo)],
+      overrides: [ChangeNotifierProvider<TicketProvider>.value(value: TicketProvider(mockTicketRepo))],
     );
 
     await tester.tap(find.text('Open'));

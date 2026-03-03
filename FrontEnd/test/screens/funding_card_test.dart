@@ -4,10 +4,13 @@ import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
 import '../../lib/models/event.dart';
+import '../../lib/models/funding.dart';
 import '../../lib/models/user.dart';
 import '../../lib/providers/auth_provider.dart';
 import '../../lib/repositories/funding_repository.dart';
 import '../../lib/repositories/ticket_repository.dart';
+import '../../lib/providers/pledge_provider.dart';
+import '../../lib/providers/ticket_provider.dart';
 import '../../lib/screens/event/event_detail/funding_card.dart';
 import '../helpers/mock_providers.dart';
 import '../helpers/mock_funding_repository.dart';
@@ -29,13 +32,14 @@ void main() {
     when(() => mockAuth.user).thenReturn(makeUser(role: UserRole.customer));
 
     // Stub funding summary via FundingRepository
-    when(() => mockFundingRepo.getFundingSummary(any())).thenAnswer((_) async => {
+    when(() => mockFundingRepo.getFundingSummary(any())).thenAnswer((_) async =>
+        FundingSummary.fromJson({
           'total_pledged_cents': 50000,
           'backers_count': 10,
           'goal_cents': 100000,
           'funding_commission_percent': 5,
           'total_reserved_spots': 3,
-        });
+        }));
 
     // Stub early bird discounts via TicketRepository
     when(() => mockTicketRepo.getEarlyBirdDiscounts(any()))
@@ -69,8 +73,8 @@ void main() {
       ),
       overrides: [
         ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
-        Provider<FundingRepository>.value(value: mockFundingRepo),
-        Provider<TicketRepository>.value(value: mockTicketRepo),
+        ChangeNotifierProvider<PledgeProvider>.value(value: PledgeProvider(mockFundingRepo)),
+        ChangeNotifierProvider<TicketProvider>.value(value: TicketProvider(mockTicketRepo)),
       ],
     );
 
@@ -158,13 +162,14 @@ void main() {
 
     testWidgets('pledged amount displayed after API load', (tester) async {
       // After the funding summary API returns, the raised amount is updated
-      when(() => mockFundingRepo.getFundingSummary(any())).thenAnswer((_) async => {
+      when(() => mockFundingRepo.getFundingSummary(any())).thenAnswer((_) async =>
+          FundingSummary.fromJson({
             'total_pledged_cents': 75000,
             'backers_count': 15,
             'goal_cents': 100000,
             'funding_commission_percent': 5,
             'total_reserved_spots': 0,
-          });
+          }));
 
       final ev = Event.fromJson(eventJson(
         id: 1,

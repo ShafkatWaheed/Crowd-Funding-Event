@@ -7,7 +7,7 @@ import 'package:provider/provider.dart';
 import '../../config/design_tokens.dart';
 import '../../config/theme.dart';
 import '../../models/event.dart';
-import '../../repositories/event_repository.dart';
+import '../../providers/event_provider.dart';
 import '../../widgets/animated_list_item.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/event_card.dart';
@@ -75,7 +75,7 @@ class _CoOrganizedEventsScreenState extends State<CoOrganizedEventsScreen> {
       _hasMore = true;
     });
     try {
-      final repo = context.read<EventRepository>();
+      final repo = context.read<EventProvider>();
       final data = await repo.getCoOrganizedEvents(
         status: _selectedStatus,
         search: _search.isEmpty ? null : _search,
@@ -84,7 +84,7 @@ class _CoOrganizedEventsScreenState extends State<CoOrganizedEventsScreen> {
       );
       if (mounted) {
         setState(() {
-          _events = data.map((e) => Event.fromJson(e)).toList();
+          _events = data;
           _hasMore = data.length >= _pageSize;
         });
       }
@@ -98,7 +98,7 @@ class _CoOrganizedEventsScreenState extends State<CoOrganizedEventsScreen> {
     if (_loadingMore || !_hasMore) return;
     setState(() => _loadingMore = true);
     try {
-      final repo = context.read<EventRepository>();
+      final repo = context.read<EventProvider>();
       final data = await repo.getCoOrganizedEvents(
         status: _selectedStatus,
         search: _search.isEmpty ? null : _search,
@@ -107,7 +107,7 @@ class _CoOrganizedEventsScreenState extends State<CoOrganizedEventsScreen> {
       );
       if (mounted) {
         setState(() {
-          _events.addAll(data.map((e) => Event.fromJson(e)));
+          _events.addAll(data);
           _hasMore = data.length >= _pageSize;
         });
       }

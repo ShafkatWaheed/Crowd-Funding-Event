@@ -5,7 +5,6 @@ from app.dependencies import DbSession, ReadDbSession, CurrentUser, require_feat
 from app.models.user import UserRole
 from app.schemas.sponsor import CategoryCreate, CategoryUpdate, CategoryResponse
 from app.services import sponsor as sponsor_svc
-from app.repositories.sponsor_repo import sponsor_repo
 
 from app.api.v1.sponsors._helpers import _category_to_response
 
@@ -50,8 +49,6 @@ async def create_category(
     current_user: CurrentUser,
 ):
     cat = await sponsor_svc.create_category(db, event_id, current_user, data)
-    await db.commit()
-    await sponsor_repo.refresh(db, cat)
     return _category_to_response(cat)
 
 
@@ -67,8 +64,6 @@ async def update_category(
     current_user: CurrentUser,
 ):
     cat = await sponsor_svc.update_category(db, cat_id, current_user, data)
-    await db.commit()
-    await sponsor_repo.refresh(db, cat)
     return _category_to_response(cat)
 
 
@@ -80,4 +75,3 @@ async def delete_category(
     current_user: CurrentUser,
 ):
     await sponsor_svc.delete_category(db, cat_id, current_user)
-    await db.commit()

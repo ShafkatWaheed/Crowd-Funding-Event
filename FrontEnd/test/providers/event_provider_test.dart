@@ -162,7 +162,7 @@ void main() {
 
     test('createEvent success', () async {
       when(() => mockRepo.createEvent(any()))
-          .thenAnswer((_) async => eventJson(id: 99));
+          .thenAnswer((_) async => Event.fromJson(eventJson(id: 99)));
       when(() => mockRepo.getEvents(
             params: any(named: 'params'),
             limit: any(named: 'limit'),
@@ -183,7 +183,8 @@ void main() {
     });
 
     test('publishEvent success', () async {
-      when(() => mockRepo.publishEvent(1)).thenAnswer((_) async => {});
+      when(() => mockRepo.publishEvent(1))
+          .thenAnswer((_) async => Event.fromJson(eventJson(id: 1, status: 'pending_approval')));
       when(() => mockRepo.getEvent(1))
           .thenAnswer((_) async => eventJson(id: 1, status: 'pending_approval'));
 

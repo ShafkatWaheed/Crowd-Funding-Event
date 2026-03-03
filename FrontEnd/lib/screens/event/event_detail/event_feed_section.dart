@@ -5,7 +5,7 @@ import '../../../config/theme.dart';
 import '../../../config/design_tokens.dart';
 import '../../../models/post.dart';
 import '../../../providers/auth_provider.dart';
-import '../../../repositories/event_repository.dart';
+import '../../../providers/event_provider.dart';
 import '../../../widgets/app_toast.dart';
 import '../../../widgets/empty_state.dart';
 
@@ -42,11 +42,11 @@ class _EventFeedSectionState extends State<EventFeedSection> {
     if (!mounted) return;
     setState(() => _loading = true);
     try {
-      final repo = context.read<EventRepository>();
+      final repo = context.read<EventProvider>();
       final data = await repo.getEventPosts(widget.eventId);
       if (mounted) {
         setState(() {
-          _posts = data.map((p) => EventPost.fromJson(p)).toList();
+          _posts = data;
         });
       }
     } catch (e) { debugPrint(e.toString()); }
@@ -84,7 +84,7 @@ class _EventFeedSectionState extends State<EventFeedSection> {
     }
     setState(() => _posting = true);
     try {
-      final repo = context.read<EventRepository>();
+      final repo = context.read<EventProvider>();
       await repo.createEventPost(widget.eventId, _ctrl.text.trim());
       _ctrl.clear();
       await _loadPosts();
@@ -126,7 +126,7 @@ class _EventFeedSectionState extends State<EventFeedSection> {
 
   Future<void> _deletePost(int postId) async {
     try {
-      final repo = context.read<EventRepository>();
+      final repo = context.read<EventProvider>();
       await repo.deleteEventPost(widget.eventId, postId);
       await _loadPosts();
     } catch (e) {

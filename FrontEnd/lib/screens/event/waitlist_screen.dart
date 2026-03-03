@@ -4,9 +4,8 @@ import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
 import '../../models/ticket.dart';
-import '../../repositories/event_repository.dart';
-import '../../repositories/ticket_repository.dart';
 import '../../providers/event_provider.dart';
+import '../../providers/ticket_provider.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/shimmer_loaders.dart';
 
@@ -69,8 +68,8 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
       _error = null;
     });
     try {
-      final eventRepo = context.read<EventRepository>();
-      final ticketRepo = context.read<TicketRepository>();
+      final eventRepo = context.read<EventProvider>();
+      final ticketRepo = context.read<TicketProvider>();
 
       // Load waitlists + capacity in parallel
       final regsFuture = eventRepo.getRegistrations(widget.eventId);
@@ -124,7 +123,7 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
 
   Future<void> _decideFund(int regId, String action) async {
     try {
-      final repo = context.read<EventRepository>();
+      final repo = context.read<EventProvider>();
       await repo.decideRegistration(widget.eventId, regId, action);
       if (mounted) {
         AppToast.success(context, action == 'approve'
@@ -144,7 +143,7 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
 
   Future<void> _approveTicket(int ticketId) async {
     try {
-      final repo = context.read<TicketRepository>();
+      final repo = context.read<TicketProvider>();
       await repo.approveWaitlistedTicket(widget.eventId, ticketId);
       if (mounted) {
         AppToast.success(context, 'Ticket approved!');
@@ -160,7 +159,7 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
 
   Future<void> _rejectTicket(int ticketId) async {
     try {
-      final repo = context.read<TicketRepository>();
+      final repo = context.read<TicketProvider>();
       await repo.rejectWaitlistedTicket(widget.eventId, ticketId);
       if (mounted) {
         AppToast.success(context, 'Ticket rejected.');

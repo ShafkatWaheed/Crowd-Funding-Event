@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../widgets/app_toast.dart';
 import '../../models/ticket_strategy.dart';
-import '../../repositories/ticket_repository.dart';
+import '../../providers/ticket_provider.dart';
 
 /// Full-page ticket strategy picker. Returns the selected [TicketStrategy]
 /// via Navigator.pop. Highlights the currently active strategy when
@@ -37,12 +37,11 @@ class _StrategyPickerScreenState extends State<StrategyPickerScreen> {
 
   Future<void> _load() async {
     try {
-      final api = context.read<TicketRepository>();
+      final api = context.read<TicketProvider>();
       final data = await api.getTicketStrategies();
-      final parsed = data.map((d) => TicketStrategy.fromJson(d)).toList();
       if (mounted) {
         setState(() {
-          _strategies = parsed;
+          _strategies = data;
           _applySearch();
           _loading = false;
         });

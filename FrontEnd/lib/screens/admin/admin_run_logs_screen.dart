@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
-import '../../repositories/admin_repository.dart';
+import '../../providers/admin_provider.dart';
 import 'admin_shared.dart';
 
 class AdminRunLogsScreen extends StatefulWidget {
@@ -70,7 +70,7 @@ class _AdminRunLogsScreenState extends State<AdminRunLogsScreen> {
   Future<void> _loadRuns() async {
     setState(() => _loading = true);
     try {
-      final admin = context.read<AdminRepository>();
+      final admin = context.read<AdminProvider>();
       final data = await admin.getWorkerRuns(
         taskName: _selectedTask,
         status: _selectedStatus,

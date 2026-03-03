@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
 import '../../../config/design_tokens.dart';
-import '../../../repositories/ticket_repository.dart';
+import '../../../providers/ticket_provider.dart';
 
 class TicketPriceBreakdown extends StatefulWidget {
   final int eventId;
@@ -34,7 +34,7 @@ class _TicketPriceBreakdownState extends State<TicketPriceBreakdown> {
 
   Future<void> _loadPreview() async {
     try {
-      final ticketRepo = context.read<TicketRepository>();
+      final ticketRepo = context.read<TicketProvider>();
       final data = await ticketRepo.getTicketPrice(widget.eventId, widget.tierId);
       if (mounted) {
         setState(() {

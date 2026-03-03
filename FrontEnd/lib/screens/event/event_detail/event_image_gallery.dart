@@ -9,7 +9,7 @@ import '../../../config/api_config.dart';
 import '../../../config/theme.dart';
 import '../../../config/design_tokens.dart';
 import '../../../models/event_image.dart';
-import '../../../repositories/event_repository.dart';
+import '../../../providers/event_provider.dart';
 import '../../../widgets/app_toast.dart';
 import '../../../widgets/fullscreen_image_viewer.dart';
 import 'event_detail_helpers.dart';
@@ -59,7 +59,7 @@ class _EventImageGalleryState extends State<EventImageGallery> {
       if (!mounted) return;
 
       setState(() => _uploading = true);
-      final repo = context.read<EventRepository>();
+      final repo = context.read<EventProvider>();
       int order = widget.images.length;
 
       for (final xFile in picked) {
@@ -212,7 +212,7 @@ class _EventImageGalleryState extends State<EventImageGallery> {
                             right: 4,
                             child: GestureDetector(
                               onTap: () async {
-                                final repo = context.read<EventRepository>();
+                                final repo = context.read<EventProvider>();
                                 await repo.deleteEventImage(
                                     widget.eventId, img.id);
                                 widget.onImagesChanged();

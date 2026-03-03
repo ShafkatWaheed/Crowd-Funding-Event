@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
-import '../../repositories/admin_repository.dart';
+import '../../providers/admin_provider.dart';
 import '../../repositories/base_repository.dart';
 import '../../utils/date_time_utils.dart';
 
@@ -292,7 +292,7 @@ class _PlatformAccountCardState extends State<PlatformAccountCard> {
     }
     setState(() => _saving = true);
     try {
-      final admin = context.read<AdminRepository>();
+      final admin = context.read<AdminProvider>();
       await admin.updatePlatformAccount({
         'institution_number': _institutionCtrl.text.trim(),
         'transit_number': _transitCtrl.text.trim(),

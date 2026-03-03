@@ -11,7 +11,7 @@ import '../../../config/design_tokens.dart';
 import '../../../models/event.dart';
 import '../../../models/schedule.dart';
 import '../../../db/app_database.dart';
-import '../../../repositories/event_repository.dart';
+import '../../../providers/event_provider.dart';
 import '../../../services/sync_service.dart';
 import '../../../widgets/fullscreen_image_viewer.dart';
 
@@ -47,7 +47,7 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
 
   Future<void> _load() async {
     try {
-      final repo = context.read<EventRepository>();
+      final repo = context.read<EventProvider>();
 
       final auth = context.read<AuthProvider>();
       if (auth.user != null && auth.user!.isAdmin) {
@@ -60,8 +60,7 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
         } catch (e) { debugPrint(e.toString()); }
       }
 
-      final list = await repo.getSchedule(widget.eventId);
-      final days = list.map((j) => ScheduleDay.fromJson(j)).toList();
+      final days = await repo.getSchedule(widget.eventId);
 
       if (mounted) {
         setState(() {
@@ -152,7 +151,7 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
   }
 
   Future<void> _downloadExcel() async {
-    final repo = context.read<EventRepository>();
+    final repo = context.read<EventProvider>();
     final url = repo.getScheduleExportUrl(widget.eventId);
     final uri = Uri.parse(url);
     if (await canLaunchUrl(uri)) {

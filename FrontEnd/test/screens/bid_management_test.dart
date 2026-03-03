@@ -5,8 +5,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
+import '../../lib/models/sponsor.dart';
 import '../../lib/models/user.dart';
 import '../../lib/providers/auth_provider.dart';
+import '../../lib/providers/sponsor_provider.dart';
 import '../../lib/repositories/sponsor_repository.dart';
 import '../../lib/screens/sponsor/bid_management_screen.dart';
 import '../helpers/mock_providers.dart';
@@ -37,14 +39,14 @@ void main() {
       ),
       overrides: [
         ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
-        Provider<SponsorRepository>.value(value: mockSponsorRepo),
+        ChangeNotifierProvider<SponsorProvider>.value(value: SponsorProvider(mockSponsorRepo)),
       ],
     );
   }
 
   group('BidManagementScreen', () {
     testWidgets('shows category name in AppBar', (tester) async {
-      final bidsCompleter = Completer<List<dynamic>>();
+      final bidsCompleter = Completer<List<SponsorBid>>();
       when(() => mockSponsorRepo.listBids(1, 1))
           .thenAnswer((_) => bidsCompleter.future);
 
@@ -59,7 +61,7 @@ void main() {
     });
 
     testWidgets('shows generic title when no category name', (tester) async {
-      final bidsCompleter = Completer<List<dynamic>>();
+      final bidsCompleter = Completer<List<SponsorBid>>();
       when(() => mockSponsorRepo.listBids(1, 1))
           .thenAnswer((_) => bidsCompleter.future);
 

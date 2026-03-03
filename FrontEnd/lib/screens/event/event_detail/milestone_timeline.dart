@@ -7,8 +7,8 @@ import '../../../config/design_tokens.dart';
 import '../../../models/event.dart';
 import '../../../models/milestone.dart';
 import '../../../providers/auth_provider.dart';
-import '../../../repositories/event_repository.dart';
-import '../../../repositories/ticket_repository.dart';
+import '../../../providers/event_provider.dart';
+import '../../../providers/ticket_provider.dart';
 import '../../../widgets/app_toast.dart';
 
 class MilestoneTimeline extends StatefulWidget {
@@ -36,8 +36,8 @@ class _MilestoneTimelineState extends State<MilestoneTimeline> {
 
   Future<void> _load() async {
     try {
-      final repo = context.read<EventRepository>();
-      final ticketRepo = context.read<TicketRepository>();
+      final repo = context.read<EventProvider>();
+      final ticketRepo = context.read<TicketProvider>();
       final auth = context.read<AuthProvider>();
       if (auth.user != null && auth.user!.isAdmin) {
         try {
@@ -49,9 +49,7 @@ class _MilestoneTimelineState extends State<MilestoneTimeline> {
         } catch (e) { debugPrint(e.toString()); }
       }
 
-      final list = await repo.getMilestones(widget.eventId);
-      final milestones =
-          list.map((j) => FundingMilestone.fromJson(j)).toList();
+      final milestones = await repo.getMilestones(widget.eventId);
 
       final reactions = <int, String?>{};
       if (auth.user != null) {
@@ -90,7 +88,7 @@ class _MilestoneTimelineState extends State<MilestoneTimeline> {
 
   Future<void> _react(int milestoneId, String reaction) async {
     try {
-      final repo = context.read<EventRepository>();
+      final repo = context.read<EventProvider>();
       final resp =
           await repo.reactToMilestone(widget.eventId, milestoneId, reaction);
       if (mounted) {

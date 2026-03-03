@@ -6,7 +6,7 @@ import 'package:provider/provider.dart';
 import '../../config/api_config.dart';
 import '../../config/theme.dart';
 import '../../widgets/shimmer_loaders.dart';
-import '../../repositories/sponsor_repository.dart';
+import '../../providers/sponsor_provider.dart';
 import '../../widgets/app_toast.dart';
 
 class OrganizerSponsorsScreen extends StatefulWidget {
@@ -60,11 +60,11 @@ class _OrganizerSponsorsScreenState extends State<OrganizerSponsorsScreen> {
       _hasMore = true;
     });
     try {
-      final api = context.read<SponsorRepository>();
+      final api = context.read<SponsorProvider>();
       final data = await api.getOrganizerSponsors(eventStatus: widget.eventStatus, genre: widget.genre, eventId: widget.eventId, offset: 0, limit: _pageSize);
       if (!mounted) return;
       setState(() {
-        _sponsors = data.cast<Map<String, dynamic>>();
+        _sponsors = data;
         _hasMore = data.length >= _pageSize;
         _loading = false;
       });
@@ -79,7 +79,7 @@ class _OrganizerSponsorsScreenState extends State<OrganizerSponsorsScreen> {
     if (_loadingMore || !_hasMore) return;
     setState(() => _loadingMore = true);
     try {
-      final api = context.read<SponsorRepository>();
+      final api = context.read<SponsorProvider>();
       final data = await api.getOrganizerSponsors(
         eventStatus: widget.eventStatus,
         genre: widget.genre,
@@ -89,7 +89,7 @@ class _OrganizerSponsorsScreenState extends State<OrganizerSponsorsScreen> {
       );
       if (mounted) {
         setState(() {
-          _sponsors.addAll(data.cast<Map<String, dynamic>>());
+          _sponsors.addAll(data);
           _hasMore = data.length >= _pageSize;
           _loadingMore = false;
         });

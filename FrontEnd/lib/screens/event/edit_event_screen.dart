@@ -7,9 +7,8 @@ import '../../models/event.dart';
 import '../../models/venue.dart';
 import '../../models/ticket_strategy.dart';
 import '../../providers/event_provider.dart';
-import '../../repositories/event_repository.dart';
-import '../../repositories/ticket_repository.dart';
-import '../../repositories/venue_repository.dart';
+import '../../providers/ticket_provider.dart';
+import '../../providers/venue_provider.dart';
 import '../../widgets/app_toast.dart';
 
 import 'edit_sections/edit_basic_info_section.dart';
@@ -81,7 +80,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
 
   Future<void> _loadFeatureFlags() async {
     try {
-      final repo = context.read<EventRepository>();
+      final repo = context.read<EventProvider>();
       final config = await repo.getPublicConfig();
       if (mounted) {
         setState(() {
@@ -101,28 +100,27 @@ class _EditEventScreenState extends State<EditEventScreen> {
 
   Future<void> _loadVenues() async {
     try {
-      final repo = context.read<VenueRepository>();
+      final repo = context.read<VenueProvider>();
       final data = await repo.getVenues();
       setState(() {
-        _venues = data.map((v) => Venue.fromJson(v)).toList();
+        _venues = data;
       });
     } catch (e) { debugPrint(e.toString()); }
   }
 
   Future<void> _loadStrategies() async {
     try {
-      final ticketRepo = context.read<TicketRepository>();
+      final ticketRepo = context.read<TicketProvider>();
       final data = await ticketRepo.getTicketStrategies();
       setState(() {
-        _strategies =
-            data.map((d) => TicketStrategy.fromJson(d)).toList();
+        _strategies = data;
       });
     } catch (e) { debugPrint(e.toString()); }
   }
 
   Future<void> _loadEvent() async {
     try {
-      final eventRepo = context.read<EventRepository>();
+      final eventRepo = context.read<EventProvider>();
       final data = await eventRepo.getEvent(widget.eventId);
       final event = Event.fromJson(data);
       setState(() {
@@ -241,10 +239,10 @@ class _EditEventScreenState extends State<EditEventScreen> {
     if (mco != null && mco > 0) data['max_co_organizers'] = mco;
 
     try {
-      final eventRepo = context.read<EventRepository>();
+      final eventRepo = context.read<EventProvider>();
       final updated = await eventRepo.updateEvent(widget.eventId, data);
       if (mounted) {
-        final newStatus = updated['status'];
+        final newStatus = updated.status.name;
         context.read<EventProvider>().loadEvent(widget.eventId);
         if (newStatus == 'pending_approval') {
           AppToast.success(context,

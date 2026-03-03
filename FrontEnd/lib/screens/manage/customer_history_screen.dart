@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
-import '../../repositories/event_repository.dart';
+import '../../providers/event_provider.dart';
 import '../../widgets/shimmer_loaders.dart';
 
 class CustomerHistoryScreen extends StatefulWidget {
@@ -53,7 +53,7 @@ class _CustomerHistoryScreenState extends State<CustomerHistoryScreen> {
       _hasMore = true;
     });
     try {
-      final repo = context.read<EventRepository>();
+      final repo = context.read<EventProvider>();
       final list = await repo.getOrganizerCustomers(offset: 0, limit: _pageSize);
       if (mounted) {
         setState(() {
@@ -71,7 +71,7 @@ class _CustomerHistoryScreenState extends State<CustomerHistoryScreen> {
     if (_loadingMore || !_hasMore) return;
     setState(() => _loadingMore = true);
     try {
-      final repo = context.read<EventRepository>();
+      final repo = context.read<EventProvider>();
       final list = await repo.getOrganizerCustomers(
         offset: _customers.length,
         limit: _pageSize,

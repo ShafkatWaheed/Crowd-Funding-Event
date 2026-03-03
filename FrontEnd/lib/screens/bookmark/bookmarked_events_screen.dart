@@ -6,7 +6,7 @@ import '../../config/theme.dart';
 import '../../models/event.dart';
 import '../../utils/date_time_utils.dart';
 import '../../repositories/base_repository.dart';
-import '../../repositories/bookmark_repository.dart';
+import '../../providers/bookmark_provider.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/event_lifecycle_bar.dart';
@@ -68,7 +68,7 @@ class _BookmarkedEventsScreenState extends State<BookmarkedEventsScreen> {
       _hasMore = true;
     });
     try {
-      final repo = context.read<BookmarkRepository>();
+      final repo = context.read<BookmarkProvider>();
       final data = await repo.getBookmarkedEvents(
         search: _searchCtrl.text.isNotEmpty ? _searchCtrl.text : null,
         status: _statusFilter,
@@ -77,7 +77,7 @@ class _BookmarkedEventsScreenState extends State<BookmarkedEventsScreen> {
       );
       if (mounted) {
         setState(() {
-          _events = data.map((j) => Event.fromJson(j)).toList();
+          _events = data;
           _hasMore = data.length >= _pageSize;
           _loading = false;
         });
@@ -94,7 +94,7 @@ class _BookmarkedEventsScreenState extends State<BookmarkedEventsScreen> {
     if (_loadingMore || !_hasMore) return;
     setState(() => _loadingMore = true);
     try {
-      final repo = context.read<BookmarkRepository>();
+      final repo = context.read<BookmarkProvider>();
       final data = await repo.getBookmarkedEvents(
         search: _searchCtrl.text.isNotEmpty ? _searchCtrl.text : null,
         status: _statusFilter,
@@ -103,7 +103,7 @@ class _BookmarkedEventsScreenState extends State<BookmarkedEventsScreen> {
       );
       if (mounted) {
         setState(() {
-          _events.addAll(data.map((j) => Event.fromJson(j)));
+          _events.addAll(data);
           _hasMore = data.length >= _pageSize;
           _loadingMore = false;
         });
@@ -115,7 +115,7 @@ class _BookmarkedEventsScreenState extends State<BookmarkedEventsScreen> {
 
   Future<void> _removeBookmark(int eventId) async {
     try {
-      final repo = context.read<BookmarkRepository>();
+      final repo = context.read<BookmarkProvider>();
       await repo.toggleBookmark(eventId);
       if (mounted) {
         setState(() => _events.removeWhere((e) => e.id == eventId));

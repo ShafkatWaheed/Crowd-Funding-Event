@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import '../../../config/api_config.dart';
 import '../../../config/theme.dart';
 import '../../../config/design_tokens.dart';
-import '../../../repositories/sponsor_repository.dart';
+import '../../../providers/sponsor_provider.dart';
 
 class SponsorCarousel extends StatefulWidget {
   final int eventId;
@@ -27,11 +27,11 @@ class _SponsorCarouselState extends State<SponsorCarousel> {
 
   Future<void> _load() async {
     try {
-      final api = context.read<SponsorRepository>();
+      final api = context.read<SponsorProvider>();
       final data = await api.getEventSponsors(widget.eventId);
       if (mounted) {
         setState(() {
-          _sponsors = data.cast<Map<String, dynamic>>();
+          _sponsors = data;
           _loaded = true;
         });
       }

@@ -10,8 +10,9 @@ import '../utils/date_time_utils.dart';
 import 'package:provider/provider.dart';
 
 import '../config/theme.dart';
+import '../models/event.dart';
 import '../models/map_event.dart';
-import '../repositories/event_repository.dart';
+import '../providers/event_provider.dart';
 
 /// Full-screen map widget showing event markers.
 /// Tapping a marker shows a bottom sheet listing all events at that venue.
@@ -86,7 +87,7 @@ class _EventMapWidgetState extends State<EventMapWidget> {
 
   Future<void> _loadEvents() async {
     try {
-      final repo = context.read<EventRepository>();
+      final repo = context.read<EventProvider>();
       final bounds = _mapController.camera.visibleBounds;
       final center = _mapController.camera.center;
       const distance = Distance();
@@ -110,7 +111,18 @@ class _EventMapWidgetState extends State<EventMapWidget> {
       );
       if (mounted) {
         setState(() {
-          _events = data.map((e) => EventMarker.fromJson(e)).toList();
+          _events = data.map((e) => EventMarker(
+            id: e.id,
+            title: e.title,
+            lat: e.lat ?? 0,
+            lng: e.lng ?? 0,
+            startTime: e.startTime?.toIso8601String(),
+            endTime: e.endTime?.toIso8601String(),
+            status: e.status.name,
+            isLive: e.status == EventStatus.live,
+            venueId: e.venueId,
+            venueName: e.venue?.name,
+          )).toList();
           _loading = false;
         });
       }

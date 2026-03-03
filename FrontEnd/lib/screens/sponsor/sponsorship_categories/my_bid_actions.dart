@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
 import '../../../repositories/base_repository.dart';
-import '../../../repositories/sponsor_repository.dart';
+import '../../../providers/sponsor_provider.dart';
 import '../../../providers/config_provider.dart';
 import '../../../repositories/payment_repository.dart';
 import '../../../widgets/app_toast.dart';
@@ -55,7 +55,7 @@ class _MyBidActionsState extends State<MyBidActions> {
     if (confirmed != true || !mounted) return;
     setState(() => _busy = true);
     try {
-      final repo = context.read<SponsorRepository>();
+      final repo = context.read<SponsorProvider>();
       await repo.withdrawBid(widget.eventId, widget.categoryId, _bidId);
       if (mounted) AppToast.success(context, 'Bid withdrawn');
       widget.onDone();
@@ -87,7 +87,7 @@ class _MyBidActionsState extends State<MyBidActions> {
     try {
       final config = context.read<ConfigProvider>();
       final paymentRepo = context.read<PaymentRepository>();
-      final repo = context.read<SponsorRepository>();
+      final repo = context.read<SponsorProvider>();
 
       // Stripe Payment Sheet flow when Stripe is enabled
       if (config.stripeEnabled) {

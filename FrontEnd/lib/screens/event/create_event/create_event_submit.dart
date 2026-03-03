@@ -3,9 +3,9 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../models/event_form_models.dart';
 import '../../../models/venue.dart';
-import '../../../repositories/event_repository.dart';
-import '../../../repositories/ticket_repository.dart';
-import '../../../repositories/sponsor_repository.dart';
+import '../../../providers/event_provider.dart';
+import '../../../providers/ticket_provider.dart';
+import '../../../providers/sponsor_provider.dart';
 
 Map<String, dynamic> buildCreateEventPayload({
   required int selectedVenueId,
@@ -93,9 +93,9 @@ Map<String, dynamic> buildCreateEventPayload({
 }
 
 Future<int> executeCreateEventSubmission({
-  required SponsorRepository sponsorRepo,
-  required EventRepository eventRepo,
-  required TicketRepository ticketRepo,
+  required SponsorProvider sponsorRepo,
+  required EventProvider eventRepo,
+  required TicketProvider ticketRepo,
   required Map<String, dynamic> eventData,
   required Map<int, bool> selectedDiscounts,
   required List<EditableTier> localTiers,
@@ -107,8 +107,8 @@ Future<int> executeCreateEventSubmission({
   required List<XFile> pickedImages,
   required Map<int, Uint8List> imageBytes,
 }) async {
-  final resp = await eventRepo.createEvent(eventData);
-  final eventId = resp['id'] as int;
+  final resp = await eventRepo.createEventRaw(eventData);
+  final eventId = resp.id;
 
   await _attachDiscounts(ticketRepo, eventId, selectedDiscounts);
   await _createTiers(ticketRepo, eventId, localTiers);
@@ -121,7 +121,7 @@ Future<int> executeCreateEventSubmission({
   return eventId;
 }
 
-Future<void> _attachDiscounts(TicketRepository ticketRepo, int eventId, Map<int, bool> selectedDiscounts) async {
+Future<void> _attachDiscounts(TicketProvider ticketRepo, int eventId, Map<int, bool> selectedDiscounts) async {
   for (final entry in selectedDiscounts.entries) {
     try {
       await ticketRepo.attachDiscountStrategy(eventId, entry.key, autoApply: entry.value);
@@ -129,7 +129,7 @@ Future<void> _attachDiscounts(TicketRepository ticketRepo, int eventId, Map<int,
   }
 }
 
-Future<void> _createTiers(TicketRepository ticketRepo, int eventId, List<EditableTier> localTiers) async {
+Future<void> _createTiers(TicketProvider ticketRepo, int eventId, List<EditableTier> localTiers) async {
   for (int i = 0; i < localTiers.length; i++) {
     final t = localTiers[i];
     final name = t.nameCtrl.text.trim();
@@ -147,7 +147,7 @@ Future<void> _createTiers(TicketRepository ticketRepo, int eventId, List<Editabl
   }
 }
 
-Future<void> _createMilestones(EventRepository eventRepo, TicketRepository ticketRepo, int eventId, List<MilestoneInput> milestones) async {
+Future<void> _createMilestones(EventProvider eventRepo, TicketProvider ticketRepo, int eventId, List<MilestoneInput> milestones) async {
   for (final ms in milestones) {
     final title = ms.titleCtrl.text.trim();
     if (title.isEmpty) continue;
@@ -174,7 +174,7 @@ Future<void> _createMilestones(EventRepository eventRepo, TicketRepository ticke
   }
 }
 
-Future<void> _createEarlyBirdDiscounts(TicketRepository ticketRepo, int eventId, List<EarlyBirdInput> earlyBirdDiscounts) async {
+Future<void> _createEarlyBirdDiscounts(TicketProvider ticketRepo, int eventId, List<EarlyBirdInput> earlyBirdDiscounts) async {
   for (final eb in earlyBirdDiscounts) {
     final val = int.tryParse(eb.valueCtrl.text.trim()) ?? 0;
     if (val <= 0 || eb.windowEnd == null) continue;
@@ -191,7 +191,7 @@ Future<void> _createEarlyBirdDiscounts(TicketRepository ticketRepo, int eventId,
   }
 }
 
-Future<void> _createSchedule(EventRepository eventRepo, int eventId, List<ScheduleDayInput> scheduleDays) async {
+Future<void> _createSchedule(EventProvider eventRepo, int eventId, List<ScheduleDayInput> scheduleDays) async {
   if (scheduleDays.isEmpty) return;
   final scheduleItems = <Map<String, dynamic>>[];
   final slotsWithImages = <int, ScheduleSlotInput>{};
@@ -231,7 +231,7 @@ Future<void> _createSchedule(EventRepository eventRepo, int eventId, List<Schedu
       final idx = entry.key;
       final slot = entry.value;
       if (idx < created.length) {
-        final itemId = created[idx]['id'] as int;
+        final itemId = created[idx].id;
         try {
           await eventRepo.uploadScheduleImage(
             eventId,
@@ -249,18 +249,18 @@ Future<void> _createSchedule(EventRepository eventRepo, int eventId, List<Schedu
 }
 
 Future<void> _createSponsorCategories(
-    SponsorRepository sponsorRepo, int eventId, List<EditableSponsorCategory> localCategories) async {
+    SponsorProvider sponsorRepo, int eventId, List<EditableSponsorCategory> localCategories) async {
   for (final cat in localCategories) {
     final name = cat.nameCtrl.text.trim();
     if (name.isEmpty) continue;
     try {
-      final catResp = await sponsorRepo.createSponsorshipCategory(eventId, {
+      final created = await sponsorRepo.createSponsorshipCategory(eventId, {
         'name': name,
         'description': cat.descCtrl.text.trim(),
         'total_spots': int.tryParse(cat.spotsCtrl.text) ?? 1,
         'min_bid_cents': ((double.tryParse(cat.minBidCtrl.text) ?? 0) * 100).round(),
       });
-      final catId = catResp['id'] as int;
+      final catId = created.id;
       for (final p in cat.prereqs) {
         try {
           await sponsorRepo.createPrerequisite(eventId, catId,
@@ -275,7 +275,7 @@ Future<void> _createSponsorCategories(
 }
 
 Future<void> _uploadImages(
-    EventRepository eventRepo, int eventId, List<XFile> pickedImages, Map<int, Uint8List> imageBytes) async {
+    EventProvider eventRepo, int eventId, List<XFile> pickedImages, Map<int, Uint8List> imageBytes) async {
   for (int i = 0; i < pickedImages.length; i++) {
     try {
       final bytes = imageBytes[i] ?? await pickedImages[i].readAsBytes();

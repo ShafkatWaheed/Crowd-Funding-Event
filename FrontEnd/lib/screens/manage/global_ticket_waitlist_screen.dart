@@ -3,8 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
-import '../../repositories/event_repository.dart';
-import '../../repositories/ticket_repository.dart';
+import '../../providers/event_provider.dart';
+import '../../providers/ticket_provider.dart';
 import '../../widgets/app_toast.dart';
 
 /// Shows waitlisted tickets across ALL organiser events.
@@ -42,14 +42,14 @@ class _GlobalTicketWaitlistScreenState
       _error = null;
     });
     try {
-      final eventRepo = context.read<EventRepository>();
-      final ticketRepo = context.read<TicketRepository>();
+      final eventRepo = context.read<EventProvider>();
+      final ticketRepo = context.read<TicketProvider>();
       final events = await eventRepo.getMyEvents();
       final List<Map<String, dynamic>> combined = [];
 
       for (final evt in events) {
-        final eventId = evt['id'] as int;
-        final eventTitle = evt['title'] ?? 'Event #$eventId';
+        final eventId = evt.id;
+        final eventTitle = evt.title;
         try {
           final tickets = await ticketRepo.getWaitlistedTickets(eventId);
           for (final t in tickets) {
@@ -93,7 +93,7 @@ class _GlobalTicketWaitlistScreenState
 
   Future<void> _approve(int eventId, int ticketId) async {
     try {
-      final repo = context.read<TicketRepository>();
+      final repo = context.read<TicketProvider>();
       await repo.approveWaitlistedTicket(eventId, ticketId);
       if (mounted) {
         AppToast.success(context, 'Ticket approved!');
@@ -108,7 +108,7 @@ class _GlobalTicketWaitlistScreenState
 
   Future<void> _reject(int eventId, int ticketId) async {
     try {
-      final repo = context.read<TicketRepository>();
+      final repo = context.read<TicketProvider>();
       await repo.rejectWaitlistedTicket(eventId, ticketId);
       if (mounted) {
         AppToast.success(context, 'Ticket rejected.');

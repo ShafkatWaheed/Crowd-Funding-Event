@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../config/theme.dart';
-import '../../../../repositories/admin_repository.dart';
+import '../../../../providers/admin_provider.dart';
 import '../../../../widgets/app_toast.dart';
 import '../../admin_shared.dart';
 
@@ -95,7 +95,7 @@ class BankingDisputesSection extends StatelessWidget {
                             onPressed: () async {
                               try {
                                 await context
-                                    .read<AdminRepository>()
+                                    .read<AdminProvider>()
                                     .submitDisputeEvidence(
                                         d['id'] as int);
                                 onReloadDisputes();
@@ -126,7 +126,7 @@ class BankingDisputesSection extends StatelessWidget {
                             onPressed: () async {
                               try {
                                 await context
-                                    .read<AdminRepository>()
+                                    .read<AdminProvider>()
                                     .acceptDisputeLoss(
                                         d['id'] as int);
                                 onReloadDisputes();

@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
 import '../../../config/design_tokens.dart';
-import '../../../repositories/ticket_repository.dart';
+import '../../../providers/ticket_provider.dart';
 
 class CustomerDiscountsSection extends StatefulWidget {
   final int eventId;
@@ -27,7 +27,7 @@ class _CustomerDiscountsSectionState extends State<CustomerDiscountsSection> {
 
   Future<void> _load() async {
     try {
-      final list = await context.read<TicketRepository>().getMyDiscounts(widget.eventId);
+      final list = await context.read<TicketProvider>().getMyDiscounts(widget.eventId);
       if (mounted) {
         setState(() {
           _discounts = list.cast<Map<String, dynamic>>();

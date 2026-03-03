@@ -5,8 +5,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
+import '../../lib/models/event.dart';
 import '../../lib/models/user.dart';
 import '../../lib/providers/auth_provider.dart';
+import '../../lib/providers/event_provider.dart';
 import '../../lib/repositories/event_repository.dart';
 import '../../lib/screens/home/tabs/my_events_tab.dart';
 import '../helpers/mock_providers.dart';
@@ -42,14 +44,14 @@ void main() {
       ),
       overrides: [
         ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
-        Provider<EventRepository>.value(value: mockEventRepo),
+        ChangeNotifierProvider<EventProvider>.value(value: EventProvider(mockEventRepo)),
       ],
     );
   }
 
   group('MyEventsTab', () {
     testWidgets('shows Manage header and quick action buttons', (tester) async {
-      final eventsCompleter = Completer<List<dynamic>>();
+      final eventsCompleter = Completer<List<Event>>();
       when(() => mockEventRepo.getMyEvents(
             offset: any(named: 'offset'),
             limit: any(named: 'limit'),

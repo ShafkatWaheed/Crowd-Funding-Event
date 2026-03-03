@@ -10,7 +10,7 @@ import '../../../db/app_database.dart';
 import '../../../models/event.dart';
 import '../../../models/venue.dart';
 import '../../../providers/auth_provider.dart';
-import '../../../repositories/event_repository.dart';
+import '../../../providers/event_provider.dart';
 import '../../../services/location_helper.dart';
 import '../../../services/sync_service.dart';
 import '../../../widgets/animated_list_item.dart';
@@ -100,7 +100,7 @@ class _HomeTabState extends State<HomeTab> {
 
   Future<void> _loadFeatured() async {
     try {
-      final repo = context.read<EventRepository>();
+      final repo = context.read<EventProvider>();
       final auth = context.read<AuthProvider>();
       final isSponsor = auth.user != null &&
           auth.user!.isSponsor &&
@@ -218,7 +218,7 @@ class _HomeTabState extends State<HomeTab> {
     try {
       final pos = await LocationHelper.getCurrentPosition();
       if (pos == null || !mounted) return;
-      final repo = context.read<EventRepository>();
+      final repo = context.read<EventProvider>();
       final auth = context.read<AuthProvider>();
       final isSponsor = auth.user != null &&
           auth.user!.isSponsor &&
@@ -230,7 +230,7 @@ class _HomeTabState extends State<HomeTab> {
       );
       if (mounted) {
         final ids =
-            data.map((e) => e['id'] as int).take(10).toList();
+            data.map((e) => e.id).take(10).toList();
         if (ids.isNotEmpty) {
           final fullEvents = <Event>[];
           final result = await repo.getEvents(params: {

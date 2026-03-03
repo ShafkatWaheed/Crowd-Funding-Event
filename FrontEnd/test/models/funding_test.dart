@@ -59,7 +59,7 @@ void main() {
       final json = fundingSummaryJson(
         goalCents: 200000,
         totalPledgedCents: 150000,
-        pledgeCount: 50,
+        backersCount: 50,
         totalReservedSpots: 20,
         fundingEndAt: '2025-07-01T00:00:00',
       );
@@ -67,7 +67,7 @@ void main() {
 
       expect(summary.goalCents, 200000);
       expect(summary.totalPledgedCents, 150000);
-      expect(summary.pledgeCount, 50);
+      expect(summary.backersCount, 50);
       expect(summary.totalReservedSpots, 20);
       expect(summary.fundingEndAt, DateTime.parse('2025-07-01T00:00:00'));
     });

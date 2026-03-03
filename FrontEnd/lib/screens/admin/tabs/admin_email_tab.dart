@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../../config/api_config.dart';
 import '../../../config/theme.dart';
-import '../../../repositories/admin_repository.dart';
+import '../../../providers/admin_provider.dart';
 import '../../../repositories/base_repository.dart';
 
 class AdminEmailTab extends StatefulWidget {
@@ -48,7 +48,7 @@ class _AdminEmailTabState extends State<AdminEmailTab> {
   Future<void> _loadEmailTemplates() async {
     setState(() => _emailLoading = true);
     try {
-      final admin = context.read<AdminRepository>();
+      final admin = context.read<AdminProvider>();
       final data = await admin.getEmailTemplates();
       if (mounted) {
         setState(() {
@@ -81,7 +81,7 @@ class _AdminEmailTabState extends State<AdminEmailTab> {
     setState(() => _logoUploading = true);
     try {
       final bytes = await picked.readAsBytes();
-      final admin = context.read<AdminRepository>();
+      final admin = context.read<AdminProvider>();
       await admin.uploadEmailLogo(fileBytes: bytes, fileName: picked.name);
       await widget.onReloadSettings();
       if (mounted) widget.onSnack('Logo uploaded');
@@ -98,7 +98,7 @@ class _AdminEmailTabState extends State<AdminEmailTab> {
   Future<void> _saveTemplate(
       String key, String subject, String bodyHtml, bool isActive) async {
     try {
-      final admin = context.read<AdminRepository>();
+      final admin = context.read<AdminProvider>();
       await admin.saveEmailTemplate(key,
           subject: subject, bodyHtml: bodyHtml, isActive: isActive);
       _loadEmailTemplates();
@@ -508,7 +508,7 @@ class _AdminEmailTabState extends State<AdminEmailTab> {
                   if (confirm == true) {
                     try {
                       await context
-                          .read<AdminRepository>()
+                          .read<AdminProvider>()
                           .resetAllEmailTemplates();
                       _loadEmailTemplates();
                       if (mounted) {
@@ -603,7 +603,7 @@ class _AdminEmailTabState extends State<AdminEmailTab> {
                       onPressed: () async {
                         try {
                           await context
-                              .read<AdminRepository>()
+                              .read<AdminProvider>()
                               .testSendEmailTemplate(key);
                           if (mounted) {
                             widget.onSnack('Test email sent');
@@ -620,7 +620,7 @@ class _AdminEmailTabState extends State<AdminEmailTab> {
                         onPressed: () async {
                           try {
                             await context
-                                .read<AdminRepository>()
+                                .read<AdminProvider>()
                                 .resetEmailTemplate(key);
                             _loadEmailTemplates();
                             if (mounted) {

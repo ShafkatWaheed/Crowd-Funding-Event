@@ -5,7 +5,6 @@ from app.dependencies import DbSession, ReadDbSession, CurrentUser, require_feat
 from app.logger import get_logger, log_step
 from app.schemas.sponsor import SponsorProfileCreate, SponsorProfileUpdate, SponsorProfileResponse
 from app.services import sponsor as sponsor_svc
-from app.repositories.sponsor_repo import sponsor_repo
 
 logger = get_logger("api.sponsors.profile")
 router = APIRouter(dependencies=[Depends(require_feature("feature_sponsors_enabled"))])
@@ -23,8 +22,6 @@ async def create_sponsor_profile(
 ):
     log_step(logger, "Creating sponsor profile", user_id=current_user.id, company_name=data.company_name)
     profile = await sponsor_svc.create_profile(db, current_user, data)
-    await db.commit()
-    await sponsor_repo.refresh(db, profile)
     return profile
 
 
@@ -51,6 +48,4 @@ async def update_sponsor_profile(
 ):
     log_step(logger, "Updating sponsor profile", user_id=current_user.id)
     profile = await sponsor_svc.update_profile(db, current_user.id, data)
-    await db.commit()
-    await sponsor_repo.refresh(db, profile)
     return profile

@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
+import '../../lib/providers/sponsor_provider.dart';
 import '../../lib/repositories/sponsor_repository.dart';
 import '../../lib/screens/sponsor/organizer_sponsors_screen.dart';
 import '../helpers/mock_sponsor_repository.dart';
@@ -34,7 +35,7 @@ void main() {
         'logo_url': logoUrl,
       };
 
-  void stubSponsors({List<dynamic>? data}) {
+  void stubSponsors({List<Map<String, dynamic>>? data}) {
     when(() => mockSponsorRepo.getOrganizerSponsors(
           eventStatus: any(named: 'eventStatus'),
           genre: any(named: 'genre'),
@@ -48,7 +49,7 @@ void main() {
     await pumpApp(
       tester,
       OrganizerSponsorsScreen(eventId: eventId),
-      overrides: [Provider<SponsorRepository>.value(value: mockSponsorRepo)],
+      overrides: [ChangeNotifierProvider<SponsorProvider>.value(value: SponsorProvider(mockSponsorRepo))],
     );
   }
 

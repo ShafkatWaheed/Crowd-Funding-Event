@@ -4,6 +4,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
 import '../../lib/repositories/ticket_repository.dart';
+import '../../lib/providers/ticket_provider.dart';
 import '../../lib/screens/manage/global_discounts_screen.dart';
 import '../helpers/mock_ticket_repository.dart';
 import '../helpers/pump_app.dart';
@@ -39,7 +40,7 @@ void main() {
     await pumpApp(
       tester,
       const GlobalDiscountsScreen(),
-      overrides: [Provider<TicketRepository>.value(value: mockTicketRepo)],
+      overrides: [ChangeNotifierProvider<TicketProvider>.value(value: TicketProvider(mockTicketRepo))],
     );
   }
 

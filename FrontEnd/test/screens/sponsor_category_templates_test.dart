@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
+import '../../lib/providers/sponsor_provider.dart';
 import '../../lib/repositories/sponsor_repository.dart';
 import '../../lib/screens/sponsor/sponsor_category_templates_screen.dart';
 import '../helpers/mock_sponsor_repository.dart';
@@ -30,7 +31,7 @@ void main() {
         'min_bid_cents': minBidCents,
       };
 
-  void stubTemplates({List<dynamic>? data}) {
+  void stubTemplates({List<Map<String, dynamic>>? data}) {
     when(() => mockSponsorRepo.getSponsorCategoryTemplates())
         .thenAnswer((_) async => data ?? []);
   }
@@ -39,7 +40,7 @@ void main() {
     await pumpApp(
       tester,
       const SponsorCategoryTemplatesScreen(),
-      overrides: [Provider<SponsorRepository>.value(value: mockSponsorRepo)],
+      overrides: [ChangeNotifierProvider<SponsorProvider>.value(value: SponsorProvider(mockSponsorRepo))],
     );
   }
 

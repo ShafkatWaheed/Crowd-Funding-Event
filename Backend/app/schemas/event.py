@@ -222,6 +222,8 @@ class EventResponse(BaseModel):
     directions_url: str | None = None  # computed from venue address
     first_image_url: str | None = None
     viewer_co_organizer_permission: str | None = None  # null | 'read' | 'full' for the requesting user
+    viewer_is_registered: bool | None = None  # true if viewer has active registration (registered or waitlisted)
+    viewer_registration_status: str | None = None  # "registered" | "waitlist" | "cancelled"
     # Per-event policy (organizer values)
     waitlist_max_size: int | None = None
     waitlist_auto_approve: bool = True

@@ -9,6 +9,12 @@ import '../../lib/repositories/event_repository.dart';
 import '../../lib/repositories/ticket_repository.dart';
 import '../../lib/repositories/venue_repository.dart';
 import '../../lib/repositories/sponsor_repository.dart';
+import '../../lib/providers/event_provider.dart';
+import '../../lib/providers/ticket_provider.dart';
+import '../../lib/providers/venue_provider.dart';
+import '../../lib/providers/sponsor_provider.dart';
+import '../../lib/models/venue.dart';
+import '../../lib/models/ticket_strategy.dart';
 import '../../lib/screens/event/create_event_screen.dart';
 import '../helpers/mock_providers.dart';
 import '../helpers/mock_event_repository.dart';
@@ -37,11 +43,11 @@ void main() {
 
     // Stub all data-loading methods called in initState
     when(() => mockVenueRepo.getVenues()).thenAnswer((_) async => [
-          venueJson(id: 1, name: 'Main Hall'),
-          venueJson(id: 2, name: 'Outdoor Stage'),
+          Venue.fromJson(venueJson(id: 1, name: 'Main Hall')),
+          Venue.fromJson(venueJson(id: 2, name: 'Outdoor Stage')),
         ]);
     when(() => mockTicketRepo.getTicketStrategies()).thenAnswer((_) async => [
-          ticketStrategyJson(id: 1, name: 'Concert Standard'),
+          TicketStrategy.fromJson(ticketStrategyJson(id: 1, name: 'Concert Standard')),
         ]);
     when(() => mockTicketRepo.getDiscountStrategies()).thenAnswer((_) async => []);
     when(() => mockSponsorRepo.getSponsorCategoryTemplates())
@@ -57,10 +63,10 @@ void main() {
       const CreateEventScreen(),
       overrides: [
         ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
-        Provider<EventRepository>.value(value: mockEventRepo),
-        Provider<TicketRepository>.value(value: mockTicketRepo),
-        Provider<VenueRepository>.value(value: mockVenueRepo),
-        Provider<SponsorRepository>.value(value: mockSponsorRepo),
+        ChangeNotifierProvider<EventProvider>.value(value: EventProvider(mockEventRepo)),
+        ChangeNotifierProvider<TicketProvider>.value(value: TicketProvider(mockTicketRepo)),
+        ChangeNotifierProvider<VenueProvider>.value(value: VenueProvider(mockVenueRepo)),
+        ChangeNotifierProvider<SponsorProvider>.value(value: SponsorProvider(mockSponsorRepo)),
       ],
     );
   }

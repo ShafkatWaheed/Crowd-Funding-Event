@@ -19,9 +19,9 @@ class FundingRepository extends BaseRepository {
     );
   }
 
-  Future<Map<String, dynamic>> getFundingSummary(int eventId) async {
+  Future<FundingSummary> getFundingSummary(int eventId) async {
     final r = await dio.get('/events/$eventId/funding');
-    return Map<String, dynamic>.from(r.data as Map);
+    return FundingSummary.fromJson(Map<String, dynamic>.from(r.data as Map));
   }
 
   Future<Map<String, dynamic>> getPledgePreview(
@@ -36,7 +36,7 @@ class FundingRepository extends BaseRepository {
     return Map<String, dynamic>.from(r.data as Map);
   }
 
-  Future<Map<String, dynamic>> pledge(
+  Future<Pledge> pledge(
     int eventId,
     int amountCents, {
     int reservedSpots = 0,
@@ -48,7 +48,7 @@ class FundingRepository extends BaseRepository {
     };
     if (tierReservations != null) body['tier_reservations'] = tierReservations;
     final r = await dio.post('/events/$eventId/pledge', data: body);
-    return Map<String, dynamic>.from(r.data as Map);
+    return Pledge.fromJson(Map<String, dynamic>.from(r.data as Map));
   }
 
   Future<Map<String, dynamic>> unpledge(int eventId) async {

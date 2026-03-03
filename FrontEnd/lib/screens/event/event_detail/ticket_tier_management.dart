@@ -5,8 +5,8 @@ import '../../../config/theme.dart';
 import '../../../config/design_tokens.dart';
 import '../../../models/event.dart';
 import '../../../models/ticket.dart';
-import '../../../repositories/event_repository.dart';
-import '../../../repositories/ticket_repository.dart';
+import '../../../providers/event_provider.dart';
+import '../../../providers/ticket_provider.dart';
 import '../../../widgets/app_toast.dart';
 
 class TicketTierManagement extends StatefulWidget {
@@ -68,7 +68,7 @@ class _TicketTierManagementState extends State<TicketTierManagement> {
         const SizedBox(height: 14),
         FutureBuilder<List<TicketTier>>(
           future: context
-              .read<TicketRepository>()
+              .read<TicketProvider>()
               .getTicketTiers(widget.event.id),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
@@ -417,7 +417,7 @@ class _TicketTierManagementState extends State<TicketTierManagement> {
               if (nameCtrl.text.trim().isEmpty || price == null) return;
               final spots = int.tryParse(spotsCtrl.text.trim()) ?? 0;
               try {
-                final ticketRepo = context.read<TicketRepository>();
+                final ticketRepo = context.read<TicketProvider>();
                 await ticketRepo.updateTicketTier(eventId, tierId, {
                   'name': nameCtrl.text.trim(),
                   'description': descCtrl.text.trim(),
@@ -498,7 +498,7 @@ class _TicketTierManagementState extends State<TicketTierManagement> {
               if (nameCtrl.text.trim().isEmpty || price == null) return;
               final spots = int.tryParse(spotsCtrl.text.trim()) ?? 0;
               try {
-                final ticketRepo = context.read<TicketRepository>();
+                final ticketRepo = context.read<TicketProvider>();
                 await ticketRepo.createTicketTier(eventId, {
                   'name': nameCtrl.text.trim(),
                   'description': descCtrl.text.trim(),
@@ -560,7 +560,7 @@ class _TicketTierManagementState extends State<TicketTierManagement> {
               final newCap = int.tryParse(ctrl.text.trim());
               if (newCap == null || newCap < 1) return;
               try {
-                final repo = context.read<EventRepository>();
+                final repo = context.read<EventProvider>();
                 await repo.updateEvent(widget.event.id, {
                   'max_capacity': newCap,
                 });
@@ -604,7 +604,7 @@ class _TicketTierManagementState extends State<TicketTierManagement> {
     );
     if (confirmed == true && mounted) {
       try {
-        final ticketRepo = context.read<TicketRepository>();
+        final ticketRepo = context.read<TicketProvider>();
         await ticketRepo.deleteTicketTier(eventId, tierId);
         if (mounted) {
           widget.onTiersChanged();

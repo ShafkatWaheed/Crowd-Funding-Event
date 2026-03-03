@@ -11,7 +11,7 @@ import '../../widgets/shimmer_loaders.dart';
 import '../../models/ticket.dart';
 import '../../providers/auth_provider.dart';
 import '../../db/app_database.dart';
-import '../../repositories/ticket_repository.dart';
+import '../../providers/ticket_provider.dart';
 import '../../repositories/base_repository.dart';
 import '../../services/sync_service.dart';
 import '../../widgets/app_toast.dart';
@@ -82,7 +82,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
       _isOffline = false;
     });
     try {
-      final repo = context.read<TicketRepository>();
+      final repo = context.read<TicketProvider>();
       final result = await repo.getMyTickets(offset: 0, limit: _pageSize, sortBy: _sortBy);
       if (mounted) {
         setState(() {
@@ -145,7 +145,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
     if (_loadingMore || !_hasMore) return;
     setState(() => _loadingMore = true);
     try {
-      final repo = context.read<TicketRepository>();
+      final repo = context.read<TicketProvider>();
       final result = await repo.getMyTickets(offset: _tickets.length, limit: _pageSize, sortBy: _sortBy);
       if (mounted) {
         setState(() {

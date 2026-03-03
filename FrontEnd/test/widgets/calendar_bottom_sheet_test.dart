@@ -4,6 +4,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
 import '../../lib/models/event.dart';
+import '../../lib/providers/event_provider.dart';
 import '../../lib/repositories/event_repository.dart';
 import '../../lib/widgets/calendar_bottom_sheet.dart';
 import '../helpers/fixtures.dart';
@@ -29,7 +30,7 @@ void main() {
           ),
         ),
       ),
-      overrides: [Provider<EventRepository>.value(value: mockEventRepo)],
+      overrides: [ChangeNotifierProvider<EventProvider>.value(value: EventProvider(mockEventRepo))],
     );
 
     await tester.tap(find.text('Open'));

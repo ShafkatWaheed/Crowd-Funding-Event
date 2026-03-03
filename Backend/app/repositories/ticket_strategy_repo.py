@@ -101,6 +101,7 @@ class TicketStrategyRepository(BaseRepository[TicketStrategy]):
                 description=st.description,
                 price_cents=st.price_cents,
                 display_order=st.display_order,
+                from_strategy=True,
             )
             db.add(tier)
         await db.flush()

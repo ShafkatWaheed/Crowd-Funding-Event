@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../models/event.dart';
 import '../models/event_image.dart';
+import '../models/map_event.dart';
 import '../models/milestone.dart';
 import '../models/post.dart';
 import '../models/schedule.dart';
@@ -119,7 +120,7 @@ class EventRepository extends BaseRepository {
     return resp.data;
   }
 
-  Future<List<Event>> getMapEvents({
+  Future<List<EventMarker>> getMapEvents({
     double? lat,
     double? lng,
     double? radiusKm,
@@ -144,7 +145,7 @@ class EventRepository extends BaseRepository {
     if (sponsorshipOnly) params['sponsorship_only'] = true;
     final resp = await dio.get('/events/map', queryParameters: params);
     return (resp.data as List)
-        .map((e) => Event.fromJson(e as Map<String, dynamic>))
+        .map((e) => EventMarker.fromJson(e as Map<String, dynamic>))
         .toList();
   }
 

@@ -110,6 +110,8 @@ async def delete_tier(db: AsyncSession, tier: TicketTier, user: User) -> None:
     event = await event_service.get_or_404(db, tier.event_id)
     if not await _can_manage_event_tickets(db, user, event):
         raise ForbiddenError("Only the event organizer or admin can manage ticket tiers")
+    if tier.from_strategy:
+        raise ConflictError("Cannot delete tiers that originated from a ticket strategy")
     from app.models.event import EventStatus
     if event.status in (EventStatus.selling_tickets, EventStatus.live, EventStatus.completed):
         raise ConflictError("Cannot delete ticket tiers once the event is published for ticket sales")

@@ -517,13 +517,28 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                     CachedNetworkImage(
                       imageUrl: ApiConfig.imageUrl(heroUrl!),
                       fit: BoxFit.cover,
-                      progressIndicatorBuilder: (context, url, progress) {
-                        return Container(
-                          color: AppTheme.cardOf(context),
-                          child: const Center(
-                            child:
-                                CircularProgressIndicator(strokeWidth: 2),
+                      imageBuilder: (context, imageProvider) => Container(
+                        decoration: BoxDecoration(
+                          image: DecorationImage(
+                            image: imageProvider,
+                            fit: BoxFit.cover,
                           ),
+                        ),
+                      )
+                          .animate()
+                          .fadeIn(
+                              duration: AppDuration.normal,
+                              curve: AppCurve.enter)
+                          .scale(
+                            begin: const Offset(0.95, 0.95),
+                            end: const Offset(1.0, 1.0),
+                            duration: AppDuration.slow,
+                            curve: AppCurve.enter,
+                          ),
+                      progressIndicatorBuilder: (context, url, progress) {
+                        return ShimmerImagePlaceholder(
+                          width: double.infinity,
+                          height: _heroHeight,
                         );
                       },
                       errorWidget: (_, __, ___) => Container(

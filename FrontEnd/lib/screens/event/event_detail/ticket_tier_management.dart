@@ -245,7 +245,7 @@ class _TicketTierManagementState extends State<TicketTierManagement> {
                                       priceCents, tierMaxSpots,
                                       remainingCapacity),
                                 ),
-                                if (canDelete)
+                                if (canDelete && !tier.fromStrategy)
                                   IconButton(
                                     icon: Icon(Icons.delete_outline_rounded,
                                         size: 20,

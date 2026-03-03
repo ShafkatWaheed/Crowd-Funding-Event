@@ -4,7 +4,7 @@ Ticket tiers, sales, and per-user/event discounts.
 import enum
 from datetime import datetime
 
-from sqlalchemy import Float, Integer, String, Text, DateTime, ForeignKey, Enum, Index
+from sqlalchemy import Boolean, Float, Integer, String, Text, DateTime, ForeignKey, Enum, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -31,6 +31,7 @@ class TicketTier(Base):
     price_cents: Mapped[int] = mapped_column(Integer, nullable=False)
     max_reserved_spots: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     display_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    from_strategy: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     event = relationship("Event", back_populates="ticket_tiers")
     ticket_sales = relationship("TicketSale", back_populates="ticket_tier", cascade="all, delete-orphan")

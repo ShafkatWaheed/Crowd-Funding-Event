@@ -6,20 +6,26 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
-import '../../lib/models/event.dart';
+import '../../lib/models/map_event.dart';
 import '../../lib/providers/event_provider.dart';
 import '../../lib/repositories/event_repository.dart';
 import '../../lib/widgets/event_map_widget.dart';
 import '../helpers/mock_event_repository.dart';
-import '../helpers/fixtures.dart';
 import '../helpers/pump_app.dart';
 
-Event _markerEvent({
+EventMarker _markerEvent({
   int id = 1,
   String title = 'Test Event',
   String status = 'approved',
 }) =>
-    Event.fromJson(eventJson(id: id, title: title, status: status));
+    EventMarker(
+      id: id,
+      title: title,
+      lat: 45.4215,
+      lng: -75.6972,
+      status: status,
+      isLive: false,
+    );
 
 void main() {
   late MockEventRepository mockEventRepo;
@@ -39,7 +45,7 @@ void main() {
   });
 
   /// Stub all getMapEvents named params.
-  void stubMapEvents(MockEventRepository repo, FutureOr<List<Event>> Function() result) {
+  void stubMapEvents(MockEventRepository repo, FutureOr<List<EventMarker>> Function() result) {
     when(() => repo.getMapEvents(
           lat: any(named: 'lat'),
           lng: any(named: 'lng'),
@@ -69,7 +75,7 @@ void main() {
 
   group('EventMapWidget', () {
     testWidgets('builds without error and shows loading indicator', (tester) async {
-      final completer = Completer<List<Event>>();
+      final completer = Completer<List<EventMarker>>();
       stubMapEvents(mockEventRepo, () => completer.future);
 
       await pumpMap(tester);

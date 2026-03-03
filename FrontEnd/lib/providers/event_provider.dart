@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import '../models/event.dart';
 import '../models/event_image.dart';
+import '../models/map_event.dart';
 import '../models/milestone.dart';
 import '../models/post.dart';
 import '../models/schedule.dart';
@@ -260,7 +261,7 @@ class EventProvider extends ChangeNotifier {
           {bool sponsorshipOnly = false}) =>
       _repo.getFeaturedEvents(sponsorshipOnly: sponsorshipOnly);
 
-  Future<List<Event>> getMapEvents({
+  Future<List<EventMarker>> getMapEvents({
     double? lat,
     double? lng,
     double? radiusKm,

@@ -10,7 +10,6 @@ import '../utils/date_time_utils.dart';
 import 'package:provider/provider.dart';
 
 import '../config/theme.dart';
-import '../models/event.dart';
 import '../models/map_event.dart';
 import '../providers/event_provider.dart';
 
@@ -111,18 +110,7 @@ class _EventMapWidgetState extends State<EventMapWidget> {
       );
       if (mounted) {
         setState(() {
-          _events = data.map((e) => EventMarker(
-            id: e.id,
-            title: e.title,
-            lat: e.lat ?? 0,
-            lng: e.lng ?? 0,
-            startTime: e.startTime?.toIso8601String(),
-            endTime: e.endTime?.toIso8601String(),
-            status: e.status.name,
-            isLive: e.status == EventStatus.live,
-            venueId: e.venueId,
-            venueName: e.venue?.name,
-          )).toList();
+          _events = data;
           _loading = false;
         });
       }

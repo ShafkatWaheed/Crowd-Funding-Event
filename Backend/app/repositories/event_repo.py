@@ -255,12 +255,12 @@ class EventRepository(BaseRepository[Event]):
         if not use_keyset and offset is not None and offset > 0:
             q = q.offset(offset)
         if limit is not None:
-            q = q.limit(limit + 1 if use_keyset else limit)
+            q = q.limit(limit + 1)
         result = await db.execute(q)
         rows = list(result.scalars().unique().all())
 
         has_more = False
-        if use_keyset and limit is not None and len(rows) > limit:
+        if limit is not None and len(rows) > limit:
             rows = rows[:limit]
             has_more = True
 

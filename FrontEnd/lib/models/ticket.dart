@@ -8,6 +8,7 @@ class TicketTier {
   final int ticketsSold;
   final int spotsReserved;
   final int displayOrder;
+  final bool fromStrategy;
 
   TicketTier({
     required this.id,
@@ -19,6 +20,7 @@ class TicketTier {
     this.ticketsSold = 0,
     this.spotsReserved = 0,
     required this.displayOrder,
+    this.fromStrategy = false,
   });
 
   factory TicketTier.fromJson(Map<String, dynamic> json) {
@@ -32,6 +34,7 @@ class TicketTier {
       ticketsSold: json['tickets_sold'] ?? 0,
       spotsReserved: json['spots_reserved'] ?? 0,
       displayOrder: json['display_order'] ?? 0,
+      fromStrategy: json['from_strategy'] ?? false,
     );
   }
 

@@ -59,6 +59,7 @@ class TicketTierResponse(BaseModel):
     tickets_sold: int = 0
     spots_reserved: int = 0
     display_order: int
+    from_strategy: bool = False
 
     model_config = {"from_attributes": True}
 

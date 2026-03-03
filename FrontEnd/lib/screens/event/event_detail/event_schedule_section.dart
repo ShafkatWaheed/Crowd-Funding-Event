@@ -13,6 +13,7 @@ import '../../../models/schedule.dart';
 import '../../../db/app_database.dart';
 import '../../../providers/event_provider.dart';
 import '../../../services/sync_service.dart';
+import '../../../widgets/shimmer_loaders.dart';
 import '../../../widgets/fullscreen_image_viewer.dart';
 
 class EventScheduleSection extends StatefulWidget {
@@ -494,6 +495,19 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
           width: 48,
           height: 48,
           fit: BoxFit.cover,
+          imageBuilder: (context, imageProvider) => Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              image: DecorationImage(
+                image: imageProvider,
+                fit: BoxFit.cover,
+              ),
+            ),
+          ).animate().fadeIn(
+              duration: AppDuration.normal, curve: AppCurve.enter),
+          placeholder: (_, __) =>
+              const ShimmerImagePlaceholder(width: 48, height: 48),
           errorWidget: (_, __, ___) => Container(
             width: 48,
             height: 48,

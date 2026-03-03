@@ -241,6 +241,28 @@ class ShimmerEventList extends StatelessWidget {
   }
 }
 
+class ShimmerImagePlaceholder extends StatelessWidget {
+  final double? width;
+  final double? height;
+  final double radius;
+  const ShimmerImagePlaceholder(
+      {super.key, this.width, this.height, this.radius = 0});
+
+  @override
+  Widget build(BuildContext context) {
+    return _ShimmerBase(
+      child: Container(
+        width: width,
+        height: height,
+        decoration: BoxDecoration(
+          color: AppTheme.shimmerOf(context),
+          borderRadius: radius > 0 ? BorderRadius.circular(radius) : null,
+        ),
+      ),
+    );
+  }
+}
+
 class ShimmerGrid extends StatelessWidget {
   final int count;
   const ShimmerGrid({super.key, this.count = 6});

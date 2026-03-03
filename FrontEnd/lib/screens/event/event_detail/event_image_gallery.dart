@@ -12,6 +12,8 @@ import '../../../models/event_image.dart';
 import '../../../providers/event_provider.dart';
 import '../../../widgets/app_toast.dart';
 import '../../../widgets/fullscreen_image_viewer.dart';
+import '../../../widgets/shimmer_loaders.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'event_detail_helpers.dart';
 
 class EventImageGallery extends StatefulWidget {
@@ -155,17 +157,31 @@ class _EventImageGalleryState extends State<EventImageGallery> {
                             memCacheHeight: 360,
                             memCacheWidth: 520,
                             fit: BoxFit.cover,
+                            imageBuilder: (context, imageProvider) =>
+                                Container(
+                              height: 180,
+                              width: 260,
+                              decoration: BoxDecoration(
+                                image: DecorationImage(
+                                  image: imageProvider,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            )
+                                    .animate()
+                                    .fadeIn(
+                                        duration: AppDuration.normal,
+                                        curve: AppCurve.enter)
+                                    .scale(
+                                      begin: const Offset(0.95, 0.95),
+                                      end: const Offset(1.0, 1.0),
+                                      duration: AppDuration.slow,
+                                      curve: AppCurve.enter,
+                                    ),
                             progressIndicatorBuilder:
                                 (context, url, progress) {
-                              return Container(
-                                height: 180,
-                                width: 260,
-                                color: AppTheme.cardOf(context),
-                                child: const Center(
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2),
-                                ),
-                              );
+                              return const ShimmerImagePlaceholder(
+                                  height: 180, width: 260);
                             },
                             errorWidget: (_, __, ___) => Container(
                               height: 180,

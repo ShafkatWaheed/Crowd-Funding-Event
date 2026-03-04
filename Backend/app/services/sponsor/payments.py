@@ -149,7 +149,6 @@ async def pay_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorPayment:
             data={"event_id": cat.event_id, "category_id": bid.category_id, "bid_id": bid_id, "payment_id": payment.id},
         )
 
-    await db.commit()
     await sponsor_repo.refresh(db, payment)
     logger.info("Sponsor payment completed", extra={"payment_id": payment.id, "bid_id": bid_id, "amount_cents": bid.amount_cents})
     return payment
@@ -217,7 +216,6 @@ async def refund_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorPaymen
             data={"event_id": cat.event_id, "category_id": bid.category_id, "bid_id": bid_id, "payment_id": payment.id},
         )
 
-    await db.commit()
     await sponsor_repo.refresh(db, payment)
 
     sponsor = await user_repo.get_by_id(db, bid.sponsor_user_id)

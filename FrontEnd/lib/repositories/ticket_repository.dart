@@ -323,21 +323,23 @@ class TicketRepository extends BaseRepository {
 
   // ─── Early bird discounts ───
 
-  Future<List<dynamic>> getEarlyBirdDiscounts(int eventId) async {
+  Future<List<EarlyBirdDiscount>> getEarlyBirdDiscounts(int eventId) async {
     final r = await dio.get('/events/$eventId/early-bird-discounts');
-    return r.data as List;
+    return (r.data as List)
+        .map((j) => EarlyBirdDiscount.fromJson(Map<String, dynamic>.from(j as Map)))
+        .toList();
   }
 
-  Future<Map<String, dynamic>> createEarlyBirdDiscount(
+  Future<EarlyBirdDiscount> createEarlyBirdDiscount(
       int eventId, Map<String, dynamic> data) async {
     final r = await dio.post('/events/$eventId/early-bird-discounts', data: data);
-    return Map<String, dynamic>.from(r.data as Map);
+    return EarlyBirdDiscount.fromJson(Map<String, dynamic>.from(r.data as Map));
   }
 
-  Future<Map<String, dynamic>> updateEarlyBirdDiscount(
+  Future<EarlyBirdDiscount> updateEarlyBirdDiscount(
       int eventId, int discountId, Map<String, dynamic> data) async {
     final r = await dio.patch('/events/$eventId/early-bird-discounts/$discountId', data: data);
-    return Map<String, dynamic>.from(r.data as Map);
+    return EarlyBirdDiscount.fromJson(Map<String, dynamic>.from(r.data as Map));
   }
 
   Future<void> deleteEarlyBirdDiscount(int eventId, int discountId) async {

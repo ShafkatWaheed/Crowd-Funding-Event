@@ -59,7 +59,7 @@ void main() {
 
     when(() => mockEventRepo.getEventCities()).thenAnswer((_) async => <String>[]);
     when(() => mockEventRepo.checkBookmarks(any()))
-        .thenAnswer((_) async => {'bookmarked_ids': <int>[]});
+        .thenAnswer((_) async => <int, bool>{});
     when(() => mockEventRepo.getMyEvents(
           offset: any(named: 'offset'),
           limit: any(named: 'limit'),

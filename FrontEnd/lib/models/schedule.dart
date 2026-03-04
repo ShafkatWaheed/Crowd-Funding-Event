@@ -63,3 +63,18 @@ class ScheduleDay {
     );
   }
 }
+
+// ─── Schedule Image Upload Result ───
+
+class ScheduleImageResult {
+  final String? url;
+  final String? caption;
+
+  ScheduleImageResult({this.url, this.caption});
+
+  factory ScheduleImageResult.fromJson(Map<String, dynamic> json) =>
+      ScheduleImageResult(
+        url: (json['url'] ?? json['image_url']) as String?,
+        caption: json['caption'] as String?,
+      );
+}

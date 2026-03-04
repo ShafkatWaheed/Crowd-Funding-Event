@@ -32,9 +32,11 @@ class SponsorRepository extends BaseRepository {
 
   // ── Discovery ────────────────────────────────────────────────────────
 
-  Future<List<Map<String, dynamic>>> getSponsorBidEvents() async {
+  Future<List<SponsorBidEvent>> getSponsorBidEvents() async {
     final resp = await dio.get('/me/sponsor-bid-events');
-    return (resp.data as List).cast<Map<String, dynamic>>();
+    return (resp.data as List)
+        .map((j) => SponsorBidEvent.fromJson(Map<String, dynamic>.from(j as Map)))
+        .toList();
   }
 
   Future<List<Event>> getSponsorshipAvailableEvents(
@@ -189,12 +191,12 @@ class SponsorRepository extends BaseRepository {
         .toList();
   }
 
-  Future<Map<String, dynamic>> scanSponsorTicket(
+  Future<ScannedSponsorTicket> scanSponsorTicket(
       int eventId, String encryptedPayload) async {
     final resp = await dio.post('/events/$eventId/scan-sponsor', data: {
       'encrypted_payload': encryptedPayload,
     });
-    return resp.data;
+    return ScannedSponsorTicket.fromJson(Map<String, dynamic>.from(resp.data as Map));
   }
 
   Future<List<ScannedSponsorTicket>> getScannedSponsorTickets(int eventId) async {
@@ -282,7 +284,7 @@ class SponsorRepository extends BaseRepository {
         '/events/$eventId/sponsorships/$catId/prerequisites/$prereqId');
   }
 
-  Future<Map<String, dynamic>> uploadPrerequisiteDocument(
+  Future<FileUploadResult> uploadPrerequisiteDocument(
       int bidId, int prereqId, String filePath, String fileName) async {
     final formData = FormData.fromMap({
       'file': await MultipartFile.fromFile(filePath, filename: fileName),
@@ -290,7 +292,7 @@ class SponsorRepository extends BaseRepository {
     final resp = await dio.post(
         '/bids/$bidId/prerequisites/$prereqId/upload',
         data: formData);
-    return resp.data;
+    return FileUploadResult.fromJson(Map<String, dynamic>.from(resp.data as Map));
   }
 
   Future<List<BidPrerequisiteUpload>> listBidPrerequisiteUploads(int bidId) async {
@@ -300,7 +302,7 @@ class SponsorRepository extends BaseRepository {
         .toList();
   }
 
-  Future<Map<String, dynamic>> uploadCategoryPrerequisite(
+  Future<FileUploadResult> uploadCategoryPrerequisite(
       int eventId, int catId, int prereqId,
       {String? filePath,
       String? fileName,
@@ -319,7 +321,7 @@ class SponsorRepository extends BaseRepository {
     final resp = await dio.post(
         '/events/$eventId/sponsorships/$catId/upload-prerequisite/$prereqId',
         data: formData);
-    return resp.data;
+    return FileUploadResult.fromJson(Map<String, dynamic>.from(resp.data as Map));
   }
 
   Future<Map<String, dynamic>> reviewPrerequisiteUpload(
@@ -337,23 +339,25 @@ class SponsorRepository extends BaseRepository {
 
   // ── Sponsor Category Templates ───────────────────────────────────────
 
-  Future<List<Map<String, dynamic>>> getSponsorCategoryTemplates() async {
+  Future<List<SponsorCategoryTemplate>> getSponsorCategoryTemplates() async {
     final resp = await dio.get('/me/sponsor-category-templates');
-    return (resp.data as List).cast<Map<String, dynamic>>();
+    return (resp.data as List)
+        .map((j) => SponsorCategoryTemplate.fromJson(Map<String, dynamic>.from(j as Map)))
+        .toList();
   }
 
-  Future<Map<String, dynamic>> createSponsorCategoryTemplate(
+  Future<SponsorCategoryTemplate> createSponsorCategoryTemplate(
       Map<String, dynamic> data) async {
     final resp =
         await dio.post('/me/sponsor-category-templates', data: data);
-    return resp.data;
+    return SponsorCategoryTemplate.fromJson(Map<String, dynamic>.from(resp.data as Map));
   }
 
-  Future<Map<String, dynamic>> updateSponsorCategoryTemplate(
+  Future<SponsorCategoryTemplate> updateSponsorCategoryTemplate(
       int id, Map<String, dynamic> data) async {
     final resp = await dio
         .patch('/me/sponsor-category-templates/$id', data: data);
-    return resp.data;
+    return SponsorCategoryTemplate.fromJson(Map<String, dynamic>.from(resp.data as Map));
   }
 
   Future<void> deleteSponsorCategoryTemplate(int id) async {
@@ -367,14 +371,16 @@ class SponsorRepository extends BaseRepository {
     return SponsorshipCategory.fromJson(resp.data);
   }
 
-  Future<List<Map<String, dynamic>>> listTemplatePrerequisites(
+  Future<List<TemplatePrerequisite>> listTemplatePrerequisites(
       int templateId) async {
     final resp = await dio
         .get('/me/sponsor-category-templates/$templateId/prerequisites');
-    return (resp.data as List).cast<Map<String, dynamic>>();
+    return (resp.data as List)
+        .map((j) => TemplatePrerequisite.fromJson(Map<String, dynamic>.from(j as Map)))
+        .toList();
   }
 
-  Future<Map<String, dynamic>> createTemplatePrerequisite(
+  Future<TemplatePrerequisite> createTemplatePrerequisite(
       int templateId,
       {required String name,
       String? description,
@@ -389,7 +395,7 @@ class SponsorRepository extends BaseRepository {
     final resp = await dio.post(
         '/me/sponsor-category-templates/$templateId/prerequisites',
         data: formData);
-    return resp.data;
+    return TemplatePrerequisite.fromJson(Map<String, dynamic>.from(resp.data as Map));
   }
 
   Future<void> deleteTemplatePrerequisite(
@@ -400,14 +406,14 @@ class SponsorRepository extends BaseRepository {
 
   // ── Chat (sponsor-specific) ──────────────────────────────────────────
 
-  Future<Map<String, dynamic>> uploadChatImage(int bidId,
+  Future<ChatImageUpload> uploadChatImage(int bidId,
       {required List<int> fileBytes, required String fileName}) async {
     final formData = FormData.fromMap({
       'file': MultipartFile.fromBytes(fileBytes, filename: fileName),
     });
     final resp =
         await dio.post('/chat/bids/$bidId/upload', data: formData);
-    return resp.data;
+    return ChatImageUpload.fromJson(Map<String, dynamic>.from(resp.data as Map));
   }
 
   // ── Admin: Sponsor Bid Refund ────────────────────────────────────────

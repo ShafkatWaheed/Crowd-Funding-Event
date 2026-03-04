@@ -39,7 +39,6 @@ async def create_profile(
         user.role = UserRole.sponsor
         await sponsor_repo.add_and_flush(db, user)
 
-    await db.commit()
     await sponsor_repo.refresh(db, profile)
     logger.info("Sponsor profile created", extra={"profile_id": profile.id, "user_id": user.id})
     return profile
@@ -58,7 +57,6 @@ async def update_profile(
         setattr(profile, field, value)
 
     profile = await sponsor_repo.update_sponsor_profile(db, profile)
-    await db.commit()
     await sponsor_repo.refresh(db, profile)
     logger.info("Sponsor profile updated", extra={"profile_id": profile.id, "user_id": user_id})
     return profile

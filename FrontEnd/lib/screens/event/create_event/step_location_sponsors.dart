@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../config/theme.dart';
 import '../../../models/event_form_models.dart';
+import '../../../models/sponsor.dart';
 import '../../../models/venue.dart';
 import '../../../services/mapbox_geocoding_service.dart';
 import 'community_rules_section.dart';
@@ -48,9 +49,9 @@ class StepLocationSponsors extends StatelessWidget {
   final ValueChanged<bool> onPostsEnabledChanged;
   // Sponsorship
   final List<EditableSponsorCategory> localCategories;
-  final List<Map<String, dynamic>> sponsorTemplates;
+  final List<SponsorCategoryTemplate> sponsorTemplates;
   final bool templatesLoading;
-  final ValueChanged<Map<String, dynamic>> onToggleSponsorTemplate;
+  final ValueChanged<SponsorCategoryTemplate> onToggleSponsorTemplate;
   final VoidCallback onAddSponsorCategory;
   final ValueChanged<EditableSponsorCategory> onRemoveSponsorCategory;
   final VoidCallback onManageTemplates;

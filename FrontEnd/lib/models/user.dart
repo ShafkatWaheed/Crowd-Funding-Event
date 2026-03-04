@@ -432,3 +432,22 @@ class KycPendingUser {
   String get displayLabel => displayName ?? email;
   String get initial => displayLabel.substring(0, 1).toUpperCase();
 }
+
+// ─── KYC Document Upload Result ───
+
+class KycDocumentUpload {
+  final int? documentId;
+  final String? fileUrl;
+  final String? status;
+  final String? documentType;
+
+  KycDocumentUpload({this.documentId, this.fileUrl, this.status, this.documentType});
+
+  factory KycDocumentUpload.fromJson(Map<String, dynamic> json) =>
+      KycDocumentUpload(
+        documentId: (json['document_id'] ?? json['id']) as int?,
+        fileUrl: json['file_url'] as String?,
+        status: json['status'] as String?,
+        documentType: json['document_type'] as String?,
+      );
+}

@@ -163,3 +163,40 @@ class ClaimableDiscount {
         claimed: (json['claimed'] as bool?) ?? false,
       );
 }
+
+class EarlyBirdDiscount {
+  final int id;
+  final int eventId;
+  final String discountType;
+  final int value;
+  final String target;
+  final bool autoApply;
+  final bool isActive;
+  final String? startsAt;
+  final String? endsAt;
+
+  EarlyBirdDiscount({
+    required this.id,
+    required this.eventId,
+    required this.discountType,
+    required this.value,
+    required this.target,
+    this.autoApply = true,
+    this.isActive = false,
+    this.startsAt,
+    this.endsAt,
+  });
+
+  factory EarlyBirdDiscount.fromJson(Map<String, dynamic> json) =>
+      EarlyBirdDiscount(
+        id: json['id'] as int,
+        eventId: json['event_id'] as int,
+        discountType: (json['discount_type'] as String?) ?? '',
+        value: (json['value'] as int?) ?? 0,
+        target: (json['target'] as String?) ?? 'all',
+        autoApply: (json['auto_apply'] as bool?) ?? true,
+        isActive: (json['is_active'] as bool?) ?? false,
+        startsAt: json['starts_at'] as String?,
+        endsAt: json['ends_at'] as String?,
+      );
+}

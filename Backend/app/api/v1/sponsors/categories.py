@@ -49,6 +49,7 @@ async def create_category(
     current_user: CurrentUser,
 ):
     cat = await sponsor_svc.create_category(db, event_id, current_user, data)
+    await db.commit()
     return _category_to_response(cat)
 
 
@@ -64,6 +65,7 @@ async def update_category(
     current_user: CurrentUser,
 ):
     cat = await sponsor_svc.update_category(db, cat_id, current_user, data)
+    await db.commit()
     return _category_to_response(cat)
 
 
@@ -75,3 +77,4 @@ async def delete_category(
     current_user: CurrentUser,
 ):
     await sponsor_svc.delete_category(db, cat_id, current_user)
+    await db.commit()

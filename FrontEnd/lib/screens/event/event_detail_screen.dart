@@ -118,8 +118,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     try {
       final repo = context.read<EventProvider>();
       final res = await repo.checkBookmarks([widget.eventId]);
-      final ids = (res['bookmarked_ids'] as List?)?.cast<int>() ?? [];
-      if (mounted) setState(() => _bookmarked = ids.contains(widget.eventId));
+      if (mounted) setState(() => _bookmarked = res[widget.eventId] ?? false);
     } catch (e) {
       debugPrint(e.toString());
     }
@@ -169,8 +168,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       final data = await repo.getMyRegistration(widget.eventId);
       if (mounted) {
         setState(() {
-          _isRegistered = data['registered'] == true;
-          _regStatus = data['status'];
+          _isRegistered = data != null;
+          _regStatus = data?.status;
         });
       }
     } catch (e) {

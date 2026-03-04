@@ -375,7 +375,7 @@ class EventRepository extends BaseRepository {
     await dio.delete('/events/$eventId/schedule/$itemId');
   }
 
-  Future<Map<String, dynamic>> uploadScheduleImage(
+  Future<ScheduleImageResult> uploadScheduleImage(
       int eventId, int itemId, dynamic fileBytes, String fileName,
       {String? caption}) async {
     final formData = FormData.fromMap({
@@ -386,7 +386,7 @@ class EventRepository extends BaseRepository {
       '/events/$eventId/schedule/$itemId/upload-image',
       data: formData,
     );
-    return resp.data;
+    return ScheduleImageResult.fromJson(Map<String, dynamic>.from(resp.data as Map));
   }
 
   Future<Map<String, dynamic>> deleteScheduleImage(
@@ -407,11 +407,12 @@ class EventRepository extends BaseRepository {
     return resp.data;
   }
 
-  Future<Map<String, dynamic>> checkBookmarks(List<int> eventIds) async {
+  Future<Map<int, bool>> checkBookmarks(List<int> eventIds) async {
     final ids = eventIds.join(',');
     final resp = await dio
         .get('/me/bookmarks/check', queryParameters: {'event_ids': ids});
-    return resp.data;
+    final raw = Map<String, dynamic>.from(resp.data as Map);
+    return raw.map((key, value) => MapEntry(int.parse(key), value as bool));
   }
 
   Future<List<Event>> getBookmarkedEvents(
@@ -472,9 +473,10 @@ class EventRepository extends BaseRepository {
     return resp.data;
   }
 
-  Future<Map<String, dynamic>> getMyRegistration(int eventId) async {
+  Future<Registration?> getMyRegistration(int eventId) async {
     final resp = await dio.get('/events/$eventId/my-registration');
-    return resp.data;
+    if (resp.data == null) return null;
+    return Registration.fromJson(Map<String, dynamic>.from(resp.data as Map));
   }
 
   Future<List<Registration>> getRegistrations(int eventId) async {

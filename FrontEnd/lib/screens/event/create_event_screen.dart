@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../models/event_form_models.dart';
+import '../../models/sponsor.dart';
 import '../../models/venue.dart';
 import '../../models/ticket_strategy.dart';
 import '../../providers/event_provider.dart';
@@ -126,7 +127,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   bool _hasSchedule = false;
   final List<ScheduleDayInput> _scheduleDays = [];
 
-  List<Map<String, dynamic>> _sponsorTemplates = [];
+  List<SponsorCategoryTemplate> _sponsorTemplates = [];
   final List<EditableSponsorCategory> _localCategories = [];
   bool _loadingTemplates = false;
 
@@ -315,7 +316,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     setState(() => _creatingStrategy = false);
   }
 
-  Future<void> _toggleSponsorTemplate(Map<String, dynamic> t) async {
+  Future<void> _toggleSponsorTemplate(SponsorCategoryTemplate t) async {
     await toggleSponsorTemplate(context, t,
       localCategories: _localCategories, onChanged: () { if (mounted) setState(() => _markDirty()); });
   }

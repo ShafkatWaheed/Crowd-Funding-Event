@@ -110,7 +110,7 @@ class UserRepository extends BaseRepository {
     return KycStatus.fromJson(Map<String, dynamic>.from(resp.data as Map));
   }
 
-  Future<Map<String, dynamic>> uploadKycDocument(
+  Future<KycDocumentUpload> uploadKycDocument(
     String filePath,
     String documentType,
   ) async {
@@ -119,7 +119,7 @@ class UserRepository extends BaseRepository {
       'document_type': documentType,
     });
     final resp = await dio.post('/me/kyc-documents', data: formData);
-    return resp.data as Map<String, dynamic>;
+    return KycDocumentUpload.fromJson(resp.data as Map<String, dynamic>);
   }
 
   Future<Map<String, dynamic>> deleteKycDocument(int documentId) async {

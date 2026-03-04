@@ -528,4 +528,42 @@ void main() {
       expect(u.initial, 'D');
     });
   });
+
+  // ─── KycDocumentUpload ───
+
+  group('KycDocumentUpload', () {
+    test('fromJson parses all fields', () {
+      final json = {
+        'document_id': 42,
+        'file_url': 'https://storage.example.com/kyc/doc.jpg',
+        'status': 'approved',
+        'document_type': 'id_front',
+      };
+      final u = KycDocumentUpload.fromJson(json);
+
+      expect(u.documentId, 42);
+      expect(u.fileUrl, 'https://storage.example.com/kyc/doc.jpg');
+      expect(u.status, 'approved');
+      expect(u.documentType, 'id_front');
+    });
+
+    test('fromJson falls back to id key for documentId', () {
+      final json = {
+        'id': 99,
+        'file_url': 'https://storage.example.com/kyc/alt.jpg',
+        'status': 'pending',
+        'document_type': 'proof_of_address',
+      };
+      final u = KycDocumentUpload.fromJson(json);
+      expect(u.documentId, 99);
+    });
+
+    test('all fields nullable', () {
+      final u = KycDocumentUpload.fromJson({});
+      expect(u.documentId, isNull);
+      expect(u.fileUrl, isNull);
+      expect(u.status, isNull);
+      expect(u.documentType, isNull);
+    });
+  });
 }

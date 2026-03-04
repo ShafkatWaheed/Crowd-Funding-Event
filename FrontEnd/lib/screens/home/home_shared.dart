@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import '../../config/design_tokens.dart';
 import '../../config/theme.dart';
 import '../../models/event.dart';
+import '../../models/sponsor.dart';
 import '../../utils/date_time_utils.dart';
+
+export '../../models/sponsor.dart' show SponsorBidEvent;
 
 String statusDisplayName(EventStatus s) {
   switch (s) {
@@ -78,24 +81,6 @@ String formatCents(int cents) =>
     '\$${(cents / 100).toStringAsFixed(2)}';
 
 String relativeTime(DateTime dt) => AppDateFormat.relativeTime(dt);
-
-class SponsorBidEvent {
-  final Event event;
-  final int pending;
-  final int accepted;
-  final int rejected;
-  final int paid;
-
-  SponsorBidEvent({
-    required this.event,
-    this.pending = 0,
-    this.accepted = 0,
-    this.rejected = 0,
-    this.paid = 0,
-  });
-
-  int get totalBids => pending + accepted + rejected + paid;
-}
 
 Widget customerQuickAction({
   required BuildContext context,

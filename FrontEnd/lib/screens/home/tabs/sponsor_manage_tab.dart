@@ -59,16 +59,7 @@ class _SponsorManageTabState extends State<SponsorManageTab> {
       final data = await api.getSponsorBidEvents();
       if (mounted) {
         setState(() {
-          _sponsorBidEvents = data.map((e) {
-            final summary = (e['bid_summary'] as Map<String, dynamic>?) ?? {};
-            return SponsorBidEvent(
-              event: Event.fromJson(e),
-              pending: summary['pending'] ?? 0,
-              accepted: summary['accepted'] ?? 0,
-              rejected: summary['rejected'] ?? 0,
-              paid: summary['paid'] ?? 0,
-            );
-          }).toList();
+          _sponsorBidEvents = data;
         });
       }
     } catch (e) {

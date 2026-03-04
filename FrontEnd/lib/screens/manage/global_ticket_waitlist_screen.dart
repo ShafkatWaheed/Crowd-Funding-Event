@@ -3,9 +3,12 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
+import '../../models/ticket.dart';
 import '../../providers/event_provider.dart';
 import '../../providers/ticket_provider.dart';
 import '../../widgets/app_toast.dart';
+
+typedef _TicketEntry = ({TicketSale ticket, String eventTitle});
 
 /// Shows waitlisted tickets across ALL organiser events.
 class GlobalTicketWaitlistScreen extends StatefulWidget {
@@ -19,8 +22,8 @@ class GlobalTicketWaitlistScreen extends StatefulWidget {
 class _GlobalTicketWaitlistScreenState
     extends State<GlobalTicketWaitlistScreen> {
   final _searchCtrl = TextEditingController();
-  List<Map<String, dynamic>> _all = [];
-  List<Map<String, dynamic>> _filtered = [];
+  List<_TicketEntry> _all = [];
+  List<_TicketEntry> _filtered = [];
   bool _loading = true;
   String? _error;
 
@@ -45,19 +48,14 @@ class _GlobalTicketWaitlistScreenState
       final eventRepo = context.read<EventProvider>();
       final ticketRepo = context.read<TicketProvider>();
       final events = await eventRepo.getMyEvents();
-      final List<Map<String, dynamic>> combined = [];
+      final List<_TicketEntry> combined = [];
 
       for (final evt in events) {
-        final eventId = evt.id;
         final eventTitle = evt.title;
         try {
-          final tickets = await ticketRepo.getWaitlistedTickets(eventId);
+          final tickets = await ticketRepo.getWaitlistedTickets(evt.id);
           for (final t in tickets) {
-            combined.add({
-              ...t.toJson(),
-              '_event_title': eventTitle,
-              '_event_id': eventId,
-            });
+            combined.add((ticket: t, eventTitle: eventTitle));
           }
         } catch (_) {
           // skip events we can't access
@@ -82,10 +80,10 @@ class _GlobalTicketWaitlistScreenState
     if (q.isEmpty) {
       _filtered = List.from(_all);
     } else {
-      _filtered = _all.where((t) {
-        final event = (t['_event_title'] ?? '').toString().toLowerCase();
-        final userId = '${t['user_id']}'.toLowerCase();
-        final tierName = (t['tier_name'] ?? '').toString().toLowerCase();
+      _filtered = _all.where((entry) {
+        final event = entry.eventTitle.toLowerCase();
+        final userId = '${entry.ticket.userId}'.toLowerCase();
+        final tierName = (entry.ticket.tierName ?? '').toLowerCase();
         return event.contains(q) || userId.contains(q) || tierName.contains(q);
       }).toList();
     }
@@ -280,13 +278,10 @@ class _GlobalTicketWaitlistScreenState
     );
   }
 
-  Widget _card(Map<String, dynamic> ticket) {
-    final ticketId = ticket['id'] as int;
-    final eventId = ticket['_event_id'] as int;
-    final eventTitle = ticket['_event_title'] ?? '';
-    final userId = ticket['user_id'];
-    final tierName = ticket['tier_name'] ?? 'Unknown Tier';
-    final amountCents = ticket['amount_paid_cents'] ?? 0;
+  Widget _card(_TicketEntry entry) {
+    final ticket = entry.ticket;
+    final tierName = ticket.tierName ?? 'Unknown Tier';
+    final amountCents = ticket.amountPaidCents;
     final price = amountCents == 0
         ? 'Free'
         : '\$${(amountCents / 100).toStringAsFixed(2)}';
@@ -323,11 +318,11 @@ class _GlobalTicketWaitlistScreenState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('User #$userId',
+                  Text('User #${ticket.userId}',
                       style: const TextStyle(
                           fontWeight: FontWeight.w700, fontSize: 15)),
                   const SizedBox(height: 2),
-                  Text(eventTitle,
+                  Text(entry.eventTitle,
                       style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
@@ -339,7 +334,7 @@ class _GlobalTicketWaitlistScreenState
               ),
             ),
             FilledButton.tonal(
-              onPressed: () => _approve(eventId, ticketId),
+              onPressed: () => _approve(ticket.eventId, ticket.id),
               style: FilledButton.styleFrom(
                 backgroundColor:
                     AppTheme.successColor.withValues(alpha: 0.12),
@@ -354,7 +349,7 @@ class _GlobalTicketWaitlistScreenState
             ),
             const SizedBox(width: 8),
             FilledButton.tonal(
-              onPressed: () => _reject(eventId, ticketId),
+              onPressed: () => _reject(ticket.eventId, ticket.id),
               style: FilledButton.styleFrom(
                 backgroundColor:
                     AppTheme.errorColor.withValues(alpha: 0.1),

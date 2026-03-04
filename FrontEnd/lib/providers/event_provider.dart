@@ -405,7 +405,7 @@ class EventProvider extends ChangeNotifier {
   Future<void> deleteScheduleItem(int eventId, int itemId) =>
       _repo.deleteScheduleItem(eventId, itemId);
 
-  Future<Map<String, dynamic>> uploadScheduleImage(
+  Future<ScheduleImageResult> uploadScheduleImage(
           int eventId, int itemId, dynamic fileBytes, String fileName,
           {String? caption}) =>
       _repo.uploadScheduleImage(eventId, itemId, fileBytes, fileName,
@@ -422,7 +422,7 @@ class EventProvider extends ChangeNotifier {
   Future<Map<String, dynamic>> toggleBookmark(int eventId) =>
       _repo.toggleBookmark(eventId);
 
-  Future<Map<String, dynamic>> checkBookmarks(List<int> eventIds) =>
+  Future<Map<int, bool>> checkBookmarks(List<int> eventIds) =>
       _repo.checkBookmarks(eventIds);
 
   Future<List<Event>> getBookmarkedEvents(
@@ -460,7 +460,7 @@ class EventProvider extends ChangeNotifier {
   Future<Map<String, dynamic>> unregister(int eventId) =>
       _repo.unregister(eventId);
 
-  Future<Map<String, dynamic>> getMyRegistration(int eventId) =>
+  Future<Registration?> getMyRegistration(int eventId) =>
       _repo.getMyRegistration(eventId);
 
   Future<List<Registration>> getRegistrations(int eventId) =>

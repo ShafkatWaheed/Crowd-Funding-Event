@@ -1,3 +1,5 @@
+import 'event.dart';
+
 class SponsorProfile {
   final int id;
   final int userId;
@@ -663,4 +665,124 @@ class BidPrerequisiteUpload {
         reviewedAt: json['reviewed_at'] as String?,
         reviewerNote: json['reviewer_note'] as String?,
       );
+}
+
+// ─── Sponsor Category Templates ───
+
+class SponsorCategoryTemplate {
+  final int id;
+  final String name;
+  final String? description;
+  final String? imageUrl;
+  final int totalSpots;
+  final int minBidCents;
+  final int sortOrder;
+
+  SponsorCategoryTemplate({
+    required this.id,
+    required this.name,
+    this.description,
+    this.imageUrl,
+    required this.totalSpots,
+    required this.minBidCents,
+    this.sortOrder = 0,
+  });
+
+  factory SponsorCategoryTemplate.fromJson(Map<String, dynamic> json) =>
+      SponsorCategoryTemplate(
+        id: json['id'] as int,
+        name: (json['name'] as String?) ?? '',
+        description: json['description'] as String?,
+        imageUrl: json['image_url'] as String?,
+        totalSpots: (json['total_spots'] as int?) ?? 0,
+        minBidCents: (json['min_bid_cents'] as int?) ?? 0,
+        sortOrder: (json['sort_order'] as int?) ?? 0,
+      );
+}
+
+class TemplatePrerequisite {
+  final int id;
+  final String name;
+  final String? description;
+  final bool isRequired;
+  final bool requiresDocument;
+
+  TemplatePrerequisite({
+    required this.id,
+    required this.name,
+    this.description,
+    this.isRequired = false,
+    this.requiresDocument = false,
+  });
+
+  factory TemplatePrerequisite.fromJson(Map<String, dynamic> json) =>
+      TemplatePrerequisite(
+        id: json['id'] as int,
+        name: (json['name'] as String?) ?? '',
+        description: json['description'] as String?,
+        isRequired: (json['is_required'] as bool?) ?? false,
+        requiresDocument: (json['requires_document'] as bool?) ?? false,
+      );
+}
+
+// ─── Upload Results ───
+
+class FileUploadResult {
+  final int? id;
+  final String fileUrl;
+  final String? status;
+
+  FileUploadResult({this.id, required this.fileUrl, this.status});
+
+  factory FileUploadResult.fromJson(Map<String, dynamic> json) =>
+      FileUploadResult(
+        id: json['id'] as int?,
+        fileUrl: ((json['file_url'] ?? json['url']) as String?) ?? '',
+        status: json['status'] as String?,
+      );
+}
+
+class ChatImageUpload {
+  final String url;
+  final String? fileName;
+
+  ChatImageUpload({required this.url, this.fileName});
+
+  factory ChatImageUpload.fromJson(Map<String, dynamic> json) =>
+      ChatImageUpload(
+        url: (json['url'] as String?) ?? '',
+        fileName: json['file_name'] as String?,
+      );
+}
+
+// ─── Sponsor Bid Event (aggregated view) ───
+
+class SponsorBidEvent {
+  final Event event;
+  final int pending;
+  final int accepted;
+  final int rejected;
+  final int paid;
+
+  SponsorBidEvent({
+    required this.event,
+    this.pending = 0,
+    this.accepted = 0,
+    this.rejected = 0,
+    this.paid = 0,
+  });
+
+  int get totalBids => pending + accepted + rejected + paid;
+
+  factory SponsorBidEvent.fromJson(Map<String, dynamic> json) {
+    final summary =
+        (json['bid_summary'] as Map<String, dynamic>?) ?? <String, dynamic>{};
+    return SponsorBidEvent(
+      event: Event.fromJson(json),
+      pending: (summary['pending'] as int?) ?? 0,
+      accepted: (summary['accepted'] as int?) ?? 0,
+      rejected: (summary['rejected'] as int?) ?? 0,
+      paid: (summary['paid'] as int?) ?? 0,
+    );
+  }
 }

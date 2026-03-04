@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
+import '../../models/sponsor.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../repositories/base_repository.dart';
@@ -19,8 +20,8 @@ class SponsorCategoryTemplatesScreen extends StatefulWidget {
 
 class _SponsorCategoryTemplatesScreenState
     extends State<SponsorCategoryTemplatesScreen> {
-  List<Map<String, dynamic>> _templates = [];
-  List<Map<String, dynamic>> _filtered = [];
+  List<SponsorCategoryTemplate> _templates = [];
+  List<SponsorCategoryTemplate> _filtered = [];
   bool _loading = true;
   final _searchCtrl = TextEditingController();
 
@@ -60,8 +61,8 @@ class _SponsorCategoryTemplatesScreenState
       _filtered = List.from(_templates);
     } else {
       _filtered = _templates.where((t) {
-        return (t['name'] ?? '').toString().toLowerCase().contains(q) ||
-            (t['description'] ?? '').toString().toLowerCase().contains(q);
+        return t.name.toLowerCase().contains(q) ||
+            (t.description ?? '').toLowerCase().contains(q);
       }).toList();
     }
   }
@@ -97,7 +98,7 @@ class _SponsorCategoryTemplatesScreenState
     }
   }
 
-  void _showCreateOrEdit({Map<String, dynamic>? existing}) {
+  void _showCreateOrEdit({SponsorCategoryTemplate? existing}) {
     Navigator.push<bool>(
       context,
       MaterialPageRoute(
@@ -108,7 +109,7 @@ class _SponsorCategoryTemplatesScreenState
     });
   }
 
-  void _showPrerequisites(Map<String, dynamic> template) {
+  void _showPrerequisites(SponsorCategoryTemplate template) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -117,8 +118,8 @@ class _SponsorCategoryTemplatesScreenState
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (_) => _TemplatePrerequisiteSheet(
-        templateId: template['id'] as int,
-        templateName: template['name'] as String,
+        templateId: template.id,
+        templateName: template.name,
       ),
     );
   }
@@ -230,7 +231,7 @@ class _SponsorCategoryTemplatesScreenState
                             return _TemplateCard(
                               template: t,
                               onEdit: () => _showCreateOrEdit(existing: t),
-                              onDelete: () => _delete(t['id'] as int),
+                              onDelete: () => _delete(t.id),
                               onPrereqs: () => _showPrerequisites(t),
                             );
                           },
@@ -244,7 +245,7 @@ class _SponsorCategoryTemplatesScreenState
 }
 
 class _TemplateCard extends StatelessWidget {
-  final Map<String, dynamic> template;
+  final SponsorCategoryTemplate template;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final VoidCallback onPrereqs;
@@ -258,10 +259,10 @@ class _TemplateCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = template['name'] ?? '';
-    final desc = template['description'] ?? '';
-    final spots = template['total_spots'] ?? 0;
-    final minBid = template['min_bid_cents'] ?? 0;
+    final name = template.name;
+    final desc = template.description ?? '';
+    final spots = template.totalSpots;
+    final minBid = template.minBidCents;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -390,7 +391,7 @@ class _InfoChip extends StatelessWidget {
 }
 
 class _TemplateFormScreen extends StatefulWidget {
-  final Map<String, dynamic>? existing;
+  final SponsorCategoryTemplate? existing;
   const _TemplateFormScreen({this.existing});
 
   @override
@@ -410,12 +411,12 @@ class _TemplateFormScreenState extends State<_TemplateFormScreen> {
   @override
   void initState() {
     super.initState();
-    _nameCtrl = TextEditingController(text: widget.existing?['name'] ?? '');
+    _nameCtrl = TextEditingController(text: widget.existing?.name ?? '');
     _descCtrl =
-        TextEditingController(text: widget.existing?['description'] ?? '');
+        TextEditingController(text: widget.existing?.description ?? '');
     _spotsCtrl = TextEditingController(
-        text: (widget.existing?['total_spots'] ?? '').toString());
-    final minBidCents = widget.existing?['min_bid_cents'] ?? 0;
+        text: widget.existing != null ? widget.existing!.totalSpots.toString() : '');
+    final minBidCents = widget.existing?.minBidCents ?? 0;
     _minBidCtrl = TextEditingController(
         text: minBidCents > 0 ? (minBidCents / 100).toStringAsFixed(2) : '');
   }
@@ -445,7 +446,7 @@ class _TemplateFormScreenState extends State<_TemplateFormScreen> {
       final api = context.read<SponsorProvider>();
       if (_isEditing) {
         await api.updateSponsorCategoryTemplate(
-            widget.existing!['id'] as int, data);
+            widget.existing!.id, data);
       } else {
         await api.createSponsorCategoryTemplate(data);
       }
@@ -571,7 +572,7 @@ class _TemplatePrerequisiteSheet extends StatefulWidget {
 
 class _TemplatePrerequisiteSheetState
     extends State<_TemplatePrerequisiteSheet> {
-  List<Map<String, dynamic>> _prereqs = [];
+  List<TemplatePrerequisite> _prereqs = [];
   bool _loading = true;
 
   @override
@@ -767,7 +768,7 @@ class _TemplatePrerequisiteSheetState
                               const SizedBox(height: 8),
                           itemBuilder: (ctx, i) {
                             final p = _prereqs[i];
-                            final isReq = p['is_required'] == true;
+                            final isReq = p.isRequired;
                             return Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
@@ -794,18 +795,17 @@ class _TemplatePrerequisiteSheetState
                                           CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          p['name'] ?? '',
+                                          p.name,
                                           style: TextStyle(
                                             fontWeight: FontWeight.w600,
                                             color: AppTheme.textPrimaryOf(
                                                 context),
                                           ),
                                         ),
-                                        if (p['description'] != null &&
-                                            (p['description'] as String)
-                                                .isNotEmpty)
+                                        if (p.description != null &&
+                                            p.description!.isNotEmpty)
                                           Text(
-                                            p['description'],
+                                            p.description!,
                                             style: TextStyle(
                                               fontSize: 12,
                                               color:
@@ -818,7 +818,7 @@ class _TemplatePrerequisiteSheetState
                                   ),
                                   IconButton(
                                     onPressed: () =>
-                                        _delete(p['id'] as int),
+                                        _delete(p.id),
                                     icon: Icon(Icons.delete_outline,
                                         size: 18, color: AppTheme.errorColor),
                                     tooltip: 'Remove',

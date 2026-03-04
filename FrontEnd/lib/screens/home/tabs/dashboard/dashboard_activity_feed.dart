@@ -3,10 +3,11 @@ import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../../config/design_tokens.dart';
 import '../../../../config/theme.dart';
+import '../../../../models/dashboard.dart';
 import 'dashboard_helpers.dart';
 
 class DashboardActivityFeed extends StatefulWidget {
-  final List<dynamic> feed;
+  final List<ActivityFeedItem> feed;
 
   const DashboardActivityFeed({
     super.key,
@@ -28,17 +29,14 @@ class _DashboardActivityFeedState extends State<DashboardActivityFeed> {
     final isDark = AppTheme.isDark(context);
     final uniqueEvents = <int, String>{};
     for (final item in widget.feed) {
-      final m = item as Map<String, dynamic>;
-      uniqueEvents[m['event_id'] as int] =
-          m['event_title'] as String? ?? '';
+      uniqueEvents[item.eventId] = item.eventTitle;
     }
 
     final showFilter = uniqueEvents.length >= 4;
     final filtered = _filterEventId == null
         ? widget.feed
         : widget.feed
-            .where(
-                (item) => (item as Map)['event_id'] == _filterEventId)
+            .where((item) => item.eventId == _filterEventId)
             .toList();
 
     return Padding(
@@ -86,8 +84,7 @@ class _DashboardActivityFeedState extends State<DashboardActivityFeed> {
           ],
           AppSpacing.vMd,
           for (int i = 0; i < filtered.length; i++)
-            _buildActivityItem(
-                context, filtered[i] as Map<String, dynamic>, i, isDark),
+            _buildActivityItem(context, filtered[i], i, isDark),
         ],
       ),
     );
@@ -125,12 +122,12 @@ class _DashboardActivityFeedState extends State<DashboardActivityFeed> {
   }
 
   Widget _buildActivityItem(BuildContext context,
-      Map<String, dynamic> item, int index, bool isDark) {
-    final type = item['type'] as String? ?? '';
-    final actorName = item['actor_name'] as String? ?? 'Someone';
-    final eventTitle = item['event_title'] as String? ?? '';
-    final amountCents = item['amount_cents'] as int? ?? 0;
-    final createdAt = item['created_at'] as String? ?? '';
+      ActivityFeedItem item, int index, bool isDark) {
+    final type = item.type;
+    final actorName = item.actorName.isNotEmpty ? item.actorName : 'Someone';
+    final eventTitle = item.eventTitle;
+    final amountCents = item.amountCents;
+    final createdAt = item.createdAt.toIso8601String();
 
     IconData icon;
     Color iconColor;
@@ -148,7 +145,7 @@ class _DashboardActivityFeedState extends State<DashboardActivityFeed> {
         icon = Icons.handshake_rounded;
         iconColor = context.sponsorAccent;
         final bidStatus =
-            (item['extra'] as Map?)?['bid_status'] as String? ?? '';
+            item.extra?['bid_status'] as String? ?? '';
         action = 'bid ($bidStatus)';
       default:
         icon = Icons.circle;

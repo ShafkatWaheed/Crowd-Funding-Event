@@ -85,9 +85,9 @@ void main() {
     when(() => mockEventRepo.getEventImages(any()))
         .thenAnswer((_) async => <EventImage>[]);
     when(() => mockEventRepo.getMyRegistration(any()))
-        .thenAnswer((_) async => {'registered': false});
+        .thenAnswer((_) async => null);
     when(() => mockEventRepo.checkBookmarks(any()))
-        .thenAnswer((_) async => {'bookmarked_ids': <int>[]});
+        .thenAnswer((_) async => <int, bool>{});
 
     // TicketRepository stubs
     when(() => mockTicketRepo.getMyTickets(

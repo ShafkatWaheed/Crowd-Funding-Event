@@ -69,4 +69,35 @@ void main() {
       expect(day.items[1].title, 'Afternoon Session');
     });
   });
+
+  // ─── ScheduleImageResult ───
+
+  group('ScheduleImageResult', () {
+    test('fromJson parses all fields with url key', () {
+      final json = {
+        'url': 'https://storage.example.com/schedule/img.jpg',
+        'caption': 'Stage setup photo',
+      };
+      final r = ScheduleImageResult.fromJson(json);
+
+      expect(r.url, 'https://storage.example.com/schedule/img.jpg');
+      expect(r.caption, 'Stage setup photo');
+    });
+
+    test('fromJson falls back to image_url key', () {
+      final json = {
+        'image_url': 'https://storage.example.com/schedule/alt.jpg',
+        'caption': 'Alt photo',
+      };
+      final r = ScheduleImageResult.fromJson(json);
+      expect(r.url, 'https://storage.example.com/schedule/alt.jpg');
+      expect(r.caption, 'Alt photo');
+    });
+
+    test('all fields nullable', () {
+      final r = ScheduleImageResult.fromJson({});
+      expect(r.url, isNull);
+      expect(r.caption, isNull);
+    });
+  });
 }

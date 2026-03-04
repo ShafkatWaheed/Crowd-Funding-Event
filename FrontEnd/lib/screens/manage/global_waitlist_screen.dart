@@ -3,12 +3,17 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
+import '../../models/event.dart';
+import '../../models/ticket.dart';
 import '../../providers/event_provider.dart';
 import '../../providers/ticket_provider.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/shimmer_loaders.dart';
 
 enum _WaitlistType { fund, ticket }
+
+typedef _FundEntry = ({Registration reg, String eventTitle});
+typedef _TicketEntry = ({TicketSale ticket, String eventTitle});
 
 /// Shows waitlisted registrations AND waitlisted tickets across ALL organiser events,
 /// with a segmented toggle to switch between the two views.
@@ -27,12 +32,12 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
   late _WaitlistType _type;
 
   // Fund waitlist data (registrations with status == 'waitlist')
-  List<Map<String, dynamic>> _fundAll = [];
-  List<Map<String, dynamic>> _fundFiltered = [];
+  List<_FundEntry> _fundAll = [];
+  List<_FundEntry> _fundFiltered = [];
 
   // Ticket waitlist data (tickets with status == 'waitlisted')
-  List<Map<String, dynamic>> _ticketAll = [];
-  List<Map<String, dynamic>> _ticketFiltered = [];
+  List<_TicketEntry> _ticketAll = [];
+  List<_TicketEntry> _ticketFiltered = [];
 
   bool _loading = true;
   String? _error;
@@ -62,40 +67,27 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
       final ticketRepo = context.read<TicketProvider>();
       final events = await eventRepo.getMyEvents();
 
-      final List<Map<String, dynamic>> fundCombined = [];
-      final List<Map<String, dynamic>> ticketCombined = [];
+      final List<_FundEntry> fundCombined = [];
+      final List<_TicketEntry> ticketCombined = [];
 
       for (final evt in events) {
-        final eventId = evt.id;
         final eventTitle = evt.title;
 
         // Fund waitlist
         try {
-          final regs = await eventRepo.getRegistrations(eventId);
+          final regs = await eventRepo.getRegistrations(evt.id);
           for (final r in regs) {
             if (r.status == 'waitlist') {
-              fundCombined.add({
-                'id': r.id,
-                'event_id': r.eventId,
-                'user_id': r.userId,
-                'status': r.status,
-                'created_at': r.createdAt.toIso8601String(),
-                '_event_title': eventTitle,
-                '_event_id': eventId,
-              });
+              fundCombined.add((reg: r, eventTitle: eventTitle));
             }
           }
         } catch (e) { debugPrint(e.toString()); }
 
         // Ticket waitlist
         try {
-          final tickets = await ticketRepo.getWaitlistedTickets(eventId);
+          final tickets = await ticketRepo.getWaitlistedTickets(evt.id);
           for (final t in tickets) {
-            ticketCombined.add({
-              ...t.toJson(),
-              '_event_title': eventTitle,
-              '_event_id': eventId,
-            });
+            ticketCombined.add((ticket: t, eventTitle: eventTitle));
           }
         } catch (e) { debugPrint(e.toString()); }
       }
@@ -120,15 +112,15 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
       _fundFiltered = List.from(_fundAll);
       _ticketFiltered = List.from(_ticketAll);
     } else {
-      _fundFiltered = _fundAll.where((r) {
-        final event = (r['_event_title'] ?? '').toString().toLowerCase();
-        final userId = '${r['user_id']}'.toLowerCase();
+      _fundFiltered = _fundAll.where((entry) {
+        final event = entry.eventTitle.toLowerCase();
+        final userId = '${entry.reg.userId}'.toLowerCase();
         return event.contains(q) || userId.contains(q);
       }).toList();
-      _ticketFiltered = _ticketAll.where((t) {
-        final event = (t['_event_title'] ?? '').toString().toLowerCase();
-        final userId = '${t['user_id']}'.toLowerCase();
-        final tierName = (t['tier_name'] ?? '').toString().toLowerCase();
+      _ticketFiltered = _ticketAll.where((entry) {
+        final event = entry.eventTitle.toLowerCase();
+        final userId = '${entry.ticket.userId}'.toLowerCase();
+        final tierName = (entry.ticket.tierName ?? '').toLowerCase();
         return event.contains(q) || userId.contains(q) || tierName.contains(q);
       }).toList();
     }
@@ -187,9 +179,9 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
 
   // ── Helpers ──
 
-  List<Map<String, dynamic>> get _currentAll =>
-      _type == _WaitlistType.fund ? _fundAll : _ticketAll;
-  List<Map<String, dynamic>> get _currentFiltered =>
+  int get _currentAllCount =>
+      _type == _WaitlistType.fund ? _fundAll.length : _ticketAll.length;
+  List<Object> get _currentFiltered =>
       _type == _WaitlistType.fund ? _fundFiltered : _ticketFiltered;
 
   String get _emptyLabel => _type == _WaitlistType.fund
@@ -301,7 +293,7 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    '${_currentAll.length} waitlisted',
+                    '$_currentAllCount waitlisted',
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -392,10 +384,11 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
                                   horizontal: 16, vertical: 4),
                               itemCount: _currentFiltered.length,
                               itemBuilder: (_, i) {
-                                final item = _currentFiltered[i];
-                                return _type == _WaitlistType.fund
-                                    ? _fundCard(item)
-                                    : _ticketCard(item);
+                                if (_type == _WaitlistType.fund) {
+                                  return _fundCard(_fundFiltered[i]);
+                                } else {
+                                  return _ticketCard(_ticketFiltered[i]);
+                                }
                               },
                             ),
                           ),
@@ -471,12 +464,8 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
 
   // ── Fund waitlist card ──
 
-  Widget _fundCard(Map<String, dynamic> reg) {
-    final regId = reg['id'] as int;
-    final eventId = reg['_event_id'] as int;
-    final eventTitle = reg['_event_title'] ?? '';
-    final userId = reg['user_id'];
-
+  Widget _fundCard(_FundEntry entry) {
+    final reg = entry.reg;
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
@@ -509,24 +498,24 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('User #$userId',
+                  Text('User #${reg.userId}',
                       style: const TextStyle(
                           fontWeight: FontWeight.w700, fontSize: 15)),
                   const SizedBox(height: 2),
-                  Text(eventTitle,
+                  Text(entry.eventTitle,
                       style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                           color: AppTheme.accentColor)),
-                  Text('Registration #$regId',
+                  Text('Registration #${reg.id}',
                       style:
                           TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context))),
                 ],
               ),
             ),
-            _approveButton(() => _decideFund(eventId, regId, 'approve')),
+            _approveButton(() => _decideFund(reg.eventId, reg.id, 'approve')),
             const SizedBox(width: 8),
-            _rejectButton(() => _decideFund(eventId, regId, 'reject')),
+            _rejectButton(() => _decideFund(reg.eventId, reg.id, 'reject')),
           ],
         ),
       ),
@@ -535,13 +524,10 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
 
   // ── Ticket waitlist card ──
 
-  Widget _ticketCard(Map<String, dynamic> ticket) {
-    final ticketId = ticket['id'] as int;
-    final eventId = ticket['_event_id'] as int;
-    final eventTitle = ticket['_event_title'] ?? '';
-    final userId = ticket['user_id'];
-    final tierName = ticket['tier_name'] ?? 'Unknown Tier';
-    final amountCents = ticket['amount_paid_cents'] ?? 0;
+  Widget _ticketCard(_TicketEntry entry) {
+    final ticket = entry.ticket;
+    final tierName = ticket.tierName ?? 'Unknown Tier';
+    final amountCents = ticket.amountPaidCents;
     final price = amountCents == 0
         ? 'Free'
         : '\$${(amountCents / 100).toStringAsFixed(2)}';
@@ -578,11 +564,11 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('User #$userId',
+                  Text('User #${ticket.userId}',
                       style: const TextStyle(
                           fontWeight: FontWeight.w700, fontSize: 15)),
                   const SizedBox(height: 2),
-                  Text(eventTitle,
+                  Text(entry.eventTitle,
                       style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
@@ -593,9 +579,9 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
                 ],
               ),
             ),
-            _approveButton(() => _approveTicket(eventId, ticketId)),
+            _approveButton(() => _approveTicket(ticket.eventId, ticket.id)),
             const SizedBox(width: 8),
-            _rejectButton(() => _rejectTicket(eventId, ticketId)),
+            _rejectButton(() => _rejectTicket(ticket.eventId, ticket.id)),
           ],
         ),
       ),

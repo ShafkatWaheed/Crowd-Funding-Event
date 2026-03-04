@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../../models/event_form_models.dart';
+import '../../../models/sponsor.dart';
 import '../../../providers/sponsor_provider.dart';
 import '../../../providers/ticket_provider.dart';
 import '../../../providers/venue_provider.dart';
@@ -202,11 +203,11 @@ void selectVenueGeoSuggestion(
 
 Future<void> toggleSponsorTemplate(
   BuildContext context,
-  Map<String, dynamic> t, {
+  SponsorCategoryTemplate t, {
   required List<EditableSponsorCategory> localCategories,
   required VoidCallback onChanged,
 }) async {
-  final id = t['id'] as int;
+  final id = t.id;
   final idx = localCategories.indexWhere((c) => c.templateId == id);
   if (idx >= 0) {
     localCategories.removeAt(idx);
@@ -214,19 +215,18 @@ Future<void> toggleSponsorTemplate(
     return;
   }
   final cat = EditableSponsorCategory(templateId: id, expanded: true);
-  cat.nameCtrl.text = t['name'] ?? '';
-  cat.descCtrl.text = (t['description'] as String?) ?? '';
-  cat.spotsCtrl.text = '${t['total_spots'] ?? 1}';
-  final minBid = t['min_bid_cents'] ?? 0;
-  cat.minBidCtrl.text = (minBid / 100).toStringAsFixed(2);
+  cat.nameCtrl.text = t.name;
+  cat.descCtrl.text = t.description ?? '';
+  cat.spotsCtrl.text = '${t.totalSpots}';
+  cat.minBidCtrl.text = (t.minBidCents / 100).toStringAsFixed(2);
   try {
     final prereqs = await context.read<SponsorProvider>().listTemplatePrerequisites(id);
     for (final p in prereqs) {
       cat.prereqs.add(LocalPrerequisite(
-        name: (p['name'] as String?) ?? '',
-        description: (p['description'] as String?) ?? '',
-        isRequired: p['is_required'] as bool? ?? true,
-        requiresDocument: p['requires_document'] as bool? ?? false,
+        name: p.name,
+        description: p.description ?? '',
+        isRequired: p.isRequired,
+        requiresDocument: p.requiresDocument,
       ));
     }
   } catch (e) { debugPrint(e.toString()); }

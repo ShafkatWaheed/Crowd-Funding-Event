@@ -97,7 +97,7 @@ class _MyEventsTabState extends State<MyEventsTab> {
     try {
       final repo = context.read<EventProvider>();
       final res = await repo.checkBookmarks(eventIds);
-      final ids = (res['bookmarked_ids'] as List?)?.cast<int>() ?? [];
+      final ids = res.entries.where((e) => e.value).map((e) => e.key).toList();
       if (mounted) widget.onBookmarksSynced?.call(ids);
     } catch (e) { debugPrint(e.toString()); }
   }

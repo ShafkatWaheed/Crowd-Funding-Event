@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
 import '../../../config/design_tokens.dart';
+import '../../../models/discount.dart';
 import '../../../providers/ticket_provider.dart';
 import '../../../widgets/app_toast.dart';
 
@@ -15,8 +16,8 @@ class EventDiscountDropdown extends StatefulWidget {
 }
 
 class _EventDiscountDropdownState extends State<EventDiscountDropdown> {
-  List<Map<String, dynamic>> _allStrategies = [];
-  List<Map<String, dynamic>> _attached = [];
+  List<DiscountStrategy> _allStrategies = [];
+  List<EventDiscountStrategy> _attached = [];
   bool _loading = true;
   String _search = '';
 
@@ -36,8 +37,8 @@ class _EventDiscountDropdownState extends State<EventDiscountDropdown> {
       if (!mounted) return;
       final attached = await _ticketRepo.getEventDiscountStrategies(widget.eventId);
       if (!mounted) return;
-      _allStrategies = all.cast<Map<String, dynamic>>();
-      _attached = attached.cast<Map<String, dynamic>>();
+      _allStrategies = all;
+      _attached = attached;
       _loading = false;
       if (mounted) setState(() {});
     } catch (_) {
@@ -46,7 +47,7 @@ class _EventDiscountDropdownState extends State<EventDiscountDropdown> {
     }
   }
 
-  Set<int> get _attachedIds => _attached.map((d) => d['id'] as int).toSet();
+  Set<int> get _attachedIds => _attached.map((d) => d.id).toSet();
 
   Future<void> _attach(int id, {required bool autoApply}) async {
     try {
@@ -70,14 +71,16 @@ class _EventDiscountDropdownState extends State<EventDiscountDropdown> {
     }
   }
 
-  String _label(Map<String, dynamic> d) {
-    final name = d['name'] ?? '';
-    final type = d['discount_type'] ?? '';
-    final val = d['value'] ?? 0;
-    final target = d['target'] ?? 'all';
+  String _formatLabel(String name, String type, int value, String target) {
     final typeLabel = type == 'ticket_percent' ? '% ticket' : '% pledge';
-    return '$name · $val$typeLabel · $target';
+    return '$name · $value$typeLabel · $target';
   }
+
+  String _strategyLabel(DiscountStrategy d) =>
+      _formatLabel(d.name, d.discountType, d.value, d.target);
+
+  String _attachedLabel(EventDiscountStrategy d) =>
+      _formatLabel(d.name, d.discountType, d.value, d.target);
 
   @override
   Widget build(BuildContext context) {
@@ -105,7 +108,7 @@ class _EventDiscountDropdownState extends State<EventDiscountDropdown> {
           // Attached discounts
           if (_attached.isNotEmpty) ...[
             ..._attached.map((d) {
-              final autoApply = d['auto_apply'] == true;
+              final autoApply = d.autoApply;
               return Padding(
                 padding: const EdgeInsets.only(bottom: 6),
                 child: Row(
@@ -122,7 +125,7 @@ class _EventDiscountDropdownState extends State<EventDiscountDropdown> {
                           children: [
                             Expanded(
                               child: Text(
-                                _label(d),
+                                _attachedLabel(d),
                                 style: TextStyle(color: AppTheme.textPrimaryOf(context), fontSize: 12),
                               ),
                             ),
@@ -150,7 +153,7 @@ class _EventDiscountDropdownState extends State<EventDiscountDropdown> {
                     ),
                     const SizedBox(width: 6),
                     InkWell(
-                      onTap: () => _detach(d['id'] as int),
+                      onTap: () => _detach(d.id),
                       borderRadius: BorderRadius.circular(12),
                       child: Padding(
                         padding: const EdgeInsets.all(4),
@@ -186,10 +189,9 @@ class _EventDiscountDropdownState extends State<EventDiscountDropdown> {
 
   List<Widget> _buildAvailableList() {
     final available = _allStrategies.where((d) {
-      final id = d['id'] as int;
-      if (_attachedIds.contains(id)) return false;
+      if (_attachedIds.contains(d.id)) return false;
       if (_search.isEmpty) return true;
-      return _label(d).toLowerCase().contains(_search);
+      return _strategyLabel(d).toLowerCase().contains(_search);
     }).toList();
 
     if (available.isEmpty && _search.isNotEmpty) {
@@ -213,19 +215,19 @@ class _EventDiscountDropdownState extends State<EventDiscountDropdown> {
           child: Row(
             children: [
               Expanded(
-                child: Text(_label(d), style: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 12)),
+                child: Text(_strategyLabel(d), style: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 12)),
               ),
               const SizedBox(width: 6),
               AddButton(
                 label: 'Add + Apply',
                 color: AppTheme.successColor,
-                onTap: () => _attach(d['id'] as int, autoApply: true),
+                onTap: () => _attach(d.id, autoApply: true),
               ),
               const SizedBox(width: 6),
               AddButton(
                 label: 'Add',
                 color: context.discountAccent,
-                onTap: () => _attach(d['id'] as int, autoApply: false),
+                onTap: () => _attach(d.id, autoApply: false),
               ),
             ],
           ),

@@ -41,7 +41,7 @@ class _EditSponsorsSectionState extends State<EditSponsorsSection> {
   bool _expanded = false;
   bool _loaded = false;
   List<EditSponsorCategory> _categories = [];
-  List<Map<String, dynamic>> _templates = [];
+  List<SponsorCategoryTemplate> _templates = [];
 
   @override
   void initState() {
@@ -198,7 +198,7 @@ class _EditSponsorsSectionState extends State<EditSponsorsSection> {
                             itemCount: _templates.length,
                             itemBuilder: (_, i) {
                               final t = _templates[i];
-                              final id = t['id'] as int;
+                              final id = t.id;
                               final isChosen = chosen.contains(id);
                               return CheckboxListTile(
                                 value: isChosen,
@@ -210,12 +210,12 @@ class _EditSponsorsSectionState extends State<EditSponsorsSection> {
                                     chosen.remove(id);
                                   }
                                 }),
-                                title: Text(t['name'] ?? '',
+                                title: Text(t.name,
                                     style: const TextStyle(
                                         fontWeight: FontWeight.w600,
                                         fontSize: 13)),
                                 subtitle: Text(
-                                  '${t['total_spots'] ?? 0} spots · \$${((t['min_bid_cents'] ?? 0) / 100).toStringAsFixed(0)} min bid',
+                                  '${t.totalSpots} spots · \$${(t.minBidCents / 100).toStringAsFixed(0)} min bid',
                                   style: TextStyle(
                                       fontSize: 11,
                                       color:
@@ -250,13 +250,13 @@ class _EditSponsorsSectionState extends State<EditSponsorsSection> {
     if (selected == null || selected.isEmpty) return;
     for (final templateId in selected) {
       final t =
-          _templates.firstWhere((t) => t['id'] == templateId);
+          _templates.firstWhere((t) => t.id == templateId);
       final sc = EditSponsorCategory();
-      sc.nameCtrl.text = t['name'] ?? '';
-      sc.descCtrl.text = (t['description'] as String?) ?? '';
-      sc.spotsCtrl.text = '${t['total_spots'] ?? 1}';
+      sc.nameCtrl.text = t.name;
+      sc.descCtrl.text = t.description ?? '';
+      sc.spotsCtrl.text = '${t.totalSpots}';
       sc.minBidCtrl.text =
-          ((t['min_bid_cents'] ?? 0) / 100).toStringAsFixed(2);
+          (t.minBidCents / 100).toStringAsFixed(2);
       setState(() => _categories.add(sc));
     }
   }

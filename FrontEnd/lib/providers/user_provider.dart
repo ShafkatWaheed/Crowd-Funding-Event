@@ -70,7 +70,7 @@ class UserProvider extends ChangeNotifier {
 
   Future<KycStatus> getKycStatus() => _repo.getKycStatus();
 
-  Future<Map<String, dynamic>> uploadKycDocument(
+  Future<KycDocumentUpload> uploadKycDocument(
           String filePath, String documentType) =>
       _repo.uploadKycDocument(filePath, documentType);
 

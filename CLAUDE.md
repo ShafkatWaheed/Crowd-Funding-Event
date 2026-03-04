@@ -81,8 +81,8 @@ Do not mix: a single request should use either `ReadDbSession` (all reads) or `D
 
 ## 3-Layer Architecture — STRICT ENFORCEMENT
 
-> **BLOCKING REQUIREMENT** — applies to ALL new features, endpoints, screens, and modifications.
-> Violations of these rules must be caught and fixed BEFORE writing code. If you are about to write code that crosses a layer boundary, STOP and restructure.
+> **BLOCKING REQUIREMENT** — applies to ALL new features, bug fixes, endpoints, screens, and modifications.
+> Violations of these rules must be caught and fixed BEFORE writing code. If you are about to write code that crosses a layer boundary, STOP and restructure. Bug fixes are NOT exempt — a fix must still follow the correct layer boundaries and use typed models.
 
 The codebase follows a strict **3-layer separation**: Data → Service/Provider → API/Screen.
 
@@ -135,12 +135,15 @@ Layer 3: Repository    (FrontEnd/lib/repositories/)   → ALL HTTP calls, return
 - **REJECT** any `dio.get()`, `dio.post()`, `dio.put()`, `dio.patch()`, `dio.delete()` call
 - **REJECT** direct repository instantiation or `context.read<*Repository>()`
 - **REJECT** local state that manages API-fetched lists with pagination (`offset`, `hasMore`, `loadMore`)
+- **REJECT** `Map<String, dynamic>` or `List<dynamic>` for state variables, method parameters, or widget constructor args that hold API data — use typed model classes instead
 - **MUST** use `context.watch<*Provider>()` for reading state and `context.read<*Provider>().method()` for actions
+- **MUST** access model fields via typed properties (`item.title`, `item.status`), never via bracket notation (`item['title']`, `item['status']`)
 - **Exception:** Simple one-shot receipt/detail screens (e.g., `PledgeReceiptScreen`, `TicketReceiptScreen`) may use a repository directly for a single fetch-and-display pattern. This is acceptable ONLY when there is no list, no pagination, and no shared state.
 
 #### If the file is a **frontend provider** (`FrontEnd/lib/providers/**/*.dart`):
 
 - **REJECT** any `dio.get()`, `dio.post()`, etc. — providers call repositories, not Dio
+- **REJECT** `Map<String, dynamic>` or `List<dynamic>` as method return types or state fields — providers must expose typed models matching repository returns
 - **MUST** own all state: `loading`, `error`, `items`, `hasMore`, pagination, filters, sort
 
 #### If the file is a **frontend repository** (`FrontEnd/lib/repositories/**/*.dart`):
@@ -194,9 +197,21 @@ final resp = await dio.get('/events');                // → Use provider
 final events = await eventRepo.getEvents();          // → Use EventProvider
 setState(() { _events = events; _loading = false; }); // → Provider owns state
 
+// ❌ BANNED — Raw Map/List for API data anywhere in screens or providers
+// File: FrontEnd/lib/screens/*.dart OR FrontEnd/lib/providers/*.dart
+List<dynamic> _items = [];                           // → Use List<TypedModel>
+Map<String, dynamic>? _detail;                       // → Use TypedModel?
+Widget build(Map<String, dynamic> data) { ... }      // → Use TypedModel
+data['title']                                        // → Use data.title
+
 // ❌ BANNED — Dio in provider
 // File: FrontEnd/lib/providers/*.dart
 final resp = await dio.get('/events');                // → Use EventRepository
+
+// ❌ BANNED — Raw Map return from repository
+// File: FrontEnd/lib/repositories/*.dart
+Future<Map<String, dynamic>> getUser() async { ... } // → Future<User>
+Future<List<dynamic>> getEvents() async { ... }      // → Future<List<Event>>
 
 // ❌ BANNED — Mutable state in repository
 // File: FrontEnd/lib/repositories/*.dart
@@ -261,9 +276,9 @@ Widget build(BuildContext context) {
 
 ---
 
-### Adding a New Feature — Mandatory Checklist
+### Adding a New Feature or Fixing a Bug — Mandatory Checklist
 
-When adding any feature that involves API calls or DB queries, you MUST complete ALL items. Do not skip steps.
+When adding any feature OR fixing any bug that involves API calls or DB queries, you MUST complete ALL items. Do not skip steps. Bug fixes are not exempt — even a one-line fix must not introduce raw `Map<String, dynamic>`, bracket-notation access, or cross-layer violations.
 
 **Backend:**
 1. [ ] Identify the repository — does one exist for this domain? If not, create `Backend/app/repositories/<domain>_repo.py`
@@ -274,12 +289,14 @@ When adding any feature that involves API calls or DB queries, you MUST complete
 6. [ ] Eager-load relationships needed by the response schema
 
 **Frontend:**
-1. [ ] Identify the repository — does one exist? If not, create `FrontEnd/lib/repositories/<domain>_repository.dart`
-2. [ ] Add HTTP methods to the repository — return typed models
-3. [ ] Add/update provider with state management (`loading`, `error`, items, pagination)
-4. [ ] Screen uses ONLY `context.watch<Provider>()` / `context.read<Provider>().method()`
-5. [ ] Register new providers in `main.dart` MultiProvider if needed
-6. [ ] Add new routes to `router.dart` if new screens are created
+1. [ ] Define typed model classes in `FrontEnd/lib/models/` FIRST — every API response shape must have a Dart class with `fromJson()` factory
+2. [ ] Identify the repository — does one exist? If not, create `FrontEnd/lib/repositories/<domain>_repository.dart`
+3. [ ] Add HTTP methods to the repository — return typed models (never raw `Map<String, dynamic>` or `List<dynamic>`)
+4. [ ] Add/update provider with state management (`loading`, `error`, items, pagination) — all state fields use typed models
+5. [ ] Screen uses ONLY `context.watch<Provider>()` / `context.read<Provider>().method()`
+6. [ ] Screen state variables, widget params, and build helpers use typed models — zero `Map<String, dynamic>` or bracket-notation access (`data['field']`)
+7. [ ] Register new providers in `main.dart` MultiProvider if needed
+8. [ ] Add new routes to `router.dart` if new screens are created
 
 **Verification:**
 - [ ] Run `/check-architecture` to confirm zero violations

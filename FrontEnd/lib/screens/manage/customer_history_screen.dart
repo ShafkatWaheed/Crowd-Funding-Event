@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
+import '../../models/dashboard.dart';
 import '../../providers/event_provider.dart';
 import '../../widgets/shimmer_loaders.dart';
 
@@ -18,7 +19,7 @@ class _CustomerHistoryScreenState extends State<CustomerHistoryScreen> {
 
   final _searchCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
-  List<Map<String, dynamic>> _customers = [];
+  List<CustomerHistoryItem> _customers = [];
   bool _loading = true;
   bool _loadingMore = false;
   bool _hasMore = true;
@@ -57,7 +58,7 @@ class _CustomerHistoryScreenState extends State<CustomerHistoryScreen> {
       final list = await repo.getOrganizerCustomers(offset: 0, limit: _pageSize);
       if (mounted) {
         setState(() {
-          _customers = list.cast<Map<String, dynamic>>();
+          _customers = list;
           _hasMore = list.length >= _pageSize;
           _loading = false;
         });
@@ -78,7 +79,7 @@ class _CustomerHistoryScreenState extends State<CustomerHistoryScreen> {
       );
       if (mounted) {
         setState(() {
-          _customers.addAll(list.cast<Map<String, dynamic>>());
+          _customers.addAll(list);
           _hasMore = list.length >= _pageSize;
           _loadingMore = false;
         });
@@ -88,11 +89,11 @@ class _CustomerHistoryScreenState extends State<CustomerHistoryScreen> {
     }
   }
 
-  List<Map<String, dynamic>> get _filtered {
+  List<CustomerHistoryItem> get _filtered {
     final q = _searchCtrl.text.toLowerCase();
     if (q.isEmpty) return _customers;
     return _customers.where((c) {
-      final name = (c['customer_name'] ?? '').toString().toLowerCase();
+      final name = (c.customerName ?? '').toLowerCase();
       return name.contains(q);
     }).toList();
   }
@@ -154,7 +155,7 @@ class _CustomerHistoryScreenState extends State<CustomerHistoryScreen> {
                         const SizedBox(width: 8),
                         _statChip(
                           Icons.event_repeat_rounded,
-                          '${items.where((c) => (c['events_attended'] ?? 0) > 1).length} repeat',
+                          '${items.where((c) => c.eventsAttended > 1).length} repeat',
                           AppTheme.successColor,
                         ),
                       ],
@@ -212,8 +213,8 @@ class _CustomerHistoryScreenState extends State<CustomerHistoryScreen> {
     );
   }
 
-  Widget _buildCustomerCard(Map<String, dynamic> c) {
-    final eventsAttended = c['events_attended'] ?? 0;
+  Widget _buildCustomerCard(CustomerHistoryItem c) {
+    final eventsAttended = c.eventsAttended;
     final isRepeat = eventsAttended > 1;
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -238,7 +239,7 @@ class _CustomerHistoryScreenState extends State<CustomerHistoryScreen> {
           ),
         ),
         title: Text(
-          c['customer_name'] ?? 'Customer ${c['customer_id']}',
+          c.customerName ?? 'Customer ${c.customerId}',
           style: const TextStyle(fontWeight: FontWeight.w600),
         ),
         subtitle: Text(

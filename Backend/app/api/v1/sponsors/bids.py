@@ -60,6 +60,7 @@ async def place_bid(
 ):
     log_step(logger, "Placing bid", event_id=event_id, cat_id=cat_id, user_id=current_user.id, amount_cents=data.amount_cents)
     bid = await sponsor_svc.place_bid(db, cat_id, current_user, data)
+    await db.commit()
     return await _bid_to_response(db, bid)
 
 
@@ -77,6 +78,7 @@ async def update_bid(
 ):
     log_step(logger, "Updating bid", event_id=event_id, cat_id=cat_id, bid_id=bid_id, user_id=current_user.id)
     bid = await sponsor_svc.update_bid(db, bid_id, current_user, data)
+    await db.commit()
     return await _bid_to_response(db, bid)
 
 
@@ -93,6 +95,7 @@ async def withdraw_bid(
 ):
     log_step(logger, "Withdrawing bid", event_id=event_id, cat_id=cat_id, bid_id=bid_id, user_id=current_user.id)
     bid = await sponsor_svc.withdraw_bid(db, bid_id, current_user)
+    await db.commit()
     return await _bid_to_response(db, bid)
 
 
@@ -123,6 +126,7 @@ async def accept_bid(
 ):
     log_step(logger, "Accepting bid", event_id=event_id, cat_id=cat_id, bid_id=bid_id, user_id=current_user.id)
     bid = await sponsor_svc.accept_bid(db, bid_id, current_user)
+    await db.commit()
     return await _bid_to_response(db, bid)
 
 
@@ -139,4 +143,5 @@ async def reject_bid(
 ):
     log_step(logger, "Rejecting bid", event_id=event_id, cat_id=cat_id, bid_id=bid_id, user_id=current_user.id)
     bid = await sponsor_svc.reject_bid(db, bid_id, current_user)
+    await db.commit()
     return await _bid_to_response(db, bid)

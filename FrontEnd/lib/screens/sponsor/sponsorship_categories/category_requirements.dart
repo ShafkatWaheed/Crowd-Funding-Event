@@ -85,11 +85,11 @@ class _CategoryRequirementsState extends State<CategoryRequirements> {
       if (mounted) {
         setState(() {
           _uploads[prereqId] = BidPrerequisiteUpload(
-            id: resp['id'] as int,
+            id: resp.id ?? 0,
             bidId: 0,
             prerequisiteId: prereqId,
-            fileUrl: (resp['file_url'] as String?) ?? '',
-            status: (resp['status'] as String?) ?? 'pending',
+            fileUrl: resp.fileUrl,
+            status: resp.status ?? 'pending',
           );
           _uploading[prereqId] = false;
         });

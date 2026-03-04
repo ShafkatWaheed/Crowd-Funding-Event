@@ -211,14 +211,14 @@ class TicketProvider extends ChangeNotifier {
 
   // ─── Early bird discounts ───
 
-  Future<List<dynamic>> getEarlyBirdDiscounts(int eventId) =>
+  Future<List<EarlyBirdDiscount>> getEarlyBirdDiscounts(int eventId) =>
       _repo.getEarlyBirdDiscounts(eventId);
 
-  Future<Map<String, dynamic>> createEarlyBirdDiscount(
+  Future<EarlyBirdDiscount> createEarlyBirdDiscount(
           int eventId, Map<String, dynamic> data) =>
       _repo.createEarlyBirdDiscount(eventId, data);
 
-  Future<Map<String, dynamic>> updateEarlyBirdDiscount(
+  Future<EarlyBirdDiscount> updateEarlyBirdDiscount(
           int eventId, int discountId, Map<String, dynamic> data) =>
       _repo.updateEarlyBirdDiscount(eventId, discountId, data);
 

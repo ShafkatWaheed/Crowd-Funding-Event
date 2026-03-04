@@ -27,7 +27,7 @@ class SponsorProvider extends ChangeNotifier {
 
   // ── Discovery ──────────────────────────────────────────────────────────
 
-  Future<List<Map<String, dynamic>>> getSponsorBidEvents() =>
+  Future<List<SponsorBidEvent>> getSponsorBidEvents() =>
       _repo.getSponsorBidEvents();
 
   Future<List<Event>> getSponsorshipAvailableEvents(
@@ -113,7 +113,7 @@ class SponsorProvider extends ChangeNotifier {
   Future<List<SponsorTicketModel>> getMySponsorTickets() =>
       _repo.getMySponsorTickets();
 
-  Future<Map<String, dynamic>> scanSponsorTicket(
+  Future<ScannedSponsorTicket> scanSponsorTicket(
           int eventId, String encryptedPayload) =>
       _repo.scanSponsorTicket(eventId, encryptedPayload);
 
@@ -164,7 +164,7 @@ class SponsorProvider extends ChangeNotifier {
           int eventId, int catId, int prereqId) =>
       _repo.deletePrerequisite(eventId, catId, prereqId);
 
-  Future<Map<String, dynamic>> uploadPrerequisiteDocument(
+  Future<FileUploadResult> uploadPrerequisiteDocument(
           int bidId, int prereqId, String filePath, String fileName) =>
       _repo.uploadPrerequisiteDocument(bidId, prereqId, filePath, fileName);
 
@@ -172,7 +172,7 @@ class SponsorProvider extends ChangeNotifier {
           int bidId) =>
       _repo.listBidPrerequisiteUploads(bidId);
 
-  Future<Map<String, dynamic>> uploadCategoryPrerequisite(
+  Future<FileUploadResult> uploadCategoryPrerequisite(
           int eventId, int catId, int prereqId,
           {String? filePath, String? fileName, List<int>? fileBytes}) =>
       _repo.uploadCategoryPrerequisite(eventId, catId, prereqId,
@@ -186,14 +186,14 @@ class SponsorProvider extends ChangeNotifier {
 
   // ── Sponsor Category Templates ─────────────────────────────────────────
 
-  Future<List<Map<String, dynamic>>> getSponsorCategoryTemplates() =>
+  Future<List<SponsorCategoryTemplate>> getSponsorCategoryTemplates() =>
       _repo.getSponsorCategoryTemplates();
 
-  Future<Map<String, dynamic>> createSponsorCategoryTemplate(
+  Future<SponsorCategoryTemplate> createSponsorCategoryTemplate(
           Map<String, dynamic> data) =>
       _repo.createSponsorCategoryTemplate(data);
 
-  Future<Map<String, dynamic>> updateSponsorCategoryTemplate(
+  Future<SponsorCategoryTemplate> updateSponsorCategoryTemplate(
           int id, Map<String, dynamic> data) =>
       _repo.updateSponsorCategoryTemplate(id, data);
 
@@ -204,11 +204,11 @@ class SponsorProvider extends ChangeNotifier {
           int eventId, int templateId) =>
       _repo.copyTemplateToEvent(eventId, templateId);
 
-  Future<List<Map<String, dynamic>>> listTemplatePrerequisites(
+  Future<List<TemplatePrerequisite>> listTemplatePrerequisites(
           int templateId) =>
       _repo.listTemplatePrerequisites(templateId);
 
-  Future<Map<String, dynamic>> createTemplatePrerequisite(int templateId,
+  Future<TemplatePrerequisite> createTemplatePrerequisite(int templateId,
           {required String name,
           String? description,
           bool isRequired = true,
@@ -225,7 +225,7 @@ class SponsorProvider extends ChangeNotifier {
 
   // ── Chat (sponsor-specific) ────────────────────────────────────────────
 
-  Future<Map<String, dynamic>> uploadChatImage(int bidId,
+  Future<ChatImageUpload> uploadChatImage(int bidId,
           {required List<int> fileBytes, required String fileName}) =>
       _repo.uploadChatImage(bidId, fileBytes: fileBytes, fileName: fileName);
 

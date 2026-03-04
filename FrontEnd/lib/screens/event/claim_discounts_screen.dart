@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
+import '../../models/discount.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/ticket_provider.dart';
 import '../../widgets/app_toast.dart';
@@ -19,7 +20,7 @@ class ClaimDiscountsScreen extends StatefulWidget {
 }
 
 class _ClaimDiscountsScreenState extends State<ClaimDiscountsScreen> {
-  List<Map<String, dynamic>> _discounts = [];
+  List<ClaimableDiscount> _discounts = [];
   bool _loading = true;
   String _search = '';
 
@@ -40,7 +41,7 @@ class _ClaimDiscountsScreenState extends State<ClaimDiscountsScreen> {
       final repo = context.read<TicketProvider>();
       final data = await repo.getClaimableDiscounts(widget.eventId);
       setState(() {
-        _discounts = data.cast<Map<String, dynamic>>();
+        _discounts = data;
         _loading = false;
       });
     } catch (_) {
@@ -82,8 +83,8 @@ class _ClaimDiscountsScreenState extends State<ClaimDiscountsScreen> {
   Widget build(BuildContext context) {
     final filtered = _discounts.where((d) {
       if (_search.isEmpty) return true;
-      final name = (d['name'] ?? '').toString().toLowerCase();
-      final type = (d['discount_type'] ?? '').toString().toLowerCase();
+      final name = d.name.toLowerCase();
+      final type = d.discountType.toLowerCase();
       return name.contains(_search) || type.contains(_search);
     }).toList();
 
@@ -178,8 +179,8 @@ class _ClaimDiscountsScreenState extends State<ClaimDiscountsScreen> {
                             separatorBuilder: (_, __) => const SizedBox(height: 8),
                             itemBuilder: (_, i) {
                               final d = filtered[i];
-                              final claimed = d['claimed'] == true;
-                              final linkId = d['link_id'] as int;
+                              final claimed = d.claimed;
+                              final linkId = d.linkId;
                               return Container(
                                 decoration: BoxDecoration(
                                   color: claimed
@@ -206,7 +207,7 @@ class _ClaimDiscountsScreenState extends State<ClaimDiscountsScreen> {
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            d['name'] ?? '',
+                                            d.name,
                                             style: TextStyle(
                                               fontWeight: FontWeight.w700,
                                               fontSize: 14,
@@ -258,10 +259,10 @@ class _ClaimDiscountsScreenState extends State<ClaimDiscountsScreen> {
     );
   }
 
-  String _descLine(Map<String, dynamic> d) {
-    final type = d['discount_type'] ?? '';
-    final val = d['value'] ?? 0;
-    final target = d['target'] ?? 'all';
+  String _descLine(ClaimableDiscount d) {
+    final type = d.discountType;
+    final val = d.value;
+    final target = d.target;
     if (type == 'ticket_percent') {
       return '$val% off ticket price · for $target';
     } else {

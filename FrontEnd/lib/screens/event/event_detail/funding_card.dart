@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../../config/theme.dart';
 import '../../../utils/date_time_utils.dart';
 import '../../../config/design_tokens.dart';
+import '../../../models/discount.dart';
 import '../../../models/event.dart';
 import '../../../models/funding.dart';
 import '../../../providers/auth_provider.dart';
@@ -40,7 +41,7 @@ class _FundingCardState extends State<FundingCard> {
   bool _pledging = false;
   int _fundingCommissionPercent = 0;
   int _totalReservedSpots = 0;
-  List<dynamic> _earlyBirdDiscounts = [];
+  List<EarlyBirdDiscount> _earlyBirdDiscounts = [];
   bool _refundProcessing = false;
   Timer? _refundPollTimer;
 
@@ -1055,14 +1056,13 @@ class _FundingCardState extends State<FundingCard> {
 
           // Early bird discount banner
           ..._earlyBirdDiscounts.where((eb) {
-            final isActive = eb['is_active'] == true;
-            return isActive;
+            return eb.isActive;
           }).map((eb) {
-            final appliesTo = eb['applies_to'] ?? '';
-            final discType = eb['discount_type'] ?? '';
-            final value = eb['value'] ?? 0;
-            final windowEnd = eb['window_end'] != null
-                ? DateTime.tryParse(eb['window_end'])
+            final appliesTo = eb.target;
+            final discType = eb.discountType;
+            final value = eb.value;
+            final windowEnd = eb.endsAt != null
+                ? DateTime.tryParse(eb.endsAt!)
                 : null;
             final remaining = windowEnd != null
                 ? windowEnd.difference(DateTime.now().toUtc())

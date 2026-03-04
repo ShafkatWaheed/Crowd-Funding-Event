@@ -30,6 +30,7 @@ async def pay_bid(
 ):
     log_step(logger, "Paying bid", event_id=event_id, cat_id=cat_id, bid_id=bid_id, user_id=current_user.id)
     payment = await sponsor_svc.pay_bid(db, bid_id, current_user)
+    await db.commit()
     return payment
 
 
@@ -48,6 +49,7 @@ async def refund_bid(
 ):
     log_step(logger, "Refunding bid", event_id=event_id, cat_id=cat_id, bid_id=bid_id, user_id=current_user.id)
     payment = await sponsor_svc.refund_bid(db, bid_id, current_user)
+    await db.commit()
     return payment
 
 

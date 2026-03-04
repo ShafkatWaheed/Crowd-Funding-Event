@@ -68,7 +68,6 @@ async def place_bid(
             data={"event_id": cat.event_id, "category_id": cat_id, "bid_id": bid.id},
         )
 
-    await db.commit()
     await sponsor_repo.refresh(db, bid)
     logger.info("Bid placed", extra={"bid_id": bid.id, "cat_id": cat_id, "user_id": user.id})
     return bid
@@ -94,7 +93,6 @@ async def update_bid(
         bid.proposal_text = data.proposal_text
 
     bid = await sponsor_repo.update_bid(db, bid)
-    await db.commit()
     await sponsor_repo.refresh(db, bid)
     return bid
 
@@ -127,7 +125,6 @@ async def withdraw_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorBid:
                 data={"event_id": cat.event_id, "category_id": bid.category_id, "bid_id": bid_id},
             )
 
-    await db.commit()
     await sponsor_repo.refresh(db, bid)
     logger.info("Bid withdrawn", extra={"bid_id": bid.id})
     return bid
@@ -188,7 +185,6 @@ async def accept_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorBid:
         data={"event_id": cat.event_id, "category_id": bid.category_id, "bid_id": bid.id},
     )
 
-    await db.commit()
     await sponsor_repo.refresh(db, bid)
 
     sponsor = await user_repo.get_by_id(db, bid.sponsor_user_id)
@@ -232,7 +228,6 @@ async def reject_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorBid:
         data={"event_id": cat.event_id, "category_id": bid.category_id, "bid_id": bid.id},
     )
 
-    await db.commit()
     await sponsor_repo.refresh(db, bid)
 
     sponsor = await user_repo.get_by_id(db, bid.sponsor_user_id)

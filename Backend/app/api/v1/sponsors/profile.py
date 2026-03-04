@@ -22,6 +22,7 @@ async def create_sponsor_profile(
 ):
     log_step(logger, "Creating sponsor profile", user_id=current_user.id, company_name=data.company_name)
     profile = await sponsor_svc.create_profile(db, current_user, data)
+    await db.commit()
     return profile
 
 
@@ -48,4 +49,5 @@ async def update_sponsor_profile(
 ):
     log_step(logger, "Updating sponsor profile", user_id=current_user.id)
     profile = await sponsor_svc.update_profile(db, current_user.id, data)
+    await db.commit()
     return profile

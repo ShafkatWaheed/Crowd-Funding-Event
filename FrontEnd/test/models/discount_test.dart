@@ -176,4 +176,47 @@ void main() {
       expect(d.claimed, false);
     });
   });
+
+  group('EarlyBirdDiscount', () {
+    test('fromJson parses all fields', () {
+      final json = {
+        'id': 10,
+        'event_id': 3,
+        'discount_type': 'ticket_percent',
+        'value': 15,
+        'target': 'pledgers',
+        'auto_apply': true,
+        'is_active': true,
+        'starts_at': '2025-06-01T00:00:00',
+        'ends_at': '2025-06-30T23:59:59',
+      };
+      final d = EarlyBirdDiscount.fromJson(json);
+
+      expect(d.id, 10);
+      expect(d.eventId, 3);
+      expect(d.discountType, 'ticket_percent');
+      expect(d.value, 15);
+      expect(d.target, 'pledgers');
+      expect(d.autoApply, true);
+      expect(d.isActive, true);
+      expect(d.startsAt, '2025-06-01T00:00:00');
+      expect(d.endsAt, '2025-06-30T23:59:59');
+    });
+
+    test('defaults for optional/nullable fields', () {
+      final json = {
+        'id': 11,
+        'event_id': 4,
+      };
+      final d = EarlyBirdDiscount.fromJson(json);
+
+      expect(d.discountType, '');
+      expect(d.value, 0);
+      expect(d.target, 'all');
+      expect(d.autoApply, true);
+      expect(d.isActive, false);
+      expect(d.startsAt, isNull);
+      expect(d.endsAt, isNull);
+    });
+  });
 }

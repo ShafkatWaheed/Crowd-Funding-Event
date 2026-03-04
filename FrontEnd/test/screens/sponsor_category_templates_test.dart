@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
+import '../../lib/models/sponsor.dart';
 import '../../lib/providers/sponsor_provider.dart';
 import '../../lib/repositories/sponsor_repository.dart';
 import '../../lib/screens/sponsor/sponsor_category_templates_screen.dart';
@@ -16,22 +17,22 @@ void main() {
     mockSponsorRepo = MockSponsorRepository();
   });
 
-  Map<String, dynamic> templateJson({
+  SponsorCategoryTemplate templateObj({
     int id = 1,
     String name = 'Gold Sponsor',
     String? description = 'Premium sponsorship tier',
     int totalSpots = 5,
     int minBidCents = 10000,
   }) =>
-      {
-        'id': id,
-        'name': name,
-        'description': description,
-        'total_spots': totalSpots,
-        'min_bid_cents': minBidCents,
-      };
+      SponsorCategoryTemplate(
+        id: id,
+        name: name,
+        description: description,
+        totalSpots: totalSpots,
+        minBidCents: minBidCents,
+      );
 
-  void stubTemplates({List<Map<String, dynamic>>? data}) {
+  void stubTemplates({List<SponsorCategoryTemplate>? data}) {
     when(() => mockSponsorRepo.getSponsorCategoryTemplates())
         .thenAnswer((_) async => data ?? []);
   }
@@ -65,8 +66,8 @@ void main() {
     testWidgets('renders template cards with name and details',
         (tester) async {
       stubTemplates(data: [
-        templateJson(name: 'Gold Sponsor', totalSpots: 5, minBidCents: 10000),
-        templateJson(id: 2, name: 'Silver Sponsor', totalSpots: 10, minBidCents: 5000),
+        templateObj(name: 'Gold Sponsor', totalSpots: 5, minBidCents: 10000),
+        templateObj(id: 2, name: 'Silver Sponsor', totalSpots: 10, minBidCents: 5000),
       ]);
 
       await pumpScreen(tester);
@@ -82,8 +83,8 @@ void main() {
 
     testWidgets('search filters templates', (tester) async {
       stubTemplates(data: [
-        templateJson(name: 'Gold Sponsor'),
-        templateJson(id: 2, name: 'Silver Sponsor'),
+        templateObj(name: 'Gold Sponsor'),
+        templateObj(id: 2, name: 'Silver Sponsor'),
       ]);
 
       await pumpScreen(tester);
@@ -99,7 +100,7 @@ void main() {
     testWidgets('shows "No matching categories" when search empty',
         (tester) async {
       stubTemplates(data: [
-        templateJson(name: 'Gold Sponsor'),
+        templateObj(name: 'Gold Sponsor'),
       ]);
 
       await pumpScreen(tester);
@@ -120,7 +121,7 @@ void main() {
     });
 
     testWidgets('shows manage requirements button on cards', (tester) async {
-      stubTemplates(data: [templateJson()]);
+      stubTemplates(data: [templateObj()]);
       await pumpScreen(tester);
       await tester.pumpAndSettle();
 
@@ -129,7 +130,7 @@ void main() {
 
     testWidgets('shows description on card', (tester) async {
       stubTemplates(data: [
-        templateJson(description: 'Premium sponsorship tier'),
+        templateObj(description: 'Premium sponsorship tier'),
       ]);
 
       await pumpScreen(tester);

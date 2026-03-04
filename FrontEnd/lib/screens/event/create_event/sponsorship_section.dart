@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../../../config/theme.dart';
 import '../../../models/event_form_models.dart';
+import '../../../models/sponsor.dart';
 
 class SponsorshipSection extends StatefulWidget {
   final List<EditableSponsorCategory> localCategories;
-  final List<Map<String, dynamic>> sponsorTemplates;
+  final List<SponsorCategoryTemplate> sponsorTemplates;
   final bool templatesLoading;
-  final ValueChanged<Map<String, dynamic>> onToggleSponsorTemplate;
+  final ValueChanged<SponsorCategoryTemplate> onToggleSponsorTemplate;
   final VoidCallback onAddSponsorCategory;
   final ValueChanged<EditableSponsorCategory> onRemoveSponsorCategory;
   final VoidCallback onManageTemplates;
@@ -210,7 +211,7 @@ class _SponsorshipSectionState extends State<SponsorshipSection> {
                 fontStyle: FontStyle.italic)),
         const SizedBox(height: 8),
         ...widget.sponsorTemplates.map((t) {
-          final id = t['id'] as int;
+          final id = t.id;
           final localCat = widget.localCategories
               .where((c) => c.templateId == id)
               .firstOrNull;
@@ -245,7 +246,7 @@ class _SponsorshipSectionState extends State<SponsorshipSection> {
   }
 
   Widget _buildTemplateHeader(BuildContext context,
-      Map<String, dynamic> t, bool selected, EditableSponsorCategory? localCat) {
+      SponsorCategoryTemplate t, bool selected, EditableSponsorCategory? localCat) {
     return InkWell(
       borderRadius: BorderRadius.circular(10),
       onTap: () => widget.onToggleSponsorTemplate(t),
@@ -283,7 +284,7 @@ class _SponsorshipSectionState extends State<SponsorshipSection> {
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: Text(t['name'] ?? '',
+              child: Text(t.name,
                   style: TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 13,

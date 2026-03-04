@@ -537,6 +537,154 @@ void main() {
     });
   });
 
+  // ─── New Phase 2 model classes ───
+
+  group('SponsorCategoryTemplate', () {
+    test('fromJson parses all fields', () {
+      final json = {
+        'id': 5,
+        'name': 'Gold Template',
+        'description': 'Premium sponsor template',
+        'image_url': 'https://example.com/gold.png',
+        'total_spots': 3,
+        'min_bid_cents': 50000,
+        'sort_order': 1,
+      };
+      final t = SponsorCategoryTemplate.fromJson(json);
+
+      expect(t.id, 5);
+      expect(t.name, 'Gold Template');
+      expect(t.description, 'Premium sponsor template');
+      expect(t.imageUrl, 'https://example.com/gold.png');
+      expect(t.totalSpots, 3);
+      expect(t.minBidCents, 50000);
+      expect(t.sortOrder, 1);
+    });
+
+    test('defaults for optional fields', () {
+      final json = {'id': 6};
+      final t = SponsorCategoryTemplate.fromJson(json);
+
+      expect(t.name, '');
+      expect(t.description, isNull);
+      expect(t.imageUrl, isNull);
+      expect(t.totalSpots, 0);
+      expect(t.minBidCents, 0);
+      expect(t.sortOrder, 0);
+    });
+  });
+
+  group('TemplatePrerequisite', () {
+    test('fromJson parses all fields', () {
+      final json = {
+        'id': 3,
+        'name': 'Company Logo',
+        'description': 'Upload high-res logo',
+        'is_required': true,
+        'requires_document': true,
+      };
+      final p = TemplatePrerequisite.fromJson(json);
+
+      expect(p.id, 3);
+      expect(p.name, 'Company Logo');
+      expect(p.description, 'Upload high-res logo');
+      expect(p.isRequired, true);
+      expect(p.requiresDocument, true);
+    });
+
+    test('defaults for optional fields', () {
+      final json = {'id': 4};
+      final p = TemplatePrerequisite.fromJson(json);
+
+      expect(p.name, '');
+      expect(p.description, isNull);
+      expect(p.isRequired, false);
+      expect(p.requiresDocument, false);
+    });
+  });
+
+  group('FileUploadResult', () {
+    test('fromJson parses all fields with file_url key', () {
+      final json = {
+        'id': 7,
+        'file_url': 'https://storage.example.com/doc.pdf',
+        'status': 'approved',
+      };
+      final f = FileUploadResult.fromJson(json);
+
+      expect(f.id, 7);
+      expect(f.fileUrl, 'https://storage.example.com/doc.pdf');
+      expect(f.status, 'approved');
+    });
+
+    test('fromJson falls back to url key', () {
+      final json = {
+        'url': 'https://storage.example.com/alt.pdf',
+      };
+      final f = FileUploadResult.fromJson(json);
+
+      expect(f.id, isNull);
+      expect(f.fileUrl, 'https://storage.example.com/alt.pdf');
+      expect(f.status, isNull);
+    });
+
+    test('defaults when both url keys missing', () {
+      final f = FileUploadResult.fromJson({});
+      expect(f.fileUrl, '');
+    });
+  });
+
+  group('ChatImageUpload', () {
+    test('fromJson parses all fields', () {
+      final json = {
+        'url': 'https://storage.example.com/chat/img.png',
+        'file_name': 'screenshot.png',
+      };
+      final c = ChatImageUpload.fromJson(json);
+
+      expect(c.url, 'https://storage.example.com/chat/img.png');
+      expect(c.fileName, 'screenshot.png');
+    });
+
+    test('defaults for missing fields', () {
+      final c = ChatImageUpload.fromJson({});
+      expect(c.url, '');
+      expect(c.fileName, isNull);
+    });
+  });
+
+  group('SponsorBidEvent', () {
+    test('fromJson parses event and bid_summary', () {
+      final json = eventJson(id: 42, title: 'Music Festival');
+      json['bid_summary'] = {
+        'pending': 3,
+        'accepted': 2,
+        'rejected': 1,
+        'paid': 4,
+      };
+      final sbe = SponsorBidEvent.fromJson(json);
+
+      expect(sbe.event.id, 42);
+      expect(sbe.event.title, 'Music Festival');
+      expect(sbe.pending, 3);
+      expect(sbe.accepted, 2);
+      expect(sbe.rejected, 1);
+      expect(sbe.paid, 4);
+      expect(sbe.totalBids, 10);
+    });
+
+    test('defaults when bid_summary is missing', () {
+      final json = eventJson(id: 1, title: 'Test');
+      final sbe = SponsorBidEvent.fromJson(json);
+
+      expect(sbe.pending, 0);
+      expect(sbe.accepted, 0);
+      expect(sbe.rejected, 0);
+      expect(sbe.paid, 0);
+      expect(sbe.totalBids, 0);
+    });
+  });
+
   group('SponsorshipCategory myBids typed parsing', () {
     test('fromJson parses myBids as List<SponsorBid>', () {
       final json = {

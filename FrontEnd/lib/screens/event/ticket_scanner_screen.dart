@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
 import '../../db/app_database.dart';
+import '../../models/sponsor.dart';
 import '../../providers/ticket_provider.dart';
 import '../../repositories/base_repository.dart';
 import '../../providers/sponsor_provider.dart';
@@ -284,17 +285,14 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
     final result =
         await repo.scanSponsorTicket(widget.eventId, encryptedPayload);
 
-    final alreadyScanned = result['already_scanned'] == true;
-    final receiptNum = result['receipt_number'] ?? '';
-    final companyName = result['company_name'] ?? 'Sponsor';
-    final scanCount = result['scan_count'] ?? 0;
-    final catNames = (result['category_names'] as List?)
-            ?.map((e) => e.toString())
-            .toList() ??
-        [];
-    final delegates = (result['delegates'] as List?) ?? [];
-    final totalDelegates = result['total_delegates'] ?? 0;
-    final checkedInCount = result['checked_in_count'] ?? 0;
+    final alreadyScanned = result.scanCount > 1;
+    final receiptNum = result.receiptNumber;
+    final companyName = result.companyName.isNotEmpty ? result.companyName : 'Sponsor';
+    final scanCount = result.scanCount;
+    final catNames = <String>[];
+    final delegates = result.delegates;
+    final totalDelegates = result.totalDelegates;
+    final checkedInCount = result.checkedInCount;
 
     if (mounted) {
       setState(() {
@@ -542,7 +540,7 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
     required String companyName,
     required String receiptNumber,
     required List<String> categoryNames,
-    required List<dynamic> delegates,
+    required List<ScannedDelegate> delegates,
     required int totalDelegates,
     required int checkedInCount,
   }) {
@@ -987,7 +985,7 @@ class _SponsorDelegateSheet extends StatefulWidget {
   final String companyName;
   final String receiptNumber;
   final List<String> categoryNames;
-  final List<dynamic> delegates;
+  final List<ScannedDelegate> delegates;
   final int totalDelegates;
   final int checkedInCount;
   final VoidCallback onCheckInDone;
@@ -1008,27 +1006,28 @@ class _SponsorDelegateSheet extends StatefulWidget {
 }
 
 class _SponsorDelegateSheetState extends State<_SponsorDelegateSheet> {
-  late List<Map<String, dynamic>> _delegates;
+  late List<_MutableDelegate> _delegates;
   late int _checkedIn;
 
   @override
   void initState() {
     super.initState();
-    _delegates = widget.delegates.map((d) => Map<String, dynamic>.from(d as Map)).toList();
+    _delegates = widget.delegates.map((d) => _MutableDelegate(
+      id: d.id, name: d.name, checkedIn: d.checkedIn, checkedInAt: d.checkedInAt,
+    )).toList();
     _checkedIn = widget.checkedInCount;
   }
 
-  Future<void> _checkIn(Map<String, dynamic> delegate) async {
-    if (delegate['checked_in'] == true) return;
+  Future<void> _checkIn(_MutableDelegate delegate) async {
+    if (delegate.checkedIn) return;
 
     try {
       final repo = context.read<SponsorProvider>();
-      final result = await repo.checkInDelegate(widget.eventId, delegate['id']);
+      await repo.checkInDelegate(widget.eventId, delegate.id);
 
       if (mounted) {
         setState(() {
-          delegate['checked_in'] = true;
-          delegate['checked_in_at'] = result['checked_in_at'];
+          delegate.checkedIn = true;
           _checkedIn++;
         });
         widget.onCheckInDone();
@@ -1121,12 +1120,11 @@ class _SponsorDelegateSheetState extends State<_SponsorDelegateSheet> {
               separatorBuilder: (_, __) => const SizedBox(height: 6),
               itemBuilder: (context, index) {
                 final d = _delegates[index];
-                final isCheckedIn = d['checked_in'] == true;
                 return _DelegateRow(
-                  name: d['name'] ?? '',
-                  checkedIn: isCheckedIn,
-                  checkedInAt: d['checked_in_at'],
-                  onTap: isCheckedIn ? null : () => _checkIn(d),
+                  name: d.name,
+                  checkedIn: d.checkedIn,
+                  checkedInAt: d.checkedInAt,
+                  onTap: d.checkedIn ? null : () => _checkIn(d),
                 );
               },
             ),
@@ -1268,4 +1266,19 @@ class _DelegateRow extends StatelessWidget {
       return '';
     }
   }
+}
+
+/// Mutable delegate used by [_SponsorDelegateSheet] to track check-in state changes.
+class _MutableDelegate {
+  final int id;
+  final String name;
+  bool checkedIn;
+  String? checkedInAt;
+
+  _MutableDelegate({
+    required this.id,
+    required this.name,
+    this.checkedIn = false,
+    this.checkedInAt,
+  });
 }

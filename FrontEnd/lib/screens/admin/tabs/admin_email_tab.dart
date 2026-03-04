@@ -75,6 +75,7 @@ class _AdminEmailTabState extends State<AdminEmailTab> {
   // ── Logo upload ──
 
   Future<void> _pickAndUploadLogo() async {
+    final admin = context.read<AdminProvider>();
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: ImageSource.gallery);
     if (picked == null) return;
@@ -82,7 +83,6 @@ class _AdminEmailTabState extends State<AdminEmailTab> {
     setState(() => _logoUploading = true);
     try {
       final bytes = await picked.readAsBytes();
-      final admin = context.read<AdminProvider>();
       await admin.uploadEmailLogo(fileBytes: bytes, fileName: picked.name);
       await widget.onReloadSettings();
       if (mounted) widget.onSnack('Logo uploaded');
@@ -488,6 +488,7 @@ class _AdminEmailTabState extends State<AdminEmailTab> {
                       color: AppTheme.errorColor.withValues(alpha: 0.4)),
                 ),
                 onPressed: () async {
+                  final admin = context.read<AdminProvider>();
                   final confirm = await showDialog<bool>(
                     context: context,
                     builder: (ctx) => AlertDialog(
@@ -508,9 +509,7 @@ class _AdminEmailTabState extends State<AdminEmailTab> {
                   );
                   if (confirm == true) {
                     try {
-                      await context
-                          .read<AdminProvider>()
-                          .resetAllEmailTemplates();
+                      await admin.resetAllEmailTemplates();
                       _loadEmailTemplates();
                       if (mounted) {
                         widget.onSnack('All templates reset to defaults');

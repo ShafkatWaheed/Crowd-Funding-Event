@@ -41,8 +41,8 @@ class _MilestoneTimelineState extends State<MilestoneTimeline> {
       final auth = context.read<AuthProvider>();
       if (auth.user != null && auth.user!.isAdmin) {
         try {
-          final flags = await repo.getFeatureFlags();
-          if (flags['feature_milestones_enabled'] == false) {
+          final config = await repo.getPublicConfig();
+          if (!config.featureMilestonesEnabled) {
             if (mounted) setState(() { _featureEnabled = false; _loading = false; });
             return;
           }
@@ -56,7 +56,7 @@ class _MilestoneTimelineState extends State<MilestoneTimeline> {
         for (final ms in milestones) {
           try {
             final r = await repo.getMyMilestoneReaction(widget.eventId, ms.id);
-            reactions[ms.id] = r['reaction'];
+            reactions[ms.id] = r.reaction;
           } catch (e) { debugPrint(e.toString()); }
         }
       }

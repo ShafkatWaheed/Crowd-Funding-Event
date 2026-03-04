@@ -128,7 +128,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     try {
       final repo = context.read<EventProvider>();
       final res = await repo.toggleBookmark(widget.eventId);
-      if (mounted) setState(() => _bookmarked = res['bookmarked'] == true);
+      if (mounted) setState(() => _bookmarked = res.bookmarked);
     } catch (e) {
       debugPrint(e.toString());
     }

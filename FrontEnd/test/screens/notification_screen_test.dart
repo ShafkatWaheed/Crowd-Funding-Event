@@ -16,7 +16,7 @@ AppNotification _makeNotif({
   String message = 'msg',
   bool isRead = false,
   DateTime? createdAt,
-  Map<String, dynamic> data = const {},
+  NotificationPayload data = const NotificationPayload(),
 }) =>
     AppNotification(
       id: id,
@@ -147,7 +147,7 @@ void main() {
           title: 'Event Approved!',
           message: 'Your event "Music Fest" has been approved',
           isRead: false,
-          data: {'event_id': 5},
+          data: NotificationPayload(type: 'event_approved', eventId: 5),
         ),
       ]);
       await tester.pump();

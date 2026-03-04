@@ -194,7 +194,7 @@ void main() {
             ],
           ));
       when(() => mockUserRepo.submitKyc())
-          .thenAnswer((_) async => {'message': 'Submitted for review'});
+          .thenAnswer((_) async => KycSubmitResult(kycStatus: 'submitted', message: 'Submitted for review'));
 
       await pumpKyc(tester);
       await tester.pumpAndSettle();
@@ -218,7 +218,7 @@ void main() {
               KycDocument(id: 42, documentType: 'id_front', originalFilename: 'a.jpg', status: 'pending'),
             ],
           ));
-      when(() => mockUserRepo.deleteKycDocument(42)).thenAnswer((_) async => {});
+      when(() => mockUserRepo.deleteKycDocument(42)).thenAnswer((_) async {});
 
       await pumpKyc(tester);
       await tester.pumpAndSettle();

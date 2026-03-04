@@ -53,8 +53,8 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
       final auth = context.read<AuthProvider>();
       if (auth.user != null && auth.user!.isAdmin) {
         try {
-          final flags = await repo.getFeatureFlags();
-          if (flags['feature_schedule_enabled'] == false) {
+          final config = await repo.getPublicConfig();
+          if (!config.featureScheduleEnabled) {
             if (mounted) setState(() { _featureEnabled = false; _loading = false; });
             return;
           }

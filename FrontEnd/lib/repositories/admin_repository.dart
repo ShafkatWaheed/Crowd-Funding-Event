@@ -211,7 +211,7 @@ class AdminRepository extends BaseRepository {
         Map<String, dynamic>.from(resp.data as Map));
   }
 
-  Future<Map<String, dynamic>> releaseEscrowStage(
+  Future<void> releaseEscrowStage(
     int eventId,
     String escrowType,
     int stage,
@@ -221,11 +221,10 @@ class AdminRepository extends BaseRepository {
         : escrowType == 'ticket'
             ? '/admin/ticket-escrows/$eventId/release/$stage'
             : '/admin/sponsor-escrows/$eventId/release/$stage';
-    final resp = await dio.post(path, data: {});
-    return resp.data as Map<String, dynamic>;
+    await dio.post(path, data: {});
   }
 
-  Future<Map<String, dynamic>> freezeEscrow(
+  Future<void> freezeEscrow(
     int eventId,
     String escrowType,
   ) async {
@@ -234,11 +233,10 @@ class AdminRepository extends BaseRepository {
         : escrowType == 'ticket'
             ? '/admin/ticket-escrows/$eventId/freeze'
             : '/admin/sponsor-escrows/$eventId/freeze';
-    final resp = await dio.post(path, data: {});
-    return resp.data as Map<String, dynamic>;
+    await dio.post(path, data: {});
   }
 
-  Future<Map<String, dynamic>> unfreezeEscrow(
+  Future<void> unfreezeEscrow(
     int eventId,
     String escrowType,
   ) async {
@@ -247,8 +245,7 @@ class AdminRepository extends BaseRepository {
         : escrowType == 'ticket'
             ? '/admin/ticket-escrows/$eventId/unfreeze'
             : '/admin/sponsor-escrows/$eventId/unfreeze';
-    final resp = await dio.post(path, data: {});
-    return resp.data as Map<String, dynamic>;
+    await dio.post(path, data: {});
   }
 
   Future<AdminEscrowItem> toggleAutoRelease(
@@ -295,28 +292,23 @@ class AdminRepository extends BaseRepository {
     return _parsePage(resp.data, AdminDispute.fromJson);
   }
 
-  Future<Map<String, dynamic>> submitDisputeEvidence(int disputeId) async {
-    final resp =
-        await dio.post('/admin/disputes/$disputeId/submit-evidence', data: {});
-    return resp.data as Map<String, dynamic>;
+  Future<void> submitDisputeEvidence(int disputeId) async {
+    await dio.post('/admin/disputes/$disputeId/submit-evidence', data: {});
   }
 
-  Future<Map<String, dynamic>> acceptDisputeLoss(int disputeId) async {
-    final resp =
-        await dio.post('/admin/disputes/$disputeId/accept', data: {});
-    return resp.data as Map<String, dynamic>;
+  Future<void> acceptDisputeLoss(int disputeId) async {
+    await dio.post('/admin/disputes/$disputeId/accept', data: {});
   }
 
-  Future<Map<String, dynamic>> resolveDispute(
+  Future<void> resolveDispute(
     int disputeId, {
     required String outcome,
     String? notes,
   }) async {
-    final resp = await dio.post('/admin/disputes/$disputeId/resolve', data: {
+    await dio.post('/admin/disputes/$disputeId/resolve', data: {
       'outcome': outcome,
       if (notes != null) 'notes': notes,
     });
-    return resp.data as Map<String, dynamic>;
   }
 
   // ─── Reconciliation & Ledger ────────────────────────────────────────────
@@ -337,9 +329,8 @@ class AdminRepository extends BaseRepository {
     return [];
   }
 
-  Future<Map<String, dynamic>> runReconciliation() async {
-    final resp = await dio.post('/admin/reconciliation/run', data: {});
-    return resp.data as Map<String, dynamic>;
+  Future<void> runReconciliation() async {
+    await dio.post('/admin/reconciliation/run', data: {});
   }
 
   Future<AdminLedgerHealth> getLedgerHealth() async {
@@ -371,10 +362,8 @@ class AdminRepository extends BaseRepository {
     return [];
   }
 
-  Future<Map<String, dynamic>> forcePayout(int organizerId) async {
-    final resp =
-        await dio.post('/admin/payouts/$organizerId/force', data: {});
-    return resp.data as Map<String, dynamic>;
+  Future<void> forcePayout(int organizerId) async {
+    await dio.post('/admin/payouts/$organizerId/force', data: {});
   }
 
   // ─── Transactions ──────────────────────────────────────────────────────
@@ -402,32 +391,27 @@ class AdminRepository extends BaseRepository {
         Map<String, dynamic>.from(resp.data as Map));
   }
 
-  Future<Map<String, dynamic>> simulateDispute(String transactionId) async {
-    final resp = await dio.post(
+  Future<void> simulateDispute(String transactionId) async {
+    await dio.post(
       '/admin/mock/simulate-dispute',
       data: {'transaction_id': transactionId},
     );
-    return resp.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> clearMockData() async {
-    final resp = await dio.post('/admin/mock/clear', data: {});
-    return resp.data as Map<String, dynamic>;
+  Future<void> clearMockData() async {
+    await dio.post('/admin/mock/clear', data: {});
   }
 
-  Future<Map<String, dynamic>> settleAllPending() async {
-    final resp = await dio.post('/admin/mock/settle-all', data: {});
-    return resp.data as Map<String, dynamic>;
+  Future<void> settleAllPending() async {
+    await dio.post('/admin/mock/settle-all', data: {});
   }
 
-  Future<Map<String, dynamic>> failNextCharge() async {
-    final resp = await dio.post('/admin/mock/fail-next', data: {});
-    return resp.data as Map<String, dynamic>;
+  Future<void> failNextCharge() async {
+    await dio.post('/admin/mock/fail-next', data: {});
   }
 
-  Future<Map<String, dynamic>> resetMockDefaults() async {
-    final resp = await dio.post('/admin/mock/reset-defaults', data: {});
-    return resp.data as Map<String, dynamic>;
+  Future<void> resetMockDefaults() async {
+    await dio.post('/admin/mock/reset-defaults', data: {});
   }
 
   // ─── Platform Account ──────────────────────────────────────────────────
@@ -525,18 +509,12 @@ class AdminRepository extends BaseRepository {
         Map<String, dynamic>.from(resp.data as Map));
   }
 
-  Future<Map<String, dynamic>> resetAllEmailTemplates() async {
-    final resp =
-        await dio.post('/admin/email-templates/reset-all', data: {});
-    if (resp.data is Map) return resp.data as Map<String, dynamic>;
-    return {};
+  Future<void> resetAllEmailTemplates() async {
+    await dio.post('/admin/email-templates/reset-all', data: {});
   }
 
-  Future<Map<String, dynamic>> testSendEmailTemplate(String key) async {
-    final resp =
-        await dio.post('/admin/email-templates/$key/test-send', data: {});
-    if (resp.data is Map) return resp.data as Map<String, dynamic>;
-    return {};
+  Future<void> testSendEmailTemplate(String key) async {
+    await dio.post('/admin/email-templates/$key/test-send', data: {});
   }
 
   Future<EmailTemplate> resetEmailTemplate(String key) async {

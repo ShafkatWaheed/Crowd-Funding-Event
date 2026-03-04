@@ -9,6 +9,11 @@ void main() {
   late MockEventRepository mockRepo;
   late EventProvider provider;
 
+  setUpAll(() {
+    registerFallbackValue(const EventCreateRequest(venueId: 0, title: '', maxCapacity: 0));
+    registerFallbackValue(const EventUpdateRequest());
+  });
+
   setUp(() {
     mockRepo = MockEventRepository();
     provider = EventProvider(mockRepo);
@@ -169,7 +174,7 @@ void main() {
             cursor: any(named: 'cursor'),
           )).thenAnswer((_) async => EventListPage(items: [], nextCursor: null));
 
-      final result = await provider.createEvent({'title': 'New Event'});
+      final result = await provider.createEvent(const EventCreateRequest(venueId: 1, title: 'New Event', maxCapacity: 100));
       expect(result, true);
     });
 
@@ -177,7 +182,7 @@ void main() {
       when(() => mockRepo.createEvent(any()))
           .thenThrow(Exception('Validation error'));
 
-      final result = await provider.createEvent({'title': ''});
+      final result = await provider.createEvent(const EventCreateRequest(venueId: 1, title: '', maxCapacity: 100));
       expect(result, false);
       expect(provider.error, isNotNull);
     });

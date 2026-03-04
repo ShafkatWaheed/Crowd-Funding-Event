@@ -178,7 +178,7 @@ class SponsorRepository extends BaseRepository {
 
   // ── Sponsor Tickets ──────────────────────────────────────────────────
 
-  /// Raw sponsor ticket data for offline sync (returns unparsed JSON).
+  /// Intentional: raw JSON for offline sync.
   Future<List<dynamic>> getMySponsorTicketsRaw() async {
     final resp = await dio.get('/me/sponsor-tickets');
     return resp.data as List;
@@ -234,11 +234,11 @@ class SponsorRepository extends BaseRepository {
         .delete('/me/sponsor-tickets/$ticketId/delegates/$delegateId');
   }
 
-  Future<Map<String, dynamic>> checkInDelegate(
+  Future<SponsorDelegate> checkInDelegate(
       int eventId, int delegateId) async {
     final resp = await dio
         .post('/events/$eventId/sponsor-delegates/$delegateId/check-in');
-    return resp.data;
+    return SponsorDelegate.fromJson(Map<String, dynamic>.from(resp.data as Map));
   }
 
   // ── Public Sponsors ──────────────────────────────────────────────────
@@ -324,7 +324,7 @@ class SponsorRepository extends BaseRepository {
     return FileUploadResult.fromJson(Map<String, dynamic>.from(resp.data as Map));
   }
 
-  Future<Map<String, dynamic>> reviewPrerequisiteUpload(
+  Future<BidPrerequisiteUpload> reviewPrerequisiteUpload(
       int bidId, int prereqId,
       {required String status, String? reviewerNote}) async {
     final formData = FormData.fromMap({
@@ -334,7 +334,7 @@ class SponsorRepository extends BaseRepository {
     final resp = await dio.patch(
         '/bids/$bidId/prerequisites/$prereqId/review',
         data: formData);
-    return resp.data;
+    return BidPrerequisiteUpload.fromJson(Map<String, dynamic>.from(resp.data as Map));
   }
 
   // ── Sponsor Category Templates ───────────────────────────────────────

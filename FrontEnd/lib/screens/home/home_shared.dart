@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../config/design_tokens.dart';
 import '../../config/theme.dart';
 import '../../models/event.dart';
-import '../../models/sponsor.dart';
 import '../../utils/date_time_utils.dart';
 
 export '../../models/sponsor.dart' show SponsorBidEvent;

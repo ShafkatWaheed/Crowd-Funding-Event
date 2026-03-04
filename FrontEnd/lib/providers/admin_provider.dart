@@ -108,20 +108,20 @@ class AdminProvider extends ChangeNotifier {
   Future<AdminEventEscrows> getEventEscrows(int eventId) =>
       _repo.getEventEscrows(eventId);
 
-  Future<Map<String, dynamic>> releaseEscrowStage(
+  Future<void> releaseEscrowStage(
     int eventId,
     String escrowType,
     int stage,
   ) =>
       _repo.releaseEscrowStage(eventId, escrowType, stage);
 
-  Future<Map<String, dynamic>> freezeEscrow(
+  Future<void> freezeEscrow(
     int eventId,
     String escrowType,
   ) =>
       _repo.freezeEscrow(eventId, escrowType);
 
-  Future<Map<String, dynamic>> unfreezeEscrow(
+  Future<void> unfreezeEscrow(
     int eventId,
     String escrowType,
   ) =>
@@ -158,13 +158,13 @@ class AdminProvider extends ChangeNotifier {
   }) =>
       _repo.getDisputes(status: status, offset: offset, limit: limit);
 
-  Future<Map<String, dynamic>> submitDisputeEvidence(int disputeId) =>
+  Future<void> submitDisputeEvidence(int disputeId) =>
       _repo.submitDisputeEvidence(disputeId);
 
-  Future<Map<String, dynamic>> acceptDisputeLoss(int disputeId) =>
+  Future<void> acceptDisputeLoss(int disputeId) =>
       _repo.acceptDisputeLoss(disputeId);
 
-  Future<Map<String, dynamic>> resolveDispute(
+  Future<void> resolveDispute(
     int disputeId, {
     required String outcome,
     String? notes,
@@ -178,7 +178,7 @@ class AdminProvider extends ChangeNotifier {
   }) =>
       _repo.getReconciliationHistory(limit: limit);
 
-  Future<Map<String, dynamic>> runReconciliation() =>
+  Future<void> runReconciliation() =>
       _repo.runReconciliation();
 
   Future<AdminLedgerHealth> getLedgerHealth() => _repo.getLedgerHealth();
@@ -187,7 +187,7 @@ class AdminProvider extends ChangeNotifier {
 
   Future<List<AdminPayoutItem>> getPayoutStatus() => _repo.getPayoutStatus();
 
-  Future<Map<String, dynamic>> forcePayout(int organizerId) =>
+  Future<void> forcePayout(int organizerId) =>
       _repo.forcePayout(organizerId);
 
   // ─── Transactions ─────────────────────────────────────────────────────────
@@ -209,16 +209,16 @@ class AdminProvider extends ChangeNotifier {
 
   Future<AdminMockOverview> getMockOverview() => _repo.getMockOverview();
 
-  Future<Map<String, dynamic>> simulateDispute(String transactionId) =>
+  Future<void> simulateDispute(String transactionId) =>
       _repo.simulateDispute(transactionId);
 
-  Future<Map<String, dynamic>> clearMockData() => _repo.clearMockData();
+  Future<void> clearMockData() => _repo.clearMockData();
 
-  Future<Map<String, dynamic>> settleAllPending() => _repo.settleAllPending();
+  Future<void> settleAllPending() => _repo.settleAllPending();
 
-  Future<Map<String, dynamic>> failNextCharge() => _repo.failNextCharge();
+  Future<void> failNextCharge() => _repo.failNextCharge();
 
-  Future<Map<String, dynamic>> resetMockDefaults() =>
+  Future<void> resetMockDefaults() =>
       _repo.resetMockDefaults();
 
   // ─── Platform Account ─────────────────────────────────────────────────────
@@ -286,10 +286,10 @@ class AdminProvider extends ChangeNotifier {
         isActive: isActive,
       );
 
-  Future<Map<String, dynamic>> resetAllEmailTemplates() =>
+  Future<void> resetAllEmailTemplates() =>
       _repo.resetAllEmailTemplates();
 
-  Future<Map<String, dynamic>> testSendEmailTemplate(String key) =>
+  Future<void> testSendEmailTemplate(String key) =>
       _repo.testSendEmailTemplate(key);
 
   Future<EmailTemplate> resetEmailTemplate(String key) =>

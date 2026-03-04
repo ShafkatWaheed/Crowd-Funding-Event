@@ -16,6 +16,6 @@ class BookmarkProvider extends ChangeNotifier {
       _repo.getBookmarkedEvents(
           search: search, status: status, offset: offset, limit: limit);
 
-  Future<Map<String, dynamic>> toggleBookmark(int eventId) =>
+  Future<BookmarkToggleResult> toggleBookmark(int eventId) =>
       _repo.toggleBookmark(eventId);
 }

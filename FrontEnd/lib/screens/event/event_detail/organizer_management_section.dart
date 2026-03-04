@@ -456,7 +456,7 @@ class _OrganizerManagementSectionState
     try {
       final repo = context.read<EventProvider>();
       final eventProvider = context.read<EventProvider>();
-      await repo.updateEvent(event.id, {'venue_id': selected.id});
+      await repo.updateEvent(event.id, EventUpdateRequest(venueId: selected.id));
       await eventProvider.loadEvent(event.id);
       if (!mounted) return;
       AppToast.success(context, 'Venue changed to ${selected.name}');
@@ -479,7 +479,7 @@ class _OrganizerManagementSectionState
       final repo = context.read<EventProvider>();
       final eventProvider = context.read<EventProvider>();
       await repo.updateEvent(
-          event.id, {'ticket_strategy_id': selected.id});
+          event.id, EventUpdateRequest(ticketStrategyId: selected.id));
       await eventProvider.loadEvent(event.id);
       if (!mounted) return;
       AppToast.success(
@@ -538,7 +538,7 @@ class _OrganizerManagementSectionState
         return;
       }
       try {
-        await repo.updateEvent(event.id, {'max_capacity': val});
+        await repo.updateEvent(event.id, EventUpdateRequest(maxCapacity: val));
         await eventProvider.loadEvent(event.id);
         if (!mounted) {
           controller.dispose();

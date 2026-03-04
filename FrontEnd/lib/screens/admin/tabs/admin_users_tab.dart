@@ -8,7 +8,7 @@ import '../../../models/admin.dart';
 import '../../../widgets/admin/admin_search_bar.dart';
 import '../../../widgets/admin/admin_empty_state.dart';
 
-/// Callback for loading users. Returns typed AdminPage<AdminUserItem>.
+/// Callback for loading users. Returns typed `AdminPage<AdminUserItem>`.
 typedef AdminUsersLoadCallback = Future<AdminPage<AdminUserItem>> Function(
   int offset,
   int limit, {

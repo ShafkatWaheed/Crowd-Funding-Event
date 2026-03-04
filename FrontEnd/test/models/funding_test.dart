@@ -204,4 +204,33 @@ void main() {
       expect(t.tierName, isNull);
     });
   });
+
+  group('UnpledgeResult', () {
+    test('fromJson parses all fields', () {
+      final r = UnpledgeResult.fromJson({
+        'refunded_cents': 10000,
+        'guest_non_refundable_cents': 2000,
+        'status': 'refund_initiated',
+        'unpledged_amount_cents': 12000,
+        'remaining_pledges': 3,
+        'refund_initiated': true,
+      });
+      expect(r.refundedCents, 10000);
+      expect(r.guestNonRefundableCents, 2000);
+      expect(r.status, 'refund_initiated');
+      expect(r.unpledgedAmountCents, 12000);
+      expect(r.remainingPledges, 3);
+      expect(r.refundInitiated, true);
+    });
+
+    test('defaults when fields missing', () {
+      final r = UnpledgeResult.fromJson({});
+      expect(r.refundedCents, 0);
+      expect(r.guestNonRefundableCents, 0);
+      expect(r.status, 'completed');
+      expect(r.unpledgedAmountCents, 0);
+      expect(r.remainingPledges, 0);
+      expect(r.refundInitiated, false);
+    });
+  });
 }

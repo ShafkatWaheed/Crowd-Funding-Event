@@ -76,7 +76,7 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
   List<AdminEventItem> get _filteredEvents {
     if (_eventSearch.isEmpty) return _currentEventList;
     return _currentEventList.where((e) {
-      final title = (e.title ?? '').toLowerCase();
+      final title = e.title.toLowerCase();
       return title.contains(_eventSearch);
     }).toList();
   }
@@ -458,7 +458,7 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
                 children: [
                   Expanded(
                     child: Text(
-                      e.title ?? 'Untitled',
+                      e.title,
                       style: const TextStyle(
                           fontWeight: FontWeight.w700, fontSize: 16),
                     ),
@@ -538,7 +538,7 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
                 children: [
                   Expanded(
                     child: Text(
-                      e.title ?? 'Untitled',
+                      e.title,
                       style: const TextStyle(
                           fontWeight: FontWeight.w700, fontSize: 16),
                     ),
@@ -687,7 +687,7 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
                 children: [
                   Expanded(
                     child: Text(
-                      e.title ?? 'Untitled',
+                      e.title,
                       style: const TextStyle(
                           fontWeight: FontWeight.w700, fontSize: 16),
                     ),
@@ -743,7 +743,7 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
                 children: [
                   Expanded(
                     child: Text(
-                      e.title ?? 'Untitled',
+                      e.title,
                       style: const TextStyle(
                           fontWeight: FontWeight.w700, fontSize: 16),
                     ),
@@ -817,7 +817,7 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
                 children: [
                   Expanded(
                     child: Text(
-                      e.title ?? 'Untitled',
+                      e.title,
                       style: const TextStyle(
                           fontWeight: FontWeight.w700, fontSize: 16),
                     ),

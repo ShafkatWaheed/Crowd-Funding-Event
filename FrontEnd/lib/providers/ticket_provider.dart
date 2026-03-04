@@ -125,7 +125,7 @@ class TicketProvider extends ChangeNotifier {
 
   // ─── Refunds ───
 
-  Future<Map<String, dynamic>> requestTicketRefund(
+  Future<TicketSale> requestTicketRefund(
           int eventId, int ticketId) =>
       _repo.requestTicketRefund(eventId, ticketId);
 
@@ -140,11 +140,11 @@ class TicketProvider extends ChangeNotifier {
       _repo.getOrganizerRefundRequests(
           eventId: eventId, offset: offset, limit: limit);
 
-  Future<Map<String, dynamic>> approveTicketRefund(
+  Future<TicketSale> approveTicketRefund(
           int eventId, int ticketId) =>
       _repo.approveTicketRefund(eventId, ticketId);
 
-  Future<Map<String, dynamic>> rejectTicketRefund(
+  Future<TicketSale> rejectTicketRefund(
           int eventId, int ticketId) =>
       _repo.rejectTicketRefund(eventId, ticketId);
 
@@ -153,11 +153,11 @@ class TicketProvider extends ChangeNotifier {
   Future<List<TicketSale>> getWaitlistedTickets(int eventId) =>
       _repo.getWaitlistedTickets(eventId);
 
-  Future<Map<String, dynamic>> approveWaitlistedTicket(
+  Future<TicketSale> approveWaitlistedTicket(
           int eventId, int ticketId) =>
       _repo.approveWaitlistedTicket(eventId, ticketId);
 
-  Future<Map<String, dynamic>> rejectWaitlistedTicket(
+  Future<TicketSale> rejectWaitlistedTicket(
           int eventId, int ticketId) =>
       _repo.rejectWaitlistedTicket(eventId, ticketId);
 

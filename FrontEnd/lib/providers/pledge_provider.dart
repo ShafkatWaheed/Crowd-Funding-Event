@@ -82,7 +82,7 @@ class PledgeProvider extends ChangeNotifier {
       _repo.pledge(eventId, amountCents,
           reservedSpots: reservedSpots, tierReservations: tierReservations);
 
-  Future<Map<String, dynamic>> unpledge(int eventId) =>
+  Future<UnpledgeResult> unpledge(int eventId) =>
       _repo.unpledge(eventId);
 
   Future<PledgeReceipt> getPledgeReceipt(

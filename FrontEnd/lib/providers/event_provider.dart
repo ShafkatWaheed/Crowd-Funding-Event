@@ -117,7 +117,7 @@ class EventProvider extends ChangeNotifier {
     _eventCache.clear();
   }
 
-  Future<bool> createEvent(Map<String, dynamic> data) async {
+  Future<bool> createEvent(EventCreateRequest data) async {
     try {
       await _repo.createEvent(data);
       await loadEvents();
@@ -230,10 +230,10 @@ class EventProvider extends ChangeNotifier {
 
   Future<Event> getEvent(int id) => _repo.getEvent(id);
 
-  Future<Event> createEventRaw(Map<String, dynamic> data) =>
+  Future<Event> createEventRaw(EventCreateRequest data) =>
       _repo.createEvent(data);
 
-  Future<Event> updateEvent(int id, Map<String, dynamic> data) =>
+  Future<Event> updateEvent(int id, EventUpdateRequest data) =>
       _repo.updateEvent(id, data);
 
   Future<Event> cloneEvent(int eventId) => _repo.cloneEvent(eventId);
@@ -321,7 +321,7 @@ class EventProvider extends ChangeNotifier {
   Future<void> deleteEventPost(int eventId, int postId) =>
       _repo.deleteEventPost(eventId, postId);
 
-  Future<Map<String, dynamic>> toggleEventPosts(int eventId) =>
+  Future<PostsToggleResult> toggleEventPosts(int eventId) =>
       _repo.toggleEventPosts(eventId);
 
   // -- Reactions --
@@ -329,7 +329,7 @@ class EventProvider extends ChangeNotifier {
   Future<ReactionResult> reactToEvent(int eventId, String reaction) =>
       _repo.reactToEvent(eventId, reaction);
 
-  Future<Map<String, dynamic>> getMyReaction(int eventId) =>
+  Future<MyReactionStatus> getMyReaction(int eventId) =>
       _repo.getMyReaction(eventId);
 
   // -- Co-Organizers --
@@ -364,11 +364,11 @@ class EventProvider extends ChangeNotifier {
       _repo.getMilestones(eventId);
 
   Future<FundingMilestone> createMilestone(
-          int eventId, Map<String, dynamic> data) =>
+          int eventId, MilestoneRequest data) =>
       _repo.createMilestone(eventId, data);
 
   Future<FundingMilestone> updateMilestone(
-          int eventId, int milestoneId, Map<String, dynamic> data) =>
+          int eventId, int milestoneId, MilestoneRequest data) =>
       _repo.updateMilestone(eventId, milestoneId, data);
 
   Future<void> deleteMilestone(int eventId, int milestoneId) =>
@@ -378,7 +378,7 @@ class EventProvider extends ChangeNotifier {
           int eventId, int milestoneId, String reaction) =>
       _repo.reactToMilestone(eventId, milestoneId, reaction);
 
-  Future<Map<String, dynamic>> getMyMilestoneReaction(
+  Future<MilestoneReactionStatus> getMyMilestoneReaction(
           int eventId, int milestoneId) =>
       _repo.getMyMilestoneReaction(eventId, milestoneId);
 
@@ -411,7 +411,7 @@ class EventProvider extends ChangeNotifier {
       _repo.uploadScheduleImage(eventId, itemId, fileBytes, fileName,
           caption: caption);
 
-  Future<Map<String, dynamic>> deleteScheduleImage(int eventId, int itemId) =>
+  Future<ScheduleItem> deleteScheduleImage(int eventId, int itemId) =>
       _repo.deleteScheduleImage(eventId, itemId);
 
   String getScheduleExportUrl(int eventId) =>
@@ -419,7 +419,7 @@ class EventProvider extends ChangeNotifier {
 
   // -- Bookmarks --
 
-  Future<Map<String, dynamic>> toggleBookmark(int eventId) =>
+  Future<BookmarkToggleResult> toggleBookmark(int eventId) =>
       _repo.toggleBookmark(eventId);
 
   Future<Map<int, bool>> checkBookmarks(List<int> eventIds) =>
@@ -432,7 +432,7 @@ class EventProvider extends ChangeNotifier {
 
   // -- Ratings --
 
-  Future<Map<String, dynamic>> createRating(
+  Future<MyRating> createRating(
     int eventId, {
     required String direction,
     int? ratedUserId,
@@ -457,7 +457,7 @@ class EventProvider extends ChangeNotifier {
   Future<Registration> register(int eventId) =>
       _repo.register(eventId);
 
-  Future<Map<String, dynamic>> unregister(int eventId) =>
+  Future<UnregisterResult> unregister(int eventId) =>
       _repo.unregister(eventId);
 
   Future<Registration?> getMyRegistration(int eventId) =>
@@ -476,11 +476,11 @@ class EventProvider extends ChangeNotifier {
   // -- Extension --
 
   Future<Event> extendFunding(
-          int eventId, Map<String, dynamic> data) =>
+          int eventId, ExtendFundingInput data) =>
       _repo.extendFunding(eventId, data);
 
   Future<Event> setEventDate(
-          int eventId, Map<String, dynamic> data) =>
+          int eventId, SetEventDateInput data) =>
       _repo.setEventDate(eventId, data);
 
   Future<Event> decideExtension(
@@ -509,9 +509,7 @@ class EventProvider extends ChangeNotifier {
 
   // -- Public Config --
 
-  Future<Map<String, dynamic>> getPublicConfig() => _repo.getPublicConfig();
-
-  Future<Map<String, bool>> getFeatureFlags() => _repo.getFeatureFlags();
+  Future<PublicConfig> getPublicConfig() => _repo.getPublicConfig();
 
   // -- Calendar --
 

@@ -176,6 +176,36 @@ void main() {
     });
   });
 
+  group('ExtendFundingInput', () {
+    test('toJson with all fields', () {
+      final i = ExtendFundingInput(
+        fundingEndAt: '2025-08-01T00:00:00',
+        fundingGoalCents: 50000,
+      );
+      final json = i.toJson();
+      expect(json['funding_end_at'], '2025-08-01T00:00:00');
+      expect(json['funding_goal_cents'], 50000);
+    });
+
+    test('toJson omits null fields', () {
+      final i = ExtendFundingInput();
+      expect(i.toJson(), isEmpty);
+      expect(i.isEmpty, true);
+    });
+  });
+
+  group('SetEventDateInput', () {
+    test('toJson', () {
+      final i = SetEventDateInput(
+        startTime: '2025-07-01T18:00:00',
+        endTime: '2025-07-01T22:00:00',
+      );
+      final json = i.toJson();
+      expect(json['start_time'], '2025-07-01T18:00:00');
+      expect(json['end_time'], '2025-07-01T22:00:00');
+    });
+  });
+
   group('PendingCancellation', () {
     test('fromJson parses all fields', () {
       final json = {
@@ -442,6 +472,213 @@ void main() {
       expect(c.occupied, 0);
       expect(c.available, 0);
       expect(c.registrationCount, 0);
+    });
+  });
+
+  group('BookmarkToggleResult', () {
+    test('fromJson parses bookmarked true', () {
+      final r = BookmarkToggleResult.fromJson({'bookmarked': true});
+      expect(r.bookmarked, true);
+    });
+
+    test('fromJson parses bookmarked false', () {
+      final r = BookmarkToggleResult.fromJson({'bookmarked': false});
+      expect(r.bookmarked, false);
+    });
+
+    test('defaults to false when null', () {
+      final r = BookmarkToggleResult.fromJson({});
+      expect(r.bookmarked, false);
+    });
+  });
+
+  group('PostsToggleResult', () {
+    test('fromJson parses postsEnabled', () {
+      final r = PostsToggleResult.fromJson({'posts_enabled': true});
+      expect(r.postsEnabled, true);
+    });
+
+    test('defaults to false when null', () {
+      final r = PostsToggleResult.fromJson({});
+      expect(r.postsEnabled, false);
+    });
+  });
+
+  group('MyReactionStatus', () {
+    test('fromJson parses reaction', () {
+      final r = MyReactionStatus.fromJson({'reaction': 'like'});
+      expect(r.reaction, 'like');
+    });
+
+    test('reaction null when not provided', () {
+      final r = MyReactionStatus.fromJson({});
+      expect(r.reaction, isNull);
+    });
+  });
+
+  group('UnregisterResult', () {
+    test('fromJson parses all fields', () {
+      final r = UnregisterResult.fromJson({
+        'refunded_cents': 5000,
+        'pledges_refunded': 2,
+        'refund_eligible': false,
+      });
+      expect(r.refundedCents, 5000);
+      expect(r.pledgesRefunded, 2);
+      expect(r.refundEligible, false);
+    });
+
+    test('defaults when fields missing', () {
+      final r = UnregisterResult.fromJson({});
+      expect(r.refundedCents, 0);
+      expect(r.pledgesRefunded, 0);
+      expect(r.refundEligible, true);
+    });
+  });
+
+  group('PublicConfig', () {
+    test('fromJson parses all fields', () {
+      final c = PublicConfig.fromJson({
+        'max_tickets_per_purchase': 5,
+        'waitlist_max_size_limit': 200,
+        'event_max_images_limit': 20,
+        'max_posts_per_event_limit': 15,
+        'max_co_organizers_limit': 8,
+        'max_tickets_frontend_enabled': true,
+        'feature_milestones_enabled': false,
+        'feature_schedule_enabled': false,
+        'feature_sponsors_enabled': false,
+        'feature_community_rules_enabled': false,
+      });
+      expect(c.maxTicketsPerPurchase, 5);
+      expect(c.waitlistMaxSizeLimit, 200);
+      expect(c.eventMaxImagesLimit, 20);
+      expect(c.maxPostsPerEventLimit, 15);
+      expect(c.maxCoOrganizersLimit, 8);
+      expect(c.maxTicketsFrontendEnabled, true);
+      expect(c.featureMilestonesEnabled, false);
+      expect(c.featureScheduleEnabled, false);
+      expect(c.featureSponsorsEnabled, false);
+      expect(c.featureCommunityRulesEnabled, false);
+    });
+
+    test('defaults when fields missing', () {
+      final c = PublicConfig.fromJson({});
+      expect(c.maxTicketsPerPurchase, 10);
+      expect(c.waitlistMaxSizeLimit, 100);
+      expect(c.eventMaxImagesLimit, 10);
+      expect(c.maxPostsPerEventLimit, 10);
+      expect(c.maxCoOrganizersLimit, 5);
+      expect(c.maxTicketsFrontendEnabled, false);
+      expect(c.featureMilestonesEnabled, true);
+      expect(c.featureScheduleEnabled, true);
+      expect(c.featureSponsorsEnabled, true);
+      expect(c.featureCommunityRulesEnabled, true);
+    });
+
+    test('platformLimits getter returns correct map', () {
+      final c = PublicConfig(
+        waitlistMaxSizeLimit: 50,
+        eventMaxImagesLimit: 15,
+        maxPostsPerEventLimit: 20,
+        maxCoOrganizersLimit: 3,
+      );
+      final limits = c.platformLimits;
+      expect(limits['waitlist_max_size_limit'], 50);
+      expect(limits['event_max_images_limit'], 15);
+      expect(limits['max_posts_per_event_limit'], 20);
+      expect(limits['max_co_organizers_limit'], 3);
+      expect(limits.length, 4);
+    });
+  });
+
+  group('EventCreateRequest', () {
+    test('toJson includes required fields', () {
+      final r = EventCreateRequest(
+        venueId: 1,
+        title: 'Test Event',
+        description: 'A test',
+        maxCapacity: 100,
+      );
+      final json = r.toJson();
+      expect(json['venue_id'], 1);
+      expect(json['title'], 'Test Event');
+      expect(json['max_capacity'], 100);
+      expect(json['registration_type'], 'open');
+      expect(json['min_pledge_cents'], 500);
+      expect(json['publish'], false);
+    });
+
+    test('toJson conditionally includes optional fields', () {
+      final r = EventCreateRequest(
+        venueId: 1,
+        title: 'Test',
+        maxCapacity: 50,
+        startTime: '2025-07-01T18:00:00Z',
+        fundingEndAt: '2025-08-01T00:00:00Z',
+        refundDeadlineDays: 7,
+        fundingGoalCents: 100000,
+        parkingInfo: 'Lot A',
+        hasSchedule: true,
+        ageRestricted: true,
+        minAge: 21,
+      );
+      final json = r.toJson();
+      expect(json['start_time'], '2025-07-01T18:00:00Z');
+      expect(json['funding_end_at'], '2025-08-01T00:00:00Z');
+      expect(json['refund_deadline_days'], 7);
+      expect(json['funding_goal_cents'], 100000);
+      expect(json['parking_info'], 'Lot A');
+      expect(json['has_schedule'], true);
+      expect(json['age_restricted'], true);
+      expect(json['min_age'], 21);
+    });
+
+    test('toJson omits empty optional fields', () {
+      final r = EventCreateRequest(
+        venueId: 1,
+        title: 'Minimal',
+        maxCapacity: 10,
+      );
+      final json = r.toJson();
+      expect(json.containsKey('start_time'), false);
+      expect(json.containsKey('funding_end_at'), false);
+      expect(json.containsKey('parking_info'), false);
+      expect(json.containsKey('has_schedule'), false);
+      expect(json.containsKey('age_restricted'), false);
+    });
+  });
+
+  group('EventUpdateRequest', () {
+    test('toJson includes only non-null fields', () {
+      final r = EventUpdateRequest(
+        title: 'Updated Title',
+        maxCapacity: 200,
+      );
+      final json = r.toJson();
+      expect(json['title'], 'Updated Title');
+      expect(json['max_capacity'], 200);
+      expect(json.containsKey('description'), false);
+      expect(json.containsKey('genre'), false);
+    });
+
+    test('toJson empty when no fields set', () {
+      final r = EventUpdateRequest();
+      expect(r.toJson(), isEmpty);
+    });
+
+    test('toJson with all fields', () {
+      final r = EventUpdateRequest(
+        title: 'T',
+        description: 'D',
+        maxCapacity: 50,
+        registrationType: 'closed',
+        postsEnabled: true,
+        hasSchedule: true,
+        parkingInfo: 'P',
+      );
+      final json = r.toJson();
+      expect(json.length, 7);
     });
   });
 }

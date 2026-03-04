@@ -518,3 +518,340 @@ class CapacityInfo {
         registrationCount: (json['registration_count'] as int?) ?? 0,
       );
 }
+
+class BookmarkToggleResult {
+  final bool bookmarked;
+
+  BookmarkToggleResult({required this.bookmarked});
+
+  factory BookmarkToggleResult.fromJson(Map<String, dynamic> json) =>
+      BookmarkToggleResult(bookmarked: (json['bookmarked'] as bool?) ?? false);
+}
+
+class PostsToggleResult {
+  final bool postsEnabled;
+
+  PostsToggleResult({required this.postsEnabled});
+
+  factory PostsToggleResult.fromJson(Map<String, dynamic> json) =>
+      PostsToggleResult(
+          postsEnabled: (json['posts_enabled'] as bool?) ?? false);
+}
+
+class MyReactionStatus {
+  final String? reaction;
+
+  MyReactionStatus({this.reaction});
+
+  factory MyReactionStatus.fromJson(Map<String, dynamic> json) =>
+      MyReactionStatus(reaction: json['reaction'] as String?);
+}
+
+class UnregisterResult {
+  final int refundedCents;
+  final int pledgesRefunded;
+  final bool refundEligible;
+
+  UnregisterResult({
+    this.refundedCents = 0,
+    this.pledgesRefunded = 0,
+    this.refundEligible = true,
+  });
+
+  factory UnregisterResult.fromJson(Map<String, dynamic> json) =>
+      UnregisterResult(
+        refundedCents: (json['refunded_cents'] as int?) ?? 0,
+        pledgesRefunded: (json['pledges_refunded'] as int?) ?? 0,
+        refundEligible: (json['refund_eligible'] as bool?) ?? true,
+      );
+}
+
+class PublicConfig {
+  final int maxTicketsPerPurchase;
+  final int waitlistMaxSizeLimit;
+  final int eventMaxImagesLimit;
+  final int maxPostsPerEventLimit;
+  final int maxCoOrganizersLimit;
+  final bool maxTicketsFrontendEnabled;
+  final bool featureMilestonesEnabled;
+  final bool featureScheduleEnabled;
+  final bool featureSponsorsEnabled;
+  final bool featureCommunityRulesEnabled;
+
+  PublicConfig({
+    this.maxTicketsPerPurchase = 10,
+    this.waitlistMaxSizeLimit = 100,
+    this.eventMaxImagesLimit = 10,
+    this.maxPostsPerEventLimit = 10,
+    this.maxCoOrganizersLimit = 5,
+    this.maxTicketsFrontendEnabled = false,
+    this.featureMilestonesEnabled = true,
+    this.featureScheduleEnabled = true,
+    this.featureSponsorsEnabled = true,
+    this.featureCommunityRulesEnabled = true,
+  });
+
+  factory PublicConfig.fromJson(Map<String, dynamic> json) => PublicConfig(
+        maxTicketsPerPurchase:
+            (json['max_tickets_per_purchase'] as int?) ?? 10,
+        waitlistMaxSizeLimit:
+            (json['waitlist_max_size_limit'] as int?) ?? 100,
+        eventMaxImagesLimit:
+            (json['event_max_images_limit'] as int?) ?? 10,
+        maxPostsPerEventLimit:
+            (json['max_posts_per_event_limit'] as int?) ?? 10,
+        maxCoOrganizersLimit:
+            (json['max_co_organizers_limit'] as int?) ?? 5,
+        maxTicketsFrontendEnabled:
+            (json['max_tickets_frontend_enabled'] as bool?) ?? false,
+        featureMilestonesEnabled:
+            (json['feature_milestones_enabled'] as bool?) ?? true,
+        featureScheduleEnabled:
+            (json['feature_schedule_enabled'] as bool?) ?? true,
+        featureSponsorsEnabled:
+            (json['feature_sponsors_enabled'] as bool?) ?? true,
+        featureCommunityRulesEnabled:
+            (json['feature_community_rules_enabled'] as bool?) ?? true,
+      );
+
+  Map<String, int> get platformLimits => {
+        'waitlist_max_size_limit': waitlistMaxSizeLimit,
+        'event_max_images_limit': eventMaxImagesLimit,
+        'max_posts_per_event_limit': maxPostsPerEventLimit,
+        'max_co_organizers_limit': maxCoOrganizersLimit,
+      };
+}
+
+class ExtendFundingInput {
+  final String? fundingEndAt;
+  final int? fundingGoalCents;
+
+  const ExtendFundingInput({this.fundingEndAt, this.fundingGoalCents});
+
+  Map<String, dynamic> toJson() => {
+        if (fundingEndAt != null) 'funding_end_at': fundingEndAt,
+        if (fundingGoalCents != null) 'funding_goal_cents': fundingGoalCents,
+      };
+
+  bool get isEmpty => fundingEndAt == null && fundingGoalCents == null;
+}
+
+class SetEventDateInput {
+  final String startTime;
+  final String endTime;
+
+  const SetEventDateInput({required this.startTime, required this.endTime});
+
+  Map<String, dynamic> toJson() => {
+        'start_time': startTime,
+        'end_time': endTime,
+      };
+}
+
+class EventCreateRequest {
+  final int venueId;
+  final String title;
+  final String description;
+  final int maxCapacity;
+  final String registrationType;
+  final int minPledgeCents;
+  final int maxReservedSpotsPerUser;
+  final String? genre;
+  final bool communityRules;
+  final bool postsEnabled;
+  final bool publish;
+  final String? startTime;
+  final String? endTime;
+  final String? fundingEndAt;
+  final int? refundDeadlineDays;
+  final int? fundingGoalCents;
+  final int? ticketStrategyId;
+  final double? lat;
+  final double? lng;
+  final String? parkingInfo;
+  final String? transitInfo;
+  final String? rideshareInfo;
+  final String? accessibilityInfo;
+  final bool hasSchedule;
+  final bool linkFundingToTiers;
+  final int maxDiscountPercent;
+  final bool ageRestricted;
+  final int minAge;
+  final int? waitlistMaxSize;
+  final bool waitlistAutoApprove;
+  final int? eventMaxImages;
+  final int? maxPostsPerDay;
+  final int? maxCoOrganizers;
+
+  const EventCreateRequest({
+    required this.venueId,
+    required this.title,
+    this.description = '',
+    required this.maxCapacity,
+    this.registrationType = 'open',
+    this.minPledgeCents = 500,
+    this.maxReservedSpotsPerUser = 0,
+    this.genre,
+    this.communityRules = false,
+    this.postsEnabled = true,
+    this.publish = false,
+    this.startTime,
+    this.endTime,
+    this.fundingEndAt,
+    this.refundDeadlineDays,
+    this.fundingGoalCents,
+    this.ticketStrategyId,
+    this.lat,
+    this.lng,
+    this.parkingInfo,
+    this.transitInfo,
+    this.rideshareInfo,
+    this.accessibilityInfo,
+    this.hasSchedule = false,
+    this.linkFundingToTiers = false,
+    this.maxDiscountPercent = 100,
+    this.ageRestricted = false,
+    this.minAge = 18,
+    this.waitlistMaxSize,
+    this.waitlistAutoApprove = true,
+    this.eventMaxImages,
+    this.maxPostsPerDay,
+    this.maxCoOrganizers,
+  });
+
+  Map<String, dynamic> toJson() {
+    final data = <String, dynamic>{
+      'venue_id': venueId,
+      'title': title,
+      'description': description,
+      'max_capacity': maxCapacity,
+      'registration_type': registrationType,
+      'min_pledge_cents': minPledgeCents,
+      'max_reserved_spots_per_user': maxReservedSpotsPerUser,
+      'genre': genre,
+      'community_rules': communityRules,
+      'posts_enabled': postsEnabled,
+      'publish': publish,
+    };
+    if (startTime != null) data['start_time'] = startTime;
+    if (endTime != null) data['end_time'] = endTime;
+    if (fundingEndAt != null) {
+      data['funding_end_at'] = fundingEndAt;
+      if (refundDeadlineDays != null && refundDeadlineDays! > 0) {
+        data['refund_deadline_days'] = refundDeadlineDays;
+      }
+    }
+    if (fundingGoalCents != null && fundingGoalCents! > 0) {
+      data['funding_goal_cents'] = fundingGoalCents;
+    }
+    if (ticketStrategyId != null) data['ticket_strategy_id'] = ticketStrategyId;
+    if (lat != null) data['lat'] = lat;
+    if (lng != null) data['lng'] = lng;
+    if (parkingInfo != null && parkingInfo!.isNotEmpty) data['parking_info'] = parkingInfo;
+    if (transitInfo != null && transitInfo!.isNotEmpty) data['transit_info'] = transitInfo;
+    if (rideshareInfo != null && rideshareInfo!.isNotEmpty) data['rideshare_info'] = rideshareInfo;
+    if (accessibilityInfo != null && accessibilityInfo!.isNotEmpty) data['accessibility_info'] = accessibilityInfo;
+    if (hasSchedule) data['has_schedule'] = true;
+    if (linkFundingToTiers) data['link_funding_to_tiers'] = true;
+    if (maxDiscountPercent != 100) data['max_discount_percent'] = maxDiscountPercent;
+    if (ageRestricted) {
+      data['age_restricted'] = true;
+      data['min_age'] = minAge;
+    }
+    if (waitlistMaxSize != null && waitlistMaxSize! > 0) data['waitlist_max_size'] = waitlistMaxSize;
+    data['waitlist_auto_approve'] = waitlistAutoApprove;
+    if (eventMaxImages != null && eventMaxImages! > 0) data['event_max_images'] = eventMaxImages;
+    if (maxPostsPerDay != null && maxPostsPerDay! > 0) data['max_posts_per_day'] = maxPostsPerDay;
+    if (maxCoOrganizers != null && maxCoOrganizers! > 0) data['max_co_organizers'] = maxCoOrganizers;
+    return data;
+  }
+}
+
+class EventUpdateRequest {
+  final String? title;
+  final String? description;
+  final int? maxCapacity;
+  final String? registrationType;
+  final int? minPledgeCents;
+  final int? maxReservedSpotsPerUser;
+  final String? genre;
+  final bool? postsEnabled;
+  final bool? communityRules;
+  final String? startTime;
+  final String? endTime;
+  final String? fundingEndAt;
+  final int? refundDeadlineDays;
+  final int? fundingGoalCents;
+  final int? ticketStrategyId;
+  final int? venueId;
+  final String? parkingInfo;
+  final String? transitInfo;
+  final String? rideshareInfo;
+  final String? accessibilityInfo;
+  final bool? hasSchedule;
+  final int? waitlistMaxSize;
+  final bool? waitlistAutoApprove;
+  final int? eventMaxImages;
+  final int? maxPostsPerDay;
+  final int? maxCoOrganizers;
+
+  const EventUpdateRequest({
+    this.title,
+    this.description,
+    this.maxCapacity,
+    this.registrationType,
+    this.minPledgeCents,
+    this.maxReservedSpotsPerUser,
+    this.genre,
+    this.postsEnabled,
+    this.communityRules,
+    this.startTime,
+    this.endTime,
+    this.fundingEndAt,
+    this.refundDeadlineDays,
+    this.fundingGoalCents,
+    this.ticketStrategyId,
+    this.venueId,
+    this.parkingInfo,
+    this.transitInfo,
+    this.rideshareInfo,
+    this.accessibilityInfo,
+    this.hasSchedule,
+    this.waitlistMaxSize,
+    this.waitlistAutoApprove,
+    this.eventMaxImages,
+    this.maxPostsPerDay,
+    this.maxCoOrganizers,
+  });
+
+  Map<String, dynamic> toJson() {
+    final data = <String, dynamic>{};
+    if (title != null) data['title'] = title;
+    if (description != null) data['description'] = description;
+    if (maxCapacity != null) data['max_capacity'] = maxCapacity;
+    if (registrationType != null) data['registration_type'] = registrationType;
+    if (minPledgeCents != null) data['min_pledge_cents'] = minPledgeCents;
+    if (maxReservedSpotsPerUser != null) data['max_reserved_spots_per_user'] = maxReservedSpotsPerUser;
+    if (genre != null) data['genre'] = genre;
+    if (postsEnabled != null) data['posts_enabled'] = postsEnabled;
+    if (communityRules != null) data['community_rules'] = communityRules;
+    if (startTime != null) data['start_time'] = startTime;
+    if (endTime != null) data['end_time'] = endTime;
+    if (fundingEndAt != null) data['funding_end_at'] = fundingEndAt;
+    if (refundDeadlineDays != null) data['refund_deadline_days'] = refundDeadlineDays;
+    if (fundingGoalCents != null) data['funding_goal_cents'] = fundingGoalCents;
+    if (ticketStrategyId != null) data['ticket_strategy_id'] = ticketStrategyId;
+    if (venueId != null) data['venue_id'] = venueId;
+    if (parkingInfo != null) data['parking_info'] = parkingInfo;
+    if (transitInfo != null) data['transit_info'] = transitInfo;
+    if (rideshareInfo != null) data['rideshare_info'] = rideshareInfo;
+    if (accessibilityInfo != null) data['accessibility_info'] = accessibilityInfo;
+    if (hasSchedule != null) data['has_schedule'] = hasSchedule;
+    if (waitlistMaxSize != null) data['waitlist_max_size'] = waitlistMaxSize;
+    if (waitlistAutoApprove != null) data['waitlist_auto_approve'] = waitlistAutoApprove;
+    if (eventMaxImages != null) data['event_max_images'] = eventMaxImages;
+    if (maxPostsPerDay != null) data['max_posts_per_day'] = maxPostsPerDay;
+    if (maxCoOrganizers != null) data['max_co_organizers'] = maxCoOrganizers;
+    return data;
+  }
+}

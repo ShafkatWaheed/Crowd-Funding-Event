@@ -82,4 +82,55 @@ void main() {
       expect(snap.userCount, 0);
     });
   });
+
+  group('MilestoneRequest', () {
+    test('toJson includes all fields', () {
+      final r = MilestoneRequest(
+        title: 'Halfway',
+        benefitDescription: 'Free drink',
+        unlockPercent: 50,
+      );
+      final json = r.toJson();
+      expect(json['title'], 'Halfway');
+      expect(json['unlock_percent'], 50);
+      expect(json['benefit_description'], 'Free drink');
+    });
+
+    test('toJson omits empty benefit', () {
+      final r = MilestoneRequest(title: 'Test', unlockPercent: 25);
+      final json = r.toJson();
+      expect(json.containsKey('benefit_description'), false);
+    });
+  });
+
+  group('MilestoneReactionStatus', () {
+    test('fromJson parses all fields', () {
+      final r = MilestoneReactionStatus.fromJson({
+        'reaction': 'like',
+        'total_likes': 15,
+        'total_dislikes': 3,
+      });
+      expect(r.reaction, 'like');
+      expect(r.totalLikes, 15);
+      expect(r.totalDislikes, 3);
+    });
+
+    test('reaction null when not provided', () {
+      final r = MilestoneReactionStatus.fromJson({});
+      expect(r.reaction, isNull);
+      expect(r.totalLikes, 0);
+      expect(r.totalDislikes, 0);
+    });
+
+    test('dislike reaction', () {
+      final r = MilestoneReactionStatus.fromJson({
+        'reaction': 'dislike',
+        'total_likes': 5,
+        'total_dislikes': 10,
+      });
+      expect(r.reaction, 'dislike');
+      expect(r.totalLikes, 5);
+      expect(r.totalDislikes, 10);
+    });
+  });
 }

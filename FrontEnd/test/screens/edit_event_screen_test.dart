@@ -58,7 +58,7 @@ void main() {
       final eventCompleter = Completer<Event>();
       final strategiesCompleter = Completer<List<TicketStrategy>>();
       final venuesCompleter = Completer<List<Venue>>();
-      final configCompleter = Completer<Map<String, dynamic>>();
+      final configCompleter = Completer<PublicConfig>();
 
       when(() => mockEventRepo.getEvent(1))
           .thenAnswer((_) => eventCompleter.future);
@@ -81,7 +81,7 @@ void main() {
       eventCompleter.complete(Event.fromJson(eventJson()));
       strategiesCompleter.complete([]);
       venuesCompleter.complete([]);
-      configCompleter.complete({});
+      configCompleter.complete(PublicConfig());
       await tester.pumpAndSettle();
     });
 
@@ -93,7 +93,7 @@ void main() {
       when(() => mockVenueRepo.getVenues())
           .thenAnswer((_) async => [Venue.fromJson(venueJson())]);
       when(() => mockEventRepo.getPublicConfig())
-          .thenAnswer((_) async => {});
+          .thenAnswer((_) async => PublicConfig());
 
       await pumpEditEvent(tester);
       await tester.pumpAndSettle();
@@ -111,7 +111,7 @@ void main() {
       when(() => mockVenueRepo.getVenues())
           .thenAnswer((_) async => []);
       when(() => mockEventRepo.getPublicConfig())
-          .thenAnswer((_) async => {});
+          .thenAnswer((_) async => PublicConfig());
 
       await pumpEditEvent(tester);
       await tester.pumpAndSettle();

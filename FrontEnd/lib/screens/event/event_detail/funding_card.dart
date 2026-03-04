@@ -721,9 +721,9 @@ class _FundingCardState extends State<FundingCard> {
       final repo = context.read<PledgeProvider>();
       final result = await repo.unpledge(widget.eventId);
       if (!mounted) return;
-      final refunded = result['refunded_cents'] ?? 0;
-      final guest = result['guest_non_refundable_cents'] ?? 0;
-      final status = result['status'] ?? 'completed';
+      final refunded = result.refundedCents;
+      final guest = result.guestNonRefundableCents;
+      final status = result.status;
 
       if (status == 'refund_processing') {
         setState(() => _refundProcessing = true);

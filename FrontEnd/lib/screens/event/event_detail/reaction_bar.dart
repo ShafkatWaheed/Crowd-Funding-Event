@@ -45,7 +45,7 @@ class _ReactionBarState extends State<ReactionBar> {
     try {
       final api = context.read<EventProvider>();
       final data = await api.getMyReaction(widget.eventId);
-      if (mounted) setState(() => _myReaction = data['reaction']);
+      if (mounted) setState(() => _myReaction = data.reaction);
     } catch (e) { debugPrint(e.toString()); }
   }
 

@@ -451,3 +451,29 @@ class KycDocumentUpload {
         documentType: json['document_type'] as String?,
       );
 }
+
+class KycSubmitResult {
+  final String kycStatus;
+  final String? message;
+
+  KycSubmitResult({required this.kycStatus, this.message});
+
+  factory KycSubmitResult.fromJson(Map<String, dynamic> json) =>
+      KycSubmitResult(
+        kycStatus: (json['kyc_status'] as String?) ?? '',
+        message: json['message'] as String?,
+      );
+}
+
+class KycVerifyResult {
+  final int userId;
+  final String kycStatus;
+
+  KycVerifyResult({required this.userId, required this.kycStatus});
+
+  factory KycVerifyResult.fromJson(Map<String, dynamic> json) =>
+      KycVerifyResult(
+        userId: json['user_id'] as int,
+        kycStatus: (json['kyc_status'] as String?) ?? '',
+      );
+}

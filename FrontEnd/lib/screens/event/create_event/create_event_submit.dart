@@ -1,13 +1,15 @@
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../models/event.dart';
 import '../../../models/event_form_models.dart';
+import '../../../models/milestone.dart';
 import '../../../models/venue.dart';
 import '../../../providers/event_provider.dart';
 import '../../../providers/ticket_provider.dart';
 import '../../../providers/sponsor_provider.dart';
 
-Map<String, dynamic> buildCreateEventPayload({
+EventCreateRequest buildCreateEventPayload({
   required int selectedVenueId,
   required String title,
   required String description,
@@ -41,62 +43,50 @@ Map<String, dynamic> buildCreateEventPayload({
   required int? maxPostsPerDay,
   required int? maxCoOrganizers,
 }) {
-  final data = <String, dynamic>{
-    'venue_id': selectedVenueId,
-    'title': title.trim(),
-    'description': description.trim(),
-    'max_capacity': maxCapacity,
-    'registration_type': registrationType,
-    'min_pledge_cents': (minPledge * 100).toInt(),
-    'max_reserved_spots_per_user': maxReservedSpotsPerUser,
-    'genre': genre,
-    'community_rules': communityRules,
-    'posts_enabled': postsEnabled,
-    'publish': publish,
-  };
-
-  if (startTime != null) data['start_time'] = startTime.toUtc().toIso8601String();
-  if (endTime != null) data['end_time'] = endTime.toUtc().toIso8601String();
-  if (fundingEndAt != null) {
-    data['funding_end_at'] = fundingEndAt.toUtc().toIso8601String();
-    if (refundDeadlineDays > 0) data['refund_deadline_days'] = refundDeadlineDays;
-  }
-  if (fundingGoal != null && fundingGoal > 0) {
-    data['funding_goal_cents'] = (fundingGoal * 100).toInt();
-  }
-  if (selectedStrategyId != null) data['ticket_strategy_id'] = selectedStrategyId;
-
   final selectedVenue = venues.where((v) => v.id == selectedVenueId).firstOrNull;
-  if (selectedVenue != null) {
-    data['lat'] = selectedVenue.lat;
-    data['lng'] = selectedVenue.lng;
-  }
-  if (parkingInfo.isNotEmpty) data['parking_info'] = parkingInfo;
-  if (transitInfo.isNotEmpty) data['transit_info'] = transitInfo;
-  if (rideshareInfo.isNotEmpty) data['rideshare_info'] = rideshareInfo;
-  if (accessibilityInfo.isNotEmpty) data['accessibility_info'] = accessibilityInfo;
-  if (hasSchedule) data['has_schedule'] = true;
-  if (linkFundingToTiers) data['link_funding_to_tiers'] = true;
-  if (maxDiscountPercent != 100) data['max_discount_percent'] = maxDiscountPercent;
-  if (ageRestricted) {
-    data['age_restricted'] = true;
-    data['min_age'] = minAge;
-  }
 
-  if (waitlistMaxSize != null && waitlistMaxSize > 0) data['waitlist_max_size'] = waitlistMaxSize;
-  data['waitlist_auto_approve'] = waitlistAutoApprove;
-  if (eventMaxImages != null && eventMaxImages > 0) data['event_max_images'] = eventMaxImages;
-  if (maxPostsPerDay != null && maxPostsPerDay > 0) data['max_posts_per_day'] = maxPostsPerDay;
-  if (maxCoOrganizers != null && maxCoOrganizers > 0) data['max_co_organizers'] = maxCoOrganizers;
-
-  return data;
+  return EventCreateRequest(
+    venueId: selectedVenueId,
+    title: title.trim(),
+    description: description.trim(),
+    maxCapacity: maxCapacity,
+    registrationType: registrationType,
+    minPledgeCents: (minPledge * 100).toInt(),
+    maxReservedSpotsPerUser: maxReservedSpotsPerUser,
+    genre: genre,
+    communityRules: communityRules,
+    postsEnabled: postsEnabled,
+    publish: publish,
+    startTime: startTime?.toUtc().toIso8601String(),
+    endTime: endTime?.toUtc().toIso8601String(),
+    fundingEndAt: fundingEndAt?.toUtc().toIso8601String(),
+    refundDeadlineDays: fundingEndAt != null && refundDeadlineDays > 0 ? refundDeadlineDays : null,
+    fundingGoalCents: fundingGoal != null && fundingGoal > 0 ? (fundingGoal * 100).toInt() : null,
+    ticketStrategyId: selectedStrategyId,
+    lat: selectedVenue?.lat,
+    lng: selectedVenue?.lng,
+    parkingInfo: parkingInfo.isNotEmpty ? parkingInfo : null,
+    transitInfo: transitInfo.isNotEmpty ? transitInfo : null,
+    rideshareInfo: rideshareInfo.isNotEmpty ? rideshareInfo : null,
+    accessibilityInfo: accessibilityInfo.isNotEmpty ? accessibilityInfo : null,
+    hasSchedule: hasSchedule,
+    linkFundingToTiers: linkFundingToTiers,
+    maxDiscountPercent: maxDiscountPercent,
+    ageRestricted: ageRestricted,
+    minAge: minAge,
+    waitlistMaxSize: waitlistMaxSize,
+    waitlistAutoApprove: waitlistAutoApprove,
+    eventMaxImages: eventMaxImages,
+    maxPostsPerDay: maxPostsPerDay,
+    maxCoOrganizers: maxCoOrganizers,
+  );
 }
 
 Future<int> executeCreateEventSubmission({
   required SponsorProvider sponsorRepo,
   required EventProvider eventRepo,
   required TicketProvider ticketRepo,
-  required Map<String, dynamic> eventData,
+  required EventCreateRequest eventData,
   required Map<int, bool> selectedDiscounts,
   required List<EditableTier> localTiers,
   required List<MilestoneInput> milestones,
@@ -152,11 +142,11 @@ Future<void> _createMilestones(EventProvider eventRepo, TicketProvider ticketRep
     final title = ms.titleCtrl.text.trim();
     if (title.isEmpty) continue;
     try {
-      await eventRepo.createMilestone(eventId, {
-        'title': title,
-        'unlock_percent': ms.unlockPercent,
-        if (ms.benefitCtrl.text.trim().isNotEmpty) 'benefit_description': ms.benefitCtrl.text.trim(),
-      });
+      await eventRepo.createMilestone(eventId, MilestoneRequest(
+        title: title,
+        unlockPercent: ms.unlockPercent,
+        benefitDescription: ms.benefitCtrl.text.trim().isNotEmpty ? ms.benefitCtrl.text.trim() : null,
+      ));
     } catch (e) { debugPrint(e.toString()); }
     final discVal = int.tryParse(ms.discountValueCtrl.text.trim()) ?? 0;
     if (discVal > 0) {

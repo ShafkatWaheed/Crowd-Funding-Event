@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
+import '../../../models/milestone.dart';
 import '../../../providers/event_provider.dart';
 import '../../../widgets/app_toast.dart';
 
@@ -56,19 +57,20 @@ class _EditMilestonesSectionState extends State<EditMilestonesSection> {
     final api = context.read<EventProvider>();
     try {
       if (ms.id != null) {
-        await api.updateMilestone(widget.eventId, ms.id!, {
-          'title': title,
-          'unlock_percent': ms.unlockPercent,
-          'benefit_description': ms.benefitCtrl.text.trim(),
-        });
+        await api.updateMilestone(widget.eventId, ms.id!, MilestoneRequest(
+          title: title,
+          unlockPercent: ms.unlockPercent,
+          benefitDescription: ms.benefitCtrl.text.trim(),
+        ));
         if (mounted) AppToast.success(context, 'Milestone updated');
       } else {
-        final resp = await api.createMilestone(widget.eventId, {
-          'title': title,
-          'unlock_percent': ms.unlockPercent,
-          if (ms.benefitCtrl.text.trim().isNotEmpty)
-            'benefit_description': ms.benefitCtrl.text.trim(),
-        });
+        final resp = await api.createMilestone(widget.eventId, MilestoneRequest(
+          title: title,
+          unlockPercent: ms.unlockPercent,
+          benefitDescription: ms.benefitCtrl.text.trim().isNotEmpty
+              ? ms.benefitCtrl.text.trim()
+              : null,
+        ));
         ms.id = resp.id;
         if (mounted) AppToast.success(context, 'Milestone created');
       }

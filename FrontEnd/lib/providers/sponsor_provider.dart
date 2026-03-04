@@ -133,7 +133,7 @@ class SponsorProvider extends ChangeNotifier {
   Future<void> removeDelegate(int ticketId, int delegateId) =>
       _repo.removeDelegate(ticketId, delegateId);
 
-  Future<Map<String, dynamic>> checkInDelegate(
+  Future<SponsorDelegate> checkInDelegate(
           int eventId, int delegateId) =>
       _repo.checkInDelegate(eventId, delegateId);
 
@@ -178,7 +178,7 @@ class SponsorProvider extends ChangeNotifier {
       _repo.uploadCategoryPrerequisite(eventId, catId, prereqId,
           filePath: filePath, fileName: fileName, fileBytes: fileBytes);
 
-  Future<Map<String, dynamic>> reviewPrerequisiteUpload(
+  Future<BidPrerequisiteUpload> reviewPrerequisiteUpload(
           int bidId, int prereqId,
           {required String status, String? reviewerNote}) =>
       _repo.reviewPrerequisiteUpload(bidId, prereqId,

@@ -122,14 +122,13 @@ class UserRepository extends BaseRepository {
     return KycDocumentUpload.fromJson(resp.data as Map<String, dynamic>);
   }
 
-  Future<Map<String, dynamic>> deleteKycDocument(int documentId) async {
-    final resp = await dio.delete('/me/kyc-documents/$documentId');
-    return resp.data as Map<String, dynamic>;
+  Future<void> deleteKycDocument(int documentId) async {
+    await dio.delete('/me/kyc-documents/$documentId');
   }
 
-  Future<Map<String, dynamic>> submitKyc() async {
+  Future<KycSubmitResult> submitKyc() async {
     final resp = await dio.post('/me/kyc-submit', data: {});
-    return resp.data as Map<String, dynamic>;
+    return KycSubmitResult.fromJson(resp.data as Map<String, dynamic>);
   }
 
   Future<List<KycPendingUser>> adminGetKycPending() async {
@@ -148,7 +147,7 @@ class UserRepository extends BaseRepository {
         .toList();
   }
 
-  Future<Map<String, dynamic>> adminVerifyKyc(
+  Future<KycVerifyResult> adminVerifyKyc(
     int userId, {
     required bool approved,
     String? rejectionReason,
@@ -157,6 +156,6 @@ class UserRepository extends BaseRepository {
     if (rejectionReason != null) data['rejection_reason'] = rejectionReason;
     final resp =
         await dio.post('/admin/users/$userId/kyc-verify', data: data);
-    return resp.data as Map<String, dynamic>;
+    return KycVerifyResult.fromJson(resp.data as Map<String, dynamic>);
   }
 }

@@ -41,6 +41,7 @@ import 'repositories/notification_repository.dart';
 import 'repositories/sponsor_repository.dart';
 import 'repositories/user_repository.dart';
 import 'repositories/venue_repository.dart';
+import 'models/notification_model.dart' show NotificationPayload;
 import 'screens/notification/notification_screen.dart' show resolveNotificationRoute;
 import 'services/chat_socket_service.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -178,9 +179,8 @@ class _AppShellState extends State<_AppShell> {
     });
 
     _openedAppSub = FirebaseMessaging.onMessageOpenedApp.listen((message) {
-      final data = Map<String, dynamic>.from(message.data);
-      final type = data['type'] as String? ?? '';
-      final route = resolveNotificationRoute(type, data);
+      final payload = NotificationPayload.fromMap(message.data);
+      final route = resolveNotificationRoute(payload);
       if (route != null && _router != null) {
         _router!.go(route);
       }
@@ -188,9 +188,8 @@ class _AppShellState extends State<_AppShell> {
 
     FirebaseMessaging.instance.getInitialMessage().then((message) {
       if (message != null) {
-        final data = Map<String, dynamic>.from(message.data);
-        final type = data['type'] as String? ?? '';
-        final route = resolveNotificationRoute(type, data);
+        final payload = NotificationPayload.fromMap(message.data);
+        final route = resolveNotificationRoute(payload);
         if (route != null && _router != null) {
           _router!.go(route);
         }

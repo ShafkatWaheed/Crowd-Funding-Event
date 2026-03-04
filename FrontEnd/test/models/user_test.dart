@@ -566,4 +566,39 @@ void main() {
       expect(u.documentType, isNull);
     });
   });
+
+  group('KycSubmitResult', () {
+    test('fromJson parses all fields', () {
+      final r = KycSubmitResult.fromJson({
+        'kyc_status': 'submitted',
+        'message': 'Documents submitted for review',
+      });
+      expect(r.kycStatus, 'submitted');
+      expect(r.message, 'Documents submitted for review');
+    });
+
+    test('defaults when fields missing', () {
+      final r = KycSubmitResult.fromJson({});
+      expect(r.kycStatus, '');
+      expect(r.message, isNull);
+    });
+  });
+
+  group('KycVerifyResult', () {
+    test('fromJson parses all fields', () {
+      final r = KycVerifyResult.fromJson({
+        'user_id': 42,
+        'kyc_status': 'verified',
+      });
+      expect(r.userId, 42);
+      expect(r.kycStatus, 'verified');
+    });
+
+    test('kycStatus defaults to empty string', () {
+      final r = KycVerifyResult.fromJson({
+        'user_id': 1,
+      });
+      expect(r.kycStatus, '');
+    });
+  });
 }

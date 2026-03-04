@@ -8,15 +8,15 @@ import '../../utils/date_time_utils.dart';
 import '../../providers/notification_provider.dart';
 import '../../widgets/shimmer_loaders.dart';
 
-/// Resolves a notification type + data payload to the appropriate route.
+/// Resolves a notification payload to the appropriate route.
 /// Shared between in-app notification taps and FCM push taps.
-String? resolveNotificationRoute(String type, Map<String, dynamic> data) {
-  final eventId = data['event_id'];
-  final bidId = data['bid_id'];
-  final catId = data['category_id'];
-  final saleId = data['ticket_sale_id'];
+String? resolveNotificationRoute(NotificationPayload payload) {
+  final eventId = payload.eventId;
+  final bidId = payload.bidId;
+  final catId = payload.categoryId;
+  final saleId = payload.ticketSaleId;
 
-  switch (type) {
+  switch (payload.type) {
     // ── Tickets ──
     case 'ticket_purchased':
     case 'ticket_waitlist_approved':
@@ -33,7 +33,7 @@ String? resolveNotificationRoute(String type, Map<String, dynamic> data) {
 
     // ── Pledges ──
     case 'pledge_confirmed':
-      final pledgeId = data['pledge_id'];
+      final pledgeId = payload.pledgeId;
       if (eventId != null && pledgeId != null) {
         return '/events/$eventId/pledges/$pledgeId/receipt';
       }
@@ -252,10 +252,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
       provider.markRead(notif.id);
     }
 
-    final type = notif.type;
-    final data = notif.data;
-    final route = resolveNotificationRoute(type, data);
-    debugPrint('[Notification] type=$type data=$data route=$route');
+    final route = resolveNotificationRoute(notif.data);
+    debugPrint('[Notification] type=${notif.type} data=${notif.data} route=$route');
     if (route != null) context.push(route);
   }
 

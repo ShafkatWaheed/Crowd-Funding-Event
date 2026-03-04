@@ -104,7 +104,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final res = await repo.toggleBookmark(eventId);
       if (mounted) {
         setState(() {
-          if (res['bookmarked'] == true) {
+          if (res.bookmarked) {
             _bookmarkedIds.add(eventId);
           } else {
             _bookmarkedIds.remove(eventId);

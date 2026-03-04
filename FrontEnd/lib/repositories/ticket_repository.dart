@@ -48,13 +48,13 @@ class TicketRepository extends BaseRepository {
     );
   }
 
-  /// Raw list for offline sync (returns unparsed JSON maps).
+  /// Intentional: raw JSON for offline sync.
   Future<List<dynamic>> getMyTicketsRaw({int offset = 0, int limit = 20}) async {
     final r = await dio.get('/me/tickets', queryParameters: {'offset': offset, 'limit': limit});
     return r.data as List;
   }
 
-  /// Raw list for offline sync (returns unparsed JSON maps).
+  /// Intentional: raw JSON for offline sync.
   Future<List<dynamic>> getTicketSalesRaw(int eventId, {int offset = 0, int limit = 20}) async {
     final r = await dio.get('/events/$eventId/ticket-sales',
         queryParameters: {'offset': offset, 'limit': limit});
@@ -188,9 +188,9 @@ class TicketRepository extends BaseRepository {
 
   // ─── Refunds ───
 
-  Future<Map<String, dynamic>> requestTicketRefund(int eventId, int ticketId) async {
+  Future<TicketSale> requestTicketRefund(int eventId, int ticketId) async {
     final r = await dio.post('/events/$eventId/tickets/$ticketId/refund');
-    return Map<String, dynamic>.from(r.data as Map);
+    return TicketSale.fromJson(Map<String, dynamic>.from(r.data as Map));
   }
 
   Future<List<TicketSale>> getRefundRequests(int eventId) async {
@@ -213,14 +213,14 @@ class TicketRepository extends BaseRepository {
         .toList();
   }
 
-  Future<Map<String, dynamic>> approveTicketRefund(int eventId, int ticketId) async {
+  Future<TicketSale> approveTicketRefund(int eventId, int ticketId) async {
     final r = await dio.post('/events/$eventId/tickets/$ticketId/approve-refund');
-    return Map<String, dynamic>.from(r.data as Map);
+    return TicketSale.fromJson(Map<String, dynamic>.from(r.data as Map));
   }
 
-  Future<Map<String, dynamic>> rejectTicketRefund(int eventId, int ticketId) async {
+  Future<TicketSale> rejectTicketRefund(int eventId, int ticketId) async {
     final r = await dio.post('/events/$eventId/tickets/$ticketId/reject-refund');
-    return Map<String, dynamic>.from(r.data as Map);
+    return TicketSale.fromJson(Map<String, dynamic>.from(r.data as Map));
   }
 
   // ─── Waitlist ───
@@ -232,14 +232,14 @@ class TicketRepository extends BaseRepository {
         .toList();
   }
 
-  Future<Map<String, dynamic>> approveWaitlistedTicket(int eventId, int ticketId) async {
+  Future<TicketSale> approveWaitlistedTicket(int eventId, int ticketId) async {
     final r = await dio.post('/events/$eventId/waitlisted-tickets/$ticketId/approve');
-    return Map<String, dynamic>.from(r.data as Map);
+    return TicketSale.fromJson(Map<String, dynamic>.from(r.data as Map));
   }
 
-  Future<Map<String, dynamic>> rejectWaitlistedTicket(int eventId, int ticketId) async {
+  Future<TicketSale> rejectWaitlistedTicket(int eventId, int ticketId) async {
     final r = await dio.post('/events/$eventId/waitlisted-tickets/$ticketId/reject');
-    return Map<String, dynamic>.from(r.data as Map);
+    return TicketSale.fromJson(Map<String, dynamic>.from(r.data as Map));
   }
 
   // ─── Event discounts ───

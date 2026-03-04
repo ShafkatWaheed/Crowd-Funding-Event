@@ -85,14 +85,8 @@ class _EditEventScreenState extends State<EditEventScreen> {
       if (mounted) {
         setState(() {
           _communityRulesFeatureEnabled =
-              config['feature_community_rules_enabled'] == true;
-          _platformLimits = {
-            for (final key in [
-              'waitlist_max_size_limit', 'event_max_images_limit',
-              'max_posts_per_event_limit', 'max_co_organizers_limit',
-            ])
-              if (config[key] is int) key: config[key] as int,
-          };
+              config.featureCommunityRulesEnabled;
+          _platformLimits = config.platformLimits;
         });
       }
     } catch (e) { debugPrint(e.toString()); }
@@ -173,68 +167,39 @@ class _EditEventScreenState extends State<EditEventScreen> {
 
     final fundingGoal = double.tryParse(_fundingGoalCtrl.text);
     final minPledge = double.tryParse(_minPledgeCtrl.text) ?? 5.0;
-
-    final data = <String, dynamic>{
-      'title': _titleCtrl.text.trim(),
-      'description': _descCtrl.text.trim(),
-      'max_capacity': int.parse(_capacityCtrl.text),
-      'registration_type': _registrationType,
-      'min_pledge_cents': (minPledge * 100).toInt(),
-      'max_reserved_spots_per_user':
-          int.tryParse(_maxReservedSpotsCtrl.text) ?? 0,
-      'genre': _genre,
-      'posts_enabled': _postsEnabled,
-      if (_event?.status.name == 'draft')
-        'community_rules': _communityRules,
-    };
-
-    if (_startTime != null) {
-      data['start_time'] = _startTime!.toUtc().toIso8601String();
-    }
-    if (_endTime != null) {
-      data['end_time'] = _endTime!.toUtc().toIso8601String();
-    }
-    if (_fundingEndAt != null) {
-      data['funding_end_at'] =
-          _fundingEndAt!.toUtc().toIso8601String();
-      data['refund_deadline_days'] = _refundDeadlineDays;
-    }
-
-    if (fundingGoal != null && fundingGoal > 0) {
-      data['funding_goal_cents'] = (fundingGoal * 100).toInt();
-    }
-    if (_selectedStrategyId != null) {
-      data['ticket_strategy_id'] = _selectedStrategyId;
-    }
-    if (_selectedVenueId != null &&
-        _selectedVenueId != _event?.venueId) {
-      data['venue_id'] = _selectedVenueId;
-    }
-
-    data['parking_info'] = _parkingCtrl.text.trim().isEmpty
-        ? null
-        : _parkingCtrl.text.trim();
-    data['transit_info'] = _transitCtrl.text.trim().isEmpty
-        ? null
-        : _transitCtrl.text.trim();
-    data['rideshare_info'] = _rideshareCtrl.text.trim().isEmpty
-        ? null
-        : _rideshareCtrl.text.trim();
-    data['accessibility_info'] =
-        _accessibilityCtrl.text.trim().isEmpty
-            ? null
-            : _accessibilityCtrl.text.trim();
-    data['has_schedule'] = _hasSchedule;
-    // Event policy fields
     final wms = int.tryParse(_waitlistMaxSizeCtrl.text.trim());
-    if (wms != null && wms > 0) data['waitlist_max_size'] = wms;
-    data['waitlist_auto_approve'] = _waitlistAutoApprove;
     final emi = int.tryParse(_eventMaxImagesCtrl.text.trim());
-    if (emi != null && emi > 0) data['event_max_images'] = emi;
     final mppd = int.tryParse(_maxPostsPerDayCtrl.text.trim());
-    if (mppd != null && mppd > 0) data['max_posts_per_day'] = mppd;
     final mco = int.tryParse(_maxCoOrganizersCtrl.text.trim());
-    if (mco != null && mco > 0) data['max_co_organizers'] = mco;
+
+    final data = EventUpdateRequest(
+      title: _titleCtrl.text.trim(),
+      description: _descCtrl.text.trim(),
+      maxCapacity: int.parse(_capacityCtrl.text),
+      registrationType: _registrationType,
+      minPledgeCents: (minPledge * 100).toInt(),
+      maxReservedSpotsPerUser: int.tryParse(_maxReservedSpotsCtrl.text) ?? 0,
+      genre: _genre,
+      postsEnabled: _postsEnabled,
+      communityRules: _event?.status.name == 'draft' ? _communityRules : null,
+      startTime: _startTime?.toUtc().toIso8601String(),
+      endTime: _endTime?.toUtc().toIso8601String(),
+      fundingEndAt: _fundingEndAt?.toUtc().toIso8601String(),
+      refundDeadlineDays: _fundingEndAt != null ? _refundDeadlineDays : null,
+      fundingGoalCents: fundingGoal != null && fundingGoal > 0 ? (fundingGoal * 100).toInt() : null,
+      ticketStrategyId: _selectedStrategyId,
+      venueId: _selectedVenueId != null && _selectedVenueId != _event?.venueId ? _selectedVenueId : null,
+      parkingInfo: _parkingCtrl.text.trim().isEmpty ? null : _parkingCtrl.text.trim(),
+      transitInfo: _transitCtrl.text.trim().isEmpty ? null : _transitCtrl.text.trim(),
+      rideshareInfo: _rideshareCtrl.text.trim().isEmpty ? null : _rideshareCtrl.text.trim(),
+      accessibilityInfo: _accessibilityCtrl.text.trim().isEmpty ? null : _accessibilityCtrl.text.trim(),
+      hasSchedule: _hasSchedule,
+      waitlistMaxSize: wms != null && wms > 0 ? wms : null,
+      waitlistAutoApprove: _waitlistAutoApprove,
+      eventMaxImages: emi != null && emi > 0 ? emi : null,
+      maxPostsPerDay: mppd != null && mppd > 0 ? mppd : null,
+      maxCoOrganizers: mco != null && mco > 0 ? mco : null,
+    );
 
     try {
       final eventRepo = context.read<EventProvider>();

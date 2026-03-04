@@ -66,3 +66,41 @@ class MilestoneSnapshot {
         userCount: (json['user_count'] as int?) ?? 0,
       );
 }
+
+class MilestoneReactionStatus {
+  final String? reaction;
+  final int totalLikes;
+  final int totalDislikes;
+
+  MilestoneReactionStatus({
+    this.reaction,
+    this.totalLikes = 0,
+    this.totalDislikes = 0,
+  });
+
+  factory MilestoneReactionStatus.fromJson(Map<String, dynamic> json) =>
+      MilestoneReactionStatus(
+        reaction: json['reaction'] as String?,
+        totalLikes: (json['total_likes'] as int?) ?? 0,
+        totalDislikes: (json['total_dislikes'] as int?) ?? 0,
+      );
+}
+
+class MilestoneRequest {
+  final String title;
+  final String? benefitDescription;
+  final int unlockPercent;
+
+  const MilestoneRequest({
+    required this.title,
+    this.benefitDescription,
+    required this.unlockPercent,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'title': title,
+        'unlock_percent': unlockPercent,
+        if (benefitDescription != null && benefitDescription!.isNotEmpty)
+          'benefit_description': benefitDescription,
+      };
+}

@@ -17,8 +17,8 @@ class BookmarkRepository extends BaseRepository {
     return (resp.data as List).map((e) => Event.fromJson(e)).toList();
   }
 
-  Future<Map<String, dynamic>> toggleBookmark(int eventId) async {
+  Future<BookmarkToggleResult> toggleBookmark(int eventId) async {
     final resp = await dio.post('/me/bookmarks/$eventId');
-    return resp.data;
+    return BookmarkToggleResult.fromJson(Map<String, dynamic>.from(resp.data as Map));
   }
 }

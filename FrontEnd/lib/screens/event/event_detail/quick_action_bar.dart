@@ -109,9 +109,9 @@ class _QuickActionBarState extends State<QuickActionBar> {
       widget.onRegistrationChanged();
       if (!mounted) return;
       context.read<EventProvider>().loadEvent(widget.event.id);
-      final refunded = result['refunded_cents'] ?? 0;
-      final pledges = result['pledges_refunded'] ?? 0;
-      final wasRefunded = result['refund_eligible'] ?? true;
+      final refunded = result.refundedCents;
+      final pledges = result.pledgesRefunded;
+      final wasRefunded = result.refundEligible;
       String msg;
       if (wasRefunded && pledges > 0) {
         msg =

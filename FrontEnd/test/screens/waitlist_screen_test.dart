@@ -298,7 +298,7 @@ void main() {
         (tester) async {
       stubAll(tickets: [ticketWait(id: 55, userId: 300)]);
       when(() => mockTicketRepo.approveWaitlistedTicket(1, 55))
-          .thenAnswer((_) async => {});
+          .thenAnswer((_) async => TicketSale.fromJson({'id': 55, 'event_id': 1, 'user_id': 300, 'ticket_tier_id': 1, 'ticket_code': 'TKT-55', 'status': 'active', 'amount_paid_cents': 0, 'discount_applied_cents': 0, 'created_at': '2025-01-01T00:00:00'}));
 
       await pumpWaitlist(tester, initialTicketView: true);
       await tester.pumpAndSettle();
@@ -312,7 +312,7 @@ void main() {
     testWidgets('reject ticket calls rejectWaitlistedTicket', (tester) async {
       stubAll(tickets: [ticketWait(id: 55, userId: 300)]);
       when(() => mockTicketRepo.rejectWaitlistedTicket(1, 55))
-          .thenAnswer((_) async => {});
+          .thenAnswer((_) async => TicketSale.fromJson({'id': 55, 'event_id': 1, 'user_id': 300, 'ticket_tier_id': 1, 'ticket_code': 'TKT-55', 'status': 'rejected', 'amount_paid_cents': 0, 'discount_applied_cents': 0, 'created_at': '2025-01-01T00:00:00'}));
 
       await pumpWaitlist(tester, initialTicketView: true);
       await tester.pumpAndSettle();

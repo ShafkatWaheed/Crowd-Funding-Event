@@ -170,6 +170,7 @@ class _AdminMockTabState extends State<AdminMockTab> {
                   label: const Text('Clear All Mock Data'),
                   style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorColor, foregroundColor: Colors.white),
                   onPressed: () async {
+                    final admin = context.read<AdminProvider>();
                     final confirmed = await showDialog<bool>(
                       context: context,
                       builder: (ctx) => AlertDialog(
@@ -182,7 +183,7 @@ class _AdminMockTabState extends State<AdminMockTab> {
                       ),
                     );
                     if (confirmed == true) {
-                      await context.read<AdminProvider>().clearMockData();
+                      await admin.clearMockData();
                       _loadMockData();
                     }
                   },
@@ -208,6 +209,7 @@ class _AdminMockTabState extends State<AdminMockTab> {
                   icon: const Icon(Icons.restore, size: 18),
                   label: const Text('Reset to Defaults'),
                   onPressed: () async {
+                    final admin = context.read<AdminProvider>();
                     final confirmed = await showDialog<bool>(
                       context: context,
                       builder: (ctx) => AlertDialog(
@@ -220,7 +222,7 @@ class _AdminMockTabState extends State<AdminMockTab> {
                       ),
                     );
                     if (confirmed == true) {
-                      await context.read<AdminProvider>().resetMockDefaults();
+                      await admin.resetMockDefaults();
                       widget.onSettingsReload?.call();
                       _loadMockData();
                       if (mounted) widget.onSnack('Mock settings reset to defaults');

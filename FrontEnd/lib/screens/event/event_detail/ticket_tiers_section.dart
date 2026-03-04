@@ -342,9 +342,9 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
     int configMax = 10;
     try {
       final cfg = await eventRepo.getPublicConfig();
-      final feEnabled = cfg['max_tickets_frontend_enabled'] == true;
+      final feEnabled = cfg.maxTicketsFrontendEnabled;
       if (feEnabled) {
-        configMax = (cfg['max_tickets_per_purchase'] as num?)?.toInt() ?? 10;
+        configMax = cfg.maxTicketsPerPurchase;
       } else {
         configMax = 999;
       }

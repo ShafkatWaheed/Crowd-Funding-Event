@@ -74,10 +74,10 @@ class UserProvider extends ChangeNotifier {
           String filePath, String documentType) =>
       _repo.uploadKycDocument(filePath, documentType);
 
-  Future<Map<String, dynamic>> deleteKycDocument(int documentId) =>
+  Future<void> deleteKycDocument(int documentId) =>
       _repo.deleteKycDocument(documentId);
 
-  Future<Map<String, dynamic>> submitKyc() => _repo.submitKyc();
+  Future<KycSubmitResult> submitKyc() => _repo.submitKyc();
 
   Future<List<KycPendingUser>> adminGetKycPending() =>
       _repo.adminGetKycPending();
@@ -85,7 +85,7 @@ class UserProvider extends ChangeNotifier {
   Future<List<KycDocument>> adminGetUserKycDocuments(int userId) =>
       _repo.adminGetUserKycDocuments(userId);
 
-  Future<Map<String, dynamic>> adminVerifyKyc(
+  Future<KycVerifyResult> adminVerifyKyc(
     int userId, {
     required bool approved,
     String? rejectionReason,

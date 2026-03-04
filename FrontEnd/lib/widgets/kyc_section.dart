@@ -106,7 +106,7 @@ class _KycSectionState extends State<KycSection> {
     try {
       final resp = await context.read<UserProvider>().submitKyc();
       await _loadKycStatus();
-      if (mounted) AppToast.success(context, resp['message'] ?? 'Submitted');
+      if (mounted) AppToast.success(context, resp.message ?? 'Submitted');
     } catch (e) {
       if (mounted) AppToast.fromError(context, e, fallback: 'Submit failed');
     } finally {

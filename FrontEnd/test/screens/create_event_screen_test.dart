@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
+import '../../lib/models/event.dart';
 import '../../lib/models/user.dart';
 import '../../lib/providers/auth_provider.dart';
 import '../../lib/repositories/event_repository.dart';
@@ -52,9 +53,8 @@ void main() {
     when(() => mockTicketRepo.getDiscountStrategies()).thenAnswer((_) async => []);
     when(() => mockSponsorRepo.getSponsorCategoryTemplates())
         .thenAnswer((_) async => []);
-    when(() => mockEventRepo.getPublicConfig()).thenAnswer((_) async => {
-          'feature_community_rules_enabled': true,
-        });
+    when(() => mockEventRepo.getPublicConfig()).thenAnswer((_) async =>
+        PublicConfig(featureCommunityRulesEnabled: true));
   });
 
   Future<void> pumpCreateEvent(WidgetTester tester) async {

@@ -213,3 +213,31 @@ class TierReservationInput {
 
   Map<String, dynamic> toJson() => {'tier_id': tierId, 'spots': spots};
 }
+
+class UnpledgeResult {
+  final int refundedCents;
+  final int guestNonRefundableCents;
+  final String status;
+  final int unpledgedAmountCents;
+  final int remainingPledges;
+  final bool refundInitiated;
+
+  UnpledgeResult({
+    this.refundedCents = 0,
+    this.guestNonRefundableCents = 0,
+    this.status = 'completed',
+    this.unpledgedAmountCents = 0,
+    this.remainingPledges = 0,
+    this.refundInitiated = false,
+  });
+
+  factory UnpledgeResult.fromJson(Map<String, dynamic> json) =>
+      UnpledgeResult(
+        refundedCents: (json['refunded_cents'] as int?) ?? 0,
+        guestNonRefundableCents: (json['guest_non_refundable_cents'] as int?) ?? 0,
+        status: (json['status'] as String?) ?? 'completed',
+        unpledgedAmountCents: (json['unpledged_amount_cents'] as int?) ?? 0,
+        remainingPledges: (json['remaining_pledges'] as int?) ?? 0,
+        refundInitiated: (json['refund_initiated'] as bool?) ?? false,
+      );
+}

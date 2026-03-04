@@ -561,9 +561,7 @@ class _TicketTierManagementState extends State<TicketTierManagement> {
               if (newCap == null || newCap < 1) return;
               try {
                 final repo = context.read<EventProvider>();
-                await repo.updateEvent(widget.event.id, {
-                  'max_capacity': newCap,
-                });
+                await repo.updateEvent(widget.event.id, EventUpdateRequest(maxCapacity: newCap));
                 if (ctx.mounted) Navigator.pop(ctx, true);
               } catch (e) {
                 if (ctx.mounted) {

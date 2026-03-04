@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import '../../lib/models/event.dart';
 import '../../lib/models/payment.dart';
 import '../../lib/providers/config_provider.dart';
 import '../../lib/repositories/payment_repository.dart';
@@ -31,14 +32,15 @@ void main() {
     });
 
     test('fetchConfig success updates values', () async {
-      when(() => mockRepo.getPublicConfig()).thenAnswer((_) async => {
-            'max_tickets_per_purchase': 5,
-            'max_tickets_frontend_enabled': true,
-            'feature_milestones_enabled': false,
-            'feature_schedule_enabled': true,
-            'feature_sponsors_enabled': false,
-            'feature_community_rules_enabled': true,
-          });
+      when(() => mockRepo.getPublicConfig()).thenAnswer((_) async =>
+          PublicConfig(
+            maxTicketsPerPurchase: 5,
+            maxTicketsFrontendEnabled: true,
+            featureMilestonesEnabled: false,
+            featureScheduleEnabled: true,
+            featureSponsorsEnabled: false,
+            featureCommunityRulesEnabled: true,
+          ));
       when(() => mockPaymentRepo.getStripeConfig()).thenAnswer(
           (_) async => StripeConfig(stripeEnabled: true, publishableKey: 'pk_test'));
 
@@ -64,10 +66,8 @@ void main() {
     });
 
     test('fetchConfig with partial data uses defaults for missing keys', () async {
-      when(() => mockRepo.getPublicConfig()).thenAnswer((_) async => {
-            'max_tickets_per_purchase': 3,
-            // Other keys missing
-          });
+      when(() => mockRepo.getPublicConfig()).thenAnswer((_) async =>
+          PublicConfig(maxTicketsPerPurchase: 3));
       when(() => mockPaymentRepo.getStripeConfig()).thenAnswer(
           (_) async => StripeConfig(stripeEnabled: false));
 

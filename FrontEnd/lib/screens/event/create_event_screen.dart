@@ -167,15 +167,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       final repo = context.read<EventProvider>();
       final config = await repo.getPublicConfig();
       if (mounted) { setState(() {
-        _communityRulesFeatureEnabled = config['feature_community_rules_enabled'] == true;
+        _communityRulesFeatureEnabled = config.featureCommunityRulesEnabled;
         if (!_communityRulesFeatureEnabled) { _communityRules = false; }
-        _platformLimits = {
-          for (final key in [
-            'waitlist_max_size_limit', 'event_max_images_limit',
-            'max_posts_per_event_limit', 'max_co_organizers_limit',
-          ])
-            if (config[key] is int) key: config[key] as int,
-        };
+        _platformLimits = config.platformLimits;
       }); }
     } catch (e) { debugPrint(e.toString()); }
   }

@@ -52,9 +52,9 @@ class FundingRepository extends BaseRepository {
     return Pledge.fromJson(Map<String, dynamic>.from(r.data as Map));
   }
 
-  Future<Map<String, dynamic>> unpledge(int eventId) async {
+  Future<UnpledgeResult> unpledge(int eventId) async {
     final r = await dio.post('/events/$eventId/unpledge', data: {});
-    return Map<String, dynamic>.from(r.data as Map);
+    return UnpledgeResult.fromJson(Map<String, dynamic>.from(r.data as Map));
   }
 
   Future<PledgeReceipt> getPledgeReceipt(int eventId, int pledgeId) async {

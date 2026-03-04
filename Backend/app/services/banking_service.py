@@ -1,8 +1,8 @@
 """
 Banking service: business logic for payment info, bank accounts,
-email templates, and disputes. Extracted from banking route.
+email templates, disputes, and banking overview aggregation.
 """
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,12 +14,125 @@ from app.models.notification import NotificationType
 from app.models.payment_info import BankVerificationStatus, OrganizerBankAccount, UserPaymentInfo
 from app.repositories.banking_repo import banking_repo
 from app.repositories.email_template_repo import email_template_repo
+from app.schemas.banking import BankingOverviewResponse
 from app.services import audit as audit_svc
 from app.services import encryption as enc
+from app.services import ledger as ledger_svc
 from app.services import notification_service as notif_svc
 from app.services import platform_settings as settings_svc
 
 logger = get_logger("service.banking")
+
+
+# ═══════════════════════════════════════════
+#  Banking Overview Aggregation
+# ═══════════════════════════════════════════
+
+async def get_overview(
+    db: AsyncSession,
+    period: str = "30d",
+) -> BankingOverviewResponse:
+    """Aggregate financial data for the admin banking dashboard."""
+    period_map = {"7d": 7, "30d": 30, "90d": 90, "1y": 365}
+    delta_days = period_map.get(period, 30)
+
+    mock_active = await settings_svc.get_bool(db, "payment_mock_enabled")
+    platform_configured = await settings_svc.get_bool(db, "platform_holding_configured")
+
+    platform_inst: str | None = None
+    platform_transit: str | None = None
+    platform_last_four: str | None = None
+    if platform_configured:
+        raw_inst = await settings_svc.get_str(db, "platform_holding_institution_number")
+        raw_transit = await settings_svc.get_str(db, "platform_holding_transit_number")
+        raw_acct = await settings_svc.get_str(db, "platform_holding_account_number")
+        if raw_inst:
+            try:
+                platform_inst = enc.decrypt(raw_inst)
+            except Exception:
+                platform_inst = raw_inst
+        if raw_transit:
+            try:
+                platform_transit = enc.decrypt(raw_transit)
+            except Exception:
+                platform_transit = raw_transit
+        if raw_acct:
+            try:
+                platform_last_four = enc.decrypt(raw_acct)[-4:]
+            except Exception:
+                platform_last_four = raw_acct[-4:] if raw_acct else None
+
+    # Escrow aggregates
+    fe = await banking_repo.get_fund_escrow_aggregates(db)
+    te = await banking_repo.get_ticket_escrow_aggregates(db)
+    se = await banking_repo.get_sponsor_escrow_aggregates(db)
+
+    # Commission & tax totals from ledger
+    commission_total = abs(await ledger_svc.get_account_balance(db, "platform_commission"))
+    tax_total = abs(await ledger_svc.get_account_balance(db, "tax_collected"))
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=delta_days)
+
+    # Commission breakdown by source within period
+    source_rows = await banking_repo.get_commission_by_source(db, cutoff)
+    commission_by_source = {"ticket": 0, "funding": 0, "sponsor": 0}
+    commission_period_cents = 0
+    for desc, amt in source_rows:
+        amt_int = int(amt)
+        commission_period_cents += amt_int
+        desc_lower = (desc or "").lower()
+        if "ticket" in desc_lower:
+            commission_by_source["ticket"] += amt_int
+        elif "pledge" in desc_lower or "fund" in desc_lower:
+            commission_by_source["funding"] += amt_int
+        elif "sponsor" in desc_lower:
+            commission_by_source["sponsor"] += amt_int
+        else:
+            commission_by_source["ticket"] += amt_int
+
+    tax_collected_period_cents = await banking_repo.get_tax_collected_in_period(db, cutoff)
+    disputes = await banking_repo.get_open_dispute_stats(db)
+    last_recon = await banking_repo.get_latest_reconciliation(db)
+
+    # Payout summary
+    payout_pending_total = int(fe[1]) + int(te[1]) + int(se[1])
+    payout_pending_count = await banking_repo.get_payout_pending_organizer_count(db)
+
+    txn_counts = await banking_repo.get_txn_status_counts(db)
+
+    return BankingOverviewResponse(
+        platform_account_configured=platform_configured,
+        platform_account_institution=platform_inst,
+        platform_account_transit=platform_transit,
+        platform_account_last_four=platform_last_four,
+        fund_escrow_total_held_cents=int(fe[0]),
+        fund_escrow_total_released_cents=int(fe[1]),
+        fund_escrow_active_count=int(fe[2]),
+        ticket_escrow_total_held_cents=int(te[0]),
+        ticket_escrow_total_released_cents=int(te[1]),
+        ticket_escrow_active_count=int(te[2]),
+        sponsor_escrow_total_held_cents=int(se[0]),
+        sponsor_escrow_total_released_cents=int(se[1]),
+        sponsor_escrow_active_count=int(se[2]),
+        commission_total_cents=commission_total,
+        commission_period_cents=commission_period_cents,
+        commission_by_source=commission_by_source,
+        tax_collected_total_cents=tax_total,
+        tax_collected_period_cents=tax_collected_period_cents,
+        disputes_open_count=int(disputes[0]),
+        disputes_total_amount_cents=int(disputes[1]),
+        payout_pending_count=payout_pending_count,
+        payout_pending_total_cents=payout_pending_total,
+        transaction_total_count=txn_counts["total"],
+        transaction_settled_count=txn_counts["settled"],
+        transaction_pending_count=txn_counts["pending"],
+        transaction_failed_count=txn_counts["failed"],
+        last_reconciliation_status=last_recon.status if last_recon else None,
+        last_reconciliation_delta_cents=last_recon.delta_cents if last_recon else 0,
+        mock_mode_active=mock_active,
+        stripe_enabled=await settings_svc.get_bool(db, "stripe_enabled"),
+        stripe_connect_enabled=await settings_svc.get_bool(db, "stripe_connect_enabled"),
+    )
 
 
 # ═══════════════════════════════════════════

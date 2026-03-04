@@ -556,7 +556,7 @@ class ScheduleMilestoneDialogs {
     final benefitCtrl = TextEditingController(text: existing?.benefitDescription ?? '');
     int unlockPercent = existing?.unlockPercent ?? 50;
 
-    final result = await showDialog<Map<String, dynamic>>(
+    final result = await showDialog<MilestoneRequest>(
       context: parentCtx,
       builder: (ctx) {
         return StatefulBuilder(builder: (ctx, setDlgState) {
@@ -600,11 +600,11 @@ class ScheduleMilestoneDialogs {
               ElevatedButton(
                 onPressed: () {
                   if (titleCtrl.text.trim().isEmpty) return;
-                  Navigator.pop(ctx, {
-                    'title': titleCtrl.text.trim(),
-                    'benefit': benefitCtrl.text.trim(),
-                    'unlock_percent': unlockPercent,
-                  });
+                  Navigator.pop(ctx, MilestoneRequest(
+                    title: titleCtrl.text.trim(),
+                    benefitDescription: benefitCtrl.text.trim(),
+                    unlockPercent: unlockPercent,
+                  ));
                 },
                 child: const Text('Save'),
               ),
@@ -645,7 +645,7 @@ class ScheduleMilestoneDialogs {
     );
     DateTime? pickedDeadline;
 
-    final result = await showDialog<Map<String, dynamic>>(
+    final result = await showDialog<ExtendFundingInput>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
@@ -726,18 +726,12 @@ class ScheduleMilestoneDialogs {
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
             FilledButton(
               onPressed: () {
-                final data = <String, dynamic>{};
-                if (fundingEndCtrl.text.trim().isNotEmpty) {
-                  data['funding_end_at'] = fundingEndCtrl.text.trim();
-                }
                 final goalText = goalCtrl.text.trim();
-                if (goalText.isNotEmpty) {
-                  final parsed = double.tryParse(goalText);
-                  if (parsed != null && parsed > 0) {
-                    data['funding_goal_cents'] = (parsed * 100).toInt();
-                  }
-                }
-                Navigator.pop(ctx, data);
+                final parsed = goalText.isNotEmpty ? double.tryParse(goalText) : null;
+                Navigator.pop(ctx, ExtendFundingInput(
+                  fundingEndAt: fundingEndCtrl.text.trim().isNotEmpty ? fundingEndCtrl.text.trim() : null,
+                  fundingGoalCents: goalText.isNotEmpty && parsed != null && parsed > 0 ? (parsed * 100).toInt() : null,
+                ));
               },
               child: const Text('Submit Request'),
             ),
@@ -774,7 +768,7 @@ class ScheduleMilestoneDialogs {
     DateTime? pickedEnd;
 
     if (!context.mounted) return;
-    final result = await showDialog<Map<String, dynamic>>(
+    final result = await showDialog<SetEventDateInput>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {
@@ -910,11 +904,10 @@ class ScheduleMilestoneDialogs {
               FilledButton(
                 onPressed: canSubmit
                     ? () {
-                        final data = <String, dynamic>{
-                          'start_time': pickedStart!.toIso8601String(),
-                          'end_time': pickedEnd!.toIso8601String(),
-                        };
-                        Navigator.pop(ctx, data);
+                        Navigator.pop(ctx, SetEventDateInput(
+                          startTime: pickedStart!.toIso8601String(),
+                          endTime: pickedEnd!.toIso8601String(),
+                        ));
                       }
                     : null,
                 child: const Text('Set Date'),
@@ -924,7 +917,7 @@ class ScheduleMilestoneDialogs {
         },
       ),
     );
-    if (result == null || result.isEmpty) return;
+    if (result == null) return;
     try {
       await api.setEventDate(event.id, result);
       if (context.mounted) {

@@ -18,7 +18,7 @@ void main() {
       expect(n.type, 'event_approved');
       expect(n.title, 'Event Approved');
       expect(n.message, 'Your event has been approved!');
-      expect(n.data['event_id'], 5);
+      expect(n.data.eventId, 5);
       expect(n.isRead, false);
       expect(n.createdAt, DateTime.parse('2025-03-01T12:00:00'));
     });
@@ -31,7 +31,9 @@ void main() {
       expect(n.type, '');
       expect(n.title, '');
       expect(n.message, '');
-      expect(n.data, isEmpty);
+      expect(n.data, isA<NotificationPayload>());
+      expect(n.data.type, '');
+      expect(n.data.eventId, isNull);
       expect(n.isRead, false);
     });
 

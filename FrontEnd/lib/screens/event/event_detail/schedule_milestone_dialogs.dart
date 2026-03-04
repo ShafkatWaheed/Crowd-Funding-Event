@@ -18,29 +18,15 @@ class ScheduleMilestoneDialogs {
   // Flatten schedule day-groups into a sorted flat list
   // ═══════════════════════════════════════════
 
-  static List<Map<String, dynamic>> flattenScheduleDays(List<ScheduleDay> dayGroups) {
-    final flat = <Map<String, dynamic>>[];
+  static List<ScheduleItem> flattenScheduleDays(List<ScheduleDay> dayGroups) {
+    final flat = <ScheduleItem>[];
     for (final group in dayGroups) {
-      for (final item in group.items) {
-        flat.add({
-          'id': item.id,
-          'event_id': item.eventId,
-          'date': item.date,
-          'start_time': item.startTime,
-          'end_time': item.endTime,
-          'title': item.title,
-          'description': item.description,
-          'image_url': item.imageUrl,
-          'image_caption': item.imageCaption,
-          'link_url': item.linkUrl,
-          'sort_order': item.sortOrder,
-        });
-      }
+      flat.addAll(group.items);
     }
     flat.sort((a, b) {
-      final dc = (a['date'] ?? '').compareTo(b['date'] ?? '');
+      final dc = a.date.compareTo(b.date);
       if (dc != 0) return dc;
-      return (a['start_time'] ?? '').compareTo(b['start_time'] ?? '');
+      return a.startTime.compareTo(b.startTime);
     });
     return flat;
   }
@@ -53,7 +39,7 @@ class ScheduleMilestoneDialogs {
     BuildContext context, Event event, VoidCallback onRefresh,
   ) async {
     final api = context.read<EventProvider>();
-    List<Map<String, dynamic>> items = [];
+    List<ScheduleItem> items = [];
     bool loading = true;
 
     final eventStart = event.startTime;
@@ -122,7 +108,7 @@ class ScheduleMilestoneDialogs {
                         IconButton(
                           icon: Icon(Icons.add_circle_rounded, color: AppTheme.accentColor, size: 28),
                           onPressed: () => showScheduleItemEditor(ctx, api, event, null, (newItem) {
-                            setSheetState(() => items.add(Map<String, dynamic>.from(newItem)));
+                            setSheetState(() => items.add(newItem));
                             onRefresh();
                           }),
                         ),
@@ -155,18 +141,18 @@ class ScheduleMilestoneDialogs {
                                             child: Column(
                                               crossAxisAlignment: CrossAxisAlignment.start,
                                               children: [
-                                                Text(item['title'] ?? '',
+                                                Text(item.title,
                                                     style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14,
                                                         color: AppTheme.textPrimaryOf(ctx))),
                                                 AppSpacing.vXs,
                                                 Text(
-                                                  '${item['date'] ?? ''} • ${item['start_time'] ?? ''} – ${item['end_time'] ?? ''}',
+                                                  '${item.date} • ${item.startTime} – ${item.endTime}',
                                                   style: TextStyle(fontSize: 12, color: AppTheme.accentColor),
                                                 ),
-                                                if (item['description'] != null && (item['description'] as String).isNotEmpty)
+                                                if (item.description != null && item.description!.isNotEmpty)
                                                   Padding(
                                                     padding: EdgeInsets.only(top: AppSpacing.xs),
-                                                    child: Text(item['description'],
+                                                    child: Text(item.description!,
                                                         style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(ctx))),
                                                   ),
                                               ],
@@ -175,7 +161,7 @@ class ScheduleMilestoneDialogs {
                                           IconButton(
                                             icon: Icon(Icons.edit_rounded, size: 18, color: AppTheme.accentColor),
                                             onPressed: () => showScheduleItemEditor(ctx, api, event, item, (updated) {
-                                              setSheetState(() => items[i] = Map<String, dynamic>.from(updated));
+                                              setSheetState(() => items[i] = updated);
                                               onRefresh();
                                             }),
                                           ),
@@ -183,7 +169,7 @@ class ScheduleMilestoneDialogs {
                                             icon: Icon(Icons.delete_rounded, size: AppIconSize.sm, color: AppTheme.errorColor),
                                             onPressed: () async {
                                               try {
-                                                await api.deleteScheduleItem(event.id, item['id']);
+                                                await api.deleteScheduleItem(event.id, item.id);
                                                 setSheetState(() => items.removeAt(i));
                                                 onRefresh();
                                               } catch (e) {
@@ -213,10 +199,10 @@ class ScheduleMilestoneDialogs {
 
   static Future<void> showScheduleItemEditor(
     BuildContext parentCtx, EventProvider api, Event event,
-    Map<String, dynamic>? existing, Function(Map<String, dynamic>) onSaved,
+    ScheduleItem? existing, Function(ScheduleItem) onSaved,
   ) async {
-    final titleCtrl = TextEditingController(text: existing?['title'] ?? '');
-    final descCtrl = TextEditingController(text: existing?['description'] ?? '');
+    final titleCtrl = TextEditingController(text: existing?.title ?? '');
+    final descCtrl = TextEditingController(text: existing?.description ?? '');
 
     final eventStart = event.startTime;
     final eventEnd = event.endTime;
@@ -230,11 +216,11 @@ class ScheduleMilestoneDialogs {
     bool saving = false;
 
     if (existing != null) {
-      try { date = DateTime.parse(existing['date']); } catch (e) { debugPrint(e.toString()); }
+      try { date = DateTime.parse(existing.date); } catch (e) { debugPrint(e.toString()); }
       try {
-        final sp = (existing['start_time'] as String).split(':');
+        final sp = existing.startTime.split(':');
         startTime = TimeOfDay(hour: int.parse(sp[0]), minute: int.parse(sp[1]));
-        final ep = (existing['end_time'] as String).split(':');
+        final ep = existing.endTime.split(':');
         endTime = TimeOfDay(hour: int.parse(ep[0]), minute: int.parse(ep[1]));
       } catch (e) { debugPrint(e.toString()); }
     }
@@ -376,24 +362,12 @@ class ScheduleMilestoneDialogs {
                   };
                   try {
                     final ScheduleItem item;
-                    if (existing != null && existing['id'] != null) {
-                      item = await api.updateScheduleItem(event.id, existing['id'], payload);
+                    if (existing != null) {
+                      item = await api.updateScheduleItem(event.id, existing.id, payload);
                     } else {
                       item = await api.createScheduleItem(event.id, payload);
                     }
-                    onSaved({
-                      'id': item.id,
-                      'event_id': item.eventId,
-                      'date': item.date,
-                      'start_time': item.startTime,
-                      'end_time': item.endTime,
-                      'title': item.title,
-                      'description': item.description,
-                      'image_url': item.imageUrl,
-                      'image_caption': item.imageCaption,
-                      'link_url': item.linkUrl,
-                      'sort_order': item.sortOrder,
-                    });
+                    onSaved(item);
                     if (ctx.mounted) Navigator.pop(ctx);
                     if (parentCtx.mounted) AppToast.success(parentCtx, existing != null ? 'Session updated' : 'Session added');
                   } catch (e) {
@@ -424,7 +398,7 @@ class ScheduleMilestoneDialogs {
     BuildContext context, Event event, VoidCallback onRefresh,
   ) async {
     final api = context.read<EventProvider>();
-    List<Map<String, dynamic>> items = [];
+    List<FundingMilestone> items = [];
     bool loading = true;
 
     await showModalBottomSheet(
@@ -438,18 +412,7 @@ class ScheduleMilestoneDialogs {
           if (loading) {
             api.getMilestones(event.id).then((list) {
               setSheetState(() {
-                items = list.map((m) => {
-                  'id': m.id,
-                  'event_id': m.eventId,
-                  'title': m.title,
-                  'description': m.description,
-                  'unlock_percent': m.unlockPercent,
-                  'benefit': m.benefitDescription,
-                  'sort_order': m.sortOrder,
-                  'like_count': m.likeCount,
-                  'dislike_count': m.dislikeCount,
-                  'is_unlocked': m.isUnlocked,
-                }).toList();
+                items = list;
                 loading = false;
               });
             }).catchError((_) {
@@ -525,7 +488,7 @@ class ScheduleMilestoneDialogs {
                                               borderRadius: AppRadius.sm,
                                             ),
                                             child: Center(
-                                              child: Text('${item['unlock_percent'] ?? 0}%',
+                                              child: Text('${item.unlockPercent}%',
                                                   style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: ctx.fundingAccent)),
                                             ),
                                           ),
@@ -534,13 +497,13 @@ class ScheduleMilestoneDialogs {
                                             child: Column(
                                               crossAxisAlignment: CrossAxisAlignment.start,
                                               children: [
-                                                Text(item['title'] ?? '',
+                                                Text(item.title,
                                                     style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14,
                                                         color: AppTheme.textPrimaryOf(ctx))),
-                                                if (item['benefit'] != null && (item['benefit'] as String).isNotEmpty)
+                                                if (item.benefitDescription != null && item.benefitDescription!.isNotEmpty)
                                                   Padding(
                                                     padding: EdgeInsets.only(top: AppSpacing.xs),
-                                                    child: Text(item['benefit'],
+                                                    child: Text(item.benefitDescription!,
                                                         style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(ctx))),
                                                   ),
                                               ],
@@ -557,7 +520,7 @@ class ScheduleMilestoneDialogs {
                                             icon: Icon(Icons.delete_rounded, size: AppIconSize.sm, color: AppTheme.errorColor),
                                             onPressed: () async {
                                               try {
-                                                await api.deleteMilestone(event.id, item['id']);
+                                                await api.deleteMilestone(event.id, item.id);
                                                 setSheetState(() => items.removeAt(i));
                                                 onRefresh();
                                               } catch (e) {
@@ -587,11 +550,11 @@ class ScheduleMilestoneDialogs {
 
   static Future<void> showMilestoneEditor(
     BuildContext parentCtx, EventProvider api, int eventId,
-    Map<String, dynamic>? existing, Function(Map<String, dynamic>) onSaved,
+    FundingMilestone? existing, Function(FundingMilestone) onSaved,
   ) async {
-    final titleCtrl = TextEditingController(text: existing?['title'] ?? '');
-    final benefitCtrl = TextEditingController(text: existing?['benefit'] ?? '');
-    int unlockPercent = existing?['unlock_percent'] ?? 50;
+    final titleCtrl = TextEditingController(text: existing?.title ?? '');
+    final benefitCtrl = TextEditingController(text: existing?.benefitDescription ?? '');
+    int unlockPercent = existing?.unlockPercent ?? 50;
 
     final result = await showDialog<Map<String, dynamic>>(
       context: parentCtx,
@@ -654,23 +617,12 @@ class ScheduleMilestoneDialogs {
     if (result != null) {
       try {
         final FundingMilestone ms;
-        if (existing != null && existing['id'] != null) {
-          ms = await api.updateMilestone(eventId, existing['id'], result);
+        if (existing != null) {
+          ms = await api.updateMilestone(eventId, existing.id, result);
         } else {
           ms = await api.createMilestone(eventId, result);
         }
-        onSaved({
-          'id': ms.id,
-          'event_id': ms.eventId,
-          'title': ms.title,
-          'description': ms.description,
-          'unlock_percent': ms.unlockPercent,
-          'benefit': ms.benefitDescription,
-          'sort_order': ms.sortOrder,
-          'like_count': ms.likeCount,
-          'dislike_count': ms.dislikeCount,
-          'is_unlocked': ms.isUnlocked,
-        });
+        onSaved(ms);
         if (parentCtx.mounted) AppToast.success(parentCtx, existing != null ? 'Milestone updated' : 'Milestone added');
       } catch (e) {
         if (parentCtx.mounted) AppToast.fromError(parentCtx, e, fallback: 'Failed to save milestone');

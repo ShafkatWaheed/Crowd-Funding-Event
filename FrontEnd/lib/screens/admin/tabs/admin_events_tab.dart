@@ -572,9 +572,9 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
                 const SizedBox(height: 6),
                 ...reviewLog.map((entry) {
                   final actor =
-                      entry['actor'] == 'system' ? '[sys]' : '[admin]';
-                  final ts = entry['timestamp'] as String? ?? '';
-                  final msg = entry['message'] ?? '';
+                      entry.actor == 'system' ? '[sys]' : '[admin]';
+                  final ts = entry.timestamp ?? '';
+                  final msg = entry.message ?? '';
                   final formatted = formatIsoDate(ts);
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 6),
@@ -586,7 +586,7 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
-                            color: entry['actor'] == 'system'
+                            color: entry.actor == 'system'
                                 ? AppTheme.warningOf(context)
                                 : AppTheme.accentOf(context),
                           ),
@@ -719,9 +719,9 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
   }
 
   Widget _cancellationCard(AdminEventItem e) {
-    final cancel = e.pendingCancellation ?? {};
-    final reason = cancel['reason'] ?? 'No reason given';
-    final pct = cancel['pledge_percent'];
+    final cancel = e.pendingCancellation;
+    final reason = cancel?.reason ?? 'No reason given';
+    final pct = cancel?.pledgePercent;
     final contextLabel = pct != null
         ? '$pct% funded — cancellation requires approval'
         : 'Cancellation requires admin approval';
@@ -836,14 +836,14 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
               ),
               if (ext != null) ...[
                 const SizedBox(height: 6),
-                if (ext['funding_end_at'] != null)
+                if (ext.fundingEndAt != null)
                   Text(
-                    'New funding deadline: ${formatIsoDate(ext['funding_end_at'])}',
+                    'New funding deadline: ${formatIsoDate(ext.fundingEndAt)}',
                     style: const TextStyle(fontSize: 13),
                   ),
-                if (ext['funding_goal_cents'] != null)
+                if (ext.fundingGoalCents != null)
                   Text(
-                    'New funding goal: \$${((ext['funding_goal_cents'] as int) / 100).toStringAsFixed(2)}',
+                    'New funding goal: \$${(ext.fundingGoalCents! / 100).toStringAsFixed(2)}',
                     style: const TextStyle(fontSize: 13),
                   ),
               ],

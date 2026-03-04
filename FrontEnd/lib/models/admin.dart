@@ -1,3 +1,5 @@
+import 'event.dart';
+
 // ─── Generic Paginated Wrapper ───
 
 class AdminPage<T> {
@@ -196,9 +198,9 @@ class AdminUserEvent {
   final int? userDonationCount;
   final int? userDonationTotalCents;
   final String? reviewNotes;
-  final List<Map<String, dynamic>> reviewLog;
-  final Map<String, dynamic>? pendingCancellation;
-  final Map<String, dynamic>? pendingExtension;
+  final List<ReviewLogEntry> reviewLog;
+  final PendingCancellation? pendingCancellation;
+  final PendingExtension? pendingExtension;
   final List<String> validationWarnings;
 
   AdminUserEvent({
@@ -271,14 +273,14 @@ class AdminUserEvent {
         userDonationTotalCents: json['user_donation_total_cents'] as int?,
         reviewNotes: json['review_notes'] as String?,
         reviewLog: (json['review_log'] as List?)
-                ?.map((e) => Map<String, dynamic>.from(e as Map))
+                ?.map((e) => ReviewLogEntry.fromJson(Map<String, dynamic>.from(e as Map)))
                 .toList() ??
             [],
         pendingCancellation: json['pending_cancellation'] != null
-            ? Map<String, dynamic>.from(json['pending_cancellation'] as Map)
+            ? PendingCancellation.fromJson(Map<String, dynamic>.from(json['pending_cancellation'] as Map))
             : null,
         pendingExtension: json['pending_extension'] != null
-            ? Map<String, dynamic>.from(json['pending_extension'] as Map)
+            ? PendingExtension.fromJson(Map<String, dynamic>.from(json['pending_extension'] as Map))
             : null,
         validationWarnings: (json['validation_warnings'] as List?)
                 ?.map((w) => w.toString())
@@ -481,10 +483,10 @@ class AdminEventItem {
   final int? maxCapacity;
   final int? fundingGoalCents;
   final String? reviewNotes;
-  final List<Map<String, dynamic>> reviewLog;
+  final List<ReviewLogEntry> reviewLog;
   final String? cancellationReason;
-  final Map<String, dynamic>? pendingExtension;
-  final Map<String, dynamic>? pendingCancellation;
+  final PendingExtension? pendingExtension;
+  final PendingCancellation? pendingCancellation;
   final String? createdAt;
   final String? startTime;
   final String? endTime;
@@ -519,15 +521,15 @@ class AdminEventItem {
         fundingGoalCents: json['funding_goal_cents'] as int?,
         reviewNotes: json['review_notes'] as String?,
         reviewLog: (json['review_log'] as List?)
-                ?.map((e) => Map<String, dynamic>.from(e as Map))
+                ?.map((e) => ReviewLogEntry.fromJson(Map<String, dynamic>.from(e as Map)))
                 .toList() ??
             [],
         cancellationReason: json['cancellation_reason'] as String?,
         pendingExtension: json['pending_extension'] != null
-            ? Map<String, dynamic>.from(json['pending_extension'] as Map)
+            ? PendingExtension.fromJson(Map<String, dynamic>.from(json['pending_extension'] as Map))
             : null,
         pendingCancellation: json['pending_cancellation'] != null
-            ? Map<String, dynamic>.from(json['pending_cancellation'] as Map)
+            ? PendingCancellation.fromJson(Map<String, dynamic>.from(json['pending_cancellation'] as Map))
             : null,
         createdAt: json['created_at'] as String?,
         startTime: json['start_time'] as String?,

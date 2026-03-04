@@ -438,7 +438,10 @@ class _FundingCardState extends State<FundingCard> {
                   final reservations = isTierLinked
                       ? tierSpots.entries
                           .where((e) => e.value > 0)
-                          .map((e) => {'tier_id': e.key, 'spots': e.value})
+                          .map((e) {
+                            final ta = tierAvailability.firstWhere((t) => t.tierId == e.key);
+                            return TierReservationInput(tierId: e.key, tierName: ta.tierName, spots: e.value);
+                          })
                           .toList()
                       : null;
                   _showPledgeInvoice(
@@ -458,7 +461,7 @@ class _FundingCardState extends State<FundingCard> {
 
   // ── Step 2: Pledge invoice ──
   Future<void> _showPledgeInvoice(int amountCents, int reservedSpots,
-      {List<Map<String, dynamic>>? tierReservations}) async {
+      {List<TierReservationInput>? tierReservations}) async {
     PledgePreview? preview;
     bool loadingPreview = true;
     String? previewError;
@@ -513,9 +516,8 @@ class _FundingCardState extends State<FundingCard> {
                   if (tierReservations != null && tierReservations.isNotEmpty) ...[
                     const Divider(height: 12),
                     ...tierReservations.map((tr) {
-                      final name = tr['tier_name'] ?? 'Tier #${tr['tier_id']}';
-                      final spots = tr['spots'] as int;
-                      return _invoiceRow('  $name', '$spots spot(s)', subtle: true);
+                      final name = tr.tierName ?? 'Tier #${tr.tierId}';
+                      return _invoiceRow('  $name', '${tr.spots} spot(s)', subtle: true);
                     }),
                   ],
                   const Divider(height: 20),
@@ -601,7 +603,7 @@ class _FundingCardState extends State<FundingCard> {
 
   // ── Step 3: Execute pledge and show receipt ──
   Future<void> _executePledge(int amountCents, int reservedSpots,
-      {List<Map<String, dynamic>>? tierReservations}) async {
+      {List<TierReservationInput>? tierReservations}) async {
     setState(() => _pledging = true);
     _showPaymentProcessing();
     try {

@@ -48,7 +48,6 @@ async def create_category(
         sort_order=data.sort_order,
     )
     cat = await sponsor_repo.create_category(db, cat)
-    await sponsor_repo.refresh(db, cat)
     return cat
 
 
@@ -63,7 +62,6 @@ async def update_category(
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(cat, field, value)
     cat = await sponsor_repo.update_category(db, cat)
-    await sponsor_repo.refresh(db, cat)
     return cat
 
 

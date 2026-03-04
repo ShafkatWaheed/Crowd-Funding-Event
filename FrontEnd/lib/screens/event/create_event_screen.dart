@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../models/discount.dart';
 import '../../models/event_form_models.dart';
 import '../../models/sponsor.dart';
 import '../../models/venue.dart';
@@ -114,7 +115,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   final _strategyNameCtrl = TextEditingController();
   final List<StrategyTierInput> _strategyTiers = [StrategyTierInput()];
 
-  List<Map<String, dynamic>> _discountStrategies = [];
+  List<DiscountStrategy> _discountStrategies = [];
   final Map<int, bool> _selectedDiscounts = {};
 
   final _parkingCtrl = TextEditingController();
@@ -199,7 +200,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     setState(() { _discountsLoading = true; _discountsError = null; });
     try {
       final data = await context.read<TicketProvider>().getDiscountStrategies();
-      if (mounted) setState(() { _discountStrategies = data.cast<Map<String, dynamic>>(); _discountsLoading = false; });
+      if (mounted) setState(() { _discountStrategies = data; _discountsLoading = false; });
     } catch (e) { if (mounted) setState(() { _discountsError = 'Failed to load discounts'; _discountsLoading = false; }); }
   }
 

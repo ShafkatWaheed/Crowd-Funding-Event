@@ -185,4 +185,23 @@ void main() {
       expect(rs.failedCount, 0);
     });
   });
+
+  group('TierReservationInput', () {
+    test('constructor and toJson', () {
+      final t = TierReservationInput(tierId: 3, tierName: 'VIP', spots: 2);
+      expect(t.tierId, 3);
+      expect(t.tierName, 'VIP');
+      expect(t.spots, 2);
+
+      final json = t.toJson();
+      expect(json['tier_id'], 3);
+      expect(json['spots'], 2);
+      expect(json.containsKey('tier_name'), false);
+    });
+
+    test('tierName nullable', () {
+      final t = TierReservationInput(tierId: 1, spots: 1);
+      expect(t.tierName, isNull);
+    });
+  });
 }

@@ -75,7 +75,7 @@ class AgeRestrictionBanner extends StatelessWidget {
 }
 
 class PendingCancellationBanner extends StatelessWidget {
-  final Map<String, dynamic> data;
+  final PendingCancellation data;
 
   const PendingCancellationBanner({super.key, required this.data});
 
@@ -114,16 +114,16 @@ class PendingCancellationBanner extends StatelessWidget {
                           color: context.fundingAccent)),
                   AppSpacing.vXs,
                   Text(
-                    data['pledge_percent'] != null
-                        ? '${data['pledge_percent']}% funded — admin must approve cancellation'
+                    data.pledgePercent != null
+                        ? '${data.pledgePercent}% funded — admin must approve cancellation'
                         : 'Organizer requested cancellation — awaiting admin review',
                     style: TextStyle(
                         fontSize: 13,
                         color: AppTheme.textSecondaryOf(context)),
                   ),
-                  if (data['reason'] != null) ...[
+                  if (data.reason != null) ...[
                     AppSpacing.vXs,
-                    Text('Reason: ${data['reason']}',
+                    Text('Reason: ${data.reason}',
                         style: TextStyle(
                             fontSize: 12,
                             color: AppTheme.textSecondaryOf(context),

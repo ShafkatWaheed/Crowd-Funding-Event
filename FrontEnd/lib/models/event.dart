@@ -51,8 +51,8 @@ class Event {
   final String? ticketStrategyName;
   final int likeCount;
   final int dislikeCount;
-  final Map<String, dynamic>? pendingExtension;
-  final Map<String, dynamic>? pendingCancellation;
+  final PendingExtension? pendingExtension;
+  final PendingCancellation? pendingCancellation;
   final double organizerTrustScore;
   final String organizerTrustLabel;
   final int organizerCompletedEvents;
@@ -194,10 +194,10 @@ class Event {
       likeCount: json['like_count'] ?? 0,
       dislikeCount: json['dislike_count'] ?? 0,
       pendingExtension: json['pending_extension'] != null
-          ? Map<String, dynamic>.from(json['pending_extension'])
+          ? PendingExtension.fromJson(Map<String, dynamic>.from(json['pending_extension'] as Map))
           : null,
       pendingCancellation: json['pending_cancellation'] != null
-          ? Map<String, dynamic>.from(json['pending_cancellation'])
+          ? PendingCancellation.fromJson(Map<String, dynamic>.from(json['pending_cancellation'] as Map))
           : null,
       organizerTrustScore: (json['organizer_trust']?['trust_score'] ?? 0.0).toDouble(),
       organizerTrustLabel: json['organizer_trust']?['label'] ?? 'New',
@@ -299,6 +299,61 @@ class Event {
       status == EventStatus.waiting_event_date ||
       status == EventStatus.selling_tickets ||
       status == EventStatus.live;
+}
+
+// ─── Event Metadata Models ───
+
+class PendingCancellation {
+  final String? reason;
+  final String? requestedAt;
+  final int? requestedBy;
+  final num? pledgePercent;
+
+  PendingCancellation({this.reason, this.requestedAt, this.requestedBy, this.pledgePercent});
+
+  factory PendingCancellation.fromJson(Map<String, dynamic> json) =>
+      PendingCancellation(
+        reason: json['reason'] as String?,
+        requestedAt: json['requested_at'] as String?,
+        requestedBy: json['requested_by'] as int?,
+        pledgePercent: json['pledge_percent'] as num?,
+      );
+}
+
+class PendingExtension {
+  final String? fundingEndAt;
+  final int? fundingGoalCents;
+  final String? startTime;
+  final String? endTime;
+
+  PendingExtension({this.fundingEndAt, this.fundingGoalCents, this.startTime, this.endTime});
+
+  factory PendingExtension.fromJson(Map<String, dynamic> json) =>
+      PendingExtension(
+        fundingEndAt: json['funding_end_at'] as String?,
+        fundingGoalCents: json['funding_goal_cents'] as int?,
+        startTime: json['start_time'] as String?,
+        endTime: json['end_time'] as String?,
+      );
+}
+
+class ReviewLogEntry {
+  final String actor;
+  final String? timestamp;
+  final String? action;
+  final String? message;
+  final String? notes;
+
+  ReviewLogEntry({required this.actor, this.timestamp, this.action, this.message, this.notes});
+
+  factory ReviewLogEntry.fromJson(Map<String, dynamic> json) =>
+      ReviewLogEntry(
+        actor: (json['actor'] as String?) ?? '',
+        timestamp: json['timestamp'] as String?,
+        action: json['action'] as String?,
+        message: json['message'] as String?,
+        notes: json['notes'] as String?,
+      );
 }
 
 class ReactionResult {

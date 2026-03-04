@@ -41,13 +41,13 @@ class FundingRepository extends BaseRepository {
     int eventId,
     int amountCents, {
     int reservedSpots = 0,
-    List<Map<String, dynamic>>? tierReservations,
+    List<TierReservationInput>? tierReservations,
   }) async {
     final body = <String, dynamic>{
       'amount_cents': amountCents,
       'reserved_spots': reservedSpots,
     };
-    if (tierReservations != null) body['tier_reservations'] = tierReservations;
+    if (tierReservations != null) body['tier_reservations'] = tierReservations.map((t) => t.toJson()).toList();
     final r = await dio.post('/events/$eventId/pledge', data: body);
     return Pledge.fromJson(Map<String, dynamic>.from(r.data as Map));
   }

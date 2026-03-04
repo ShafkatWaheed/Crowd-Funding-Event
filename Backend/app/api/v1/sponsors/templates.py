@@ -27,7 +27,7 @@ async def create_template(
 ):
     cat = await sponsor_svc.create_template(db, current_user, data)
     await db.commit()
-    await sponsor_repo.refresh(db, cat)
+    cat = await sponsor_repo.get_template(db, cat.id)
     return _template_to_response(cat)
 
 
@@ -40,7 +40,7 @@ async def update_template(
 ):
     cat = await sponsor_svc.update_template(db, template_id, current_user, data)
     await db.commit()
-    await sponsor_repo.refresh(db, cat)
+    cat = await sponsor_repo.get_template(db, cat.id)
     return _template_to_response(cat)
 
 
@@ -63,7 +63,7 @@ async def copy_template_to_event(
 ):
     cat = await sponsor_svc.copy_template_to_event(db, template_id, event_id, current_user)
     await db.commit()
-    await sponsor_repo.refresh(db, cat)
+    cat = await sponsor_repo.get_category(db, cat.id)
     return {
         "id": cat.id,
         "event_id": cat.event_id,

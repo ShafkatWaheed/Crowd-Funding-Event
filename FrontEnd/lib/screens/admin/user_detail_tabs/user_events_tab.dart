@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../../config/design_tokens.dart';
 import '../../../config/theme.dart';
 import '../../../models/admin.dart';
+import '../../../models/event.dart';
 import '../../../providers/admin_provider.dart';
 import '../../../repositories/base_repository.dart';
 import '../../../providers/event_provider.dart';
@@ -438,7 +439,7 @@ class _UserEventsTabState extends State<UserEventsTab> {
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          '${entry['action'] ?? ''} – ${formatIsoDateShort(entry['timestamp']?.toString())} ${entry['notes'] != null ? '• ${entry['notes']}' : ''}',
+                          '${entry.action ?? ''} – ${formatIsoDateShort(entry.timestamp)} ${entry.notes != null ? '• ${entry.notes}' : ''}',
                           style: const TextStyle(fontSize: 11),
                         ),
                       ),
@@ -760,7 +761,7 @@ class _UserEventsTabState extends State<UserEventsTab> {
   }
 
   Widget _pendingCancellationSection(
-      int id, Map<String, dynamic> pendingCancel) {
+      int id, PendingCancellation pendingCancel) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(10),
@@ -778,8 +779,8 @@ class _UserEventsTabState extends State<UserEventsTab> {
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                   color: AppTheme.errorOf(context))),
-          if (pendingCancel['reason'] != null)
-            Text('Reason: ${pendingCancel['reason']}',
+          if (pendingCancel.reason != null)
+            Text('Reason: ${pendingCancel.reason}',
                 style: const TextStyle(fontSize: 12)),
           const SizedBox(height: 8),
           Row(
@@ -816,7 +817,7 @@ class _UserEventsTabState extends State<UserEventsTab> {
   }
 
   Widget _pendingExtensionSection(
-      int id, Map<String, dynamic> pendingExt) {
+      int id, PendingExtension pendingExt) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(10),
@@ -834,17 +835,17 @@ class _UserEventsTabState extends State<UserEventsTab> {
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                   color: AppTheme.accentOf(context))),
-          if (pendingExt['start_time'] != null)
+          if (pendingExt.startTime != null)
             Text(
-                'New start: ${formatIsoDateShort(pendingExt['start_time']?.toString())}',
+                'New start: ${formatIsoDateShort(pendingExt.startTime)}',
                 style: const TextStyle(fontSize: 12)),
-          if (pendingExt['end_time'] != null)
+          if (pendingExt.endTime != null)
             Text(
-                'New end: ${formatIsoDateShort(pendingExt['end_time']?.toString())}',
+                'New end: ${formatIsoDateShort(pendingExt.endTime)}',
                 style: const TextStyle(fontSize: 12)),
-          if (pendingExt['funding_end_at'] != null)
+          if (pendingExt.fundingEndAt != null)
             Text(
-                'New funding end: ${formatIsoDateShort(pendingExt['funding_end_at']?.toString())}',
+                'New funding end: ${formatIsoDateShort(pendingExt.fundingEndAt)}',
                 style: const TextStyle(fontSize: 12)),
           const SizedBox(height: 8),
           Row(

@@ -89,6 +89,8 @@ async def send_message(
     body: str,
     client_id: str,
     msg_type: str = "text",
+    *,
+    maxlen: int = 1000,
 ) -> dict[str, Any]:
     """Append a message to the bid's Redis Stream and publish to Pub/Sub."""
     r = await _get_redis()
@@ -102,10 +104,6 @@ async def send_message(
             "type": msg_type,
             "ts": str(now_ms),
         }
-        from app.services import platform_settings as settings_svc
-        from app.db.base import async_session_maker
-        async with async_session_maker() as db:
-            maxlen = await settings_svc.get_int(db, "chat_stream_maxlen")
 
         message_id = await r.xadd(stream_key, fields, maxlen=maxlen, approximate=True)
 

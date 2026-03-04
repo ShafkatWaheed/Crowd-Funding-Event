@@ -1101,14 +1101,14 @@ class _OrganizerManagementSectionState
             ],
           ),
           const SizedBox(height: 8),
-          if (ext['funding_end_at'] != null)
-            Text('New funding deadline: ${ext['funding_end_at']}',
+          if (ext.fundingEndAt != null)
+            Text('New funding deadline: ${ext.fundingEndAt}',
                 style: TextStyle(
                     fontSize: 13,
                     color: AppTheme.textSecondaryOf(context))),
-          if (ext['funding_goal_cents'] != null)
+          if (ext.fundingGoalCents != null)
             Text(
-                'New funding goal: \$${(ext['funding_goal_cents'] / 100).toStringAsFixed(2)}',
+                'New funding goal: \$${(ext.fundingGoalCents! / 100).toStringAsFixed(2)}',
                 style: TextStyle(
                     fontSize: 13,
                     color: AppTheme.textSecondaryOf(context))),

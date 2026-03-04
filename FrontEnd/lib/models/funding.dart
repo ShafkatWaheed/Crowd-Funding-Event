@@ -201,3 +201,15 @@ class RefundStatus {
     );
   }
 }
+
+// ─── Tier Reservation Input (for pledge forms) ───
+
+class TierReservationInput {
+  final int tierId;
+  final String? tierName;
+  final int spots;
+
+  TierReservationInput({required this.tierId, this.tierName, required this.spots});
+
+  Map<String, dynamic> toJson() => {'tier_id': tierId, 'spots': spots};
+}

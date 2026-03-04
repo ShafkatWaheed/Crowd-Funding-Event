@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../../config/theme.dart';
+import '../../../models/discount.dart';
 import '../../../widgets/create_discount_btn.dart';
 
 class DiscountSection extends StatefulWidget {
-  final List<Map<String, dynamic>> discounts;
+  final List<DiscountStrategy> discounts;
   final bool discountsLoading;
   final String? discountsError;
   final VoidCallback onReloadDiscounts;
@@ -34,19 +35,14 @@ class DiscountSection extends StatefulWidget {
 class _DiscountSectionState extends State<DiscountSection> {
   String _discountSearch = '';
 
-  String _discountLabel(Map<String, dynamic> d) {
-    final name = d['name'] ?? '';
-    final type = d['discount_type'] ?? '';
-    final val = d['value'] ?? 0;
-    final target = d['target'] ?? 'all';
-    final typeLabel = type == 'ticket_percent' ? '% ticket' : '% pledge';
-    return '$name · $val$typeLabel · $target';
+  String _discountLabel(DiscountStrategy d) {
+    final typeLabel = d.discountType == 'ticket_percent' ? '% ticket' : '% pledge';
+    return '${d.name} · ${d.value}$typeLabel · ${d.target}';
   }
 
   List<Widget> _buildAvailableDiscountList() {
     final available = widget.discounts.where((d) {
-      final id = d['id'] as int;
-      if (widget.selectedDiscounts.containsKey(id)) return false;
+      if (widget.selectedDiscounts.containsKey(d.id)) return false;
       if (_discountSearch.isEmpty) return true;
       return _discountLabel(d).toLowerCase().contains(_discountSearch);
     }).toList();
@@ -80,13 +76,13 @@ class _DiscountSectionState extends State<DiscountSection> {
               CreateDiscountBtn(
                 label: 'Add + Apply',
                 color: AppTheme.successColor,
-                onTap: () => widget.onAddDiscount(d['id'] as int, true),
+                onTap: () => widget.onAddDiscount(d.id, true),
               ),
               const SizedBox(width: 6),
               CreateDiscountBtn(
                 label: 'Add',
                 color: context.sponsorAccent,
-                onTap: () => widget.onAddDiscount(d['id'] as int, false),
+                onTap: () => widget.onAddDiscount(d.id, false),
               ),
             ],
           ),
@@ -128,13 +124,12 @@ class _DiscountSectionState extends State<DiscountSection> {
           if (widget.selectedDiscounts.isNotEmpty) ...[
             ...widget.selectedDiscounts.entries.map((entry) {
               final d = widget.discounts.firstWhere(
-                (s) => s['id'] == entry.key,
-                orElse: () => {
-                  'name': '?',
-                  'discount_type': '',
-                  'value': 0,
-                  'target': ''
-                },
+                (s) => s.id == entry.key,
+                orElse: () => DiscountStrategy(
+                  id: entry.key, organizerId: 0, name: '?',
+                  discountType: '', value: 0, target: '',
+                  createdAt: DateTime(2000), updatedAt: DateTime(2000),
+                ),
               );
               final autoApply = entry.value;
               return Padding(

@@ -78,7 +78,7 @@ class PledgeProvider extends ChangeNotifier {
 
   Future<Pledge> pledge(int eventId, int amountCents,
           {int reservedSpots = 0,
-          List<Map<String, dynamic>>? tierReservations}) =>
+          List<TierReservationInput>? tierReservations}) =>
       _repo.pledge(eventId, amountCents,
           reservedSpots: reservedSpots, tierReservations: tierReservations);
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../config/theme.dart';
+import '../../../models/discount.dart';
 import '../../../models/event_form_models.dart';
 import '../../../models/ticket_strategy.dart';
 import 'discount_section.dart';
@@ -35,7 +36,7 @@ class StepDatesTickets extends StatelessWidget {
   final TextEditingController strategyNameCtrl;
   final Future<void> Function() onCreateStrategyInline;
   // Discounts
-  final List<Map<String, dynamic>> discounts;
+  final List<DiscountStrategy> discounts;
   final bool discountsLoading;
   final String? discountsError;
   final VoidCallback onReloadDiscounts;

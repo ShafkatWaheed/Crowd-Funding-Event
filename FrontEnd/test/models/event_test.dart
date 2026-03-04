@@ -176,6 +176,84 @@ void main() {
     });
   });
 
+  group('PendingCancellation', () {
+    test('fromJson parses all fields', () {
+      final json = {
+        'reason': 'Budget issues',
+        'requested_at': '2025-06-01T10:00:00',
+        'requested_by': 42,
+        'pledge_percent': 75.5,
+      };
+      final pc = PendingCancellation.fromJson(json);
+
+      expect(pc.reason, 'Budget issues');
+      expect(pc.requestedAt, '2025-06-01T10:00:00');
+      expect(pc.requestedBy, 42);
+      expect(pc.pledgePercent, 75.5);
+    });
+
+    test('all fields nullable', () {
+      final pc = PendingCancellation.fromJson({});
+      expect(pc.reason, isNull);
+      expect(pc.requestedAt, isNull);
+      expect(pc.requestedBy, isNull);
+      expect(pc.pledgePercent, isNull);
+    });
+  });
+
+  group('PendingExtension', () {
+    test('fromJson parses all fields', () {
+      final json = {
+        'funding_end_at': '2025-07-01T00:00:00',
+        'funding_goal_cents': 500000,
+        'start_time': '2025-08-01T18:00:00',
+        'end_time': '2025-08-01T23:00:00',
+      };
+      final pe = PendingExtension.fromJson(json);
+
+      expect(pe.fundingEndAt, '2025-07-01T00:00:00');
+      expect(pe.fundingGoalCents, 500000);
+      expect(pe.startTime, '2025-08-01T18:00:00');
+      expect(pe.endTime, '2025-08-01T23:00:00');
+    });
+
+    test('all fields nullable', () {
+      final pe = PendingExtension.fromJson({});
+      expect(pe.fundingEndAt, isNull);
+      expect(pe.fundingGoalCents, isNull);
+      expect(pe.startTime, isNull);
+      expect(pe.endTime, isNull);
+    });
+  });
+
+  group('ReviewLogEntry', () {
+    test('fromJson parses all fields', () {
+      final json = {
+        'actor': 'admin@test.com',
+        'timestamp': '2025-06-15T14:30:00',
+        'action': 'approved',
+        'message': 'Event approved',
+        'notes': 'Looks good',
+      };
+      final entry = ReviewLogEntry.fromJson(json);
+
+      expect(entry.actor, 'admin@test.com');
+      expect(entry.timestamp, '2025-06-15T14:30:00');
+      expect(entry.action, 'approved');
+      expect(entry.message, 'Event approved');
+      expect(entry.notes, 'Looks good');
+    });
+
+    test('actor defaults to empty string', () {
+      final entry = ReviewLogEntry.fromJson({});
+      expect(entry.actor, '');
+      expect(entry.timestamp, isNull);
+      expect(entry.action, isNull);
+      expect(entry.message, isNull);
+      expect(entry.notes, isNull);
+    });
+  });
+
   group('ReactionResult', () {
     test('fromJson parses all fields', () {
       final r = ReactionResult.fromJson({

@@ -358,32 +358,15 @@ async def test_get_conversations_is_writable_field(
 async def test_send_message_mocked_redis():
     """send_message appends to Redis stream and publishes, returns message dict.
 
-    send_message does lazy imports of platform_settings and async_session_maker
-    inside the function body. We mock both at the point of use.
+    maxlen is now a caller-supplied parameter (no internal DB lookup).
     """
-    from contextlib import asynccontextmanager
-
     mock_redis = AsyncMock()
     mock_redis.xadd = AsyncMock(return_value="1700000000000-0")
     mock_redis.publish = AsyncMock()
     mock_redis.aclose = AsyncMock()
 
-    # Mock platform_settings.get_int (imported inside send_message as settings_svc)
-    mock_get_int = AsyncMock(return_value=1000)
-
-    # Mock async_session_maker to yield a mock session
-    mock_session = AsyncMock()
-
-    @asynccontextmanager
-    async def mock_cm():
-        yield mock_session
-
-    mock_session_maker = MagicMock(side_effect=lambda: mock_cm())
-
-    with patch("app.services.chat_service._get_redis", return_value=mock_redis), \
-         patch("app.services.platform_settings.get_int", mock_get_int), \
-         patch("app.db.base.async_session_maker", mock_session_maker):
-        result = await send_message(42, 7, "Hello!", "cli-abc", "text")
+    with patch("app.services.chat_service._get_redis", return_value=mock_redis):
+        result = await send_message(42, 7, "Hello!", "cli-abc", "text", maxlen=1000)
 
     assert result["id"] == "1700000000000-0"
     assert result["bid_id"] == 42

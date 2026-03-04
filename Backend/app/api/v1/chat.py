@@ -66,6 +66,7 @@ async def _authenticate_ws(token: str) -> User | None:
 
     from app.repositories.user_repo import user_repo
 
+    # Exception: WebSocket handlers can't use FastAPI DI for session lifecycle
     async with async_session_maker() as db:
         return await user_repo.get_by_firebase_uid(db, uid)
 
@@ -204,8 +205,10 @@ async def ws_chat(ws: WebSocket, token: str = Query(default="")):
                     await ws.send_json({"type": "error", "detail": "Join the bid channel first"})
                     continue
 
+                # Exception: WebSocket handlers can't use FastAPI DI for session lifecycle
                 async with async_session_maker() as db:
                     max_len = await settings_svc.get_int(db, "chat_max_message_length")
+                    stream_maxlen = await settings_svc.get_int(db, "chat_stream_maxlen")
 
                 if not body:
                     await ws.send_json({"type": "error", "detail": "Empty message"})
@@ -221,7 +224,7 @@ async def ws_chat(ws: WebSocket, token: str = Query(default="")):
                             await ws.send_json({"type": "error", "detail": "Chat is read-only"})
                             continue
 
-                        msg = await chat_service.send_message(bid_id, user.id, body, client_id)
+                        msg = await chat_service.send_message(bid_id, user.id, body, client_id, maxlen=stream_maxlen)
                         await chat_service.update_pg_metadata(db, bid_id, ctx["is_sponsor"])
                         await db.commit()
 
@@ -415,8 +418,10 @@ async def upload_chat_image(
 
     image_url = f"/static/uploads/chat/{filename}"
     client_id = uuid.uuid4().hex
+    stream_maxlen = await settings_svc.get_int(db, "chat_stream_maxlen")
     msg = await chat_service.send_message(
         bid_id, current_user.id, image_url, client_id, msg_type="image",
+        maxlen=stream_maxlen,
     )
     await chat_service.update_pg_metadata(db, bid_id, ctx["is_sponsor"])
     await db.commit()

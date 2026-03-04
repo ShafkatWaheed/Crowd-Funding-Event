@@ -178,6 +178,7 @@ def get_email_backend(provider_override: str | None = None) -> EmailBackend:
 async def _resolve_backend() -> EmailBackend:
     """Resolve backend from platform settings first, env vars as fallback."""
     try:
+        # Exception: worker-context self-managed session — no DI session available
         from app.db.base import async_session_maker
         from app.services import platform_settings as settings_svc
         async with async_session_maker() as db:
@@ -200,6 +201,7 @@ async def _log_mock_email(
     template_key: str | None = None,
 ) -> str:
     """Write to EmailMockLog with bounce-rate simulation. Returns status."""
+    # Exception: worker-context self-managed session — no DI session available
     from app.db.base import async_session_maker
     from app.repositories.email_template_repo import email_template_repo
     from app.services import platform_settings as settings_svc

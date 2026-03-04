@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
+import '../../models/ticket.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../models/ticket_strategy.dart';
@@ -309,23 +310,20 @@ class _CreateTicketStrategyScreenState
     final tiersData = _tiers.asMap().entries.map((e) {
       final i = e.key;
       final t = e.value;
-      final data = <String, dynamic>{
-        'name': t.nameCtrl.text.trim(),
-        'price_cents': ((double.tryParse(t.priceCtrl.text) ?? 0) * 100).toInt(),
-        'display_order': i,
-      };
-      if (t.descCtrl.text.trim().isNotEmpty) {
-        data['description'] = t.descCtrl.text.trim();
-      }
-      return data;
+      return CreateTicketStrategyTierInput(
+        name: t.nameCtrl.text.trim(),
+        priceCents: ((double.tryParse(t.priceCtrl.text) ?? 0) * 100).toInt(),
+        displayOrder: i,
+        description: t.descCtrl.text.trim().isNotEmpty ? t.descCtrl.text.trim() : null,
+      );
     }).toList();
 
     try {
       final api = context.read<TicketProvider>();
-      await api.createTicketStrategy({
-        'name': _nameCtrl.text.trim(),
-        'tiers': tiersData,
-      });
+      await api.createTicketStrategy(CreateTicketStrategyRequest(
+        name: _nameCtrl.text.trim(),
+        tiers: tiersData,
+      ));
       if (mounted) {
         AppToast.success(context, 'Ticket strategy created!');
         Navigator.pop(context, true);

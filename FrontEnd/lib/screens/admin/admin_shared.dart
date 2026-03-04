@@ -8,6 +8,7 @@ import '../../providers/admin_provider.dart';
 import '../../repositories/base_repository.dart';
 import '../../utils/date_time_utils.dart';
 
+
 const double adminWideBreakpoint = 900;
 const int adminPageSize = 20;
 
@@ -290,12 +291,12 @@ class _PlatformAccountCardState extends State<PlatformAccountCard> {
     setState(() => _saving = true);
     try {
       final admin = context.read<AdminProvider>();
-      await admin.updatePlatformAccount({
-        'institution_number': _institutionCtrl.text.trim(),
-        'transit_number': _transitCtrl.text.trim(),
-        'account_number': _accountNumberCtrl.text.trim(),
-        'account_holder': _accountHolderCtrl.text.trim(),
-      });
+      await admin.updatePlatformAccount(UpdatePlatformAccountRequest(
+        institutionNumber: _institutionCtrl.text.trim(),
+        transitNumber: _transitCtrl.text.trim(),
+        accountNumber: _accountNumberCtrl.text.trim(),
+        accountHolder: _accountHolderCtrl.text.trim(),
+      ));
       if (mounted) {
         setState(() {
           _editing = false;

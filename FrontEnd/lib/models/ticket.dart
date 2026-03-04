@@ -1,3 +1,88 @@
+// ─── Ticket Strategy Request Models ───
+
+class CreateTicketStrategyTierInput {
+  final String name;
+  final String? description;
+  final int priceCents;
+  final int displayOrder;
+
+  const CreateTicketStrategyTierInput({
+    required this.name,
+    this.description,
+    required this.priceCents,
+    this.displayOrder = 0,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'price_cents': priceCents,
+        'display_order': displayOrder,
+        if (description != null && description!.isNotEmpty) 'description': description,
+      };
+}
+
+class CreateTicketStrategyRequest {
+  final String name;
+  final List<CreateTicketStrategyTierInput> tiers;
+
+  const CreateTicketStrategyRequest({
+    required this.name,
+    required this.tiers,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'tiers': tiers.map((t) => t.toJson()).toList(),
+      };
+}
+
+// ─── Ticket Tier Request Models ───
+
+class CreateTicketTierRequest {
+  final String name;
+  final int priceCents;
+  final int displayOrder;
+  final String? description;
+  final int? maxReservedSpots;
+
+  const CreateTicketTierRequest({
+    required this.name,
+    required this.priceCents,
+    this.displayOrder = 0,
+    this.description,
+    this.maxReservedSpots,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'price_cents': priceCents,
+        'display_order': displayOrder,
+        if (description != null && description!.isNotEmpty) 'description': description,
+        if (maxReservedSpots != null && maxReservedSpots! > 0) 'max_reserved_spots': maxReservedSpots,
+      };
+}
+
+class UpdateTicketTierRequest {
+  final String? name;
+  final int? priceCents;
+  final String? description;
+  final int? maxReservedSpots;
+
+  const UpdateTicketTierRequest({
+    this.name,
+    this.priceCents,
+    this.description,
+    this.maxReservedSpots,
+  });
+
+  Map<String, dynamic> toJson() => {
+        if (name != null) 'name': name,
+        if (priceCents != null) 'price_cents': priceCents,
+        if (description != null) 'description': description,
+        if (maxReservedSpots != null) 'max_reserved_spots': maxReservedSpots,
+      };
+}
+
 class TicketTier {
   final int id;
   final int eventId;

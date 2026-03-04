@@ -8,9 +8,11 @@ import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../utils/date_time_utils.dart';
 import '../../config/design_tokens.dart';
+import '../../models/user.dart';
 import '../../widgets/press_feedback.dart';
 import '../../widgets/kyc_section.dart';
 import '../../providers/auth_provider.dart';
+import '../../models/sponsor.dart';
 import '../../providers/sponsor_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../widgets/app_toast.dart';
@@ -175,50 +177,54 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final sponsorRepo = context.read<SponsorProvider>();
       final user = context.read<AuthProvider>().user!;
 
-      final data = <String, dynamic>{};
-      if (_nameCtrl.text.trim() != (user.displayName ?? '')) {
-        data['display_name'] = _nameCtrl.text.trim();
-      }
-      if (_phoneCtrl.text.trim() != (user.phone ?? '')) {
-        data['phone'] = _phoneCtrl.text.trim();
-      }
-      if (_addressCtrl.text.trim() != (user.address ?? '')) {
-        data['address'] = _addressCtrl.text.trim();
-      }
-      if (_selectedBirthday != null) {
-        final bdStr = AppDateFormat.apiDate(_selectedBirthday!);
-        if (bdStr != (user.birthday ?? '')) data['birthday'] = bdStr;
-      }
-      if ((user.isOrganizer || user.isSponsor) &&
-          _experienceCtrl.text.trim().isNotEmpty) {
-        final exp = int.tryParse(_experienceCtrl.text.trim());
-        if (exp != null && exp != user.yearsOfExperience) {
-          data['years_of_experience'] = exp;
-        }
-      }
+      final profileRequest = UpdateProfileRequest(
+        displayName: _nameCtrl.text.trim() != (user.displayName ?? '')
+            ? _nameCtrl.text.trim()
+            : null,
+        phone: _phoneCtrl.text.trim() != (user.phone ?? '')
+            ? _phoneCtrl.text.trim()
+            : null,
+        address: _addressCtrl.text.trim() != (user.address ?? '')
+            ? _addressCtrl.text.trim()
+            : null,
+        birthday: _selectedBirthday != null &&
+                AppDateFormat.apiDate(_selectedBirthday!) !=
+                    (user.birthday ?? '')
+            ? AppDateFormat.apiDate(_selectedBirthday!)
+            : null,
+        yearsOfExperience: (user.isOrganizer || user.isSponsor) &&
+                _experienceCtrl.text.trim().isNotEmpty
+            ? (() {
+                final exp = int.tryParse(_experienceCtrl.text.trim());
+                return exp != null && exp != user.yearsOfExperience
+                    ? exp
+                    : null;
+              })()
+            : null,
+      );
 
       bool userUpdated = false;
-      if (data.isNotEmpty) {
-        await userRepo.updateMe(data);
+      if (!profileRequest.isEmpty) {
+        await userRepo.updateMe(profileRequest);
         userUpdated = true;
       }
 
       bool sponsorUpdated = false;
       if (user.isSponsor) {
-        final spData = <String, dynamic>{
-          'company_name': _companyNameCtrl.text.trim(),
-          'contact_name': _contactNameCtrl.text.trim(),
-          'profession': _professionCtrl.text.trim(),
-          'logo_url': _logoUrlCtrl.text.trim().isEmpty
+        final spData = SponsorProfileRequest(
+          companyName: _companyNameCtrl.text.trim(),
+          contactName: _contactNameCtrl.text.trim(),
+          profession: _professionCtrl.text.trim(),
+          logoUrl: _logoUrlCtrl.text.trim().isEmpty
               ? null
               : _logoUrlCtrl.text.trim(),
-          'description': _descriptionCtrl.text.trim().isEmpty
+          description: _descriptionCtrl.text.trim().isEmpty
               ? null
               : _descriptionCtrl.text.trim(),
-          'website_url': _websiteUrlCtrl.text.trim().isEmpty
+          websiteUrl: _websiteUrlCtrl.text.trim().isEmpty
               ? null
               : _websiteUrlCtrl.text.trim(),
-        };
+        );
 
         if (_hasSponsorProfile) {
           await sponsorRepo.updateSponsorProfile(spData);

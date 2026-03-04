@@ -132,7 +132,7 @@ class AuthProvider extends ChangeNotifier {
       // Update phone if provided
       if (phone != null) {
         _log('signUp: updating phone on backend...');
-        await _api.updateMe({'phone': phone});
+        await _api.updateMe(UpdateProfileRequest(phone: phone));
       }
 
       // Now fetch full profile

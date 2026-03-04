@@ -5,9 +5,7 @@ from fastapi import APIRouter, Header, Request
 
 from app.dependencies import DbSession
 from app.logger import get_logger
-from app.models.dispute import Dispute, DisputeStatus
 from app.services import platform_settings as settings_svc
-from app.repositories.escrow_repo import escrow_repo
 
 router = APIRouter()
 log = get_logger(__name__)
@@ -44,32 +42,21 @@ async def stripe_webhook(
     if event_type == "charge.dispute.created":
         data = event.get("data", {}).get("object", {})
         stripe_dispute_id = data.get("id", "")
-        charge_id = data.get("charge", "")
-        amount = data.get("amount", 0)
-        reason = data.get("reason", "product_not_received")
-
-        existing = await escrow_repo.get_dispute_by_stripe_id(db, stripe_dispute_id)
-        if existing:
-            return {"ok": True, "message": "duplicate"}
-
         metadata = data.get("metadata", {}) or {}
-        event_id = metadata.get("event_id")
         raw_uid = metadata.get("user_id")
-        user_id = int(raw_uid) if raw_uid else None
 
-        dispute = Dispute(
+        from app.services import banking_service as banking_svc
+        dispute = await banking_svc.handle_dispute_created_webhook(
+            db,
             stripe_dispute_id=stripe_dispute_id,
-            transaction_id=charge_id,
-            event_id=int(event_id) if event_id else None,
-            user_id=user_id,
-            amount_cents=amount,
-            reason=reason,
+            charge_id=data.get("charge", ""),
+            amount=data.get("amount", 0),
+            reason=data.get("reason", "product_not_received"),
+            event_id=metadata.get("event_id"),
+            user_id=int(raw_uid) if raw_uid else None,
         )
-        await escrow_repo.create_dispute(db, dispute)
-
-        if event_id:
-            await escrow_repo.freeze_escrows_for_event(db, int(event_id))
-
+        if dispute is None:
+            return {"ok": True, "message": "duplicate"}
         log.info("Dispute created from webhook: %s", stripe_dispute_id)
 
     elif event_type == "charge.dispute.closed":

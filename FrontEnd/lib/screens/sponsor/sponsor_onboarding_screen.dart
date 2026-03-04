@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
+import '../../models/sponsor.dart';
 import '../../providers/auth_provider.dart';
 import '../../repositories/base_repository.dart';
 import '../../providers/sponsor_provider.dart';
@@ -66,17 +67,20 @@ class _SponsorOnboardingScreenState extends State<SponsorOnboardingScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
 
-    final payload = {
-      'company_name': _companyNameCtrl.text.trim(),
-      'contact_name': _contactNameCtrl.text.trim(),
-      'profession': _professionCtrl.text.trim(),
-      if (_logoUrlCtrl.text.trim().isNotEmpty)
-        'logo_url': _logoUrlCtrl.text.trim(),
-      if (_descriptionCtrl.text.trim().isNotEmpty)
-        'description': _descriptionCtrl.text.trim(),
-      if (_websiteUrlCtrl.text.trim().isNotEmpty)
-        'website_url': _websiteUrlCtrl.text.trim(),
-    };
+    final payload = SponsorProfileRequest(
+      companyName: _companyNameCtrl.text.trim(),
+      contactName: _contactNameCtrl.text.trim(),
+      profession: _professionCtrl.text.trim(),
+      logoUrl: _logoUrlCtrl.text.trim().isNotEmpty
+          ? _logoUrlCtrl.text.trim()
+          : null,
+      description: _descriptionCtrl.text.trim().isNotEmpty
+          ? _descriptionCtrl.text.trim()
+          : null,
+      websiteUrl: _websiteUrlCtrl.text.trim().isNotEmpty
+          ? _websiteUrlCtrl.text.trim()
+          : null,
+    );
 
     try {
       final api = context.read<SponsorProvider>();

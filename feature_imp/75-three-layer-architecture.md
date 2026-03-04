@@ -74,6 +74,43 @@ flowchart TB
 
 - Ensure repositories do not contain business rules (only data access); services must enforce validation and rules. Avoid leaking DB or API details into screens.
 
+## Post-audit remediation (latest)
+
+### Backend: Multi-step routes extracted to services
+
+6 routes that had multi-step repo orchestration were extracted into service methods:
+
+| Route file | Extracted to | Service method |
+|------------|-------------|----------------|
+| `users.py` (pledge receipt) | `user_service.py` | `get_pledge_receipt()` |
+| `users.py` (ticket receipt) | `user_service.py` | `get_ticket_receipt()` |
+| `users.py` (bookmark toggle) | `user_service.py` | `toggle_bookmark()` |
+| `admin.py` (customer/organizer detail) | `admin.py` | `get_user_detail()` |
+| `webhooks.py` (dispute created) | `banking_service.py` | `handle_dispute_created_webhook()` |
+
+New service file: `Backend/app/services/user_service.py`
+
+### Frontend: Typed request classes
+
+~52 `Map<String, dynamic>` method parameters across providers/repositories replaced with typed request classes:
+
+- **User domain:** `UpdateProfileRequest`, `UpdatePaymentInfoRequest`, `UpdateBankAccountRequest`
+- **Venue domain:** `CreateVenueRequest`, `UpdateVenueRequest`
+- **Admin domain:** `ApproveEventRequest`, `SetPolicyOverridesRequest`, `UpdatePlatformAccountRequest`
+- **Ticket domain:** `CreateTicketStrategyRequest`, `CreateTicketTierRequest`, `UpdateTicketTierRequest`
+- **Discount domain:** `CreateEventDiscountRequest`, `CreateDiscountStrategyRequest`, `CreateEarlyBirdDiscountRequest`, `UpdateEarlyBirdDiscountRequest`
+- **Schedule domain:** `CreateScheduleItemRequest`, `UpdateScheduleItemRequest`
+- **Event domain:** `AddEventOrganizerRequest`, `EventFilters`
+- **Sponsor domain:** `SponsorProfileRequest`, `CreateSponsorshipCategoryRequest`, `UpdateSponsorshipCategoryRequest`, `PlaceBidRequest`, `UpdateBidRequest`, `CreateSponsorCategoryTemplateRequest`, `UpdateSponsorCategoryTemplateRequest`
+
+Pattern: typed class with `const` constructor + `toJson()` → repository calls `.toJson()` at Dio boundary → screens construct typed objects instead of bracket-notation Maps.
+
+### Remaining (low priority)
+
+- ~15 single-repo calls in backend routes (simple CRUD — pragmatic, not violations)
+- `events/_helpers.py` SQLAlchemy `inspect` usage (relationship-check logic)
+- 1 `Map<String, dynamic>` in WebSocket handler (acceptable — raw WS envelope)
+
 ## Improvements
 
 - Migrate any remaining API handlers or screens that still bypass the service/repository or provider/repository layer. Complete repository coverage for all domains; add integration tests that assert layer boundaries.

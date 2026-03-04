@@ -143,13 +143,14 @@ Layer 3: Repository    (FrontEnd/lib/repositories/)   → ALL HTTP calls, return
 #### If the file is a **frontend provider** (`FrontEnd/lib/providers/**/*.dart`):
 
 - **REJECT** any `dio.get()`, `dio.post()`, etc. — providers call repositories, not Dio
-- **REJECT** `Map<String, dynamic>` or `List<dynamic>` as method return types or state fields — providers must expose typed models matching repository returns
+- **REJECT** `Map<String, dynamic>` or `List<dynamic>` as method return types, state fields, or method parameters — providers must expose and accept typed models/request classes
 - **MUST** own all state: `loading`, `error`, `items`, `hasMore`, pagination, filters, sort
 
 #### If the file is a **frontend repository** (`FrontEnd/lib/repositories/**/*.dart`):
 
 - **REJECT** any mutable state (`notifyListeners`, `ChangeNotifier`) — repos are stateless
 - **MUST** return typed models (e.g., `Event.fromJson()`), not raw `Map<String, dynamic>`
+- **MUST** accept typed request classes for create/update method parameters — call `.toJson()` at the Dio boundary, not in callers
 - **Exception:** `PaymentRepository` returns Maps for Stripe pass-through responses
 
 #### If the file is a **backend repository** (`Backend/app/repositories/**/*.py`):
@@ -207,6 +208,12 @@ data['title']                                        // → Use data.title
 // ❌ BANNED — Dio in provider
 // File: FrontEnd/lib/providers/*.dart
 final resp = await dio.get('/events');                // → Use EventRepository
+
+// ❌ BANNED — Raw Map as method parameter in provider or repository
+// File: FrontEnd/lib/providers/*.dart OR FrontEnd/lib/repositories/*.dart
+Future<void> createVenue(Map<String, dynamic> data)   // → Use CreateVenueRequest
+Future<void> updateProfile(Map<String, dynamic> data) // → Use UpdateProfileRequest
+provider.createVenue({'name': name, 'city': city})    // → Use CreateVenueRequest(name: name, city: city)
 
 // ❌ BANNED — Raw Map return from repository
 // File: FrontEnd/lib/repositories/*.dart
@@ -272,6 +279,32 @@ Widget build(BuildContext context) {
   if (p.loading) return const ShimmerList();
   return ListView(children: p.pledges.map((pl) => PledgeTile(pledge: pl)).toList());
 }
+
+// ✅ Typed request classes for create/update operations
+// Model (in lib/models/):
+class CreateVenueRequest {
+  final String name;
+  final String? city;
+  final String? address;
+  const CreateVenueRequest({required this.name, this.city, this.address});
+  Map<String, dynamic> toJson() => {'name': name, if (city != null) 'city': city, if (address != null) 'address': address};
+}
+
+// Repository — calls .toJson() at the Dio boundary:
+Future<Venue> createVenue(CreateVenueRequest request) async {
+  final r = await dio.post('/venues', data: request.toJson());
+  return Venue.fromJson(r.data);
+}
+
+// Provider — passes typed request through:
+Future<void> createVenue(CreateVenueRequest request) async {
+  await _repo.createVenue(request);
+}
+
+// Screen — constructs typed request:
+await context.read<VenueProvider>().createVenue(
+  CreateVenueRequest(name: _nameCtrl.text, city: _cityCtrl.text),
+);
 ```
 
 ---
@@ -290,13 +323,14 @@ When adding any feature OR fixing any bug that involves API calls or DB queries,
 
 **Frontend:**
 1. [ ] Define typed model classes in `FrontEnd/lib/models/` FIRST — every API response shape must have a Dart class with `fromJson()` factory
-2. [ ] Identify the repository — does one exist? If not, create `FrontEnd/lib/repositories/<domain>_repository.dart`
-3. [ ] Add HTTP methods to the repository — return typed models (never raw `Map<String, dynamic>` or `List<dynamic>`)
-4. [ ] Add/update provider with state management (`loading`, `error`, items, pagination) — all state fields use typed models
-5. [ ] Screen uses ONLY `context.watch<Provider>()` / `context.read<Provider>().method()`
-6. [ ] Screen state variables, widget params, and build helpers use typed models — zero `Map<String, dynamic>` or bracket-notation access (`data['field']`)
-7. [ ] Register new providers in `main.dart` MultiProvider if needed
-8. [ ] Add new routes to `router.dart` if new screens are created
+2. [ ] Define typed request classes for create/update operations — every request body must have a Dart class with `const` constructor and `toJson()` method (e.g., `CreateVenueRequest`, `UpdateProfileRequest`)
+3. [ ] Identify the repository — does one exist? If not, create `FrontEnd/lib/repositories/<domain>_repository.dart`
+4. [ ] Add HTTP methods to the repository — return typed models, accept typed request classes (call `.toJson()` at the Dio boundary)
+5. [ ] Add/update provider with state management (`loading`, `error`, items, pagination) — all state fields and method parameters use typed models/request classes
+6. [ ] Screen uses ONLY `context.watch<Provider>()` / `context.read<Provider>().method()`
+7. [ ] Screen state variables, widget params, and build helpers use typed models — zero `Map<String, dynamic>` or bracket-notation access (`data['field']`)
+8. [ ] Register new providers in `main.dart` MultiProvider if needed
+9. [ ] Add new routes to `router.dart` if new screens are created
 
 **Verification:**
 - [ ] Run `/check-architecture` to confirm zero violations

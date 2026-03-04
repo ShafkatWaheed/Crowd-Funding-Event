@@ -148,11 +148,11 @@ class _OrganizerDashboardTabState extends State<OrganizerDashboardTab> {
       final repo = context.read<EventProvider>();
       final user = context.read<AuthProvider>().user;
       final result = await repo.getEvents(
-        params: {
-          'status': status,
-          'include_all_statuses': true,
-          if (user != null && user.isOrganizer) 'organizer_id': user.id,
-        },
+        filters: EventFilters(
+          status: status,
+          includeAllStatuses: true,
+          organizerId: user != null && user.isOrganizer ? user.id : null,
+        ),
         limit: 50,
       );
       if (mounted) {

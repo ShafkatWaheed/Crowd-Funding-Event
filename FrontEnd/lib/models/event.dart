@@ -420,6 +420,21 @@ class EventListPage {
   }
 }
 
+class AddEventOrganizerRequest {
+  final int userId;
+  final String permission;
+
+  const AddEventOrganizerRequest({
+    required this.userId,
+    required this.permission,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'user_id': userId,
+        'permission': permission,
+      };
+}
+
 class EventOrganizer {
   final int userId;
   final String? displayName;
@@ -854,4 +869,55 @@ class EventUpdateRequest {
     if (maxCoOrganizers != null) data['max_co_organizers'] = maxCoOrganizers;
     return data;
   }
+}
+
+/// Typed filter parameters for event list queries.
+///
+/// Used by [EventRepository.getEvents] and [EventProvider.loadEvents] as a
+/// replacement for raw `Map<String, dynamic>` filter maps.
+class EventFilters {
+  final String? search;
+  final String? status;
+  final String? registrationType;
+  final String? dateFrom;
+  final String? dateTo;
+  final bool? hasFunding;
+  final String? genre;
+  final String? city;
+  final bool? includeAllStatuses;
+  final int? organizerId;
+  final bool? sponsorshipOnly;
+  final String? communityRules;
+
+  const EventFilters({
+    this.search,
+    this.status,
+    this.registrationType,
+    this.dateFrom,
+    this.dateTo,
+    this.hasFunding,
+    this.genre,
+    this.city,
+    this.includeAllStatuses,
+    this.organizerId,
+    this.sponsorshipOnly,
+    this.communityRules,
+  });
+
+  Map<String, dynamic> toQueryParams() => {
+        if (search != null && search!.isNotEmpty) 'search': search,
+        if (status != null) 'status': status,
+        if (registrationType != null) 'registration_type': registrationType,
+        if (dateFrom != null) 'date_from': dateFrom,
+        if (dateTo != null) 'date_to': dateTo,
+        if (hasFunding != null) 'has_funding': hasFunding,
+        if (genre != null) 'genre': genre,
+        if (city != null) 'city': city,
+        if (includeAllStatuses != null && includeAllStatuses!)
+          'include_all_statuses': true,
+        if (organizerId != null) 'organizer_id': organizerId,
+        if (sponsorshipOnly != null && sponsorshipOnly!)
+          'sponsorship_only': true,
+        if (communityRules != null) 'community_rules': communityRules,
+      };
 }

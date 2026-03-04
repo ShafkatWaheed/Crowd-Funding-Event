@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
+import '../../../models/schedule.dart';
 import '../../../repositories/base_repository.dart';
 import '../../../providers/event_provider.dart';
 import '../../../widgets/app_toast.dart';
@@ -97,26 +98,25 @@ class _EditScheduleSectionState extends State<EditScheduleSection> {
         '${si.endTime.hour.toString().padLeft(2, '0')}:${si.endTime.minute.toString().padLeft(2, '0')}';
     try {
       if (si.id != null) {
-        await api.updateScheduleItem(widget.eventId, si.id!, {
-          'date': dateStr,
-          'start_time': startStr,
-          'end_time': endStr,
-          'title': title,
-          'description': si.descCtrl.text.trim(),
-        });
+        await api.updateScheduleItem(widget.eventId, si.id!, UpdateScheduleItemRequest(
+          date: dateStr,
+          startTime: startStr,
+          endTime: endStr,
+          title: title,
+          description: si.descCtrl.text.trim(),
+        ));
         if (mounted) {
           setState(() => si.error = null);
           AppToast.success(context, 'Schedule item updated');
         }
       } else {
-        final resp = await api.createScheduleItem(widget.eventId, {
-          'date': dateStr,
-          'start_time': startStr,
-          'end_time': endStr,
-          'title': title,
-          if (si.descCtrl.text.trim().isNotEmpty)
-            'description': si.descCtrl.text.trim(),
-        });
+        final resp = await api.createScheduleItem(widget.eventId, CreateScheduleItemRequest(
+          date: dateStr,
+          startTime: startStr,
+          endTime: endStr,
+          title: title,
+          description: si.descCtrl.text.trim().isNotEmpty ? si.descCtrl.text.trim() : null,
+        ));
         si.id = resp.id;
         if (mounted) {
           setState(() => si.error = null);

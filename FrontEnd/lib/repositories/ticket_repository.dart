@@ -17,8 +17,8 @@ class TicketRepository extends BaseRepository {
   }
 
   Future<TicketStrategy> createTicketStrategy(
-      Map<String, dynamic> data) async {
-    final r = await dio.post('/ticket-strategies', data: data);
+      CreateTicketStrategyRequest data) async {
+    final r = await dio.post('/ticket-strategies', data: data.toJson());
     return TicketStrategy.fromJson(Map<String, dynamic>.from(r.data as Map));
   }
 
@@ -71,14 +71,14 @@ class TicketRepository extends BaseRepository {
   }
 
   Future<TicketTier> createTicketTier(
-      int eventId, Map<String, dynamic> data) async {
-    final r = await dio.post('/events/$eventId/ticket-tiers', data: data);
+      int eventId, CreateTicketTierRequest data) async {
+    final r = await dio.post('/events/$eventId/ticket-tiers', data: data.toJson());
     return TicketTier.fromJson(Map<String, dynamic>.from(r.data as Map));
   }
 
   Future<TicketTier> updateTicketTier(
-      int eventId, int tierId, Map<String, dynamic> data) async {
-    final r = await dio.patch('/events/$eventId/ticket-tiers/$tierId', data: data);
+      int eventId, int tierId, UpdateTicketTierRequest data) async {
+    final r = await dio.patch('/events/$eventId/ticket-tiers/$tierId', data: data.toJson());
     return TicketTier.fromJson(Map<String, dynamic>.from(r.data as Map));
   }
 
@@ -252,8 +252,8 @@ class TicketRepository extends BaseRepository {
   }
 
   Future<EventDiscount> createEventDiscount(
-      int eventId, Map<String, dynamic> data) async {
-    final r = await dio.post('/events/$eventId/discounts/rules', data: data);
+      int eventId, CreateEventDiscountRequest data) async {
+    final r = await dio.post('/events/$eventId/discounts/rules', data: data.toJson());
     return EventDiscount.fromJson(Map<String, dynamic>.from(r.data as Map));
   }
 
@@ -279,8 +279,8 @@ class TicketRepository extends BaseRepository {
         .toList();
   }
 
-  Future<DiscountStrategy> createDiscountStrategy(Map<String, dynamic> data) async {
-    final r = await dio.post('/discount-strategies', data: data);
+  Future<DiscountStrategy> createDiscountStrategy(CreateDiscountStrategyRequest data) async {
+    final r = await dio.post('/discount-strategies', data: data.toJson());
     return DiscountStrategy.fromJson(Map<String, dynamic>.from(r.data as Map));
   }
 
@@ -331,14 +331,14 @@ class TicketRepository extends BaseRepository {
   }
 
   Future<EarlyBirdDiscount> createEarlyBirdDiscount(
-      int eventId, Map<String, dynamic> data) async {
-    final r = await dio.post('/events/$eventId/early-bird-discounts', data: data);
+      int eventId, CreateEarlyBirdDiscountRequest data) async {
+    final r = await dio.post('/events/$eventId/early-bird-discounts', data: data.toJson());
     return EarlyBirdDiscount.fromJson(Map<String, dynamic>.from(r.data as Map));
   }
 
   Future<EarlyBirdDiscount> updateEarlyBirdDiscount(
-      int eventId, int discountId, Map<String, dynamic> data) async {
-    final r = await dio.patch('/events/$eventId/early-bird-discounts/$discountId', data: data);
+      int eventId, int discountId, UpdateEarlyBirdDiscountRequest data) async {
+    final r = await dio.patch('/events/$eventId/early-bird-discounts/$discountId', data: data.toJson());
     return EarlyBirdDiscount.fromJson(Map<String, dynamic>.from(r.data as Map));
   }
 

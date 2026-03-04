@@ -338,6 +338,39 @@ async def reset_all_email_templates(db: AsyncSession) -> int:
 #  Disputes
 # ═══════════════════════════════════════════
 
+async def handle_dispute_created_webhook(
+    db: AsyncSession,
+    *,
+    stripe_dispute_id: str,
+    charge_id: str,
+    amount: int,
+    reason: str,
+    event_id: int | None,
+    user_id: int | None,
+) -> Dispute | None:
+    """Handle Stripe charge.dispute.created webhook. Returns None if duplicate."""
+    from app.repositories.escrow_repo import escrow_repo
+
+    existing = await escrow_repo.get_dispute_by_stripe_id(db, stripe_dispute_id)
+    if existing:
+        return None
+
+    dispute = Dispute(
+        stripe_dispute_id=stripe_dispute_id,
+        transaction_id=charge_id,
+        event_id=int(event_id) if event_id else None,
+        user_id=user_id,
+        amount_cents=amount,
+        reason=reason,
+    )
+    await escrow_repo.create_dispute(db, dispute)
+
+    if event_id:
+        await escrow_repo.freeze_escrows_for_event(db, int(event_id))
+
+    return dispute
+
+
 async def create_dispute(
     db: AsyncSession,
     *,

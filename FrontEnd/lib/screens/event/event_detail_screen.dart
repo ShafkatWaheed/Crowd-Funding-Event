@@ -321,8 +321,11 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                         isRegistered: _isRegistered,
                         regStatus: _regStatus,
                         ageBlocked: _isUserAgeBlocked(event),
-                        onRegistrationChanged: () {
-                          _checkRegistration();
+                        onRegistrationChanged: (isRegistered, status) {
+                          setState(() {
+                            _isRegistered = isRegistered;
+                            _regStatus = status;
+                          });
                           _loadMyTicketCount();
                           _loadMyReservedSpots();
                         },
@@ -681,8 +684,11 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
             isRegistered: _isRegistered,
             regStatus: _regStatus,
             ageBlocked: _isUserAgeBlocked(event),
-            onRegistrationChanged: () {
-              _checkRegistration();
+            onRegistrationChanged: (isRegistered, status) {
+              setState(() {
+                _isRegistered = isRegistered;
+                _regStatus = status;
+              });
               _loadMyTicketCount();
               _loadMyReservedSpots();
             },

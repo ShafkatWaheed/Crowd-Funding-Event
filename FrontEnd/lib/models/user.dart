@@ -477,3 +477,76 @@ class KycVerifyResult {
         kycStatus: (json['kyc_status'] as String?) ?? '',
       );
 }
+
+// ─── Request Classes ───
+
+/// Typed request for PATCH /me — only non-null fields are sent.
+class UpdateProfileRequest {
+  final String? displayName;
+  final String? phone;
+  final String? address;
+  final String? birthday;
+  final int? yearsOfExperience;
+
+  const UpdateProfileRequest({
+    this.displayName,
+    this.phone,
+    this.address,
+    this.birthday,
+    this.yearsOfExperience,
+  });
+
+  Map<String, dynamic> toJson() {
+    final json = <String, dynamic>{};
+    if (displayName != null) json['display_name'] = displayName;
+    if (phone != null) json['phone'] = phone;
+    if (address != null) json['address'] = address;
+    if (birthday != null) json['birthday'] = birthday;
+    if (yearsOfExperience != null) {
+      json['years_of_experience'] = yearsOfExperience;
+    }
+    return json;
+  }
+
+  bool get isEmpty => toJson().isEmpty;
+}
+
+/// Typed request for PUT /me/payment-info.
+class UpdatePaymentInfoRequest {
+  final String? cardHolderName;
+  final String? billingAddress;
+
+  const UpdatePaymentInfoRequest({
+    this.cardHolderName,
+    this.billingAddress,
+  });
+
+  Map<String, dynamic> toJson() {
+    final json = <String, dynamic>{};
+    if (cardHolderName != null) json['card_holder_name'] = cardHolderName;
+    if (billingAddress != null) json['billing_address'] = billingAddress;
+    return json;
+  }
+}
+
+/// Typed request for PUT /me/bank-account.
+class UpdateBankAccountRequest {
+  final String institutionNumber;
+  final String transitNumber;
+  final String accountNumber;
+  final String accountHolder;
+
+  const UpdateBankAccountRequest({
+    required this.institutionNumber,
+    required this.transitNumber,
+    required this.accountNumber,
+    required this.accountHolder,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'institution_number': institutionNumber,
+        'transit_number': transitNumber,
+        'account_number': accountNumber,
+        'account_holder': accountHolder,
+      };
+}

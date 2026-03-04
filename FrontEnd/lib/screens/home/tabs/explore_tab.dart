@@ -104,41 +104,27 @@ class _ExploreTabState extends State<ExploreTab> {
   }
 
   void _applyFilters() {
-    final filters = <String, dynamic>{};
-    if (_searchController.text.isNotEmpty) {
-      filters['search'] = _searchController.text;
-    }
-    if (_selectedStatus != null) filters['status'] = _selectedStatus;
-    if (_selectedRegType != null) {
-      filters['registration_type'] = _selectedRegType;
-    }
-    if (_dateFrom != null) {
-      filters['date_from'] = _dateFrom!.toIso8601String();
-    }
-    if (_dateTo != null) {
-      filters['date_to'] = _dateTo!.toIso8601String();
-    }
-    if (_hasFunding != null) {
-      filters['has_funding'] = _hasFunding;
-    }
-    if (_selectedGenre != null) {
-      filters['genre'] = _selectedGenre;
-    }
-    if (_selectedCity != null) {
-      filters['city'] = _selectedCity;
-    }
-
     final auth = context.read<AuthProvider>();
     final user = auth.user;
-    if (user != null && (user.isOrganizer || user.isAdmin)) {
-      filters['include_all_statuses'] = true;
-    }
-    if (user != null && user.isOrganizer) {
-      filters['organizer_id'] = user.id;
-    }
-    if (user != null && user.isSponsor && !(user.isOrganizer || user.isAdmin)) {
-      filters['sponsorship_only'] = true;
-    }
+
+    final filters = EventFilters(
+      search: _searchController.text.isNotEmpty ? _searchController.text : null,
+      status: _selectedStatus,
+      registrationType: _selectedRegType,
+      dateFrom: _dateFrom?.toIso8601String(),
+      dateTo: _dateTo?.toIso8601String(),
+      hasFunding: _hasFunding,
+      genre: _selectedGenre,
+      city: _selectedCity,
+      includeAllStatuses:
+          user != null && (user.isOrganizer || user.isAdmin) ? true : null,
+      organizerId:
+          user != null && user.isOrganizer ? user.id : null,
+      sponsorshipOnly:
+          user != null && user.isSponsor && !(user.isOrganizer || user.isAdmin)
+              ? true
+              : null,
+    );
 
     context.read<EventProvider>().loadEvents(filters: filters);
   }

@@ -14,7 +14,7 @@ class QuickActionBar extends StatefulWidget {
   final bool isRegistered;
   final String? regStatus;
   final bool ageBlocked;
-  final VoidCallback onRegistrationChanged;
+  final void Function(bool isRegistered, String? status) onRegistrationChanged;
 
   const QuickActionBar({
     super.key,
@@ -37,7 +37,7 @@ class _QuickActionBarState extends State<QuickActionBar> {
     try {
       final api = context.read<EventProvider>();
       final result = await api.register(widget.event.id);
-      widget.onRegistrationChanged();
+      widget.onRegistrationChanged(true, result.status);
       if (!mounted) return;
       context.read<EventProvider>().loadEvent(widget.event.id);
       final status = result.status;
@@ -106,7 +106,7 @@ class _QuickActionBarState extends State<QuickActionBar> {
     try {
       final api = context.read<EventProvider>();
       final result = await api.unregister(widget.event.id);
-      widget.onRegistrationChanged();
+      widget.onRegistrationChanged(false, null);
       if (!mounted) return;
       context.read<EventProvider>().loadEvent(widget.event.id);
       final refunded = result.refundedCents;

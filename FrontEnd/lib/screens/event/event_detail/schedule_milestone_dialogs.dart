@@ -353,19 +353,24 @@ class ScheduleMilestoneDialogs {
                     return;
                   }
                   setDlgState(() { saving = true; errorMsg = null; });
-                  final payload = {
-                    'title': titleCtrl.text.trim(),
-                    'description': descCtrl.text.trim(),
-                    'date': AppDateFormat.apiDate(date!),
-                    'start_time': fmtTime(startTime),
-                    'end_time': fmtTime(endTime),
-                  };
                   try {
                     final ScheduleItem item;
                     if (existing != null) {
-                      item = await api.updateScheduleItem(event.id, existing.id, payload);
+                      item = await api.updateScheduleItem(event.id, existing.id, UpdateScheduleItemRequest(
+                        title: titleCtrl.text.trim(),
+                        description: descCtrl.text.trim(),
+                        date: AppDateFormat.apiDate(date!),
+                        startTime: fmtTime(startTime),
+                        endTime: fmtTime(endTime),
+                      ));
                     } else {
-                      item = await api.createScheduleItem(event.id, payload);
+                      item = await api.createScheduleItem(event.id, CreateScheduleItemRequest(
+                        title: titleCtrl.text.trim(),
+                        description: descCtrl.text.trim().isNotEmpty ? descCtrl.text.trim() : null,
+                        date: AppDateFormat.apiDate(date!),
+                        startTime: fmtTime(startTime),
+                        endTime: fmtTime(endTime),
+                      ));
                     }
                     onSaved(item);
                     if (ctx.mounted) Navigator.pop(ctx);

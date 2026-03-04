@@ -55,12 +55,12 @@ class _GlobalDiscountsScreenState extends State<GlobalDiscountsScreen> {
       return;
     }
     try {
-      await context.read<TicketProvider>().createDiscountStrategy({
-        'name': name,
-        'discount_type': _discountType,
-        'value': value,
-        'target': _target,
-      });
+      await context.read<TicketProvider>().createDiscountStrategy(CreateDiscountStrategyRequest(
+        name: name,
+        discountType: _discountType,
+        value: value,
+        target: _target,
+      ));
       _nameCtrl.clear();
       _valueCtrl.clear();
       _load();

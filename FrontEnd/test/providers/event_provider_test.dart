@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import '../../lib/providers/event_provider.dart';
@@ -12,6 +14,7 @@ void main() {
   setUpAll(() {
     registerFallbackValue(const EventCreateRequest(venueId: 0, title: '', maxCapacity: 0));
     registerFallbackValue(const EventUpdateRequest());
+    registerFallbackValue(const EventFilters());
   });
 
   setUp(() {
@@ -30,7 +33,7 @@ void main() {
 
     test('loadEvents success', () async {
       when(() => mockRepo.getEvents(
-            params: any(named: 'params'),
+            filters: any(named: 'filters'),
             limit: any(named: 'limit'),
             cursor: any(named: 'cursor'),
           )).thenAnswer((_) async => EventListPage(
@@ -50,7 +53,7 @@ void main() {
 
     test('loadEvents with filters', () async {
       when(() => mockRepo.getEvents(
-            params: any(named: 'params'),
+            filters: any(named: 'filters'),
             limit: any(named: 'limit'),
             cursor: any(named: 'cursor'),
           )).thenAnswer((_) async => EventListPage(
@@ -58,14 +61,14 @@ void main() {
             nextCursor: null,
           ));
 
-      await provider.loadEvents(filters: {'genre': 'music'});
+      await provider.loadEvents(filters: const EventFilters(genre: 'music'));
 
       expect(provider.events.length, 1);
     });
 
     test('loadEvents error sets error message', () async {
       when(() => mockRepo.getEvents(
-            params: any(named: 'params'),
+            filters: any(named: 'filters'),
             limit: any(named: 'limit'),
             cursor: any(named: 'cursor'),
           )).thenThrow(Exception('Network error'));
@@ -79,7 +82,7 @@ void main() {
     test('loadMoreEvents appends items', () async {
       // First load
       when(() => mockRepo.getEvents(
-            params: any(named: 'params'),
+            filters: any(named: 'filters'),
             limit: any(named: 'limit'),
             cursor: any(named: 'cursor'),
           )).thenAnswer((_) async => EventListPage(
@@ -92,7 +95,7 @@ void main() {
 
       // Load more
       when(() => mockRepo.getEvents(
-            params: any(named: 'params'),
+            filters: any(named: 'filters'),
             limit: any(named: 'limit'),
             cursor: any(named: 'cursor'),
           )).thenAnswer((_) async => EventListPage(
@@ -107,7 +110,7 @@ void main() {
 
     test('loadMoreEvents noop when not hasMore', () async {
       when(() => mockRepo.getEvents(
-            params: any(named: 'params'),
+            filters: any(named: 'filters'),
             limit: any(named: 'limit'),
             cursor: any(named: 'cursor'),
           )).thenAnswer((_) async => EventListPage(
@@ -119,10 +122,57 @@ void main() {
       await provider.loadMoreEvents();
       // Should not call API again since hasMore is false
       verify(() => mockRepo.getEvents(
-            params: any(named: 'params'),
+            filters: any(named: 'filters'),
             limit: any(named: 'limit'),
             cursor: any(named: 'cursor'),
           )).called(1); // Only the loadEvents call
+    });
+
+    test('loadMoreEvents noop when already loading more — prevents duplicate requests',
+        () async {
+      // Prime the provider with a first page that has more items
+      when(() => mockRepo.getEvents(
+            filters: any(named: 'filters'),
+            limit: any(named: 'limit'),
+            cursor: any(named: 'cursor'),
+          )).thenAnswer((_) async => EventListPage(
+            items: [Event.fromJson(eventJson(id: 1))],
+            nextCursor: 'cursor-1',
+          ));
+      await provider.loadEvents();
+      expect(provider.hasMore, true);
+
+      // Second page is slow — returns a completer so the first loadMoreEvents
+      // call is still in-flight when we attempt a second call.
+      final slowPage = Completer<EventListPage>();
+      when(() => mockRepo.getEvents(
+            filters: any(named: 'filters'),
+            limit: any(named: 'limit'),
+            cursor: any(named: 'cursor'),
+          )).thenAnswer((_) => slowPage.future);
+
+      // Start first loadMoreEvents (still in-flight)
+      final firstLoad = provider.loadMoreEvents();
+
+      // Second loadMoreEvents while first is still running — must be ignored
+      await provider.loadMoreEvents();
+
+      // Complete the slow page and settle
+      slowPage.complete(EventListPage(
+        items: [Event.fromJson(eventJson(id: 2))],
+        nextCursor: null,
+      ));
+      await firstLoad;
+
+      // getEvents was called: once for loadEvents + once for the single loadMoreEvents
+      verify(() => mockRepo.getEvents(
+            filters: any(named: 'filters'),
+            limit: any(named: 'limit'),
+            cursor: any(named: 'cursor'),
+          )).called(2);
+
+      // Only 2 items — second loadMoreEvents was silently skipped
+      expect(provider.events.length, 2);
     });
 
     test('loadEvent success', () async {
@@ -169,7 +219,7 @@ void main() {
       when(() => mockRepo.createEvent(any()))
           .thenAnswer((_) async => Event.fromJson(eventJson(id: 99)));
       when(() => mockRepo.getEvents(
-            params: any(named: 'params'),
+            filters: any(named: 'filters'),
             limit: any(named: 'limit'),
             cursor: any(named: 'cursor'),
           )).thenAnswer((_) async => EventListPage(items: [], nextCursor: null));
@@ -200,7 +250,7 @@ void main() {
     test('deleteEvent success clears selected', () async {
       when(() => mockRepo.deleteEvent(1)).thenAnswer((_) async => {});
       when(() => mockRepo.getEvents(
-            params: any(named: 'params'),
+            filters: any(named: 'filters'),
             limit: any(named: 'limit'),
             cursor: any(named: 'cursor'),
           )).thenAnswer((_) async => EventListPage(items: [], nextCursor: null));

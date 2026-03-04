@@ -1543,3 +1543,72 @@ class AdminPolicyOverrides {
 
   dynamic operator [](String key) => effective[key];
 }
+
+// ─── Request Classes ───
+
+/// Typed request for POST /admin/events/:id/approve.
+class ApproveEventRequest {
+  final bool approved;
+  final String? reason;
+
+  const ApproveEventRequest({
+    required this.approved,
+    this.reason,
+  });
+
+  Map<String, dynamic> toJson() {
+    final json = <String, dynamic>{
+      'approved': approved,
+    };
+    if (reason != null) json['reason'] = reason;
+    return json;
+  }
+}
+
+/// Typed request for PATCH /admin/events/:id/policy-overrides.
+/// All fields are nullable — null values are sent as null to clear overrides.
+class SetPolicyOverridesRequest {
+  final int? waitlistMaxSize;
+  final int? eventMaxImages;
+  final int? maxPostsPerDay;
+  final int? maxCoOrganizers;
+  final int? refundDeadlinePercent;
+
+  const SetPolicyOverridesRequest({
+    this.waitlistMaxSize,
+    this.eventMaxImages,
+    this.maxPostsPerDay,
+    this.maxCoOrganizers,
+    this.refundDeadlinePercent,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'admin_override_waitlist_max_size': waitlistMaxSize,
+        'admin_override_event_max_images': eventMaxImages,
+        'admin_override_max_posts_per_day': maxPostsPerDay,
+        'admin_override_max_co_organizers': maxCoOrganizers,
+        'admin_override_refund_deadline_percent': refundDeadlinePercent,
+      };
+}
+
+/// Typed request for PUT /admin/platform-account.
+class UpdatePlatformAccountRequest {
+  final String institutionNumber;
+  final String transitNumber;
+  final String accountNumber;
+  final String accountHolder;
+
+  const UpdatePlatformAccountRequest({
+    required this.institutionNumber,
+    required this.transitNumber,
+    required this.accountNumber,
+    required this.accountHolder,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'institution_number': institutionNumber,
+        'transit_number': transitNumber,
+        'account_number': accountNumber,
+        'account_holder': accountHolder,
+      };
+}

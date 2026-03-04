@@ -27,20 +27,20 @@ class UserProvider extends ChangeNotifier {
 
   Future<AppUser> getMe() => _repo.getMe();
 
-  Future<AppUser> updateMe(Map<String, dynamic> data) => _repo.updateMe(data);
+  Future<AppUser> updateMe(UpdateProfileRequest data) => _repo.updateMe(data);
 
   // ─── Payment Info ───
 
   Future<PaymentInfo> getPaymentInfo() => _repo.getPaymentInfo();
 
-  Future<PaymentInfo> updatePaymentInfo(Map<String, dynamic> data) =>
+  Future<PaymentInfo> updatePaymentInfo(UpdatePaymentInfoRequest data) =>
       _repo.updatePaymentInfo(data);
 
   // ─── Bank Account ───
 
   Future<BankAccount> getBankAccount() => _repo.getBankAccount();
 
-  Future<BankAccount> updateBankAccount(Map<String, dynamic> data) =>
+  Future<BankAccount> updateBankAccount(UpdateBankAccountRequest data) =>
       _repo.updateBankAccount(data);
 
   // ─── Public Profiles ───

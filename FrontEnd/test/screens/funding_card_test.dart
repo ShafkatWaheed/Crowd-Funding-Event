@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -182,6 +184,119 @@ void main() {
 
       // After API settles, the amount should reflect the API response
       expect(find.textContaining('\$750.00'), findsWidgets);
+    });
+  });
+
+  group('FundingCard — optimistic state update after unpledge', () {
+    /// Event that has canPledge == true (approved + fundingEndAt set).
+    Event _pledgableEvent() => Event.fromJson(eventJson(
+          id: 1,
+          status: 'approved',
+          fundingGoalCents: 100000,
+          totalPledgedCents: 0,
+          fundingEndAt: DateTime.now()
+              .toUtc()
+              .add(const Duration(days: 7))
+              .toIso8601String(),
+        ));
+
+    testWidgets(
+        'total pledged decreases immediately after unpledge without waiting for background reload',
+        (tester) async {
+      // First call (initState _loadFunding) → resolves immediately with 50000
+      // Second call (background sync after unpledge) → blocked via completer
+      var fundingCallCount = 0;
+      final backgroundCompleter = Completer<FundingSummary>();
+
+      when(() => mockFundingRepo.getFundingSummary(any()))
+          .thenAnswer((_) async {
+        fundingCallCount++;
+        if (fundingCallCount == 1) {
+          return FundingSummary.fromJson(fundingSummaryJson(
+            totalPledgedCents: 50000,
+            backersCount: 10,
+          ));
+        }
+        // Second call blocks — simulates slow background refresh
+        return backgroundCompleter.future;
+      });
+
+      when(() => mockFundingRepo.unpledge(any()))
+          .thenAnswer((_) async => UnpledgeResult(
+                unpledgedAmountCents: 20000,
+                remainingPledges: 0,
+                refundedCents: 20000,
+                status: 'completed',
+              ));
+
+      await pumpFundingCard(tester, event: _pledgableEvent(), isRegistered: true);
+      // Initial state: $500.00 raised
+      expect(find.textContaining('\$500.00'), findsWidgets);
+
+      // Tap the card's Unpledge button (OutlinedButton.icon).
+      // The dialog later also shows "Unpledge" text, so be specific.
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Unpledge'));
+      await tester.pump(); // show confirmation dialog
+
+      // Dialog confirm button is an ElevatedButton labelled "Unpledge"
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Unpledge'));
+      await tester.pump(); // execute unpledge
+      await tester.pump(const Duration(milliseconds: 50)); // settle setState
+
+      // Optimistic update: 50000 - 20000 = 30000 → $300.00
+      // Background _loadFunding() is still blocked, so this verifies the
+      // immediate setState, not the eventual API response.
+      expect(find.textContaining('\$300.00'), findsWidgets);
+
+      // Unblock the background refresh so the test can clean up
+      backgroundCompleter.complete(FundingSummary.fromJson(
+          fundingSummaryJson(totalPledgedCents: 30000, backersCount: 9)));
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets(
+        'backers count decreases immediately when user has no remaining pledges',
+        (tester) async {
+      var fundingCallCount = 0;
+      final backgroundCompleter = Completer<FundingSummary>();
+
+      when(() => mockFundingRepo.getFundingSummary(any()))
+          .thenAnswer((_) async {
+        fundingCallCount++;
+        if (fundingCallCount == 1) {
+          return FundingSummary.fromJson(fundingSummaryJson(
+            totalPledgedCents: 50000,
+            backersCount: 10,
+          ));
+        }
+        return backgroundCompleter.future;
+      });
+
+      when(() => mockFundingRepo.unpledge(any()))
+          .thenAnswer((_) async => UnpledgeResult(
+                unpledgedAmountCents: 20000,
+                remainingPledges: 0, // user has no pledges left → remove from backers
+                refundedCents: 20000,
+                status: 'completed',
+              ));
+
+      await pumpFundingCard(tester, event: _pledgableEvent(), isRegistered: true);
+      // Initial: 10 backers
+      expect(find.textContaining('10 backers'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Unpledge'));
+      await tester.pump();
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Unpledge'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      // Optimistic update: 10 - 1 = 9 backers
+      expect(find.textContaining('9 backers'), findsOneWidget);
+      expect(find.textContaining('10 backers'), findsNothing);
+
+      backgroundCompleter.complete(FundingSummary.fromJson(
+          fundingSummaryJson(totalPledgedCents: 30000, backersCount: 9)));
+      await tester.pumpAndSettle();
     });
   });
 }

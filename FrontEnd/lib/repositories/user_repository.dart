@@ -35,8 +35,8 @@ class UserRepository extends BaseRepository {
     return AppUser.fromJson(resp.data);
   }
 
-  Future<AppUser> updateMe(Map<String, dynamic> data) async {
-    final resp = await dio.patch('/me', data: data);
+  Future<AppUser> updateMe(UpdateProfileRequest data) async {
+    final resp = await dio.patch('/me', data: data.toJson());
     return AppUser.fromJson(resp.data);
   }
 
@@ -48,8 +48,8 @@ class UserRepository extends BaseRepository {
   }
 
   Future<PaymentInfo> updatePaymentInfo(
-      Map<String, dynamic> data) async {
-    final resp = await dio.put('/me/payment-info', data: data);
+      UpdatePaymentInfoRequest data) async {
+    final resp = await dio.put('/me/payment-info', data: data.toJson());
     return PaymentInfo.fromJson(Map<String, dynamic>.from(resp.data as Map));
   }
 
@@ -61,8 +61,8 @@ class UserRepository extends BaseRepository {
   }
 
   Future<BankAccount> updateBankAccount(
-      Map<String, dynamic> data) async {
-    final resp = await dio.put('/me/bank-account', data: data);
+      UpdateBankAccountRequest data) async {
+    final resp = await dio.put('/me/bank-account', data: data.toJson());
     return BankAccount.fromJson(Map<String, dynamic>.from(resp.data as Map));
   }
 

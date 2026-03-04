@@ -88,12 +88,14 @@ class _ProfileBankSectionState extends State<ProfileBankSection> {
       return;
     }
     try {
-      await context.read<UserProvider>().updateBankAccount({
-        'institution_number': _institutionCtrl.text.trim(),
-        'transit_number': _transitCtrl.text.trim(),
-        'account_number': _accountNumberCtrl.text.trim(),
-        'account_holder': _accountHolderCtrl.text.trim(),
-      });
+      await context.read<UserProvider>().updateBankAccount(
+        UpdateBankAccountRequest(
+          institutionNumber: _institutionCtrl.text.trim(),
+          transitNumber: _transitCtrl.text.trim(),
+          accountNumber: _accountNumberCtrl.text.trim(),
+          accountHolder: _accountHolderCtrl.text.trim(),
+        ),
+      );
       await _load();
       if (mounted) AppToast.success(context, 'Bank account updated');
     } catch (e) {

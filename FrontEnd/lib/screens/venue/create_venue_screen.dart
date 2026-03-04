@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
+import '../../models/venue.dart';
 import '../../widgets/app_toast.dart';
 import '../../providers/venue_provider.dart';
 import '../../services/mapbox_geocoding_service.dart';
@@ -80,15 +81,15 @@ class _CreateVenueScreenState extends State<CreateVenueScreen> {
 
     try {
       final repo = context.read<VenueProvider>();
-      await repo.createVenue({
-        'name': _nameCtrl.text.trim(),
-        'address': _addressCtrl.text.trim(),
-        'city': _cityCtrl.text.trim(),
-        'province': _provinceCtrl.text.trim(),
-        'max_capacity': int.parse(_capacityCtrl.text),
-        if (_lat != null) 'lat': _lat,
-        if (_lng != null) 'lng': _lng,
-      });
+      await repo.createVenue(CreateVenueRequest(
+        name: _nameCtrl.text.trim(),
+        address: _addressCtrl.text.trim(),
+        city: _cityCtrl.text.trim(),
+        province: _provinceCtrl.text.trim(),
+        maxCapacity: int.parse(_capacityCtrl.text),
+        lat: _lat,
+        lng: _lng,
+      ));
 
       if (mounted) {
         if (Navigator.of(context).canPop()) {

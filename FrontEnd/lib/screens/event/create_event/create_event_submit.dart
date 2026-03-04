@@ -1,9 +1,13 @@
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../models/discount.dart';
 import '../../../models/event.dart';
 import '../../../models/event_form_models.dart';
 import '../../../models/milestone.dart';
+import '../../../models/schedule.dart';
+import '../../../models/sponsor.dart';
+import '../../../models/ticket.dart';
 import '../../../models/venue.dart';
 import '../../../providers/event_provider.dart';
 import '../../../providers/ticket_provider.dart';
@@ -125,14 +129,13 @@ Future<void> _createTiers(TicketProvider ticketRepo, int eventId, List<EditableT
     final name = t.nameCtrl.text.trim();
     if (name.isEmpty) continue;
     try {
-      final tierData = <String, dynamic>{
-        'name': name,
-        'price_cents': ((double.tryParse(t.priceCtrl.text) ?? 0) * 100).toInt(),
-        'display_order': i,
-        if (t.descCtrl.text.trim().isNotEmpty) 'description': t.descCtrl.text.trim(),
-        if (t.maxReservedSpots > 0) 'max_reserved_spots': t.maxReservedSpots,
-      };
-      await ticketRepo.createTicketTier(eventId, tierData);
+      await ticketRepo.createTicketTier(eventId, CreateTicketTierRequest(
+        name: name,
+        priceCents: ((double.tryParse(t.priceCtrl.text) ?? 0) * 100).toInt(),
+        displayOrder: i,
+        description: t.descCtrl.text.trim().isNotEmpty ? t.descCtrl.text.trim() : null,
+        maxReservedSpots: t.maxReservedSpots > 0 ? t.maxReservedSpots : null,
+      ));
     } catch (e) { debugPrint(e.toString()); }
   }
 }
@@ -151,14 +154,14 @@ Future<void> _createMilestones(EventProvider eventRepo, TicketProvider ticketRep
     final discVal = int.tryParse(ms.discountValueCtrl.text.trim()) ?? 0;
     if (discVal > 0) {
       try {
-        await ticketRepo.createEventDiscount(eventId, {
-          'name': 'Milestone ${ms.unlockPercent}% discount',
-          'discount_type': 'funding_milestone',
-          'value': discVal,
-          'target': 'pledgers',
-          'milestone_percent': ms.unlockPercent,
-          'milestone_discount_value': discVal,
-        });
+        await ticketRepo.createEventDiscount(eventId, CreateEventDiscountRequest(
+          name: 'Milestone ${ms.unlockPercent}% discount',
+          discountType: 'funding_milestone',
+          value: discVal,
+          target: 'pledgers',
+          milestonePercent: ms.unlockPercent,
+          milestoneDiscountValue: discVal,
+        ));
       } catch (e) { debugPrint(e.toString()); }
     }
   }
@@ -169,21 +172,20 @@ Future<void> _createEarlyBirdDiscounts(TicketProvider ticketRepo, int eventId, L
     final val = int.tryParse(eb.valueCtrl.text.trim()) ?? 0;
     if (val <= 0 || eb.windowEnd == null) continue;
     try {
-      await ticketRepo.createEarlyBirdDiscount(eventId, {
-        'applies_to': eb.appliesTo,
-        'discount_type': eb.discountType,
-        'value': val,
-        if (eb.windowStart != null)
-          'window_start': eb.windowStart!.toUtc().toIso8601String(),
-        'window_end': eb.windowEnd!.toUtc().toIso8601String(),
-      });
+      await ticketRepo.createEarlyBirdDiscount(eventId, CreateEarlyBirdDiscountRequest(
+        appliesTo: eb.appliesTo,
+        discountType: eb.discountType,
+        value: val,
+        windowStart: eb.windowStart?.toUtc().toIso8601String(),
+        windowEnd: eb.windowEnd!.toUtc().toIso8601String(),
+      ));
     } catch (e) { debugPrint(e.toString()); }
   }
 }
 
 Future<void> _createSchedule(EventProvider eventRepo, int eventId, List<ScheduleDayInput> scheduleDays) async {
   if (scheduleDays.isEmpty) return;
-  final scheduleItems = <Map<String, dynamic>>[];
+  final scheduleItems = <CreateScheduleItemRequest>[];
   final slotsWithImages = <int, ScheduleSlotInput>{};
 
   for (final day in scheduleDays) {
@@ -195,21 +197,23 @@ Future<void> _createSchedule(EventProvider eventRepo, int eventId, List<Schedule
       final title = slot.titleCtrl.text.trim();
       if (title.isEmpty) continue;
       final itemIdx = scheduleItems.length;
-      scheduleItems.add({
-        'date': dateStr,
-        'start_time':
+      scheduleItems.add(CreateScheduleItemRequest(
+        date: dateStr,
+        startTime:
             '${slot.startTime.hour.toString().padLeft(2, '0')}:${slot.startTime.minute.toString().padLeft(2, '0')}',
-        'end_time':
+        endTime:
             '${slot.endTime.hour.toString().padLeft(2, '0')}:${slot.endTime.minute.toString().padLeft(2, '0')}',
-        'title': title,
-        if (slot.descCtrl.text.trim().isNotEmpty) 'description': slot.descCtrl.text.trim(),
-        if (slot.pickedImageBytes == null && slot.imageUrlCtrl.text.trim().isNotEmpty)
-          'image_url': slot.imageUrlCtrl.text.trim(),
-        if (slot.imageCaptionCtrl.text.trim().isNotEmpty)
-          'image_caption': slot.imageCaptionCtrl.text.trim(),
-        if (slot.linkUrlCtrl.text.trim().isNotEmpty) 'link_url': slot.linkUrlCtrl.text.trim(),
-        'sort_order': i,
-      });
+        title: title,
+        description: slot.descCtrl.text.trim().isNotEmpty ? slot.descCtrl.text.trim() : null,
+        imageUrl: slot.pickedImageBytes == null && slot.imageUrlCtrl.text.trim().isNotEmpty
+            ? slot.imageUrlCtrl.text.trim()
+            : null,
+        imageCaption: slot.imageCaptionCtrl.text.trim().isNotEmpty
+            ? slot.imageCaptionCtrl.text.trim()
+            : null,
+        linkUrl: slot.linkUrlCtrl.text.trim().isNotEmpty ? slot.linkUrlCtrl.text.trim() : null,
+        sortOrder: i,
+      ));
       if (slot.pickedImageBytes != null) slotsWithImages[itemIdx] = slot;
     }
   }
@@ -244,12 +248,15 @@ Future<void> _createSponsorCategories(
     final name = cat.nameCtrl.text.trim();
     if (name.isEmpty) continue;
     try {
-      final created = await sponsorRepo.createSponsorshipCategory(eventId, {
-        'name': name,
-        'description': cat.descCtrl.text.trim(),
-        'total_spots': int.tryParse(cat.spotsCtrl.text) ?? 1,
-        'min_bid_cents': ((double.tryParse(cat.minBidCtrl.text) ?? 0) * 100).round(),
-      });
+      final created = await sponsorRepo.createSponsorshipCategory(eventId,
+          CreateSponsorshipCategoryRequest(
+        name: name,
+        description: cat.descCtrl.text.trim().isEmpty
+            ? null
+            : cat.descCtrl.text.trim(),
+        totalSpots: int.tryParse(cat.spotsCtrl.text) ?? 1,
+        minBidCents: ((double.tryParse(cat.minBidCtrl.text) ?? 0) * 100).round(),
+      ));
       final catId = created.id;
       for (final p in cat.prereqs) {
         try {

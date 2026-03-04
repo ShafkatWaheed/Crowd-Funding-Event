@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
+import '../../../models/ticket.dart';
 import '../../../providers/ticket_provider.dart';
 import '../../../widgets/app_toast.dart';
 
@@ -63,21 +64,19 @@ class _EditTicketsSectionState extends State<EditTicketsSection> {
     final ticketRepo = context.read<TicketProvider>();
     try {
       if (t.id != null) {
-        await ticketRepo.updateTicketTier(widget.eventId, t.id!, {
-          'name': name,
-          'price_cents': priceCents,
-          if (t.descCtrl.text.trim().isNotEmpty)
-            'description': t.descCtrl.text.trim(),
-        });
+        await ticketRepo.updateTicketTier(widget.eventId, t.id!, UpdateTicketTierRequest(
+          name: name,
+          priceCents: priceCents,
+          description: t.descCtrl.text.trim().isNotEmpty ? t.descCtrl.text.trim() : null,
+        ));
         if (mounted) AppToast.success(context, 'Tier updated');
       } else {
-        final resp = await ticketRepo.createTicketTier(widget.eventId, {
-          'name': name,
-          'price_cents': priceCents,
-          'display_order': _tiers.indexOf(t),
-          if (t.descCtrl.text.trim().isNotEmpty)
-            'description': t.descCtrl.text.trim(),
-        });
+        final resp = await ticketRepo.createTicketTier(widget.eventId, CreateTicketTierRequest(
+          name: name,
+          priceCents: priceCents,
+          displayOrder: _tiers.indexOf(t),
+          description: t.descCtrl.text.trim().isNotEmpty ? t.descCtrl.text.trim() : null,
+        ));
         t.id = resp.id;
         if (mounted) AppToast.success(context, 'Tier created');
       }

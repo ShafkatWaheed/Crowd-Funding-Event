@@ -16,7 +16,7 @@ class TicketProvider extends ChangeNotifier {
   Future<List<TicketStrategy>> getTicketStrategies() =>
       _repo.getTicketStrategies();
 
-  Future<TicketStrategy> createTicketStrategy(Map<String, dynamic> data) =>
+  Future<TicketStrategy> createTicketStrategy(CreateTicketStrategyRequest data) =>
       _repo.createTicketStrategy(data);
 
   Future<TicketStrategy> getTicketStrategy(int id) =>
@@ -47,11 +47,11 @@ class TicketProvider extends ChangeNotifier {
       _repo.getTicketTiers(eventId);
 
   Future<TicketTier> createTicketTier(
-          int eventId, Map<String, dynamic> data) =>
+          int eventId, CreateTicketTierRequest data) =>
       _repo.createTicketTier(eventId, data);
 
   Future<TicketTier> updateTicketTier(
-          int eventId, int tierId, Map<String, dynamic> data) =>
+          int eventId, int tierId, UpdateTicketTierRequest data) =>
       _repo.updateTicketTier(eventId, tierId, data);
 
   Future<void> deleteTicketTier(int eventId, int tierId) =>
@@ -167,7 +167,7 @@ class TicketProvider extends ChangeNotifier {
       _repo.getEventDiscounts(eventId);
 
   Future<EventDiscount> createEventDiscount(
-          int eventId, Map<String, dynamic> data) =>
+          int eventId, CreateEventDiscountRequest data) =>
       _repo.createEventDiscount(eventId, data);
 
   Future<void> deleteEventDiscount(int eventId, int discountId) =>
@@ -182,7 +182,7 @@ class TicketProvider extends ChangeNotifier {
       _repo.getDiscountStrategies();
 
   Future<DiscountStrategy> createDiscountStrategy(
-          Map<String, dynamic> data) =>
+          CreateDiscountStrategyRequest data) =>
       _repo.createDiscountStrategy(data);
 
   Future<void> deleteDiscountStrategy(int id) =>
@@ -215,11 +215,11 @@ class TicketProvider extends ChangeNotifier {
       _repo.getEarlyBirdDiscounts(eventId);
 
   Future<EarlyBirdDiscount> createEarlyBirdDiscount(
-          int eventId, Map<String, dynamic> data) =>
+          int eventId, CreateEarlyBirdDiscountRequest data) =>
       _repo.createEarlyBirdDiscount(eventId, data);
 
   Future<EarlyBirdDiscount> updateEarlyBirdDiscount(
-          int eventId, int discountId, Map<String, dynamic> data) =>
+          int eventId, int discountId, UpdateEarlyBirdDiscountRequest data) =>
       _repo.updateEarlyBirdDiscount(eventId, discountId, data);
 
   Future<void> deleteEarlyBirdDiscount(int eventId, int discountId) =>

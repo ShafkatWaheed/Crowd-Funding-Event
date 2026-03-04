@@ -160,4 +160,101 @@ void main() {
       await tester.pumpAndSettle();
     });
   });
+
+  group('ExploreTab — infinite scroll', () {
+    testWidgets('shows bottom loading spinner when isLoadingMore is true',
+        (tester) async {
+      when(() => mockEvent.isLoading).thenReturn(false);
+      when(() => mockEvent.error).thenReturn(null);
+      when(() => mockEvent.events)
+          .thenReturn([makeEvent(id: 1, title: 'Music Fest')]);
+      when(() => mockEvent.isLoadingMore).thenReturn(true);
+
+      await pumpApp(tester, _buildExploreTab(), overrides: buildProviders());
+      await tester.pump();
+
+      // The SliverToBoxAdapter rendered when isLoadingMore is true contains a
+      // CircularProgressIndicator — distinct from the ShimmerEventList shown
+      // during the initial load.
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      // Drain flutter_animate timers with a fixed-duration pump instead of
+      // pumpAndSettle — the CircularProgressIndicator repeats indefinitely
+      // and would cause pumpAndSettle to time out.
+      await tester.pump(const Duration(milliseconds: 500));
+    });
+
+    testWidgets('hides bottom spinner when isLoadingMore is false',
+        (tester) async {
+      when(() => mockEvent.isLoading).thenReturn(false);
+      when(() => mockEvent.error).thenReturn(null);
+      when(() => mockEvent.events)
+          .thenReturn([makeEvent(id: 1, title: 'Music Fest')]);
+      when(() => mockEvent.isLoadingMore).thenReturn(false);
+      when(() => mockEvent.hasMore).thenReturn(false);
+
+      await pumpApp(tester, _buildExploreTab(), overrides: buildProviders());
+      await tester.pump();
+
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets(
+        'loadMoreEvents is called when scrolled to bottom and hasMore is true',
+        (tester) async {
+      // Use enough events to make the list overflow the 1920 px test viewport
+      final manyEvents = List.generate(
+        16,
+        (i) => makeEvent(id: i + 1, title: 'Event ${i + 1}'),
+      );
+
+      when(() => mockEvent.isLoading).thenReturn(false);
+      when(() => mockEvent.error).thenReturn(null);
+      when(() => mockEvent.events).thenReturn(manyEvents);
+      when(() => mockEvent.isLoadingMore).thenReturn(false);
+      when(() => mockEvent.hasMore).thenReturn(true);
+      when(() => mockEvent.loadMoreEvents()).thenAnswer((_) async {});
+
+      await pumpApp(tester, _buildExploreTab(), overrides: buildProviders());
+      await tester.pump();
+
+      // Scroll all the way to the bottom to trigger the NotificationListener
+      await tester.drag(
+        find.byType(Scrollable).first,
+        const Offset(0, -8000),
+      );
+      await tester.pump();
+
+      verify(() => mockEvent.loadMoreEvents()).called(greaterThanOrEqualTo(1));
+
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets(
+        'loadMoreEvents is NOT called when isLoadingMore is already true',
+        (tester) async {
+      when(() => mockEvent.isLoading).thenReturn(false);
+      when(() => mockEvent.error).thenReturn(null);
+      when(() => mockEvent.events)
+          .thenReturn([makeEvent(id: 1, title: 'Event 1')]);
+      // Already loading more — the NotificationListener guard checks
+      // `!events.isLoadingMore` before calling loadMoreEvents.
+      when(() => mockEvent.isLoadingMore).thenReturn(true);
+      when(() => mockEvent.hasMore).thenReturn(true);
+
+      await pumpApp(tester, _buildExploreTab(), overrides: buildProviders());
+      await tester.pump();
+
+      // The loading-more spinner is visible (isLoadingMore: true)
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+      // loadMoreEvents must never be called in this state — the guard in
+      // NotificationListener blocks it when isLoadingMore is already true.
+      verifyNever(() => mockEvent.loadMoreEvents());
+
+      // Drain flutter_animate timers without blocking on the infinite spinner.
+      await tester.pump(const Duration(milliseconds: 500));
+    });
+  });
 }

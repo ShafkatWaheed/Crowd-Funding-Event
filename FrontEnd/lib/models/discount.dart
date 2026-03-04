@@ -1,5 +1,97 @@
 // Discount models for event discounts, strategies, and claimable discounts.
 
+// ─── Discount Request Models ───
+
+class CreateEventDiscountRequest {
+  final String name;
+  final String discountType;
+  final int value;
+  final String target;
+  final int? milestonePercent;
+  final int? milestoneDiscountValue;
+
+  const CreateEventDiscountRequest({
+    required this.name,
+    required this.discountType,
+    required this.value,
+    required this.target,
+    this.milestonePercent,
+    this.milestoneDiscountValue,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'discount_type': discountType,
+        'value': value,
+        'target': target,
+        if (milestonePercent != null) 'milestone_percent': milestonePercent,
+        if (milestoneDiscountValue != null) 'milestone_discount_value': milestoneDiscountValue,
+      };
+}
+
+class CreateDiscountStrategyRequest {
+  final String name;
+  final String discountType;
+  final int value;
+  final String target;
+
+  const CreateDiscountStrategyRequest({
+    required this.name,
+    required this.discountType,
+    required this.value,
+    required this.target,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'discount_type': discountType,
+        'value': value,
+        'target': target,
+      };
+}
+
+class CreateEarlyBirdDiscountRequest {
+  final String appliesTo;
+  final String discountType;
+  final int value;
+  final String? windowStart;
+  final String windowEnd;
+
+  const CreateEarlyBirdDiscountRequest({
+    required this.appliesTo,
+    required this.discountType,
+    required this.value,
+    this.windowStart,
+    required this.windowEnd,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'applies_to': appliesTo,
+        'discount_type': discountType,
+        'value': value,
+        if (windowStart != null) 'window_start': windowStart,
+        'window_end': windowEnd,
+      };
+}
+
+class UpdateEarlyBirdDiscountRequest {
+  final String? windowEnd;
+  final String? discountType;
+  final int? value;
+
+  const UpdateEarlyBirdDiscountRequest({
+    this.windowEnd,
+    this.discountType,
+    this.value,
+  });
+
+  Map<String, dynamic> toJson() => {
+        if (windowEnd != null) 'window_end': windowEnd,
+        if (discountType != null) 'discount_type': discountType,
+        if (value != null) 'value': value,
+      };
+}
+
 class EventDiscount {
   final int id;
   final int eventId;

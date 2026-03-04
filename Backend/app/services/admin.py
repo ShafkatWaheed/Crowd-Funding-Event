@@ -9,8 +9,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.logger import get_logger, log_step
 from app.models.event import Event, EventStatus
 from app.models.notification import NotificationType
+from app.models.user import UserRole
 from app.repositories.admin_repo import admin_repo, _period_cutoff
 from app.repositories.event_repo import event_repo
+from app.repositories.user_repo import user_repo
 from app.services import event as event_service
 from app.services import notification_service as notif_svc
 from app.services import audit as audit_svc
@@ -205,6 +207,299 @@ def compute_event_warnings(event: Event) -> list[str]:
         warnings.append("No genre/category set")
 
     return warnings
+
+
+async def get_user_detail(db: AsyncSession, user_id: int):
+    """Fetch role-based user detail for admin view. Returns AdminUserDetailResponse."""
+    from collections import defaultdict
+    from app.core.exceptions import NotFoundError
+    from app.models.sponsor import BidStatus
+    from app.repositories.sponsor_repo import sponsor_repo
+    from app.repositories.ticket_repo import ticket_repo
+    from app.services import ticket as ticket_service
+    from app.services import funding as funding_service
+    from app.services import sponsor as sponsor_svc
+    from app.schemas.admin import (
+        AdminUserDetailResponse,
+        AdminUserDetailTicketItem,
+        AdminUserDetailPledgeItem,
+        AdminUserDetailEventItem,
+        AdminUserDetailSponsorItem,
+        AdminUserDetailDiscountItem,
+        AdminSponsorshipBidItem,
+        AdminSponsorshipEventItem,
+    )
+
+    user = await user_repo.get_by_id(db, user_id)
+    if not user:
+        raise NotFoundError("User", user_id)
+
+    base = {
+        "id": user.id,
+        "email": user.email,
+        "display_name": user.display_name,
+        "role": user.role.value,
+        "created_at": user.created_at,
+    }
+
+    if user.role == UserRole.customer:
+        tickets = await ticket_service.list_tickets_for_user_admin(db, user_id=user_id)
+        pledges = await funding_service.list_pledges_by_user(db, user_id=user_id, limit=200)
+        events = await event_repo.list_events_for_customer_registrations(db, user_id)
+
+        ticket_counts: dict[int, int] = {}
+        for t in tickets:
+            ticket_counts[t.event_id] = ticket_counts.get(t.event_id, 0) + 1
+        pledge_counts: dict[int, int] = {}
+        pledge_totals: dict[int, int] = {}
+        reserved_spots: dict[int, int] = {}
+        donation_counts: dict[int, int] = {}
+        donation_totals: dict[int, int] = {}
+        for p in pledges:
+            if getattr(p, "is_guest", False):
+                donation_counts[p.event_id] = donation_counts.get(p.event_id, 0) + 1
+                donation_totals[p.event_id] = donation_totals.get(p.event_id, 0) + p.amount_cents
+            else:
+                pledge_counts[p.event_id] = pledge_counts.get(p.event_id, 0) + 1
+                pledge_totals[p.event_id] = pledge_totals.get(p.event_id, 0) + p.amount_cents
+                spots = getattr(p, "reserved_spots", 0) or 0
+                reserved_spots[p.event_id] = reserved_spots.get(p.event_id, 0) + spots
+
+        return AdminUserDetailResponse(
+            **base,
+            tickets=[
+                AdminUserDetailTicketItem(
+                    id=t.id, event_id=t.event_id,
+                    event_title=t.event.title if t.event else None,
+                    tier_name=t.ticket_tier.name if t.ticket_tier else None,
+                    amount_paid_cents=t.amount_paid_cents, status=t.status.value,
+                    created_at=t.created_at,
+                )
+                for t in tickets
+            ],
+            pledges=[
+                AdminUserDetailPledgeItem(
+                    id=p.id, event_id=p.event_id,
+                    event_title=p.event.title if p.event else None,
+                    user_display_name=user.display_name,
+                    amount_cents=p.amount_cents, status=p.status.value,
+                    is_guest=getattr(p, "is_guest", False),
+                    reserved_spots=getattr(p, "reserved_spots", 0) or 0,
+                    created_at=p.created_at,
+                )
+                for p in pledges
+            ],
+            events=[
+                AdminUserDetailEventItem(
+                    id=e.id, title=e.title, status=e.status.value,
+                    organizer_id=e.organizer_id, description=e.description,
+                    genre=e.genre, max_capacity=e.max_capacity,
+                    registration_type=e.registration_type.value if e.registration_type else None,
+                    registration_count=e.registration_count or 0,
+                    funding_goal_cents=e.funding_goal_cents,
+                    min_pledge_cents=e.min_pledge_cents or 0,
+                    ticket_strategy_name=e.ticket_strategy.name if e.ticket_strategy else None,
+                    venue_name=e.venue.name if e.venue else None,
+                    venue_address=f"{e.venue.address}, {e.venue.city}" if e.venue and e.venue.address else (e.venue.name if e.venue else None),
+                    created_at=e.created_at, start_time=e.start_time,
+                    end_time=e.end_time, funding_end_at=e.funding_end_at,
+                    has_schedule=e.has_schedule or False,
+                    community_rules=e.community_rules or False,
+                    ticket_tiers_count=len(e.ticket_tiers) if e.ticket_tiers else 0,
+                    sponsorship_categories_count=len(e.sponsorship_categories) if e.sponsorship_categories else 0,
+                    milestones_count=len(e.milestones) if e.milestones else 0,
+                    user_ticket_count=ticket_counts.get(e.id, 0),
+                    user_pledge_count=pledge_counts.get(e.id, 0),
+                    user_pledge_total_cents=pledge_totals.get(e.id, 0),
+                    user_reserved_spots=reserved_spots.get(e.id, 0),
+                    user_donation_count=donation_counts.get(e.id, 0),
+                    user_donation_total_cents=donation_totals.get(e.id, 0),
+                )
+                for e in events
+            ],
+        )
+
+    if user.role == UserRole.organizer:
+        events = await event_repo.list_events_for_organizer_admin(db, user_id)
+        ticket_sales = await ticket_service.list_organizer_ticket_sales(
+            db, organizer_id=user_id, limit=200,
+        )
+        pledges = await funding_service.list_organizer_pledges(
+            db, organizer_id=user_id, limit=200,
+        )
+        sponsors = await sponsor_svc.get_organizer_sponsors(db, organizer_id=user_id, limit=100)
+        discounts = await ticket_repo.list_discounts_for_organizer(db, user_id)
+
+        event_ids = [e.id for e in events]
+        sponsor_bids_list: list[AdminSponsorshipEventItem] = []
+        if event_ids:
+            bid_rows = await sponsor_repo.get_admin_sponsor_bids_for_events(db, event_ids)
+            events_by_id = {e.id: e for e in events}
+            grouped: dict[int, list] = defaultdict(list)
+            for r in bid_rows:
+                grouped[r.event_id].append(
+                    AdminSponsorshipBidItem(
+                        bid_id=r.bid_id, category_id=r.cat_id,
+                        category_name=r.cat_name, amount_cents=r.amount_cents,
+                        status=r.status.value if hasattr(r.status, "value") else str(r.status),
+                        can_refund=r.status == BidStatus.paid,
+                    )
+                )
+            for eid, bids in grouped.items():
+                evt = events_by_id.get(eid)
+                sponsor_bids_list.append(
+                    AdminSponsorshipEventItem(
+                        event_id=eid,
+                        event_title=evt.title if evt else None,
+                        bids=bids,
+                    )
+                )
+
+        escrows_list: list[dict] = []
+        if event_ids:
+            event_title_map = {e.id: e.title for e in events}
+            escrow_rows = await sponsor_repo.get_fund_escrows_for_events(db, event_ids)
+            for esc in escrow_rows:
+                total_released = esc.stage1_released_cents + esc.stage2_released_cents + esc.stage3_released_cents
+                escrows_list.append({
+                    "id": esc.id,
+                    "event_id": esc.event_id,
+                    "event_title": event_title_map.get(esc.event_id),
+                    "organizer_name": user.display_name,
+                    "organizer_email": user.email,
+                    "total_held_cents": esc.total_held_cents,
+                    "total_released_cents": total_released,
+                    "remaining_cents": max(0, esc.total_held_cents - total_released),
+                    "status": esc.status.value,
+                    "stage1_released_at": esc.stage1_released_at.isoformat() if esc.stage1_released_at else None,
+                    "stage2_released_at": esc.stage2_released_at.isoformat() if esc.stage2_released_at else None,
+                    "stage3_released_at": esc.stage3_released_at.isoformat() if esc.stage3_released_at else None,
+                })
+
+        return AdminUserDetailResponse(
+            **base,
+            events=[
+                AdminUserDetailEventItem(
+                    id=e.id, title=e.title, status=e.status.value,
+                    organizer_id=e.organizer_id, description=e.description,
+                    genre=e.genre, max_capacity=e.max_capacity,
+                    registration_type=e.registration_type.value if e.registration_type else None,
+                    registration_count=e.registration_count or 0,
+                    funding_goal_cents=e.funding_goal_cents,
+                    min_pledge_cents=e.min_pledge_cents or 0,
+                    ticket_strategy_name=e.ticket_strategy.name if e.ticket_strategy else None,
+                    venue_name=e.venue.name if e.venue else None,
+                    venue_address=f"{e.venue.address}, {e.venue.city}" if e.venue and e.venue.address else (e.venue.name if e.venue else None),
+                    review_notes=e.review_notes,
+                    review_log=e.review_log or [],
+                    validation_warnings=compute_event_warnings(e),
+                    cancellation_reason=e.cancellation_reason,
+                    pending_extension=e.pending_extension,
+                    pending_cancellation=e.pending_cancellation,
+                    created_at=e.created_at, start_time=e.start_time,
+                    end_time=e.end_time, funding_end_at=e.funding_end_at,
+                    has_schedule=e.has_schedule or False,
+                    community_rules=e.community_rules or False,
+                    ticket_tiers_count=len(e.ticket_tiers) if e.ticket_tiers else 0,
+                    sponsorship_categories_count=len(e.sponsorship_categories) if e.sponsorship_categories else 0,
+                    milestones_count=len(e.milestones) if e.milestones else 0,
+                )
+                for e in events
+            ],
+            ticket_sales=[
+                AdminUserDetailTicketItem(
+                    id=s.id, event_id=s.event_id,
+                    event_title=s.event.title if s.event else None,
+                    tier_name=s.ticket_tier.name if s.ticket_tier else None,
+                    amount_paid_cents=s.amount_paid_cents, status=s.status.value,
+                    created_at=s.created_at,
+                    attendee_display_name=s.user.display_name if s.user else None,
+                )
+                for s in ticket_sales
+            ],
+            pledges=[
+                AdminUserDetailPledgeItem(
+                    id=p.id, event_id=p.event_id,
+                    event_title=p.event.title if p.event else None,
+                    user_display_name=p.user.display_name if p.user else None,
+                    amount_cents=p.amount_cents, status=p.status.value,
+                    is_guest=getattr(p, "is_guest", False),
+                    reserved_spots=getattr(p, "reserved_spots", 0) or 0,
+                    created_at=p.created_at,
+                )
+                for p in pledges
+            ],
+            sponsors=[
+                AdminUserDetailSponsorItem(
+                    sponsor_user_id=s["sponsor_user_id"],
+                    company_name=s.get("company_name"),
+                    contact_name=s.get("contact_name"),
+                    total_bids=s.get("total_bids", 0),
+                    total_amount_cents=s.get("total_amount_cents", 0),
+                )
+                for s in sponsors
+            ],
+            discounts=[
+                AdminUserDetailDiscountItem(
+                    event_id=d.event_id,
+                    event_title=d.event.title if d.event else None,
+                    user_id=d.user_id,
+                    user_display_name=d.user.display_name if d.user else None,
+                    discount_type=d.discount_type, value=d.value,
+                )
+                for d in discounts
+            ],
+            sponsor_bids=sponsor_bids_list if sponsor_bids_list else None,
+            escrows=escrows_list if escrows_list else None,
+        )
+
+    if user.role == UserRole.sponsor:
+        sponsorships = await sponsor_svc.get_sponsor_bids_detail_for_admin(db, sponsor_user_id=user_id)
+        tickets = await ticket_service.list_tickets_for_user_admin(db, user_id=user_id)
+        pledges = await funding_service.list_pledges_by_user(db, user_id=user_id, limit=200)
+        return AdminUserDetailResponse(
+            **base,
+            sponsorships=[
+                AdminSponsorshipEventItem(
+                    event_id=sp["event_id"],
+                    event_title=sp["event_title"],
+                    bids=[
+                        AdminSponsorshipBidItem(
+                            bid_id=b["bid_id"], category_id=b["category_id"],
+                            category_name=b["category_name"],
+                            amount_cents=b["amount_cents"],
+                            status=b["status"], can_refund=b["can_refund"],
+                        )
+                        for b in sp["bids"]
+                    ],
+                )
+                for sp in sponsorships
+            ],
+            tickets=[
+                AdminUserDetailTicketItem(
+                    id=t.id, event_id=t.event_id,
+                    event_title=t.event.title if t.event else None,
+                    tier_name=t.ticket_tier.name if t.ticket_tier else None,
+                    amount_paid_cents=t.amount_paid_cents, status=t.status.value,
+                    created_at=t.created_at,
+                )
+                for t in tickets
+            ],
+            pledges=[
+                AdminUserDetailPledgeItem(
+                    id=p.id, event_id=p.event_id,
+                    event_title=p.event.title if p.event else None,
+                    user_display_name=user.display_name,
+                    amount_cents=p.amount_cents, status=p.status.value,
+                    is_guest=getattr(p, "is_guest", False),
+                    reserved_spots=getattr(p, "reserved_spots", 0) or 0,
+                    created_at=p.created_at,
+                )
+                for p in pledges
+            ],
+        )
+
+    return AdminUserDetailResponse(**base)
 
 
 async def get_stats(db: AsyncSession) -> dict:

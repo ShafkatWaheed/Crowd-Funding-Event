@@ -8,6 +8,7 @@ import '../../providers/user_provider.dart';
 import '../../widgets/app_toast.dart';
 import 'profile_section_card.dart';
 
+
 class ProfilePaymentSection extends StatefulWidget {
   const ProfilePaymentSection({super.key});
 
@@ -54,10 +55,12 @@ class _ProfilePaymentSectionState extends State<ProfilePaymentSection> {
 
   Future<void> _save() async {
     try {
-      await context.read<UserProvider>().updatePaymentInfo({
-        'card_holder_name': _cardHolderCtrl.text.trim(),
-        'billing_address': _billingAddressCtrl.text.trim(),
-      });
+      await context.read<UserProvider>().updatePaymentInfo(
+        UpdatePaymentInfoRequest(
+          cardHolderName: _cardHolderCtrl.text.trim(),
+          billingAddress: _billingAddressCtrl.text.trim(),
+        ),
+      );
       await _load();
       if (mounted) AppToast.success(context, 'Payment info updated');
     } catch (e) {

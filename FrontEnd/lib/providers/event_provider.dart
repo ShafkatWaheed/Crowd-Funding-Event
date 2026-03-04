@@ -24,7 +24,7 @@ class EventProvider extends ChangeNotifier {
   String? _nextCursor;
   bool _hasMore = true;
   bool _isLoadingMore = false;
-  Map<String, dynamic>? _lastFilters;
+  EventFilters? _lastFilters;
 
   // In-memory cache: event id → (Event, timestamp)
   final Map<int, _CacheEntry<Event>> _eventCache = {};
@@ -40,7 +40,7 @@ class EventProvider extends ChangeNotifier {
   bool get hasMore => _hasMore;
   String? get error => _error;
 
-  Future<void> loadEvents({Map<String, dynamic>? filters}) async {
+  Future<void> loadEvents({EventFilters? filters}) async {
     _isLoading = true;
     _error = null;
     _nextCursor = null;
@@ -49,7 +49,7 @@ class EventProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final result = await _repo.getEvents(params: filters, limit: _pageSize);
+      final result = await _repo.getEvents(filters: filters, limit: _pageSize);
       _events = result.items;
       _nextCursor = result.nextCursor;
       _hasMore = _nextCursor != null;
@@ -68,7 +68,7 @@ class EventProvider extends ChangeNotifier {
 
     try {
       final result = await _repo.getEvents(
-        params: _lastFilters,
+        filters: _lastFilters,
         limit: _pageSize,
         cursor: _nextCursor,
       );
@@ -218,13 +218,13 @@ class EventProvider extends ChangeNotifier {
   // -- Raw list (used by screens that manage their own pagination)
 
   Future<EventListPage> getEvents({
-    Map<String, dynamic>? params,
+    EventFilters? filters,
     int? offset,
     int limit = 20,
     String? cursor,
   }) =>
       _repo.getEvents(
-          params: params, offset: offset, limit: limit, cursor: cursor);
+          filters: filters, offset: offset, limit: limit, cursor: cursor);
 
   // -- CRUD --
 
@@ -338,7 +338,7 @@ class EventProvider extends ChangeNotifier {
       _repo.getEventOrganizers(eventId);
 
   Future<EventOrganizer> addEventOrganizer(
-          int eventId, Map<String, dynamic> data) =>
+          int eventId, AddEventOrganizerRequest data) =>
       _repo.addEventOrganizer(eventId, data);
 
   Future<EventOrganizer> updateOrganizerPermission(
@@ -391,15 +391,15 @@ class EventProvider extends ChangeNotifier {
       _repo.getSchedule(eventId);
 
   Future<ScheduleItem> createScheduleItem(
-          int eventId, Map<String, dynamic> data) =>
+          int eventId, CreateScheduleItemRequest data) =>
       _repo.createScheduleItem(eventId, data);
 
   Future<List<ScheduleItem>> bulkCreateSchedule(
-          int eventId, List<Map<String, dynamic>> items) =>
+          int eventId, List<CreateScheduleItemRequest> items) =>
       _repo.bulkCreateSchedule(eventId, items);
 
   Future<ScheduleItem> updateScheduleItem(
-          int eventId, int itemId, Map<String, dynamic> data) =>
+          int eventId, int itemId, UpdateScheduleItemRequest data) =>
       _repo.updateScheduleItem(eventId, itemId, data);
 
   Future<void> deleteScheduleItem(int eventId, int itemId) =>

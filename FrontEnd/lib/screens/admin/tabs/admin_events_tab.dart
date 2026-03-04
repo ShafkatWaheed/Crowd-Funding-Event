@@ -13,6 +13,7 @@ import '../../../widgets/admin/admin_empty_state.dart';
 import '../../../widgets/admin/admin_search_bar.dart';
 import '../../../widgets/admin/admin_warning_badge.dart';
 
+
 class AdminEventsTab extends StatefulWidget {
   const AdminEventsTab({
     super.key,
@@ -185,10 +186,13 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
   Future<void> _approveEvent(int id, bool approve) async {
     try {
       final admin = context.read<AdminProvider>();
-      await admin.approveEvent(id, {
-        'approved': approve,
-        if (!approve) 'reason': 'Rejected by admin',
-      });
+      await admin.approveEvent(
+        id,
+        ApproveEventRequest(
+          approved: approve,
+          reason: !approve ? 'Rejected by admin' : null,
+        ),
+      );
       widget.onEventsChanged();
     } catch (e) {
       widget.onSnack('Action failed: ${ApiError.extractMessage(e)}');
@@ -413,14 +417,31 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
                 onPressed: loading
                     ? null
                     : () async {
-                        final body = <String, dynamic>{};
-                        for (final entry in ctrls.entries) {
-                          final v = int.tryParse(entry.value.text.trim());
-                          body[entry.key] = v;
-                        }
+                        final overrides = SetPolicyOverridesRequest(
+                          waitlistMaxSize: int.tryParse(
+                              ctrls['admin_override_waitlist_max_size']!
+                                  .text
+                                  .trim()),
+                          eventMaxImages: int.tryParse(
+                              ctrls['admin_override_event_max_images']!
+                                  .text
+                                  .trim()),
+                          maxPostsPerDay: int.tryParse(
+                              ctrls['admin_override_max_posts_per_day']!
+                                  .text
+                                  .trim()),
+                          maxCoOrganizers: int.tryParse(
+                              ctrls['admin_override_max_co_organizers']!
+                                  .text
+                                  .trim()),
+                          refundDeadlinePercent: int.tryParse(
+                              ctrls['admin_override_refund_deadline_percent']!
+                                  .text
+                                  .trim()),
+                        );
                         try {
                           final admin = context.read<AdminProvider>();
-                          await admin.setPolicyOverrides(eventId, body);
+                          await admin.setPolicyOverrides(eventId, overrides);
                           if (ctx.mounted) Navigator.of(ctx).pop();
                           widget.onSnack('Policy overrides saved');
                         } catch (e) {

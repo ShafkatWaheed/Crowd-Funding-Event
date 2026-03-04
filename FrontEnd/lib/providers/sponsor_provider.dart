@@ -18,11 +18,11 @@ class SponsorProvider extends ChangeNotifier {
       _repo.getSponsorProfile();
 
   Future<SponsorProfile> createSponsorProfile(
-          Map<String, dynamic> data) =>
+          SponsorProfileRequest data) =>
       _repo.createSponsorProfile(data);
 
   Future<SponsorProfile> updateSponsorProfile(
-          Map<String, dynamic> data) =>
+          SponsorProfileRequest data) =>
       _repo.updateSponsorProfile(data);
 
   // ── Discovery ──────────────────────────────────────────────────────────
@@ -61,11 +61,11 @@ class SponsorProvider extends ChangeNotifier {
       _repo.getSponsorshipCategories(eventId);
 
   Future<SponsorshipCategory> createSponsorshipCategory(
-          int eventId, Map<String, dynamic> data) =>
+          int eventId, CreateSponsorshipCategoryRequest data) =>
       _repo.createSponsorshipCategory(eventId, data);
 
   Future<SponsorshipCategory> updateSponsorshipCategory(
-          int eventId, int catId, Map<String, dynamic> data) =>
+          int eventId, int catId, UpdateSponsorshipCategoryRequest data) =>
       _repo.updateSponsorshipCategory(eventId, catId, data);
 
   Future<void> deleteSponsorshipCategory(int eventId, int catId) =>
@@ -74,11 +74,11 @@ class SponsorProvider extends ChangeNotifier {
   // ── Sponsor Bids ───────────────────────────────────────────────────────
 
   Future<SponsorBid> placeBid(
-          int eventId, int catId, Map<String, dynamic> data) =>
+          int eventId, int catId, PlaceBidRequest data) =>
       _repo.placeBid(eventId, catId, data);
 
   Future<SponsorBid> updateBid(
-          int eventId, int catId, int bidId, Map<String, dynamic> data) =>
+          int eventId, int catId, int bidId, UpdateBidRequest data) =>
       _repo.updateBid(eventId, catId, bidId, data);
 
   Future<SponsorBid> withdrawBid(int eventId, int catId, int bidId) =>
@@ -190,11 +190,11 @@ class SponsorProvider extends ChangeNotifier {
       _repo.getSponsorCategoryTemplates();
 
   Future<SponsorCategoryTemplate> createSponsorCategoryTemplate(
-          Map<String, dynamic> data) =>
+          CreateSponsorCategoryTemplateRequest data) =>
       _repo.createSponsorCategoryTemplate(data);
 
   Future<SponsorCategoryTemplate> updateSponsorCategoryTemplate(
-          int id, Map<String, dynamic> data) =>
+          int id, UpdateSponsorCategoryTemplateRequest data) =>
       _repo.updateSponsorCategoryTemplate(id, data);
 
   Future<void> deleteSponsorCategoryTemplate(int id) =>

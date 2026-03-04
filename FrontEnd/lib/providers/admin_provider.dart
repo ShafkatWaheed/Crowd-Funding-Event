@@ -41,7 +41,7 @@ class AdminProvider extends ChangeNotifier {
         status: status,
       );
 
-  Future<Event> approveEvent(int id, Map<String, dynamic> data) =>
+  Future<Event> approveEvent(int id, ApproveEventRequest data) =>
       _repo.approveEvent(id, data);
 
   Future<Event> resolveReview(
@@ -56,7 +56,7 @@ class AdminProvider extends ChangeNotifier {
 
   Future<AdminPolicyOverrides> setPolicyOverrides(
     int eventId,
-    Map<String, dynamic> overrides,
+    SetPolicyOverridesRequest overrides,
   ) =>
       _repo.setPolicyOverrides(eventId, overrides);
 
@@ -227,7 +227,7 @@ class AdminProvider extends ChangeNotifier {
       _repo.getPlatformAccount();
 
   Future<AdminPlatformAccount> updatePlatformAccount(
-    Map<String, dynamic> data,
+    UpdatePlatformAccountRequest data,
   ) =>
       _repo.updatePlatformAccount(data);
 

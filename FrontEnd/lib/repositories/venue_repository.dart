@@ -14,14 +14,14 @@ class VenueRepository extends BaseRepository {
     return Venue.fromJson(resp.data);
   }
 
-  Future<Venue> createVenue(Map<String, dynamic> data) async {
-    final resp = await dio.post('/venues', data: data);
+  Future<Venue> createVenue(CreateVenueRequest data) async {
+    final resp = await dio.post('/venues', data: data.toJson());
     return Venue.fromJson(resp.data);
   }
 
   Future<Venue> updateVenue(
-      int venueId, Map<String, dynamic> data) async {
-    final resp = await dio.patch('/venues/$venueId', data: data);
+      int venueId, UpdateVenueRequest data) async {
+    final resp = await dio.patch('/venues/$venueId', data: data.toJson());
     return Venue.fromJson(resp.data);
   }
 

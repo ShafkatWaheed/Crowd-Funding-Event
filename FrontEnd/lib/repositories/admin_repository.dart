@@ -64,9 +64,9 @@ class AdminRepository extends BaseRepository {
 
   Future<Event> approveEvent(
     int id,
-    Map<String, dynamic> data,
+    ApproveEventRequest data,
   ) async {
-    final resp = await dio.post('/admin/events/$id/approve', data: data);
+    final resp = await dio.post('/admin/events/$id/approve', data: data.toJson());
     return Event.fromJson(resp.data as Map<String, dynamic>);
   }
 
@@ -96,11 +96,11 @@ class AdminRepository extends BaseRepository {
 
   Future<AdminPolicyOverrides> setPolicyOverrides(
     int eventId,
-    Map<String, dynamic> overrides,
+    SetPolicyOverridesRequest overrides,
   ) async {
     final resp = await dio.patch(
       '/admin/events/$eventId/policy-overrides',
-      data: overrides,
+      data: overrides.toJson(),
     );
     return AdminPolicyOverrides.fromJson(
         Map<String, dynamic>.from(resp.data as Map));
@@ -423,9 +423,9 @@ class AdminRepository extends BaseRepository {
   }
 
   Future<AdminPlatformAccount> updatePlatformAccount(
-    Map<String, dynamic> data,
+    UpdatePlatformAccountRequest data,
   ) async {
-    final resp = await dio.put('/admin/platform-account', data: data);
+    final resp = await dio.put('/admin/platform-account', data: data.toJson());
     return AdminPlatformAccount.fromJson(
         Map<String, dynamic>.from(resp.data as Map));
   }

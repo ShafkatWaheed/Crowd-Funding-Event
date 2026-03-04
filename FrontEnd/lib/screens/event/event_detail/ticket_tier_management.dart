@@ -418,12 +418,12 @@ class _TicketTierManagementState extends State<TicketTierManagement> {
               final spots = int.tryParse(spotsCtrl.text.trim()) ?? 0;
               try {
                 final ticketRepo = context.read<TicketProvider>();
-                await ticketRepo.updateTicketTier(eventId, tierId, {
-                  'name': nameCtrl.text.trim(),
-                  'description': descCtrl.text.trim(),
-                  'price_cents': (price * 100).toInt(),
-                  'max_reserved_spots': spots,
-                });
+                await ticketRepo.updateTicketTier(eventId, tierId, UpdateTicketTierRequest(
+                  name: nameCtrl.text.trim(),
+                  description: descCtrl.text.trim(),
+                  priceCents: (price * 100).toInt(),
+                  maxReservedSpots: spots,
+                ));
                 if (ctx.mounted) Navigator.pop(ctx, true);
               } catch (e) {
                 if (ctx.mounted) {
@@ -499,12 +499,12 @@ class _TicketTierManagementState extends State<TicketTierManagement> {
               final spots = int.tryParse(spotsCtrl.text.trim()) ?? 0;
               try {
                 final ticketRepo = context.read<TicketProvider>();
-                await ticketRepo.createTicketTier(eventId, {
-                  'name': nameCtrl.text.trim(),
-                  'description': descCtrl.text.trim(),
-                  'price_cents': (price * 100).toInt(),
-                  if (spots > 0) 'max_reserved_spots': spots,
-                });
+                await ticketRepo.createTicketTier(eventId, CreateTicketTierRequest(
+                  name: nameCtrl.text.trim(),
+                  description: descCtrl.text.trim(),
+                  priceCents: (price * 100).toInt(),
+                  maxReservedSpots: spots > 0 ? spots : null,
+                ));
                 if (ctx.mounted) Navigator.pop(ctx, true);
               } catch (e) {
                 if (ctx.mounted) {

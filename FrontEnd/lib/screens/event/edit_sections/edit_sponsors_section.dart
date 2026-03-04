@@ -86,23 +86,28 @@ class _EditSponsorsSectionState extends State<EditSponsorsSection> {
     final api = context.read<SponsorProvider>();
     try {
       if (sc.id != null) {
-        await api.updateSponsorshipCategory(widget.eventId, sc.id!, {
-          'name': name,
-          'description': sc.descCtrl.text.trim(),
-          'total_spots': spots,
-          'min_bid_cents': minBid,
-        });
+        await api.updateSponsorshipCategory(widget.eventId, sc.id!,
+            UpdateSponsorshipCategoryRequest(
+          name: name,
+          description: sc.descCtrl.text.trim().isEmpty
+              ? null
+              : sc.descCtrl.text.trim(),
+          totalSpots: spots,
+          minBidCents: minBid,
+        ));
         if (mounted) AppToast.success(context, 'Sponsorship updated');
       } else {
         final created =
-            await api.createSponsorshipCategory(widget.eventId, {
-          'name': name,
-          if (sc.descCtrl.text.trim().isNotEmpty)
-            'description': sc.descCtrl.text.trim(),
-          'total_spots': spots,
-          'min_bid_cents': minBid,
-          'sort_order': _categories.indexOf(sc),
-        });
+            await api.createSponsorshipCategory(widget.eventId,
+                CreateSponsorshipCategoryRequest(
+          name: name,
+          description: sc.descCtrl.text.trim().isNotEmpty
+              ? sc.descCtrl.text.trim()
+              : null,
+          totalSpots: spots,
+          minBidCents: minBid,
+          sortOrder: _categories.indexOf(sc),
+        ));
         sc.id = created.id;
         if (mounted) AppToast.success(context, 'Sponsorship created');
       }

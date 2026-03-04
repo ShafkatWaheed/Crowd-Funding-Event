@@ -17,13 +17,13 @@ class EventRepository extends BaseRepository {
 
   /// Returns typed [EventListPage] with items and next_cursor. Prefer cursor over offset for infinite scroll.
   Future<EventListPage> getEvents({
-    Map<String, dynamic>? params,
+    EventFilters? filters,
     int? offset,
     int limit = 20,
     String? cursor,
   }) async {
     final merged = <String, dynamic>{
-      ...?params,
+      ...?filters?.toQueryParams(),
       'limit': limit,
     };
     if (cursor != null) {
@@ -250,8 +250,8 @@ class EventRepository extends BaseRepository {
   }
 
   Future<EventOrganizer> addEventOrganizer(
-      int eventId, Map<String, dynamic> data) async {
-    final resp = await dio.post('/events/$eventId/organizers', data: data);
+      int eventId, AddEventOrganizerRequest data) async {
+    final resp = await dio.post('/events/$eventId/organizers', data: data.toJson());
     return EventOrganizer.fromJson(Map<String, dynamic>.from(resp.data as Map));
   }
 
@@ -351,23 +351,24 @@ class EventRepository extends BaseRepository {
   }
 
   Future<ScheduleItem> createScheduleItem(
-      int eventId, Map<String, dynamic> data) async {
-    final resp = await dio.post('/events/$eventId/schedule', data: data);
+      int eventId, CreateScheduleItemRequest data) async {
+    final resp = await dio.post('/events/$eventId/schedule', data: data.toJson());
     return ScheduleItem.fromJson(resp.data as Map<String, dynamic>);
   }
 
   Future<List<ScheduleItem>> bulkCreateSchedule(
-      int eventId, List<Map<String, dynamic>> items) async {
-    final resp = await dio.post('/events/$eventId/schedule/bulk', data: items);
+      int eventId, List<CreateScheduleItemRequest> items) async {
+    final resp = await dio.post('/events/$eventId/schedule/bulk',
+        data: items.map((i) => i.toJson()).toList());
     return (resp.data as List)
         .map((e) => ScheduleItem.fromJson(e as Map<String, dynamic>))
         .toList();
   }
 
   Future<ScheduleItem> updateScheduleItem(
-      int eventId, int itemId, Map<String, dynamic> data) async {
+      int eventId, int itemId, UpdateScheduleItemRequest data) async {
     final resp =
-        await dio.patch('/events/$eventId/schedule/$itemId', data: data);
+        await dio.patch('/events/$eventId/schedule/$itemId', data: data.toJson());
     return ScheduleItem.fromJson(resp.data as Map<String, dynamic>);
   }
 
@@ -411,8 +412,14 @@ class EventRepository extends BaseRepository {
     final ids = eventIds.join(',');
     final resp = await dio
         .get('/me/bookmarks/check', queryParameters: {'event_ids': ids});
-    final raw = Map<String, dynamic>.from(resp.data as Map);
-    return raw.map((key, value) => MapEntry(int.parse(key), value as bool));
+    final data = Map<String, dynamic>.from(resp.data as Map);
+    final bookmarkedList = (data['bookmarked_ids'] as List?)
+            ?.where((e) => e != null)
+            .map((e) => (e as num).toInt())
+            .toList() ??
+        [];
+    final bookmarkedSet = bookmarkedList.toSet();
+    return {for (final id in eventIds) id: bookmarkedSet.contains(id)};
   }
 
   Future<List<Event>> getBookmarkedEvents(

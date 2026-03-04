@@ -107,10 +107,10 @@ class _HomeTabState extends State<HomeTab> {
           !(auth.user!.isOrganizer || auth.user!.isAdmin);
       final results = await Future.wait([
         repo.getFeaturedEvents(sponsorshipOnly: isSponsor),
-        repo.getEvents(params: {
-              'community_rules': 'true',
-              if (isSponsor) 'sponsorship_only': true,
-            }).then((r) {
+        repo.getEvents(filters: EventFilters(
+              communityRules: 'true',
+              sponsorshipOnly: isSponsor ? true : null,
+            )).then((r) {
           return r.items;
         }),
       ]);
@@ -225,9 +225,9 @@ class _HomeTabState extends State<HomeTab> {
             data.map((e) => e.id).take(10).toList();
         if (ids.isNotEmpty) {
           final fullEvents = <Event>[];
-          final result = await repo.getEvents(params: {
-            if (isSponsor) 'sponsorship_only': true,
-          });
+          final result = await repo.getEvents(filters: EventFilters(
+            sponsorshipOnly: isSponsor ? true : null,
+          ));
           final allEvents = result.items;
           for (final ev in allEvents) {
             if (ids.contains(ev.id)) fullEvents.add(ev);

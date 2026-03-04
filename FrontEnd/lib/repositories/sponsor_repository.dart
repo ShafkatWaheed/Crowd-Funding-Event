@@ -19,14 +19,14 @@ class SponsorRepository extends BaseRepository {
   }
 
   Future<SponsorProfile> createSponsorProfile(
-      Map<String, dynamic> data) async {
-    final resp = await dio.post('/me/sponsor-profile', data: data);
+      SponsorProfileRequest data) async {
+    final resp = await dio.post('/me/sponsor-profile', data: data.toJson());
     return SponsorProfile.fromJson(resp.data);
   }
 
   Future<SponsorProfile> updateSponsorProfile(
-      Map<String, dynamic> data) async {
-    final resp = await dio.patch('/me/sponsor-profile', data: data);
+      SponsorProfileRequest data) async {
+    final resp = await dio.patch('/me/sponsor-profile', data: data.toJson());
     return SponsorProfile.fromJson(resp.data);
   }
 
@@ -90,16 +90,16 @@ class SponsorRepository extends BaseRepository {
   }
 
   Future<SponsorshipCategory> createSponsorshipCategory(
-      int eventId, Map<String, dynamic> data) async {
+      int eventId, CreateSponsorshipCategoryRequest data) async {
     final resp =
-        await dio.post('/events/$eventId/sponsorships', data: data);
+        await dio.post('/events/$eventId/sponsorships', data: data.toJson());
     return SponsorshipCategory.fromJson(resp.data);
   }
 
   Future<SponsorshipCategory> updateSponsorshipCategory(
-      int eventId, int catId, Map<String, dynamic> data) async {
+      int eventId, int catId, UpdateSponsorshipCategoryRequest data) async {
     final resp = await dio
-        .patch('/events/$eventId/sponsorships/$catId', data: data);
+        .patch('/events/$eventId/sponsorships/$catId', data: data.toJson());
     return SponsorshipCategory.fromJson(resp.data);
   }
 
@@ -110,18 +110,18 @@ class SponsorRepository extends BaseRepository {
   // ── Sponsor Bids ─────────────────────────────────────────────────────
 
   Future<SponsorBid> placeBid(
-      int eventId, int catId, Map<String, dynamic> data) async {
+      int eventId, int catId, PlaceBidRequest data) async {
     final resp = await dio.post(
         '/events/$eventId/sponsorships/$catId/bids',
-        data: data);
+        data: data.toJson());
     return SponsorBid.fromJson(resp.data);
   }
 
   Future<SponsorBid> updateBid(
-      int eventId, int catId, int bidId, Map<String, dynamic> data) async {
+      int eventId, int catId, int bidId, UpdateBidRequest data) async {
     final resp = await dio.patch(
         '/events/$eventId/sponsorships/$catId/bids/$bidId',
-        data: data);
+        data: data.toJson());
     return SponsorBid.fromJson(resp.data);
   }
 
@@ -347,16 +347,16 @@ class SponsorRepository extends BaseRepository {
   }
 
   Future<SponsorCategoryTemplate> createSponsorCategoryTemplate(
-      Map<String, dynamic> data) async {
+      CreateSponsorCategoryTemplateRequest data) async {
     final resp =
-        await dio.post('/me/sponsor-category-templates', data: data);
+        await dio.post('/me/sponsor-category-templates', data: data.toJson());
     return SponsorCategoryTemplate.fromJson(Map<String, dynamic>.from(resp.data as Map));
   }
 
   Future<SponsorCategoryTemplate> updateSponsorCategoryTemplate(
-      int id, Map<String, dynamic> data) async {
+      int id, UpdateSponsorCategoryTemplateRequest data) async {
     final resp = await dio
-        .patch('/me/sponsor-category-templates/$id', data: data);
+        .patch('/me/sponsor-category-templates/$id', data: data.toJson());
     return SponsorCategoryTemplate.fromJson(Map<String, dynamic>.from(resp.data as Map));
   }
 

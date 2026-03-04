@@ -786,3 +786,156 @@ class SponsorBidEvent {
     );
   }
 }
+
+// ─── Typed Request Classes ───
+
+/// Request body for creating or updating a sponsor profile.
+class SponsorProfileRequest {
+  final String companyName;
+  final String contactName;
+  final String profession;
+  final String? logoUrl;
+  final String? description;
+  final String? websiteUrl;
+
+  const SponsorProfileRequest({
+    required this.companyName,
+    required this.contactName,
+    required this.profession,
+    this.logoUrl,
+    this.description,
+    this.websiteUrl,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'company_name': companyName,
+        'contact_name': contactName,
+        'profession': profession,
+        if (logoUrl != null) 'logo_url': logoUrl,
+        if (description != null) 'description': description,
+        if (websiteUrl != null) 'website_url': websiteUrl,
+      };
+}
+
+/// Request body for creating a sponsorship category.
+class CreateSponsorshipCategoryRequest {
+  final String name;
+  final String? description;
+  final int totalSpots;
+  final int minBidCents;
+  final int? sortOrder;
+
+  const CreateSponsorshipCategoryRequest({
+    required this.name,
+    this.description,
+    required this.totalSpots,
+    required this.minBidCents,
+    this.sortOrder,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        if (description != null) 'description': description,
+        'total_spots': totalSpots,
+        'min_bid_cents': minBidCents,
+        if (sortOrder != null) 'sort_order': sortOrder,
+      };
+}
+
+/// Request body for updating an existing sponsorship category.
+class UpdateSponsorshipCategoryRequest {
+  final String name;
+  final String? description;
+  final int totalSpots;
+  final int minBidCents;
+
+  const UpdateSponsorshipCategoryRequest({
+    required this.name,
+    this.description,
+    required this.totalSpots,
+    required this.minBidCents,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        if (description != null) 'description': description,
+        'total_spots': totalSpots,
+        'min_bid_cents': minBidCents,
+      };
+}
+
+/// Request body for placing a sponsor bid.
+class PlaceBidRequest {
+  final int amountCents;
+  final String? proposalText;
+
+  const PlaceBidRequest({
+    required this.amountCents,
+    this.proposalText,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'amount_cents': amountCents,
+        if (proposalText != null) 'proposal_text': proposalText,
+      };
+}
+
+/// Request body for updating an existing sponsor bid.
+class UpdateBidRequest {
+  final int? amountCents;
+  final String? proposalText;
+
+  const UpdateBidRequest({
+    this.amountCents,
+    this.proposalText,
+  });
+
+  Map<String, dynamic> toJson() => {
+        if (amountCents != null) 'amount_cents': amountCents,
+        if (proposalText != null) 'proposal_text': proposalText,
+      };
+}
+
+/// Request body for creating a sponsor category template.
+class CreateSponsorCategoryTemplateRequest {
+  final String name;
+  final String? description;
+  final int totalSpots;
+  final int minBidCents;
+
+  const CreateSponsorCategoryTemplateRequest({
+    required this.name,
+    this.description,
+    required this.totalSpots,
+    required this.minBidCents,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        if (description != null) 'description': description,
+        'total_spots': totalSpots,
+        'min_bid_cents': minBidCents,
+      };
+}
+
+/// Request body for updating a sponsor category template.
+class UpdateSponsorCategoryTemplateRequest {
+  final String name;
+  final String? description;
+  final int totalSpots;
+  final int minBidCents;
+
+  const UpdateSponsorCategoryTemplateRequest({
+    required this.name,
+    this.description,
+    required this.totalSpots,
+    required this.minBidCents,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        if (description != null) 'description': description,
+        'total_spots': totalSpots,
+        'min_bid_cents': minBidCents,
+      };
+}

@@ -1,3 +1,65 @@
+// ─── Schedule Request Models ───
+
+class CreateScheduleItemRequest {
+  final String date;
+  final String startTime;
+  final String endTime;
+  final String title;
+  final String? description;
+  final String? imageUrl;
+  final String? imageCaption;
+  final String? linkUrl;
+  final int? sortOrder;
+
+  const CreateScheduleItemRequest({
+    required this.date,
+    required this.startTime,
+    required this.endTime,
+    required this.title,
+    this.description,
+    this.imageUrl,
+    this.imageCaption,
+    this.linkUrl,
+    this.sortOrder,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'date': date,
+        'start_time': startTime,
+        'end_time': endTime,
+        'title': title,
+        if (description != null && description!.isNotEmpty) 'description': description,
+        if (imageUrl != null && imageUrl!.isNotEmpty) 'image_url': imageUrl,
+        if (imageCaption != null && imageCaption!.isNotEmpty) 'image_caption': imageCaption,
+        if (linkUrl != null && linkUrl!.isNotEmpty) 'link_url': linkUrl,
+        if (sortOrder != null) 'sort_order': sortOrder,
+      };
+}
+
+class UpdateScheduleItemRequest {
+  final String? date;
+  final String? startTime;
+  final String? endTime;
+  final String? title;
+  final String? description;
+
+  const UpdateScheduleItemRequest({
+    this.date,
+    this.startTime,
+    this.endTime,
+    this.title,
+    this.description,
+  });
+
+  Map<String, dynamic> toJson() => {
+        if (date != null) 'date': date,
+        if (startTime != null) 'start_time': startTime,
+        if (endTime != null) 'end_time': endTime,
+        if (title != null) 'title': title,
+        if (description != null) 'description': description,
+      };
+}
+
 class ScheduleItem {
   final int id;
   final int eventId;

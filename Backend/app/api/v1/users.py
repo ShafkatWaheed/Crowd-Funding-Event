@@ -28,6 +28,7 @@ from app.services import funding as funding_service
 from app.services import ticket as ticket_service
 from app.services import kyc_verification as kyc_svc
 from app.services import platform_settings as settings_svc
+from app.services import user_service
 from app.services.upload_validation import validate_upload
 
 router = APIRouter()
@@ -135,31 +136,24 @@ async def get_my_pledge_receipt(
     current_user: User = Depends(require_role(UserRole.customer, UserRole.sponsor)),
 ):
     """Get a pledge receipt for the current user."""
-    from app.repositories.funding_repo import funding_repo
-    from app.repositories.event_repo import event_repo
-    from app.core.exceptions import NotFoundError
-
-    pledge = await funding_repo.get_by_id_and_event(db, pledge_id, event_id=0)
-    # Need to look up by pledge_id + user_id
-    pledge = await funding_repo.get_funding_by_id(db, pledge_id)
-    if not pledge or pledge.user_id != current_user.id:
-        raise NotFoundError("Pledge", pledge_id)
-    event = await event_service.get_or_404(db, pledge.event_id)
-    funding_pct = await settings_svc.get_int(db, "funding_commission_percent")
-    tier_resp = await event_repo.build_tier_reservation_response(db, pledge.id)
+    data = await user_service.get_pledge_receipt(
+        db, pledge_id=pledge_id, user_id=current_user.id,
+        user_display_name=current_user.display_name,
+    )
+    pledge = data["pledge"]
     return PledgeReceiptResponse(
         id=pledge.id,
         receipt_number=pledge.receipt_number,
         event_id=pledge.event_id,
-        event_title=event.title,
+        event_title=data["event"].title,
         user_id=pledge.user_id,
-        backer_name=current_user.display_name,
+        backer_name=data["backer_name"],
         amount_cents=pledge.amount_cents,
         reserved_spots=pledge.reserved_spots,
-        tier_reservations=tier_resp,
+        tier_reservations=data["tier_reservations"],
         platform_cut_cents=pledge.platform_cut_cents,
         net_to_organizer_cents=pledge.net_to_organizer_cents,
-        funding_commission_percent=funding_pct,
+        funding_commission_percent=data["funding_commission_percent"],
         status=pledge.status.value,
         is_guest=pledge.is_guest,
         created_at=pledge.created_at,
@@ -247,28 +241,7 @@ async def get_my_ticket_receipt(
 ):
     """Get receipt for a specific ticket the current user purchased."""
     sale = await ticket_service.get_ticket_receipt(db, sale_id=sale_id, user_id=current_user.id)
-
-    # Load venue info
-    from app.repositories.event_repo import event_repo as _evt_repo
-    venue_name = None
-    venue_address = None
-    if sale.event and sale.event.venue_id:
-        venue = await _evt_repo.get_venue(db, sale.event.venue_id)
-        if venue:
-            venue_name = venue.name
-            parts = [p for p in [venue.address, venue.city, venue.province] if p]
-            venue_address = ", ".join(parts) if parts else None
-
-    # Load organizer info
-    organizer_name = None
-    organizer_email = None
-    organizer_phone = None
-    if sale.event and sale.event.organizer_id:
-        organizer = await user_repo.get_by_id(db, sale.event.organizer_id)
-        if organizer:
-            organizer_name = organizer.display_name
-            organizer_email = organizer.email
-            organizer_phone = organizer.phone
+    info = await user_service.get_ticket_receipt(db, sale)
 
     return TicketReceiptResponse(
         sale_id=sale.id,
@@ -281,11 +254,11 @@ async def get_my_ticket_receipt(
         event_title=sale.event.title if sale.event else "Unknown Event",
         event_start_time=sale.event.start_time if sale.event else None,
         event_end_time=sale.event.end_time if sale.event else None,
-        organizer_name=organizer_name,
-        organizer_email=organizer_email,
-        organizer_phone=organizer_phone,
-        venue_name=venue_name,
-        venue_address=venue_address,
+        organizer_name=info["organizer_name"],
+        organizer_email=info["organizer_email"],
+        organizer_phone=info["organizer_phone"],
+        venue_name=info["venue_name"],
+        venue_address=info["venue_address"],
         tier_name=sale.ticket_tier.name if sale.ticket_tier else "Unknown",
         tier_price_cents=sale.ticket_tier.price_cents if sale.ticket_tier else 0,
         amount_paid_cents=sale.amount_paid_cents,
@@ -412,18 +385,8 @@ async def toggle_bookmark(
     current_user: CurrentUser,
 ):
     """Toggle bookmark on an event. Returns current bookmarked state."""
-    from app.models.bookmark import Bookmark
-    from app.repositories.event_repo import event_repo
-
-    existing = await event_repo.get_bookmark(db, current_user.id, event_id)
-
-    if existing:
-        await event_repo.delete_bookmark(db, existing)
-        return {"bookmarked": False}
-
-    await event_service.get_or_404(db, event_id)
-    await event_repo.create_bookmark(db, Bookmark(user_id=current_user.id, event_id=event_id))
-    return {"bookmarked": True}
+    bookmarked = await user_service.toggle_bookmark(db, current_user.id, event_id)
+    return {"bookmarked": bookmarked}
 
 
 @router.get("/bookmarks/check")

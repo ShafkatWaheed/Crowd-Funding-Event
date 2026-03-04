@@ -434,21 +434,28 @@ class _TemplateFormScreenState extends State<_TemplateFormScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
 
-    final data = {
-      'name': _nameCtrl.text.trim(),
-      'description':
-          _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
-      'total_spots': int.parse(_spotsCtrl.text.trim()),
-      'min_bid_cents': (double.parse(_minBidCtrl.text.trim()) * 100).round(),
-    };
+    final name = _nameCtrl.text.trim();
+    final desc = _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim();
+    final spots = int.parse(_spotsCtrl.text.trim());
+    final minBidCents = (double.parse(_minBidCtrl.text.trim()) * 100).round();
 
     try {
       final api = context.read<SponsorProvider>();
       if (_isEditing) {
         await api.updateSponsorCategoryTemplate(
-            widget.existing!.id, data);
+            widget.existing!.id, UpdateSponsorCategoryTemplateRequest(
+              name: name,
+              description: desc,
+              totalSpots: spots,
+              minBidCents: minBidCents,
+            ));
       } else {
-        await api.createSponsorCategoryTemplate(data);
+        await api.createSponsorCategoryTemplate(CreateSponsorCategoryTemplateRequest(
+          name: name,
+          description: desc,
+          totalSpots: spots,
+          minBidCents: minBidCents,
+        ));
       }
       if (mounted) {
         AppToast.success(

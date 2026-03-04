@@ -76,11 +76,10 @@ class _SponsorshipCategoriesScreenState
 
     try {
       final api = context.read<SponsorProvider>();
-      await api.placeBid(widget.eventId, cat.id, {
-        'amount_cents': result.amountCents,
-        if (result.proposalText != null)
-          'proposal_text': result.proposalText,
-      });
+      await api.placeBid(widget.eventId, cat.id, PlaceBidRequest(
+        amountCents: result.amountCents,
+        proposalText: result.proposalText,
+      ));
 
       if (mounted) AppToast.success(context, 'Bid placed!');
       _load();
@@ -170,12 +169,12 @@ class _SponsorshipCategoriesScreenState
     if (!mounted) return;
     try {
       final api = context.read<SponsorProvider>();
-      await api.createSponsorshipCategory(widget.eventId, {
-        'name': name,
-        'description': descCtrl.text.trim(),
-        'total_spots': spots,
-        'min_bid_cents': (minBid * 100).round(),
-      });
+      await api.createSponsorshipCategory(widget.eventId, CreateSponsorshipCategoryRequest(
+        name: name,
+        description: descCtrl.text.trim().isEmpty ? null : descCtrl.text.trim(),
+        totalSpots: spots,
+        minBidCents: (minBid * 100).round(),
+      ));
       if (mounted) AppToast.success(context, 'Sponsorship created');
       _load();
     } catch (e) {

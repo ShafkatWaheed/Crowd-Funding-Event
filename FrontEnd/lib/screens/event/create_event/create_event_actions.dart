@@ -7,6 +7,8 @@ import 'package:provider/provider.dart';
 
 import '../../../models/event_form_models.dart';
 import '../../../models/sponsor.dart';
+import '../../../models/ticket.dart';
+import '../../../models/venue.dart';
 import '../../../providers/sponsor_provider.dart';
 import '../../../providers/ticket_provider.dart';
 import '../../../providers/venue_provider.dart';
@@ -90,15 +92,15 @@ Future<int?> createVenueInline(
   }
   try {
     final repo = context.read<VenueProvider>();
-    final resp = await repo.createVenue({
-      'name': nameCtrl.text.trim(),
-      'address': addressCtrl.text.trim(),
-      'city': cityCtrl.text.trim(),
-      'province': provinceCtrl.text.trim(),
-      'max_capacity': int.parse(capacityCtrl.text.trim()),
-      if (lat != null) 'lat': lat,
-      if (lng != null) 'lng': lng,
-    });
+    final resp = await repo.createVenue(CreateVenueRequest(
+      name: nameCtrl.text.trim(),
+      address: addressCtrl.text.trim(),
+      city: cityCtrl.text.trim(),
+      province: provinceCtrl.text.trim(),
+      maxCapacity: int.parse(capacityCtrl.text.trim()),
+      lat: lat,
+      lng: lng,
+    ));
     if (context.mounted) AppToast.success(context, 'Venue created and selected!');
     return resp.id;
   } catch (e) {
@@ -125,15 +127,17 @@ Future<int?> createStrategyInline(
   try {
     final ticketRepo = context.read<TicketProvider>();
     final tiersData = tiers.asMap().entries.map((e) {
-      final data = <String, dynamic>{
-        'name': e.value.nameCtrl.text.trim(),
-        'price_cents': ((double.tryParse(e.value.priceCtrl.text) ?? 0) * 100).toInt(),
-        'display_order': e.key,
-      };
-      if (e.value.descCtrl.text.trim().isNotEmpty) data['description'] = e.value.descCtrl.text.trim();
-      return data;
+      return CreateTicketStrategyTierInput(
+        name: e.value.nameCtrl.text.trim(),
+        priceCents: ((double.tryParse(e.value.priceCtrl.text) ?? 0) * 100).toInt(),
+        displayOrder: e.key,
+        description: e.value.descCtrl.text.trim().isNotEmpty ? e.value.descCtrl.text.trim() : null,
+      );
     }).toList();
-    final resp = await ticketRepo.createTicketStrategy({'name': nameCtrl.text.trim(), 'tiers': tiersData});
+    final resp = await ticketRepo.createTicketStrategy(CreateTicketStrategyRequest(
+      name: nameCtrl.text.trim(),
+      tiers: tiersData,
+    ));
     if (context.mounted) AppToast.success(context, 'Ticket strategy created and selected!');
     return resp.id;
   } catch (e) {

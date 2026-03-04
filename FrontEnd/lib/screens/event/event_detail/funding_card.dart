@@ -635,7 +635,12 @@ class _FundingCardState extends State<FundingCard> {
         AppToast.success(context, isGuest
             ? 'Guest pledge (non-refundable)'
             : 'Pledge confirmed!');
-        _loadFunding();
+        setState(() {
+          _totalPledgedCents += result.amountCents;
+          _totalReservedSpots += result.reservedSpots;
+          _backersCount += 1;
+        });
+        _loadFunding(); // background sync for accurate totals
         Navigator.of(context).push(MaterialPageRoute(
           builder: (_) => PledgeReceiptScreen(
             eventId: widget.eventId,
@@ -725,6 +730,12 @@ class _FundingCardState extends State<FundingCard> {
       final guest = result.guestNonRefundableCents;
       final status = result.status;
 
+      setState(() {
+        _totalPledgedCents = (_totalPledgedCents - result.unpledgedAmountCents).clamp(0, _totalPledgedCents);
+        if (result.remainingPledges == 0) {
+          _backersCount = (_backersCount - 1).clamp(0, _backersCount);
+        }
+      });
       if (status == 'refund_processing') {
         setState(() => _refundProcessing = true);
         var msg = 'Refund of \$${(refunded / 100).toStringAsFixed(2)} is processing';
@@ -740,7 +751,7 @@ class _FundingCardState extends State<FundingCard> {
         }
         AppToast.success(context, msg);
       }
-      _loadFunding();
+      _loadFunding(); // background sync for accurate totals
     } catch (e) {
       if (!mounted) return;
       AppToast.fromError(context, e, fallback: 'Unpledge failed');

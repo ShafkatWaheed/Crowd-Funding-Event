@@ -12,6 +12,7 @@ import '../../../providers/event_provider.dart';
 import '../../../widgets/admin/admin_empty_state.dart';
 import 'user_detail_shared.dart';
 
+
 class UserEventsTab extends StatefulWidget {
   final int userId;
   final AdminUserDetail detail;
@@ -888,10 +889,13 @@ class _UserEventsTabState extends State<UserEventsTab> {
   Future<void> _approveEvent(int id, bool approve) async {
     try {
       final admin = context.read<AdminProvider>();
-      await admin.approveEvent(id, {
-        'approved': approve,
-        if (!approve) 'reason': 'Rejected by admin',
-      });
+      await admin.approveEvent(
+        id,
+        ApproveEventRequest(
+          approved: approve,
+          reason: !approve ? 'Rejected by admin' : null,
+        ),
+      );
       widget.onRefresh();
       widget.onSnack(approve ? 'Event approved' : 'Event rejected');
     } catch (e) {

@@ -109,10 +109,10 @@ class _CoOrganizerScreenState extends State<CoOrganizerScreen> {
       return;
     }
     try {
-      await _api.addEventOrganizer(widget.eventId, {
-        'user_id': _selectedUserId,
-        'permission': _selectedPermission,
-      });
+      await _api.addEventOrganizer(widget.eventId, AddEventOrganizerRequest(
+        userId: _selectedUserId!,
+        permission: _selectedPermission,
+      ));
       _searchCtrl.clear();
       _selectedUserId = null;
       _selectedUserLabel = null;

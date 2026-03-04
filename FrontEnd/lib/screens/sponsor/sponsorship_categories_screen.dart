@@ -47,15 +47,11 @@ class _SponsorshipCategoriesScreenState
         eventRepo.getEvent(widget.eventId),
       ]);
       final categories = results[0] as List<SponsorshipCategory>;
-      final eventData = results[1] as Map<String, dynamic>;
-      final statusStr = eventData['status'] as String? ?? 'draft';
+      final event = results[1] as Event;
       if (mounted) {
         setState(() {
           _categories = categories;
-          _eventStatus = EventStatus.values.firstWhere(
-            (e) => e.name == statusStr,
-            orElse: () => EventStatus.draft,
-          );
+          _eventStatus = event.status;
           _loading = false;
         });
       }

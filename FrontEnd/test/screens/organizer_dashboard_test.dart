@@ -5,6 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
+import '../../lib/models/dashboard.dart';
+import '../../lib/models/event.dart';
 import '../../lib/models/user.dart';
 import '../../lib/providers/auth_provider.dart';
 import '../../lib/providers/event_provider.dart';
@@ -29,39 +31,40 @@ void main() {
     when(() => mockAuth.user).thenReturn(makeUser(role: UserRole.organizer));
   });
 
-  /// Build a properly structured KPI map entry used by DashboardKpiSection.
-  Map<String, dynamic> _kpi(dynamic value, {dynamic delta, double? pct}) => {
-        'value': value,
-        'delta': delta ?? 0,
-        'change_pct': pct ?? 0.0,
-      };
+  /// Build a KpiItem from raw values.
+  KpiItem _kpiItem(int value, {double? deltaPct}) =>
+      KpiItem.fromJson({'value': value, 'delta_percent': deltaPct});
+
+  /// Build a KpiFloatItem from raw values.
+  KpiFloatItem _kpiFloatItem(double value, {double? deltaPct}) =>
+      KpiFloatItem.fromJson({'value': value, 'delta_percent': deltaPct});
 
   /// Stub the dashboard API to return a valid response.
   void stubDashboardSuccess({
-    Map<String, dynamic>? dashboardData,
-    Map<String, dynamic>? timeSeriesData,
+    OrganizerDashboard? dashboardData,
+    OrganizerTimeSeries? timeSeriesData,
   }) {
     final data = dashboardData ??
-        {
-          'total_revenue': _kpi(600000, delta: 50000, pct: 9.1),
-          'tickets_sold': _kpi(120, delta: 10, pct: 9.1),
-          'total_backers': _kpi(45, delta: 5, pct: 12.5),
-          'total_events': _kpi(5, delta: 1, pct: 25.0),
-          'refund_rate': _kpi(2.5, delta: -0.5, pct: -16.7),
-          'total_sponsors': _kpi(3, delta: 1, pct: 50.0),
-          'status_breakdown': [
-            {'status': 'approved', 'count': 2},
-            {'status': 'selling_tickets', 'count': 1},
-            {'status': 'completed', 'count': 2},
+        OrganizerDashboard(
+          totalRevenue: _kpiItem(600000, deltaPct: 9.1),
+          ticketsSold: _kpiItem(120, deltaPct: 9.1),
+          totalBackers: _kpiItem(45, deltaPct: 12.5),
+          totalEvents: _kpiItem(5, deltaPct: 25.0),
+          totalSponsors: _kpiItem(3, deltaPct: 50.0),
+          refundRate: _kpiFloatItem(2.5, deltaPct: -16.7),
+          statusBreakdown: [
+            StatusBreakdown(status: 'approved', count: 2),
+            StatusBreakdown(status: 'selling_tickets', count: 1),
+            StatusBreakdown(status: 'completed', count: 2),
           ],
-          'trending_events': [
-            eventJson(id: 1, title: 'Music Fest', status: 'approved'),
-            eventJson(id: 2, title: 'Tech Talk', status: 'selling_tickets'),
+          trendingEvents: [
+            Event.fromJson(eventJson(id: 1, title: 'Music Fest', status: 'approved')),
+            Event.fromJson(eventJson(id: 2, title: 'Tech Talk', status: 'selling_tickets')),
           ],
-          'top_events': [
-            eventJson(id: 1, title: 'Music Fest', totalPledgedCents: 100000),
+          topEvents: [
+            Event.fromJson(eventJson(id: 1, title: 'Music Fest', totalPledgedCents: 100000)),
           ],
-        };
+        );
     when(() => mockEventRepo.getOrganizerDashboard(
           status: any(named: 'status'),
           eventId: any(named: 'eventId'),
@@ -73,7 +76,7 @@ void main() {
           status: any(named: 'status'),
           eventId: any(named: 'eventId'),
           genre: any(named: 'genre'),
-        )).thenAnswer((_) async => timeSeriesData ?? {'points': []});
+        )).thenAnswer((_) async => timeSeriesData ?? OrganizerTimeSeries(points: [], granularity: 'daily'));
   }
 
   /// Wrap the tab in a Scaffold so Material ancestor is available for chips.
@@ -117,7 +120,7 @@ void main() {
     testWidgets('loading state renders scrollview while loading',
         (tester) async {
       // Use completers to keep the futures pending without creating timers
-      final dashCompleter = Completer<Map<String, dynamic>>();
+      final dashCompleter = Completer<OrganizerDashboard>();
 
       when(() => mockEventRepo.getOrganizerDashboard(
             status: any(named: 'status'),
@@ -140,32 +143,34 @@ void main() {
             status: any(named: 'status'),
             eventId: any(named: 'eventId'),
             genre: any(named: 'genre'),
-          )).thenAnswer((_) async => {'points': []});
+          )).thenAnswer((_) async => OrganizerTimeSeries(points: [], granularity: 'daily'));
 
-      dashCompleter.complete({
-        'total_revenue': {'value': 0, 'delta': 0, 'change_pct': 0.0},
-        'tickets_sold': {'value': 0, 'delta': 0, 'change_pct': 0.0},
-        'total_backers': {'value': 0, 'delta': 0, 'change_pct': 0.0},
-        'total_events': {'value': 0, 'delta': 0, 'change_pct': 0.0},
-        'status_breakdown': [],
-        'trending_events': [],
-        'top_events': [],
-      });
+      dashCompleter.complete(OrganizerDashboard(
+        totalRevenue: _kpiItem(0),
+        ticketsSold: _kpiItem(0),
+        totalBackers: _kpiItem(0),
+        totalEvents: _kpiItem(0),
+        totalSponsors: _kpiItem(0),
+        refundRate: _kpiFloatItem(0.0),
+        statusBreakdown: [],
+        trendingEvents: [],
+        topEvents: [],
+      ));
       await tester.pumpAndSettle();
     });
 
     testWidgets('empty state when zero events in dashboard', (tester) async {
-      stubDashboardSuccess(dashboardData: {
-        'total_revenue': _kpi(0),
-        'tickets_sold': _kpi(0),
-        'total_backers': _kpi(0),
-        'total_events': _kpi(0),
-        'refund_rate': _kpi(0.0),
-        'total_sponsors': _kpi(0),
-        'status_breakdown': [],
-        'trending_events': [],
-        'top_events': [],
-      });
+      stubDashboardSuccess(dashboardData: OrganizerDashboard(
+        totalRevenue: _kpiItem(0),
+        ticketsSold: _kpiItem(0),
+        totalBackers: _kpiItem(0),
+        totalEvents: _kpiItem(0),
+        totalSponsors: _kpiItem(0),
+        refundRate: _kpiFloatItem(0.0),
+        statusBreakdown: [],
+        trendingEvents: [],
+        topEvents: [],
+      ));
       await pumpDashboard(tester);
       await tester.pumpAndSettle();
 

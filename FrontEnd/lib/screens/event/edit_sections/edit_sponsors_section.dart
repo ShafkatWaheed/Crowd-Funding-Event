@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
+import '../../../models/sponsor.dart';
 import '../../../providers/sponsor_provider.dart';
 import '../../../widgets/app_toast.dart';
 
@@ -265,11 +266,10 @@ class _EditSponsorsSectionState extends State<EditSponsorsSection> {
   Future<void> _showPrerequisiteSheet(EditSponsorCategory sc) async {
     if (sc.id == null) return;
     final api = context.read<SponsorProvider>();
-    List<Map<String, dynamic>> prereqs = [];
+    List<CategoryPrerequisite> prereqs = [];
     try {
-      final data =
+      prereqs =
           await api.listPrerequisites(widget.eventId, sc.id!);
-      prereqs = data;
     } catch (e) { debugPrint(e.toString()); }
     if (!mounted) return;
 
@@ -326,31 +326,29 @@ class _EditSponsorsSectionState extends State<EditSponsorsSection> {
                             return ListTile(
                               dense: true,
                               leading: Icon(
-                                p['is_required'] == true
+                                p.isRequired
                                     ? Icons.check_circle
                                     : Icons
                                         .radio_button_unchecked,
                                 size: 18,
-                                color: p['is_required'] ==
-                                        true
+                                color: p.isRequired
                                     ? ctx.fundingAccent
                                     : AppTheme
                                         .textSecondaryOf(
                                             ctx),
                               ),
                               title: Text(
-                                  p['name'] ?? '',
+                                  p.name,
                                   style: const TextStyle(
                                       fontSize: 13,
                                       fontWeight:
                                           FontWeight.w600)),
-                              subtitle: p['description'] !=
+                              subtitle: p.description !=
                                           null &&
-                                      (p['description']
-                                              as String)
+                                      p.description!
                                           .isNotEmpty
                                   ? Text(
-                                      p['description'],
+                                      p.description!,
                                       style:
                                           const TextStyle(
                                               fontSize:
@@ -368,7 +366,7 @@ class _EditSponsorsSectionState extends State<EditSponsorsSection> {
                                         .deletePrerequisite(
                                             widget.eventId,
                                             sc.id!,
-                                            p['id']);
+                                            p.id);
                                     setSheetState(() =>
                                         prereqs
                                             .removeAt(i));

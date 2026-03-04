@@ -1,3 +1,4 @@
+import '../models/notification_model.dart';
 import 'base_repository.dart';
 
 class NotificationRepository extends BaseRepository {
@@ -8,13 +9,15 @@ class NotificationRepository extends BaseRepository {
     return resp.data['unread_count'] ?? 0;
   }
 
-  Future<List<dynamic>> getNotifications({bool unreadOnly = false, int offset = 0, int limit = 20}) async {
+  Future<List<AppNotification>> getNotifications({bool unreadOnly = false, int offset = 0, int limit = 20}) async {
     final resp = await dio.get('/me/notifications', queryParameters: {
       if (unreadOnly) 'unread_only': true,
       'offset': offset,
       'limit': limit,
     });
-    return resp.data as List<dynamic>;
+    return (resp.data as List<dynamic>)
+        .map((j) => AppNotification.fromJson(Map<String, dynamic>.from(j)))
+        .toList();
   }
 
   Future<void> markRead(int notificationId) async {

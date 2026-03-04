@@ -79,33 +79,33 @@ class SyncService {
   Future<void> pullEvents() async {
     try {
       final result = await eventRepo.getEvents(limit: 40);
-      final items = result['items'] as List? ?? [];
+      final items = result.items;
       final now = DateTime.now();
-      for (final item in items) {
-        final status = item['status'] as String? ?? '';
+      for (final event in items) {
+        final status = event.status.name;
         if (!_cacheableStatuses.contains(status)) continue;
         await db.upsertEvent(CachedEventsCompanion.insert(
-          id: Value(item['id'] as int),
-          title: Value(item['title'] as String? ?? ''),
-          description: Value(item['description'] as String?),
-          genre: Value(item['genre'] as String?),
-          status: Value(item['status'] as String? ?? ''),
-          startTime: Value(_parseDateTime(item['start_time'])),
-          endTime: Value(_parseDateTime(item['end_time'])),
-          lat: Value((item['lat'] as num?)?.toDouble()),
-          lng: Value((item['lng'] as num?)?.toDouble()),
-          venueName: Value(item['venue_name'] as String?),
-          city: Value(item['city'] as String?),
-          firstImageUrl: Value(item['first_image_url'] as String?),
-          fundingGoalCents: Value(item['funding_goal_cents'] as int?),
-          totalPledgedCents: Value(item['total_pledged_cents'] as int?),
-          ticketsSoldCount: Value(item['tickets_sold_count'] as int?),
+          id: Value(event.id),
+          title: Value(event.title),
+          description: Value(event.description),
+          genre: Value(event.genre),
+          status: Value(status),
+          startTime: Value(event.startTime),
+          endTime: Value(event.endTime),
+          lat: Value(event.lat),
+          lng: Value(event.lng),
+          venueName: Value(event.venue?.name),
+          city: Value(event.venue?.city),
+          firstImageUrl: Value(event.firstImageUrl),
+          fundingGoalCents: Value(event.fundingGoalCents),
+          totalPledgedCents: Value(event.totalPledgedCents),
+          ticketsSoldCount: Value(event.ticketsSoldCount),
           syncedAt: now,
         ));
       }
       // Purge cached events no longer in cacheable statuses
       await db.deleteEventsNotInStatuses(_cacheableStatuses);
-      final nextCursor = result['next_cursor'] as String?;
+      final nextCursor = result.nextCursor;
       await db.updateSyncMeta('cached_events', cursor: nextCursor);
     } catch (e) {
       debugPrint('SyncService.pullEvents failed: $e');

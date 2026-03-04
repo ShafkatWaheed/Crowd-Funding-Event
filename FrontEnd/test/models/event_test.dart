@@ -175,4 +175,195 @@ void main() {
       expect(noEnd.fundingTimeLeftFormatted, '');
     });
   });
+
+  group('ReactionResult', () {
+    test('fromJson parses all fields', () {
+      final r = ReactionResult.fromJson({
+        'action': 'added',
+        'reaction': 'like',
+        'like_count': 10,
+        'dislike_count': 2,
+      });
+      expect(r.action, 'added');
+      expect(r.reaction, 'like');
+      expect(r.likeCount, 10);
+      expect(r.dislikeCount, 2);
+    });
+
+    test('defaults for null fields', () {
+      final r = ReactionResult.fromJson({});
+      expect(r.action, '');
+      expect(r.reaction, '');
+      expect(r.likeCount, 0);
+      expect(r.dislikeCount, 0);
+    });
+  });
+
+  group('FeaturedEvents', () {
+    test('fromJson parses all categories', () {
+      final json = {
+        'trending': [eventJson(id: 1, title: 'Trending')],
+        'popular': [eventJson(id: 2, title: 'Popular')],
+        'coming_soon': [eventJson(id: 3, title: 'Coming Soon')],
+      };
+      final f = FeaturedEvents.fromJson(json);
+
+      expect(f.trending.length, 1);
+      expect(f.trending[0].title, 'Trending');
+      expect(f.popular.length, 1);
+      expect(f.popular[0].title, 'Popular');
+      expect(f.comingSoon.length, 1);
+      expect(f.comingSoon[0].title, 'Coming Soon');
+    });
+
+    test('empty lists when not provided', () {
+      final f = FeaturedEvents.fromJson({});
+      expect(f.trending, isEmpty);
+      expect(f.popular, isEmpty);
+      expect(f.comingSoon, isEmpty);
+    });
+  });
+
+  group('EventListPage', () {
+    test('fromJson parses items and nextCursor', () {
+      final json = {
+        'items': [eventJson(id: 1), eventJson(id: 2)],
+        'next_cursor': 'abc123',
+      };
+      final page = EventListPage.fromJson(json);
+
+      expect(page.items.length, 2);
+      expect(page.items[0].id, 1);
+      expect(page.items[1].id, 2);
+      expect(page.nextCursor, 'abc123');
+    });
+
+    test('null nextCursor when not provided', () {
+      final page = EventListPage.fromJson({'items': []});
+      expect(page.items, isEmpty);
+      expect(page.nextCursor, isNull);
+    });
+
+    test('null items list defaults to empty', () {
+      final page = EventListPage.fromJson({});
+      expect(page.items, isEmpty);
+    });
+  });
+
+  group('EventOrganizer', () {
+    test('fromJson parses all fields', () {
+      final json = {
+        'user_id': 5,
+        'display_name': 'Alice',
+        'email': 'alice@test.com',
+        'is_main': true,
+        'permission': 'full',
+        'invitation_status': 'accepted',
+      };
+      final o = EventOrganizer.fromJson(json);
+
+      expect(o.userId, 5);
+      expect(o.displayName, 'Alice');
+      expect(o.email, 'alice@test.com');
+      expect(o.isMain, true);
+      expect(o.permission, 'full');
+      expect(o.invitationStatus, 'accepted');
+    });
+
+    test('defaults for optional fields', () {
+      final json = {'user_id': 6};
+      final o = EventOrganizer.fromJson(json);
+
+      expect(o.displayName, isNull);
+      expect(o.email, '');
+      expect(o.isMain, false);
+      expect(o.permission, 'read');
+      expect(o.invitationStatus, 'pending');
+    });
+  });
+
+  group('OrganizerSearchResult', () {
+    test('fromJson parses all fields', () {
+      final json = {
+        'id': 10,
+        'email': 'organizer@test.com',
+        'display_name': 'Bob',
+      };
+      final r = OrganizerSearchResult.fromJson(json);
+
+      expect(r.id, 10);
+      expect(r.email, 'organizer@test.com');
+      expect(r.displayName, 'Bob');
+    });
+
+    test('defaults for optional fields', () {
+      final json = {'id': 11};
+      final r = OrganizerSearchResult.fromJson(json);
+
+      expect(r.email, '');
+      expect(r.displayName, isNull);
+    });
+  });
+
+  group('Registration', () {
+    test('fromJson parses all fields', () {
+      final json = {
+        'id': 1,
+        'event_id': 5,
+        'user_id': 10,
+        'status': 'approved',
+        'created_at': '2025-02-01T10:00:00',
+      };
+      final reg = Registration.fromJson(json);
+
+      expect(reg.id, 1);
+      expect(reg.eventId, 5);
+      expect(reg.userId, 10);
+      expect(reg.status, 'approved');
+      expect(reg.createdAt, DateTime.parse('2025-02-01T10:00:00'));
+    });
+
+    test('status defaults to empty string', () {
+      final json = {
+        'id': 2,
+        'event_id': 3,
+        'user_id': 4,
+        'created_at': '2025-02-01T10:00:00',
+      };
+      final reg = Registration.fromJson(json);
+      expect(reg.status, '');
+    });
+  });
+
+  group('CapacityInfo', () {
+    test('fromJson parses all fields', () {
+      final json = {
+        'max_capacity': 500,
+        'tickets_sold': 200,
+        'total_reserved_spots': 50,
+        'occupied': 250,
+        'available': 250,
+        'registration_count': 30,
+      };
+      final c = CapacityInfo.fromJson(json);
+
+      expect(c.maxCapacity, 500);
+      expect(c.ticketsSold, 200);
+      expect(c.totalReservedSpots, 50);
+      expect(c.occupied, 250);
+      expect(c.available, 250);
+      expect(c.registrationCount, 30);
+    });
+
+    test('defaults to 0 when fields are null', () {
+      final c = CapacityInfo.fromJson({});
+
+      expect(c.maxCapacity, 0);
+      expect(c.ticketsSold, 0);
+      expect(c.totalReservedSpots, 0);
+      expect(c.occupied, 0);
+      expect(c.available, 0);
+      expect(c.registrationCount, 0);
+    });
+  });
 }

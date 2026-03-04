@@ -5,12 +5,13 @@ import 'package:flutter/material.dart';
 
 import '../../../../config/design_tokens.dart';
 import '../../../../config/theme.dart';
+import '../../../../models/dashboard.dart';
 import '../../../../utils/date_time_utils.dart';
 import '../../../../widgets/animated_list_item.dart';
 import 'dashboard_shimmer.dart';
 
 class DashboardChartSection extends StatelessWidget {
-  final Map<String, dynamic>? timeSeriesData;
+  final OrganizerTimeSeries? timeSeriesData;
   final bool timeSeriesLoading;
   final int chartDays;
 
@@ -167,7 +168,7 @@ class DashboardChartSection extends StatelessWidget {
   }
 
   Widget _buildRevenueChart(BuildContext context) {
-    final points = (timeSeriesData!['points'] as List?) ?? [];
+    final points = timeSeriesData!.points;
     if (points.isEmpty) {
       return Center(
         child: Text(
@@ -182,10 +183,9 @@ class DashboardChartSection extends StatelessWidget {
 
     final spots = <FlSpot>[];
     for (int i = 0; i < points.length; i++) {
-      final p = points[i] as Map;
+      final p = points[i];
       spots.add(FlSpot(
-          i.toDouble(),
-          ((p['revenue_cents'] as num?)?.toDouble() ?? 0) / 100));
+          i.toDouble(), p.revenueCents.toDouble() / 100));
     }
 
     final maxY = spots.map((s) => s.y).reduce(math.max);
@@ -241,7 +241,7 @@ class DashboardChartSection extends StatelessWidget {
   }
 
   Widget _buildActivityChart(BuildContext context) {
-    final points = (timeSeriesData!['points'] as List?) ?? [];
+    final points = timeSeriesData!.points;
     if (points.isEmpty) {
       return Center(
         child: Text(
@@ -258,11 +258,11 @@ class DashboardChartSection extends StatelessWidget {
     final ticketSpots = <FlSpot>[];
     final pledgeSpots = <FlSpot>[];
     for (int i = 0; i < points.length; i++) {
-      final p = points[i] as Map;
+      final p = points[i];
       ticketSpots.add(FlSpot(
-          i.toDouble(), (p['tickets_sold'] as num?)?.toDouble() ?? 0));
+          i.toDouble(), p.ticketsSold.toDouble()));
       pledgeSpots.add(FlSpot(
-          i.toDouble(), (p['pledges_count'] as num?)?.toDouble() ?? 0));
+          i.toDouble(), p.pledgesCount.toDouble()));
     }
 
     final maxY = math.max(
@@ -337,7 +337,7 @@ class DashboardChartSection extends StatelessWidget {
     );
   }
 
-  FlTitlesData _chartTitles(BuildContext context, List points) {
+  FlTitlesData _chartTitles(BuildContext context, List<TimeSeriesPoint> points) {
     return FlTitlesData(
       leftTitles:
           const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -355,8 +355,7 @@ class DashboardChartSection extends StatelessWidget {
             if (idx < 0 || idx >= points.length) {
               return const SizedBox.shrink();
             }
-            final dateStr =
-                (points[idx] as Map)['date'] as String? ?? '';
+            final dateStr = points[idx].date;
             final dt = DateTime.tryParse(dateStr);
             if (dt == null) return const SizedBox.shrink();
             return Text(

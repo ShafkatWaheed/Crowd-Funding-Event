@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../home_shared.dart';
 import '../../../config/design_tokens.dart';
 import '../../../config/theme.dart';
+import '../../../models/dashboard.dart';
 import '../../../models/event.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../repositories/base_repository.dart';
@@ -38,11 +39,11 @@ class OrganizerDashboardTab extends StatefulWidget {
 }
 
 class _OrganizerDashboardTabState extends State<OrganizerDashboardTab> {
-  Map<String, dynamic>? _dashboardData;
-  List<dynamic>? _statusBreakdownAll;
+  OrganizerDashboard? _dashboardData;
+  List<StatusBreakdown>? _statusBreakdownAll;
   bool _dashboardLoading = false;
   String? _dashboardError;
-  Map<String, dynamic>? _timeSeriesData;
+  OrganizerTimeSeries? _timeSeriesData;
   bool _timeSeriesLoading = false;
   int _chartDays = 30;
   String _dashboardPeriod = '30d';
@@ -87,8 +88,7 @@ class _OrganizerDashboardTabState extends State<OrganizerDashboardTab> {
         setState(() {
           _dashboardData = data;
           if (statusFilter == null && eventId == null && genre == null) {
-            _statusBreakdownAll =
-                (data['status_breakdown'] as List?)?.toList();
+            _statusBreakdownAll = data.statusBreakdown;
           }
           _dashboardLoading = false;
         });
@@ -156,10 +156,8 @@ class _OrganizerDashboardTabState extends State<OrganizerDashboardTab> {
         limit: 50,
       );
       if (mounted) {
-        final data = (result['items'] as List?) ?? [];
         setState(() {
-          _statusFilteredEvents =
-              data.map((e) => Event.fromJson(e as Map<String, dynamic>)).toList();
+          _statusFilteredEvents = result.items;
           _statusFilterLoading = false;
         });
         widget.onEventsLoaded
@@ -269,7 +267,7 @@ class _OrganizerDashboardTabState extends State<OrganizerDashboardTab> {
             SliverToBoxAdapter(
               child: DashboardStatusChips(
                 breakdown: _statusBreakdownAll ??
-                    (_dashboardData?['status_breakdown'] as List?) ??
+                    _dashboardData?.statusBreakdown ??
                     [],
                 activeStatus: _dashboardStatusFilter,
                 onStatusSelected: (status) {

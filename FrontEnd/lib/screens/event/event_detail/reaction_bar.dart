@@ -58,15 +58,14 @@ class _ReactionBarState extends State<ReactionBar> {
       if (mounted) {
         setState(() {
           // Update reaction state based on action
-          final action = resp['action'];
-          if (action == 'removed') {
+          if (resp.action == 'removed') {
             _myReaction = null;
           } else {
             _myReaction = reaction;
           }
           // Update counts from server response
-          _likeCount = resp['like_count'] ?? _likeCount;
-          _dislikeCount = resp['dislike_count'] ?? _dislikeCount;
+          _likeCount = resp.likeCount;
+          _dislikeCount = resp.dislikeCount;
         });
       }
     } catch (e) {

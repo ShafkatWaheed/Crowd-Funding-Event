@@ -150,3 +150,93 @@ class TicketSale {
 
   bool get isScanned => scannedAt != null;
 }
+
+class TicketPricePreview {
+  final int tierPriceCents;
+  final int commonDiscountCents;
+  final int selectiveDiscountCents;
+  final int pledgeDiscountCents;
+  final int eventDiscountCents;
+  final int milestoneDiscountCents;
+  final int earlyBirdDiscountCents;
+  final int totalDiscountCents;
+  final int finalPriceCents;
+  final int commissionCents;
+  final int netToOrganizerCents;
+  final int ticketCommissionPercent;
+  final bool discountCapped;
+  final int maxDiscountPercent;
+
+  TicketPricePreview({
+    required this.tierPriceCents,
+    this.commonDiscountCents = 0,
+    this.selectiveDiscountCents = 0,
+    this.pledgeDiscountCents = 0,
+    this.eventDiscountCents = 0,
+    this.milestoneDiscountCents = 0,
+    this.earlyBirdDiscountCents = 0,
+    this.totalDiscountCents = 0,
+    required this.finalPriceCents,
+    this.commissionCents = 0,
+    this.netToOrganizerCents = 0,
+    this.ticketCommissionPercent = 0,
+    this.discountCapped = false,
+    this.maxDiscountPercent = 100,
+  });
+
+  factory TicketPricePreview.fromJson(Map<String, dynamic> json) {
+    return TicketPricePreview(
+      tierPriceCents: json['tier_price_cents'] as int? ?? 0,
+      commonDiscountCents: json['common_discount_cents'] as int? ?? 0,
+      selectiveDiscountCents: json['selective_discount_cents'] as int? ?? 0,
+      pledgeDiscountCents: json['pledge_discount_cents'] as int? ?? 0,
+      eventDiscountCents: json['event_discount_cents'] as int? ?? 0,
+      milestoneDiscountCents: json['milestone_discount_cents'] as int? ?? 0,
+      earlyBirdDiscountCents: json['early_bird_discount_cents'] as int? ?? 0,
+      totalDiscountCents: json['total_discount_cents'] as int? ?? 0,
+      finalPriceCents: json['final_price_cents'] as int? ?? 0,
+      commissionCents: json['commission_cents'] as int? ?? 0,
+      netToOrganizerCents: json['net_to_organizer_cents'] as int? ?? 0,
+      ticketCommissionPercent: json['ticket_commission_percent'] as int? ?? 0,
+      discountCapped: json['discount_capped'] as bool? ?? false,
+      maxDiscountPercent: json['max_discount_percent'] as int? ?? 100,
+    );
+  }
+
+  String get finalPriceFormatted =>
+      '\$${(finalPriceCents / 100).toStringAsFixed(2)}';
+}
+
+class TicketSalesStats {
+  final int totalSold;
+  final int totalScanned;
+
+  TicketSalesStats({
+    required this.totalSold,
+    required this.totalScanned,
+  });
+
+  factory TicketSalesStats.fromJson(Map<String, dynamic> json) {
+    return TicketSalesStats(
+      totalSold: json['total_sold'] as int? ?? 0,
+      totalScanned: json['total_scanned'] as int? ?? 0,
+    );
+  }
+}
+
+class TicketScanResult {
+  final bool alreadyScanned;
+  final TicketSale ticket;
+
+  TicketScanResult({
+    required this.alreadyScanned,
+    required this.ticket,
+  });
+
+  factory TicketScanResult.fromJson(Map<String, dynamic> json) {
+    return TicketScanResult(
+      alreadyScanned: json['already_scanned'] as bool? ?? false,
+      ticket: TicketSale.fromJson(json['ticket'] as Map<String, dynamic>),
+    );
+  }
+}

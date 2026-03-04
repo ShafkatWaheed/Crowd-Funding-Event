@@ -11,7 +11,6 @@ import '../../../providers/auth_provider.dart';
 import '../../../providers/event_provider.dart';
 import '../../../providers/ticket_provider.dart';
 import '../../../providers/config_provider.dart';
-import '../../../repositories/payment_repository.dart';
 import '../../../widgets/app_toast.dart';
 import 'package:flutter_stripe/flutter_stripe.dart' hide Card;
 import '../ticket_receipt_screen.dart';
@@ -169,7 +168,7 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
       }
       if (!mounted) return;
 
-      final previews = <int, Map<String, dynamic>>{};
+      final previews = <int, TicketPricePreview>{};
       await Future.wait(tiers.map((t) async {
         if (t.priceCents > 0) {
           try {
@@ -198,8 +197,8 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
                   final maxSpots = t.maxReservedSpots;
                   final spotsLeft = t.spotsLeft;
                   final preview = previews[tierId];
-                  final finalCents = preview?['final_price_cents'] ?? baseCents;
-                  final totalDiscount = preview?['total_discount_cents'] ?? 0;
+                  final finalCents = preview?.finalPriceCents ?? baseCents;
+                  final totalDiscount = preview?.totalDiscountCents ?? 0;
                   final isFree = finalCents == 0;
                   final basePrice = (baseCents / 100).toStringAsFixed(2);
                   final finalPrice = (finalCents / 100).toStringAsFixed(2);
@@ -324,19 +323,19 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
   }
 
   Future<void> _showInvoiceDialog(
-      TicketTier tier, Map<String, dynamic>? preview) async {
+      TicketTier tier, TicketPricePreview? preview) async {
     final eventRepo = context.read<EventProvider>();
     final event = widget.event;
     final tierName = tier.name;
     final tierId = tier.id;
     final baseCents = tier.priceCents;
-    final commonDisc = (preview?['common_discount_cents'] ?? 0) as int;
-    final selectiveDisc = (preview?['selective_discount_cents'] ?? 0) as int;
-    final pledgeDisc = (preview?['pledge_discount_cents'] ?? 0) as int;
-    final eventDisc = (preview?['event_discount_cents'] ?? 0) as int;
-    final totalDiscountPerTicket = (preview?['total_discount_cents'] ?? 0) as int;
-    final finalCentsPerTicket = (preview?['final_price_cents'] ?? baseCents) as int;
-    final commissionPerTicket = (preview?['commission_cents'] ?? 0) as int;
+    final commonDisc = preview?.commonDiscountCents ?? 0;
+    final selectiveDisc = preview?.selectiveDiscountCents ?? 0;
+    final pledgeDisc = preview?.pledgeDiscountCents ?? 0;
+    final eventDisc = preview?.eventDiscountCents ?? 0;
+    final totalDiscountPerTicket = preview?.totalDiscountCents ?? 0;
+    final finalCentsPerTicket = preview?.finalPriceCents ?? baseCents;
+    final commissionPerTicket = preview?.commissionCents ?? 0;
     final maxSpots = tier.maxReservedSpots;
     final spotsLeft = tier.spotsLeft;
 
@@ -723,18 +722,17 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
     _showPaymentProcessing();
     try {
       final config = context.read<ConfigProvider>();
-      final paymentRepo = context.read<PaymentRepository>();
       final ticketRepo = context.read<TicketProvider>();
 
       // Stripe Payment Sheet flow when Stripe is enabled
       if (config.stripeEnabled) {
-        final intent = await paymentRepo.createPaymentIntent(
+        final intent = await config.createPaymentIntent(
           amountCents: 0, // actual amount computed by backend
           description: 'Ticket purchase for event $eventId',
         );
         await Stripe.instance.initPaymentSheet(
           paymentSheetParameters: SetupPaymentSheetParameters(
-            paymentIntentClientSecret: intent['client_secret'] as String,
+            paymentIntentClientSecret: intent.clientSecret,
             merchantDisplayName: 'CrowdFund Event',
           ),
         );

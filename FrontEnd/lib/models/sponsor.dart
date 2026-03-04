@@ -47,7 +47,7 @@ class SponsorshipCategory {
   final int bidCount;
   final List<int> bidAmounts;
   final int myBidCount;
-  final List<Map<String, dynamic>> myBids;
+  final List<SponsorBid> myBids;
   final int prereqCount;
 
   SponsorshipCategory({
@@ -81,7 +81,7 @@ class SponsorshipCategory {
       bidCount: json['bid_count'] ?? 0,
       bidAmounts: (json['bid_amounts'] as List?)?.map((e) => e as int).toList() ?? [],
       myBidCount: json['my_bid_count'] ?? 0,
-      myBids: (json['my_bids'] as List?)?.map((e) => Map<String, dynamic>.from(e)).toList() ?? [],
+      myBids: (json['my_bids'] as List?)?.map((e) => SponsorBid.fromJson(Map<String, dynamic>.from(e as Map))).toList() ?? [],
       prereqCount: json['prereq_count'] ?? 0,
     );
   }
@@ -359,4 +359,308 @@ class SponsorTicketModel {
       scanCount: json['scan_count'] ?? 0,
     );
   }
+}
+
+class OrganizerSponsorItem {
+  final int sponsorUserId;
+  final String companyName;
+  final String contactName;
+  final String? logoUrl;
+  final int totalBids;
+  final int totalAmountCents;
+
+  OrganizerSponsorItem({
+    required this.sponsorUserId,
+    required this.companyName,
+    required this.contactName,
+    this.logoUrl,
+    required this.totalBids,
+    required this.totalAmountCents,
+  });
+
+  factory OrganizerSponsorItem.fromJson(Map<String, dynamic> json) =>
+      OrganizerSponsorItem(
+        sponsorUserId: json['sponsor_user_id'] as int,
+        companyName: (json['company_name'] as String?) ?? '',
+        contactName: (json['contact_name'] as String?) ?? '',
+        logoUrl: json['logo_url'] as String?,
+        totalBids: (json['total_bids'] as int?) ?? 0,
+        totalAmountCents: (json['total_amount_cents'] as int?) ?? 0,
+      );
+
+  String get totalAmountDisplay =>
+      '\$${(totalAmountCents / 100).toStringAsFixed(2)}';
+}
+
+class SponsorEventBid {
+  final String category;
+  final int amountCents;
+  final String status;
+
+  SponsorEventBid({
+    required this.category,
+    required this.amountCents,
+    required this.status,
+  });
+
+  factory SponsorEventBid.fromJson(Map<String, dynamic> json) =>
+      SponsorEventBid(
+        category: (json['category'] as String?) ?? '',
+        amountCents: (json['amount_cents'] as int?) ?? 0,
+        status: (json['status'] as String?) ?? '',
+      );
+}
+
+class SponsorEventItem {
+  final int eventId;
+  final String title;
+  final String status;
+  final String? startTime;
+  final String? venueName;
+  final String? venueCity;
+  final List<SponsorEventBid> bids;
+  final int totalAmountCents;
+
+  SponsorEventItem({
+    required this.eventId,
+    required this.title,
+    required this.status,
+    this.startTime,
+    this.venueName,
+    this.venueCity,
+    this.bids = const [],
+    required this.totalAmountCents,
+  });
+
+  factory SponsorEventItem.fromJson(Map<String, dynamic> json) =>
+      SponsorEventItem(
+        eventId: json['event_id'] as int,
+        title: (json['title'] as String?) ?? '',
+        status: (json['status'] as String?) ?? '',
+        startTime: json['start_time'] as String?,
+        venueName: json['venue_name'] as String?,
+        venueCity: json['venue_city'] as String?,
+        bids: (json['bids'] as List?)
+                ?.map((e) => SponsorEventBid.fromJson(
+                    Map<String, dynamic>.from(e as Map)))
+                .toList() ??
+            [],
+        totalAmountCents: (json['total_amount_cents'] as int?) ?? 0,
+      );
+}
+
+class SponsorPaymentReceipt {
+  final int paymentId;
+  final String receiptNumber;
+  final String type;
+  final int amountCents;
+  final int platformCutCents;
+  final int netToOrganizerCents;
+  final int subtotalCents;
+  final int taxCents;
+  final double taxRate;
+  final String status;
+  final String? createdAt;
+  final int bidId;
+  final int bidAmountCents;
+  final String? bidProposal;
+  final String? categoryName;
+  final int? eventId;
+  final String? eventTitle;
+  final String? sponsorName;
+  final String? sponsorEmail;
+
+  SponsorPaymentReceipt({
+    required this.paymentId,
+    required this.receiptNumber,
+    required this.type,
+    required this.amountCents,
+    required this.platformCutCents,
+    required this.netToOrganizerCents,
+    required this.subtotalCents,
+    required this.taxCents,
+    required this.taxRate,
+    required this.status,
+    this.createdAt,
+    required this.bidId,
+    required this.bidAmountCents,
+    this.bidProposal,
+    this.categoryName,
+    this.eventId,
+    this.eventTitle,
+    this.sponsorName,
+    this.sponsorEmail,
+  });
+
+  factory SponsorPaymentReceipt.fromJson(Map<String, dynamic> json) =>
+      SponsorPaymentReceipt(
+        paymentId: json['payment_id'] as int,
+        receiptNumber: (json['receipt_number'] as String?) ?? '',
+        type: (json['type'] as String?) ?? 'payment',
+        amountCents: (json['amount_cents'] as int?) ?? 0,
+        platformCutCents: (json['platform_cut_cents'] as int?) ?? 0,
+        netToOrganizerCents: (json['net_to_organizer_cents'] as int?) ?? 0,
+        subtotalCents: (json['subtotal_cents'] as int?) ?? 0,
+        taxCents: (json['tax_cents'] as int?) ?? 0,
+        taxRate: (json['tax_rate'] as num?)?.toDouble() ?? 0.0,
+        status: (json['status'] as String?) ?? '',
+        createdAt: json['created_at'] as String?,
+        bidId: json['bid_id'] as int,
+        bidAmountCents: (json['bid_amount_cents'] as int?) ?? 0,
+        bidProposal: json['bid_proposal'] as String?,
+        categoryName: json['category_name'] as String?,
+        eventId: json['event_id'] as int?,
+        eventTitle: json['event_title'] as String?,
+        sponsorName: json['sponsor_name'] as String?,
+        sponsorEmail: json['sponsor_email'] as String?,
+      );
+
+  String get amountDisplay =>
+      '\$${(amountCents / 100).toStringAsFixed(2)}';
+
+  String get netDisplay =>
+      '\$${(netToOrganizerCents / 100).toStringAsFixed(2)}';
+}
+
+class ScannedDelegate {
+  final int id;
+  final String name;
+  final bool checkedIn;
+  final String? checkedInAt;
+
+  ScannedDelegate({
+    required this.id,
+    required this.name,
+    this.checkedIn = false,
+    this.checkedInAt,
+  });
+
+  factory ScannedDelegate.fromJson(Map<String, dynamic> json) =>
+      ScannedDelegate(
+        id: json['id'] as int,
+        name: (json['name'] as String?) ?? '',
+        checkedIn: (json['checked_in'] as bool?) ?? false,
+        checkedInAt: json['checked_in_at'] as String?,
+      );
+}
+
+class ScannedSponsorTicket {
+  final int id;
+  final int eventId;
+  final String receiptNumber;
+  final String companyName;
+  final String contactName;
+  final int scanCount;
+  final String? scannedAt;
+  final int totalDelegates;
+  final int checkedInCount;
+  final List<ScannedDelegate> delegates;
+
+  ScannedSponsorTicket({
+    required this.id,
+    required this.eventId,
+    required this.receiptNumber,
+    required this.companyName,
+    required this.contactName,
+    this.scanCount = 0,
+    this.scannedAt,
+    this.totalDelegates = 0,
+    this.checkedInCount = 0,
+    this.delegates = const [],
+  });
+
+  factory ScannedSponsorTicket.fromJson(Map<String, dynamic> json) =>
+      ScannedSponsorTicket(
+        id: json['id'] as int,
+        eventId: json['event_id'] as int,
+        receiptNumber: (json['receipt_number'] as String?) ?? '',
+        companyName: (json['company_name'] as String?) ?? '',
+        contactName: (json['contact_name'] as String?) ?? '',
+        scanCount: (json['scan_count'] as int?) ?? 0,
+        scannedAt: json['scanned_at'] as String?,
+        totalDelegates: (json['total_delegates'] as int?) ?? 0,
+        checkedInCount: (json['checked_in_count'] as int?) ?? 0,
+        delegates: (json['delegates'] as List?)
+                ?.map((e) => ScannedDelegate.fromJson(
+                    Map<String, dynamic>.from(e as Map)))
+                .toList() ??
+            [],
+      );
+}
+
+class EventSponsor {
+  final int sponsorUserId;
+  final String companyName;
+  final String? logoUrl;
+  final String? websiteUrl;
+
+  EventSponsor({
+    required this.sponsorUserId,
+    required this.companyName,
+    this.logoUrl,
+    this.websiteUrl,
+  });
+
+  factory EventSponsor.fromJson(Map<String, dynamic> json) => EventSponsor(
+        sponsorUserId: json['sponsor_user_id'] as int,
+        companyName: (json['company_name'] as String?) ?? '',
+        logoUrl: json['logo_url'] as String?,
+        websiteUrl: json['website_url'] as String?,
+      );
+}
+
+class CategoryPrerequisite {
+  final int id;
+  final String name;
+  final String? description;
+  final bool isRequired;
+  final bool requiresDocument;
+
+  CategoryPrerequisite({
+    required this.id,
+    required this.name,
+    this.description,
+    this.isRequired = false,
+    this.requiresDocument = false,
+  });
+
+  factory CategoryPrerequisite.fromJson(Map<String, dynamic> json) =>
+      CategoryPrerequisite(
+        id: json['id'] as int,
+        name: (json['name'] as String?) ?? '',
+        description: json['description'] as String?,
+        isRequired: (json['is_required'] as bool?) ?? false,
+        requiresDocument: (json['requires_document'] as bool?) ?? false,
+      );
+}
+
+class BidPrerequisiteUpload {
+  final int id;
+  final int bidId;
+  final int prerequisiteId;
+  final String fileUrl;
+  final String status;
+  final String? reviewedAt;
+  final String? reviewerNote;
+
+  BidPrerequisiteUpload({
+    required this.id,
+    required this.bidId,
+    required this.prerequisiteId,
+    required this.fileUrl,
+    required this.status,
+    this.reviewedAt,
+    this.reviewerNote,
+  });
+
+  factory BidPrerequisiteUpload.fromJson(Map<String, dynamic> json) =>
+      BidPrerequisiteUpload(
+        id: json['id'] as int,
+        bidId: json['bid_id'] as int,
+        prerequisiteId: json['prerequisite_id'] as int,
+        fileUrl: (json['file_url'] as String?) ?? '',
+        status: (json['status'] as String?) ?? 'pending',
+        reviewedAt: json['reviewed_at'] as String?,
+        reviewerNote: json['reviewer_note'] as String?,
+      );
 }

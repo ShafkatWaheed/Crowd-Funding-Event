@@ -40,7 +40,7 @@ class _QuickActionBarState extends State<QuickActionBar> {
       widget.onRegistrationChanged();
       if (!mounted) return;
       context.read<EventProvider>().loadEvent(widget.event.id);
-      final status = result['status'] as String?;
+      final status = result.status;
       final event = context.read<EventProvider>().selectedEvent;
       final isSelling = event?.status == EventStatus.selling_tickets ||
           event?.status == EventStatus.live;

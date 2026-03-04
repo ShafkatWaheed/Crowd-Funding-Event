@@ -28,10 +28,10 @@ void main() {
             params: any(named: 'params'),
             limit: any(named: 'limit'),
             cursor: any(named: 'cursor'),
-          )).thenAnswer((_) async => {
-            'items': [eventJson(id: 1), eventJson(id: 2)],
-            'next_cursor': null,
-          });
+          )).thenAnswer((_) async => EventListPage(
+            items: [Event.fromJson(eventJson(id: 1)), Event.fromJson(eventJson(id: 2))],
+            nextCursor: null,
+          ));
 
       await provider.loadEvents();
 
@@ -48,10 +48,10 @@ void main() {
             params: any(named: 'params'),
             limit: any(named: 'limit'),
             cursor: any(named: 'cursor'),
-          )).thenAnswer((_) async => {
-            'items': [eventJson(id: 1, genre: 'music')],
-            'next_cursor': null,
-          });
+          )).thenAnswer((_) async => EventListPage(
+            items: [Event.fromJson(eventJson(id: 1, genre: 'music'))],
+            nextCursor: null,
+          ));
 
       await provider.loadEvents(filters: {'genre': 'music'});
 
@@ -77,10 +77,10 @@ void main() {
             params: any(named: 'params'),
             limit: any(named: 'limit'),
             cursor: any(named: 'cursor'),
-          )).thenAnswer((_) async => {
-            'items': [eventJson(id: 1)],
-            'next_cursor': 'cursor-1',
-          });
+          )).thenAnswer((_) async => EventListPage(
+            items: [Event.fromJson(eventJson(id: 1))],
+            nextCursor: 'cursor-1',
+          ));
       await provider.loadEvents();
       expect(provider.events.length, 1);
       expect(provider.hasMore, true);
@@ -90,10 +90,10 @@ void main() {
             params: any(named: 'params'),
             limit: any(named: 'limit'),
             cursor: any(named: 'cursor'),
-          )).thenAnswer((_) async => {
-            'items': [eventJson(id: 2)],
-            'next_cursor': null,
-          });
+          )).thenAnswer((_) async => EventListPage(
+            items: [Event.fromJson(eventJson(id: 2))],
+            nextCursor: null,
+          ));
       await provider.loadMoreEvents();
 
       expect(provider.events.length, 2);
@@ -105,10 +105,10 @@ void main() {
             params: any(named: 'params'),
             limit: any(named: 'limit'),
             cursor: any(named: 'cursor'),
-          )).thenAnswer((_) async => {
-            'items': [],
-            'next_cursor': null,
-          });
+          )).thenAnswer((_) async => EventListPage(
+            items: [],
+            nextCursor: null,
+          ));
       await provider.loadEvents();
 
       await provider.loadMoreEvents();
@@ -122,7 +122,7 @@ void main() {
 
     test('loadEvent success', () async {
       when(() => mockRepo.getEvent(1))
-          .thenAnswer((_) async => eventJson(id: 1, title: 'Test Event'));
+          .thenAnswer((_) async => Event.fromJson(eventJson(id: 1, title: 'Test Event')));
 
       await provider.loadEvent(1);
 
@@ -133,7 +133,7 @@ void main() {
 
     test('loadEvent uses cache on second call', () async {
       when(() => mockRepo.getEvent(1))
-          .thenAnswer((_) async => eventJson(id: 1));
+          .thenAnswer((_) async => Event.fromJson(eventJson(id: 1)));
 
       await provider.loadEvent(1);
       await provider.loadEvent(1); // Should use cache
@@ -143,7 +143,7 @@ void main() {
 
     test('loadEvent forceRefresh bypasses cache', () async {
       when(() => mockRepo.getEvent(1))
-          .thenAnswer((_) async => eventJson(id: 1));
+          .thenAnswer((_) async => Event.fromJson(eventJson(id: 1)));
 
       await provider.loadEvent(1);
       await provider.loadEvent(1, forceRefresh: true);
@@ -167,7 +167,7 @@ void main() {
             params: any(named: 'params'),
             limit: any(named: 'limit'),
             cursor: any(named: 'cursor'),
-          )).thenAnswer((_) async => {'items': [], 'next_cursor': null});
+          )).thenAnswer((_) async => EventListPage(items: [], nextCursor: null));
 
       final result = await provider.createEvent({'title': 'New Event'});
       expect(result, true);
@@ -186,7 +186,7 @@ void main() {
       when(() => mockRepo.publishEvent(1))
           .thenAnswer((_) async => Event.fromJson(eventJson(id: 1, status: 'pending_approval')));
       when(() => mockRepo.getEvent(1))
-          .thenAnswer((_) async => eventJson(id: 1, status: 'pending_approval'));
+          .thenAnswer((_) async => Event.fromJson(eventJson(id: 1, status: 'pending_approval')));
 
       final result = await provider.publishEvent(1);
       expect(result, true);
@@ -198,11 +198,11 @@ void main() {
             params: any(named: 'params'),
             limit: any(named: 'limit'),
             cursor: any(named: 'cursor'),
-          )).thenAnswer((_) async => {'items': [], 'next_cursor': null});
+          )).thenAnswer((_) async => EventListPage(items: [], nextCursor: null));
 
       // Set selected event first
       when(() => mockRepo.getEvent(1))
-          .thenAnswer((_) async => eventJson(id: 1));
+          .thenAnswer((_) async => Event.fromJson(eventJson(id: 1)));
       await provider.loadEvent(1);
       expect(provider.selectedEvent, isNotNull);
 
@@ -213,7 +213,7 @@ void main() {
 
     test('invalidateCache removes entry', () async {
       when(() => mockRepo.getEvent(1))
-          .thenAnswer((_) async => eventJson(id: 1));
+          .thenAnswer((_) async => Event.fromJson(eventJson(id: 1)));
 
       await provider.loadEvent(1);
       provider.invalidateCache(1);
@@ -225,7 +225,7 @@ void main() {
 
     test('clearCache removes all entries', () async {
       when(() => mockRepo.getEvent(any()))
-          .thenAnswer((inv) async => eventJson(id: inv.positionalArguments[0] as int));
+          .thenAnswer((inv) async => Event.fromJson(eventJson(id: inv.positionalArguments[0] as int)));
 
       await provider.loadEvent(1);
       await provider.loadEvent(2);
@@ -240,7 +240,7 @@ void main() {
 
     test('clearSelected sets selectedEvent to null', () async {
       when(() => mockRepo.getEvent(1))
-          .thenAnswer((_) async => eventJson(id: 1));
+          .thenAnswer((_) async => Event.fromJson(eventJson(id: 1)));
       await provider.loadEvent(1);
       expect(provider.selectedEvent, isNotNull);
 

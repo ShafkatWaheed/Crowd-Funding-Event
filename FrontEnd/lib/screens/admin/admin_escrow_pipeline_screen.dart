@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
+import '../../models/admin.dart';
 import '../../providers/admin_provider.dart';
 import '../../widgets/app_toast.dart';
 import 'tabs/banking/banking_escrow_pipeline.dart';
@@ -16,35 +17,25 @@ class AdminEscrowPipelineScreen extends StatefulWidget {
 }
 
 class _AdminEscrowPipelineScreenState extends State<AdminEscrowPipelineScreen> {
-  List<dynamic> _fundEscrows = [];
-  List<dynamic> _ticketEscrows = [];
-  List<dynamic> _sponsorEscrows = [];
+  List<AdminEscrowItem> _fundEscrows = [];
+  List<AdminEscrowItem> _ticketEscrows = [];
+  List<AdminEscrowItem> _sponsorEscrows = [];
   bool _pipelineLoading = true;
   String _typeFilter = 'all';
 
-  Map<String, dynamic>? _selectedEventEscrows;
+  AdminEventEscrows? _selectedEventEscrows;
   int? _selectedEventId;
 
   String _searchText = '';
   final _searchController = TextEditingController();
 
-  List<Map<String, dynamic>> get _escrowRows {
-    final rows = <Map<String, dynamic>>[];
-    for (final e in _fundEscrows) {
-      rows.add({...Map<String, dynamic>.from(e as Map), '_type': 'fund'});
-    }
-    for (final e in _ticketEscrows) {
-      rows.add({...Map<String, dynamic>.from(e as Map), '_type': 'ticket'});
-    }
-    for (final e in _sponsorEscrows) {
-      rows.add({...Map<String, dynamic>.from(e as Map), '_type': 'sponsor'});
-    }
-    if (_searchText.isEmpty) return rows;
+  List<AdminEscrowItem> _filterEscrows(List<AdminEscrowItem> items) {
+    if (_searchText.isEmpty) return items;
     final q = _searchText.toLowerCase();
-    return rows.where((r) {
-      final title = (r['event_title'] ?? '').toString().toLowerCase();
-      final id = (r['event_id'] ?? '').toString();
-      final status = (r['status'] ?? '').toString().toLowerCase();
+    return items.where((e) {
+      final title = (e.eventTitle ?? '').toLowerCase();
+      final id = e.eventId.toString();
+      final status = e.status.toLowerCase();
       return title.contains(q) || id.contains(q) || status.contains(q);
     }).toList();
   }
@@ -72,9 +63,9 @@ class _AdminEscrowPipelineScreenState extends State<AdminEscrowPipelineScreen> {
       ]);
       if (mounted) {
         setState(() {
-          _fundEscrows = (results[0]['items'] as List?) ?? [];
-          _ticketEscrows = (results[1]['items'] as List?) ?? [];
-          _sponsorEscrows = (results[2]['items'] as List?) ?? [];
+          _fundEscrows = results[0].items;
+          _ticketEscrows = results[1].items;
+          _sponsorEscrows = results[2].items;
           _pipelineLoading = false;
         });
       }
@@ -149,7 +140,9 @@ class _AdminEscrowPipelineScreenState extends State<AdminEscrowPipelineScreen> {
               ),
               const SizedBox(height: 12),
               BankingEscrowPipelineSection(
-                escrowRows: _escrowRows,
+                fundEscrows: _filterEscrows(_fundEscrows),
+                ticketEscrows: _filterEscrows(_ticketEscrows),
+                sponsorEscrows: _filterEscrows(_sponsorEscrows),
                 pipelineLoading: _pipelineLoading,
                 pipelineTypeFilter: _typeFilter,
                 onTypeFilterChanged: (v) => setState(() => _typeFilter = v),

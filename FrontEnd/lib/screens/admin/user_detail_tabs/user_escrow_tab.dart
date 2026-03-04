@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../../../config/design_tokens.dart';
 import '../../../config/theme.dart';
+import '../../../models/admin.dart';
 import '../../../widgets/admin/admin_empty_state.dart';
 import 'user_detail_shared.dart';
 
 class UserEscrowTab extends StatefulWidget {
   final int userId;
-  final Map<String, dynamic> detail;
+  final AdminUserDetail detail;
   final void Function(String) onSnack;
   final Future<void> Function() onRefresh;
 
@@ -33,9 +34,7 @@ class _UserEscrowTabState extends State<UserEscrowTab> {
     super.dispose();
   }
 
-  List<Map<String, dynamic>> get _allEscrows =>
-      (widget.detail['escrows'] as List<dynamic>? ?? [])
-          .cast<Map<String, dynamic>>();
+  List<AdminUserEscrow> get _allEscrows => widget.detail.escrows ?? [];
 
   @override
   Widget build(BuildContext context) {
@@ -43,14 +42,9 @@ class _UserEscrowTabState extends State<UserEscrowTab> {
     final filtered = allEscrows.where((esc) {
       if (_escrowSearch.isEmpty) return true;
       final q = _escrowSearch.toLowerCase();
-      return (esc['event_id']?.toString().contains(q) ?? false) ||
-          (esc['event_title']
-                  ?.toString()
-                  .toLowerCase()
-                  .contains(q) ??
-              false) ||
-          (esc['status']?.toString().toLowerCase().contains(q) ??
-              false);
+      return (esc.eventId?.toString().contains(q) ?? false) ||
+          (esc.eventTitle?.toLowerCase().contains(q) ?? false) ||
+          esc.status.toLowerCase().contains(q);
     }).toList();
 
     return Column(
@@ -59,8 +53,7 @@ class _UserEscrowTabState extends State<UserEscrowTab> {
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
           child: UserDetailSearchField(
             controller: _escrowSearchCtrl,
-            hint:
-                'Search by event name, organizer, or status...',
+            hint: 'Search by event name, organizer, or status...',
             currentValue: _escrowSearch,
             onChanged: (v) => setState(() => _escrowSearch = v),
           ),
@@ -77,8 +70,7 @@ class _UserEscrowTabState extends State<UserEscrowTab> {
                   child: ListView.builder(
                     padding: const EdgeInsets.all(16),
                     itemCount: filtered.length,
-                    itemBuilder: (ctx, i) =>
-                        _escrowCard(filtered[i]),
+                    itemBuilder: (ctx, i) => _escrowCard(filtered[i]),
                   ),
                 ),
         ),
@@ -86,23 +78,15 @@ class _UserEscrowTabState extends State<UserEscrowTab> {
     );
   }
 
-  Widget _escrowCard(Map<String, dynamic> e) {
-    final eventId = e['event_id'] ?? 0;
-    final eventTitle =
-        e['event_title']?.toString() ?? 'Event #$eventId';
-    final totalHeld = (e['total_held_cents'] ?? 0) as int;
-    final totalReleased = (e['total_released_cents'] ?? 0) as int;
-    final remaining = (e['remaining_cents'] ?? 0) as int;
-    final status = e['status'] ?? 'holding';
-    final s1 = e['stage1_released_at'];
-    final s2 = e['stage2_released_at'];
-    final s3 = e['stage3_released_at'];
-    final isFrozen = status == 'frozen';
+  Widget _escrowCard(AdminUserEscrow e) {
+    final eventId = e.eventId ?? 0;
+    final eventTitle = e.eventTitle ?? 'Event #$eventId';
+    final isFrozen = e.status == 'frozen';
     final sColor = isFrozen
         ? AppTheme.errorOf(context)
-        : status == 'fully_released'
+        : e.status == 'fully_released'
             ? AppTheme.successOf(context)
-            : status == 'partially_released'
+            : e.status == 'partially_released'
                 ? context.fundingAccent
                 : AppTheme.textSecondaryOf(context);
 
@@ -116,8 +100,7 @@ class _UserEscrowTabState extends State<UserEscrowTab> {
           children: [
             Row(
               children: [
-                Icon(Icons.account_balance,
-                    size: 20, color: sColor),
+                Icon(Icons.account_balance, size: 20, color: sColor),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
@@ -125,52 +108,46 @@ class _UserEscrowTabState extends State<UserEscrowTab> {
                     children: [
                       Text(eventTitle,
                           style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 16),
+                              fontWeight: FontWeight.w700, fontSize: 16),
                           overflow: TextOverflow.ellipsis),
                       Text('Event #$eventId',
                           style: TextStyle(
                               fontSize: 11,
-                              color: AppTheme.textSecondaryOf(
-                                  context))),
+                              color: AppTheme.textSecondaryOf(context))),
                     ],
                   ),
                 ),
                 const SizedBox(width: 8),
-                statusBadge(
-                    context,
-                    status
-                        .toString()
-                        .toUpperCase()
-                        .replaceAll('_', ' ')),
+                statusBadge(context,
+                    e.status.toUpperCase().replaceAll('_', ' ')),
               ],
             ),
             const SizedBox(height: 12),
             Row(
               children: [
-                userDetailEscrowStat(context, 'Held', totalHeld,
+                userDetailEscrowStat(context, 'Held', e.totalHeldCents,
                     AppTheme.textSecondaryOf(context)),
                 const SizedBox(width: 16),
                 userDetailEscrowStat(context, 'Released',
-                    totalReleased, AppTheme.successOf(context)),
+                    e.totalReleasedCents, AppTheme.successOf(context)),
                 const SizedBox(width: 16),
                 userDetailEscrowStat(context, 'Remaining',
-                    remaining, context.fundingAccent),
+                    e.remainingCents, context.fundingAccent),
               ],
             ),
             const SizedBox(height: 12),
             Row(
               children: [
-                userDetailStageDot(context, 'S1', s1 != null,
-                    context.feedAccent),
-                userDetailStageLine(
-                    context, s1 != null && s2 != null),
-                userDetailStageDot(context, 'S2', s2 != null,
-                    context.fundingAccent),
-                userDetailStageLine(
-                    context, s2 != null && s3 != null),
-                userDetailStageDot(context, 'S3', s3 != null,
-                    AppTheme.successOf(context)),
+                userDetailStageDot(context, 'S1',
+                    e.stage1ReleasedAt != null, context.feedAccent),
+                userDetailStageLine(context,
+                    e.stage1ReleasedAt != null && e.stage2ReleasedAt != null),
+                userDetailStageDot(context, 'S2',
+                    e.stage2ReleasedAt != null, context.fundingAccent),
+                userDetailStageLine(context,
+                    e.stage2ReleasedAt != null && e.stage3ReleasedAt != null),
+                userDetailStageDot(context, 'S3',
+                    e.stage3ReleasedAt != null, AppTheme.successOf(context)),
               ],
             ),
             const SizedBox(height: 12),
@@ -178,66 +155,47 @@ class _UserEscrowTabState extends State<UserEscrowTab> {
               spacing: 8,
               runSpacing: 8,
               children: [
-                if (s1 == null)
+                if (e.stage1ReleasedAt == null)
                   userDetailEscrowBtn('Release S1', Icons.looks_one,
                       context.feedAccent,
-                      () => confirmAction(
-                          context,
-                          'Release Stage 1',
+                      () => confirmAction(context, 'Release Stage 1',
                           'Release Stage 1 escrow?',
-                          () => escrowAction(
-                              context, eventId, 'release',
+                          () => escrowAction(context, eventId, 'release',
                               stage: 1,
                               onRefresh: widget.onRefresh,
                               onSnack: widget.onSnack))),
-                if (s1 != null && s2 == null)
-                  userDetailEscrowBtn(
-                      'Release S2',
-                      Icons.looks_two,
+                if (e.stage1ReleasedAt != null && e.stage2ReleasedAt == null)
+                  userDetailEscrowBtn('Release S2', Icons.looks_two,
                       context.fundingAccent,
-                      () => confirmAction(
-                          context,
-                          'Release Stage 2',
+                      () => confirmAction(context, 'Release Stage 2',
                           'Release Stage 2 escrow?',
-                          () => escrowAction(
-                              context, eventId, 'release',
+                          () => escrowAction(context, eventId, 'release',
                               stage: 2,
                               onRefresh: widget.onRefresh,
                               onSnack: widget.onSnack))),
-                if (s2 != null && s3 == null)
-                  userDetailEscrowBtn(
-                      'Release S3',
-                      Icons.looks_3,
+                if (e.stage2ReleasedAt != null && e.stage3ReleasedAt == null)
+                  userDetailEscrowBtn('Release S3', Icons.looks_3,
                       AppTheme.successOf(context),
-                      () => confirmAction(
-                          context,
-                          'Release Stage 3',
+                      () => confirmAction(context, 'Release Stage 3',
                           'Release Stage 3 escrow?',
-                          () => escrowAction(
-                              context, eventId, 'release',
+                          () => escrowAction(context, eventId, 'release',
                               stage: 3,
                               onRefresh: widget.onRefresh,
                               onSnack: widget.onSnack))),
                 if (!isFrozen)
                   userDetailEscrowBtn('Freeze', Icons.ac_unit,
                       AppTheme.errorOf(context),
-                      () => confirmAction(
-                          context,
-                          'Freeze Escrow',
+                      () => confirmAction(context, 'Freeze Escrow',
                           'Freeze this escrow?',
-                          () => escrowAction(
-                              context, eventId, 'freeze',
+                          () => escrowAction(context, eventId, 'freeze',
                               onRefresh: widget.onRefresh,
                               onSnack: widget.onSnack)))
                 else
                   userDetailEscrowBtn('Unfreeze', Icons.wb_sunny,
                       context.ticketAccent,
-                      () => confirmAction(
-                          context,
-                          'Unfreeze Escrow',
+                      () => confirmAction(context, 'Unfreeze Escrow',
                           'Unfreeze this escrow?',
-                          () => escrowAction(
-                              context, eventId, 'unfreeze',
+                          () => escrowAction(context, eventId, 'unfreeze',
                               onRefresh: widget.onRefresh,
                               onSnack: widget.onSnack))),
               ],

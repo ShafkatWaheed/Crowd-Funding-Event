@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
+import '../../lib/models/sponsor.dart';
 import '../../lib/providers/sponsor_provider.dart';
 import '../../lib/repositories/sponsor_repository.dart';
 import '../../lib/screens/sponsor/organizer_sponsors_screen.dart';
@@ -18,7 +19,7 @@ void main() {
     mockSponsorRepo = MockSponsorRepository();
   });
 
-  Map<String, dynamic> sponsorJson({
+  OrganizerSponsorItem makeSponsor({
     int sponsorUserId = 1,
     String companyName = 'Acme Corp',
     String contactName = 'Alice',
@@ -26,16 +27,16 @@ void main() {
     int totalAmountCents = 50000,
     String? logoUrl,
   }) =>
-      {
+      OrganizerSponsorItem.fromJson({
         'sponsor_user_id': sponsorUserId,
         'company_name': companyName,
         'contact_name': contactName,
         'total_bids': totalBids,
         'total_amount_cents': totalAmountCents,
         'logo_url': logoUrl,
-      };
+      });
 
-  void stubSponsors({List<Map<String, dynamic>>? data}) {
+  void stubSponsors({List<OrganizerSponsorItem>? data}) {
     when(() => mockSponsorRepo.getOrganizerSponsors(
           eventStatus: any(named: 'eventStatus'),
           genre: any(named: 'genre'),
@@ -65,8 +66,8 @@ void main() {
     testWidgets('renders sponsor cards with company name and bids',
         (tester) async {
       stubSponsors(data: [
-        sponsorJson(companyName: 'Acme Corp', contactName: 'Alice', totalBids: 3, totalAmountCents: 50000),
-        sponsorJson(sponsorUserId: 2, companyName: 'Beta Inc', contactName: 'Bob', totalBids: 1, totalAmountCents: 10000),
+        makeSponsor(companyName: 'Acme Corp', contactName: 'Alice', totalBids: 3, totalAmountCents: 50000),
+        makeSponsor(sponsorUserId: 2, companyName: 'Beta Inc', contactName: 'Bob', totalBids: 1, totalAmountCents: 10000),
       ]);
 
       await pumpScreen(tester);
@@ -91,8 +92,8 @@ void main() {
 
     testWidgets('search filters sponsors by name', (tester) async {
       stubSponsors(data: [
-        sponsorJson(companyName: 'Acme Corp'),
-        sponsorJson(sponsorUserId: 2, companyName: 'Beta Inc'),
+        makeSponsor(companyName: 'Acme Corp'),
+        makeSponsor(sponsorUserId: 2, companyName: 'Beta Inc'),
       ]);
 
       await pumpScreen(tester);
@@ -109,7 +110,7 @@ void main() {
     testWidgets('search shows "No sponsors match" when no results',
         (tester) async {
       stubSponsors(data: [
-        sponsorJson(companyName: 'Acme Corp'),
+        makeSponsor(companyName: 'Acme Corp'),
       ]);
 
       await pumpScreen(tester);
@@ -123,7 +124,7 @@ void main() {
 
     testWidgets('shows sponsor amount', (tester) async {
       stubSponsors(data: [
-        sponsorJson(totalAmountCents: 75000),
+        makeSponsor(totalAmountCents: 75000),
       ]);
 
       await pumpScreen(tester);

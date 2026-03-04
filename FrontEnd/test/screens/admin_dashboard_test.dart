@@ -4,6 +4,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
 import '../../lib/models/user.dart';
+import '../../lib/models/admin.dart';
 import '../../lib/providers/auth_provider.dart';
 import '../../lib/providers/theme_provider.dart';
 import '../../lib/providers/admin_provider.dart';
@@ -34,48 +35,50 @@ void main() {
     when(() => mockTheme.toggle()).thenAnswer((_) async {});
 
     // Stub admin repository calls that are made in initState._loadData
-    when(() => mockAdmin.getStats()).thenAnswer((_) async => {
-          'total_users': 100,
-          'total_events': 25,
-          'total_pledges': 500,
-          'total_revenue_cents': 1000000,
-          'pending_events': 3,
-          'pending_kyc': 2,
-        });
+    when(() => mockAdmin.getStats()).thenAnswer((_) async => AdminStats(
+          usersTotal: 100,
+          eventsTotal: 25,
+          eventsPending: 3,
+          eventsLive: 10,
+          totalTicketCommissionCents: 500000,
+          totalFundingCommissionCents: 300000,
+          totalEscrowHeldCents: 200000,
+        ));
     when(() => mockAdmin.getUsers(
           offset: any(named: 'offset'),
           limit: any(named: 'limit'),
           search: any(named: 'search'),
-        )).thenAnswer((_) async => {
-          'items': [
-            userJson(id: 1, email: 'user1@test.com', role: 'customer'),
-            userJson(id: 2, email: 'user2@test.com', role: 'organizer'),
+        )).thenAnswer((_) async => AdminPage<AdminUserItem>(
+          items: [
+            AdminUserItem.fromJson(userJson(id: 1, email: 'user1@test.com', role: 'customer')),
+            AdminUserItem.fromJson(userJson(id: 2, email: 'user2@test.com', role: 'organizer')),
           ],
-          'total': 2,
-        });
+          total: 2,
+        ));
     when(() => mockAdmin.getEvents(
           offset: any(named: 'offset'),
           limit: any(named: 'limit'),
           search: any(named: 'search'),
           status: any(named: 'status'),
-        )).thenAnswer((_) async => {
-          'items': [
-            eventJson(
-                id: 1, title: 'Pending Event', status: 'pending_approval'),
-            eventJson(id: 2, title: 'Active Event', status: 'approved'),
+        )).thenAnswer((_) async => AdminPage<AdminEventItem>(
+          items: [
+            AdminEventItem.fromJson(eventJson(
+                id: 1, title: 'Pending Event', status: 'pending_approval')),
+            AdminEventItem.fromJson(
+                eventJson(id: 2, title: 'Active Event', status: 'approved')),
           ],
-          'total': 2,
-        });
+          total: 2,
+        ));
 
     // Settings endpoint
-    when(() => mockAdmin.getSettings()).thenAnswer((_) async => <dynamic>[
-          <String, dynamic>{'key': 'maintenance_mode', 'value': 'false'},
-          <String, dynamic>{'key': 'max_events', 'value': '100'},
+    when(() => mockAdmin.getSettings()).thenAnswer((_) async => [
+          PlatformSetting(key: 'maintenance_mode', value: 'false'),
+          PlatformSetting(key: 'max_events', value: '100'),
         ]);
 
     // Mock overview
     when(() => mockAdmin.getMockOverview())
-        .thenAnswer((_) async => <String, dynamic>{});
+        .thenAnswer((_) async => AdminMockOverview());
   });
 
   /// Pump admin screen. Default surface (1080x1920) triggers wide layout

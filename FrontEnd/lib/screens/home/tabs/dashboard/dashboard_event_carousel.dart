@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../config/design_tokens.dart';
 import '../../../../config/theme.dart';
+import '../../../../models/dashboard.dart';
 import '../../../../models/event.dart';
 import '../../../../widgets/animated_list_item.dart';
 import '../../../../widgets/empty_state.dart';
@@ -10,7 +11,7 @@ import '../../../../widgets/event_card.dart';
 import '../../../../widgets/press_feedback.dart';
 
 class DashboardEventCarousels extends StatelessWidget {
-  final Map<String, dynamic> dashboardData;
+  final OrganizerDashboard dashboardData;
   final Set<int> bookmarkedIds;
   final void Function(int) onToggleBookmark;
 
@@ -23,9 +24,8 @@ class DashboardEventCarousels extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final trending =
-        (dashboardData['trending_events'] as List?) ?? [];
-    final top = (dashboardData['top_events'] as List?) ?? [];
+    final trending = dashboardData.trendingEvents;
+    final top = dashboardData.topEvents;
 
     if (trending.isEmpty && top.isEmpty) {
       return Padding(
@@ -69,7 +69,7 @@ class DashboardEventCarousels extends StatelessWidget {
     required BuildContext context,
     required String title,
     required IconData icon,
-    required List events,
+    required List<Event> events,
     required int index,
   }) {
     return Padding(
@@ -109,8 +109,7 @@ class DashboardEventCarousels extends StatelessWidget {
                 itemCount: events.length,
                 separatorBuilder: (_, __) => AppSpacing.hMd,
                 itemBuilder: (ctx, i) {
-                  final e = Event.fromJson(
-                      events[i] as Map<String, dynamic>);
+                  final e = events[i];
                   return SizedBox(
                     width: 260,
                     child: PressFeedback(

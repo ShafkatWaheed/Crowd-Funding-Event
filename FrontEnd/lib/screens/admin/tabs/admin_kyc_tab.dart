@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../admin_shared.dart';
 import '../../../config/design_tokens.dart';
 import '../../../config/theme.dart';
+import '../../../models/user.dart';
 import '../../../repositories/base_repository.dart';
 import '../../../providers/user_provider.dart';
 import '../../../widgets/admin/admin_empty_state.dart';
@@ -18,7 +19,7 @@ class AdminKycTab extends StatefulWidget {
 }
 
 class _AdminKycTabState extends State<AdminKycTab> {
-  List<dynamic> _pendingUsers = [];
+  List<KycPendingUser> _pendingUsers = [];
   bool _loading = true;
   String _searchText = '';
   final _searchController = TextEditingController();
@@ -35,13 +36,13 @@ class _AdminKycTabState extends State<AdminKycTab> {
     super.dispose();
   }
 
-  List<dynamic> get _filteredUsers {
+  List<KycPendingUser> get _filteredUsers {
     if (_searchText.isEmpty) return _pendingUsers;
     final q = _searchText.toLowerCase();
     return _pendingUsers.where((u) {
-      final name = (u['display_name'] ?? '').toString().toLowerCase();
-      final email = (u['email'] ?? '').toString().toLowerCase();
-      final role = (u['role'] ?? '').toString().toLowerCase();
+      final name = (u.displayName ?? '').toLowerCase();
+      final email = u.email.toLowerCase();
+      final role = u.role.toLowerCase();
       return name.contains(q) || email.contains(q) || role.contains(q);
     }).toList();
   }
@@ -117,7 +118,7 @@ class _AdminKycTabState extends State<AdminKycTab> {
               padding: const EdgeInsets.all(16),
               itemCount: filtered.length,
               itemBuilder: (context, index) {
-                final u = filtered[index] as Map<String, dynamic>;
+                final u = filtered[index];
                 return _KycUserCard(
                   user: u,
                   onSnack: widget.onSnack,
@@ -139,7 +140,7 @@ class _KycUserCard extends StatefulWidget {
     required this.onDone,
   });
 
-  final Map<String, dynamic> user;
+  final KycPendingUser user;
   final void Function(String msg, {bool isError}) onSnack;
   final VoidCallback onDone;
 
@@ -149,7 +150,7 @@ class _KycUserCard extends StatefulWidget {
 
 class _KycUserCardState extends State<_KycUserCard> {
   bool _expanded = false;
-  List<dynamic>? _documents;
+  List<KycDocument>? _documents;
   bool _loadingDocs = false;
   bool _acting = false;
 
@@ -158,7 +159,7 @@ class _KycUserCardState extends State<_KycUserCard> {
     try {
       final docs = await context
           .read<UserProvider>()
-          .adminGetUserKycDocuments(widget.user['user_id']);
+          .adminGetUserKycDocuments(widget.user.userId);
       if (mounted) setState(() => _documents = docs);
     } catch (e) {
       widget.onSnack(ApiError.extractMessage(e), isError: true);
@@ -172,7 +173,7 @@ class _KycUserCardState extends State<_KycUserCard> {
     try {
       await context
           .read<UserProvider>()
-          .adminVerifyKyc(widget.user['user_id'], approved: true);
+          .adminVerifyKyc(widget.user.userId, approved: true);
       widget.onSnack('KYC approved');
       widget.onDone();
     } catch (e) {
@@ -216,7 +217,7 @@ class _KycUserCardState extends State<_KycUserCard> {
     setState(() => _acting = true);
     try {
       await context.read<UserProvider>().adminVerifyKyc(
-            widget.user['user_id'],
+            widget.user.userId,
             approved: false,
             rejectionReason: reason,
           );
@@ -239,17 +240,17 @@ class _KycUserCardState extends State<_KycUserCard> {
         children: [
           ListTile(
             leading: CircleAvatar(
-              backgroundColor: roleColor(context, u['role'] ?? ''),
+              backgroundColor: roleColor(context, u.role),
               child: Text(
-                (u['display_name'] ?? u['email'] ?? '?')
+                u.displayLabel
                     .substring(0, 1)
                     .toUpperCase(),
                 style: TextStyle(color: context.onDarkSurface),
               ),
             ),
-            title: Text(u['display_name'] ?? u['email'] ?? 'Unknown'),
+            title: Text(u.displayLabel),
             subtitle: Text(
-              '${u['email']} | ${statusLabel(u['role'] ?? '')} | ${u['document_count'] ?? 0} docs',
+              '${u.email} | ${statusLabel(u.role)} | ${u.documentCount} docs',
               style: TextStyle(
                 fontSize: 12,
                 color: AppTheme.textSecondaryOf(context),
@@ -302,19 +303,18 @@ class _KycUserCardState extends State<_KycUserCard> {
                 padding: const EdgeInsets.all(12),
                 child: Column(
                   children: _documents!.map((doc) {
-                    final d = doc as Map<String, dynamic>;
                     return ListTile(
                       dense: true,
                       leading: Icon(
-                        _docTypeIcon(d['document_type'] ?? ''),
+                        _docTypeIcon(doc.documentType),
                         size: 20,
                       ),
                       title: Text(
-                        statusLabel(d['document_type'] ?? ''),
+                        statusLabel(doc.documentType),
                         style: const TextStyle(fontSize: 13),
                       ),
                       subtitle: Text(
-                        d['original_filename'] ?? '',
+                        doc.originalFilename ?? '',
                         style: TextStyle(
                           fontSize: 11,
                           color: AppTheme.textSecondaryOf(context),
@@ -322,10 +322,10 @@ class _KycUserCardState extends State<_KycUserCard> {
                       ),
                       trailing: statusChip(
                         context,
-                        statusLabel(d['status'] ?? ''),
-                        d['status'] == 'approved'
+                        statusLabel(doc.status),
+                        doc.status == 'approved'
                             ? AppTheme.successOf(context)
-                            : d['status'] == 'rejected'
+                            : doc.status == 'rejected'
                                 ? AppTheme.errorOf(context)
                                 : AppTheme.warningOf(context),
                       ),

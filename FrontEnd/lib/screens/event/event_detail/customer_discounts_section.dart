@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
 import '../../../config/design_tokens.dart';
+import '../../../models/discount.dart';
 import '../../../providers/ticket_provider.dart';
 
 class CustomerDiscountsSection extends StatefulWidget {
@@ -16,7 +17,7 @@ class CustomerDiscountsSection extends StatefulWidget {
 }
 
 class _CustomerDiscountsSectionState extends State<CustomerDiscountsSection> {
-  List<Map<String, dynamic>> _discounts = [];
+  List<UserDiscount> _discounts = [];
   bool _loaded = false;
 
   @override
@@ -27,10 +28,10 @@ class _CustomerDiscountsSectionState extends State<CustomerDiscountsSection> {
 
   Future<void> _load() async {
     try {
-      final list = await context.read<TicketProvider>().getMyDiscounts(widget.eventId);
+      final result = await context.read<TicketProvider>().getMyDiscounts(widget.eventId);
       if (mounted) {
         setState(() {
-          _discounts = list.cast<Map<String, dynamic>>();
+          _discounts = result.availableDiscounts;
           _loaded = true;
         });
       }
@@ -39,16 +40,14 @@ class _CustomerDiscountsSectionState extends State<CustomerDiscountsSection> {
     }
   }
 
-  String _describe(Map<String, dynamic> d) {
-    final type = d['discount_type'] ?? '';
-    final val = d['value'] ?? 0;
+  String _describe(UserDiscount d) {
+    final type = d.discountType;
+    final val = d.value;
     switch (type) {
       case 'ticket_percent':
         return '$val% off ticket price';
       case 'pledge_percent':
-        final pledged = d['total_pledged_cents'] ?? 0;
-        final amount = pledged * val ~/ 100;
-        return '\$${(amount / 100).toStringAsFixed(2)} ($val% of your pledge)';
+        return '$val% pledge discount';
       case 'fixed_cents':
         return '\$${(val / 100).toStringAsFixed(2)} flat discount';
       default:
@@ -124,7 +123,7 @@ class _CustomerDiscountsSectionState extends State<CustomerDiscountsSection> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(d['name'] ?? 'Discount',
+                          Text(d.discountType.replaceAll('_', ' '),
                               style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: AppTheme.textPrimaryOf(context))),
                           Text(_describe(d),
                               style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context))),

@@ -1,15 +1,16 @@
+import '../models/payment.dart';
 import 'base_repository.dart';
 
 /// Stateless repository for Stripe payment API calls.
 class PaymentRepository extends BaseRepository {
   PaymentRepository(super.dio);
 
-  Future<Map<String, dynamic>> getStripeConfig() async {
+  Future<StripeConfig> getStripeConfig() async {
     final resp = await dio.get('/stripe/config');
-    return Map<String, dynamic>.from(resp.data as Map);
+    return StripeConfig.fromJson(Map<String, dynamic>.from(resp.data as Map));
   }
 
-  Future<Map<String, dynamic>> createPaymentIntent({
+  Future<PaymentIntent> createPaymentIntent({
     required int amountCents,
     required String description,
     String? idempotencyKey,
@@ -19,6 +20,6 @@ class PaymentRepository extends BaseRepository {
       'description': description,
       if (idempotencyKey != null) 'idempotency_key': idempotencyKey,
     });
-    return Map<String, dynamic>.from(resp.data as Map);
+    return PaymentIntent.fromJson(Map<String, dynamic>.from(resp.data as Map));
   }
 }

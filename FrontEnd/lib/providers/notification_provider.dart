@@ -3,12 +3,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
+import '../models/notification_model.dart';
 import '../repositories/notification_repository.dart';
 
 class NotificationProvider extends ChangeNotifier {
   final NotificationRepository _repo;
   int _unreadCount = 0;
-  List<Map<String, dynamic>> _notifications = [];
+  List<AppNotification> _notifications = [];
   bool _isLoading = false;
   Timer? _pollTimer;
   String? _fcmToken;
@@ -34,7 +35,7 @@ class NotificationProvider extends ChangeNotifier {
   }
 
   int get unreadCount => _unreadCount;
-  List<Map<String, dynamic>> get notifications => _notifications;
+  List<AppNotification> get notifications => _notifications;
   bool get isLoading => _isLoading;
 
   void startPolling() {
@@ -64,9 +65,9 @@ class NotificationProvider extends ChangeNotifier {
     try {
       final data = await _repo.getNotifications(unreadOnly: unreadOnly, offset: offset);
       if (offset == 0) {
-        _notifications = List<Map<String, dynamic>>.from(data);
+        _notifications = data;
       } else {
-        _notifications.addAll(List<Map<String, dynamic>>.from(data));
+        _notifications.addAll(data);
       }
     } catch (e) { debugPrint(e.toString()); }
     _isLoading = false;
@@ -76,9 +77,9 @@ class NotificationProvider extends ChangeNotifier {
   Future<void> markRead(int notificationId) async {
     try {
       await _repo.markRead(notificationId);
-      final idx = _notifications.indexWhere((n) => n['id'] == notificationId);
+      final idx = _notifications.indexWhere((n) => n.id == notificationId);
       if (idx >= 0) {
-        _notifications[idx]['is_read'] = true;
+        _notifications[idx] = _notifications[idx].copyWith(isRead: true);
       }
       _unreadCount = (_unreadCount - 1).clamp(0, 999);
       _safeNotify();
@@ -88,9 +89,7 @@ class NotificationProvider extends ChangeNotifier {
   Future<void> markAllRead() async {
     try {
       await _repo.markAllRead();
-      for (final n in _notifications) {
-        n['is_read'] = true;
-      }
+      _notifications = _notifications.map((n) => n.copyWith(isRead: true)).toList();
       _unreadCount = 0;
       _safeNotify();
     } catch (e) { debugPrint(e.toString()); }
@@ -100,8 +99,8 @@ class NotificationProvider extends ChangeNotifier {
     try {
       await _repo.deleteNotification(notificationId);
       final wasUnread = _notifications.any(
-          (n) => n['id'] == notificationId && n['is_read'] != true);
-      _notifications.removeWhere((n) => n['id'] == notificationId);
+          (n) => n.id == notificationId && !n.isRead);
+      _notifications.removeWhere((n) => n.id == notificationId);
       if (wasUnread) _unreadCount = (_unreadCount - 1).clamp(0, 999);
       _safeNotify();
     } catch (e) { debugPrint(e.toString()); }

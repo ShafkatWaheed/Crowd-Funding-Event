@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
+import '../../models/sponsor.dart';
 import '../../utils/date_time_utils.dart';
 import '../../repositories/base_repository.dart';
 import '../../providers/sponsor_provider.dart';
@@ -23,7 +24,7 @@ class _SponsorPaymentReceiptScreenState
     extends State<SponsorPaymentReceiptScreen> {
   bool _loading = true;
   String? _error;
-  Map<String, dynamic>? _receipt;
+  SponsorPaymentReceipt? _receipt;
 
   @override
   void initState() {
@@ -45,7 +46,7 @@ class _SponsorPaymentReceiptScreenState
 
   @override
   Widget build(BuildContext context) {
-    final isRefund = _receipt?['type'] == 'refund';
+    final isRefund = _receipt?.type == 'refund';
     return Scaffold(
       backgroundColor: AppTheme.surfaceOf(context),
       appBar: AppBar(
@@ -83,26 +84,21 @@ class _SponsorPaymentReceiptScreenState
 
   Widget _buildReceipt() {
     final r = _receipt!;
-    final receiptNumber = r['receipt_number'] ?? '';
-    final isRefund = r['type'] == 'refund';
-    final amountCents = (r['amount_cents'] ?? 0) as int;
-    final platformCutCents = (r['platform_cut_cents'] ?? 0) as int;
-    final netToOrganizerCents = (r['net_to_organizer_cents'] ?? 0) as int;
-    final status = r['status'] ?? '';
-    final categoryName = r['category_name'] ?? '';
-    final eventTitle = r['event_title'] ?? '';
-    final sponsorName = r['sponsor_name'];
-    final createdAt = r['created_at'] != null
-        ? DateTime.parse(r['created_at']).toLocal()
+    final receiptNumber = r.receiptNumber;
+    final isRefund = r.type == 'refund';
+    final amountCents = r.amountCents;
+    final platformCutCents = r.platformCutCents;
+    final netToOrganizerCents = r.netToOrganizerCents;
+    final status = r.status;
+    final categoryName = r.categoryName ?? '';
+    final eventTitle = r.eventTitle ?? '';
+    final sponsorName = r.sponsorName;
+    final createdAt = r.createdAt != null
+        ? DateTime.parse(r.createdAt!).toLocal()
         : null;
-    final eventStartTime = r['event_start_time'] != null
-        ? DateTime.parse(r['event_start_time']).toLocal()
-        : null;
-    final venueName = r['venue_name'];
-    final venueCity = r['venue_city'];
 
-    final taxCents = (r['tax_cents'] ?? 0) as int;
-    final taxRate = (r['tax_rate'] ?? 0.0) as num;
+    final taxCents = r.taxCents;
+    final taxRate = r.taxRate;
     final headerColor = isRefund ? AppTheme.errorColor : context.sponsorAccent;
     final commissionPct = amountCents > 0
         ? ((platformCutCents / amountCents) * 100).round()
@@ -197,24 +193,6 @@ class _SponsorPaymentReceiptScreenState
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
                                 color: AppTheme.textPrimaryOf(context))),
-                        if (eventStartTime != null) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            AppDateFormat.eventCard(eventStartTime),
-                            style: TextStyle(
-                                fontSize: 13,
-                                color: AppTheme.textSecondaryOf(context)),
-                          ),
-                        ],
-                        if (venueName != null) ...[
-                          const SizedBox(height: 2),
-                          Text(
-                            '$venueName${venueCity != null ? ', $venueCity' : ''}',
-                            style: TextStyle(
-                                fontSize: 13,
-                                color: AppTheme.textSecondaryOf(context)),
-                          ),
-                        ],
                         const SizedBox(height: 20),
 
                         _sectionLabel('SPONSORSHIP DETAILS'),

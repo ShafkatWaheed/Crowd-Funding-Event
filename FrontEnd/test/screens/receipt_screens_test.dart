@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
+import '../../lib/models/receipt.dart';
 import '../../lib/models/user.dart';
 import '../../lib/providers/auth_provider.dart';
 import '../../lib/repositories/ticket_repository.dart';
@@ -45,7 +46,7 @@ void main() {
     }
 
     testWidgets('shows loading shimmer initially', (tester) async {
-      final receiptCompleter = Completer<Map<String, dynamic>>();
+      final receiptCompleter = Completer<TicketReceipt>();
       when(() => mockTicketRepo.getTicketReceipt(1, 1))
           .thenAnswer((_) => receiptCompleter.future);
 
@@ -55,7 +56,7 @@ void main() {
 
       expect(find.text('Receipt'), findsOneWidget);
 
-      receiptCompleter.complete({
+      receiptCompleter.complete(TicketReceipt.fromJson({
         'sale_id': 1,
         'event_id': 1,
         'user_id': 1,
@@ -68,12 +69,13 @@ void main() {
         'discount_applied_cents': 0,
         'tier_price_cents': 5000,
         'purchased_at': '2025-02-01T10:00:00',
-      });
+      }));
       await tester.pumpAndSettle();
     });
 
     testWidgets('displays receipt content after load', (tester) async {
-      when(() => mockTicketRepo.getTicketReceipt(1, 1)).thenAnswer((_) async => {
+      when(() => mockTicketRepo.getTicketReceipt(1, 1)).thenAnswer((_) async =>
+          TicketReceipt.fromJson({
             'sale_id': 1,
             'event_id': 1,
             'user_id': 1,
@@ -86,7 +88,7 @@ void main() {
             'discount_applied_cents': 0,
             'tier_price_cents': 15000,
             'purchased_at': '2025-02-01T10:00:00',
-          });
+          }));
 
       await pumpTicketReceipt(tester);
       await tester.pumpAndSettle();
@@ -120,7 +122,10 @@ void main() {
 
     testWidgets('shows Pledge Receipt title after data loads', (tester) async {
       when(() => mockFundingRepo.getPledgeReceipt(1, 1))
-          .thenAnswer((_) async => {
+          .thenAnswer((_) async => PledgeReceipt.fromJson({
+                'id': 1,
+                'event_id': 1,
+                'user_id': 1,
                 'receipt_number': 'PL-001',
                 'event_title': 'Test Event',
                 'amount_cents': 10000,
@@ -133,7 +138,7 @@ void main() {
                 'status': 'pledged',
                 'is_guest': false,
                 'created_at': '2025-02-01T10:00:00',
-              });
+              }));
 
       // Suppress the _TypeError from _buildReceipt's null check during
       // the initial build frame (before async load completes).
@@ -153,7 +158,11 @@ void main() {
     });
 
     testWidgets('displays receipt content after load', (tester) async {
-      when(() => mockFundingRepo.getPledgeReceipt(1, 1)).thenAnswer((_) async => {
+      when(() => mockFundingRepo.getPledgeReceipt(1, 1)).thenAnswer((_) async =>
+          PledgeReceipt.fromJson({
+            'id': 1,
+            'event_id': 1,
+            'user_id': 1,
             'receipt_number': 'PL-RECEIPT-002',
             'event_title': 'Charity Gala',
             'amount_cents': 20000,
@@ -166,7 +175,7 @@ void main() {
             'status': 'pledged',
             'is_guest': false,
             'created_at': '2025-02-01T10:00:00',
-          });
+          }));
 
       final origOnError = FlutterError.onError;
       FlutterError.onError = (details) {

@@ -121,8 +121,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
   Future<void> _loadEvent() async {
     try {
       final eventRepo = context.read<EventProvider>();
-      final data = await eventRepo.getEvent(widget.eventId);
-      final event = Event.fromJson(data);
+      final event = await eventRepo.getEvent(widget.eventId);
       setState(() {
         _event = event;
         _titleCtrl.text = event.title;
@@ -152,12 +151,11 @@ class _EditEventScreenState extends State<EditEventScreen> {
         _showTransportInitial = event.hasTransportInfo;
         _hasSchedule = event.hasSchedule;
         // Policy fields
-        final raw = data;
-        if (raw['waitlist_max_size'] != null) _waitlistMaxSizeCtrl.text = raw['waitlist_max_size'].toString();
-        _waitlistAutoApprove = raw['waitlist_auto_approve'] ?? true;
-        if (raw['event_max_images'] != null) _eventMaxImagesCtrl.text = raw['event_max_images'].toString();
-        if (raw['max_posts_per_day'] != null) _maxPostsPerDayCtrl.text = raw['max_posts_per_day'].toString();
-        if (raw['max_co_organizers'] != null) _maxCoOrganizersCtrl.text = raw['max_co_organizers'].toString();
+        if (event.waitlistMaxSize != null) _waitlistMaxSizeCtrl.text = event.waitlistMaxSize.toString();
+        _waitlistAutoApprove = event.waitlistAutoApprove;
+        if (event.eventMaxImages != null) _eventMaxImagesCtrl.text = event.eventMaxImages.toString();
+        if (event.maxPostsPerDay != null) _maxPostsPerDayCtrl.text = event.maxPostsPerDay.toString();
+        if (event.maxCoOrganizers != null) _maxCoOrganizersCtrl.text = event.maxCoOrganizers.toString();
         _loadingEvent = false;
       });
     } catch (e) {

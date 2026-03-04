@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
 import '../../models/ticket.dart';
+import '../../models/sponsor.dart';
 import '../../utils/date_time_utils.dart';
 import '../../providers/ticket_provider.dart';
 import '../../providers/sponsor_provider.dart';
@@ -41,7 +42,7 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
 
   // Scanned-view filter: 0 = All, 1 = Customer, 2 = Sponsor
   int _scannedFilter = 0;
-  List<Map<String, dynamic>> _sponsorScanned = [];
+  List<ScannedSponsorTicket> _sponsorScanned = [];
   bool _sponsorLoading = false;
 
   @override
@@ -82,8 +83,8 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
           : await repo.getTicketSales(widget.eventId, offset: 0, limit: _pageSize);
       try {
         final stats = await repo.getTicketSalesStats(widget.eventId);
-        _totalSold = (stats['total_sold'] ?? 0) as int;
-        _totalScanned = (stats['total_scanned'] ?? 0) as int;
+        _totalSold = stats.totalSold;
+        _totalScanned = stats.totalScanned;
       } catch (e) { debugPrint(e.toString()); }
       setState(() {
         _all = data;
@@ -632,15 +633,15 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
     );
   }
 
-  Widget _buildSponsorCard(dynamic ticket) {
-    final companyName = ticket['company_name'] ?? 'Sponsor';
-    final contactName = ticket['contact_name'] ?? '';
-    final receipt = ticket['receipt_number'] ?? '';
-    final scanCount = ticket['scan_count'] ?? 0;
-    final totalDelegates = ticket['total_delegates'] ?? 0;
-    final checkedIn = ticket['checked_in_count'] ?? 0;
-    final scannedAt = ticket['scanned_at'];
-    final delegates = (ticket['delegates'] as List?) ?? [];
+  Widget _buildSponsorCard(ScannedSponsorTicket ticket) {
+    final companyName = ticket.companyName;
+    final contactName = ticket.contactName;
+    final receipt = ticket.receiptNumber;
+    final scanCount = ticket.scanCount;
+    final totalDelegates = ticket.totalDelegates;
+    final checkedIn = ticket.checkedInCount;
+    final scannedAt = ticket.scannedAt;
+    final delegates = ticket.delegates;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -748,21 +749,21 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
                     child: Row(
                       children: [
                         Icon(
-                          d['checked_in'] == true
+                          d.checkedIn
                               ? Icons.check_circle_rounded
                               : Icons.radio_button_unchecked_rounded,
                           size: 14,
-                          color: d['checked_in'] == true
+                          color: d.checkedIn
                               ? AppTheme.successColor
                               : AppTheme.textSecondaryOf(context),
                         ),
                         const SizedBox(width: 6),
-                        Text(d['name'] ?? '',
+                        Text(d.name,
                           style: TextStyle(fontSize: 12,
                             color: AppTheme.textPrimaryOf(context))),
-                        if (d['checked_in'] == true && d['checked_in_at'] != null) ...[
+                        if (d.checkedIn && d.checkedInAt != null) ...[
                           const Spacer(),
-                          Text(AppDateFormat.isoShort(d['checked_in_at']),
+                          Text(AppDateFormat.isoShort(d.checkedInAt!),
                             style: TextStyle(fontSize: 10,
                               color: AppTheme.textSecondaryOf(context))),
                         ],

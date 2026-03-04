@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../admin_shared.dart';
 import '../../../config/theme.dart';
+import '../../../models/admin.dart';
 import 'package:provider/provider.dart';
 
 import '../../../providers/admin_provider.dart';
@@ -20,7 +21,7 @@ class AdminBankingTab extends StatefulWidget {
     required this.mockModeActive,
   });
 
-  final List<dynamic> settings;
+  final List<PlatformSetting> settings;
   final void Function(String) onSnack;
   final void Function(String key, String value) onUpdateSetting;
   final bool mockModeActive;
@@ -30,16 +31,16 @@ class AdminBankingTab extends StatefulWidget {
 }
 
 class _AdminBankingTabState extends State<AdminBankingTab> {
-  Map<String, dynamic>? _bankingData;
+  AdminBankingOverview? _bankingData;
   bool _bankingLoading = false;
 
-  List<dynamic> _reconHistory = [];
+  List<ReconciliationEntry> _reconHistory = [];
   bool _reconHistoryLoading = false;
 
-  Map<String, dynamic>? _ledgerHealth;
+  AdminLedgerHealth? _ledgerHealth;
   bool _ledgerHealthLoading = false;
 
-  List<dynamic> _disputes = [];
+  List<AdminDispute> _disputes = [];
   bool _disputesLoading = false;
 
   // Auto-refresh
@@ -49,11 +50,11 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
   DateTime? _lastRefreshed;
 
   String _settingVal(String key) {
-    final s = widget.settings.cast<Map<String, dynamic>?>().firstWhere(
-          (e) => e != null && e['key'] == key,
+    final s = widget.settings.cast<PlatformSetting?>().firstWhere(
+          (e) => e != null && e.key == key,
           orElse: () => null,
         );
-    return s?['value']?.toString() ?? '';
+    return s?.value ?? '';
   }
 
   Future<void> _loadBankingData() async {
@@ -93,7 +94,7 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
     try {
       final admin = context.read<AdminProvider>();
       final resp = await admin.getDisputes();
-      setState(() => _disputes = (resp['items'] as List?) ?? []);
+      setState(() => _disputes = resp.items);
     } catch (e) { debugPrint(e.toString()); }
     setState(() => _disputesLoading = false);
   }
@@ -195,7 +196,7 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
     }
 
     final d = _bankingData!;
-    final mockActive = d['mock_mode_active'] == true || widget.mockModeActive;
+    final mockActive = d.mockModeActive || widget.mockModeActive;
     return RefreshIndicator(
       onRefresh: _refreshAll,
       child: SingleChildScrollView(
@@ -205,17 +206,17 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (mockActive) _buildMockBanner(context),
-            if (d['stripe_enabled'] == true)
-              _buildStripeBanner(context, d['stripe_connect_enabled'] == true),
+            if (d.stripeEnabled)
+              _buildStripeBanner(context, d.stripeConnectEnabled),
             _buildRefreshBar(context),
             const SizedBox(height: 8),
             Text('Platform Account', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context))),
             const SizedBox(height: 8),
             PlatformAccountCard(
-              configured: d['platform_account_configured'] == true,
-              institutionNumber: d['platform_account_institution'] as String?,
-              transitNumber: d['platform_account_transit'] as String?,
-              lastFour: d['platform_account_last_four'] as String?,
+              configured: d.platformAccountConfigured,
+              institutionNumber: d.platformAccountInstitution,
+              transitNumber: d.platformAccountTransit,
+              lastFour: d.platformAccountLastFour,
               onSaved: () => _loadBankingData(),
             ),
             const SizedBox(height: 16),
@@ -227,9 +228,9 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
             const SizedBox(height: 8),
             Row(
               children: [
-                Expanded(child: infoCard(context, 'Open Disputes', '${d['disputes_open_count'] ?? 0}', Icons.gavel, AppTheme.errorColor)),
+                Expanded(child: infoCard(context, 'Open Disputes', '${d.disputesOpenCount}', Icons.gavel, AppTheme.errorColor)),
                 const SizedBox(width: 8),
-                Expanded(child: infoCard(context, 'Disputed Amount', centsToStr(d['disputes_total_amount_cents'] ?? 0), Icons.money_off, AppTheme.errorColor)),
+                Expanded(child: infoCard(context, 'Disputed Amount', centsToStr(d.disputesTotalAmountCents), Icons.money_off, AppTheme.errorColor)),
               ],
             ),
             const SizedBox(height: 8),
@@ -254,9 +255,7 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
     );
   }
 
-  Widget _buildPayoutSummaryCard(BuildContext context, Map<String, dynamic> d) {
-    final pendingCount = d['payout_pending_count'] ?? 0;
-    final pendingCents = d['payout_pending_total_cents'] ?? 0;
+  Widget _buildPayoutSummaryCard(BuildContext context, AdminBankingOverview d) {
     return Card(
       color: AppTheme.cardOf(context),
       child: InkWell(
@@ -283,14 +282,14 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('Pending Payouts', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context))),
-                      Text('$pendingCount organizers', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.textPrimaryOf(context))),
+                      Text('${d.payoutPendingCount} organizers', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.textPrimaryOf(context))),
                     ],
                   )),
                   Expanded(child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('Total Pending', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context))),
-                      Text(centsToStr(pendingCents), style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.textPrimaryOf(context))),
+                      Text(centsToStr(d.payoutPendingTotalCents), style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.textPrimaryOf(context))),
                     ],
                   )),
                 ],
@@ -302,11 +301,7 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
     );
   }
 
-  Widget _buildTransactionSummaryCard(BuildContext context, Map<String, dynamic> d) {
-    final total = d['transaction_total_count'] ?? 0;
-    final settled = d['transaction_settled_count'] ?? 0;
-    final pending = d['transaction_pending_count'] ?? 0;
-    final failed = d['transaction_failed_count'] ?? 0;
+  Widget _buildTransactionSummaryCard(BuildContext context, AdminBankingOverview d) {
     return Card(
       color: AppTheme.cardOf(context),
       child: InkWell(
@@ -329,10 +324,10 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
               const SizedBox(height: 12),
               Row(
                 children: [
-                  Expanded(child: _txnStatCell(context, 'Total', '$total', AppTheme.textPrimaryOf(context))),
-                  Expanded(child: _txnStatCell(context, 'Settled', '$settled', AppTheme.successColor)),
-                  Expanded(child: _txnStatCell(context, 'Pending', '$pending', AppTheme.warningColor)),
-                  Expanded(child: _txnStatCell(context, 'Failed', '$failed', AppTheme.errorColor)),
+                  Expanded(child: _txnStatCell(context, 'Total', '${d.transactionTotalCount}', AppTheme.textPrimaryOf(context))),
+                  Expanded(child: _txnStatCell(context, 'Settled', '${d.transactionSettledCount}', AppTheme.successColor)),
+                  Expanded(child: _txnStatCell(context, 'Pending', '${d.transactionPendingCount}', AppTheme.warningColor)),
+                  Expanded(child: _txnStatCell(context, 'Failed', '${d.transactionFailedCount}', AppTheme.errorColor)),
                 ],
               ),
             ],
@@ -395,7 +390,7 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
     );
   }
 
-  Widget _buildEscrowSummary(BuildContext context, Map<String, dynamic> d) {
+  Widget _buildEscrowSummary(BuildContext context, AdminBankingOverview d) {
     return Card(
       color: AppTheme.cardOf(context),
       child: InkWell(
@@ -418,9 +413,9 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
               const SizedBox(height: 12),
               Row(
                 children: [
-                  Expanded(child: _escrowSummaryCol('Fund', d['fund_escrow_total_held_cents'] ?? 0, d['fund_escrow_active_count'] ?? 0, context.fundingAccent)),
-                  Expanded(child: _escrowSummaryCol('Ticket', d['ticket_escrow_total_held_cents'] ?? 0, d['ticket_escrow_active_count'] ?? 0, context.ticketAccent)),
-                  Expanded(child: _escrowSummaryCol('Sponsor', d['sponsor_escrow_total_held_cents'] ?? 0, d['sponsor_escrow_active_count'] ?? 0, context.sponsorAccent)),
+                  Expanded(child: _escrowSummaryCol('Fund', d.fundEscrowTotalHeldCents, d.fundEscrowActiveCount, context.fundingAccent)),
+                  Expanded(child: _escrowSummaryCol('Ticket', d.ticketEscrowTotalHeldCents, d.ticketEscrowActiveCount, context.ticketAccent)),
+                  Expanded(child: _escrowSummaryCol('Sponsor', d.sponsorEscrowTotalHeldCents, d.sponsorEscrowActiveCount, context.sponsorAccent)),
                 ],
               ),
             ],
@@ -442,7 +437,7 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
     );
   }
 
-  Widget _buildCommissionTax(BuildContext context, Map<String, dynamic> d) {
+  Widget _buildCommissionTax(BuildContext context, AdminBankingOverview d) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -450,17 +445,17 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
         const SizedBox(height: 8),
         Row(
           children: [
-            Expanded(child: infoCard(context, 'Commission Total', centsToStr(d['commission_total_cents'] ?? 0), Icons.attach_money, AppTheme.accentColor)),
+            Expanded(child: infoCard(context, 'Commission Total', centsToStr(d.commissionTotalCents), Icons.attach_money, AppTheme.accentColor)),
             const SizedBox(width: 8),
-            Expanded(child: infoCard(context, 'Tax Collected', centsToStr(d['tax_collected_total_cents'] ?? 0), Icons.receipt_long, AppTheme.warningColor)),
+            Expanded(child: infoCard(context, 'Tax Collected', centsToStr(d.taxCollectedTotalCents), Icons.receipt_long, AppTheme.warningColor)),
           ],
         ),
-        if (d['commission_by_source'] is Map) ...[
+        if (d.commissionBySource.isNotEmpty) ...[
           const SizedBox(height: 8),
           Row(
             children: [
-              for (final entry in (d['commission_by_source'] as Map).entries) ...[
-                if (entry != (d['commission_by_source'] as Map).entries.first) const SizedBox(width: 6),
+              for (final entry in d.commissionBySource.entries) ...[
+                if (entry != d.commissionBySource.entries.first) const SizedBox(width: 6),
                 Expanded(
                   child: Card(
                     color: AppTheme.cardOf(context),
@@ -468,7 +463,7 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
                       padding: const EdgeInsets.all(10),
                       child: Column(
                         children: [
-                          Text(entry.key.toString().toUpperCase(), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 0.5, color: AppTheme.textSecondaryOf(context))),
+                          Text(entry.key.toUpperCase(), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 0.5, color: AppTheme.textSecondaryOf(context))),
                           const SizedBox(height: 4),
                           Text(centsToStr(entry.value ?? 0), style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.textPrimaryOf(context))),
                         ],

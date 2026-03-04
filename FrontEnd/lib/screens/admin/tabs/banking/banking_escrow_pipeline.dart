@@ -3,18 +3,21 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../config/theme.dart';
+import '../../../../models/admin.dart';
 import '../../../../providers/admin_provider.dart';
 import '../../../../repositories/base_repository.dart';
 import '../../admin_shared.dart';
 
 class BankingEscrowPipelineSection extends StatelessWidget {
-  final List<Map<String, dynamic>> escrowRows;
+  final List<AdminEscrowItem> fundEscrows;
+  final List<AdminEscrowItem> ticketEscrows;
+  final List<AdminEscrowItem> sponsorEscrows;
   final bool pipelineLoading;
   final String pipelineTypeFilter;
   final ValueChanged<String> onTypeFilterChanged;
   final VoidCallback onRefresh;
   final int? selectedPipelineEventId;
-  final Map<String, dynamic>? selectedEventEscrows;
+  final AdminEventEscrows? selectedEventEscrows;
   final ValueChanged<int> onLoadEventDetail;
   final VoidCallback onClearSelection;
   final void Function(String) onSnack;
@@ -23,7 +26,9 @@ class BankingEscrowPipelineSection extends StatelessWidget {
 
   const BankingEscrowPipelineSection({
     super.key,
-    required this.escrowRows,
+    required this.fundEscrows,
+    required this.ticketEscrows,
+    required this.sponsorEscrows,
     required this.pipelineLoading,
     required this.pipelineTypeFilter,
     required this.onTypeFilterChanged,
@@ -68,11 +73,11 @@ class BankingEscrowPipelineSection extends StatelessWidget {
           const Center(child: CircularProgressIndicator())
         else ...[
           if (pipelineTypeFilter == 'all' || pipelineTypeFilter == 'fund')
-            ...escrowRows.where((e) => e['_type'] == 'fund').map((e) => _pipelineRow(context, e)),
+            ...fundEscrows.map((e) => _pipelineRow(context, e, 'fund')),
           if (pipelineTypeFilter == 'all' || pipelineTypeFilter == 'ticket')
-            ...escrowRows.where((e) => e['_type'] == 'ticket').map((e) => _pipelineRow(context, e)),
+            ...ticketEscrows.map((e) => _pipelineRow(context, e, 'ticket')),
           if (pipelineTypeFilter == 'all' || pipelineTypeFilter == 'sponsor')
-            ...escrowRows.where((e) => e['_type'] == 'sponsor').map((e) => _pipelineRow(context, e)),
+            ...sponsorEscrows.map((e) => _pipelineRow(context, e, 'sponsor')),
         ],
         if (selectedEventEscrows != null && selectedPipelineEventId != null) ...[
           const SizedBox(height: 12),
@@ -82,22 +87,21 @@ class BankingEscrowPipelineSection extends StatelessWidget {
     );
   }
 
-  Widget _pipelineRow(BuildContext context, Map<String, dynamic> e) {
-    final type = e['_type'] as String;
+  Widget _pipelineRow(BuildContext context, AdminEscrowItem e, String type) {
     final color = type == 'fund' ? context.fundingAccent : type == 'ticket' ? context.ticketAccent : context.sponsorAccent;
-    final statusStr = e['status'] ?? 'holding';
+    final statusStr = e.status.isEmpty ? 'holding' : e.status;
     return Card(
       color: AppTheme.cardOf(context),
       margin: const EdgeInsets.only(bottom: 6),
       child: ListTile(
         leading: CircleAvatar(backgroundColor: color.withValues(alpha:0.2), child: Text(type[0].toUpperCase(), style: TextStyle(color: color, fontWeight: FontWeight.bold))),
-        title: Text(e['event_title'] ?? 'Event #${e['event_id']}', style: TextStyle(fontWeight: FontWeight.w600, color: AppTheme.textPrimaryOf(context), fontSize: 14)),
+        title: Text(e.eventTitle ?? 'Event #${e.eventId}', style: TextStyle(fontWeight: FontWeight.w600, color: AppTheme.textPrimaryOf(context), fontSize: 14)),
         subtitle: Row(children: [
-          _stageDot(context, e['stage1_released_at']),
-          _stageDot(context, e['stage2_released_at']),
-          _stageDot(context, e['stage3_released_at']),
+          _stageDot(context, e.stage1ReleasedAt),
+          _stageDot(context, e.stage2ReleasedAt),
+          _stageDot(context, e.stage3ReleasedAt),
           const SizedBox(width: 8),
-          Text('${centsToStr(e['total_held_cents'] ?? 0)} held', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context))),
+          Text('${centsToStr(e.totalHeldCents)} held', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context))),
         ]),
         trailing: Chip(
           label: Text(statusStr, style: const TextStyle(fontSize: 11)),
@@ -105,12 +109,12 @@ class BankingEscrowPipelineSection extends StatelessWidget {
           padding: EdgeInsets.zero,
           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
-        onTap: () => onLoadEventDetail(e['event_id']),
+        onTap: () => onLoadEventDetail(e.eventId),
       ),
     );
   }
 
-  Widget _stageDot(BuildContext context, dynamic releasedAt) {
+  Widget _stageDot(BuildContext context, String? releasedAt) {
     final released = releasedAt != null;
     return Container(
       width: 12, height: 12,
@@ -132,7 +136,7 @@ class BankingEscrowPipelineSection extends StatelessWidget {
     }
   }
 
-  Widget _buildEventEscrowDetail(BuildContext context, int eventId, Map<String, dynamic> data) {
+  Widget _buildEventEscrowDetail(BuildContext context, int eventId, AdminEventEscrows data) {
     return Card(
       color: AppTheme.cardOf(context),
       child: Padding(
@@ -145,10 +149,10 @@ class BankingEscrowPipelineSection extends StatelessWidget {
               IconButton(icon: const Icon(Icons.close, size: 18), onPressed: onClearSelection),
             ]),
             const SizedBox(height: 8),
-            if (data['fund'] != null) _EscrowDetailColumn(label: 'Fund', esc: data['fund'] as Map<String, dynamic>, type: 'fund', eventId: eventId, onSnack: onSnack, onReloadEventDetail: onReloadEventDetail, onReloadPipeline: onReloadPipeline),
-            if (data['ticket'] != null) _EscrowDetailColumn(label: 'Ticket', esc: data['ticket'] as Map<String, dynamic>, type: 'ticket', eventId: eventId, onSnack: onSnack, onReloadEventDetail: onReloadEventDetail, onReloadPipeline: onReloadPipeline),
-            if (data['sponsor'] != null) _EscrowDetailColumn(label: 'Sponsor', esc: data['sponsor'] as Map<String, dynamic>, type: 'sponsor', eventId: eventId, onSnack: onSnack, onReloadEventDetail: onReloadEventDetail, onReloadPipeline: onReloadPipeline),
-            if (data['fund'] == null && data['ticket'] == null && data['sponsor'] == null)
+            if (data.fund != null) _EscrowDetailColumn(label: 'Fund', esc: data.fund!, type: 'fund', eventId: eventId, onSnack: onSnack, onReloadEventDetail: onReloadEventDetail, onReloadPipeline: onReloadPipeline),
+            if (data.ticket != null) _EscrowDetailColumn(label: 'Ticket', esc: data.ticket!, type: 'ticket', eventId: eventId, onSnack: onSnack, onReloadEventDetail: onReloadEventDetail, onReloadPipeline: onReloadPipeline),
+            if (data.sponsor != null) _EscrowDetailColumn(label: 'Sponsor', esc: data.sponsor!, type: 'sponsor', eventId: eventId, onSnack: onSnack, onReloadEventDetail: onReloadEventDetail, onReloadPipeline: onReloadPipeline),
+            if (data.fund == null && data.ticket == null && data.sponsor == null)
               Text('No escrow records for this event.', style: TextStyle(color: AppTheme.textSecondaryOf(context))),
           ],
         ),
@@ -159,7 +163,7 @@ class BankingEscrowPipelineSection extends StatelessWidget {
 
 class _EscrowDetailColumn extends StatelessWidget {
   final String label;
-  final Map<String, dynamic> esc;
+  final AdminEscrowItem esc;
   final String type;
   final int eventId;
   final void Function(String) onSnack;
@@ -180,30 +184,30 @@ class _EscrowDetailColumn extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = type == 'fund' ? context.fundingAccent : type == 'ticket' ? context.ticketAccent : context.sponsorAccent;
     final stages = [
-      {'n': 1, 'cents': esc['stage1_released_cents'] ?? 0, 'at': esc['stage1_released_at'], 'auto': esc['stage1_auto_release'] ?? true},
-      {'n': 2, 'cents': esc['stage2_released_cents'] ?? 0, 'at': esc['stage2_released_at'], 'auto': esc['stage2_auto_release'] ?? true},
-      {'n': 3, 'cents': esc['stage3_released_cents'] ?? 0, 'at': esc['stage3_released_at'], 'auto': esc['stage3_auto_release'] ?? true},
+      (n: 1, cents: esc.stage1ReleasedCents, at: esc.stage1ReleasedAt, auto: esc.stage1AutoRelease),
+      (n: 2, cents: esc.stage2ReleasedCents, at: esc.stage2ReleasedAt, auto: esc.stage2AutoRelease),
+      (n: 3, cents: esc.stage3ReleasedCents, at: esc.stage3ReleasedAt, auto: esc.stage3AutoRelease),
     ];
-    final frozen = esc['status'] == 'frozen';
+    final frozen = esc.status == 'frozen';
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('$label — ${esc['status']}', style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 14)),
-          Text('Held: ${centsToStr(esc['total_held_cents'] ?? 0)} | Released: ${centsToStr(esc['total_released_cents'] ?? 0)} | Remaining: ${centsToStr(esc['remaining_cents'] ?? 0)}',
+          Text('$label — ${esc.status}', style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 14)),
+          Text('Held: ${centsToStr(esc.totalHeldCents)} | Released: ${centsToStr(esc.totalReleasedCents)} | Remaining: ${centsToStr(esc.remainingCents)}',
             style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context))),
           const SizedBox(height: 4),
           ...stages.map((st) {
-            final released = st['at'] != null;
-            final autoRelease = st['auto'] as bool;
-            final stageNum = st['n'] as int;
+            final released = st.at != null;
+            final autoRelease = st.auto;
+            final stageNum = st.n;
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 2),
               child: Row(children: [
                 Icon(released ? Icons.check_circle : Icons.radio_button_unchecked, color: released ? AppTheme.successColor : AppTheme.textSecondaryOf(context), size: 16),
                 const SizedBox(width: 6),
-                Text('Stage $stageNum: ${centsToStr(st['cents'] as int)}', style: TextStyle(fontSize: 13, color: AppTheme.textPrimaryOf(context))),
+                Text('Stage $stageNum: ${centsToStr(st.cents)}', style: TextStyle(fontSize: 13, color: AppTheme.textPrimaryOf(context))),
                 if (!released) ...[
                   const Spacer(),
                   Tooltip(

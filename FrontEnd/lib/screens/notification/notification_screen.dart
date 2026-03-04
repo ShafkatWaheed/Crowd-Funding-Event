@@ -1,10 +1,9 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
+import '../../models/notification_model.dart';
 import '../../utils/date_time_utils.dart';
 import '../../providers/notification_provider.dart';
 import '../../widgets/shimmer_loaders.dart';
@@ -247,30 +246,20 @@ class _NotificationScreenState extends State<NotificationScreen> {
     return 'events';
   }
 
-  void _navigateToNotification(Map<String, dynamic> notif) {
+  void _navigateToNotification(AppNotification notif) {
     final provider = context.read<NotificationProvider>();
-    if (notif['is_read'] != true) {
-      provider.markRead(notif['id']);
+    if (!notif.isRead) {
+      provider.markRead(notif.id);
     }
 
-    final type = notif['type'] as String? ?? '';
-    final rawData = notif['data'];
-    final Map<String, dynamic> data;
-    if (rawData is String) {
-      data = Map<String, dynamic>.from(
-          json.decode(rawData) as Map);
-    } else {
-      data = rawData as Map<String, dynamic>? ?? {};
-    }
+    final type = notif.type;
+    final data = notif.data;
     final route = resolveNotificationRoute(type, data);
     debugPrint('[Notification] type=$type data=$data route=$route');
     if (route != null) context.push(route);
   }
 
-  String _formatTime(String? iso) {
-    if (iso == null) return '';
-    final dt = DateTime.tryParse(iso);
-    if (dt == null) return '';
+  String _formatTime(DateTime dt) {
     final now = DateTime.now();
     final diff = now.difference(dt);
     if (diff.inMinutes < 1) return 'now';
@@ -281,10 +270,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     return AppDateFormat.dateOnly(dt);
   }
 
-  String _dateGroup(String? iso) {
-    if (iso == null) return 'Earlier';
-    final dt = DateTime.tryParse(iso);
-    if (dt == null) return 'Earlier';
+  String _dateGroup(DateTime dt) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final notifDate = DateTime(dt.year, dt.month, dt.day);
@@ -335,11 +321,11 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
           final filtered = _category == 'all'
               ? provider.notifications
-              : provider.notifications.where((n) => _categoryForType(n['type'] ?? '') == _category).toList();
+              : provider.notifications.where((n) => _categoryForType(n.type) == _category).toList();
 
-          final grouped = <String, List<Map<String, dynamic>>>{};
+          final grouped = <String, List<AppNotification>>{};
           for (final n in filtered) {
-            final group = _dateGroup(n['created_at']);
+            final group = _dateGroup(n.createdAt);
             grouped.putIfAbsent(group, () => []).add(n);
           }
           final groupOrder = ['Today', 'Yesterday', 'This Week', 'Earlier'];
@@ -415,13 +401,13 @@ class _NotificationScreenState extends State<NotificationScreen> {
     );
   }
 
-  Widget _buildNotificationCard(Map<String, dynamic> n) {
-    final type = n['type'] ?? '';
-    final isRead = n['is_read'] == true;
+  Widget _buildNotificationCard(AppNotification n) {
+    final type = n.type;
+    final isRead = n.isRead;
     final color = _colorForType(type);
 
     return Dismissible(
-      key: ValueKey(n['id']),
+      key: ValueKey(n.id),
       direction: DismissDirection.horizontal,
       background: Container(
         color: AppTheme.accentColor,
@@ -437,13 +423,13 @@ class _NotificationScreenState extends State<NotificationScreen> {
       ),
       confirmDismiss: (direction) async {
         if (direction == DismissDirection.startToEnd) {
-          context.read<NotificationProvider>().markRead(n['id']);
+          context.read<NotificationProvider>().markRead(n.id);
           return false;
         }
         return true;
       },
       onDismissed: (_) {
-        context.read<NotificationProvider>().deleteNotification(n['id']);
+        context.read<NotificationProvider>().deleteNotification(n.id);
       },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
@@ -473,7 +459,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          n['title'] ?? '',
+                          n.title,
                           style: TextStyle(
                             fontWeight: isRead ? FontWeight.w500 : FontWeight.w700,
                             fontSize: 14,
@@ -482,7 +468,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          n['message'] ?? '',
+                          n.message,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 13),
@@ -500,7 +486,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        _formatTime(n['created_at']),
+                        _formatTime(n.createdAt),
                         style: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 11),
                       ),
                       if (!isRead) ...[

@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
+import '../../lib/models/discount.dart';
 import '../../lib/repositories/ticket_repository.dart';
 import '../../lib/providers/ticket_provider.dart';
 import '../../lib/screens/manage/global_discounts_screen.dart';
@@ -16,22 +17,25 @@ void main() {
     mockTicketRepo = MockTicketRepository();
   });
 
-  Map<String, dynamic> discountJson({
+  DiscountStrategy makeStrategy({
     int id = 1,
     String name = 'Early Bird',
     String discountType = 'ticket_percent',
     int value = 10,
     String target = 'all',
   }) =>
-      {
+      DiscountStrategy.fromJson({
         'id': id,
+        'organizer_id': 1,
         'name': name,
         'discount_type': discountType,
         'value': value,
         'target': target,
-      };
+        'created_at': '2025-01-01T00:00:00',
+        'updated_at': '2025-01-01T00:00:00',
+      });
 
-  void stubDiscounts({List<dynamic>? data}) {
+  void stubDiscounts({List<DiscountStrategy>? data}) {
     when(() => mockTicketRepo.getDiscountStrategies())
         .thenAnswer((_) async => data ?? []);
   }
@@ -86,8 +90,8 @@ void main() {
 
     testWidgets('renders discount cards', (tester) async {
       stubDiscounts(data: [
-        discountJson(name: 'Early Bird', discountType: 'ticket_percent', value: 10, target: 'all'),
-        discountJson(id: 2, name: 'Pledger Reward', discountType: 'pledge_percent', value: 5, target: 'pledgers'),
+        makeStrategy(name: 'Early Bird', discountType: 'ticket_percent', value: 10, target: 'all'),
+        makeStrategy(id: 2, name: 'Pledger Reward', discountType: 'pledge_percent', value: 5, target: 'pledgers'),
       ]);
 
       await pumpScreen(tester);
@@ -102,7 +106,7 @@ void main() {
 
     testWidgets('shows target info on discount cards', (tester) async {
       stubDiscounts(data: [
-        discountJson(name: 'Pledgers Only', target: 'pledgers', value: 15),
+        makeStrategy(name: 'Pledgers Only', target: 'pledgers', value: 15),
       ]);
 
       await pumpScreen(tester);
@@ -113,8 +117,8 @@ void main() {
 
     testWidgets('search filters discounts by name', (tester) async {
       stubDiscounts(data: [
-        discountJson(name: 'Early Bird'),
-        discountJson(id: 2, name: 'VIP Special'),
+        makeStrategy(name: 'Early Bird'),
+        makeStrategy(id: 2, name: 'VIP Special'),
       ]);
 
       await pumpScreen(tester);
@@ -132,7 +136,7 @@ void main() {
     });
 
     testWidgets('shows delete button on cards', (tester) async {
-      stubDiscounts(data: [discountJson()]);
+      stubDiscounts(data: [makeStrategy()]);
       await pumpScreen(tester);
       await tester.pumpAndSettle();
 
@@ -141,7 +145,7 @@ void main() {
 
     testWidgets('calls deleteDiscountStrategy when delete tapped',
         (tester) async {
-      stubDiscounts(data: [discountJson(id: 42)]);
+      stubDiscounts(data: [makeStrategy(id: 42)]);
       when(() => mockTicketRepo.deleteDiscountStrategy(42))
           .thenAnswer((_) async {});
 

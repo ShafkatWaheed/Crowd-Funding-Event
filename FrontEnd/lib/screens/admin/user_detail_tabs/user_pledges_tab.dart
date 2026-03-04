@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
+import '../../../models/admin.dart';
 import '../../../repositories/base_repository.dart';
 import '../../../providers/pledge_provider.dart';
 import '../../../widgets/admin/admin_empty_state.dart';
@@ -9,7 +10,7 @@ import 'user_detail_shared.dart';
 
 class UserPledgesTab extends StatefulWidget {
   final int userId;
-  final Map<String, dynamic> detail;
+  final AdminUserDetail detail;
   final void Function(String) onSnack;
   final Future<void> Function() onRefresh;
   final bool isOrganizerPledges;
@@ -38,9 +39,8 @@ class _UserPledgesTabState extends State<UserPledgesTab> {
     super.dispose();
   }
 
-  List<Map<String, dynamic>> get _allPledges =>
-      (widget.detail['pledges'] as List<dynamic>? ?? [])
-          .cast<Map<String, dynamic>>();
+  List<AdminUserPledge> get _allPledges =>
+      widget.detail.pledges ?? [];
 
   Future<void> _refundPledge(int eventId, int fundingId) async {
     try {
@@ -57,20 +57,18 @@ class _UserPledgesTabState extends State<UserPledgesTab> {
   @override
   Widget build(BuildContext context) {
     final allPledges = _allPledges;
-    final statuses = extractStatuses(allPledges, 'status');
+    final statuses = extractStatusesFrom(allPledges, (p) => p.status);
     statuses.addAll(refundPledgeStatuses);
+    final counts = countByStatus(allPledges, (p) => p.status);
     var filtered =
-        allPledges.where((p) => matchesPledge(p, _search)).toList();
+        allPledges.where((p) => matchesPledgeItem(p, _search)).toList();
     if (_statusFilter == '_donation') {
-      filtered =
-          filtered.where((p) => p['is_guest'] == true).toList();
+      filtered = filtered.where((p) => p.isGuest).toList();
     } else if (_statusFilter != 'all') {
-      filtered =
-          filtered.where((p) => p['status'] == _statusFilter).toList();
+      filtered = filtered.where((p) => p.status == _statusFilter).toList();
     }
 
-    final donationCount =
-        allPledges.where((p) => p['is_guest'] == true).length;
+    final donationCount = allPledges.where((p) => p.isGuest).length;
 
     return Column(
       children: [
@@ -89,7 +87,7 @@ class _UserPledgesTabState extends State<UserPledgesTab> {
           selected: _statusFilter,
           onChanged: (v) => setState(() => _statusFilter = v),
           refundStatuses: refundPledgeStatuses,
-          allItems: allPledges,
+          statusCounts: counts,
           extras: [
             if (donationCount > 0)
               ExtraChip('_donation', 'Donations ($donationCount)',
@@ -117,36 +115,33 @@ class _UserPledgesTabState extends State<UserPledgesTab> {
     );
   }
 
-  Widget _pledgeCard(Map<String, dynamic> p) {
-    final eventId = p['event_id'] as int;
-    final fundingId = p['id'] as int;
-    final status = p['status'] as String? ?? '';
-    final canRefund = status == 'pledged';
-    final amountCents = p['amount_cents'] as int? ?? 0;
-    final name = p['user_display_name'] ?? 'User';
-    final isGuest = p['is_guest'] == true;
-    final spots = p['reserved_spots'] as int? ?? 0;
+  Widget _pledgeCard(AdminUserPledge p) {
+    final canRefund = p.status == 'pledged';
+    final name = p.userDisplayName ?? 'User';
 
     final subtitleParts = <String>[
       name,
-      '\$${(amountCents / 100).toStringAsFixed(2)}'
+      '\$${(p.amountCents / 100).toStringAsFixed(2)}'
     ];
-    if (spots > 0) subtitleParts.add('$spots spot${spots == 1 ? '' : 's'}');
+    if (p.reservedSpots > 0) {
+      subtitleParts
+          .add('${p.reservedSpots} spot${p.reservedSpots == 1 ? '' : 's'}');
+    }
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
-        leading: isGuest
+        leading: p.isGuest
             ? Icon(Icons.card_giftcard,
                 color: AppTheme.warningOf(context), size: 20)
             : null,
         title: Row(
           children: [
             Expanded(
-              child: Text(p['event_title'] ?? 'Event #$eventId',
+              child: Text(p.eventTitle ?? 'Event #${p.eventId}',
                   style: const TextStyle(fontWeight: FontWeight.w600)),
             ),
-            if (isGuest)
+            if (p.isGuest)
               Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -167,14 +162,14 @@ class _UserPledgesTabState extends State<UserPledgesTab> {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            statusBadge(context, status),
+            statusBadge(context, p.status),
             if (canRefund) ...[
               const SizedBox(width: 8),
               IconButton(
                 icon: Icon(Icons.money_off,
                     color: AppTheme.errorOf(context)),
                 tooltip: 'Refund',
-                onPressed: () => _refundPledge(eventId, fundingId),
+                onPressed: () => _refundPledge(p.eventId, p.id),
               ),
             ],
           ],

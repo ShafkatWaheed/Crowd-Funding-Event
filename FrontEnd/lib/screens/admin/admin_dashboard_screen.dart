@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
+import '../../models/admin.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../widgets/shimmer_loaders.dart';
@@ -31,26 +32,26 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int _selectedSection = 0;
   bool _isLoading = true;
 
-  Map<String, dynamic>? _stats;
-  List<dynamic> _allEvents = [];
+  AdminStats? _stats;
+  List<AdminEventItem> _allEvents = [];
   int _eventsTotal = 0;
   bool _eventsLoadingMore = false;
-  List<dynamic> _settings = [];
-  List<dynamic> _users = [];
+  List<PlatformSetting> _settings = [];
+  List<AdminUserItem> _users = [];
   int _usersTotal = 0;
-  Map<String, dynamic>? _mockData;
+  AdminMockOverview? _mockData;
   int _eventFilterIndex = -1;
 
-  List<dynamic> get _pendingApproval =>
-      _allEvents.where((e) => e['status'] == 'pending_approval').toList();
-  List<dynamic> get _underReviewEvents =>
-      _allEvents.where((e) => e['status'] == 'under_review').toList();
-  List<dynamic> get _draftEvents =>
-      _allEvents.where((e) => e['status'] == 'draft').toList();
-  List<dynamic> get _pendingCancellations =>
-      _allEvents.where((e) => e['pending_cancellation'] != null).toList();
-  List<dynamic> get _pendingExtensions =>
-      _allEvents.where((e) => e['pending_extension'] != null).toList();
+  List<AdminEventItem> get _pendingApproval =>
+      _allEvents.where((e) => e.status == 'pending_approval').toList();
+  List<AdminEventItem> get _underReviewEvents =>
+      _allEvents.where((e) => e.status == 'under_review').toList();
+  List<AdminEventItem> get _draftEvents =>
+      _allEvents.where((e) => e.status == 'draft').toList();
+  List<AdminEventItem> get _pendingCancellations =>
+      _allEvents.where((e) => e.pendingCancellation != null).toList();
+  List<AdminEventItem> get _pendingExtensions =>
+      _allEvents.where((e) => e.pendingExtension != null).toList();
 
   int get _bottomNavIndex {
     const mapping = {0: 0, 3: 1, 4: 2};
@@ -92,15 +93,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         admin.getEvents(offset: 0, limit: adminPageSize),
         admin.getSettings(),
       ]);
-      final usersResp = results[1] as Map<String, dynamic>;
-      final eventsResp = results[2] as Map<String, dynamic>;
+      final usersResp = results[1] as AdminPage<AdminUserItem>;
+      final eventsResp = results[2] as AdminPage<AdminEventItem>;
       setState(() {
-        _stats = results[0] as Map<String, dynamic>;
-        _users = (usersResp['items'] as List<dynamic>?) ?? [];
-        _usersTotal = (usersResp['total'] as int?) ?? 0;
-        _allEvents = (eventsResp['items'] as List<dynamic>?) ?? [];
-        _eventsTotal = (eventsResp['total'] as int?) ?? 0;
-        _settings = results[3] as List<dynamic>;
+        _stats = results[0] as AdminStats;
+        _users = usersResp.items;
+        _usersTotal = usersResp.total;
+        _allEvents = eventsResp.items;
+        _eventsTotal = eventsResp.total;
+        _settings = results[3] as List<PlatformSetting>;
         if (_eventFilterIndex < 0) {
           _eventFilterIndex = _autoSelectEventFilter();
         }
@@ -113,11 +114,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     try {
       final admin = context.read<AdminProvider>();
       final data = await admin.getSettings();
-      if (mounted) {
-        setState(() => _settings = data
-            .map((e) => Map<String, dynamic>.from(e as Map))
-            .toList());
-      }
+      if (mounted) setState(() => _settings = data);
     } catch (e) { debugPrint(e.toString()); }
   }
 
@@ -128,12 +125,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         admin.getEvents(offset: 0, limit: adminPageSize),
         admin.getStats(),
       ]);
-      final eventsResp = results[0];
+      final eventsResp = results[0] as AdminPage<AdminEventItem>;
       if (mounted) {
         setState(() {
-          _allEvents = (eventsResp['items'] as List<dynamic>?) ?? [];
-          _eventsTotal = (eventsResp['total'] as int?) ?? 0;
-          _stats = results[1];
+          _allEvents = eventsResp.items;
+          _eventsTotal = eventsResp.total;
+          _stats = results[1] as AdminStats;
         });
       }
     } catch (e) { debugPrint(e.toString()); }
@@ -146,10 +143,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       final admin = context.read<AdminProvider>();
       final resp =
           await admin.getEvents(offset: _allEvents.length, limit: adminPageSize);
-      final items = (resp['items'] as List<dynamic>?) ?? [];
       setState(() {
-        _allEvents.addAll(items);
-        _eventsTotal = (resp['total'] as int?) ?? _eventsTotal;
+        _allEvents.addAll(resp.items);
+        _eventsTotal = resp.total;
       });
     } catch (e) { debugPrint(e.toString()); }
     if (mounted) setState(() => _eventsLoadingMore = false);
@@ -178,10 +174,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Future<void> _updateSetting(String key, String newValue) async {
     setState(() {
-      final idx = _settings.indexWhere((s) => s['key'] == key);
+      final idx = _settings.indexWhere((s) => s.key == key);
       if (idx != -1) {
-        _settings[idx] = Map<String, dynamic>.from(_settings[idx])
-          ..['value'] = newValue;
+        _settings[idx] = PlatformSetting(
+          key: key,
+          value: newValue,
+          description: _settings[idx].description,
+        );
       }
     });
     try {
@@ -496,7 +495,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           settings: _settings,
           onSnack: _snack,
           onUpdateSetting: _updateSetting,
-          mockModeActive: _mockData?['mock_mode_active'] == true,
+          mockModeActive: _mockData?.mockModeActive == true,
         );
       case 4:
         return AdminUsersTab(

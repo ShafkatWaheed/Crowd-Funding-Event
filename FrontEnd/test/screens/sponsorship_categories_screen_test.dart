@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
+import '../../lib/models/event.dart';
 import '../../lib/models/sponsor.dart';
 import '../../lib/models/user.dart';
 import '../../lib/providers/auth_provider.dart';
@@ -14,6 +15,7 @@ import '../helpers/mock_event_repository.dart';
 import '../helpers/mock_sponsor_repository.dart';
 import '../helpers/mock_providers.dart';
 import '../helpers/pump_app.dart';
+import '../helpers/fixtures.dart';
 
 void main() {
   late MockSponsorRepository mockSponsorRepo;
@@ -37,7 +39,7 @@ void main() {
     int bidCount = 3,
     List<int>? bidAmounts,
     int myBidCount = 0,
-    List<Map<String, dynamic>>? myBids,
+    List<SponsorBid>? myBids,
     int prereqCount = 0,
   }) =>
       SponsorshipCategory(
@@ -62,7 +64,7 @@ void main() {
     when(() => mockSponsorRepo.getSponsorshipCategories(any()))
         .thenAnswer((_) async => categories ?? []);
     when(() => mockEventRepo.getEvent(any()))
-        .thenAnswer((_) async => {'id': 1, 'status': eventStatus});
+        .thenAnswer((_) async => Event.fromJson(eventJson(status: eventStatus)));
   }
 
   Future<void> pumpScreen(WidgetTester tester, {UserRole role = UserRole.customer}) async {

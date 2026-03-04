@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
+import '../../models/receipt.dart';
 import '../../utils/date_time_utils.dart';
 import '../../repositories/base_repository.dart';
 import '../../providers/pledge_provider.dart';
@@ -27,7 +28,7 @@ class PledgeReceiptScreen extends StatefulWidget {
 class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
   bool _loading = true;
   String? _error;
-  Map<String, dynamic>? _receipt;
+  PledgeReceipt? _receipt;
 
   @override
   void initState() {
@@ -52,7 +53,7 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
     return Scaffold(
       backgroundColor: AppTheme.surfaceOf(context),
       appBar: AppBar(
-        title: Text(_receipt != null && _receipt!['is_guest'] == true
+        title: Text(_receipt != null && _receipt!.isGuest
             ? 'Donation Receipt'
             : 'Pledge Receipt'),
         backgroundColor: Colors.transparent,
@@ -86,22 +87,20 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
 
   Widget _buildReceipt() {
     final r = _receipt!;
-    final receiptNumber = r['receipt_number'] ?? '';
-    final eventTitle = r['event_title'] ?? '';
-    final amountCents = (r['amount_cents'] ?? 0) as int;
-    final reservedSpots = (r['reserved_spots'] ?? 0) as int;
-    final platformCutCents = (r['platform_cut_cents'] ?? 0) as int;
-    final netToOrganizerCents = (r['net_to_organizer_cents'] ?? 0) as int;
-    final commissionPct = (r['funding_commission_percent'] ?? 0) as int;
-    final taxCents = (r['tax_cents'] ?? 0) as int;
-    final taxRate = (r['tax_rate'] ?? 0.0) as num;
-    final status = r['status'] ?? 'pledged';
-    final isGuest = r['is_guest'] == true;
+    final receiptNumber = r.receiptNumber ?? '';
+    final eventTitle = r.eventTitle;
+    final amountCents = r.amountCents;
+    final reservedSpots = r.reservedSpots;
+    final platformCutCents = r.platformCutCents;
+    final netToOrganizerCents = r.netToOrganizerCents;
+    final commissionPct = r.fundingCommissionPercent;
+    final taxCents = r.taxCents;
+    final taxRate = r.taxRate;
+    final status = r.status;
+    final isGuest = r.isGuest;
     final isDonation = isGuest;
     final typeLabel = isDonation ? 'Donation' : 'Pledge';
-    final createdAt = r['created_at'] != null
-        ? DateTime.parse(r['created_at']).toLocal()
-        : null;
+    final createdAt = r.createdAt.toLocal();
 
     final headerColor = isDonation ? context.photoAccent : context.sponsorAccent;
 
@@ -160,10 +159,10 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (r['backer_name'] != null) ...[
+                      if (r.backerName != null) ...[
                         _sectionLabel(isDonation ? 'DONOR' : 'BACKER'),
                         const SizedBox(height: 6),
-                        Text(r['backer_name'],
+                        Text(r.backerName!,
                             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600,
                                 color: AppTheme.textPrimaryOf(context))),
                         const SizedBox(height: 20),
@@ -182,14 +181,13 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
                       _detailRow('Status', isDonation ? 'Donation' : (status[0].toUpperCase() + status.substring(1))),
                       if (reservedSpots > 0)
                         _detailRow('Reserved Spots', '$reservedSpots'),
-                      if (createdAt != null)
-                        _detailRow('Date', AppDateFormat.fullDateTime(createdAt)),
+                      _detailRow('Date', AppDateFormat.fullDateTime(createdAt)),
                       const SizedBox(height: 20),
 
                       _sectionLabel('FEE BREAKDOWN'),
                       const SizedBox(height: 8),
-                      if (r['subtotal_cents'] != null && taxCents > 0) ...[
-                        _priceRow('Subtotal', _formatCents((r['subtotal_cents'] as int?) ?? amountCents)),
+                      if (r.subtotalCents > 0 && taxCents > 0) ...[
+                        _priceRow('Subtotal', _formatCents(r.subtotalCents)),
                         const SizedBox(height: 6),
                       ],
                       _priceRow('$typeLabel Amount', _formatCents(amountCents)),

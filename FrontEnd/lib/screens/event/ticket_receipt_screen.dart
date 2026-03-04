@@ -6,6 +6,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../config/theme.dart';
 import '../../config/design_tokens.dart';
+import '../../models/receipt.dart';
 import '../../models/ticket.dart';
 import '../../utils/date_time_utils.dart';
 import '../../providers/ticket_provider.dart';
@@ -43,7 +44,7 @@ class TicketReceiptScreen extends StatefulWidget {
 }
 
 class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
-  Map<String, dynamic>? _receipt;
+  TicketReceipt? _receipt;
   bool _loading = true;
   String? _error;
 
@@ -60,22 +61,22 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
     if (widget.offlineTicket != null) {
       final t = widget.offlineTicket!;
       setState(() {
-        _receipt = {
-          'sale_id': t.id,
-          'event_id': t.eventId,
-          'user_id': t.userId,
-          'receipt_number': t.receiptNumber ?? '',
-          'ticket_code': t.ticketCode,
-          'status': t.status,
-          'tier_name': t.tierName ?? '',
-          'event_title': t.eventTitle ?? 'Event #${t.eventId}',
-          'amount_paid_cents': t.amountPaidCents,
-          'discount_applied_cents': t.discountAppliedCents,
-          'tier_price_cents': t.amountPaidCents + t.discountAppliedCents,
-          'purchased_at': t.createdAt.toIso8601String(),
-          'scanned_at': t.scannedAt?.toIso8601String(),
-          'encrypted_qr_payload': t.encryptedQrPayload,
-        };
+        _receipt = TicketReceipt(
+          saleId: t.id,
+          eventId: t.eventId,
+          userId: t.userId,
+          receiptNumber: t.receiptNumber ?? '',
+          ticketCode: t.ticketCode,
+          status: t.status,
+          tierName: t.tierName ?? '',
+          eventTitle: t.eventTitle ?? 'Event #${t.eventId}',
+          amountPaidCents: t.amountPaidCents,
+          discountAppliedCents: t.discountAppliedCents,
+          tierPriceCents: t.amountPaidCents + t.discountAppliedCents,
+          purchasedAt: t.createdAt,
+          scannedAt: t.scannedAt,
+          encryptedQrPayload: t.encryptedQrPayload,
+        );
         _loading = false;
       });
       return;
@@ -141,8 +142,8 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
 
   Future<void> _requestRefund() async {
     final r = _receipt!;
-    final receiptNumber = r['receipt_number'] ?? '';
-    final amountCents = (r['amount_paid_cents'] ?? 0) as int;
+    final receiptNumber = r.receiptNumber;
+    final amountCents = r.amountPaidCents;
     final amountStr = '\$${(amountCents / 100).toStringAsFixed(2)}';
 
     final confirmed = await showDialog<bool>(
@@ -184,36 +185,28 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
 
   Widget _buildReceipt() {
     final r = _receipt!;
-    final receiptNumber = r['receipt_number'] ?? '';
-    final ticketCode = r['ticket_code'] ?? '';
-    final status = r['status'] ?? '';
-    final saleId = r['sale_id'];
-    final userId = r['user_id'];
-    final attendeeName = r['attendee_name'] ?? 'Unknown';
-    final eventTitle = r['event_title'] ?? 'Unknown Event';
-    final eventStartTime = r['event_start_time'] != null
-        ? DateTime.parse(r['event_start_time']).toLocal()
-        : null;
-    final eventEndTime = r['event_end_time'] != null
-        ? DateTime.parse(r['event_end_time']).toLocal()
-        : null;
-    final organizerName = r['organizer_name'];
-    final organizerEmail = r['organizer_email'];
-    final organizerPhone = r['organizer_phone'];
-    final venueName = r['venue_name'];
-    final venueAddress = r['venue_address'];
-    final tierName = r['tier_name'] ?? '';
-    final tierPriceCents = (r['tier_price_cents'] ?? 0) as int;
-    final amountPaidCents = (r['amount_paid_cents'] ?? 0) as int;
-    final discountCents = (r['discount_applied_cents'] ?? 0) as int;
-    final commissionCents = (r['commission_cents'] ?? 0) as int;
-    final purchasedAt = r['purchased_at'] != null
-        ? DateTime.parse(r['purchased_at']).toLocal()
-        : null;
-    final scannedAt = r['scanned_at'] != null
-        ? DateTime.parse(r['scanned_at']).toLocal()
-        : null;
-    final extraPerks = r['extra_perks'];
+    final receiptNumber = r.receiptNumber;
+    final ticketCode = r.ticketCode;
+    final status = r.status;
+    final saleId = r.saleId;
+    final userId = r.userId;
+    final attendeeName = r.attendeeName ?? 'Unknown';
+    final eventTitle = r.eventTitle;
+    final eventStartTime = r.eventStartTime?.toLocal();
+    final eventEndTime = r.eventEndTime?.toLocal();
+    final organizerName = r.organizerName;
+    final organizerEmail = r.organizerEmail;
+    final organizerPhone = r.organizerPhone;
+    final venueName = r.venueName;
+    final venueAddress = r.venueAddress;
+    final tierName = r.tierName;
+    final tierPriceCents = r.tierPriceCents;
+    final amountPaidCents = r.amountPaidCents;
+    final discountCents = r.discountAppliedCents;
+    final commissionCents = r.commissionCents;
+    final purchasedAt = r.purchasedAt.toLocal();
+    final scannedAt = r.scannedAt?.toLocal();
+    final extraPerks = r.extraPerks;
 
     final isFree = amountPaidCents == 0;
 
@@ -374,8 +367,7 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
                       const SizedBox(height: 8),
                       _detailRow(context, 'Tier', tierName),
                       _detailRow(context, 'Ticket Code', ticketCode, copyable: !widget.isOrganizer),
-                      if (purchasedAt != null)
-                        _detailRow(context, 'Purchased', AppDateFormat.fullDateTime(purchasedAt)),
+                      _detailRow(context, 'Purchased', AppDateFormat.fullDateTime(purchasedAt)),
                       if (scannedAt != null)
                         _detailRow(context, 'Scanned', AppDateFormat.fullDateTime(scannedAt)),
                       if (extraPerks != null && extraPerks.toString().isNotEmpty)
@@ -403,9 +395,9 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
                                   ],
                                 ),
                                 child: QrImageView(
-                                  data: r['encrypted_qr_payload'] ?? jsonEncode({
+                                  data: r.encryptedQrPayload ?? jsonEncode({
                                     'receipt_number': receiptNumber,
-                                    'event_id': r['event_id'],
+                                    'event_id': r.eventId,
                                     'user_id': userId,
                                     'sale_id': saleId,
                                     'ticket_code': ticketCode,

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../models/payment.dart';
 import '../repositories/event_repository.dart';
 import '../repositories/payment_repository.dart';
 
@@ -38,11 +39,23 @@ class ConfigProvider extends ChangeNotifier {
     if (_paymentRepo != null) {
       try {
         final stripeData = await _paymentRepo.getStripeConfig();
-        stripeEnabled = stripeData['stripe_enabled'] == true;
+        stripeEnabled = stripeData.stripeEnabled;
         notifyListeners();
       } catch (_) {
         // Stripe config unavailable — keep default (false)
       }
     }
+  }
+
+  Future<PaymentIntent> createPaymentIntent({
+    required int amountCents,
+    required String description,
+    String? idempotencyKey,
+  }) async {
+    return _paymentRepo!.createPaymentIntent(
+      amountCents: amountCents,
+      description: description,
+      idempotencyKey: idempotencyKey,
+    );
   }
 }

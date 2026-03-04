@@ -3,12 +3,13 @@ import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../../config/design_tokens.dart';
 import '../../../../config/theme.dart';
+import '../../../../models/dashboard.dart';
 import '../../../../models/event.dart';
 import '../../../../widgets/animated_list_item.dart';
 import '../../home_shared.dart';
 
 class DashboardStatusChips extends StatelessWidget {
-  final List<dynamic> breakdown;
+  final List<StatusBreakdown> breakdown;
   final String? activeStatus;
   final ValueChanged<String> onStatusSelected;
   final VoidCallback onStatusCleared;
@@ -24,8 +25,7 @@ class DashboardStatusChips extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final filtered = breakdown
-        .where(
-            (item) => (item as Map<String, dynamic>)['status'] != 'draft')
+        .where((item) => item.status != 'draft')
         .toList();
     if (filtered.isEmpty) return const SizedBox.shrink();
     final isDark = AppTheme.isDark(context);
@@ -55,9 +55,9 @@ class DashboardStatusChips extends StatelessWidget {
                   for (int i = 0; i < filtered.length; i++) ...[
                     if (i > 0) AppSpacing.hSm,
                     Builder(builder: (ctx) {
-                      final item = filtered[i] as Map<String, dynamic>;
-                      final status = item['status'] as String;
-                      final count = item['count'] as int? ?? 0;
+                      final item = filtered[i];
+                      final status = item.status;
+                      final count = item.count;
                       final statusEnum = EventStatus.values.firstWhere(
                         (s) => s.name == status,
                         orElse: () => EventStatus.draft,

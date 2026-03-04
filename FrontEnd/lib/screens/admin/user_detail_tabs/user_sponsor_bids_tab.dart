@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
+import '../../../models/admin.dart';
 import '../../../repositories/base_repository.dart';
 import '../../../providers/sponsor_provider.dart';
 import '../../../widgets/admin/admin_empty_state.dart';
@@ -9,7 +10,7 @@ import 'user_detail_shared.dart';
 
 class UserSponsorBidsTab extends StatefulWidget {
   final int userId;
-  final Map<String, dynamic> detail;
+  final AdminUserDetail detail;
   final void Function(String) onSnack;
   final Future<void> Function() onRefresh;
 
@@ -30,9 +31,12 @@ class UserSponsorBidsTab extends StatefulWidget {
 }
 
 class _UserSponsorBidsTabState extends State<UserSponsorBidsTab> {
-  List<Map<String, dynamic>> get _items =>
-      (widget.detail[widget.dataKey] as List<dynamic>? ?? [])
-          .cast<Map<String, dynamic>>();
+  List<AdminSponsorshipEvent> get _items {
+    if (widget.dataKey == 'sponsorships') {
+      return widget.detail.sponsorships ?? [];
+    }
+    return widget.detail.sponsorBids ?? [];
+  }
 
   Future<void> _refundSponsorBid(
       int eventId, int catId, int bidId) async {
@@ -68,32 +72,27 @@ class _UserSponsorBidsTabState extends State<UserSponsorBidsTab> {
     );
   }
 
-  Widget _sponsorshipTile(Map<String, dynamic> sp) {
-    final eventId = sp['event_id'] as int;
-    final bids = sp['bids'] as List<dynamic>? ?? [];
+  Widget _sponsorshipTile(AdminSponsorshipEvent sp) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: ExpansionTile(
-        title: Text(sp['event_title'] ?? 'Event #$eventId',
+        title: Text(sp.eventTitle ?? 'Event #${sp.eventId}',
             style: const TextStyle(fontWeight: FontWeight.w600)),
-        children: bids.cast<Map<String, dynamic>>().map((b) {
-          final bidId = b['bid_id'] as int;
-          final catId = b['category_id'] as int;
-          final canRefund = b['can_refund'] == true;
+        children: sp.bids.map((b) {
+          final canRefund = b.canRefund;
           return ListTile(
             title: Text(
-                '${b['category_name'] ?? 'Category'} · \$${((b['amount_cents'] ?? 0) / 100).toStringAsFixed(2)}'),
-            subtitle: Text(b['status']?.toString() ?? ''),
+                '${b.categoryName ?? 'Category'} · \$${(b.amountCents / 100).toStringAsFixed(2)}'),
+            subtitle: Text(b.status),
             trailing: canRefund
                 ? IconButton(
                     icon: Icon(Icons.money_off,
                         color: AppTheme.errorOf(context)),
                     tooltip: 'Refund',
                     onPressed: () =>
-                        _refundSponsorBid(eventId, catId, bidId),
+                        _refundSponsorBid(sp.eventId, b.categoryId, b.bidId),
                   )
-                : statusBadge(
-                    context, b['status']?.toString() ?? ''),
+                : statusBadge(context, b.status),
           );
         }).toList(),
       ),

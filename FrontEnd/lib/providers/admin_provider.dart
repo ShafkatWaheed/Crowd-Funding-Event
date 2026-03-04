@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../models/admin.dart';
 import '../models/event.dart';
 import '../repositories/admin_repository.dart';
 
@@ -15,19 +16,19 @@ class AdminProvider extends ChangeNotifier {
 
   // ─── Users ──────────────────────────────────────────────────────────────
 
-  Future<Map<String, dynamic>> getUsers({
+  Future<AdminPage<AdminUserItem>> getUsers({
     int offset = 0,
     int limit = 20,
     String? search,
   }) =>
       _repo.getUsers(offset: offset, limit: limit, search: search);
 
-  Future<Map<String, dynamic>> getUserDetail(int userId) =>
+  Future<AdminUserDetail> getUserDetail(int userId) =>
       _repo.getUserDetail(userId);
 
   // ─── Events ─────────────────────────────────────────────────────────────
 
-  Future<Map<String, dynamic>> getEvents({
+  Future<AdminPage<AdminEventItem>> getEvents({
     int offset = 0,
     int limit = 20,
     String? search,
@@ -53,7 +54,7 @@ class AdminProvider extends ChangeNotifier {
   Future<Event> decideCancellation(int eventId, String action) =>
       _repo.decideCancellation(eventId, action);
 
-  Future<Map<String, dynamic>> setPolicyOverrides(
+  Future<AdminPolicyOverrides> setPolicyOverrides(
     int eventId,
     Map<String, dynamic> overrides,
   ) =>
@@ -66,9 +67,9 @@ class AdminProvider extends ChangeNotifier {
 
   // ─── Stats & Dashboard ─────────────────────────────────────────────────
 
-  Future<Map<String, dynamic>> getStats() => _repo.getStats();
+  Future<AdminStats> getStats() => _repo.getStats();
 
-  Future<Map<String, dynamic>> getDashboard({
+  Future<AdminDashboard> getDashboard({
     String period = '30d',
     String? genre,
     String? status,
@@ -77,34 +78,34 @@ class AdminProvider extends ChangeNotifier {
 
   // ─── Settings ─────────────────────────────────────────────────────────────
 
-  Future<List<dynamic>> getSettings() => _repo.getSettings();
+  Future<List<PlatformSetting>> getSettings() => _repo.getSettings();
 
-  Future<Map<String, dynamic>> updateSetting(String key, String value) =>
+  Future<PlatformSetting> updateSetting(String key, String value) =>
       _repo.updateSetting(key, value);
 
   // ─── Banking ──────────────────────────────────────────────────────────────
 
-  Future<Map<String, dynamic>> getBankingOverview({
+  Future<AdminBankingOverview> getBankingOverview({
     String period = '30d',
   }) =>
       _repo.getBankingOverview(period: period);
 
   // ─── Escrows ──────────────────────────────────────────────────────────────
 
-  Future<Map<String, dynamic>> getEscrows({
+  Future<AdminPage<AdminEscrowItem>> getEscrows({
     String type = 'fund',
     int limit = 50,
   }) =>
       _repo.getEscrows(type: type, limit: limit);
 
-  Future<Map<String, dynamic>> getEscrowList({
+  Future<AdminPage<AdminEscrowItem>> getEscrowList({
     int offset = 0,
     int limit = 20,
     String? search,
   }) =>
       _repo.getEscrowList(offset: offset, limit: limit, search: search);
 
-  Future<Map<String, dynamic>> getEventEscrows(int eventId) =>
+  Future<AdminEventEscrows> getEventEscrows(int eventId) =>
       _repo.getEventEscrows(eventId);
 
   Future<Map<String, dynamic>> releaseEscrowStage(
@@ -126,7 +127,7 @@ class AdminProvider extends ChangeNotifier {
   ) =>
       _repo.unfreezeEscrow(eventId, escrowType);
 
-  Future<Map<String, dynamic>> toggleAutoRelease(
+  Future<AdminEscrowItem> toggleAutoRelease(
     int eventId,
     String escrowType, {
     bool? stage1,
@@ -150,7 +151,7 @@ class AdminProvider extends ChangeNotifier {
 
   // ─── Disputes ─────────────────────────────────────────────────────────────
 
-  Future<Map<String, dynamic>> getDisputes({
+  Future<AdminPage<AdminDispute>> getDisputes({
     String? status,
     int offset = 0,
     int limit = 50,
@@ -172,24 +173,26 @@ class AdminProvider extends ChangeNotifier {
 
   // ─── Reconciliation & Ledger ──────────────────────────────────────────────
 
-  Future<List<dynamic>> getReconciliationHistory({int limit = 30}) =>
+  Future<List<ReconciliationEntry>> getReconciliationHistory({
+    int limit = 30,
+  }) =>
       _repo.getReconciliationHistory(limit: limit);
 
   Future<Map<String, dynamic>> runReconciliation() =>
       _repo.runReconciliation();
 
-  Future<Map<String, dynamic>> getLedgerHealth() => _repo.getLedgerHealth();
+  Future<AdminLedgerHealth> getLedgerHealth() => _repo.getLedgerHealth();
 
   // ─── Payouts ──────────────────────────────────────────────────────────────
 
-  Future<Map<String, dynamic>> getPayoutStatus() => _repo.getPayoutStatus();
+  Future<List<AdminPayoutItem>> getPayoutStatus() => _repo.getPayoutStatus();
 
   Future<Map<String, dynamic>> forcePayout(int organizerId) =>
       _repo.forcePayout(organizerId);
 
   // ─── Transactions ─────────────────────────────────────────────────────────
 
-  Future<Map<String, dynamic>> getTransactions({
+  Future<AdminPage<AdminTransaction>> getTransactions({
     int offset = 0,
     int limit = 20,
     String? search,
@@ -204,7 +207,7 @@ class AdminProvider extends ChangeNotifier {
 
   // ─── Mock ─────────────────────────────────────────────────────────────────
 
-  Future<Map<String, dynamic>> getMockOverview() => _repo.getMockOverview();
+  Future<AdminMockOverview> getMockOverview() => _repo.getMockOverview();
 
   Future<Map<String, dynamic>> simulateDispute(String transactionId) =>
       _repo.simulateDispute(transactionId);
@@ -220,17 +223,17 @@ class AdminProvider extends ChangeNotifier {
 
   // ─── Platform Account ─────────────────────────────────────────────────────
 
-  Future<Map<String, dynamic>> getPlatformAccount() =>
+  Future<AdminPlatformAccount> getPlatformAccount() =>
       _repo.getPlatformAccount();
 
-  Future<Map<String, dynamic>> updatePlatformAccount(
+  Future<AdminPlatformAccount> updatePlatformAccount(
     Map<String, dynamic> data,
   ) =>
       _repo.updatePlatformAccount(data);
 
   // ─── Audit Log ────────────────────────────────────────────────────────────
 
-  Future<Map<String, dynamic>> getAuditLog({
+  Future<AdminPage<AdminAuditEntry>> getAuditLog({
     int offset = 0,
     int limit = 50,
     String? action,
@@ -245,9 +248,9 @@ class AdminProvider extends ChangeNotifier {
 
   // ─── Workers (ARQ) ────────────────────────────────────────────────────────
 
-  Future<Map<String, dynamic>> getWorkerSummary() => _repo.getWorkerSummary();
+  Future<AdminWorkerSummary> getWorkerSummary() => _repo.getWorkerSummary();
 
-  Future<Map<String, dynamic>> getWorkerRuns({
+  Future<AdminPage<AdminWorkerRun>> getWorkerRuns({
     String? taskName,
     String? status,
     int offset = 0,
@@ -262,7 +265,7 @@ class AdminProvider extends ChangeNotifier {
 
   // ─── Email Templates ─────────────────────────────────────────────────────
 
-  Future<List<dynamic>> getEmailTemplates() => _repo.getEmailTemplates();
+  Future<List<EmailTemplate>> getEmailTemplates() => _repo.getEmailTemplates();
 
   Future<void> uploadEmailLogo({
     required List<int> fileBytes,
@@ -270,7 +273,7 @@ class AdminProvider extends ChangeNotifier {
   }) =>
       _repo.uploadEmailLogo(fileBytes: fileBytes, fileName: fileName);
 
-  Future<Map<String, dynamic>> saveEmailTemplate(
+  Future<EmailTemplate> saveEmailTemplate(
     String key, {
     required String subject,
     required String bodyHtml,
@@ -289,6 +292,6 @@ class AdminProvider extends ChangeNotifier {
   Future<Map<String, dynamic>> testSendEmailTemplate(String key) =>
       _repo.testSendEmailTemplate(key);
 
-  Future<Map<String, dynamic>> resetEmailTemplate(String key) =>
+  Future<EmailTemplate> resetEmailTemplate(String key) =>
       _repo.resetEmailTemplate(key);
 }

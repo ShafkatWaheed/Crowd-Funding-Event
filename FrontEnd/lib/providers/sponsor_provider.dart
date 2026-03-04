@@ -36,7 +36,7 @@ class SponsorProvider extends ChangeNotifier {
 
   // ── Organizer: My Sponsors ─────────────────────────────────────────────
 
-  Future<List<Map<String, dynamic>>> getOrganizerSponsors({
+  Future<List<OrganizerSponsorItem>> getOrganizerSponsors({
     String? eventStatus,
     String? genre,
     int? eventId,
@@ -51,7 +51,7 @@ class SponsorProvider extends ChangeNotifier {
         limit: limit,
       );
 
-  Future<List<Map<String, dynamic>>> getSponsorEventsForOrganizer(
+  Future<List<SponsorEventItem>> getSponsorEventsForOrganizer(
           int sponsorUserId) =>
       _repo.getSponsorEventsForOrganizer(sponsorUserId);
 
@@ -98,11 +98,11 @@ class SponsorProvider extends ChangeNotifier {
 
   // ── Sponsor Payments ───────────────────────────────────────────────────
 
-  Future<Map<String, dynamic>> payBid(
+  Future<SponsorPayment> payBid(
           int eventId, int catId, int bidId) =>
       _repo.payBid(eventId, catId, bidId);
 
-  Future<Map<String, dynamic>> getSponsorPaymentReceipt(int paymentId) =>
+  Future<SponsorPaymentReceipt> getSponsorPaymentReceipt(int paymentId) =>
       _repo.getSponsorPaymentReceipt(paymentId);
 
   // ── Sponsor Tickets ────────────────────────────────────────────────────
@@ -117,7 +117,7 @@ class SponsorProvider extends ChangeNotifier {
           int eventId, String encryptedPayload) =>
       _repo.scanSponsorTicket(eventId, encryptedPayload);
 
-  Future<List<Map<String, dynamic>>> getScannedSponsorTickets(
+  Future<List<ScannedSponsorTicket>> getScannedSponsorTickets(
           int eventId) =>
       _repo.getScannedSponsorTickets(eventId);
 
@@ -126,7 +126,7 @@ class SponsorProvider extends ChangeNotifier {
   Future<List<SponsorDelegate>> listDelegates(int ticketId) =>
       _repo.listDelegates(ticketId);
 
-  Future<Map<String, dynamic>> addDelegate(int ticketId, String name,
+  Future<SponsorDelegate> addDelegate(int ticketId, String name,
           {String? email, String? phone}) =>
       _repo.addDelegate(ticketId, name, email: email, phone: phone);
 
@@ -139,12 +139,12 @@ class SponsorProvider extends ChangeNotifier {
 
   // ── Public Sponsors ────────────────────────────────────────────────────
 
-  Future<List<Map<String, dynamic>>> getEventSponsors(int eventId) =>
+  Future<List<EventSponsor>> getEventSponsors(int eventId) =>
       _repo.getEventSponsors(eventId);
 
   // ── Prerequisites ──────────────────────────────────────────────────────
 
-  Future<Map<String, dynamic>> createPrerequisite(
+  Future<CategoryPrerequisite> createPrerequisite(
           int eventId, int catId,
           {required String name,
           String? description,
@@ -156,7 +156,7 @@ class SponsorProvider extends ChangeNotifier {
           isRequired: isRequired,
           requiresDocument: requiresDocument);
 
-  Future<List<Map<String, dynamic>>> listPrerequisites(
+  Future<List<CategoryPrerequisite>> listPrerequisites(
           int eventId, int catId) =>
       _repo.listPrerequisites(eventId, catId);
 
@@ -168,7 +168,7 @@ class SponsorProvider extends ChangeNotifier {
           int bidId, int prereqId, String filePath, String fileName) =>
       _repo.uploadPrerequisiteDocument(bidId, prereqId, filePath, fileName);
 
-  Future<List<Map<String, dynamic>>> listBidPrerequisiteUploads(
+  Future<List<BidPrerequisiteUpload>> listBidPrerequisiteUploads(
           int bidId) =>
       _repo.listBidPrerequisiteUploads(bidId);
 

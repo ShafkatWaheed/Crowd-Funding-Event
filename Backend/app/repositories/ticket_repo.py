@@ -736,6 +736,14 @@ class TicketRepository(BaseRepository[TicketSale]):
 
     # ── Worker task helpers ────────────────────────────────────────
 
+    async def complete_refund(
+        self, db: AsyncSession, sale: TicketSale, gateway_refund_id: str,
+    ) -> None:
+        """Mark a ticket sale as refunded with the gateway refund ID."""
+        sale.gateway_refund_id = gateway_refund_id
+        sale.status = TicketSaleStatus.refunded
+        await db.flush()
+
     async def mark_refund_failed(self, db: AsyncSession, ticket_sale_id: int) -> None:
         """Set a ticket sale to refund_failed status."""
         from sqlalchemy import update

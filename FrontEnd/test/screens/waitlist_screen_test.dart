@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
+import '../../lib/models/event.dart';
 import '../../lib/models/ticket.dart';
 import '../../lib/providers/event_provider.dart';
 import '../../lib/repositories/event_repository.dart';
@@ -25,25 +26,33 @@ void main() {
     mockTicketRepo = MockTicketRepository();
   });
 
-  Map<String, dynamic> capInfo({
+  CapacityInfo makeCapInfo({
     int maxCapacity = 100,
     int ticketsSold = 40,
     int totalReservedSpots = 10,
     int registrationCount = 5,
   }) =>
-      {
+      CapacityInfo.fromJson({
         'max_capacity': maxCapacity,
         'tickets_sold': ticketsSold,
         'total_reserved_spots': totalReservedSpots,
+        'occupied': ticketsSold + totalReservedSpots,
+        'available': maxCapacity - ticketsSold - totalReservedSpots,
         'registration_count': registrationCount,
-      };
+      });
 
-  Map<String, dynamic> fundReg({
+  Registration makeReg({
     int id = 1,
     int userId = 100,
     String status = 'waitlist',
   }) =>
-      {'id': id, 'user_id': userId, 'status': status};
+      Registration.fromJson({
+        'id': id,
+        'event_id': 1,
+        'user_id': userId,
+        'status': status,
+        'created_at': '2025-02-01T10:00:00',
+      });
 
   /// Build a JSON map suitable for TicketSale.fromJson.
   Map<String, dynamic> ticketWait({
@@ -67,9 +76,9 @@ void main() {
       };
 
   void stubAll({
-    List<dynamic>? regs,
+    List<Registration>? regs,
     List<Map<String, dynamic>>? tickets,
-    Map<String, dynamic>? cap,
+    CapacityInfo? cap,
   }) {
     when(() => mockEventRepo.getRegistrations(any()))
         .thenAnswer((_) async => regs ?? []);
@@ -77,7 +86,7 @@ void main() {
         .thenAnswer((_) async =>
             (tickets ?? []).map((t) => TicketSale.fromJson(t)).toList());
     when(() => mockEventRepo.getCapacityInfo(any()))
-        .thenAnswer((_) async => cap ?? capInfo());
+        .thenAnswer((_) async => cap ?? makeCapInfo());
   }
 
   Future<void> pumpWaitlist(
@@ -96,13 +105,13 @@ void main() {
 
   group('WaitlistScreen — loading & error', () {
     testWidgets('shows shimmer while loading', (tester) async {
-      final completer = Completer<List<dynamic>>();
+      final completer = Completer<List<Registration>>();
       when(() => mockEventRepo.getRegistrations(any()))
           .thenAnswer((_) => completer.future);
       when(() => mockTicketRepo.getWaitlistedTickets(any()))
           .thenAnswer((_) async => []);
       when(() => mockEventRepo.getCapacityInfo(any()))
-          .thenAnswer((_) async => capInfo());
+          .thenAnswer((_) async => makeCapInfo());
 
       await pumpWaitlist(tester);
       await tester.pump();
@@ -120,7 +129,7 @@ void main() {
       when(() => mockTicketRepo.getWaitlistedTickets(any()))
           .thenAnswer((_) async => []);
       when(() => mockEventRepo.getCapacityInfo(any()))
-          .thenAnswer((_) async => capInfo());
+          .thenAnswer((_) async => makeCapInfo());
 
       await pumpWaitlist(tester);
       await tester.pumpAndSettle();
@@ -133,8 +142,8 @@ void main() {
   group('WaitlistScreen — Fund Waitlist tab', () {
     testWidgets('renders fund waitlist cards', (tester) async {
       stubAll(regs: [
-        fundReg(id: 1, userId: 100),
-        fundReg(id: 2, userId: 101),
+        makeReg(id: 1, userId: 100),
+        makeReg(id: 2, userId: 101),
       ]);
 
       await pumpWaitlist(tester);
@@ -150,9 +159,9 @@ void main() {
 
     testWidgets('shows waiting approval count', (tester) async {
       stubAll(regs: [
-        fundReg(id: 1, userId: 100),
-        fundReg(id: 2, userId: 101),
-        fundReg(id: 3, userId: 102),
+        makeReg(id: 1, userId: 100),
+        makeReg(id: 2, userId: 101),
+        makeReg(id: 3, userId: 102),
       ]);
 
       await pumpWaitlist(tester);
@@ -162,7 +171,7 @@ void main() {
     });
 
     testWidgets('shows empty state when no fund waitlist', (tester) async {
-      stubAll(regs: [], cap: capInfo());
+      stubAll(regs: [], cap: makeCapInfo());
 
       await pumpWaitlist(tester);
       await tester.pumpAndSettle();
@@ -173,8 +182,8 @@ void main() {
     testWidgets('filters by non-waitlist status', (tester) async {
       // Only 'waitlist' status registrations should appear
       stubAll(regs: [
-        fundReg(id: 1, userId: 100, status: 'waitlist'),
-        fundReg(id: 2, userId: 101, status: 'approved'),
+        makeReg(id: 1, userId: 100, status: 'waitlist'),
+        makeReg(id: 2, userId: 101, status: 'approved'),
       ]);
 
       await pumpWaitlist(tester);
@@ -186,9 +195,15 @@ void main() {
     });
 
     testWidgets('approve button calls decideRegistration', (tester) async {
-      stubAll(regs: [fundReg(id: 42, userId: 100)]);
+      stubAll(regs: [makeReg(id: 42, userId: 100)]);
       when(() => mockEventRepo.decideRegistration(1, 42, 'approve'))
-          .thenAnswer((_) async => {});
+          .thenAnswer((_) async => Registration.fromJson({
+                'id': 42,
+                'event_id': 1,
+                'user_id': 100,
+                'status': 'approved',
+                'created_at': '2025-02-01T10:00:00',
+              }));
 
       await pumpWaitlist(tester);
       await tester.pumpAndSettle();
@@ -200,9 +215,15 @@ void main() {
     });
 
     testWidgets('reject button calls decideRegistration', (tester) async {
-      stubAll(regs: [fundReg(id: 42, userId: 100)]);
+      stubAll(regs: [makeReg(id: 42, userId: 100)]);
       when(() => mockEventRepo.decideRegistration(1, 42, 'reject'))
-          .thenAnswer((_) async => {});
+          .thenAnswer((_) async => Registration.fromJson({
+                'id': 42,
+                'event_id': 1,
+                'user_id': 100,
+                'status': 'rejected',
+                'created_at': '2025-02-01T10:00:00',
+              }));
 
       await pumpWaitlist(tester);
       await tester.pumpAndSettle();
@@ -215,8 +236,8 @@ void main() {
 
     testWidgets('search filters fund waitlist by user ID', (tester) async {
       stubAll(regs: [
-        fundReg(id: 1, userId: 100),
-        fundReg(id: 2, userId: 201),
+        makeReg(id: 1, userId: 100),
+        makeReg(id: 2, userId: 201),
       ]);
 
       await pumpWaitlist(tester);
@@ -236,7 +257,7 @@ void main() {
   group('WaitlistScreen — Ticket Waitlist tab', () {
     testWidgets('switches to ticket waitlist tab', (tester) async {
       stubAll(
-        regs: [fundReg(id: 1, userId: 100)],
+        regs: [makeReg(id: 1, userId: 100)],
         tickets: [ticketWait(id: 10, userId: 200)],
       );
 
@@ -322,8 +343,8 @@ void main() {
   group('WaitlistScreen — Capacity bar', () {
     testWidgets('renders capacity bar with correct numbers', (tester) async {
       stubAll(
-        regs: [fundReg(id: 1, userId: 100)],
-        cap: capInfo(
+        regs: [makeReg(id: 1, userId: 100)],
+        cap: makeCapInfo(
           maxCapacity: 200,
           ticketsSold: 80,
           totalReservedSpots: 20,
@@ -341,8 +362,8 @@ void main() {
 
     testWidgets('shows "If approved" preview on fund card', (tester) async {
       stubAll(
-        regs: [fundReg(id: 1, userId: 100)],
-        cap: capInfo(registrationCount: 5, maxCapacity: 200),
+        regs: [makeReg(id: 1, userId: 100)],
+        cap: makeCapInfo(registrationCount: 5, maxCapacity: 200),
       );
 
       await pumpWaitlist(tester);

@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
+import '../../lib/models/event.dart';
 import '../../lib/models/user.dart';
 import '../../lib/providers/auth_provider.dart';
 import '../../lib/providers/event_provider.dart';
@@ -54,7 +55,7 @@ void main() {
   group('EditEventScreen', () {
     testWidgets('shows loading indicator initially', (tester) async {
       // Use completers so the API calls never complete during this test
-      final eventCompleter = Completer<Map<String, dynamic>>();
+      final eventCompleter = Completer<Event>();
       final strategiesCompleter = Completer<List<TicketStrategy>>();
       final venuesCompleter = Completer<List<Venue>>();
       final configCompleter = Completer<Map<String, dynamic>>();
@@ -77,7 +78,7 @@ void main() {
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
 
       // Complete to avoid pending timer issues
-      eventCompleter.complete(eventJson());
+      eventCompleter.complete(Event.fromJson(eventJson()));
       strategiesCompleter.complete([]);
       venuesCompleter.complete([]);
       configCompleter.complete({});
@@ -86,7 +87,7 @@ void main() {
 
     testWidgets('renders form after event loads', (tester) async {
       when(() => mockEventRepo.getEvent(1))
-          .thenAnswer((_) async => eventJson(title: 'My Event', status: 'draft'));
+          .thenAnswer((_) async => Event.fromJson(eventJson(title: 'My Event', status: 'draft')));
       when(() => mockTicketRepo.getTicketStrategies())
           .thenAnswer((_) async => []);
       when(() => mockVenueRepo.getVenues())
@@ -104,7 +105,7 @@ void main() {
 
     testWidgets('shows AppBar with close button', (tester) async {
       when(() => mockEventRepo.getEvent(1))
-          .thenAnswer((_) async => eventJson());
+          .thenAnswer((_) async => Event.fromJson(eventJson()));
       when(() => mockTicketRepo.getTicketStrategies())
           .thenAnswer((_) async => []);
       when(() => mockVenueRepo.getVenues())

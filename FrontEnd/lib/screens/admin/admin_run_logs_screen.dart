@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
+import '../../models/admin.dart';
 import '../../providers/admin_provider.dart';
 import 'admin_shared.dart';
 
@@ -14,7 +15,7 @@ class AdminRunLogsScreen extends StatefulWidget {
 }
 
 class _AdminRunLogsScreenState extends State<AdminRunLogsScreen> {
-  List<Map<String, dynamic>> _runs = [];
+  List<AdminWorkerRun> _runs = [];
   int _runsTotal = 0;
   bool _loading = true;
   String? _selectedTask;
@@ -79,8 +80,8 @@ class _AdminRunLogsScreenState extends State<AdminRunLogsScreen> {
       );
       if (mounted) {
         setState(() {
-          _runs = (data['items'] as List).cast<Map<String, dynamic>>();
-          _runsTotal = data['total'] ?? 0;
+          _runs = data.items;
+          _runsTotal = data.total;
           _loading = false;
         });
       }
@@ -89,14 +90,14 @@ class _AdminRunLogsScreenState extends State<AdminRunLogsScreen> {
     }
   }
 
-  List<Map<String, dynamic>> get _filteredRuns {
+  List<AdminWorkerRun> get _filteredRuns {
     if (_searchText.isEmpty) return _runs;
     final q = _searchText.toLowerCase();
     return _runs.where((r) {
-      final task = (r['task_name'] ?? '').toString().toLowerCase();
+      final task = r.taskName.toLowerCase();
       final label = _taskLabel(task).toLowerCase();
-      final error = (r['error'] ?? '').toString().toLowerCase();
-      final status = (r['status'] ?? '').toString().toLowerCase();
+      final error = (r.error ?? '').toLowerCase();
+      final status = r.status.toLowerCase();
       return task.contains(q) ||
           label.contains(q) ||
           error.contains(q) ||
@@ -239,13 +240,13 @@ class _AdminRunLogsScreenState extends State<AdminRunLogsScreen> {
     );
   }
 
-  Widget _buildRunRow(Map<String, dynamic> run) {
-    final status = run['status'] as String? ?? 'unknown';
-    final taskName = run['task_name'] as String? ?? '';
-    final durationMs = run['duration_ms'] as num?;
-    final items = run['items_processed'] as int?;
-    final error = run['error'] as String?;
-    final startedAt = run['started_at'] as String?;
+  Widget _buildRunRow(AdminWorkerRun run) {
+    final status = run.status.isEmpty ? 'unknown' : run.status;
+    final taskName = run.taskName;
+    final durationMs = run.durationMs;
+    final items = run.itemsProcessed;
+    final error = run.error;
+    final startedAt = run.startedAt;
 
     return Card(
       color: AppTheme.cardOf(context),
@@ -265,11 +266,11 @@ class _AdminRunLogsScreenState extends State<AdminRunLogsScreen> {
         title: Text(_taskLabel(taskName),
             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
         subtitle: Text(
-          '${formatIsoDate(startedAt)} \u2022 ${durationMs != null ? '${durationMs.toStringAsFixed(0)}ms' : '-'}',
+          '${formatIsoDate(startedAt)} \u2022 ${durationMs}ms',
           style: TextStyle(
               fontSize: 11, color: AppTheme.textSecondaryOf(context)),
         ),
-        trailing: items != null
+        trailing: items > 0
             ? Text('$items items',
                 style: TextStyle(
                     fontSize: 11,

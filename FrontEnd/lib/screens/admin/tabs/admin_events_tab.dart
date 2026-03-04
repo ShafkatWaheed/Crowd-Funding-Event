@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../admin_shared.dart';
 import '../../../config/design_tokens.dart';
 import '../../../config/theme.dart';
+import '../../../models/admin.dart';
 import '../../../providers/admin_provider.dart';
 import '../../../repositories/base_repository.dart';
 import '../../../providers/event_provider.dart';
@@ -25,9 +26,9 @@ class AdminEventsTab extends StatefulWidget {
     this.initialEventFilterIndex,
   });
 
-  final List<dynamic> events;
+  final List<AdminEventItem> events;
   final int eventsTotal;
-  final Map<String, dynamic>? stats;
+  final AdminStats? stats;
   final void Function(String) onSnack;
   final Future<void> Function() onEventsChanged;
   final Future<void> Function()? onLoadMore;
@@ -44,18 +45,18 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
   int _eventFilterIndex = -1; // auto-detect on load
   final _eventsScrollCtrl = ScrollController();
 
-  List<dynamic> get _pendingApproval =>
-      widget.events.where((e) => e['status'] == 'pending_approval').toList();
-  List<dynamic> get _underReviewEvents =>
-      widget.events.where((e) => e['status'] == 'under_review').toList();
-  List<dynamic> get _draftEvents =>
-      widget.events.where((e) => e['status'] == 'draft').toList();
-  List<dynamic> get _pendingCancellations =>
-      widget.events.where((e) => e['pending_cancellation'] != null).toList();
-  List<dynamic> get _pendingExtensions =>
-      widget.events.where((e) => e['pending_extension'] != null).toList();
+  List<AdminEventItem> get _pendingApproval =>
+      widget.events.where((e) => e.status == 'pending_approval').toList();
+  List<AdminEventItem> get _underReviewEvents =>
+      widget.events.where((e) => e.status == 'under_review').toList();
+  List<AdminEventItem> get _draftEvents =>
+      widget.events.where((e) => e.status == 'draft').toList();
+  List<AdminEventItem> get _pendingCancellations =>
+      widget.events.where((e) => e.pendingCancellation != null).toList();
+  List<AdminEventItem> get _pendingExtensions =>
+      widget.events.where((e) => e.pendingExtension != null).toList();
 
-  List<dynamic> get _currentEventList {
+  List<AdminEventItem> get _currentEventList {
     switch (_eventFilterIndex) {
       case 0:
         return _pendingApproval;
@@ -72,10 +73,10 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
     }
   }
 
-  List<dynamic> get _filteredEvents {
+  List<AdminEventItem> get _filteredEvents {
     if (_eventSearch.isEmpty) return _currentEventList;
     return _currentEventList.where((e) {
-      final title = (e['title'] ?? '').toString().toLowerCase();
+      final title = (e.title ?? '').toLowerCase();
       return title.contains(_eventSearch);
     }).toList();
   }
@@ -312,7 +313,7 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
     );
   }
 
-  Widget _buildEventCard(Map<String, dynamic> e) {
+  Widget _buildEventCard(AdminEventItem e) {
     switch (_eventFilterIndex) {
       case 0:
         return _approvalCard(e);
@@ -329,11 +330,11 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
     }
   }
 
-  Widget _policyOverrideButton(Map<String, dynamic> e) {
+  Widget _policyOverrideButton(AdminEventItem e) {
     return IconButton(
       icon: const Icon(Icons.tune, size: 18),
       tooltip: 'Policy Overrides',
-      onPressed: () => _showPolicyOverridesDialog(e['id'] as int),
+      onPressed: () => _showPolicyOverridesDialog(e.id),
     );
   }
 
@@ -351,13 +352,11 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
     void loadCurrent(StateSetter setDialogState) async {
       try {
         final eventRepo = context.read<EventProvider>();
-        final eventData = await eventRepo.getEvent(eventId);
+        await eventRepo.getEvent(eventId);
         setDialogState(() {
-          for (final key in ctrls.keys) {
-            final v = eventData[key];
-            ctrls[key]!.text = v != null ? v.toString() : '';
-          }
-          current = eventData;
+          // Admin override fields are not on the Event model;
+          // controllers start empty (user fills in overrides).
+          current = {};
           loading = false;
         });
       } catch (_) {
@@ -441,7 +440,7 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
     });
   }
 
-  Widget _approvalCard(Map<String, dynamic> e) {
+  Widget _approvalCard(AdminEventItem e) {
     final warnings = getWarnings(e);
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -449,7 +448,7 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
       child: InkWell(
         borderRadius: AppRadius.md,
         onTap: () =>
-            context.push('/events/${e['id']}', extra: {'readOnly': true}),
+            context.push('/events/${e.id}', extra: {'readOnly': true}),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -459,7 +458,7 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
                 children: [
                   Expanded(
                     child: Text(
-                      e['title'] ?? 'Untitled',
+                      e.title ?? 'Untitled',
                       style: const TextStyle(
                           fontWeight: FontWeight.w700, fontSize: 16),
                     ),
@@ -474,7 +473,7 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
               ),
               const SizedBox(height: 6),
               Text(
-                'Organizer #${e['organizer_id']} • ${formatDate(e['created_at'])}',
+                'Organizer #${e.organizerId} • ${formatDate(e.createdAt)}',
                 style: TextStyle(
                     fontSize: 13,
                     color: AppTheme.textSecondaryOf(context)),
@@ -488,7 +487,7 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
                 children: [
                   Expanded(
                     child: FilledButton.icon(
-                      onPressed: () => _approveEvent(e['id'], true),
+                      onPressed: () => _approveEvent(e.id, true),
                       icon: const Icon(Icons.check, size: 18),
                       label: const Text('Approve'),
                       style: FilledButton.styleFrom(
@@ -500,8 +499,8 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
                     child: OutlinedButton.icon(
                       onPressed: () => _confirmAction(
                         'Reject Event',
-                        'Are you sure you want to reject "${e['title']}"? It will be moved back to draft.',
-                        () => _approveEvent(e['id'], false),
+                        'Are you sure you want to reject "${e.title}"? It will be moved back to draft.',
+                        () => _approveEvent(e.id, false),
                       ),
                       icon: const Icon(Icons.close, size: 18),
                       label: const Text('Reject'),
@@ -518,9 +517,9 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
     );
   }
 
-  Widget _underReviewCard(Map<String, dynamic> e) {
+  Widget _underReviewCard(AdminEventItem e) {
     final warnings = getWarnings(e);
-    final reviewLog = (e['review_log'] as List<dynamic>?) ?? [];
+    final reviewLog = e.reviewLog;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -529,7 +528,7 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
       child: InkWell(
         borderRadius: AppRadius.md,
         onTap: () =>
-            context.push('/events/${e['id']}', extra: {'readOnly': true}),
+            context.push('/events/${e.id}', extra: {'readOnly': true}),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -539,7 +538,7 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
                 children: [
                   Expanded(
                     child: Text(
-                      e['title'] ?? 'Untitled',
+                      e.title ?? 'Untitled',
                       style: const TextStyle(
                           fontWeight: FontWeight.w700, fontSize: 16),
                     ),
@@ -554,7 +553,7 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
               ),
               const SizedBox(height: 6),
               Text(
-                'Organizer #${e['organizer_id']}',
+                'Organizer #${e.organizerId}',
                 style: TextStyle(
                     fontSize: 13,
                     color: AppTheme.textSecondaryOf(context)),
@@ -631,7 +630,7 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
                   Expanded(
                     child: FilledButton.icon(
                       onPressed: () =>
-                          _showResolveDialog(e['id'], 'approved', 'Approve'),
+                          _showResolveDialog(e.id, 'approved', 'Approve'),
                       icon: const Icon(Icons.check, size: 18),
                       label: const Text('Approve'),
                       style: FilledButton.styleFrom(
@@ -642,7 +641,7 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () =>
-                          _showResolveDialog(e['id'], 'draft', '→ Draft'),
+                          _showResolveDialog(e.id, 'draft', '→ Draft'),
                       icon: const Icon(Icons.edit_note, size: 18),
                       label: const Text('→ Draft'),
                       style: OutlinedButton.styleFrom(
@@ -654,7 +653,7 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
                     child: OutlinedButton.icon(
                       onPressed: () =>
                           _showResolveDialog(
-                              e['id'], 'cancelled', 'Cancel'),
+                              e.id, 'cancelled', 'Cancel'),
                       icon: const Icon(Icons.cancel, size: 18),
                       label: const Text('Cancel'),
                       style: OutlinedButton.styleFrom(
@@ -670,7 +669,7 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
     );
   }
 
-  Widget _draftCard(Map<String, dynamic> e) {
+  Widget _draftCard(AdminEventItem e) {
     final warnings = getWarnings(e);
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -678,7 +677,7 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
       child: InkWell(
         borderRadius: AppRadius.md,
         onTap: () =>
-            context.push('/events/${e['id']}', extra: {'readOnly': true}),
+            context.push('/events/${e.id}', extra: {'readOnly': true}),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -688,7 +687,7 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
                 children: [
                   Expanded(
                     child: Text(
-                      e['title'] ?? 'Untitled',
+                      e.title ?? 'Untitled',
                       style: const TextStyle(
                           fontWeight: FontWeight.w700, fontSize: 16),
                     ),
@@ -703,7 +702,7 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
               ),
               const SizedBox(height: 6),
               Text(
-                'Organizer #${e['organizer_id']} • Capacity: ${e['max_capacity'] ?? '?'}',
+                'Organizer #${e.organizerId} • Capacity: ${e.maxCapacity ?? '?'}',
                 style: TextStyle(
                     fontSize: 13,
                     color: AppTheme.textSecondaryOf(context)),
@@ -719,9 +718,8 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
     );
   }
 
-  Widget _cancellationCard(Map<String, dynamic> e) {
-    final cancel =
-        e['pending_cancellation'] as Map<String, dynamic>? ?? {};
+  Widget _cancellationCard(AdminEventItem e) {
+    final cancel = e.pendingCancellation ?? {};
     final reason = cancel['reason'] ?? 'No reason given';
     final pct = cancel['pledge_percent'];
     final contextLabel = pct != null
@@ -735,7 +733,7 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
       child: InkWell(
         borderRadius: AppRadius.md,
         onTap: () =>
-            context.push('/events/${e['id']}', extra: {'readOnly': true}),
+            context.push('/events/${e.id}', extra: {'readOnly': true}),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -745,7 +743,7 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
                 children: [
                   Expanded(
                     child: Text(
-                      e['title'] ?? 'Untitled',
+                      e.title ?? 'Untitled',
                       style: const TextStyle(
                           fontWeight: FontWeight.w700, fontSize: 16),
                     ),
@@ -772,8 +770,8 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
                     child: FilledButton.icon(
                       onPressed: () => _confirmAction(
                         'Approve Cancellation',
-                        'Are you sure you want to approve the cancellation of "${e['title']}"?',
-                        () => _decideCancellation(e['id'], 'approve'),
+                        'Are you sure you want to approve the cancellation of "${e.title}"?',
+                        () => _decideCancellation(e.id, 'approve'),
                       ),
                       icon: const Icon(Icons.check, size: 18),
                       label: const Text('Approve Cancel'),
@@ -785,7 +783,7 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () =>
-                          _decideCancellation(e['id'], 'reject'),
+                          _decideCancellation(e.id, 'reject'),
                       icon: const Icon(Icons.shield, size: 18),
                       label: const Text('Keep Event'),
                       style: OutlinedButton.styleFrom(
@@ -801,15 +799,15 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
     );
   }
 
-  Widget _extensionCard(Map<String, dynamic> e) {
-    final ext = e['pending_extension'] as Map<String, dynamic>?;
+  Widget _extensionCard(AdminEventItem e) {
+    final ext = e.pendingExtension;
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(borderRadius: AppRadius.md),
       child: InkWell(
         borderRadius: AppRadius.md,
         onTap: () =>
-            context.push('/events/${e['id']}', extra: {'readOnly': true}),
+            context.push('/events/${e.id}', extra: {'readOnly': true}),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -819,7 +817,7 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
                 children: [
                   Expanded(
                     child: Text(
-                      e['title'] ?? 'Untitled',
+                      e.title ?? 'Untitled',
                       style: const TextStyle(
                           fontWeight: FontWeight.w700, fontSize: 16),
                     ),
@@ -831,7 +829,7 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
               ),
               const SizedBox(height: 6),
               Text(
-                'Status: ${e['status']}',
+                'Status: ${e.status}',
                 style: TextStyle(
                     fontSize: 13,
                     color: AppTheme.textSecondaryOf(context)),
@@ -855,7 +853,7 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
                   Expanded(
                     child: FilledButton.icon(
                       onPressed: () =>
-                          _decideExtension(e['id'], 'approve'),
+                          _decideExtension(e.id, 'approve'),
                       icon: const Icon(Icons.check, size: 18),
                       label: const Text('Approve'),
                       style: FilledButton.styleFrom(
@@ -868,7 +866,7 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
                       onPressed: () => _confirmAction(
                         'Reject Extension',
                         'Are you sure you want to reject this extension request?',
-                        () => _decideExtension(e['id'], 'reject'),
+                        () => _decideExtension(e.id, 'reject'),
                       ),
                       icon: const Icon(Icons.close, size: 18),
                       label: const Text('Reject'),

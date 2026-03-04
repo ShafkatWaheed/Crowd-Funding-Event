@@ -50,7 +50,7 @@ class SponsorRepository extends BaseRepository {
 
   // ── Organizer: My Sponsors ───────────────────────────────────────────
 
-  Future<List<Map<String, dynamic>>> getOrganizerSponsors({
+  Future<List<OrganizerSponsorItem>> getOrganizerSponsors({
     String? eventStatus,
     String? genre,
     int? eventId,
@@ -64,14 +64,18 @@ class SponsorRepository extends BaseRepository {
       'offset': offset,
       'limit': limit,
     });
-    return (resp.data as List).cast<Map<String, dynamic>>();
+    return (resp.data as List)
+        .map((e) => OrganizerSponsorItem.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
   }
 
-  Future<List<Map<String, dynamic>>> getSponsorEventsForOrganizer(
+  Future<List<SponsorEventItem>> getSponsorEventsForOrganizer(
       int sponsorUserId) async {
     final resp =
         await dio.get('/me/organizer-sponsors/$sponsorUserId/events');
-    return (resp.data as List).cast<Map<String, dynamic>>();
+    return (resp.data as List)
+        .map((e) => SponsorEventItem.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
   }
 
   // ── Sponsorship Categories ───────────────────────────────────────────
@@ -157,17 +161,17 @@ class SponsorRepository extends BaseRepository {
 
   // ── Sponsor Payments ─────────────────────────────────────────────────
 
-  Future<Map<String, dynamic>> payBid(
+  Future<SponsorPayment> payBid(
       int eventId, int catId, int bidId) async {
     final resp = await dio
         .post('/events/$eventId/sponsorships/$catId/bids/$bidId/pay');
-    return resp.data;
+    return SponsorPayment.fromJson(Map<String, dynamic>.from(resp.data as Map));
   }
 
-  Future<Map<String, dynamic>> getSponsorPaymentReceipt(
+  Future<SponsorPaymentReceipt> getSponsorPaymentReceipt(
       int paymentId) async {
     final resp = await dio.get('/payments/$paymentId/receipt');
-    return resp.data;
+    return SponsorPaymentReceipt.fromJson(Map<String, dynamic>.from(resp.data as Map));
   }
 
   // ── Sponsor Tickets ──────────────────────────────────────────────────
@@ -193,10 +197,12 @@ class SponsorRepository extends BaseRepository {
     return resp.data;
   }
 
-  Future<List<Map<String, dynamic>>> getScannedSponsorTickets(int eventId) async {
+  Future<List<ScannedSponsorTicket>> getScannedSponsorTickets(int eventId) async {
     final resp =
         await dio.get('/events/$eventId/scanned-sponsor-tickets');
-    return (resp.data as List).cast<Map<String, dynamic>>();
+    return (resp.data as List)
+        .map((e) => ScannedSponsorTicket.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
   }
 
   // ── Sponsor Delegates ────────────────────────────────────────────────
@@ -209,7 +215,7 @@ class SponsorRepository extends BaseRepository {
         .toList();
   }
 
-  Future<Map<String, dynamic>> addDelegate(
+  Future<SponsorDelegate> addDelegate(
       int ticketId, String name,
       {String? email, String? phone}) async {
     final resp = await dio
@@ -218,7 +224,7 @@ class SponsorRepository extends BaseRepository {
       if (email != null) 'email': email,
       if (phone != null) 'phone': phone,
     });
-    return resp.data;
+    return SponsorDelegate.fromJson(Map<String, dynamic>.from(resp.data as Map));
   }
 
   Future<void> removeDelegate(int ticketId, int delegateId) async {
@@ -235,14 +241,16 @@ class SponsorRepository extends BaseRepository {
 
   // ── Public Sponsors ──────────────────────────────────────────────────
 
-  Future<List<Map<String, dynamic>>> getEventSponsors(int eventId) async {
+  Future<List<EventSponsor>> getEventSponsors(int eventId) async {
     final resp = await dio.get('/events/$eventId/sponsors');
-    return (resp.data as List).cast<Map<String, dynamic>>();
+    return (resp.data as List)
+        .map((e) => EventSponsor.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
   }
 
   // ── Prerequisites ────────────────────────────────────────────────────
 
-  Future<Map<String, dynamic>> createPrerequisite(
+  Future<CategoryPrerequisite> createPrerequisite(
       int eventId, int catId,
       {required String name,
       String? description,
@@ -257,13 +265,15 @@ class SponsorRepository extends BaseRepository {
     final resp = await dio.post(
         '/events/$eventId/sponsorships/$catId/prerequisites',
         data: formData);
-    return resp.data;
+    return CategoryPrerequisite.fromJson(Map<String, dynamic>.from(resp.data as Map));
   }
 
-  Future<List<Map<String, dynamic>>> listPrerequisites(int eventId, int catId) async {
+  Future<List<CategoryPrerequisite>> listPrerequisites(int eventId, int catId) async {
     final resp = await dio
         .get('/events/$eventId/sponsorships/$catId/prerequisites');
-    return (resp.data as List).cast<Map<String, dynamic>>();
+    return (resp.data as List)
+        .map((e) => CategoryPrerequisite.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
   }
 
   Future<void> deletePrerequisite(
@@ -283,9 +293,11 @@ class SponsorRepository extends BaseRepository {
     return resp.data;
   }
 
-  Future<List<Map<String, dynamic>>> listBidPrerequisiteUploads(int bidId) async {
+  Future<List<BidPrerequisiteUpload>> listBidPrerequisiteUploads(int bidId) async {
     final resp = await dio.get('/bids/$bidId/prerequisites');
-    return (resp.data as List).cast<Map<String, dynamic>>();
+    return (resp.data as List)
+        .map((e) => BidPrerequisiteUpload.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
   }
 
   Future<Map<String, dynamic>> uploadCategoryPrerequisite(

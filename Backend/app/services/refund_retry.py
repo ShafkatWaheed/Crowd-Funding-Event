@@ -22,8 +22,7 @@ async def retry_ticket_refund(db: AsyncSession, ticket_sale_id: int) -> None:
     if sale.status != TicketSaleStatus.refund_failed:
         raise ConflictError(f"Ticket #{ticket_sale_id} is not in refund_failed status")
 
-    sale.status = TicketSaleStatus.refund_processing
-    await ticket_repo.flush(db)
+    await ticket_repo.update_sale_status(db, sale, TicketSaleStatus.refund_processing)
 
     from app.worker.redis_pool import enqueue
     await enqueue("process_ticket_refund", ticket_sale_id)
@@ -37,8 +36,7 @@ async def retry_pledge_refund(db: AsyncSession, funding_id: int) -> None:
     if funding.status != FundingStatus.refund_failed:
         raise ConflictError(f"Pledge #{funding_id} is not in refund_failed status")
 
-    funding.status = FundingStatus.refund_processing
-    await funding_repo.flush(db)
+    await funding_repo.update_status(db, funding, FundingStatus.refund_processing)
 
     from app.worker.redis_pool import enqueue
     await enqueue("process_pledge_refund", funding_id)
@@ -52,8 +50,7 @@ async def retry_sponsor_refund(db: AsyncSession, payment_id: int) -> None:
     if payment.status != PaymentStatus.refund_failed:
         raise ConflictError(f"SponsorPayment #{payment_id} is not in refund_failed status")
 
-    payment.status = PaymentStatus.refund_processing
-    await sponsor_repo.flush(db)
+    await sponsor_repo.update_payment_status(db, payment, PaymentStatus.refund_processing)
 
     from app.worker.redis_pool import enqueue
     await enqueue("process_sponsor_refund", payment_id)

@@ -66,8 +66,8 @@ class _MilestoneTimelineState extends State<MilestoneTimeline> {
         try {
           final discounts = await ticketRepo.getEventDiscounts(widget.eventId);
           for (final d in discounts) {
-            if (d['discount_type'] == 'funding_milestone' && d['milestone_percent'] != null) {
-              discMap[d['milestone_percent'] as int] = d['milestone_discount_value'] ?? d['value'] ?? 0;
+            if (d.discountType == 'funding_milestone' && d.milestonePercent != null) {
+              discMap[d.milestonePercent!] = d.milestoneDiscountValue ?? d.value;
             }
           }
         } catch (e) { debugPrint(e.toString()); }
@@ -93,8 +93,7 @@ class _MilestoneTimelineState extends State<MilestoneTimeline> {
           await repo.reactToMilestone(widget.eventId, milestoneId, reaction);
       if (mounted) {
         setState(() {
-          final action = resp['action'];
-          _myReactions[milestoneId] = action == 'removed' ? null : reaction;
+          _myReactions[milestoneId] = resp.action == 'removed' ? null : reaction;
           final idx = _milestones.indexWhere((m) => m.id == milestoneId);
           if (idx != -1) {
             final old = _milestones[idx];
@@ -106,8 +105,8 @@ class _MilestoneTimelineState extends State<MilestoneTimeline> {
               unlockPercent: old.unlockPercent,
               benefitDescription: old.benefitDescription,
               sortOrder: old.sortOrder,
-              likeCount: resp['like_count'] ?? old.likeCount,
-              dislikeCount: resp['dislike_count'] ?? old.dislikeCount,
+              likeCount: resp.likeCount,
+              dislikeCount: resp.dislikeCount,
               isUnlocked: old.isUnlocked,
               createdAt: old.createdAt,
             );

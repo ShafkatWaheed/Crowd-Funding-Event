@@ -278,10 +278,12 @@ async def review_prerequisite_upload(
     upload = await sponsor_repo.get_bid_prerequisite_upload(db, bid_id, prereq_id)
     if not upload:
         raise HTTPException(status_code=404, detail="Upload not found")
-    upload.status = UploadStatus(status)
-    upload.reviewed_at = datetime.now(timezone.utc)
-    upload.reviewer_note = reviewer_note
-    upload = await sponsor_repo.update_prerequisite_upload(db, upload)
+    upload = await sponsor_repo.update_prerequisite_upload(
+        db, upload,
+        status=UploadStatus(status),
+        reviewed_at=datetime.now(timezone.utc),
+        reviewer_note=reviewer_note,
+    )
     return {"id": upload.id, "status": upload.status.value, "reviewer_note": upload.reviewer_note}
 
 

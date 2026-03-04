@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../../../../config/design_tokens.dart';
 import '../../../../config/theme.dart';
+import '../../../../models/dashboard.dart';
 import '../../../../widgets/animated_list_item.dart';
 import 'dashboard_helpers.dart';
 
 class DashboardKpiSection extends StatelessWidget {
-  final Map<String, dynamic> dashboardData;
+  final OrganizerDashboard dashboardData;
   final String dashboardPeriod;
   final void Function(String period) onPeriodChanged;
   final void Function(String basePath) onNavigate;
@@ -21,12 +22,12 @@ class DashboardKpiSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final revenue = dashboardData['total_revenue'] as Map<String, dynamic>;
-    final tickets = dashboardData['tickets_sold'] as Map<String, dynamic>;
-    final backers = dashboardData['total_backers'] as Map<String, dynamic>;
-    final refundRate = dashboardData['refund_rate'] as Map<String, dynamic>?;
-    final events = dashboardData['total_events'] as Map<String, dynamic>;
-    final sponsors = dashboardData['total_sponsors'] as Map<String, dynamic>?;
+    final revenue = dashboardData.totalRevenue;
+    final tickets = dashboardData.ticketsSold;
+    final backers = dashboardData.totalBackers;
+    final refundRate = dashboardData.refundRate;
+    final events = dashboardData.totalEvents;
+    final sponsors = dashboardData.totalSponsors;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -82,9 +83,8 @@ class DashboardKpiSection extends StatelessWidget {
                   child: _DashboardKpiCard(
                     icon: Icons.attach_money_rounded,
                     label: 'Total Revenue',
-                    value: dashFormatCents(revenue['value'] as int? ?? 0),
-                    deltaPercent:
-                        (revenue['delta_percent'] as num?)?.toDouble(),
+                    value: dashFormatCents(revenue.value),
+                    deltaPercent: revenue.deltaPercent,
                     accentColor: AppTheme.successColor,
                   ),
                 ),
@@ -93,9 +93,8 @@ class DashboardKpiSection extends StatelessWidget {
                   child: _DashboardKpiCard(
                     icon: Icons.confirmation_number_rounded,
                     label: 'Tickets Sold',
-                    value: '${tickets['value'] ?? 0}',
-                    deltaPercent:
-                        (tickets['delta_percent'] as num?)?.toDouble(),
+                    value: '${tickets.value}',
+                    deltaPercent: tickets.deltaPercent,
                     accentColor: context.ticketAccent,
                     onTap: () => onNavigate('/manage/ticket-sales'),
                   ),
@@ -112,9 +111,8 @@ class DashboardKpiSection extends StatelessWidget {
                   child: _DashboardKpiCard(
                     icon: Icons.volunteer_activism_rounded,
                     label: 'Total Backers',
-                    value: '${backers['value'] ?? 0}',
-                    deltaPercent:
-                        (backers['delta_percent'] as num?)?.toDouble(),
+                    value: '${backers.value}',
+                    deltaPercent: backers.deltaPercent,
                     accentColor: context.fundingAccent,
                     onTap: () => onNavigate('/manage/pledges'),
                   ),
@@ -124,9 +122,8 @@ class DashboardKpiSection extends StatelessWidget {
                   child: _DashboardKpiCard(
                     icon: Icons.handshake_rounded,
                     label: 'Total Sponsors',
-                    value: '${sponsors?['value'] ?? 0}',
-                    deltaPercent:
-                        (sponsors?['delta_percent'] as num?)?.toDouble(),
+                    value: '${sponsors.value}',
+                    deltaPercent: sponsors.deltaPercent,
                     accentColor: context.sponsorAccent,
                     onTap: () => onNavigate('/manage/sponsors'),
                   ),
@@ -143,9 +140,8 @@ class DashboardKpiSection extends StatelessWidget {
                   child: _DashboardKpiCard(
                     icon: Icons.event_rounded,
                     label: 'Total Events',
-                    value: '${events['value'] ?? 0}',
-                    deltaPercent:
-                        (events['delta_percent'] as num?)?.toDouble(),
+                    value: '${events.value}',
+                    deltaPercent: events.deltaPercent,
                     accentColor: context.managementAccent,
                     isActive: false,
                     onTap: () => onNavigate('/events'),
@@ -157,9 +153,8 @@ class DashboardKpiSection extends StatelessWidget {
                     icon: Icons.undo_rounded,
                     label: 'Refund Rate',
                     value:
-                        '${(refundRate?['value'] as num?)?.toStringAsFixed(1) ?? '0.0'}%',
-                    deltaPercent:
-                        (refundRate?['delta_percent'] as num?)?.toDouble(),
+                        '${refundRate.value.toStringAsFixed(1)}%',
+                    deltaPercent: refundRate.deltaPercent,
                     accentColor: AppTheme.errorColor,
                     invertDelta: true,
                   ),

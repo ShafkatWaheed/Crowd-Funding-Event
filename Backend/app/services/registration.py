@@ -91,8 +91,8 @@ async def register(
 
     reg = await registration_repo.create_registration(db, event_id, user.id, target_status)
     if target_status == RegistrationStatus.registered:
-        event.registration_count = (event.registration_count or 0) + 1
-        await registration_repo.flush(db)
+        from app.repositories.event_repo import event_repo
+        await event_repo.update_fields(db, event, registration_count=(event.registration_count or 0) + 1)
     logger.info("User registered", extra={"event_id": event_id, "user_id": user.id, "status": target_status.value})
     return reg
 
@@ -231,9 +231,9 @@ async def unregister(
             db, event_id=event_id, user_id=user.id
         )
 
-    reg.status = RegistrationStatus.cancelled
-    event.registration_count = max(0, (event.registration_count or 1) - 1)
-    await registration_repo.flush(db)
+    await registration_repo.update_registration_status(db, reg, RegistrationStatus.cancelled)
+    from app.repositories.event_repo import event_repo
+    await event_repo.update_fields(db, event, registration_count=max(0, (event.registration_count or 1) - 1))
     logger.info("User unregistered", extra={"event_id": event_id, "user_id": user.id, "refunded_cents": refunded_cents, "pledges_refunded": pledges_refunded, "refund_eligible": refund_eligible})
     return {"refunded_cents": refunded_cents, "pledges_refunded": pledges_refunded, "refund_eligible": refund_eligible}
 

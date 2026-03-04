@@ -641,8 +641,10 @@ class SponsorRepository(BaseRepository[SponsorBid]):
         return upload
 
     async def update_prerequisite_upload(
-        self, db: AsyncSession, upload: BidPrerequisiteUpload
+        self, db: AsyncSession, upload: BidPrerequisiteUpload, **kwargs,
     ) -> BidPrerequisiteUpload:
+        for key, value in kwargs.items():
+            setattr(upload, key, value)
         await db.flush()
         await db.refresh(upload)
         return upload
@@ -1160,6 +1162,22 @@ class SponsorRepository(BaseRepository[SponsorBid]):
             .order_by(SponsorTicket.scanned_at.desc())
         )
         return list((await db.execute(q)).scalars().all())
+
+
+    async def complete_payment_refund(
+        self, db: AsyncSession, payment: SponsorPayment, gateway_refund_id: str,
+    ) -> None:
+        """Mark a sponsor payment as refunded with the gateway refund ID."""
+        payment.gateway_refund_id = gateway_refund_id
+        payment.status = PaymentStatus.refunded
+        await db.flush()
+
+    async def update_payment_status(
+        self, db: AsyncSession, payment: SponsorPayment, status: PaymentStatus,
+    ) -> None:
+        """Set a sponsor payment's status and flush."""
+        payment.status = status
+        await db.flush()
 
 
 # Module-level singleton

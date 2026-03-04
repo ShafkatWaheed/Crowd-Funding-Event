@@ -70,12 +70,11 @@ async def approve_or_reject_event(
             raise ConflictError(
                 "Event must have a funding goal or at least one ticket tier before approval"
             )
-        event.status = EventStatus.approved
+        await event_repo.update_fields(db, event, status=EventStatus.approved)
         logger.info("Event approved", extra={"event_id": event_id})
     else:
-        event.status = EventStatus.draft
+        await event_repo.update_fields(db, event, status=EventStatus.draft)
         logger.info("Event rejected", extra={"event_id": event_id})
-    await admin_repo.flush_and_refresh(db, event)
     return event
 
 
@@ -95,17 +94,19 @@ async def resolve_review(
     if target_status not in allowed:
         raise ConflictError(f"Invalid target status '{target_status}'")
 
-    event.status = EventStatus(target_status)
-    event.review_notes = notes or f"Resolved by admin → {target_status}"
-    event.review_log = (event.review_log or []) + [{
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "actor": f"admin:{admin_email}",
-        "action": "resolved",
-        "from_status": "under_review",
-        "to_status": target_status,
-        "message": notes or f"Resolved → {target_status}",
-    }]
-    await event_repo.flush(db)
+    await event_repo.update_fields(
+        db, event,
+        status=EventStatus(target_status),
+        review_notes=notes or f"Resolved by admin → {target_status}",
+        review_log=(event.review_log or []) + [{
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "actor": f"admin:{admin_email}",
+            "action": "resolved",
+            "from_status": "under_review",
+            "to_status": target_status,
+            "message": notes or f"Resolved → {target_status}",
+        }],
+    )
 
     notif_msg = f'Your event "{event.title}" has been reviewed and moved to {target_status.replace("_", " ")}.'
     if notes:
@@ -140,10 +141,9 @@ async def set_policy_overrides(
         old_val = getattr(event, field, None)
         if new_val != old_val:
             changes[field] = {"old": old_val, "new": new_val}
-            setattr(event, field, new_val)
 
     if changes:
-        await event_repo.flush(db)
+        await event_repo.update_fields(db, event, **{f: c["new"] for f, c in changes.items()})
         await audit_svc.log_action(
             db,
             admin_id=admin_id,

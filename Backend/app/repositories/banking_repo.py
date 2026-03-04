@@ -417,5 +417,13 @@ class BankingRepository:
         return list((await db.execute(q)).scalars().all())
 
 
+    async def verify_bank_account(
+        self, db: AsyncSession, account: OrganizerBankAccount,
+    ) -> None:
+        """Mark a bank account as verified and flush."""
+        account.verified = True
+        await db.flush()
+
+
 # Module-level singleton
 banking_repo = BankingRepository()

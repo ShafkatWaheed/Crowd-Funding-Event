@@ -94,6 +94,14 @@ class EventRepository(BaseRepository[Event]):
         await db.refresh(event)
         return event
 
+    async def update_fields(self, db: AsyncSession, event: Event, **kwargs) -> Event:
+        """Set arbitrary fields on an event and flush."""
+        for key, value in kwargs.items():
+            setattr(event, key, value)
+        await db.flush()
+        await db.refresh(event)
+        return event
+
     async def flush_event(self, db: AsyncSession) -> None:
         """Flush pending changes without refresh."""
         await db.flush()

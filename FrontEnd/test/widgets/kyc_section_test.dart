@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
+import '../../lib/models/user.dart';
 import '../../lib/providers/user_provider.dart';
 import '../../lib/repositories/user_repository.dart';
 import '../../lib/widgets/kyc_section.dart';
@@ -26,23 +27,23 @@ void main() {
     );
   }
 
-  Map<String, dynamic> kycResponse({
+  KycStatus kycResponse({
     String status = 'not_started',
     bool verified = false,
     bool required = false,
-    List<Map<String, dynamic>> documents = const [],
+    List<KycDocument> documents = const [],
   }) =>
-      {
-        'kyc_status': status,
-        'kyc_verified': verified,
-        'kyc_required_for_role': required,
-        'documents': documents,
-      };
+      KycStatus(
+        kycStatus: status,
+        kycVerified: verified,
+        kycRequiredForRole: required,
+        documents: documents,
+      );
 
   group('KycSection', () {
     testWidgets('shows loading indicator while fetching', (tester) async {
       // Use a Completer that never completes — avoids pending Timer teardown errors.
-      final completer = Completer<Map<String, dynamic>>();
+      final completer = Completer<KycStatus>();
       when(() => mockUserRepo.getKycStatus()).thenAnswer((_) => completer.future);
 
       await pumpKyc(tester);
@@ -123,13 +124,13 @@ void main() {
       when(() => mockUserRepo.getKycStatus()).thenAnswer((_) async => kycResponse(
             status: 'rejected',
             documents: [
-              {
-                'document_type': 'id_front',
-                'original_filename': 'id.jpg',
-                'status': 'rejected',
-                'id': 1,
-                'rejection_reason': 'Image is blurry',
-              },
+              KycDocument(
+                id: 1,
+                documentType: 'id_front',
+                originalFilename: 'id.jpg',
+                status: 'rejected',
+                rejectionReason: 'Image is blurry',
+              ),
             ],
           ));
 
@@ -145,12 +146,12 @@ void main() {
       when(() => mockUserRepo.getKycStatus()).thenAnswer((_) async => kycResponse(
             status: 'not_started',
             documents: [
-              {
-                'document_type': 'id_front',
-                'original_filename': 'my_id.jpg',
-                'status': 'pending',
-                'id': 10,
-              },
+              KycDocument(
+                id: 10,
+                documentType: 'id_front',
+                originalFilename: 'my_id.jpg',
+                status: 'pending',
+              ),
             ],
           ));
 
@@ -169,8 +170,8 @@ void main() {
       when(() => mockUserRepo.getKycStatus()).thenAnswer((_) async => kycResponse(
             status: 'not_started',
             documents: [
-              {'document_type': 'id_front', 'original_filename': 'a.jpg', 'status': 'pending', 'id': 1},
-              {'document_type': 'proof_of_address', 'original_filename': 'b.pdf', 'status': 'pending', 'id': 2},
+              KycDocument(id: 1, documentType: 'id_front', originalFilename: 'a.jpg', status: 'pending'),
+              KycDocument(id: 2, documentType: 'proof_of_address', originalFilename: 'b.pdf', status: 'pending'),
             ],
           ));
 
@@ -188,8 +189,8 @@ void main() {
       when(() => mockUserRepo.getKycStatus()).thenAnswer((_) async => kycResponse(
             status: 'not_started',
             documents: [
-              {'document_type': 'id_front', 'original_filename': 'a.jpg', 'status': 'pending', 'id': 1},
-              {'document_type': 'proof_of_address', 'original_filename': 'b.pdf', 'status': 'pending', 'id': 2},
+              KycDocument(id: 1, documentType: 'id_front', originalFilename: 'a.jpg', status: 'pending'),
+              KycDocument(id: 2, documentType: 'proof_of_address', originalFilename: 'b.pdf', status: 'pending'),
             ],
           ));
       when(() => mockUserRepo.submitKyc())
@@ -214,7 +215,7 @@ void main() {
       when(() => mockUserRepo.getKycStatus()).thenAnswer((_) async => kycResponse(
             status: 'not_started',
             documents: [
-              {'document_type': 'id_front', 'original_filename': 'a.jpg', 'status': 'pending', 'id': 42},
+              KycDocument(id: 42, documentType: 'id_front', originalFilename: 'a.jpg', status: 'pending'),
             ],
           ));
       when(() => mockUserRepo.deleteKycDocument(42)).thenAnswer((_) async => {});

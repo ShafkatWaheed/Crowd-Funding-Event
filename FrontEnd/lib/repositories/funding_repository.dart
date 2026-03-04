@@ -1,4 +1,5 @@
 import '../models/funding.dart';
+import '../models/receipt.dart';
 import 'base_repository.dart';
 
 class FundingRepository extends BaseRepository {
@@ -24,7 +25,7 @@ class FundingRepository extends BaseRepository {
     return FundingSummary.fromJson(Map<String, dynamic>.from(r.data as Map));
   }
 
-  Future<Map<String, dynamic>> getPledgePreview(
+  Future<PledgePreview> getPledgePreview(
     int eventId,
     int amountCents,
     int reservedSpots,
@@ -33,7 +34,7 @@ class FundingRepository extends BaseRepository {
       'amount_cents': amountCents,
       'reserved_spots': reservedSpots,
     });
-    return Map<String, dynamic>.from(r.data as Map);
+    return PledgePreview.fromJson(Map<String, dynamic>.from(r.data as Map));
   }
 
   Future<Pledge> pledge(
@@ -56,19 +57,19 @@ class FundingRepository extends BaseRepository {
     return Map<String, dynamic>.from(r.data as Map);
   }
 
-  Future<Map<String, dynamic>> getPledgeReceipt(int eventId, int pledgeId) async {
+  Future<PledgeReceipt> getPledgeReceipt(int eventId, int pledgeId) async {
     final r = await dio.get('/events/$eventId/pledges/$pledgeId/receipt');
-    return Map<String, dynamic>.from(r.data as Map);
+    return PledgeReceipt.fromJson(Map<String, dynamic>.from(r.data as Map));
   }
 
-  Future<Map<String, dynamic>> getMyPledgeReceipt(int pledgeId) async {
+  Future<PledgeReceipt> getMyPledgeReceipt(int pledgeId) async {
     final r = await dio.get('/me/pledges/$pledgeId/receipt');
-    return Map<String, dynamic>.from(r.data as Map);
+    return PledgeReceipt.fromJson(Map<String, dynamic>.from(r.data as Map));
   }
 
-  Future<Map<String, dynamic>> getRefundStatus(int eventId) async {
+  Future<RefundStatus> getRefundStatus(int eventId) async {
     final r = await dio.get('/events/$eventId/refund-status');
-    return Map<String, dynamic>.from(r.data as Map);
+    return RefundStatus.fromJson(Map<String, dynamic>.from(r.data as Map));
   }
 
   Future<PaginatedResult<Pledge>> getOrganizerPledges({

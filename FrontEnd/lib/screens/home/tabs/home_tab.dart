@@ -111,25 +111,17 @@ class _HomeTabState extends State<HomeTab> {
               'community_rules': 'true',
               if (isSponsor) 'sponsorship_only': true,
             }).then((r) {
-          return (r['items'] as List?) ?? [];
+          return r.items;
         }),
       ]);
-      final data = results[0] as Map<String, dynamic>;
-      final communityList = results[1] as List;
+      final data = results[0] as FeaturedEvents;
+      final communityList = results[1] as List<Event>;
       if (mounted) {
         setState(() {
-          _trending = (data['trending'] as List? ?? [])
-              .map((e) => Event.fromJson(e))
-              .toList();
-          _popular = (data['popular'] as List? ?? [])
-              .map((e) => Event.fromJson(e))
-              .toList();
-          _comingSoon = (data['coming_soon'] as List? ?? [])
-              .map((e) => Event.fromJson(e))
-              .toList();
-          _communityEvents = communityList
-              .map((e) => Event.fromJson(e))
-              .toList();
+          _trending = data.trending;
+          _popular = data.popular;
+          _comingSoon = data.comingSoon;
+          _communityEvents = communityList;
           _featuredLoading = false;
           _isOffline = false;
         });
@@ -236,9 +228,8 @@ class _HomeTabState extends State<HomeTab> {
           final result = await repo.getEvents(params: {
             if (isSponsor) 'sponsorship_only': true,
           });
-          final allEvents = (result['items'] as List?) ?? [];
-          for (final e in allEvents) {
-            final ev = Event.fromJson(e as Map<String, dynamic>);
+          final allEvents = result.items;
+          for (final ev in allEvents) {
             if (ids.contains(ev.id)) fullEvents.add(ev);
           }
           setState(() => _nearMeEvents = fullEvents);

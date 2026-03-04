@@ -1,10 +1,28 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import '../../lib/models/notification_model.dart';
 import '../../lib/providers/notification_provider.dart';
 import '../../lib/repositories/notification_repository.dart';
 
 class MockNotificationRepository extends Mock
     implements NotificationRepository {}
+
+AppNotification _makeNotification({
+  required int id,
+  String type = 'test',
+  String title = 'Test',
+  String message = 'msg',
+  bool isRead = false,
+  String createdAt = '2025-01-01T00:00:00',
+}) =>
+    AppNotification(
+      id: id,
+      type: type,
+      title: title,
+      message: message,
+      isRead: isRead,
+      createdAt: DateTime.parse(createdAt),
+    );
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -35,20 +53,8 @@ void main() {
             offset: any(named: 'offset'),
             limit: any(named: 'limit'),
           )).thenAnswer((_) async => [
-            {
-              'id': 1,
-              'type': 'pledge_confirmed',
-              'title': 'Pledge Confirmed',
-              'message': 'Your pledge was confirmed.',
-              'is_read': false,
-            },
-            {
-              'id': 2,
-              'type': 'event_approved',
-              'title': 'Event Approved',
-              'message': 'Your event was approved.',
-              'is_read': true,
-            },
+            _makeNotification(id: 1, type: 'pledge_confirmed', title: 'Pledge Confirmed', message: 'Your pledge was confirmed.'),
+            _makeNotification(id: 2, type: 'event_approved', title: 'Event Approved', message: 'Your event was approved.', isRead: true),
           ]);
 
       await provider.loadNotifications();
@@ -64,7 +70,7 @@ void main() {
             offset: any(named: 'offset'),
             limit: any(named: 'limit'),
           )).thenAnswer((_) async => [
-            {'id': 1, 'type': 'test', 'title': 'N1', 'message': 'msg', 'is_read': false},
+            _makeNotification(id: 1),
           ]);
       await provider.loadNotifications();
       expect(provider.notifications.length, 1);
@@ -75,7 +81,7 @@ void main() {
             offset: any(named: 'offset'),
             limit: any(named: 'limit'),
           )).thenAnswer((_) async => [
-            {'id': 2, 'type': 'test', 'title': 'N2', 'message': 'msg', 'is_read': false},
+            _makeNotification(id: 2),
           ]);
       await provider.loadNotifications(offset: 1);
 
@@ -89,7 +95,7 @@ void main() {
             offset: any(named: 'offset'),
             limit: any(named: 'limit'),
           )).thenAnswer((_) async => [
-            {'id': 1, 'type': 'test', 'title': 'N1', 'message': 'msg', 'is_read': false},
+            _makeNotification(id: 1, isRead: false),
           ]);
       await provider.loadNotifications();
 
@@ -98,7 +104,7 @@ void main() {
 
       await provider.markRead(1);
 
-      expect(provider.notifications[0]['is_read'], true);
+      expect(provider.notifications[0].isRead, true);
     });
 
     test('markAllRead clears all unread', () async {
@@ -107,8 +113,8 @@ void main() {
             offset: any(named: 'offset'),
             limit: any(named: 'limit'),
           )).thenAnswer((_) async => [
-            {'id': 1, 'type': 'test', 'title': 'N1', 'message': 'msg', 'is_read': false},
-            {'id': 2, 'type': 'test', 'title': 'N2', 'message': 'msg', 'is_read': false},
+            _makeNotification(id: 1, isRead: false),
+            _makeNotification(id: 2, isRead: false),
           ]);
       await provider.loadNotifications();
 
@@ -117,7 +123,7 @@ void main() {
       await provider.markAllRead();
 
       expect(provider.unreadCount, 0);
-      expect(provider.notifications.every((n) => n['is_read'] == true), true);
+      expect(provider.notifications.every((n) => n.isRead), true);
     });
 
     test('deleteNotification removes from list', () async {
@@ -126,8 +132,8 @@ void main() {
             offset: any(named: 'offset'),
             limit: any(named: 'limit'),
           )).thenAnswer((_) async => [
-            {'id': 1, 'type': 'test', 'title': 'N1', 'message': 'msg', 'is_read': false},
-            {'id': 2, 'type': 'test', 'title': 'N2', 'message': 'msg', 'is_read': true},
+            _makeNotification(id: 1, isRead: false),
+            _makeNotification(id: 2, isRead: true),
           ]);
       await provider.loadNotifications();
 
@@ -136,7 +142,7 @@ void main() {
       await provider.deleteNotification(1);
 
       expect(provider.notifications.length, 1);
-      expect(provider.notifications[0]['id'], 2);
+      expect(provider.notifications[0].id, 2);
     });
 
     test('deleteNotification decrements unread count for unread item', () async {
@@ -145,7 +151,7 @@ void main() {
             offset: any(named: 'offset'),
             limit: any(named: 'limit'),
           )).thenAnswer((_) async => [
-            {'id': 1, 'type': 'test', 'title': 'N1', 'message': 'msg', 'is_read': false},
+            _makeNotification(id: 1, isRead: false),
           ]);
       await provider.loadNotifications();
 

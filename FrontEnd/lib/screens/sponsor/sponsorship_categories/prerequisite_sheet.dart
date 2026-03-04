@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
+import '../../../models/sponsor.dart';
 import '../../../repositories/base_repository.dart';
 import '../../../providers/sponsor_provider.dart';
 import '../../../widgets/app_toast.dart';
@@ -25,7 +26,7 @@ class PrerequisiteSheet extends StatefulWidget {
 }
 
 class _PrerequisiteSheetState extends State<PrerequisiteSheet> {
-  List<Map<String, dynamic>> _prereqs = [];
+  List<CategoryPrerequisite> _prereqs = [];
   bool _loading = true;
 
   @override
@@ -209,7 +210,7 @@ class _PrerequisiteSheetState extends State<PrerequisiteSheet> {
                           separatorBuilder: (_, __) => const SizedBox(height: 8),
                           itemBuilder: (ctx, i) {
                             final p = _prereqs[i];
-                            final required_ = p['is_required'] == true;
+                            final required_ = p.isRequired;
                             return Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
@@ -230,15 +231,15 @@ class _PrerequisiteSheetState extends State<PrerequisiteSheet> {
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          p['name'] ?? '',
+                                          p.name,
                                           style: TextStyle(
                                             fontWeight: FontWeight.w600,
                                             color: AppTheme.textPrimaryOf(context),
                                           ),
                                         ),
-                                        if (p['description'] != null && (p['description'] as String).isNotEmpty)
+                                        if (p.description != null && p.description!.isNotEmpty)
                                           Text(
-                                            p['description'],
+                                            p.description!,
                                             style: TextStyle(
                                               fontSize: 12,
                                               color: AppTheme.textSecondaryOf(context),
@@ -254,7 +255,7 @@ class _PrerequisiteSheetState extends State<PrerequisiteSheet> {
                                                 color: required_ ? context.sponsorAccent : AppTheme.textSecondaryOf(context),
                                               ),
                                             ),
-                                            if (p['requires_document'] == true) ...[
+                                            if (p.requiresDocument) ...[
                                               const SizedBox(width: 8),
                                               Icon(Icons.upload_file_rounded, size: 13, color: context.sponsorAccent),
                                               const SizedBox(width: 2),
@@ -274,7 +275,7 @@ class _PrerequisiteSheetState extends State<PrerequisiteSheet> {
                                   ),
                                   if (!widget.readOnly)
                                     IconButton(
-                                      onPressed: () => _delete(p['id']),
+                                      onPressed: () => _delete(p.id),
                                       icon: Icon(Icons.delete_outline_rounded,
                                           color: AppTheme.errorColor, size: 20),
                                       tooltip: 'Remove',

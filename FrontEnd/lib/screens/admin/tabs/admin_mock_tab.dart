@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../admin_shared.dart';
 import '../../../config/theme.dart';
+import '../../../models/admin.dart';
 import 'package:provider/provider.dart';
 
 import '../../../providers/admin_provider.dart';
 
 class AdminMockTab extends StatefulWidget {
   final void Function(String) onSnack;
-  final List<dynamic> settings;
+  final List<PlatformSetting> settings;
   final void Function(String key, String value) onUpdateSetting;
   final VoidCallback? onSettingsReload;
 
@@ -25,7 +26,7 @@ class AdminMockTab extends StatefulWidget {
 }
 
 class _AdminMockTabState extends State<AdminMockTab> {
-  Map<String, dynamic>? _mockData;
+  AdminMockOverview? _mockData;
   bool _mockLoading = false;
   final Map<String, String> _sliderOverrides = {};
 
@@ -68,10 +69,10 @@ class _AdminMockTabState extends State<AdminMockTab> {
   }
 
   String _settingVal(String key) {
-    final s = widget.settings.cast<Map<String, dynamic>?>().firstWhere(
-      (s) => s?['key'] == key, orElse: () => null,
+    final s = widget.settings.cast<PlatformSetting?>().firstWhere(
+      (s) => s?.key == key, orElse: () => null,
     );
-    return s?['value']?.toString() ?? '';
+    return s?.value ?? '';
   }
 
   static String _centsToStr(int cents) => '\$${(cents / 100).toStringAsFixed(2)}';
@@ -137,11 +138,11 @@ class _AdminMockTabState extends State<AdminMockTab> {
             Wrap(
               spacing: 8, runSpacing: 8,
               children: [
-                infoCard(context, 'Transactions', '${d['total_transactions'] ?? 0}', Icons.receipt, AppTheme.accentColor),
-                infoCard(context, 'Volume', _centsToStr(d['total_volume_cents'] ?? 0), Icons.attach_money, AppTheme.successColor),
-                infoCard(context, 'Success Rate', '${d['success_rate'] ?? 100}%', Icons.check_circle, AppTheme.successColor),
-                infoCard(context, 'Emails', '${d['total_emails'] ?? 0}', Icons.email, AppTheme.accentColor),
-                infoCard(context, 'Bounce Rate', '${d['email_bounce_rate'] ?? 0}%', Icons.error_outline, AppTheme.warningColor),
+                infoCard(context, 'Transactions', '${d.totalTransactions}', Icons.receipt, AppTheme.accentColor),
+                infoCard(context, 'Volume', _centsToStr(d.totalVolumeCents), Icons.attach_money, AppTheme.successColor),
+                infoCard(context, 'Success Rate', '${d.successRate}%', Icons.check_circle, AppTheme.successColor),
+                infoCard(context, 'Emails', '${d.totalEmails}', Icons.email, AppTheme.accentColor),
+                infoCard(context, 'Bounce Rate', '${d.emailBounceRate}%', Icons.error_outline, AppTheme.warningColor),
               ],
             ),
             const SizedBox(height: 8),
@@ -151,9 +152,9 @@ class _AdminMockTabState extends State<AdminMockTab> {
                 padding: const EdgeInsets.all(12),
                 child: Row(
                   children: [
-                    Expanded(child: Text('Last Transaction: ${d['last_transaction_at'] ?? 'N/A'}', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context)))),
+                    Expanded(child: Text('Last Transaction: ${d.lastTransactionAt ?? 'N/A'}', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context)))),
                     const SizedBox(width: 8),
-                    Expanded(child: Text('Last Email: ${d['last_email_at'] ?? 'N/A'}', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context)))),
+                    Expanded(child: Text('Last Email: ${d.lastEmailAt ?? 'N/A'}', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context)))),
                   ],
                 ),
               ),
@@ -233,29 +234,29 @@ class _AdminMockTabState extends State<AdminMockTab> {
             const SizedBox(height: 16),
             Text('Recent Transactions', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context))),
             const SizedBox(height: 8),
-            ...((d['recent_transactions'] as List? ?? []).map((t) => Card(
+            ...(d.recentTransactions.map((t) => Card(
               color: AppTheme.cardOf(context),
               margin: const EdgeInsets.only(bottom: 6),
               child: ListTile(
-                leading: Icon(_mockOpIcon(t['operation']), color: _mockStatusColor(t['status']), size: 24),
-                title: Text('${t['operation']} — ${_centsToStr(t['amount_cents'] ?? 0)}', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: AppTheme.textPrimaryOf(context))),
-                subtitle: Text('${t['from_account']} → ${t['to_account']}\n${t['status']}${t['failure_reason'] != null ? ' (${t['failure_reason']})' : ''}',
+                leading: Icon(_mockOpIcon(t.operation), color: _mockStatusColor(t.status), size: 24),
+                title: Text('${t.operation} — ${_centsToStr(t.amountCents)}', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: AppTheme.textPrimaryOf(context))),
+                subtitle: Text('${t.fromAccount ?? ''} → ${t.toAccount ?? ''}\n${t.status}${t.failureReason != null ? ' (${t.failureReason})' : ''}',
                   style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context))),
-                trailing: Text(t['authorization_code'] ?? '', style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryOf(context))),
+                trailing: Text(t.authorizationCode ?? '', style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryOf(context))),
                 isThreeLine: true,
               ),
             ))),
             const SizedBox(height: 16),
             Text('Recent Emails', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context))),
             const SizedBox(height: 8),
-            ...((d['recent_emails'] as List? ?? []).map((e) => Card(
+            ...(d.recentEmails.map((e) => Card(
               color: AppTheme.cardOf(context),
               margin: const EdgeInsets.only(bottom: 6),
               child: ListTile(
-                leading: Icon(e['status'] == 'bounced' ? Icons.error : Icons.check_circle,
-                  color: e['status'] == 'bounced' ? AppTheme.errorColor : AppTheme.successColor, size: 20),
-                title: Text(e['subject'] ?? '', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: AppTheme.textPrimaryOf(context))),
-                subtitle: Text('To: ${e['to_email']} — ${e['template_key'] ?? 'custom'}',
+                leading: Icon(e.status == 'bounced' ? Icons.error : Icons.check_circle,
+                  color: e.status == 'bounced' ? AppTheme.errorColor : AppTheme.successColor, size: 20),
+                title: Text(e.subject ?? '', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: AppTheme.textPrimaryOf(context))),
+                subtitle: Text('To: ${e.toEmail ?? ''} — ${e.templateKey ?? 'custom'}',
                   style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context))),
               ),
             ))),

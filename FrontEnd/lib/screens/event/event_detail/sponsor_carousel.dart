@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../../config/api_config.dart';
 import '../../../config/theme.dart';
 import '../../../config/design_tokens.dart';
+import '../../../models/sponsor.dart';
 import '../../../providers/sponsor_provider.dart';
 
 class SponsorCarousel extends StatefulWidget {
@@ -16,7 +17,7 @@ class SponsorCarousel extends StatefulWidget {
 }
 
 class _SponsorCarouselState extends State<SponsorCarousel> {
-  List<Map<String, dynamic>> _sponsors = [];
+  List<EventSponsor> _sponsors = [];
   bool _loaded = false;
 
   @override
@@ -40,11 +41,8 @@ class _SponsorCarouselState extends State<SponsorCarousel> {
     }
   }
 
-  void _navigateToSponsorProfile(Map<String, dynamic> sponsor) {
-    final userId = sponsor['sponsor_user_id'];
-    if (userId != null) {
-      context.push('/users/$userId/sponsor-profile');
-    }
+  void _navigateToSponsorProfile(EventSponsor sponsor) {
+    context.push('/users/${sponsor.sponsorUserId}/sponsor-profile');
   }
 
   @override
@@ -75,7 +73,7 @@ class _SponsorCarouselState extends State<SponsorCarousel> {
             separatorBuilder: (_, __) => AppSpacing.hMd,
             itemBuilder: (context, index) {
               final s = _sponsors[index];
-              final name = s['company_name'] as String? ?? 'Sponsor';
+              final name = s.companyName;
               return GestureDetector(
                 onTap: () => _navigateToSponsorProfile(s),
                 child: SizedBox(
@@ -87,10 +85,10 @@ class _SponsorCarouselState extends State<SponsorCarousel> {
                         radius: AppSpacing.xxl,
                         backgroundColor:
                             AppTheme.accentColor.withValues(alpha: 0.12),
-                        backgroundImage: s['logo_url'] != null
-                            ? NetworkImage(ApiConfig.imageUrl(s['logo_url']))
+                        backgroundImage: s.logoUrl != null
+                            ? NetworkImage(ApiConfig.imageUrl(s.logoUrl!))
                             : null,
-                        child: s['logo_url'] == null
+                        child: s.logoUrl == null
                             ? Text(
                                 name.substring(0, 1).toUpperCase(),
                                 style: TextStyle(

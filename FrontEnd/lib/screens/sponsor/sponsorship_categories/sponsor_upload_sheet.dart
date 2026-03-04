@@ -25,9 +25,9 @@ class SponsorUploadSheet extends StatefulWidget {
 }
 
 class _SponsorUploadSheetState extends State<SponsorUploadSheet> {
-  List<Map<String, dynamic>> _prereqs = [];
+  List<CategoryPrerequisite> _prereqs = [];
   List<SponsorBid> _bids = [];
-  final Map<int, List<Map<String, dynamic>>> _uploadsByBid = {};
+  final Map<int, List<BidPrerequisiteUpload>> _uploadsByBid = {};
   bool _loading = true;
   int? _selectedBidId;
 
@@ -110,7 +110,7 @@ class _SponsorUploadSheetState extends State<SponsorUploadSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final uploads = _selectedBidId != null ? (_uploadsByBid[_selectedBidId!] ?? []) : <Map<String, dynamic>>[];
+    final uploads = _selectedBidId != null ? (_uploadsByBid[_selectedBidId!] ?? []) : <BidPrerequisiteUpload>[];
 
     return DraggableScrollableSheet(
       expand: false,
@@ -187,12 +187,12 @@ class _SponsorUploadSheetState extends State<SponsorUploadSheet> {
                           separatorBuilder: (_, __) => const SizedBox(height: 8),
                           itemBuilder: (ctx, i) {
                             final prereq = _prereqs[i];
-                            final upload = uploads.cast<Map<String, dynamic>>().where(
-                              (u) => u['prerequisite_id'] == prereq['id'],
+                            final upload = uploads.where(
+                              (u) => u.prerequisiteId == prereq.id,
                             ).toList();
                             final hasUpload = upload.isNotEmpty;
-                            final uploadStatus = hasUpload ? (upload.first['status'] ?? 'pending') : null;
-                            final isRequired = prereq['is_required'] == true;
+                            final uploadStatus = hasUpload ? upload.first.status : null;
+                            final isRequired = prereq.isRequired;
 
                             return Container(
                               padding: const EdgeInsets.all(12),
@@ -214,7 +214,7 @@ class _SponsorUploadSheetState extends State<SponsorUploadSheet> {
                                       const SizedBox(width: 8),
                                       Expanded(
                                         child: Text(
-                                          prereq['name'] ?? '',
+                                          prereq.name,
                                           style: TextStyle(
                                             fontWeight: FontWeight.w600,
                                             color: AppTheme.textPrimaryOf(context),
@@ -239,18 +239,18 @@ class _SponsorUploadSheetState extends State<SponsorUploadSheet> {
                                         ),
                                     ],
                                   ),
-                                  if (prereq['description'] != null && (prereq['description'] as String).isNotEmpty) ...[
+                                  if (prereq.description != null && prereq.description!.isNotEmpty) ...[
                                     const SizedBox(height: 4),
                                     Text(
-                                      prereq['description'],
+                                      prereq.description!,
                                       style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context)),
                                     ),
                                   ],
-                                  if (hasUpload && upload.first['reviewer_note'] != null &&
-                                      (upload.first['reviewer_note'] as String).isNotEmpty) ...[
+                                  if (hasUpload && upload.first.reviewerNote != null &&
+                                      upload.first.reviewerNote!.isNotEmpty) ...[
                                     const SizedBox(height: 4),
                                     Text(
-                                      'Note: ${upload.first['reviewer_note']}',
+                                      'Note: ${upload.first.reviewerNote}',
                                       style: TextStyle(
                                         fontSize: 11,
                                         fontStyle: FontStyle.italic,
@@ -263,7 +263,7 @@ class _SponsorUploadSheetState extends State<SponsorUploadSheet> {
                                     width: double.infinity,
                                     height: 34,
                                     child: OutlinedButton.icon(
-                                      onPressed: () => _uploadFile(prereq['id']),
+                                      onPressed: () => _uploadFile(prereq.id),
                                       icon: const Icon(Icons.upload_rounded, size: 16),
                                       label: Text(
                                         hasUpload ? 'Re-upload' : 'Upload',

@@ -285,8 +285,7 @@ async def process_pledge_refund(ctx: dict, funding_id: int) -> None:
             if result.status != "completed":
                 raise RuntimeError(f"Gateway returned status={result.status}")
 
-            funding.gateway_refund_id = result.transaction_id
-            funding.status = FundingStatus.refunded
+            await funding_repo.complete_refund(db, funding, result.transaction_id)
             await db.commit()
 
             await _send_pledge_refund_email(db, funding)
@@ -341,8 +340,7 @@ async def process_ticket_refund(ctx: dict, ticket_sale_id: int) -> None:
             if result.status != "completed":
                 raise RuntimeError(f"Gateway returned status={result.status}")
 
-            sale.gateway_refund_id = result.transaction_id
-            sale.status = TicketSaleStatus.refunded
+            await ticket_repo.complete_refund(db, sale, result.transaction_id)
             await db.commit()
             logger.info("Ticket %d: refunded (%d cents, txn=%s)", ticket_sale_id, sale.amount_paid_cents, result.transaction_id)
 
@@ -377,8 +375,7 @@ async def process_sponsor_refund(ctx: dict, payment_id: int) -> None:
             if result.status != "completed":
                 raise RuntimeError(f"Gateway returned status={result.status}")
 
-            payment.gateway_refund_id = result.transaction_id
-            payment.status = PaymentStatus.refunded
+            await sponsor_repo.complete_payment_refund(db, payment, result.transaction_id)
             await db.commit()
             logger.info("SponsorPayment %d: refunded (%d cents, txn=%s)", payment_id, payment.amount_cents, result.transaction_id)
 
@@ -562,7 +559,7 @@ async def mock_verify_bank_account(ctx: dict, bank_account_id: int) -> None:
                 logger.info("Bank account %d: skip mock verify (not pending)", bank_account_id)
                 return
 
-            acct.verified = True
+            await banking_repo.verify_bank_account(db, acct)
             acct.verification_status = BankVerificationStatus.verified
 
             await notif_svc.create_notification(
@@ -599,8 +596,9 @@ async def mock_auto_settle(ctx: dict) -> None:
             pending = await ledger_repo.get_pending_settlements(db, cutoff)
 
             for entry in pending:
-                entry.status = MockLedgerStatus.settled
-                entry.completed_at = datetime.now(timezone.utc)
+                await ledger_repo.update_entry_status(
+                    db, entry, status=MockLedgerStatus.settled, completed_at=datetime.now(timezone.utc),
+                )
             count = len(pending)
 
             if pending:

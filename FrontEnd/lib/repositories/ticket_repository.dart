@@ -1,3 +1,5 @@
+import '../models/discount.dart';
+import '../models/receipt.dart';
 import '../models/ticket.dart';
 import '../models/ticket_strategy.dart';
 import 'base_repository.dart';
@@ -86,10 +88,10 @@ class TicketRepository extends BaseRepository {
 
   // ─── Ticket pricing ───
 
-  Future<Map<String, dynamic>> getTicketPrice(int eventId, int ticketTierId) async {
+  Future<TicketPricePreview> getTicketPrice(int eventId, int ticketTierId) async {
     final r = await dio.get('/events/$eventId/ticket-price',
         queryParameters: {'ticket_tier_id': ticketTierId});
-    return Map<String, dynamic>.from(r.data as Map);
+    return TicketPricePreview.fromJson(Map<String, dynamic>.from(r.data as Map));
   }
 
   // ─── Ticket purchase ───
@@ -109,31 +111,31 @@ class TicketRepository extends BaseRepository {
 
   // ─── Ticket receipts ───
 
-  Future<Map<String, dynamic>> getTicketReceipt(int eventId, int saleId) async {
+  Future<TicketReceipt> getTicketReceipt(int eventId, int saleId) async {
     final r = await dio.get('/events/$eventId/tickets/$saleId/receipt');
-    return Map<String, dynamic>.from(r.data as Map);
+    return TicketReceipt.fromJson(Map<String, dynamic>.from(r.data as Map));
   }
 
-  Future<Map<String, dynamic>> getMyTicketReceipt(int saleId) async {
+  Future<TicketReceipt> getMyTicketReceipt(int saleId) async {
     final r = await dio.get('/me/tickets/$saleId/receipt');
-    return Map<String, dynamic>.from(r.data as Map);
+    return TicketReceipt.fromJson(Map<String, dynamic>.from(r.data as Map));
   }
 
-  Future<Map<String, dynamic>> getPurchaseGroupReceipt(int eventId, String groupId) async {
+  Future<PurchaseGroupReceipt> getPurchaseGroupReceipt(int eventId, String groupId) async {
     final r = await dio.get('/events/$eventId/purchase-group/$groupId/receipt');
-    return Map<String, dynamic>.from(r.data as Map);
+    return PurchaseGroupReceipt.fromJson(Map<String, dynamic>.from(r.data as Map));
   }
 
   // ─── Ticket sales stats ───
 
-  Future<Map<String, dynamic>> getTicketSalesStats(int eventId) async {
+  Future<TicketSalesStats> getTicketSalesStats(int eventId) async {
     final r = await dio.get('/events/$eventId/ticket-sales-stats');
-    return Map<String, dynamic>.from(r.data as Map);
+    return TicketSalesStats.fromJson(Map<String, dynamic>.from(r.data as Map));
   }
 
   // ─── Ticket scanning ───
 
-  Future<Map<String, dynamic>> scanTicket(
+  Future<TicketScanResult> scanTicket(
       int eventId, {String? ticketCode, String? encryptedPayload}) async {
     final body = <String, dynamic>{};
     if (encryptedPayload != null && encryptedPayload.isNotEmpty) {
@@ -142,7 +144,7 @@ class TicketRepository extends BaseRepository {
       body['ticket_code'] = ticketCode;
     }
     final r = await dio.post('/events/$eventId/scan-ticket', data: body);
-    return Map<String, dynamic>.from(r.data as Map);
+    return TicketScanResult.fromJson(Map<String, dynamic>.from(r.data as Map));
   }
 
   // ─── Ticket sales lists (organizer/event) ───
@@ -242,36 +244,44 @@ class TicketRepository extends BaseRepository {
 
   // ─── Event discounts ───
 
-  Future<List<dynamic>> getEventDiscounts(int eventId) async {
+  Future<List<EventDiscount>> getEventDiscounts(int eventId) async {
     final r = await dio.get('/events/$eventId/discounts/rules');
-    return r.data as List;
+    return (r.data as List)
+        .map((j) => EventDiscount.fromJson(Map<String, dynamic>.from(j as Map)))
+        .toList();
   }
 
-  Future<Map<String, dynamic>> createEventDiscount(
+  Future<EventDiscount> createEventDiscount(
       int eventId, Map<String, dynamic> data) async {
     final r = await dio.post('/events/$eventId/discounts/rules', data: data);
-    return Map<String, dynamic>.from(r.data as Map);
+    return EventDiscount.fromJson(Map<String, dynamic>.from(r.data as Map));
   }
 
   Future<void> deleteEventDiscount(int eventId, int discountId) async {
     await dio.delete('/events/$eventId/discounts/rules/$discountId');
   }
 
-  Future<List<dynamic>> getMyDiscounts(int eventId) async {
+  Future<MyDiscounts> getMyDiscounts(int eventId) async {
     final r = await dio.get('/events/$eventId/my-discounts');
-    return r.data as List;
+    final data = r.data;
+    if (data is List) {
+      return MyDiscounts.fromJson({'available_discounts': data});
+    }
+    return MyDiscounts.fromJson(Map<String, dynamic>.from(data as Map));
   }
 
   // ─── Discount strategies ───
 
-  Future<List<dynamic>> getDiscountStrategies() async {
+  Future<List<DiscountStrategy>> getDiscountStrategies() async {
     final r = await dio.get('/discount-strategies');
-    return r.data as List;
+    return (r.data as List)
+        .map((j) => DiscountStrategy.fromJson(Map<String, dynamic>.from(j as Map)))
+        .toList();
   }
 
-  Future<Map<String, dynamic>> createDiscountStrategy(Map<String, dynamic> data) async {
+  Future<DiscountStrategy> createDiscountStrategy(Map<String, dynamic> data) async {
     final r = await dio.post('/discount-strategies', data: data);
-    return Map<String, dynamic>.from(r.data as Map);
+    return DiscountStrategy.fromJson(Map<String, dynamic>.from(r.data as Map));
   }
 
   Future<void> deleteDiscountStrategy(int id) async {
@@ -287,16 +297,20 @@ class TicketRepository extends BaseRepository {
     await dio.delete('/events/$eventId/discount-strategies/$strategyId');
   }
 
-  Future<List<dynamic>> getEventDiscountStrategies(int eventId) async {
+  Future<List<EventDiscountStrategy>> getEventDiscountStrategies(int eventId) async {
     final r = await dio.get('/events/$eventId/discount-strategies');
-    return r.data as List;
+    return (r.data as List)
+        .map((j) => EventDiscountStrategy.fromJson(Map<String, dynamic>.from(j as Map)))
+        .toList();
   }
 
   // ─── Customer discount claims ───
 
-  Future<List<dynamic>> getClaimableDiscounts(int eventId) async {
+  Future<List<ClaimableDiscount>> getClaimableDiscounts(int eventId) async {
     final r = await dio.get('/events/$eventId/claimable-discounts');
-    return r.data as List;
+    return (r.data as List)
+        .map((j) => ClaimableDiscount.fromJson(Map<String, dynamic>.from(j as Map)))
+        .toList();
   }
 
   Future<void> claimDiscount(int eventId, int linkId) async {

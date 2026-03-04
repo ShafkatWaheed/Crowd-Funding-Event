@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
 import '../../../config/design_tokens.dart';
+import '../../../models/rating.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../repositories/base_repository.dart';
 import '../../../providers/event_provider.dart';
@@ -20,7 +21,7 @@ class ReviewsSection extends StatefulWidget {
 }
 
 class _ReviewsSectionState extends State<ReviewsSection> {
-  Map<String, dynamic>? _summary;
+  RatingsSummary? _summary;
   bool _loading = true;
   int _selectedStars = 0;
   final _descCtrl = TextEditingController();
@@ -111,12 +112,12 @@ class _ReviewsSectionState extends State<ReviewsSection> {
     }
     if (_summary == null) return const SizedBox.shrink();
 
-    final avgStars = _summary!['avg_stars'] as double?;
-    final count = _summary!['count'] as int? ?? 0;
-    final topReviews = (_summary!['top_reviews'] as List?) ?? [];
-    final worstReviews = (_summary!['worst_reviews'] as List?) ?? [];
-    final myRating = _summary!['my_rating'];
-    final myOrgRating = _summary!['my_organizer_rating'];
+    final avgStars = _summary!.avgStars;
+    final count = _summary!.count;
+    final topReviews = _summary!.topReviews;
+    final worstReviews = _summary!.worstReviews;
+    final myRating = _summary!.myRating;
+    final myOrgRating = _summary!.myOrganizerRating;
     final user = context.watch<AuthProvider>().user;
     final isCustomer = user != null && user.isCustomer;
     final isOrganizer = user != null && (user.isOrganizer || user.isAdmin);
@@ -176,7 +177,7 @@ class _ReviewsSectionState extends State<ReviewsSection> {
                     ...topReviews.take(5).map((r) => _reviewCard(r)),
                   ],
 
-                  if (worstReviews.isNotEmpty && worstReviews.first['stars'] < 4) ...[
+                  if (worstReviews.isNotEmpty && worstReviews.first.stars < 4) ...[
                     AppSpacing.vLg,
                     Text('Critical Reviews',
                         style: TextStyle(
@@ -239,7 +240,7 @@ class _ReviewsSectionState extends State<ReviewsSection> {
                         children: [
                           Icon(Icons.check_circle_rounded, size: AppIconSize.sm, color: AppTheme.successColor),
                           AppSpacing.hSm,
-                          Text('Event: ${myRating['stars']} star${myRating['stars'] == 1 ? '' : 's'}',
+                          Text('Event: ${myRating.stars} star${myRating.stars == 1 ? '' : 's'}',
                               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.successColor)),
                         ],
                       ),
@@ -297,7 +298,7 @@ class _ReviewsSectionState extends State<ReviewsSection> {
                         children: [
                           Icon(Icons.check_circle_rounded, size: AppIconSize.sm, color: AppTheme.successColor),
                           AppSpacing.hSm,
-                          Text('Organizer: ${myOrgRating['stars']} star${myOrgRating['stars'] == 1 ? '' : 's'}',
+                          Text('Organizer: ${myOrgRating.stars} star${myOrgRating.stars == 1 ? '' : 's'}',
                               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.successColor)),
                         ],
                       ),
@@ -326,10 +327,10 @@ class _ReviewsSectionState extends State<ReviewsSection> {
     );
   }
 
-  Widget _reviewCard(dynamic r) {
-    final stars = r['stars'] as int? ?? 0;
-    final name = r['rater_name'] ?? 'Anonymous';
-    final desc = r['description'] as String? ?? '';
+  Widget _reviewCard(Rating r) {
+    final stars = r.stars;
+    final name = r.raterName;
+    final desc = r.description ?? '';
 
     return Padding(
       padding: EdgeInsets.only(bottom: AppSpacing.sm),
@@ -380,7 +381,7 @@ class AllReviewsSheet extends StatefulWidget {
 }
 
 class _AllReviewsSheetState extends State<AllReviewsSheet> {
-  List<Map<String, dynamic>> _reviews = [];
+  List<Rating> _reviews = [];
   bool _loading = true;
   String? _directionFilter;
 
@@ -394,7 +395,7 @@ class _AllReviewsSheetState extends State<AllReviewsSheet> {
     try {
       final repo = context.read<EventProvider>();
       final data = await repo.getEventRatings(widget.eventId, direction: _directionFilter);
-      if (mounted) setState(() { _reviews = data.cast<Map<String, dynamic>>(); _loading = false; });
+      if (mounted) setState(() { _reviews = data; _loading = false; });
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
@@ -465,19 +466,18 @@ class _AllReviewsSheetState extends State<AllReviewsSheet> {
                           separatorBuilder: (_, __) => const Divider(height: 1),
                           itemBuilder: (ctx, i) {
                             final r = _reviews[i];
-                            final stars = r['stars'] as int? ?? 0;
                             return ListTile(
                               dense: true,
                               leading: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  StarRating(rating: stars, size: AppIconSize.sm),
+                                  StarRating(rating: r.stars, size: AppIconSize.sm),
                                 ],
                               ),
-                              title: Text(r['description'] ?? '',
+                              title: Text(r.description ?? '',
                                   style: TextStyle(fontSize: 13, color: AppTheme.textPrimaryOf(context)),
                                   maxLines: 2, overflow: TextOverflow.ellipsis),
-                              subtitle: Text('${r['rater_name']} · ${r['direction']?.toString().replaceAll('_', ' ') ?? ''}',
+                              subtitle: Text('${r.raterName} · ${r.direction.replaceAll('_', ' ')}',
                                   style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context))),
                             );
                           },

@@ -59,7 +59,7 @@ void main() {
 
   void stubSales({
     List<Map<String, dynamic>>? sales,
-    Map<String, dynamic>? stats,
+    TicketSalesStats? stats,
     bool scannedOnly = false,
   }) {
     final saleObjects = (sales ?? []).map(makeSale).toList();
@@ -76,7 +76,7 @@ void main() {
           .thenAnswer((_) async => saleObjects);
     }
     when(() => mockTicketRepo.getTicketSalesStats(any()))
-        .thenAnswer((_) async => stats ?? {'total_sold': 0, 'total_scanned': 0});
+        .thenAnswer((_) async => stats ?? TicketSalesStats(totalSold: 0, totalScanned: 0));
   }
 
   Future<void> pumpSales(
@@ -100,7 +100,7 @@ void main() {
               offset: any(named: 'offset'), limit: any(named: 'limit')))
           .thenAnswer((_) => completer.future);
       when(() => mockTicketRepo.getTicketSalesStats(any()))
-          .thenAnswer((_) async => {'total_sold': 0, 'total_scanned': 0});
+          .thenAnswer((_) async => TicketSalesStats(totalSold: 0, totalScanned: 0));
 
       await pumpSales(tester);
       await tester.pump();
@@ -116,7 +116,7 @@ void main() {
               offset: any(named: 'offset'), limit: any(named: 'limit')))
           .thenThrow(Exception('Network error'));
       when(() => mockTicketRepo.getTicketSalesStats(any()))
-          .thenAnswer((_) async => {'total_sold': 0, 'total_scanned': 0});
+          .thenAnswer((_) async => TicketSalesStats(totalSold: 0, totalScanned: 0));
 
       await pumpSales(tester);
       await tester.pumpAndSettle();
@@ -266,7 +266,7 @@ void main() {
     testWidgets('shows scanned/sold stats bar', (tester) async {
       stubSales(
         sales: [saleJson(id: 1), saleJson(id: 2)],
-        stats: {'total_sold': 10, 'total_scanned': 3},
+        stats: TicketSalesStats(totalSold: 10, totalScanned: 3),
       );
 
       await pumpSales(tester);

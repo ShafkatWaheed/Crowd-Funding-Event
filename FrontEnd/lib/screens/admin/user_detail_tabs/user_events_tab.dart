@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../../config/design_tokens.dart';
 import '../../../config/theme.dart';
+import '../../../models/admin.dart';
 import '../../../providers/admin_provider.dart';
 import '../../../repositories/base_repository.dart';
 import '../../../providers/event_provider.dart';
@@ -12,7 +13,7 @@ import 'user_detail_shared.dart';
 
 class UserEventsTab extends StatefulWidget {
   final int userId;
-  final Map<String, dynamic> detail;
+  final AdminUserDetail detail;
   final void Function(String) onSnack;
   final Future<void> Function() onRefresh;
   final bool isOrganizer;
@@ -60,9 +61,7 @@ class _UserEventsTabState extends State<UserEventsTab> {
     super.dispose();
   }
 
-  List<Map<String, dynamic>> get _allEvents =>
-      (widget.detail['events'] as List<dynamic>? ?? [])
-          .cast<Map<String, dynamic>>();
+  List<AdminUserEvent> get _allEvents => widget.detail.events ?? [];
 
   @override
   Widget build(BuildContext context) {
@@ -81,9 +80,7 @@ class _UserEventsTabState extends State<UserEventsTab> {
     final filtered = query.isEmpty
         ? events
         : events
-            .where((e) => (e['title']?.toString() ?? '')
-                .toLowerCase()
-                .contains(query))
+            .where((e) => e.title.toLowerCase().contains(query))
             .toList();
 
     return Column(
@@ -117,16 +114,13 @@ class _UserEventsTabState extends State<UserEventsTab> {
     );
   }
 
-  Widget _readOnlyExpandableEventCard(Map<String, dynamic> e) {
-    final id = e['id'] as int;
-    final title = e['title'] ?? 'Event #$id';
-    final status = e['status']?.toString() ?? '';
-    final ticketCount = e['user_ticket_count'] as int? ?? 0;
-    final pledgeCount = e['user_pledge_count'] as int? ?? 0;
-    final pledgeTotal = e['user_pledge_total_cents'] as int? ?? 0;
-    final reservedSpots = e['user_reserved_spots'] as int? ?? 0;
-    final donationCount = e['user_donation_count'] as int? ?? 0;
-    final donationTotal = e['user_donation_total_cents'] as int? ?? 0;
+  Widget _readOnlyExpandableEventCard(AdminUserEvent e) {
+    final ticketCount = e.userTicketCount ?? 0;
+    final pledgeCount = e.userPledgeCount ?? 0;
+    final pledgeTotal = e.userPledgeTotalCents ?? 0;
+    final reservedSpots = e.userReservedSpots ?? 0;
+    final donationCount = e.userDonationCount ?? 0;
+    final donationTotal = e.userDonationTotalCents ?? 0;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -134,14 +128,14 @@ class _UserEventsTabState extends State<UserEventsTab> {
       child: ExpansionTile(
         tilePadding: const EdgeInsets.symmetric(horizontal: 16),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        leading: Icon(eventStatusIcon(status),
-            color: eventStatusColor(context, status)),
-        title: Text(title,
+        leading: Icon(eventStatusIcon(e.status),
+            color: eventStatusColor(context, e.status)),
+        title: Text(e.title,
             style: const TextStyle(fontWeight: FontWeight.w700)),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            statusBadge(context, status),
+            statusBadge(context, e.status),
             const SizedBox(height: 4),
             Wrap(
               spacing: 8,
@@ -176,7 +170,7 @@ class _UserEventsTabState extends State<UserEventsTab> {
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: () =>
-                  context.push('/events/$id', extra: {'readOnly': true}),
+                  context.push('/events/${e.id}', extra: {'readOnly': true}),
               icon: const Icon(Icons.visibility, size: 16),
               label: const Text('View Event'),
             ),
@@ -192,42 +186,39 @@ class _UserEventsTabState extends State<UserEventsTab> {
 
   Widget _buildOrganizerView(BuildContext context) {
     final allEvents = _allEvents;
-    List<Map<String, dynamic>> filtered;
+    List<AdminUserEvent> filtered;
     if (_eventStatusFilter == 'all') {
       filtered = allEvents;
     } else if (_eventStatusFilter == 'pending_cancellation') {
       filtered = allEvents
-          .where((e) => e['pending_cancellation'] != null)
+          .where((e) => e.pendingCancellation != null)
           .toList();
     } else if (_eventStatusFilter == 'pending_extension') {
       filtered = allEvents
-          .where((e) => e['pending_extension'] != null)
+          .where((e) => e.pendingExtension != null)
           .toList();
     } else {
       filtered = allEvents
-          .where((e) => e['status'] == _eventStatusFilter)
+          .where((e) => e.status == _eventStatusFilter)
           .toList();
     }
 
     final query = _eventsSearch.toLowerCase();
     if (query.isNotEmpty) {
       filtered = filtered
-          .where((e) => (e['title']?.toString() ?? '')
-              .toLowerCase()
-              .contains(query))
+          .where((e) => e.title.toLowerCase().contains(query))
           .toList();
     }
 
     final statusCounts = <String, int>{};
     for (final e in allEvents) {
-      final s = e['status']?.toString() ?? '';
-      statusCounts[s] = (statusCounts[s] ?? 0) + 1;
+      statusCounts[e.status] = (statusCounts[e.status] ?? 0) + 1;
     }
     final cancelCount = allEvents
-        .where((e) => e['pending_cancellation'] != null)
+        .where((e) => e.pendingCancellation != null)
         .length;
     final extCount = allEvents
-        .where((e) => e['pending_extension'] != null)
+        .where((e) => e.pendingExtension != null)
         .length;
 
     return Column(
@@ -294,13 +285,8 @@ class _UserEventsTabState extends State<UserEventsTab> {
     );
   }
 
-  Widget _expandableEventCard(Map<String, dynamic> e) {
-    final id = e['id'] as int;
-    final title = e['title'] ?? 'Event #$id';
-    final status = e['status']?.toString() ?? '';
-    final warnings =
-        (e['validation_warnings'] as List<dynamic>?)?.cast<String>() ??
-            [];
+  Widget _expandableEventCard(AdminUserEvent e) {
+    final warnings = e.validationWarnings;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -308,13 +294,13 @@ class _UserEventsTabState extends State<UserEventsTab> {
       child: ExpansionTile(
         tilePadding: const EdgeInsets.symmetric(horizontal: 16),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        leading: Icon(eventStatusIcon(status),
-            color: eventStatusColor(context, status)),
-        title: Text(title,
+        leading: Icon(eventStatusIcon(e.status),
+            color: eventStatusColor(context, e.status)),
+        title: Text(e.title,
             style: const TextStyle(fontWeight: FontWeight.w700)),
         subtitle: Row(
           children: [
-            statusBadge(context, status),
+            statusBadge(context, e.status),
             if (warnings.isNotEmpty) ...[
               const SizedBox(width: 8),
               Icon(Icons.warning_amber,
@@ -345,31 +331,7 @@ class _UserEventsTabState extends State<UserEventsTab> {
   // SHARED EVENT PREVIEW
   // =========================================================================
 
-  Widget _eventPreviewSection(Map<String, dynamic> e) {
-    final description = e['description'] ?? '';
-    final genre = e['genre'] ?? '';
-    final capacity = e['max_capacity'];
-    final regType = e['registration_type'] ?? '';
-    final regCount = e['registration_count'] ?? 0;
-    final fundingGoal = e['funding_goal_cents'];
-    final minPledge = e['min_pledge_cents'] ?? 0;
-    final ticketStrategy = e['ticket_strategy_name'];
-    final venueName = e['venue_name'];
-    final venueAddress = e['venue_address'];
-    final startTime = e['start_time'];
-    final endTime = e['end_time'];
-    final fundingEnd = e['funding_end_at'];
-    final hasSchedule = e['has_schedule'] == true;
-    final communityRules = e['community_rules'] == true;
-    final ticketTiersCount = e['ticket_tiers_count'] ?? 0;
-    final sponsorCatsCount = e['sponsorship_categories_count'] ?? 0;
-    final milestonesCount = e['milestones_count'] ?? 0;
-    final reviewNotes = e['review_notes'] ?? '';
-    final reviewLog =
-        (e['review_log'] as List<dynamic>?)
-                ?.cast<Map<String, dynamic>>() ??
-            [];
-
+  Widget _eventPreviewSection(AdminUserEvent e) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
@@ -383,8 +345,8 @@ class _UserEventsTabState extends State<UserEventsTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (description.isNotEmpty) ...[
-            Text(description,
+          if (e.description != null && e.description!.isNotEmpty) ...[
+            Text(e.description!,
                 style: const TextStyle(fontSize: 13),
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis),
@@ -394,43 +356,42 @@ class _UserEventsTabState extends State<UserEventsTab> {
             spacing: 16,
             runSpacing: 8,
             children: [
-              if (genre.isNotEmpty)
-                infoChip(context, Icons.category, genre),
-              if (regType.isNotEmpty)
+              if (e.genre != null && e.genre!.isNotEmpty)
+                infoChip(context, Icons.category, e.genre!),
+              if (e.registrationType != null && e.registrationType!.isNotEmpty)
                 infoChip(context, Icons.how_to_reg,
-                    '${formatStatus(regType)} ($regCount)'),
-              if (capacity != null)
-                infoChip(context, Icons.people, 'Cap: $capacity'),
-              if (communityRules)
+                    '${formatStatus(e.registrationType!)} (${e.registrationCount})'),
+              if (e.maxCapacity != null)
+                infoChip(context, Icons.people, 'Cap: ${e.maxCapacity}'),
+              if (e.communityRules)
                 infoChip(context, Icons.groups, 'Community'),
-              if (hasSchedule)
+              if (e.hasSchedule)
                 infoChip(context, Icons.schedule, 'Has Schedule'),
             ],
           ),
           const SizedBox(height: 10),
-          if (venueName != null)
-            detailRow(context, 'Venue', venueAddress ?? venueName),
-          if (startTime != null)
-            detailRow(
-                context, 'Start', formatIsoDateShort(startTime)),
-          if (endTime != null)
-            detailRow(context, 'End', formatIsoDateShort(endTime)),
-          if (fundingEnd != null)
+          if (e.venueName != null)
+            detailRow(context, 'Venue', e.venueAddress ?? e.venueName!),
+          if (e.startTime != null)
+            detailRow(context, 'Start', formatIsoDateShort(e.startTime)),
+          if (e.endTime != null)
+            detailRow(context, 'End', formatIsoDateShort(e.endTime)),
+          if (e.fundingEndAt != null)
             detailRow(context, 'Funding Ends',
-                formatIsoDateShort(fundingEnd)),
-          if (fundingGoal != null)
+                formatIsoDateShort(e.fundingEndAt)),
+          if (e.fundingGoalCents != null)
             detailRow(context, 'Funding Goal',
-                '\$${(fundingGoal / 100).toStringAsFixed(2)}'),
-          if (minPledge > 0)
+                '\$${(e.fundingGoalCents! / 100).toStringAsFixed(2)}'),
+          if (e.minPledgeCents > 0)
             detailRow(context, 'Min Pledge',
-                '\$${(minPledge / 100).toStringAsFixed(2)}'),
-          if (ticketStrategy != null)
-            detailRow(context, 'Ticket Strategy', ticketStrategy),
-          detailRow(context, 'Ticket Tiers', '$ticketTiersCount'),
+                '\$${(e.minPledgeCents / 100).toStringAsFixed(2)}'),
+          if (e.ticketStrategyName != null)
+            detailRow(context, 'Ticket Strategy', e.ticketStrategyName!),
+          detailRow(context, 'Ticket Tiers', '${e.ticketTiersCount}'),
           detailRow(
-              context, 'Sponsor Categories', '$sponsorCatsCount'),
-          detailRow(context, 'Milestones', '$milestonesCount'),
-          if (reviewNotes.isNotEmpty) ...[
+              context, 'Sponsor Categories', '${e.sponsorshipCategoriesCount}'),
+          detailRow(context, 'Milestones', '${e.milestonesCount}'),
+          if (e.reviewNotes != null && e.reviewNotes!.isNotEmpty) ...[
             const SizedBox(height: 8),
             Container(
               width: double.infinity,
@@ -452,13 +413,13 @@ class _UserEventsTabState extends State<UserEventsTab> {
                           fontWeight: FontWeight.w700,
                           color: AppTheme.warningOf(context))),
                   const SizedBox(height: 4),
-                  Text(reviewNotes,
+                  Text(e.reviewNotes!,
                       style: const TextStyle(fontSize: 12)),
                 ],
               ),
             ),
           ],
-          if (reviewLog.isNotEmpty) ...[
+          if (e.reviewLog.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text('Review History',
                 style: TextStyle(
@@ -466,7 +427,7 @@ class _UserEventsTabState extends State<UserEventsTab> {
                     fontWeight: FontWeight.w700,
                     color: AppTheme.accentOf(context))),
             const SizedBox(height: 4),
-            ...reviewLog.take(5).map((entry) => Padding(
+            ...e.reviewLog.take(5).map((entry) => Padding(
                   padding: const EdgeInsets.only(bottom: 4),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -477,7 +438,7 @@ class _UserEventsTabState extends State<UserEventsTab> {
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          '${entry['action'] ?? ''} – ${formatIsoDateShort(entry['timestamp'])} ${entry['notes'] != null ? '• ${entry['notes']}' : ''}',
+                          '${entry['action'] ?? ''} – ${formatIsoDateShort(entry['timestamp']?.toString())} ${entry['notes'] != null ? '• ${entry['notes']}' : ''}',
                           style: const TextStyle(fontSize: 11),
                         ),
                       ),
@@ -540,32 +501,22 @@ class _UserEventsTabState extends State<UserEventsTab> {
     );
   }
 
-  Map<String, dynamic>? _findEscrowForEvent(int eventId) {
-    final escrows =
-        (widget.detail['escrows'] as List<dynamic>?) ?? [];
+  AdminUserEscrow? _findEscrowForEvent(int eventId) {
+    final escrows = widget.detail.escrows ?? [];
     for (final esc in escrows) {
-      if (esc is Map<String, dynamic> && esc['event_id'] == eventId) {
-        return esc;
-      }
+      if (esc.eventId == eventId) return esc;
     }
     return null;
   }
 
-  Widget _inlineEscrowSection(Map<String, dynamic> esc) {
-    final eventId = esc['event_id'] ?? 0;
-    final totalHeld = (esc['total_held_cents'] ?? 0) as int;
-    final totalReleased = (esc['total_released_cents'] ?? 0) as int;
-    final remaining = (esc['remaining_cents'] ?? 0) as int;
-    final status = esc['status'] ?? 'holding';
-    final s1 = esc['stage1_released_at'];
-    final s2 = esc['stage2_released_at'];
-    final s3 = esc['stage3_released_at'];
-    final isFrozen = status == 'frozen';
+  Widget _inlineEscrowSection(AdminUserEscrow esc) {
+    final eventId = esc.eventId ?? 0;
+    final isFrozen = esc.status == 'frozen';
     final sColor = isFrozen
         ? AppTheme.errorOf(context)
-        : status == 'fully_released'
+        : esc.status == 'fully_released'
             ? AppTheme.successOf(context)
-            : status == 'partially_released'
+            : esc.status == 'partially_released'
                 ? context.fundingAccent
                 : AppTheme.textSecondaryOf(context);
 
@@ -595,33 +546,35 @@ class _UserEventsTabState extends State<UserEventsTab> {
                       color: sColor)),
               const Spacer(),
               statusBadge(context,
-                  status.toString().toUpperCase().replaceAll('_', ' ')),
+                  esc.status.toUpperCase().replaceAll('_', ' ')),
             ],
           ),
           const SizedBox(height: 10),
           Row(
             children: [
-              userDetailEscrowStat(context, 'Held', totalHeld,
+              userDetailEscrowStat(context, 'Held', esc.totalHeldCents,
                   AppTheme.textSecondaryOf(context)),
               const SizedBox(width: 16),
               userDetailEscrowStat(context, 'Released',
-                  totalReleased, AppTheme.successOf(context)),
+                  esc.totalReleasedCents, AppTheme.successOf(context)),
               const SizedBox(width: 16),
-              userDetailEscrowStat(context, 'Remaining', remaining,
-                  context.fundingAccent),
+              userDetailEscrowStat(context, 'Remaining',
+                  esc.remainingCents, context.fundingAccent),
             ],
           ),
           const SizedBox(height: 10),
           Row(
             children: [
               userDetailStageDot(
-                  context, 'S1', s1 != null, context.feedAccent),
-              userDetailStageLine(context, s1 != null && s2 != null),
-              userDetailStageDot(context, 'S2', s2 != null,
-                  context.fundingAccent),
-              userDetailStageLine(context, s2 != null && s3 != null),
-              userDetailStageDot(context, 'S3', s3 != null,
-                  AppTheme.successOf(context)),
+                  context, 'S1', esc.stage1ReleasedAt != null, context.feedAccent),
+              userDetailStageLine(context,
+                  esc.stage1ReleasedAt != null && esc.stage2ReleasedAt != null),
+              userDetailStageDot(context, 'S2',
+                  esc.stage2ReleasedAt != null, context.fundingAccent),
+              userDetailStageLine(context,
+                  esc.stage2ReleasedAt != null && esc.stage3ReleasedAt != null),
+              userDetailStageDot(context, 'S3',
+                  esc.stage3ReleasedAt != null, AppTheme.successOf(context)),
             ],
           ),
           const SizedBox(height: 10),
@@ -631,45 +584,35 @@ class _UserEventsTabState extends State<UserEventsTab> {
     );
   }
 
-  Widget _escrowActionButtons(
-      int eventId, Map<String, dynamic> esc) {
-    final s1 = esc['stage1_released_at'];
-    final s2 = esc['stage2_released_at'];
-    final s3 = esc['stage3_released_at'];
-    final isFrozen = esc['status'] == 'frozen';
+  Widget _escrowActionButtons(int eventId, AdminUserEscrow esc) {
+    final isFrozen = esc.status == 'frozen';
 
     return Wrap(
       spacing: 8,
       runSpacing: 8,
       children: [
-        if (s1 == null)
+        if (esc.stage1ReleasedAt == null)
           userDetailEscrowBtn(
               'Release S1', Icons.looks_one, context.feedAccent,
-              () => confirmAction(
-                  context,
-                  'Release Stage 1',
+              () => confirmAction(context, 'Release Stage 1',
                   'Release Stage 1 escrow?',
                   () => escrowAction(context, eventId, 'release',
                       stage: 1,
                       onRefresh: widget.onRefresh,
                       onSnack: widget.onSnack))),
-        if (s1 != null && s2 == null)
+        if (esc.stage1ReleasedAt != null && esc.stage2ReleasedAt == null)
           userDetailEscrowBtn('Release S2', Icons.looks_two,
               context.fundingAccent,
-              () => confirmAction(
-                  context,
-                  'Release Stage 2',
+              () => confirmAction(context, 'Release Stage 2',
                   'Release Stage 2 escrow?',
                   () => escrowAction(context, eventId, 'release',
                       stage: 2,
                       onRefresh: widget.onRefresh,
                       onSnack: widget.onSnack))),
-        if (s2 != null && s3 == null)
+        if (esc.stage2ReleasedAt != null && esc.stage3ReleasedAt == null)
           userDetailEscrowBtn('Release S3', Icons.looks_3,
               AppTheme.successOf(context),
-              () => confirmAction(
-                  context,
-                  'Release Stage 3',
+              () => confirmAction(context, 'Release Stage 3',
                   'Release Stage 3 escrow?',
                   () => escrowAction(context, eventId, 'release',
                       stage: 3,
@@ -678,9 +621,7 @@ class _UserEventsTabState extends State<UserEventsTab> {
         if (!isFrozen)
           userDetailEscrowBtn(
               'Freeze', Icons.ac_unit, AppTheme.errorOf(context),
-              () => confirmAction(
-                  context,
-                  'Freeze Escrow',
+              () => confirmAction(context, 'Freeze Escrow',
                   'Freeze this escrow?',
                   () => escrowAction(context, eventId, 'freeze',
                       onRefresh: widget.onRefresh,
@@ -688,9 +629,7 @@ class _UserEventsTabState extends State<UserEventsTab> {
         else
           userDetailEscrowBtn(
               'Unfreeze', Icons.wb_sunny, context.ticketAccent,
-              () => confirmAction(
-                  context,
-                  'Unfreeze Escrow',
+              () => confirmAction(context, 'Unfreeze Escrow',
                   'Unfreeze this escrow?',
                   () => escrowAction(context, eventId, 'unfreeze',
                       onRefresh: widget.onRefresh,
@@ -699,12 +638,8 @@ class _UserEventsTabState extends State<UserEventsTab> {
     );
   }
 
-  Widget _eventActionButtons(Map<String, dynamic> e) {
-    final id = e['id'] as int;
-    final status = e['status']?.toString() ?? '';
-    final pendingCancel = e['pending_cancellation'];
-    final pendingExt = e['pending_extension'];
-    final esc = _findEscrowForEvent(id);
+  Widget _eventActionButtons(AdminUserEvent e) {
+    final esc = _findEscrowForEvent(e.id);
 
     return Column(
       children: [
@@ -713,7 +648,7 @@ class _UserEventsTabState extends State<UserEventsTab> {
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: () => context
-                    .push('/events/$id', extra: {'readOnly': true}),
+                    .push('/events/${e.id}', extra: {'readOnly': true}),
                 icon: const Icon(Icons.visibility, size: 16),
                 label: const Text('View Event'),
               ),
@@ -721,25 +656,24 @@ class _UserEventsTabState extends State<UserEventsTab> {
             const SizedBox(width: 8),
             Expanded(
               child: FilledButton.icon(
-                onPressed: () => context.push('/events/$id/edit'),
+                onPressed: () => context.push('/events/${e.id}/edit'),
                 icon: const Icon(Icons.edit, size: 16),
                 label: const Text('Edit Event'),
               ),
             ),
           ],
         ),
-        if (status == 'pending_approval') ...[
+        if (e.status == 'pending_approval') ...[
           const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
                 child: FilledButton.icon(
-                  onPressed: () => _approveEvent(id, true),
+                  onPressed: () => _approveEvent(e.id, true),
                   icon: const Icon(Icons.check, size: 16),
                   label: const Text('Approve'),
                   style: FilledButton.styleFrom(
-                      backgroundColor:
-                          AppTheme.successOf(context)),
+                      backgroundColor: AppTheme.successOf(context)),
                 ),
               ),
               const SizedBox(width: 8),
@@ -749,38 +683,36 @@ class _UserEventsTabState extends State<UserEventsTab> {
                     context,
                     'Reject Event',
                     'Are you sure you want to reject this event?',
-                    () => _approveEvent(id, false),
+                    () => _approveEvent(e.id, false),
                   ),
                   icon: const Icon(Icons.close, size: 16),
                   label: const Text('Reject'),
                   style: OutlinedButton.styleFrom(
-                      foregroundColor:
-                          AppTheme.errorOf(context)),
+                      foregroundColor: AppTheme.errorOf(context)),
                 ),
               ),
             ],
           ),
         ],
-        if (status == 'under_review') ...[
+        if (e.status == 'under_review') ...[
           const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
                 child: FilledButton.icon(
                   onPressed: () =>
-                      _showResolveDialog(id, 'approved', 'Approve'),
+                      _showResolveDialog(e.id, 'approved', 'Approve'),
                   icon: const Icon(Icons.check, size: 16),
                   label: const Text('Approve'),
                   style: FilledButton.styleFrom(
-                      backgroundColor:
-                          AppTheme.successOf(context)),
+                      backgroundColor: AppTheme.successOf(context)),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: () =>
-                      _showResolveDialog(id, 'draft', '→ Draft'),
+                      _showResolveDialog(e.id, 'draft', '→ Draft'),
                   icon: const Icon(Icons.undo, size: 16),
                   label: const Text('→ Draft'),
                 ),
@@ -788,25 +720,24 @@ class _UserEventsTabState extends State<UserEventsTab> {
               const SizedBox(width: 8),
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () => _showResolveDialog(
-                      id, 'cancelled', 'Cancel'),
+                  onPressed: () =>
+                      _showResolveDialog(e.id, 'cancelled', 'Cancel'),
                   icon: const Icon(Icons.cancel, size: 16),
                   label: const Text('Cancel'),
                   style: OutlinedButton.styleFrom(
-                      foregroundColor:
-                          AppTheme.errorOf(context)),
+                      foregroundColor: AppTheme.errorOf(context)),
                 ),
               ),
             ],
           ),
         ],
-        if (pendingCancel != null) ...[
+        if (e.pendingCancellation != null) ...[
           const SizedBox(height: 8),
-          _pendingCancellationSection(id, pendingCancel),
+          _pendingCancellationSection(e.id, e.pendingCancellation!),
         ],
-        if (pendingExt != null) ...[
+        if (e.pendingExtension != null) ...[
           const SizedBox(height: 8),
-          _pendingExtensionSection(id, pendingExt),
+          _pendingExtensionSection(e.id, e.pendingExtension!),
         ],
         const SizedBox(height: 8),
         if (esc != null)
@@ -837,8 +768,7 @@ class _UserEventsTabState extends State<UserEventsTab> {
         color: AppTheme.errorOf(context).withValues(alpha: 0.08),
         borderRadius: AppRadius.sm,
         border: Border.all(
-            color:
-                AppTheme.errorOf(context).withValues(alpha: 0.2)),
+            color: AppTheme.errorOf(context).withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -865,20 +795,17 @@ class _UserEventsTabState extends State<UserEventsTab> {
                   icon: const Icon(Icons.check, size: 16),
                   label: const Text('Approve'),
                   style: FilledButton.styleFrom(
-                      backgroundColor:
-                          AppTheme.errorOf(context)),
+                      backgroundColor: AppTheme.errorOf(context)),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () =>
-                      _decideCancellation(id, 'reject'),
+                  onPressed: () => _decideCancellation(id, 'reject'),
                   icon: const Icon(Icons.shield, size: 16),
                   label: const Text('Keep'),
                   style: OutlinedButton.styleFrom(
-                      foregroundColor:
-                          AppTheme.successOf(context)),
+                      foregroundColor: AppTheme.successOf(context)),
                 ),
               ),
             ],
@@ -897,8 +824,7 @@ class _UserEventsTabState extends State<UserEventsTab> {
         color: AppTheme.accentOf(context).withValues(alpha: 0.08),
         borderRadius: AppRadius.sm,
         border: Border.all(
-            color:
-                AppTheme.accentOf(context).withValues(alpha: 0.2)),
+            color: AppTheme.accentOf(context).withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -910,28 +836,26 @@ class _UserEventsTabState extends State<UserEventsTab> {
                   color: AppTheme.accentOf(context))),
           if (pendingExt['start_time'] != null)
             Text(
-                'New start: ${formatIsoDateShort(pendingExt['start_time'])}',
+                'New start: ${formatIsoDateShort(pendingExt['start_time']?.toString())}',
                 style: const TextStyle(fontSize: 12)),
           if (pendingExt['end_time'] != null)
             Text(
-                'New end: ${formatIsoDateShort(pendingExt['end_time'])}',
+                'New end: ${formatIsoDateShort(pendingExt['end_time']?.toString())}',
                 style: const TextStyle(fontSize: 12)),
           if (pendingExt['funding_end_at'] != null)
             Text(
-                'New funding end: ${formatIsoDateShort(pendingExt['funding_end_at'])}',
+                'New funding end: ${formatIsoDateShort(pendingExt['funding_end_at']?.toString())}',
                 style: const TextStyle(fontSize: 12)),
           const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
                 child: FilledButton.icon(
-                  onPressed: () =>
-                      _decideExtension(id, 'approve'),
+                  onPressed: () => _decideExtension(id, 'approve'),
                   icon: const Icon(Icons.check, size: 16),
                   label: const Text('Approve'),
                   style: FilledButton.styleFrom(
-                      backgroundColor:
-                          AppTheme.successOf(context)),
+                      backgroundColor: AppTheme.successOf(context)),
                 ),
               ),
               const SizedBox(width: 8),
@@ -946,8 +870,7 @@ class _UserEventsTabState extends State<UserEventsTab> {
                   icon: const Icon(Icons.close, size: 16),
                   label: const Text('Reject'),
                   style: OutlinedButton.styleFrom(
-                      foregroundColor:
-                          AppTheme.errorOf(context)),
+                      foregroundColor: AppTheme.errorOf(context)),
                 ),
               ),
             ],
@@ -975,8 +898,7 @@ class _UserEventsTabState extends State<UserEventsTab> {
     }
   }
 
-  Future<void> _decideCancellation(
-      int eventId, String action) async {
+  Future<void> _decideCancellation(int eventId, String action) async {
     try {
       final admin = context.read<AdminProvider>();
       await admin.decideCancellation(eventId, action);
@@ -987,8 +909,7 @@ class _UserEventsTabState extends State<UserEventsTab> {
     }
   }
 
-  Future<void> _decideExtension(
-      int eventId, String action) async {
+  Future<void> _decideExtension(int eventId, String action) async {
     try {
       final eventRepo = context.read<EventProvider>();
       await eventRepo.decideExtension(eventId, action);

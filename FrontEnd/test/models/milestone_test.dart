@@ -52,4 +52,34 @@ void main() {
       expect(ms.dislikeCount, 5);
     });
   });
+
+  group('MilestoneSnapshot', () {
+    test('fromJson parses all fields', () {
+      final json = {
+        'id': 1,
+        'event_id': 5,
+        'milestone_percent': 50,
+        'reached_at': '2025-02-15T12:00:00',
+        'user_count': 25,
+      };
+      final snap = MilestoneSnapshot.fromJson(json);
+
+      expect(snap.id, 1);
+      expect(snap.eventId, 5);
+      expect(snap.milestonePercent, 50);
+      expect(snap.reachedAt, DateTime.parse('2025-02-15T12:00:00'));
+      expect(snap.userCount, 25);
+    });
+
+    test('userCount defaults to 0 when null', () {
+      final json = {
+        'id': 2,
+        'event_id': 3,
+        'milestone_percent': 75,
+        'reached_at': '2025-03-01T08:00:00',
+      };
+      final snap = MilestoneSnapshot.fromJson(json);
+      expect(snap.userCount, 0);
+    });
+  });
 }

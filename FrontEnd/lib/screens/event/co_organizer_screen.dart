@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
+import '../../models/event.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../providers/auth_provider.dart';
@@ -20,14 +21,14 @@ class CoOrganizerScreen extends StatefulWidget {
 
 class _CoOrganizerScreenState extends State<CoOrganizerScreen> {
   late final EventProvider _api = context.read<EventProvider>();
-  List<Map<String, dynamic>> _organizers = [];
+  List<EventOrganizer> _organizers = [];
   bool _loading = true;
   bool _isMainOrganizer = false;
   bool _isCoOrganizer = false;
 
   final _searchCtrl = TextEditingController();
   String _selectedPermission = 'read';
-  List<Map<String, dynamic>> _searchResults = [];
+  List<OrganizerSearchResult> _searchResults = [];
   bool _searching = false;
   Timer? _debounce;
   int? _selectedUserId;
@@ -52,13 +53,14 @@ class _CoOrganizerScreenState extends State<CoOrganizerScreen> {
       final list = await _api.getEventOrganizers(widget.eventId);
       if (!mounted) return;
       final user = context.read<AuthProvider>().user;
-      final mainOrg = list.firstWhere((o) => o['is_main'] == true, orElse: () => {});
+      final mainOrg = list.cast<EventOrganizer?>().firstWhere(
+          (o) => o != null && o.isMain, orElse: () => null);
       _isMainOrganizer = user != null &&
-          (mainOrg['user_id'] == user.id || user.isAdmin);
+          (mainOrg != null && mainOrg.userId == user.id || user.isAdmin);
       _isCoOrganizer = user != null &&
-          list.any((o) => o['user_id'] == user.id && o['is_main'] != true);
+          list.any((o) => o.userId == user.id && !o.isMain);
       setState(() {
-        _organizers = list.cast<Map<String, dynamic>>();
+        _organizers = list;
         _loading = false;
       });
     } catch (e) {
@@ -82,7 +84,7 @@ class _CoOrganizerScreenState extends State<CoOrganizerScreen> {
         final results = await _api.searchOrganizers(value.trim());
         if (mounted) {
           setState(() {
-            _searchResults = results.cast<Map<String, dynamic>>();
+            _searchResults = results;
             _searching = false;
           });
         }
@@ -92,10 +94,10 @@ class _CoOrganizerScreenState extends State<CoOrganizerScreen> {
     });
   }
 
-  void _selectUser(Map<String, dynamic> user) {
+  void _selectUser(OrganizerSearchResult user) {
     setState(() {
-      _selectedUserId = user['id'];
-      _selectedUserLabel = user['display_name'] ?? user['email'] ?? 'User ${user['id']}';
+      _selectedUserId = user.id;
+      _selectedUserLabel = user.displayName ?? user.email;
       _searchCtrl.text = _selectedUserLabel!;
       _searchResults = [];
     });
@@ -239,9 +241,9 @@ class _CoOrganizerScreenState extends State<CoOrganizerScreen> {
     final user = context.watch<AuthProvider>().user;
     final myPendingInvite = user != null
         ? _organizers.where((o) =>
-            o['user_id'] == user.id &&
-            o['is_main'] != true &&
-            o['invitation_status'] == 'pending').firstOrNull
+            o.userId == user.id &&
+            !o.isMain &&
+            o.invitationStatus == 'pending').firstOrNull
         : null;
 
     return Scaffold(
@@ -298,7 +300,7 @@ class _CoOrganizerScreenState extends State<CoOrganizerScreen> {
                                   color: AppTheme.textPrimaryOf(context))),
                           const SizedBox(height: 4),
                           Text(
-                            'Permission: ${myPendingInvite['permission'] == 'full' ? 'Full Access' : 'Read Only'}',
+                            'Permission: ${myPendingInvite.permission == 'full' ? 'Full Access' : 'Read Only'}',
                             style: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 13),
                           ),
                           const SizedBox(height: 12),
@@ -400,13 +402,13 @@ class _CoOrganizerScreenState extends State<CoOrganizerScreen> {
                                       radius: 16,
                                       backgroundColor: AppTheme.accentColor.withValues(alpha: 0.2),
                                       child: Text(
-                                        (r['display_name'] ?? r['email'] ?? '?')[0].toUpperCase(),
+                                        (r.displayName ?? r.email)[0].toUpperCase(),
                                         style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                                       ),
                                     ),
-                                    title: Text(r['display_name'] ?? 'User #${r['id']}',
+                                    title: Text(r.displayName ?? 'User #${r.id}',
                                         style: TextStyle(color: AppTheme.textPrimaryOf(context), fontSize: 14)),
-                                    subtitle: Text(r['email'] ?? '',
+                                    subtitle: Text(r.email,
                                         style: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 12)),
                                     onTap: () => _selectUser(r),
                                   );
@@ -468,9 +470,9 @@ class _CoOrganizerScreenState extends State<CoOrganizerScreen> {
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
                   const SizedBox(height: 8),
                   ..._organizers.map((o) {
-                    final isMain = o['is_main'] == true;
-                    final perm = o['permission'] ?? 'full';
-                    final status = o['invitation_status'] ?? 'accepted';
+                    final isMain = o.isMain;
+                    final perm = o.permission;
+                    final status = o.invitationStatus;
                     return Container(
                       margin: const EdgeInsets.only(bottom: 8),
                       decoration: BoxDecoration(
@@ -495,7 +497,7 @@ class _CoOrganizerScreenState extends State<CoOrganizerScreen> {
                           ),
                         ),
                         title: Text(
-                          o['display_name'] ?? o['email'] ?? 'User ${o['user_id']}',
+                          o.displayName ?? o.email,
                           style: TextStyle(
                               fontWeight: FontWeight.w600,
                               color: AppTheme.textPrimaryOf(context)),
@@ -552,9 +554,9 @@ class _CoOrganizerScreenState extends State<CoOrganizerScreen> {
                                     icon: Icon(Icons.more_vert, color: AppTheme.textSecondaryOf(context)),
                                     onSelected: (action) {
                                       if (action == 'permission') {
-                                        _updatePermission(o['user_id'], perm);
+                                        _updatePermission(o.userId, perm);
                                       } else if (action == 'remove') {
-                                        _removeOrganizer(o['user_id']);
+                                        _removeOrganizer(o.userId);
                                       }
                                     },
                                     itemBuilder: (_) => [

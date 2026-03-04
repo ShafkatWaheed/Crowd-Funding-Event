@@ -176,8 +176,7 @@ async def publish_event(db: AsyncSession, event_id: int, user: User) -> Event:
     if not has_funding and tier_count == 0:
         raise ConflictError("Event must have a funding goal or at least one ticket tier before publishing")
 
-    event.status = EventStatus.approved
-    await event_repo.flush_and_refresh(db, event)
+    await event_repo.update_fields(db, event, status=EventStatus.approved)
     return event
 
 
@@ -689,8 +688,7 @@ async def update(
         raise ConflictError("Funding goal is required when a funding deadline is set")
     await event_repo.flush_event(db)
     if needs_approval:
-        event.status = EventStatus.pending_approval
-        await event_repo.flush_event(db)
+        await event_repo.update_fields(db, event, status=EventStatus.pending_approval)
     if registration_type is not None and old_registration_type == RegistrationType.closed and registration_type == RegistrationType.open:
         from app.services import registration as registration_service
         await registration_service.auto_approve_waitlist_when_switching_to_open(

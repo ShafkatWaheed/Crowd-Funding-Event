@@ -332,5 +332,42 @@ class EscrowRepository:
         return list((await db.execute(q)).scalars().all())
 
 
+    # ── Mutation helpers (services call these instead of direct setattr) ──
+
+    async def update_status(self, db: AsyncSession, escrow, status: EscrowStatus) -> None:
+        """Set an escrow's status and flush."""
+        escrow.status = status
+        await db.flush()
+
+    async def release_stage(
+        self, db: AsyncSession, escrow, *, stage: int, amount: int, now,
+    ) -> None:
+        """Record a stage release on an escrow and update its status."""
+        setattr(escrow, f"stage{stage}_released_cents", amount)
+        setattr(escrow, f"stage{stage}_released_at", now)
+        if stage >= 3:
+            escrow.status = EscrowStatus.fully_released
+        else:
+            escrow.status = EscrowStatus.partially_released
+        await db.flush()
+
+    async def rollback_stage(self, db: AsyncSession, escrow, *, stage: int) -> None:
+        """Reverse a stage release on an escrow and recompute status."""
+        setattr(escrow, f"stage{stage}_released_cents", 0)
+        setattr(escrow, f"stage{stage}_released_at", None)
+        if escrow.stage1_released_at is not None:
+            escrow.status = EscrowStatus.partially_released
+        else:
+            escrow.status = EscrowStatus.holding
+        await db.flush()
+
+    async def mark_escrows_refunded(self, db: AsyncSession, escrows: list) -> None:
+        """Set status to refunded for a list of escrow instances."""
+        for esc in escrows:
+            if esc and esc.status not in (EscrowStatus.fully_released, EscrowStatus.refunded):
+                esc.status = EscrowStatus.refunded
+        await db.flush()
+
+
 # Module-level singleton
 escrow_repo = EscrowRepository()

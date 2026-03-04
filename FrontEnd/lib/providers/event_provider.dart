@@ -1,10 +1,12 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import '../models/dashboard.dart';
 import '../models/event.dart';
 import '../models/event_image.dart';
 import '../models/map_event.dart';
 import '../models/milestone.dart';
 import '../models/post.dart';
+import '../models/rating.dart';
 import '../models/schedule.dart';
 import '../repositories/base_repository.dart';
 import '../repositories/event_repository.dart';
@@ -48,9 +50,8 @@ class EventProvider extends ChangeNotifier {
 
     try {
       final result = await _repo.getEvents(params: filters, limit: _pageSize);
-      final items = (result['items'] as List?) ?? [];
-      _events = items.map((e) => Event.fromJson(e as Map<String, dynamic>)).toList();
-      _nextCursor = result['next_cursor'] as String?;
+      _events = result.items;
+      _nextCursor = result.nextCursor;
       _hasMore = _nextCursor != null;
     } catch (e) {
       _error = ApiError.extractMessage(e, fallback: 'Failed to load events.');
@@ -71,10 +72,8 @@ class EventProvider extends ChangeNotifier {
         limit: _pageSize,
         cursor: _nextCursor,
       );
-      final items = (result['items'] as List?) ?? [];
-      final newEvents = items.map((e) => Event.fromJson(e as Map<String, dynamic>)).toList();
-      _events.addAll(newEvents);
-      _nextCursor = result['next_cursor'] as String?;
+      _events.addAll(result.items);
+      _nextCursor = result.nextCursor;
       _hasMore = _nextCursor != null;
     } catch (e) {
       _error = ApiError.extractMessage(e, fallback: 'Failed to load more events.');
@@ -100,8 +99,7 @@ class EventProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final data = await _repo.getEvent(id);
-      _selectedEvent = Event.fromJson(data);
+      _selectedEvent = await _repo.getEvent(id);
       _eventCache[id] = _CacheEntry(_selectedEvent!, DateTime.now());
     } catch (e) {
       _error = ApiError.extractMessage(e, fallback: 'Failed to load event details.');
@@ -219,7 +217,7 @@ class EventProvider extends ChangeNotifier {
 
   // -- Raw list (used by screens that manage their own pagination)
 
-  Future<Map<String, dynamic>> getEvents({
+  Future<EventListPage> getEvents({
     Map<String, dynamic>? params,
     int? offset,
     int limit = 20,
@@ -230,7 +228,7 @@ class EventProvider extends ChangeNotifier {
 
   // -- CRUD --
 
-  Future<Map<String, dynamic>> getEvent(int id) => _repo.getEvent(id);
+  Future<Event> getEvent(int id) => _repo.getEvent(id);
 
   Future<Event> createEventRaw(Map<String, dynamic> data) =>
       _repo.createEvent(data);
@@ -257,7 +255,7 @@ class EventProvider extends ChangeNotifier {
 
   // -- Discovery --
 
-  Future<Map<String, dynamic>> getFeaturedEvents(
+  Future<FeaturedEvents> getFeaturedEvents(
           {bool sponsorshipOnly = false}) =>
       _repo.getFeaturedEvents(sponsorshipOnly: sponsorshipOnly);
 
@@ -286,7 +284,7 @@ class EventProvider extends ChangeNotifier {
         sponsorshipOnly: sponsorshipOnly,
       );
 
-  Future<List<dynamic>> getGenres() => _repo.getGenres();
+  Future<List<String>> getGenres() => _repo.getGenres();
 
   // -- Event Images --
 
@@ -328,7 +326,7 @@ class EventProvider extends ChangeNotifier {
 
   // -- Reactions --
 
-  Future<Map<String, dynamic>> reactToEvent(int eventId, String reaction) =>
+  Future<ReactionResult> reactToEvent(int eventId, String reaction) =>
       _repo.reactToEvent(eventId, reaction);
 
   Future<Map<String, dynamic>> getMyReaction(int eventId) =>
@@ -336,18 +334,18 @@ class EventProvider extends ChangeNotifier {
 
   // -- Co-Organizers --
 
-  Future<List<dynamic>> getEventOrganizers(int eventId) =>
+  Future<List<EventOrganizer>> getEventOrganizers(int eventId) =>
       _repo.getEventOrganizers(eventId);
 
-  Future<Map<String, dynamic>> addEventOrganizer(
+  Future<EventOrganizer> addEventOrganizer(
           int eventId, Map<String, dynamic> data) =>
       _repo.addEventOrganizer(eventId, data);
 
-  Future<Map<String, dynamic>> updateOrganizerPermission(
+  Future<EventOrganizer> updateOrganizerPermission(
           int eventId, int userId, String permission) =>
       _repo.updateOrganizerPermission(eventId, userId, permission);
 
-  Future<Map<String, dynamic>> respondToInvitation(
+  Future<EventOrganizer> respondToInvitation(
           int eventId, int userId, bool accept) =>
       _repo.respondToInvitation(eventId, userId, accept);
 
@@ -357,7 +355,7 @@ class EventProvider extends ChangeNotifier {
   Future<void> removeEventOrganizer(int eventId, int userId) =>
       _repo.removeEventOrganizer(eventId, userId);
 
-  Future<List<dynamic>> searchOrganizers(String query) =>
+  Future<List<OrganizerSearchResult>> searchOrganizers(String query) =>
       _repo.searchOrganizers(query);
 
   // -- Milestones --
@@ -376,7 +374,7 @@ class EventProvider extends ChangeNotifier {
   Future<void> deleteMilestone(int eventId, int milestoneId) =>
       _repo.deleteMilestone(eventId, milestoneId);
 
-  Future<Map<String, dynamic>> reactToMilestone(
+  Future<ReactionResult> reactToMilestone(
           int eventId, int milestoneId, String reaction) =>
       _repo.reactToMilestone(eventId, milestoneId, reaction);
 
@@ -384,7 +382,7 @@ class EventProvider extends ChangeNotifier {
           int eventId, int milestoneId) =>
       _repo.getMyMilestoneReaction(eventId, milestoneId);
 
-  Future<List<dynamic>> getMilestoneSnapshots(int eventId) =>
+  Future<List<MilestoneSnapshot>> getMilestoneSnapshots(int eventId) =>
       _repo.getMilestoneSnapshots(eventId);
 
   // -- Schedule --
@@ -447,16 +445,16 @@ class EventProvider extends ChangeNotifier {
           stars: stars,
           description: description);
 
-  Future<Map<String, dynamic>> getEventRatingsSummary(int eventId) =>
+  Future<RatingsSummary> getEventRatingsSummary(int eventId) =>
       _repo.getEventRatingsSummary(eventId);
 
-  Future<List<dynamic>> getEventRatings(int eventId,
+  Future<List<Rating>> getEventRatings(int eventId,
           {String? direction}) =>
       _repo.getEventRatings(eventId, direction: direction);
 
   // -- Registration --
 
-  Future<Map<String, dynamic>> register(int eventId) =>
+  Future<Registration> register(int eventId) =>
       _repo.register(eventId);
 
   Future<Map<String, dynamic>> unregister(int eventId) =>
@@ -465,27 +463,27 @@ class EventProvider extends ChangeNotifier {
   Future<Map<String, dynamic>> getMyRegistration(int eventId) =>
       _repo.getMyRegistration(eventId);
 
-  Future<List<dynamic>> getRegistrations(int eventId) =>
+  Future<List<Registration>> getRegistrations(int eventId) =>
       _repo.getRegistrations(eventId);
 
-  Future<Map<String, dynamic>> decideRegistration(
+  Future<Registration> decideRegistration(
           int eventId, int registrationId, String action) =>
       _repo.decideRegistration(eventId, registrationId, action);
 
-  Future<Map<String, dynamic>> getCapacityInfo(int eventId) =>
+  Future<CapacityInfo> getCapacityInfo(int eventId) =>
       _repo.getCapacityInfo(eventId);
 
   // -- Extension --
 
-  Future<Map<String, dynamic>> extendFunding(
+  Future<Event> extendFunding(
           int eventId, Map<String, dynamic> data) =>
       _repo.extendFunding(eventId, data);
 
-  Future<Map<String, dynamic>> setEventDate(
+  Future<Event> setEventDate(
           int eventId, Map<String, dynamic> data) =>
       _repo.setEventDate(eventId, data);
 
-  Future<Map<String, dynamic>> decideExtension(
+  Future<Event> decideExtension(
           int eventId, String action) =>
       _repo.decideExtension(eventId, action);
 
@@ -495,17 +493,17 @@ class EventProvider extends ChangeNotifier {
 
   // -- Organizer Dashboard --
 
-  Future<Map<String, dynamic>> getOrganizerDashboard(
+  Future<OrganizerDashboard> getOrganizerDashboard(
           {String? status, int? eventId, String? genre, String? period}) =>
       _repo.getOrganizerDashboard(
           status: status, eventId: eventId, genre: genre, period: period);
 
-  Future<Map<String, dynamic>> getOrganizerTimeSeries(
+  Future<OrganizerTimeSeries> getOrganizerTimeSeries(
           {int days = 30, String? status, int? eventId, String? genre}) =>
       _repo.getOrganizerTimeSeries(
           days: days, status: status, eventId: eventId, genre: genre);
 
-  Future<List<dynamic>> getOrganizerCustomers(
+  Future<List<CustomerHistoryItem>> getOrganizerCustomers(
           {int offset = 0, int limit = 20}) =>
       _repo.getOrganizerCustomers(offset: offset, limit: limit);
 

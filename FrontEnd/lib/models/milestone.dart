@@ -41,3 +41,28 @@ class FundingMilestone {
     );
   }
 }
+
+class MilestoneSnapshot {
+  final int id;
+  final int eventId;
+  final int milestonePercent;
+  final DateTime reachedAt;
+  final int userCount;
+
+  MilestoneSnapshot({
+    required this.id,
+    required this.eventId,
+    required this.milestonePercent,
+    required this.reachedAt,
+    required this.userCount,
+  });
+
+  factory MilestoneSnapshot.fromJson(Map<String, dynamic> json) =>
+      MilestoneSnapshot(
+        id: json['id'] as int,
+        eventId: json['event_id'] as int,
+        milestonePercent: json['milestone_percent'] as int,
+        reachedAt: DateTime.parse(json['reached_at'] as String),
+        userCount: (json['user_count'] as int?) ?? 0,
+      );
+}

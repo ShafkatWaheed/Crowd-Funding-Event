@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
 import '../../../config/design_tokens.dart';
+import '../../../models/ticket.dart';
 import '../../../providers/ticket_provider.dart';
 
 class TicketPriceBreakdown extends StatefulWidget {
@@ -22,7 +23,7 @@ class TicketPriceBreakdown extends StatefulWidget {
 }
 
 class _TicketPriceBreakdownState extends State<TicketPriceBreakdown> {
-  Map<String, dynamic>? _preview;
+  TicketPricePreview? _preview;
   bool _loading = true;
   String? _error;
 
@@ -64,19 +65,19 @@ class _TicketPriceBreakdownState extends State<TicketPriceBreakdown> {
     }
     if (_error != null || _preview == null) return const SizedBox.shrink();
 
-    final totalDiscount = _preview!['total_discount_cents'] ?? 0;
+    final totalDiscount = _preview!.totalDiscountCents;
     if (totalDiscount == 0) return const SizedBox.shrink();
 
-    final tierPrice = _preview!['tier_price_cents'] ?? 0;
-    final commonDisc = _preview!['common_discount_cents'] ?? 0;
-    final selectiveDisc = _preview!['selective_discount_cents'] ?? 0;
-    final pledgeDisc = _preview!['pledge_discount_cents'] ?? 0;
-    final eventDisc = _preview!['event_discount_cents'] ?? 0;
-    final milestoneDisc = _preview!['milestone_discount_cents'] ?? 0;
-    final earlyBirdDisc = _preview!['early_bird_discount_cents'] ?? 0;
-    final finalPrice = _preview!['final_price_cents'] ?? 0;
-    final discountCapped = _preview!['discount_capped'] ?? false;
-    final maxDiscountPct = _preview!['max_discount_percent'] ?? 100;
+    final tierPrice = _preview!.tierPriceCents;
+    final commonDisc = _preview!.commonDiscountCents;
+    final selectiveDisc = _preview!.selectiveDiscountCents;
+    final pledgeDisc = _preview!.pledgeDiscountCents;
+    final eventDisc = _preview!.eventDiscountCents;
+    final milestoneDisc = _preview!.milestoneDiscountCents;
+    final earlyBirdDisc = _preview!.earlyBirdDiscountCents;
+    final finalPrice = _preview!.finalPriceCents;
+    final discountCapped = _preview!.discountCapped;
+    final maxDiscountPct = _preview!.maxDiscountPercent;
 
     return Padding(
       padding: const EdgeInsets.only(left: 28, top: AppSpacing.sm),

@@ -74,6 +74,12 @@ class Event {
   final String? viewerRegistrationStatus;
   final Venue? venue;
   final DateTime createdAt;
+  // Policy fields
+  final int? waitlistMaxSize;
+  final bool waitlistAutoApprove;
+  final int? eventMaxImages;
+  final int? maxPostsPerDay;
+  final int? maxCoOrganizers;
 
   Event({
     required this.id,
@@ -133,6 +139,11 @@ class Event {
     this.viewerRegistrationStatus,
     this.venue,
     required this.createdAt,
+    this.waitlistMaxSize,
+    this.waitlistAutoApprove = true,
+    this.eventMaxImages,
+    this.maxPostsPerDay,
+    this.maxCoOrganizers,
   });
 
   factory Event.fromJson(Map<String, dynamic> json) {
@@ -208,6 +219,11 @@ class Event {
       viewerRegistrationStatus: json['viewer_registration_status'],
       venue: json['venue'] != null ? Venue.fromJson(json['venue']) : null,
       createdAt: DateTime.parse(json['created_at']),
+      waitlistMaxSize: json['waitlist_max_size'] as int?,
+      waitlistAutoApprove: (json['waitlist_auto_approve'] as bool?) ?? true,
+      eventMaxImages: json['event_max_images'] as int?,
+      maxPostsPerDay: json['max_posts_per_day'] as int?,
+      maxCoOrganizers: json['max_co_organizers'] as int?,
     );
   }
 
@@ -283,4 +299,167 @@ class Event {
       status == EventStatus.waiting_event_date ||
       status == EventStatus.selling_tickets ||
       status == EventStatus.live;
+}
+
+class ReactionResult {
+  final String action;
+  final String reaction;
+  final int likeCount;
+  final int dislikeCount;
+
+  ReactionResult({
+    required this.action,
+    required this.reaction,
+    required this.likeCount,
+    required this.dislikeCount,
+  });
+
+  factory ReactionResult.fromJson(Map<String, dynamic> json) => ReactionResult(
+        action: (json['action'] as String?) ?? '',
+        reaction: (json['reaction'] as String?) ?? '',
+        likeCount: (json['like_count'] as int?) ?? 0,
+        dislikeCount: (json['dislike_count'] as int?) ?? 0,
+      );
+}
+
+class FeaturedEvents {
+  final List<Event> trending;
+  final List<Event> popular;
+  final List<Event> comingSoon;
+
+  FeaturedEvents({
+    this.trending = const [],
+    this.popular = const [],
+    this.comingSoon = const [],
+  });
+
+  factory FeaturedEvents.fromJson(Map<String, dynamic> json) {
+    List<Event> parseList(dynamic val) => (val as List?)
+            ?.map((e) => Event.fromJson(Map<String, dynamic>.from(e as Map)))
+            .toList() ??
+        [];
+    return FeaturedEvents(
+      trending: parseList(json['trending']),
+      popular: parseList(json['popular']),
+      comingSoon: parseList(json['coming_soon']),
+    );
+  }
+}
+
+class EventListPage {
+  final List<Event> items;
+  final String? nextCursor;
+
+  EventListPage({required this.items, this.nextCursor});
+
+  factory EventListPage.fromJson(Map<String, dynamic> json) {
+    final rawItems = json['items'];
+    final items = (rawItems as List?)
+            ?.map((e) => Event.fromJson(Map<String, dynamic>.from(e as Map)))
+            .toList() ??
+        [];
+    return EventListPage(
+      items: items,
+      nextCursor: json['next_cursor'] as String?,
+    );
+  }
+}
+
+class EventOrganizer {
+  final int userId;
+  final String? displayName;
+  final String email;
+  final bool isMain;
+  final String permission;
+  final String invitationStatus;
+
+  EventOrganizer({
+    required this.userId,
+    this.displayName,
+    required this.email,
+    this.isMain = false,
+    required this.permission,
+    required this.invitationStatus,
+  });
+
+  factory EventOrganizer.fromJson(Map<String, dynamic> json) =>
+      EventOrganizer(
+        userId: json['user_id'] as int,
+        displayName: json['display_name'] as String?,
+        email: (json['email'] as String?) ?? '',
+        isMain: (json['is_main'] as bool?) ?? false,
+        permission: (json['permission'] as String?) ?? 'read',
+        invitationStatus:
+            (json['invitation_status'] as String?) ?? 'pending',
+      );
+}
+
+class OrganizerSearchResult {
+  final int id;
+  final String email;
+  final String? displayName;
+
+  OrganizerSearchResult({
+    required this.id,
+    required this.email,
+    this.displayName,
+  });
+
+  factory OrganizerSearchResult.fromJson(Map<String, dynamic> json) =>
+      OrganizerSearchResult(
+        id: json['id'] as int,
+        email: (json['email'] as String?) ?? '',
+        displayName: json['display_name'] as String?,
+      );
+}
+
+class Registration {
+  final int id;
+  final int eventId;
+  final int userId;
+  final String status;
+  final DateTime createdAt;
+
+  Registration({
+    required this.id,
+    required this.eventId,
+    required this.userId,
+    required this.status,
+    required this.createdAt,
+  });
+
+  factory Registration.fromJson(Map<String, dynamic> json) => Registration(
+        id: json['id'] as int,
+        eventId: json['event_id'] as int,
+        userId: json['user_id'] as int,
+        status: (json['status'] as String?) ?? '',
+        createdAt: DateTime.parse(json['created_at'] as String),
+      );
+}
+
+class CapacityInfo {
+  final int maxCapacity;
+  final int ticketsSold;
+  final int totalReservedSpots;
+  final int occupied;
+  final int available;
+  final int registrationCount;
+
+  CapacityInfo({
+    required this.maxCapacity,
+    required this.ticketsSold,
+    required this.totalReservedSpots,
+    required this.occupied,
+    required this.available,
+    required this.registrationCount,
+  });
+
+  factory CapacityInfo.fromJson(Map<String, dynamic> json) => CapacityInfo(
+        maxCapacity: (json['max_capacity'] as int?) ?? 0,
+        ticketsSold: (json['tickets_sold'] as int?) ?? 0,
+        totalReservedSpots: (json['total_reserved_spots'] as int?) ?? 0,
+        occupied: (json['occupied'] as int?) ?? 0,
+        available: (json['available'] as int?) ?? 0,
+        registrationCount: (json['registration_count'] as int?) ?? 0,
+      );
 }

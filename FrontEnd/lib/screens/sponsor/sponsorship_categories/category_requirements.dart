@@ -3,6 +3,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
+import '../../../models/sponsor.dart';
 import '../../../repositories/base_repository.dart';
 import '../../../providers/sponsor_provider.dart';
 import '../../../widgets/app_toast.dart';
@@ -11,7 +12,7 @@ class CategoryRequirements extends StatefulWidget {
   final int eventId;
   final int categoryId;
   final String categoryName;
-  final List<Map<String, dynamic>> myBids;
+  final List<SponsorBid> myBids;
 
   const CategoryRequirements({
     super.key,
@@ -28,8 +29,8 @@ class CategoryRequirements extends StatefulWidget {
 class _CategoryRequirementsState extends State<CategoryRequirements> {
   bool _expanded = false;
   bool _loading = false;
-  List<Map<String, dynamic>> _prereqs = [];
-  Map<int, Map<String, dynamic>> _uploads = {};
+  List<CategoryPrerequisite> _prereqs = [];
+  Map<int, BidPrerequisiteUpload> _uploads = {};
   final Map<int, bool> _uploading = {};
 
   bool get _hasBid => widget.myBids.isNotEmpty;
@@ -41,12 +42,12 @@ class _CategoryRequirementsState extends State<CategoryRequirements> {
       final api = context.read<SponsorProvider>();
       final prereqs = await api.listPrerequisites(widget.eventId, widget.categoryId);
 
-      Map<int, Map<String, dynamic>> uploads = {};
+      Map<int, BidPrerequisiteUpload> uploads = {};
       if (widget.myBids.isNotEmpty) {
-        final latestBidId = widget.myBids.first['id'] as int;
+        final latestBidId = widget.myBids.first.id;
         final bidUploads = await api.listBidPrerequisiteUploads(latestBidId);
         for (final u in bidUploads) {
-          uploads[u['prerequisite_id'] as int] = u;
+          uploads[u.prerequisiteId] = u;
         }
       }
 
@@ -83,12 +84,13 @@ class _CategoryRequirementsState extends State<CategoryRequirements> {
       );
       if (mounted) {
         setState(() {
-          _uploads[prereqId] = {
-            'id': resp['id'],
-            'file_url': resp['file_url'],
-            'status': resp['status'],
-            'prerequisite_id': prereqId,
-          };
+          _uploads[prereqId] = BidPrerequisiteUpload(
+            id: resp['id'] as int,
+            bidId: 0,
+            prerequisiteId: prereqId,
+            fileUrl: (resp['file_url'] as String?) ?? '',
+            status: (resp['status'] as String?) ?? 'pending',
+          );
           _uploading[prereqId] = false;
         });
         AppToast.success(context, 'Document uploaded');
@@ -175,7 +177,7 @@ class _CategoryRequirementsState extends State<CategoryRequirements> {
                 padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
                 child: Column(
                   children: [
-                    if (!_hasBid && _prereqs.any((p) => p['requires_document'] == true))
+                    if (!_hasBid && _prereqs.any((p) => p.requiresDocument))
                       Padding(
                         padding: const EdgeInsets.only(bottom: 8),
                         child: Row(
@@ -192,14 +194,14 @@ class _CategoryRequirementsState extends State<CategoryRequirements> {
                         ),
                       ),
                     ..._prereqs.map((p) {
-                    final prereqId = p['id'] as int;
-                    final name = p['name'] as String? ?? '';
-                    final desc = p['description'] as String? ?? '';
-                    final requiresDoc = p['requires_document'] == true;
+                    final prereqId = p.id;
+                    final name = p.name;
+                    final desc = p.description ?? '';
+                    final requiresDoc = p.requiresDocument;
                     final upload = _uploads[prereqId];
                     final hasUpload = upload != null;
                     final isUploading = _uploading[prereqId] == true;
-                    final status = upload?['status'] ?? 'pending';
+                    final status = upload?.status ?? 'pending';
 
                     return Padding(
                       padding: const EdgeInsets.symmetric(vertical: 6),

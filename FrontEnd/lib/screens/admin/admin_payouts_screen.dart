@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
+import '../../models/admin.dart';
 import '../../providers/admin_provider.dart';
 import '../../widgets/app_toast.dart';
 import 'admin_shared.dart';
@@ -15,7 +16,7 @@ class AdminPayoutsScreen extends StatefulWidget {
 }
 
 class _AdminPayoutsScreenState extends State<AdminPayoutsScreen> {
-  List<dynamic> _payoutItems = [];
+  List<AdminPayoutItem> _payoutItems = [];
   bool _loading = true;
   String? _error;
   String _searchText = '';
@@ -33,13 +34,13 @@ class _AdminPayoutsScreenState extends State<AdminPayoutsScreen> {
     super.dispose();
   }
 
-  List<dynamic> get _filteredItems {
+  List<AdminPayoutItem> get _filteredItems {
     if (_searchText.isEmpty) return _payoutItems;
     final q = _searchText.toLowerCase();
     return _payoutItems.where((p) {
-      final name = (p['organizer_name'] ?? '').toString().toLowerCase();
-      final email = (p['organizer_email'] ?? '').toString().toLowerCase();
-      final id = (p['organizer_id'] ?? '').toString();
+      final name = (p.organizerName ?? '').toLowerCase();
+      final email = (p.organizerEmail ?? '').toLowerCase();
+      final id = p.organizerId.toString();
       return name.contains(q) || email.contains(q) || id.contains(q);
     }).toList();
   }
@@ -54,7 +55,7 @@ class _AdminPayoutsScreenState extends State<AdminPayoutsScreen> {
       final resp = await admin.getPayoutStatus();
       if (!mounted) return;
       setState(() {
-        _payoutItems = (resp is List) ? resp : (resp['items'] ?? []);
+        _payoutItems = resp;
         _loading = false;
       });
     } catch (e) {
@@ -204,12 +205,12 @@ class _AdminPayoutsScreenState extends State<AdminPayoutsScreen> {
     );
   }
 
-  Widget _buildPayoutCard(BuildContext context, Map<String, dynamic> p) {
-    final hasBankAccount = p['has_bank_account'] == true ||
-        p['bank_status'] == 'configured' ||
-        p['bank_status'] == 'verified';
-    final pendingCents = p['pending_payout_cents'] ?? p['pending_amount_cents'] ?? 0;
-    final bankStatus = p['bank_status'] ?? (hasBankAccount ? 'configured' : 'missing');
+  Widget _buildPayoutCard(BuildContext context, AdminPayoutItem p) {
+    final hasBankAccount = p.hasBankAccount ||
+        p.bankStatus == 'configured' ||
+        p.bankStatus == 'verified';
+    final pendingCents = p.pendingPayoutCents > 0 ? p.pendingPayoutCents : p.pendingAmountCents;
+    final bankStatus = p.bankStatus ?? (hasBankAccount ? 'configured' : 'missing');
 
     final bankColor = switch (bankStatus) {
       'verified' => AppTheme.successColor,
@@ -239,14 +240,14 @@ class _AdminPayoutsScreenState extends State<AdminPayoutsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        p['organizer_name'] ?? 'Organizer #${p['organizer_id']}',
+                        p.organizerName ?? 'Organizer #${p.organizerId}',
                         style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
                             color: AppTheme.textPrimaryOf(context)),
                       ),
-                      if (p['organizer_email'] != null)
-                        Text(p['organizer_email'],
+                      if (p.organizerEmail != null)
+                        Text(p.organizerEmail!,
                             style: TextStyle(
                                 fontSize: 12,
                                 color: AppTheme.textSecondaryOf(context))),
@@ -281,11 +282,11 @@ class _AdminPayoutsScreenState extends State<AdminPayoutsScreen> {
               runSpacing: 4,
               children: [
                 _chip(context, 'Bank', statusLabel(bankStatus), bankColor),
-                if (p['payout_schedule'] != null)
-                  _chip(context, 'Schedule', capitalize(p['payout_schedule']),
+                if (p.payoutSchedule != null)
+                  _chip(context, 'Schedule', capitalize(p.payoutSchedule!),
                       AppTheme.textSecondaryOf(context)),
-                if (p['next_payout_date'] != null)
-                  _chip(context, 'Next', '${p['next_payout_date']}',
+                if (p.nextPayoutDate != null)
+                  _chip(context, 'Next', p.nextPayoutDate!,
                       AppTheme.textSecondaryOf(context)),
               ],
             ),
@@ -301,7 +302,7 @@ class _AdminPayoutsScreenState extends State<AdminPayoutsScreen> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 14, vertical: 8),
                       textStyle: const TextStyle(fontSize: 13)),
-                  onPressed: () => _forcePayout(p['organizer_id'] as int),
+                  onPressed: () => _forcePayout(p.organizerId),
                 ),
               ),
             ],

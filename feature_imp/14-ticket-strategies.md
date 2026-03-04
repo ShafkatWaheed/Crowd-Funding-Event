@@ -23,13 +23,13 @@
 
 ## Models and DB
 
-- **Models:** `TicketStrategy`, `TicketStrategyTier`.
-- **Tables updated/read:** `ticket_strategies`, `ticket_strategy_tiers`. Strategies are per-organizer (organizer_id).
+- **Models:** `TicketStrategy`, `TicketStrategyTier`. When tiers are applied to an event, `TicketTier` rows are created with **from_strategy=true** (see [19-tickets](19-tickets.md)); the ticket strategy repository sets this when creating tiers from a strategy.
+- **Tables updated/read:** `ticket_strategies`, `ticket_strategy_tiers`, `ticket_tiers` (on apply). Strategies are per-organizer (organizer_id).
 
 ## Dependencies
 
 - **Requires:** [Auth](01-auth-users.md). Events reference strategy by copying tiers to event's ticket_tiers on create/link; strategy can be deleted if no events use it (or soft-delete).
-- **Triggers / side effects:** [Tickets](19-tickets.md) — event ticket tiers are copied from strategy; re-selecting same strategy can repopulate tiers.
+- **Triggers / side effects:** [Tickets](19-tickets.md) — event ticket tiers are copied from strategy; re-selecting same strategy can repopulate tiers. Tiers created from a strategy are stored with **from_strategy=true** (set by ticket strategy repo when creating tiers on the event); those tiers cannot be deleted by the organizer (delete blocked in backend and frontend).
 
 ## Prompt
 

@@ -8,6 +8,8 @@ import '../../utils/date_time_utils.dart';
 
 import '../../config/theme.dart';
 import '../../models/event.dart';
+import '../../models/user.dart';
+import '../../models/rating.dart';
 import '../../repositories/base_repository.dart';
 import '../../providers/user_provider.dart';
 import '../../widgets/shimmer_loaders.dart';
@@ -28,8 +30,8 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
   final _scrollCtrl = ScrollController();
   final _searchCtrl = TextEditingController();
   Timer? _debounce;
-  Map<String, dynamic>? _profile;
-  Map<String, dynamic>? _ratingsSummary;
+  PublicProfile? _profile;
+  RatingsSummary? _ratingsSummary;
   List<Event> _events = [];
   bool _loadingProfile = true;
   bool _loadingEvents = true;
@@ -157,13 +159,13 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final name = _profile?['display_name'] ?? 'User';
-    final role = _profile?['role'] ?? '';
-    final address = _profile?['address'];
-    final yoe = _profile?['years_of_experience'];
-    final trust = _profile?['trust'];
-    final createdAt = _profile?['created_at'];
-    final sponsorProfile = _profile?['sponsor_profile'];
+    final name = _profile?.displayName ?? 'User';
+    final role = _profile?.role ?? '';
+    final address = _profile?.address;
+    final yoe = _profile?.yearsOfExperience;
+    final trust = _profile?.trust;
+    final createdAt = _profile?.createdAt;
+    final sponsorProfile = _profile?.sponsorProfile;
 
     return Scaffold(
       appBar: AppBar(title: Text(_loadingProfile ? 'Profile' : name)),
@@ -184,11 +186,11 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
                     _buildTrustSection(context, trust),
                     const SizedBox(height: 24),
                   ],
-                  if (_profile?['event_metrics'] != null) ...[
-                    _buildEventMetrics(context, _profile!['event_metrics'] as Map<String, dynamic>),
+                  if (_profile?.eventMetrics != null) ...[
+                    _buildEventMetrics(context, _profile!.eventMetrics!),
                     const SizedBox(height: 24),
                   ],
-                  if (_ratingsSummary != null && (_ratingsSummary!['count'] as int? ?? 0) > 0) ...[
+                  if (_ratingsSummary != null && _ratingsSummary!.count > 0) ...[
                     _buildRatingsSection(context),
                     const SizedBox(height: 24),
                   ],
@@ -201,8 +203,8 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
 
   Widget _buildProfileHeader(
     String name, String role, String? address, int? yoe,
-    Map<String, dynamic>? trust, String? createdAt,
-    Map<String, dynamic>? sponsorProfile,
+    TrustInfo? trust, String? createdAt,
+    PublicSponsorInfo? sponsorProfile,
   ) {
     final initials = name.isNotEmpty ? name[0].toUpperCase() : '?';
     DateTime? memberSince;
@@ -247,7 +249,7 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
           if (sponsorProfile != null) ...[
             const SizedBox(height: 6),
             Text(
-              sponsorProfile['company_name'] ?? '',
+              sponsorProfile.companyName ?? '',
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textSecondaryOf(context)),
             ),
           ],
@@ -293,11 +295,11 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
     );
   }
 
-  Widget _buildTrustSection(BuildContext context, Map<String, dynamic> trust) {
-    final score = ((trust['trust_score'] ?? 0.0) as num).toDouble();
-    final label = trust['label'] ?? 'New';
-    final completed = trust['completed_events'] ?? 0;
-    final published = trust['published_events'] ?? 0;
+  Widget _buildTrustSection(BuildContext context, TrustInfo trust) {
+    final score = trust.trustScore;
+    final label = trust.label;
+    final completed = trust.completedEvents;
+    final published = trust.publishedEvents;
     final pct = (score * 100).toInt();
 
     Color trustColor;
@@ -365,14 +367,14 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
     );
   }
 
-  Widget _buildEventMetrics(BuildContext context, Map<String, dynamic> metrics) {
+  Widget _buildEventMetrics(BuildContext context, EventMetrics metrics) {
     final items = <_MetricItem>[
-      _MetricItem('Completed', metrics['completed'] ?? 0, context.managementAccent, Icons.check_circle_rounded),
-      _MetricItem('Cancelled', metrics['cancelled'] ?? 0, context.statusCancelled, Icons.cancel_rounded),
-      _MetricItem('Live', metrics['live'] ?? 0, AppTheme.successColor, Icons.play_circle_rounded),
-      _MetricItem('Funding', metrics['approved'] ?? 0, AppTheme.accentColor, Icons.monetization_on_rounded),
-      _MetricItem('Selling', metrics['selling_tickets'] ?? 0, context.statusSelling, Icons.confirmation_num_rounded),
-      _MetricItem('Total', metrics['total'] ?? 0, AppTheme.textSecondaryOf(context), Icons.bar_chart_rounded),
+      _MetricItem('Completed', metrics.completed, context.managementAccent, Icons.check_circle_rounded),
+      _MetricItem('Cancelled', metrics.cancelled, context.statusCancelled, Icons.cancel_rounded),
+      _MetricItem('Live', metrics.live, AppTheme.successColor, Icons.play_circle_rounded),
+      _MetricItem('Funding', metrics.approved, AppTheme.accentColor, Icons.monetization_on_rounded),
+      _MetricItem('Selling', metrics.sellingTickets, context.statusSelling, Icons.confirmation_num_rounded),
+      _MetricItem('Total', metrics.total, AppTheme.textSecondaryOf(context), Icons.bar_chart_rounded),
     ];
 
     return Container(
@@ -422,10 +424,10 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
 
   Widget _buildRatingsSection(BuildContext context) {
     final s = _ratingsSummary!;
-    final avgStars = s['avg_stars'] as double?;
-    final count = s['count'] as int? ?? 0;
-    final topReviews = (s['top_reviews'] as List?) ?? [];
-    final worstReviews = (s['worst_reviews'] as List?) ?? [];
+    final avgStars = s.avgStars;
+    final count = s.count;
+    final topReviews = s.topReviews;
+    final worstReviews = s.worstReviews;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -454,7 +456,7 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
             const SizedBox(height: 6),
             ...topReviews.take(5).map((r) => _reviewTile(r)),
           ],
-          if (worstReviews.isNotEmpty && (worstReviews.first['stars'] as int? ?? 5) < 4) ...[
+          if (worstReviews.isNotEmpty && worstReviews.first.stars < 4) ...[
             const SizedBox(height: 14),
             Text('Critical Reviews',
                 style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondaryOf(context))),
@@ -466,10 +468,10 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
     );
   }
 
-  Widget _reviewTile(dynamic r) {
-    final stars = r['stars'] as int? ?? 0;
-    final name = r['rater_name'] ?? 'Anonymous';
-    final desc = r['description'] as String? ?? '';
+  Widget _reviewTile(Rating r) {
+    final stars = r.stars;
+    final name = r.raterName;
+    final desc = r.description ?? '';
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Row(

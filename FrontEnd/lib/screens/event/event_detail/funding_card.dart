@@ -7,12 +7,12 @@ import '../../../config/theme.dart';
 import '../../../utils/date_time_utils.dart';
 import '../../../config/design_tokens.dart';
 import '../../../models/event.dart';
+import '../../../models/funding.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../repositories/base_repository.dart';
 import '../../../providers/pledge_provider.dart';
 import '../../../providers/ticket_provider.dart';
 import '../../../providers/config_provider.dart';
-import '../../../repositories/payment_repository.dart';
 import '../../../widgets/app_toast.dart';
 import '../pledge_receipt_screen.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
@@ -129,7 +129,7 @@ class _FundingCardState extends State<FundingCard> {
 
     // Per-tier spot allocation for tier-linked mode
     Map<int, int> tierSpots = {};
-    List<Map<String, dynamic>> tierAvailability = [];
+    List<TierAvailability> tierAvailability = [];
     bool loadingTiers = isTierLinked;
     int availableSpotsForUser = maxPerUser;
 
@@ -137,10 +137,10 @@ class _FundingCardState extends State<FundingCard> {
       try {
         final repo = context.read<PledgeProvider>();
         final preview = await repo.getPledgePreview(widget.eventId, 0, 0);
-        tierAvailability = List<Map<String, dynamic>>.from(preview['tier_availability'] ?? []);
-        availableSpotsForUser = (preview['available_spots_for_user'] as int?) ?? maxPerUser;
+        tierAvailability = preview.tierAvailability;
+        availableSpotsForUser = preview.availableSpotsForUser;
         for (final t in tierAvailability) {
-          tierSpots[t['tier_id'] as int] = 0;
+          tierSpots[t.tierId] = 0;
         }
         loadingTiers = false;
       } catch (_) {
@@ -157,8 +157,8 @@ class _FundingCardState extends State<FundingCard> {
           int totalTierSpots = tierSpots.values.fold(0, (a, b) => a + b);
           int minTierCost = 0;
           for (final t in tierAvailability) {
-            final tid = t['tier_id'] as int;
-            final price = t['price_cents'] as int;
+            final tid = t.tierId;
+            final price = t.priceCents;
             minTierCost += price * (tierSpots[tid] ?? 0);
           }
           final minRequired = isTierLinked
@@ -258,10 +258,10 @@ class _FundingCardState extends State<FundingCard> {
                       ))
                     else
                       ...tierAvailability.map((t) {
-                        final tid = t['tier_id'] as int;
-                        final name = t['tier_name'] as String;
-                        final price = t['price_cents'] as int;
-                        final available = t['available'] as int;
+                        final tid = t.tierId;
+                        final name = t.tierName;
+                        final price = t.priceCents;
+                        final available = t.available;
                         final spots = tierSpots[tid] ?? 0;
                         final bool userLimitReached = maxPerUser > 0 && totalTierSpots >= availableSpotsForUser;
                         final bool canAdd = spots < available && !userLimitReached;
@@ -338,10 +338,10 @@ class _FundingCardState extends State<FundingCard> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            ...tierAvailability.where((t) => (tierSpots[t['tier_id'] as int] ?? 0) > 0).map((t) {
-                              final tid = t['tier_id'] as int;
-                              final name = t['tier_name'] as String;
-                              final price = t['price_cents'] as int;
+                            ...tierAvailability.where((t) => (tierSpots[t.tierId] ?? 0) > 0).map((t) {
+                              final tid = t.tierId;
+                              final name = t.tierName;
+                              final price = t.priceCents;
                               final spots = tierSpots[tid]!;
                               return Padding(
                                 padding: const EdgeInsets.only(bottom: 4),
@@ -458,7 +458,7 @@ class _FundingCardState extends State<FundingCard> {
   // ── Step 2: Pledge invoice ──
   Future<void> _showPledgeInvoice(int amountCents, int reservedSpots,
       {List<Map<String, dynamic>>? tierReservations}) async {
-    Map<String, dynamic>? preview;
+    PledgePreview? preview;
     bool loadingPreview = true;
     String? previewError;
 
@@ -477,9 +477,9 @@ class _FundingCardState extends State<FundingCard> {
       context: context,
       builder: (ctx) {
         final amountDollars = (amountCents / 100).toStringAsFixed(2);
-        final platformCut = preview?['platform_cut_cents'] ?? 0;
-        final netToOrganizer = preview?['net_to_organizer_cents'] ?? 0;
-        final commissionPct = preview?['funding_commission_percent'] ?? 0;
+        final platformCut = preview?.platformCutCents ?? 0;
+        final netToOrganizer = preview?.netToOrganizerCents ?? 0;
+        final commissionPct = preview?.fundingCommissionPercent ?? 0;
 
         return AlertDialog(
           title: Row(
@@ -605,18 +605,17 @@ class _FundingCardState extends State<FundingCard> {
     _showPaymentProcessing();
     try {
       final config = context.read<ConfigProvider>();
-      final paymentRepo = context.read<PaymentRepository>();
       final repo = context.read<PledgeProvider>();
 
       // Stripe Payment Sheet flow when Stripe is enabled
       if (config.stripeEnabled) {
-        final intent = await paymentRepo.createPaymentIntent(
+        final intent = await config.createPaymentIntent(
           amountCents: amountCents,
           description: 'Pledge for event ${widget.eventId}',
         );
         await Stripe.instance.initPaymentSheet(
           paymentSheetParameters: SetupPaymentSheetParameters(
-            paymentIntentClientSecret: intent['client_secret'] as String,
+            paymentIntentClientSecret: intent.clientSecret,
             merchantDisplayName: 'CrowdFund Event',
           ),
         );
@@ -751,7 +750,7 @@ class _FundingCardState extends State<FundingCard> {
       try {
         final repo = context.read<PledgeProvider>();
         final result = await repo.getRefundStatus(widget.eventId);
-        final status = result['status'] as String? ?? 'none';
+        final status = result.status;
 
         if (status == 'completed') {
           _refundPollTimer?.cancel();

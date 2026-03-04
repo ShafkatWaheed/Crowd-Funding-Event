@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../config/theme.dart';
+import '../../../../models/admin.dart';
 import '../../../../providers/admin_provider.dart';
 import '../../../../widgets/app_toast.dart';
 import '../../admin_shared.dart';
 
 class BankingDisputesSection extends StatelessWidget {
-  final List<dynamic> disputes;
+  final List<AdminDispute> disputes;
   final bool disputesLoading;
   final VoidCallback onReloadDisputes;
   final VoidCallback onReloadBanking;
@@ -39,7 +40,7 @@ class BankingDisputesSection extends StatelessWidget {
     }
     return Column(
       children: disputes.map<Widget>((d) {
-        final status = d['status'] ?? 'open';
+        final status = d.status.isEmpty ? 'open' : d.status;
         final isOpen = status == 'open' || status == 'evidence_submitted';
         final statusColor = switch (status) {
           'open' => AppTheme.errorColor,
@@ -53,13 +54,13 @@ class BankingDisputesSection extends StatelessWidget {
           child: ExpansionTile(
             leading: Icon(Icons.gavel, color: statusColor, size: 20),
             title: Text(
-                'Dispute ${d['stripe_dispute_id'] ?? '#${d['id']}'}',
+                'Dispute ${d.stripeDisputeId ?? '#${d.id}'}',
                 style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: AppTheme.textPrimaryOf(context))),
             subtitle: Text(
-                '${centsToStr(d['amount_cents'] ?? 0)} · $status',
+                '${centsToStr(d.amountCents)} · $status',
                 style: TextStyle(fontSize: 12, color: statusColor)),
             children: [
               Padding(
@@ -67,14 +68,14 @@ class BankingDisputesSection extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (d['reason'] != null)
-                      Text('Reason: ${d['reason']}',
+                    if (d.reason != null)
+                      Text('Reason: ${d.reason}',
                           style: TextStyle(
                               fontSize: 12,
                               color:
                                   AppTheme.textSecondaryOf(context))),
-                    if (d['created_at'] != null)
-                      Text('Opened: ${d['created_at']}',
+                    if (d.createdAt != null)
+                      Text('Opened: ${d.createdAt}',
                           style: TextStyle(
                               fontSize: 12,
                               color:
@@ -96,8 +97,7 @@ class BankingDisputesSection extends StatelessWidget {
                               try {
                                 await context
                                     .read<AdminProvider>()
-                                    .submitDisputeEvidence(
-                                        d['id'] as int);
+                                    .submitDisputeEvidence(d.id);
                                 onReloadDisputes();
                                 if (context.mounted) {
                                   AppToast.success(
@@ -127,8 +127,7 @@ class BankingDisputesSection extends StatelessWidget {
                               try {
                                 await context
                                     .read<AdminProvider>()
-                                    .acceptDisputeLoss(
-                                        d['id'] as int);
+                                    .acceptDisputeLoss(d.id);
                                 onReloadDisputes();
                                 onReloadBanking();
                                 if (context.mounted) {
@@ -156,4 +155,3 @@ class BankingDisputesSection extends StatelessWidget {
     );
   }
 }
-

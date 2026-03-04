@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import '../models/event.dart';
+import '../models/rating.dart';
 import '../models/user.dart';
 import 'base_repository.dart';
 
@@ -41,40 +42,42 @@ class UserRepository extends BaseRepository {
 
   // ─── Payment Info ───
 
-  Future<Map<String, dynamic>> getPaymentInfo() async {
+  Future<PaymentInfo> getPaymentInfo() async {
     final resp = await dio.get('/me/payment-info');
-    return resp.data;
+    return PaymentInfo.fromJson(Map<String, dynamic>.from(resp.data as Map));
   }
 
-  Future<Map<String, dynamic>> updatePaymentInfo(
+  Future<PaymentInfo> updatePaymentInfo(
       Map<String, dynamic> data) async {
     final resp = await dio.put('/me/payment-info', data: data);
-    return resp.data;
+    return PaymentInfo.fromJson(Map<String, dynamic>.from(resp.data as Map));
   }
 
   // ─── Bank Account ───
 
-  Future<Map<String, dynamic>> getBankAccount() async {
+  Future<BankAccount> getBankAccount() async {
     final resp = await dio.get('/me/bank-account');
-    return resp.data;
+    return BankAccount.fromJson(Map<String, dynamic>.from(resp.data as Map));
   }
 
-  Future<Map<String, dynamic>> updateBankAccount(
+  Future<BankAccount> updateBankAccount(
       Map<String, dynamic> data) async {
     final resp = await dio.put('/me/bank-account', data: data);
-    return resp.data;
+    return BankAccount.fromJson(Map<String, dynamic>.from(resp.data as Map));
   }
 
   // ─── Public Profiles ───
 
-  Future<Map<String, dynamic>> getPublicProfile(int userId) async {
+  Future<PublicProfile> getPublicProfile(int userId) async {
     final resp = await dio.get('/users/$userId/public-profile');
-    return resp.data;
+    return PublicProfile.fromJson(
+        Map<String, dynamic>.from(resp.data as Map));
   }
 
-  Future<Map<String, dynamic>> getSponsorPublicProfile(int userId) async {
+  Future<SponsorPublicProfile> getSponsorPublicProfile(int userId) async {
     final resp = await dio.get('/users/$userId/sponsor-public-profile');
-    return resp.data;
+    return SponsorPublicProfile.fromJson(
+        Map<String, dynamic>.from(resp.data as Map));
   }
 
   Future<List<Event>> getPublicEvents(
@@ -94,16 +97,17 @@ class UserRepository extends BaseRepository {
 
   // ─── User Ratings ───
 
-  Future<Map<String, dynamic>> getUserRatingsSummary(int userId) async {
+  Future<RatingsSummary> getUserRatingsSummary(int userId) async {
     final resp = await dio.get('/users/$userId/ratings-received');
-    return resp.data;
+    return RatingsSummary.fromJson(
+        Map<String, dynamic>.from(resp.data as Map));
   }
 
   // ─── KYC ───
 
-  Future<Map<String, dynamic>> getKycStatus() async {
+  Future<KycStatus> getKycStatus() async {
     final resp = await dio.get('/me/kyc-status');
-    return resp.data as Map<String, dynamic>;
+    return KycStatus.fromJson(Map<String, dynamic>.from(resp.data as Map));
   }
 
   Future<Map<String, dynamic>> uploadKycDocument(
@@ -128,14 +132,20 @@ class UserRepository extends BaseRepository {
     return resp.data as Map<String, dynamic>;
   }
 
-  Future<List<AppUser>> adminGetKycPending() async {
+  Future<List<KycPendingUser>> adminGetKycPending() async {
     final resp = await dio.get('/admin/kyc-pending');
-    return (resp.data as List).map((e) => AppUser.fromJson(e)).toList();
+    return (resp.data as List)
+        .map((e) =>
+            KycPendingUser.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
   }
 
-  Future<List<dynamic>> adminGetUserKycDocuments(int userId) async {
+  Future<List<KycDocument>> adminGetUserKycDocuments(int userId) async {
     final resp = await dio.get('/admin/users/$userId/kyc-documents');
-    return resp.data as List<dynamic>;
+    return (resp.data as List)
+        .map((e) =>
+            KycDocument.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
   }
 
   Future<Map<String, dynamic>> adminVerifyKyc(

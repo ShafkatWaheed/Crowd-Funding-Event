@@ -25,8 +25,7 @@ def reject_if_frozen(escrow, *, label: str = "Escrow") -> None:
 
 async def generic_freeze(db: AsyncSession, model_class, *, event_id: int, get_or_create_fn):
     escrow = await get_or_create_fn(db, event_id=event_id)
-    escrow.status = EscrowStatus.frozen
-    await escrow_repo.flush(db)
+    await escrow_repo.update_status(db, escrow, EscrowStatus.frozen)
     return escrow
 
 
@@ -35,12 +34,12 @@ async def generic_unfreeze(db: AsyncSession, model_class, *, event_id: int, get_
     if escrow.status != EscrowStatus.frozen:
         raise ConflictError(f"{label} is not frozen")
     if escrow.stage3_released_at:
-        escrow.status = EscrowStatus.fully_released
+        new_status = EscrowStatus.fully_released
     elif escrow.stage1_released_at:
-        escrow.status = EscrowStatus.partially_released
+        new_status = EscrowStatus.partially_released
     else:
-        escrow.status = EscrowStatus.holding
-    await escrow_repo.flush(db)
+        new_status = EscrowStatus.holding
+    await escrow_repo.update_status(db, escrow, new_status)
 
     await _warn_admins_if_no_bank(db, event_id, label=label)
 
@@ -83,14 +82,7 @@ async def generic_release_stage(
     amount = escrow.total_held_cents * pct // 100
     now = datetime.now(timezone.utc)
 
-    setattr(escrow, f"stage{stage}_released_cents", amount)
-    setattr(escrow, f"stage{stage}_released_at", now)
-
-    if stage == 3:
-        escrow.status = EscrowStatus.fully_released
-    else:
-        escrow.status = EscrowStatus.partially_released
-
+    await escrow_repo.release_stage(db, escrow, stage=stage, amount=amount, now=now)
     await escrow_repo.flush_and_refresh(db, escrow)
     return escrow
 
@@ -189,13 +181,7 @@ async def rollback_release(
     db: AsyncSession, escrow, *, stage: int, reason: str,
 ) -> None:
     """Reverse a stage release after a payout failure."""
-    setattr(escrow, f"stage{stage}_released_cents", 0)
-    setattr(escrow, f"stage{stage}_released_at", None)
-
-    if escrow.stage1_released_at:
-        escrow.status = EscrowStatus.partially_released
-    else:
-        escrow.status = EscrowStatus.holding
+    await escrow_repo.rollback_stage(db, escrow, stage=stage)
 
     log = EscrowRelease(
         escrow_id=escrow.id, stage=stage, amount_cents=0,

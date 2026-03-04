@@ -298,8 +298,8 @@ class _BidCard extends StatefulWidget {
 
 class _BidCardState extends State<_BidCard> {
   bool _docsExpanded = false;
-  List<Map<String, dynamic>>? _uploads;
-  List<Map<String, dynamic>>? _prereqs;
+  List<BidPrerequisiteUpload>? _uploads;
+  List<CategoryPrerequisite>? _prereqs;
   bool _loadingDocs = false;
 
   Future<void> _loadDocs() async {
@@ -529,13 +529,13 @@ class _BidCardState extends State<_BidCard> {
                 )
               else if (_prereqs != null)
                 ..._prereqs!.map((prereq) {
-                  final upload = _uploads?.firstWhere(
-                    (u) => u['prerequisite_id'] == prereq['id'],
-                    orElse: () => <String, dynamic>{},
+                  final upload = _uploads?.cast<BidPrerequisiteUpload?>().firstWhere(
+                    (u) => u != null && u.prerequisiteId == prereq.id,
+                    orElse: () => null,
                   );
-                  final hasUpload = upload != null && upload.isNotEmpty;
-                  final uploadStatus = hasUpload ? (upload['status'] ?? 'pending') : null;
-                  final isRequired = prereq['is_required'] == true;
+                  final hasUpload = upload != null;
+                  final uploadStatus = hasUpload ? upload.status : null;
+                  final isRequired = prereq.isRequired;
 
                   return Container(
                     margin: const EdgeInsets.only(top: 6),
@@ -558,7 +558,7 @@ class _BidCardState extends State<_BidCard> {
                             const SizedBox(width: 6),
                             Expanded(
                               child: Text(
-                                prereq['name'] ?? '',
+                                prereq.name,
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
@@ -595,7 +595,7 @@ class _BidCardState extends State<_BidCard> {
                                 child: SizedBox(
                                   height: 30,
                                   child: OutlinedButton(
-                                    onPressed: () => _reviewUpload(prereq['id'], 'rejected'),
+                                    onPressed: () => _reviewUpload(prereq.id, 'rejected'),
                                     style: OutlinedButton.styleFrom(
                                       foregroundColor: AppTheme.errorColor,
                                       side: const BorderSide(color: AppTheme.errorColor),
@@ -611,7 +611,7 @@ class _BidCardState extends State<_BidCard> {
                                 child: SizedBox(
                                   height: 30,
                                   child: ElevatedButton(
-                                    onPressed: () => _reviewUpload(prereq['id'], 'approved'),
+                                    onPressed: () => _reviewUpload(prereq.id, 'approved'),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: AppTheme.successColor,
                                       padding: EdgeInsets.zero,
@@ -624,9 +624,9 @@ class _BidCardState extends State<_BidCard> {
                             ],
                           ),
                         ],
-                        if (hasUpload && upload['reviewer_note'] != null && (upload['reviewer_note'] as String).isNotEmpty) ...[
+                        if (hasUpload && upload.reviewerNote != null && upload.reviewerNote!.isNotEmpty) ...[
                           const SizedBox(height: 4),
-                          Text('Note: ${upload['reviewer_note']}',
+                          Text('Note: ${upload.reviewerNote}',
                               style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: AppTheme.textSecondaryOf(context))),
                         ],
                       ],

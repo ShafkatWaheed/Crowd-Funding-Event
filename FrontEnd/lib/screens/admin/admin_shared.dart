@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
+import '../../models/admin.dart';
 import '../../providers/admin_provider.dart';
 import '../../repositories/base_repository.dart';
 import '../../utils/date_time_utils.dart';
@@ -22,11 +23,7 @@ String formatDate(String? iso) => AppDateFormat.isoDateOnly(iso);
 
 String formatIsoDate(String? iso) => AppDateFormat.isoFull(iso);
 
-List<String> getWarnings(Map<String, dynamic> e) {
-  final raw = e['validation_warnings'];
-  if (raw is List) return raw.map((w) => w.toString()).toList();
-  return [];
-}
+List<String> getWarnings(AdminEventItem e) => e.validationWarnings;
 
 Widget statusChip(BuildContext context, String label, Color color) {
   return Container(

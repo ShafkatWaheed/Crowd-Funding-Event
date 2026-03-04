@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../../config/api_config.dart';
 import '../../../config/theme.dart';
+import '../../../models/admin.dart';
 import '../../../providers/admin_provider.dart';
 import '../../../repositories/base_repository.dart';
 
@@ -16,7 +17,7 @@ class AdminEmailTab extends StatefulWidget {
     required this.onReloadSettings,
   });
 
-  final List<dynamic> settings;
+  final List<PlatformSetting> settings;
   final void Function(String) onSnack;
   final void Function(String key, String value) onUpdateSetting;
   final Future<void> Function() onReloadSettings;
@@ -26,17 +27,17 @@ class AdminEmailTab extends StatefulWidget {
 }
 
 class _AdminEmailTabState extends State<AdminEmailTab> {
-  List<dynamic> _emailTemplates = [];
+  List<EmailTemplate> _emailTemplates = [];
   bool _emailLoading = true;
   bool _initialLoaded = false;
   bool _logoUploading = false;
 
   String _settingVal(String key) {
-    final s = widget.settings.cast<Map<String, dynamic>?>().firstWhere(
-          (e) => e != null && e['key'] == key,
+    final s = widget.settings.cast<PlatformSetting?>().firstWhere(
+          (e) => e != null && e.key == key,
           orElse: () => null,
         );
-    return s?['value']?.toString() ?? '';
+    return s?.value ?? '';
   }
 
   @override
@@ -147,19 +148,19 @@ class _AdminEmailTabState extends State<AdminEmailTab> {
   // ── Template editor dialog ──
 
   void _showEditTemplateDialog(
-      BuildContext context, Map<String, dynamic> template) {
+      BuildContext context, EmailTemplate template) {
     final subjectCtrl =
-        TextEditingController(text: template['subject'] ?? '');
+        TextEditingController(text: template.subject);
     final bodyCtrl =
-        TextEditingController(text: template['body_html'] ?? '');
-    bool isActive = template['is_active'] == true;
+        TextEditingController(text: template.bodyHtml);
+    bool isActive = template.isActive;
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
           title: Text(
-            'Edit: ${template['template_key']}',
+            'Edit: ${template.key}',
             style: const TextStyle(fontSize: 16),
           ),
           content: SizedBox(
@@ -170,7 +171,7 @@ class _AdminEmailTabState extends State<AdminEmailTab> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Variables: ${template['variables'] ?? '[]'}',
+                    'Variables: ${template.variables}',
                     style: TextStyle(
                         fontSize: 11,
                         color: AppTheme.textSecondaryOf(ctx)),
@@ -231,7 +232,7 @@ class _AdminEmailTabState extends State<AdminEmailTab> {
               onPressed: () {
                 Navigator.pop(ctx);
                 _saveTemplate(
-                  template['template_key'],
+                  template.key,
                   subjectCtrl.text,
                   bodyCtrl.text,
                   isActive,
@@ -449,7 +450,7 @@ class _AdminEmailTabState extends State<AdminEmailTab> {
 
   Widget _buildEmailTemplatesSection(BuildContext context) {
     final hasCustomized =
-        _emailTemplates.any((t) => t['is_customized'] == true);
+        _emailTemplates.any((t) => t.isCustomized);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -527,10 +528,10 @@ class _AdminEmailTabState extends State<AdminEmailTab> {
     );
   }
 
-  Widget _buildTemplateCard(BuildContext context, dynamic t) {
-    final isCustomized = t['is_customized'] == true;
-    final isActive = t['is_active'] == true;
-    final key = t['template_key'] ?? '';
+  Widget _buildTemplateCard(BuildContext context, EmailTemplate t) {
+    final isCustomized = t.isCustomized;
+    final isActive = t.isActive;
+    final key = t.key;
 
     return Card(
       color: AppTheme.cardOf(context),
@@ -561,7 +562,7 @@ class _AdminEmailTabState extends State<AdminEmailTab> {
               ),
           ],
         ),
-        subtitle: Text(t['subject'] ?? '',
+        subtitle: Text(t.subject,
             style: TextStyle(
                 color: AppTheme.textSecondaryOf(context), fontSize: 13)),
         trailing: Icon(
@@ -576,7 +577,7 @@ class _AdminEmailTabState extends State<AdminEmailTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Variables: ${t['variables'] ?? '[]'}',
+                Text('Variables: ${t.variables}',
                     style: TextStyle(
                         fontSize: 12,
                         color: AppTheme.textSecondaryOf(context))),
@@ -641,11 +642,11 @@ class _AdminEmailTabState extends State<AdminEmailTab> {
     );
   }
 
-  void _showPreviewDialog(BuildContext context, dynamic t) {
+  void _showPreviewDialog(BuildContext context, EmailTemplate t) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Preview: ${t['template_key']}'),
+        title: Text('Preview: ${t.key}'),
         content: SizedBox(
           width: double.maxFinite,
           height: 400,
@@ -653,13 +654,11 @@ class _AdminEmailTabState extends State<AdminEmailTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Subject: ${t['subject'] ?? ''}',
+                Text('Subject: ${t.subject}',
                     style: const TextStyle(fontWeight: FontWeight.w600)),
                 const Divider(),
                 SelectableText(
-                  (t['body_html'] as String?)
-                          ?.replaceAll(RegExp(r'<[^>]*>'), '') ??
-                      'No content',
+                  t.bodyHtml.replaceAll(RegExp(r'<[^>]*>'), ''),
                   style: const TextStyle(fontSize: 13),
                 ),
               ],

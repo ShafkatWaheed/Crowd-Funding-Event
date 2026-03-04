@@ -3,10 +3,30 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
+import '../../lib/models/notification_model.dart';
 import '../../lib/providers/notification_provider.dart';
 import '../../lib/screens/notification/notification_screen.dart';
 import '../helpers/mock_providers.dart';
 import '../helpers/pump_app.dart';
+
+AppNotification _makeNotif({
+  required int id,
+  String type = 'test',
+  String title = 'Test',
+  String message = 'msg',
+  bool isRead = false,
+  DateTime? createdAt,
+  Map<String, dynamic> data = const {},
+}) =>
+    AppNotification(
+      id: id,
+      type: type,
+      title: title,
+      message: message,
+      isRead: isRead,
+      createdAt: createdAt ?? DateTime.now(),
+      data: data,
+    );
 
 void main() {
   late MockNotificationProvider mockNotification;
@@ -18,13 +38,13 @@ void main() {
   /// Pump NotificationScreen with the mock notification provider.
   Future<void> pumpNotifications(
     WidgetTester tester, {
-    List<Map<String, dynamic>> notifications = const [],
+    List<AppNotification> notifications = const [],
     bool isLoading = false,
   }) async {
     when(() => mockNotification.notifications).thenReturn(notifications);
     when(() => mockNotification.isLoading).thenReturn(isLoading);
     when(() => mockNotification.unreadCount).thenReturn(
-        notifications.where((n) => n['is_read'] != true).length);
+        notifications.where((n) => !n.isRead).length);
     when(() => mockNotification.loadNotifications(
           unreadOnly: any(named: 'unreadOnly'),
           offset: any(named: 'offset'),
@@ -44,26 +64,21 @@ void main() {
 
   group('NotificationScreen', () {
     testWidgets('renders notification list with items', (tester) async {
-      final now = DateTime.now().toIso8601String();
       await pumpNotifications(tester, notifications: [
-        {
-          'id': 1,
-          'type': 'ticket_purchased',
-          'title': 'Ticket Purchased',
-          'message': 'You bought a ticket for Music Fest',
-          'is_read': false,
-          'created_at': now,
-          'data': '{}',
-        },
-        {
-          'id': 2,
-          'type': 'pledge_confirmed',
-          'title': 'Pledge Confirmed',
-          'message': 'Your pledge of \$20 was confirmed',
-          'is_read': true,
-          'created_at': now,
-          'data': '{}',
-        },
+        _makeNotif(
+          id: 1,
+          type: 'ticket_purchased',
+          title: 'Ticket Purchased',
+          message: 'You bought a ticket for Music Fest',
+          isRead: false,
+        ),
+        _makeNotif(
+          id: 2,
+          type: 'pledge_confirmed',
+          title: 'Pledge Confirmed',
+          message: 'Your pledge of \$20 was confirmed',
+          isRead: true,
+        ),
       ]);
       await tester.pump();
 
@@ -76,15 +91,13 @@ void main() {
 
     testWidgets('mark all read button exists in app bar', (tester) async {
       await pumpNotifications(tester, notifications: [
-        {
-          'id': 1,
-          'type': 'ticket_purchased',
-          'title': 'Test',
-          'message': 'Test message',
-          'is_read': false,
-          'created_at': DateTime.now().toIso8601String(),
-          'data': '{}',
-        },
+        _makeNotif(
+          id: 1,
+          type: 'ticket_purchased',
+          title: 'Test',
+          message: 'Test message',
+          isRead: false,
+        ),
       ]);
       await tester.pump();
 
@@ -99,15 +112,13 @@ void main() {
 
     testWidgets('mark all read button triggers provider call', (tester) async {
       await pumpNotifications(tester, notifications: [
-        {
-          'id': 1,
-          'type': 'pledge_confirmed',
-          'title': 'Pledge',
-          'message': 'Pledge confirmed',
-          'is_read': false,
-          'created_at': DateTime.now().toIso8601String(),
-          'data': '{}',
-        },
+        _makeNotif(
+          id: 1,
+          type: 'pledge_confirmed',
+          title: 'Pledge',
+          message: 'Pledge confirmed',
+          isRead: false,
+        ),
       ]);
       await tester.pump();
 
@@ -129,17 +140,15 @@ void main() {
     });
 
     testWidgets('notification item shows title and message', (tester) async {
-      final now = DateTime.now().toIso8601String();
       await pumpNotifications(tester, notifications: [
-        {
-          'id': 10,
-          'type': 'event_approved',
-          'title': 'Event Approved!',
-          'message': 'Your event "Music Fest" has been approved',
-          'is_read': false,
-          'created_at': now,
-          'data': '{"event_id": 5}',
-        },
+        _makeNotif(
+          id: 10,
+          type: 'event_approved',
+          title: 'Event Approved!',
+          message: 'Your event "Music Fest" has been approved',
+          isRead: false,
+          data: {'event_id': 5},
+        ),
       ]);
       await tester.pump();
 

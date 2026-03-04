@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../models/event.dart';
+import '../models/rating.dart';
 import '../models/user.dart';
 import '../repositories/user_repository.dart';
 
@@ -30,26 +31,24 @@ class UserProvider extends ChangeNotifier {
 
   // ─── Payment Info ───
 
-  Future<Map<String, dynamic>> getPaymentInfo() => _repo.getPaymentInfo();
+  Future<PaymentInfo> getPaymentInfo() => _repo.getPaymentInfo();
 
-  Future<Map<String, dynamic>> updatePaymentInfo(
-          Map<String, dynamic> data) =>
+  Future<PaymentInfo> updatePaymentInfo(Map<String, dynamic> data) =>
       _repo.updatePaymentInfo(data);
 
   // ─── Bank Account ───
 
-  Future<Map<String, dynamic>> getBankAccount() => _repo.getBankAccount();
+  Future<BankAccount> getBankAccount() => _repo.getBankAccount();
 
-  Future<Map<String, dynamic>> updateBankAccount(
-          Map<String, dynamic> data) =>
+  Future<BankAccount> updateBankAccount(Map<String, dynamic> data) =>
       _repo.updateBankAccount(data);
 
   // ─── Public Profiles ───
 
-  Future<Map<String, dynamic>> getPublicProfile(int userId) =>
+  Future<PublicProfile> getPublicProfile(int userId) =>
       _repo.getPublicProfile(userId);
 
-  Future<Map<String, dynamic>> getSponsorPublicProfile(int userId) =>
+  Future<SponsorPublicProfile> getSponsorPublicProfile(int userId) =>
       _repo.getSponsorPublicProfile(userId);
 
   Future<List<Event>> getPublicEvents(
@@ -64,12 +63,12 @@ class UserProvider extends ChangeNotifier {
 
   // ─── User Ratings ───
 
-  Future<Map<String, dynamic>> getUserRatingsSummary(int userId) =>
+  Future<RatingsSummary> getUserRatingsSummary(int userId) =>
       _repo.getUserRatingsSummary(userId);
 
   // ─── KYC ───
 
-  Future<Map<String, dynamic>> getKycStatus() => _repo.getKycStatus();
+  Future<KycStatus> getKycStatus() => _repo.getKycStatus();
 
   Future<Map<String, dynamic>> uploadKycDocument(
           String filePath, String documentType) =>
@@ -80,9 +79,10 @@ class UserProvider extends ChangeNotifier {
 
   Future<Map<String, dynamic>> submitKyc() => _repo.submitKyc();
 
-  Future<List<AppUser>> adminGetKycPending() => _repo.adminGetKycPending();
+  Future<List<KycPendingUser>> adminGetKycPending() =>
+      _repo.adminGetKycPending();
 
-  Future<List<dynamic>> adminGetUserKycDocuments(int userId) =>
+  Future<List<KycDocument>> adminGetUserKycDocuments(int userId) =>
       _repo.adminGetUserKycDocuments(userId);
 
   Future<Map<String, dynamic>> adminVerifyKyc(

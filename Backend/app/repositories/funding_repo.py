@@ -670,6 +670,21 @@ class FundingRepository(BaseRepository[Funding]):
         q = select(Funding.id).where(*conditions)
         return list((await db.execute(q)).scalars().all())
 
+    async def complete_refund(
+        self, db: AsyncSession, funding: Funding, gateway_refund_id: str,
+    ) -> None:
+        """Mark a funding pledge as refunded with the gateway refund ID."""
+        funding.gateway_refund_id = gateway_refund_id
+        funding.status = FundingStatus.refunded
+        await db.flush()
+
+    async def update_status(
+        self, db: AsyncSession, funding: Funding, status: FundingStatus,
+    ) -> None:
+        """Set a funding pledge's status and flush."""
+        funding.status = status
+        await db.flush()
+
     async def mark_refund_failed(self, db: AsyncSession, funding_id: int) -> None:
         """Set a pledge to refund_failed status."""
         from sqlalchemy import update

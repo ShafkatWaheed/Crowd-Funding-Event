@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
+import '../../models/admin.dart';
 import '../../providers/admin_provider.dart';
 import '../../repositories/base_repository.dart';
 import '../../widgets/admin/admin_empty_state.dart';
@@ -25,7 +26,7 @@ class AdminUserDetailScreen extends StatefulWidget {
 class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
     with TickerProviderStateMixin {
   final _messengerKey = GlobalKey<ScaffoldMessengerState>();
-  Map<String, dynamic>? _detail;
+  AdminUserDetail? _detail;
   bool _loading = true;
   String? _error;
 
@@ -54,9 +55,9 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
 
   List<String> _tabLabelsForRole(String role) {
     if (_detail != null && role == 'customer') {
-      final tickets = _detail!['tickets'] as List<dynamic>? ?? [];
-      final pledges = _detail!['pledges'] as List<dynamic>? ?? [];
-      final donations = pledges.where((p) => p['is_guest'] == true).length;
+      final tickets = _detail!.tickets ?? [];
+      final pledges = _detail!.pledges ?? [];
+      final donations = pledges.where((p) => p.isGuest).length;
       final regularPledges = pledges.length - donations;
       return [
         'Tickets (${tickets.length})',
@@ -78,7 +79,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
       final admin = context.read<AdminProvider>();
       final data = await admin.getUserDetail(widget.userId);
       if (mounted) {
-        final role = data['role'] as String? ?? 'customer';
+        final role = data.role;
         _tabCtrl?.dispose();
         _tabCtrl = TabController(length: _tabCountForRole(role), vsync: this);
         setState(() { _detail = data; _loading = false; });
@@ -95,7 +96,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
       final admin = context.read<AdminProvider>();
       final data = await admin.getUserDetail(widget.userId);
       if (mounted) {
-        final role = data['role'] as String? ?? 'customer';
+        final role = data.role;
         final oldLength = _tabCtrl?.length ?? 0;
         final newLength = _tabCountForRole(role);
         if (newLength != oldLength) {
@@ -149,10 +150,10 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
       );
     } else {
       final d = _detail!;
-      final role = d['role'] as String? ?? 'customer';
-      final name = d['display_name'] ?? d['email'] ?? 'User #${widget.userId}';
-      final email = d['email'] ?? '';
-      final initial = (name.toString().isNotEmpty ? name.toString() : email.toString())
+      final role = d.role;
+      final name = d.displayName ?? d.email;
+      final email = d.email;
+      final initial = (name.isNotEmpty ? name : email)
           .substring(0, 1)
           .toUpperCase();
       final tabLabels = _tabLabelsForRole(role);
@@ -174,7 +175,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(name.toString(), style: const TextStyle(fontSize: 16)),
+                  Text(name, style: const TextStyle(fontSize: 16)),
                   Text(
                     '$email  ·  ${role.toUpperCase()}',
                     style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context)),

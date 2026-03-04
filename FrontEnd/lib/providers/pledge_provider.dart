@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../models/funding.dart';
+import '../models/receipt.dart';
 import '../repositories/base_repository.dart';
 import '../repositories/funding_repository.dart';
 
@@ -71,7 +72,7 @@ class PledgeProvider extends ChangeNotifier {
   Future<FundingSummary> getFundingSummary(int eventId) =>
       _repo.getFundingSummary(eventId);
 
-  Future<Map<String, dynamic>> getPledgePreview(
+  Future<PledgePreview> getPledgePreview(
           int eventId, int amountCents, int reservedSpots) =>
       _repo.getPledgePreview(eventId, amountCents, reservedSpots);
 
@@ -84,14 +85,14 @@ class PledgeProvider extends ChangeNotifier {
   Future<Map<String, dynamic>> unpledge(int eventId) =>
       _repo.unpledge(eventId);
 
-  Future<Map<String, dynamic>> getPledgeReceipt(
+  Future<PledgeReceipt> getPledgeReceipt(
           int eventId, int pledgeId) =>
       _repo.getPledgeReceipt(eventId, pledgeId);
 
-  Future<Map<String, dynamic>> getMyPledgeReceipt(int pledgeId) =>
+  Future<PledgeReceipt> getMyPledgeReceipt(int pledgeId) =>
       _repo.getMyPledgeReceipt(pledgeId);
 
-  Future<Map<String, dynamic>> getRefundStatus(int eventId) =>
+  Future<RefundStatus> getRefundStatus(int eventId) =>
       _repo.getRefundStatus(eventId);
 
   Future<PaginatedResult<Pledge>> getOrganizerPledges({

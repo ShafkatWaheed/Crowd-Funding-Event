@@ -165,9 +165,9 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
       encryptedPayload: encryptedPayload,
     );
 
-    final alreadyScanned = result['already_scanned'] == true;
-    final ticket = result['ticket'] as Map<String, dynamic>?;
-    final ticketReceiptNum = ticket?['receipt_number'] ?? '';
+    final alreadyScanned = result.alreadyScanned;
+    final ticket = result.ticket;
+    final ticketReceiptNum = ticket.receiptNumber ?? '';
 
     if (mounted) {
       setState(() {

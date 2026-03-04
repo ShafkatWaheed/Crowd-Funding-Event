@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../config/theme.dart';
+import '../../../../models/admin.dart';
 import '../../../../providers/admin_provider.dart';
 import '../../../../widgets/app_toast.dart';
 import '../../admin_shared.dart';
@@ -128,7 +129,7 @@ class BankingTaxConfigSection extends StatelessWidget {
 }
 
 class BankingLedgerHealthCard extends StatelessWidget {
-  final Map<String, dynamic>? ledgerHealth;
+  final AdminLedgerHealth? ledgerHealth;
   final bool ledgerHealthLoading;
 
   const BankingLedgerHealthCard({
@@ -164,10 +165,10 @@ class BankingLedgerHealthCard extends StatelessWidget {
                   Row(
                     children: [
                       Icon(
-                        ledgerHealth!['balanced'] == true
+                        ledgerHealth!.balanced
                             ? Icons.check_circle
                             : Icons.error,
-                        color: ledgerHealth!['balanced'] == true
+                        color: ledgerHealth!.balanced
                             ? AppTheme.successColor
                             : AppTheme.errorColor,
                         size: 22,
@@ -175,13 +176,13 @@ class BankingLedgerHealthCard extends StatelessWidget {
                       const SizedBox(width: 8),
                       Expanded(
                           child: Text(
-                        ledgerHealth!['balanced'] == true
+                        ledgerHealth!.balanced
                             ? 'Ledger is balanced'
                             : 'Ledger imbalance detected',
                         style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
-                            color: ledgerHealth!['balanced'] == true
+                            color: ledgerHealth!.balanced
                                 ? AppTheme.successColor
                                 : AppTheme.errorColor),
                       )),
@@ -189,10 +190,10 @@ class BankingLedgerHealthCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   _ledgerRow(context, 'Total Debits',
-                      centsToStr(ledgerHealth!['total_debits_cents'] ?? 0)),
+                      centsToStr(ledgerHealth!.totalDebitsCents)),
                   _ledgerRow(context, 'Total Credits',
-                      centsToStr(ledgerHealth!['total_credits_cents'] ?? 0)),
-                  if (ledgerHealth!['accounts'] is Map) ...[
+                      centsToStr(ledgerHealth!.totalCreditsCents)),
+                  if (ledgerHealth!.accounts.isNotEmpty) ...[
                     const Divider(),
                     Text('Per-Account Balances',
                         style: TextStyle(
@@ -201,10 +202,9 @@ class BankingLedgerHealthCard extends StatelessWidget {
                             color:
                                 AppTheme.textSecondaryOf(context))),
                     const SizedBox(height: 4),
-                    ...(ledgerHealth!['accounts'] as Map)
-                        .entries
+                    ...ledgerHealth!.accounts.entries
                         .map<Widget>((e) => _ledgerRow(context,
-                            e.key.toString(), centsToStr(e.value ?? 0))),
+                            e.key, centsToStr(e.value ?? 0))),
                   ],
                 ],
               ),
@@ -236,7 +236,7 @@ class BankingLedgerHealthCard extends StatelessWidget {
 }
 
 class BankingReconciliationChart extends StatelessWidget {
-  final List<dynamic> reconHistory;
+  final List<ReconciliationEntry> reconHistory;
   final bool reconHistoryLoading;
 
   const BankingReconciliationChart({
@@ -253,9 +253,7 @@ class BankingReconciliationChart extends StatelessWidget {
     final maxDelta = items.fold<int>(
         1,
         (m, r) =>
-            ((r['delta_cents'] as int?)?.abs() ?? 0) > m
-                ? ((r['delta_cents'] as int?)?.abs() ?? 0)
-                : m);
+            r.deltaCents.abs() > m ? r.deltaCents.abs() : m);
     return Card(
       color: AppTheme.cardOf(context),
       child: Padding(
@@ -275,16 +273,15 @@ class BankingReconciliationChart extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: items.map<Widget>((r) {
-                  final delta =
-                      ((r['delta_cents'] as int?) ?? 0).abs();
-                  final balanced = r['status'] == 'balanced';
+                  final delta = r.deltaCents.abs();
+                  final balanced = r.status == 'balanced';
                   final barHeight = maxDelta > 0
                       ? (delta / maxDelta * 60).clamp(2.0, 60.0)
                       : 2.0;
                   return Expanded(
                     child: Tooltip(
                       message:
-                          '${r['run_date'] ?? ''}: delta ${centsToStr(delta)}',
+                          '${r.runDate ?? ''}: delta ${centsToStr(delta)}',
                       child: Container(
                         margin: const EdgeInsets.symmetric(
                             horizontal: 1),
@@ -307,14 +304,14 @@ class BankingReconciliationChart extends StatelessWidget {
               children: [
                 Text(
                     items.isNotEmpty
-                        ? '${items.first['run_date'] ?? ''}'
+                        ? items.first.runDate ?? ''
                         : '',
                     style: TextStyle(
                         fontSize: 10,
                         color: AppTheme.textSecondaryOf(context))),
                 Text(
                     items.length > 1
-                        ? '${items.last['run_date'] ?? ''}'
+                        ? items.last.runDate ?? ''
                         : '',
                     style: TextStyle(
                         fontSize: 10,
@@ -329,7 +326,7 @@ class BankingReconciliationChart extends StatelessWidget {
 }
 
 class BankingReconciliationStatus extends StatelessWidget {
-  final Map<String, dynamic> bankingData;
+  final AdminBankingOverview bankingData;
   final VoidCallback onReloadBanking;
   final VoidCallback? onReloadReconHistory;
 
@@ -350,18 +347,18 @@ class BankingReconciliationStatus extends StatelessWidget {
         child: Row(
           children: [
             Icon(
-              d['last_reconciliation_status'] == 'balanced'
+              d.lastReconciliationStatus == 'balanced'
                   ? Icons.check_circle
                   : Icons.error,
-              color: d['last_reconciliation_status'] == 'balanced'
+              color: d.lastReconciliationStatus == 'balanced'
                   ? AppTheme.successColor
                   : AppTheme.errorColor,
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                d['last_reconciliation_status'] != null
-                    ? 'Last: ${d['last_reconciliation_status']} (delta: ${centsToStr((d['last_reconciliation_delta_cents'] ?? 0).abs())})'
+                d.lastReconciliationStatus != null
+                    ? 'Last: ${d.lastReconciliationStatus} (delta: ${centsToStr(d.lastReconciliationDeltaCents.abs())})'
                     : 'No reconciliation run yet',
                 style: TextStyle(
                     color: AppTheme.textPrimaryOf(context)),

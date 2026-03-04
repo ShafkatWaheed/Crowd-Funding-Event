@@ -3,15 +3,15 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
+import '../../../models/sponsor.dart';
 import '../../../repositories/base_repository.dart';
 import '../../../providers/sponsor_provider.dart';
 import '../../../providers/config_provider.dart';
-import '../../../repositories/payment_repository.dart';
 import '../../../widgets/app_toast.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 
 class MyBidActions extends StatefulWidget {
-  final Map<String, dynamic> bid;
+  final SponsorBid bid;
   final int eventId;
   final int categoryId;
   final VoidCallback onDone;
@@ -31,10 +31,9 @@ class MyBidActions extends StatefulWidget {
 class _MyBidActionsState extends State<MyBidActions> {
   bool _busy = false;
 
-  String get _status => widget.bid['status'] ?? '';
-  int get _bidId => widget.bid['id'];
-  int get _amountCents => widget.bid['amount_cents'] ?? 0;
-  String get _amountDisplay => '\$${(_amountCents / 100).toStringAsFixed(2)}';
+  String get _status => widget.bid.status;
+  int get _bidId => widget.bid.id;
+  String get _amountDisplay => widget.bid.amountDisplay;
 
   Future<void> _withdraw() async {
     final confirmed = await showDialog<bool>(
@@ -86,18 +85,17 @@ class _MyBidActionsState extends State<MyBidActions> {
     _showPaymentProcessing();
     try {
       final config = context.read<ConfigProvider>();
-      final paymentRepo = context.read<PaymentRepository>();
       final repo = context.read<SponsorProvider>();
 
       // Stripe Payment Sheet flow when Stripe is enabled
       if (config.stripeEnabled) {
-        final intent = await paymentRepo.createPaymentIntent(
-          amountCents: widget.bid['amount_cents'] as int? ?? 0,
+        final intent = await config.createPaymentIntent(
+          amountCents: widget.bid.amountCents,
           description: 'Sponsorship payment for bid $_bidId',
         );
         await Stripe.instance.initPaymentSheet(
           paymentSheetParameters: SetupPaymentSheetParameters(
-            paymentIntentClientSecret: intent['client_secret'] as String,
+            paymentIntentClientSecret: intent.clientSecret,
             merchantDisplayName: 'CrowdFund Event',
           ),
         );

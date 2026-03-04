@@ -7,6 +7,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../../utils/date_time_utils.dart';
 
 import '../../config/theme.dart';
+import '../../models/receipt.dart';
 import '../../providers/ticket_provider.dart';
 import '../../repositories/base_repository.dart';
 import '../../widgets/app_toast.dart';
@@ -36,7 +37,7 @@ class PurchaseGroupReceiptScreen extends StatefulWidget {
 
 class _PurchaseGroupReceiptScreenState
     extends State<PurchaseGroupReceiptScreen> {
-  Map<String, dynamic>? _receipt;
+  PurchaseGroupReceipt? _receipt;
   bool _loading = true;
   String? _error;
 
@@ -104,32 +105,26 @@ class _PurchaseGroupReceiptScreenState
 
   Widget _buildReceipt() {
     final r = _receipt!;
-    final eventTitle = r['event_title'] ?? 'Unknown Event';
-    final quantity = (r['quantity'] ?? 1) as int;
-    final tierName = r['tier_name'] ?? '';
-    final tierPriceCents = (r['tier_price_cents'] ?? 0) as int;
-    final totalAmountPaid = (r['total_amount_paid_cents'] ?? 0) as int;
-    final totalDiscount = (r['total_discount_applied_cents'] ?? 0) as int;
-    final totalCommission = (r['total_commission_cents'] ?? 0) as int;
-    final totalTax = (r['total_tax_cents'] ?? 0) as int;
-    final taxRate = (r['tax_rate'] ?? 0.0) as num;
-    final taxJurisdiction = r['tax_jurisdiction'] as String?;
-    final purchasedAt = r['purchased_at'] != null
-        ? DateTime.parse(r['purchased_at']).toLocal()
-        : null;
-    final eventStartTime = r['event_start_time'] != null
-        ? DateTime.parse(r['event_start_time']).toLocal()
-        : null;
-    final eventEndTime = r['event_end_time'] != null
-        ? DateTime.parse(r['event_end_time']).toLocal()
-        : null;
-    final organizerName = r['organizer_name'];
-    final organizerEmail = r['organizer_email'];
-    final organizerPhone = r['organizer_phone'];
-    final venueName = r['venue_name'];
-    final venueAddress = r['venue_address'];
-    final attendeeName = r['attendee_name'] ?? 'Unknown';
-    final tickets = (r['tickets'] as List? ?? []);
+    final eventTitle = r.eventTitle;
+    final quantity = r.quantity;
+    final tierName = r.tierName;
+    final tierPriceCents = r.tierPriceCents;
+    final totalAmountPaid = r.totalAmountPaidCents;
+    final totalDiscount = r.totalDiscountAppliedCents;
+    final totalCommission = r.totalCommissionCents;
+    final totalTax = r.totalTaxCents;
+    final taxRate = r.taxRate;
+    final taxJurisdiction = r.taxJurisdiction;
+    final purchasedAt = r.purchasedAt.toLocal();
+    final eventStartTime = r.eventStartTime?.toLocal();
+    final eventEndTime = r.eventEndTime?.toLocal();
+    final organizerName = r.organizerName;
+    final organizerEmail = r.organizerEmail;
+    final organizerPhone = r.organizerPhone;
+    final venueName = r.venueName;
+    final venueAddress = r.venueAddress;
+    final attendeeName = r.attendeeName ?? 'Unknown';
+    final tickets = r.tickets;
     final isFree = totalAmountPaid == 0;
 
     return SingleChildScrollView(
@@ -273,8 +268,7 @@ class _PurchaseGroupReceiptScreenState
                       const SizedBox(height: 8),
                       _detailRow(context, 'Tier', tierName),
                       _detailRow(context, 'Quantity', '$quantity'),
-                      if (purchasedAt != null)
-                        _detailRow(context, 'Purchased', AppDateFormat.fullDateTime(purchasedAt)),
+                      _detailRow(context, 'Purchased', AppDateFormat.fullDateTime(purchasedAt)),
 
                       const SizedBox(height: 20),
 
@@ -389,7 +383,7 @@ class _PurchaseGroupReceiptScreenState
 
           ...tickets.asMap().entries.map((entry) {
             final idx = entry.key;
-            final t = entry.value as Map<String, dynamic>;
+            final t = entry.value;
             return _buildTicketCard(context, t, idx + 1, quantity, r);
           }),
 
@@ -428,20 +422,19 @@ class _PurchaseGroupReceiptScreenState
   }
 
   Widget _buildTicketCard(BuildContext context,
-      Map<String, dynamic> ticket, int index, int total,
-      Map<String, dynamic> receipt) {
-    final ticketCode = ticket['ticket_code'] ?? '';
-    final receiptNumber = ticket['receipt_number'] ?? '';
-    final status = ticket['status'] ?? '';
-    final scannedAt = ticket['scanned_at'];
-    final saleId = ticket['sale_id'] as int;
+      TicketSummaryItem ticket, int index, int total,
+      PurchaseGroupReceipt receipt) {
+    final ticketCode = ticket.ticketCode;
+    final receiptNumber = ticket.receiptNumber ?? '';
+    final status = ticket.status;
+    final scannedAt = ticket.scannedAt;
+    final saleId = ticket.saleId;
     final isScanned = scannedAt != null;
 
     // Use encrypted QR payload if available (AES-256-GCM), fall back to plaintext JSON
-    final qrData = ticket['encrypted_qr_payload'] ?? jsonEncode({
+    final qrData = ticket.encryptedQrPayload ?? jsonEncode({
       'receipt_number': receiptNumber,
       'event_id': widget.eventId,
-      'user_id': receipt['user_id'],
       'sale_id': saleId,
       'ticket_code': ticketCode,
     });
@@ -595,7 +588,7 @@ class _PurchaseGroupReceiptScreenState
                       size: 14, color: AppTheme.successColor),
                   const SizedBox(width: 4),
                   Text(
-                    'Scanned ${AppDateFormat.isoFull(scannedAt)}',
+                    'Scanned ${AppDateFormat.fullDateTime(scannedAt)}',
                     style: TextStyle(
                         fontSize: 12, color: AppTheme.successColor),
                   ),

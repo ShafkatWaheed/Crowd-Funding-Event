@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../../config/design_tokens.dart';
 import '../../../config/theme.dart';
+import '../../../models/admin.dart';
 import '../../../models/funding.dart';
 import '../../../providers/pledge_provider.dart';
 import '../../../models/ticket.dart';
@@ -22,7 +23,7 @@ class AdminFinancialTab extends StatefulWidget {
     required this.onSnack,
   });
 
-  final Map<String, dynamic>? stats;
+  final AdminStats? stats;
   final void Function(String) onSnack;
 
   @override
@@ -55,7 +56,7 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
   List<Pledge> _adminPledges = [];
   int _pledgesTotal = 0;
   bool _pledgesLoadingMore = false;
-  List<dynamic> _escrows = [];
+  List<AdminEscrowItem> _escrows = [];
   int _escrowsTotal = 0;
   bool _escrowsLoadingMore = false;
 
@@ -182,8 +183,8 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
       );
       if (mounted) {
         setState(() {
-          _escrows = (data['items'] as List<dynamic>?) ?? [];
-          _escrowsTotal = (data['total'] as int?) ?? 0;
+          _escrows = data.items;
+          _escrowsTotal = data.total;
         });
       }
     } catch (e) { debugPrint(e.toString()); }
@@ -238,10 +239,9 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
         limit: _pageSize,
         search: _escrowSearch.isNotEmpty ? _escrowSearch : null,
       );
-      final items = (data['items'] as List<dynamic>?) ?? [];
       setState(() {
-        _escrows.addAll(items);
-        _escrowsTotal = (data['total'] as int?) ?? _escrowsTotal;
+        _escrows.addAll(data.items);
+        _escrowsTotal = data.total;
       });
     } catch (e) { debugPrint(e.toString()); }
     if (mounted) setState(() => _escrowsLoadingMore = false);
@@ -308,8 +308,8 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
       );
       if (mounted) {
         setState(() {
-          _escrows = (data['items'] as List<dynamic>?) ?? [];
-          _escrowsTotal = (data['total'] as int?) ?? 0;
+          _escrows = data.items;
+          _escrowsTotal = data.total;
         });
       }
     } catch (e) { debugPrint(e.toString()); }
@@ -571,11 +571,11 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
       ]);
     } else {
       final totalHeld = _escrows.fold<int>(
-          0, (sum, e) => sum + ((e['total_held_cents'] as int?) ?? 0));
+          0, (sum, e) => sum + e.totalHeldCents);
       final totalReleased = _escrows.fold<int>(
-          0, (sum, e) => sum + ((e['total_released_cents'] as int?) ?? 0));
+          0, (sum, e) => sum + e.totalReleasedCents);
       final frozenCount =
-          _escrows.where((e) => e['status'] == 'frozen').length;
+          _escrows.where((e) => e.status == 'frozen').length;
       return _summaryStrip([
         'Held: ${centsToStr(totalHeld)}',
         'Released: ${centsToStr(totalReleased)}',
@@ -785,18 +785,18 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
     );
   }
 
-  Widget _escrowCard(Map<String, dynamic> e) {
-    final eventId = e['event_id'] ?? 0;
-    final eventTitle = e['event_title'] as String? ?? 'Event #$eventId';
-    final organizerName = e['organizer_name'] as String?;
-    final organizerEmail = e['organizer_email'] as String? ?? '';
-    final totalHeld = (e['total_held_cents'] ?? 0) as int;
-    final totalReleased = (e['total_released_cents'] ?? 0) as int;
-    final remaining = (e['remaining_cents'] ?? 0) as int;
-    final status = e['status'] ?? 'holding';
-    final s1 = e['stage1_released_at'];
-    final s2 = e['stage2_released_at'];
-    final s3 = e['stage3_released_at'];
+  Widget _escrowCard(AdminEscrowItem e) {
+    final eventId = e.eventId;
+    final eventTitle = e.eventTitle ?? 'Event #$eventId';
+    final organizerName = e.organizerName;
+    final organizerEmail = e.organizerEmail ?? '';
+    final totalHeld = e.totalHeldCents;
+    final totalReleased = e.totalReleasedCents;
+    final remaining = e.remainingCents;
+    final status = e.status;
+    final s1 = e.stage1ReleasedAt;
+    final s2 = e.stage2ReleasedAt;
+    final s3 = e.stage3ReleasedAt;
     final isFrozen = status == 'frozen';
     final statusColor = escrowStatusColor(context, status);
 
@@ -921,7 +921,7 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
                     () => _confirmAction(
                       'Release Stage 1',
                       'Release Stage 1 escrow?',
-                      () => _escrowAction(eventId as int, 'release', stage: 1),
+                      () => _escrowAction(eventId, 'release', stage: 1),
                     ),
                   ),
                 if (s1 != null && s2 == null)
@@ -932,7 +932,7 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
                     () => _confirmAction(
                       'Release Stage 2',
                       'Release Stage 2 escrow?',
-                      () => _escrowAction(eventId as int, 'release', stage: 2),
+                      () => _escrowAction(eventId, 'release', stage: 2),
                     ),
                   ),
                 if (s2 != null && s3 == null)
@@ -943,7 +943,7 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
                     () => _confirmAction(
                       'Release Stage 3',
                       'Release Stage 3 escrow?',
-                      () => _escrowAction(eventId as int, 'release', stage: 3),
+                      () => _escrowAction(eventId, 'release', stage: 3),
                     ),
                   ),
                 if (!isFrozen)
@@ -954,7 +954,7 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
                     () => _confirmAction(
                       'Freeze Escrow',
                       'Freeze this escrow?',
-                      () => _escrowAction(eventId as int, 'freeze'),
+                      () => _escrowAction(eventId, 'freeze'),
                     ),
                   )
                 else
@@ -965,7 +965,7 @@ class _AdminFinancialTabState extends State<AdminFinancialTab> {
                     () => _confirmAction(
                       'Unfreeze Escrow',
                       'Unfreeze this escrow?',
-                      () => _escrowAction(eventId as int, 'unfreeze'),
+                      () => _escrowAction(eventId, 'unfreeze'),
                     ),
                   ),
               ],

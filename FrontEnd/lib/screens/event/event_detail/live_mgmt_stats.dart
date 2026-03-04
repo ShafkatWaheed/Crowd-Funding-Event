@@ -59,7 +59,7 @@ class _LiveMgmtStatsState extends State<LiveMgmtStats> {
         // Only need registrations for early phases
         final regs = await api.getRegistrations(_eventId);
         final waitlisted =
-            regs.where((r) => r['status'] == 'waitlist').length;
+            regs.where((r) => r.status == 'waitlist').length;
         if (mounted) {
           setState(() {
             _fundingWaitlistCount = waitlisted;
@@ -80,7 +80,7 @@ class _LiveMgmtStatsState extends State<LiveMgmtStats> {
         final ticketWaitlist = ticketResults[2];
         final refundRequests = ticketResults[3];
         final fundingWaitlisted =
-            regs.where((r) => r['status'] == 'waitlist').length;
+            regs.where((r) => r.status == 'waitlist').length;
         if (mounted) {
           setState(() {
             _soldCount = allSales.length;

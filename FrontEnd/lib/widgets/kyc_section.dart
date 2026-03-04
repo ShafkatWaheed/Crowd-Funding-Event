@@ -3,6 +3,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../config/theme.dart';
+import '../models/user.dart';
 import '../providers/user_provider.dart';
 import '../widgets/app_toast.dart';
 
@@ -14,7 +15,7 @@ class KycSection extends StatefulWidget {
 }
 
 class _KycSectionState extends State<KycSection> {
-  Map<String, dynamic>? _kycData;
+  KycStatus? _kycData;
   bool _loading = true;
   bool _submitting = false;
   bool _uploading = false;
@@ -47,22 +48,20 @@ class _KycSectionState extends State<KycSection> {
     }
   }
 
-  List<Map<String, dynamic>> get _documents {
-    final docs = _kycData?['documents'];
-    if (docs is List) return docs.cast<Map<String, dynamic>>();
-    return [];
+  List<KycDocument> get _documents {
+    return _kycData?.documents ?? [];
   }
 
-  Map<String, dynamic>? _docForType(String type) {
+  KycDocument? _docForType(String type) {
     try {
-      return _documents.firstWhere((d) => d['document_type'] == type);
+      return _documents.firstWhere((d) => d.documentType == type);
     } catch (_) {
       return null;
     }
   }
 
   bool get _canSubmit {
-    final status = _kycData?['kyc_status'] ?? 'not_started';
+    final status = _kycData?.kycStatus ?? 'not_started';
     if (status == 'verified' || status == 'submitted') return false;
     for (final dt in _requiredDocs) {
       if (_docForType(dt) == null) return false;
@@ -124,9 +123,9 @@ class _KycSectionState extends State<KycSection> {
       );
     }
 
-    final status = _kycData?['kyc_status'] ?? 'not_started';
-    final verified = _kycData?['kyc_verified'] == true;
-    final required = _kycData?['kyc_required_for_role'] == true;
+    final status = _kycData?.kycStatus ?? 'not_started';
+    final verified = _kycData?.kycVerified ?? false;
+    final required = _kycData?.kycRequiredForRole ?? false;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -285,17 +284,17 @@ class _KycSectionState extends State<KycSection> {
                       ),
                       if (doc != null)
                         Text(
-                          doc['original_filename'] ?? '',
+                          doc.originalFilename ?? '',
                           style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context)),
                           overflow: TextOverflow.ellipsis,
                         ),
                     ],
                   ),
                 ),
-                if (doc != null && doc['status'] == 'pending')
+                if (doc != null && doc.status == 'pending')
                   IconButton(
                     icon: const Icon(Icons.close, size: 18),
-                    onPressed: () => _deleteDocument(doc['id']),
+                    onPressed: () => _deleteDocument(doc.id),
                     tooltip: 'Remove',
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
@@ -325,7 +324,7 @@ class _KycSectionState extends State<KycSection> {
   }
 
   Widget _buildRejectionInfo() {
-    final docs = _documents.where((d) => d['rejection_reason'] != null && d['rejection_reason'].toString().isNotEmpty);
+    final docs = _documents.where((d) => d.rejectionReason != null && d.rejectionReason!.isNotEmpty);
     if (docs.isEmpty) return const SizedBox.shrink();
 
     return Container(
@@ -342,7 +341,7 @@ class _KycSectionState extends State<KycSection> {
           ...docs.map((d) => Padding(
                 padding: const EdgeInsets.only(bottom: 2),
                 child: Text(
-                  '${_docLabels[d['document_type']] ?? d['document_type']}: ${d['rejection_reason']}',
+                  '${_docLabels[d.documentType] ?? d.documentType}: ${d.rejectionReason}',
                   style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context)),
                 ),
               )),

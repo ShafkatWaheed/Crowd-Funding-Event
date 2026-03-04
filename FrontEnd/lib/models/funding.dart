@@ -99,3 +99,105 @@ class FundingSummary {
   String get totalPledgedFormatted =>
       '\$${(totalPledgedCents / 100).toStringAsFixed(2)}';
 }
+
+class PledgePreview {
+  final int amountCents;
+  final int reservedSpots;
+  final int costPerSpotCents;
+  final int platformCutCents;
+  final int netToOrganizerCents;
+  final int fundingCommissionPercent;
+  final int availableSpotsForUser;
+  final int eventTotalReservedSpots;
+  final bool linkFundingToTiers;
+  final List<TierAvailability> tierAvailability;
+
+  PledgePreview({
+    required this.amountCents,
+    required this.reservedSpots,
+    this.costPerSpotCents = 0,
+    this.platformCutCents = 0,
+    this.netToOrganizerCents = 0,
+    this.fundingCommissionPercent = 0,
+    this.availableSpotsForUser = 0,
+    this.eventTotalReservedSpots = 0,
+    this.linkFundingToTiers = false,
+    this.tierAvailability = const [],
+  });
+
+  factory PledgePreview.fromJson(Map<String, dynamic> json) {
+    return PledgePreview(
+      amountCents: json['amount_cents'] as int? ?? 0,
+      reservedSpots: json['reserved_spots'] as int? ?? 0,
+      costPerSpotCents: json['cost_per_spot_cents'] as int? ?? 0,
+      platformCutCents: json['platform_cut_cents'] as int? ?? 0,
+      netToOrganizerCents: json['net_to_organizer_cents'] as int? ?? 0,
+      fundingCommissionPercent:
+          json['funding_commission_percent'] as int? ?? 0,
+      availableSpotsForUser: json['available_spots_for_user'] as int? ?? 0,
+      eventTotalReservedSpots:
+          json['event_total_reserved_spots'] as int? ?? 0,
+      linkFundingToTiers: json['link_funding_to_tiers'] as bool? ?? false,
+      tierAvailability: (json['tier_availability'] as List<dynamic>?)
+              ?.map((t) =>
+                  TierAvailability.fromJson(t as Map<String, dynamic>))
+              .toList() ??
+          [],
+    );
+  }
+
+  String get amountFormatted =>
+      '\$${(amountCents / 100).toStringAsFixed(2)}';
+}
+
+class TierAvailability {
+  final int tierId;
+  final String tierName;
+  final int priceCents;
+  final int maxReservedSpots;
+  final int reservedSoFar;
+  final int available;
+
+  TierAvailability({
+    required this.tierId,
+    required this.tierName,
+    required this.priceCents,
+    required this.maxReservedSpots,
+    required this.reservedSoFar,
+    required this.available,
+  });
+
+  factory TierAvailability.fromJson(Map<String, dynamic> json) {
+    return TierAvailability(
+      tierId: json['tier_id'] as int,
+      tierName: json['tier_name'] as String? ?? '',
+      priceCents: json['price_cents'] as int? ?? 0,
+      maxReservedSpots: json['max_reserved_spots'] as int? ?? 0,
+      reservedSoFar: json['reserved_so_far'] as int? ?? 0,
+      available: json['available'] as int? ?? 0,
+    );
+  }
+}
+
+class RefundStatus {
+  final String status;
+  final int processingCount;
+  final int completedCount;
+  final int failedCount;
+
+  RefundStatus({
+    required this.status,
+    this.processingCount = 0,
+    this.completedCount = 0,
+    this.failedCount = 0,
+  });
+
+  factory RefundStatus.fromJson(Map<String, dynamic> json) {
+    return RefundStatus(
+      status: json['status'] as String? ?? 'none',
+      processingCount: json['processing_count'] as int? ?? 0,
+      completedCount: json['completed_count'] as int? ?? 0,
+      failedCount: json['failed_count'] as int? ?? 0,
+    );
+  }
+}

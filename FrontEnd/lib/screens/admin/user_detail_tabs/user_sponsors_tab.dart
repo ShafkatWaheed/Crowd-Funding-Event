@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../../models/admin.dart';
 import '../../../widgets/admin/admin_empty_state.dart';
 
 class UserSponsorsTab extends StatefulWidget {
   final int userId;
-  final Map<String, dynamic> detail;
+  final AdminUserDetail detail;
   final void Function(String) onSnack;
   final Future<void> Function() onRefresh;
 
@@ -21,9 +22,7 @@ class UserSponsorsTab extends StatefulWidget {
 }
 
 class _UserSponsorsTabState extends State<UserSponsorsTab> {
-  List<Map<String, dynamic>> get _sponsors =>
-      (widget.detail['sponsors'] as List<dynamic>? ?? [])
-          .cast<Map<String, dynamic>>();
+  List<AdminUserSponsor> get _sponsors => widget.detail.sponsors ?? [];
 
   @override
   Widget build(BuildContext context) {
@@ -43,14 +42,14 @@ class _UserSponsorsTabState extends State<UserSponsorsTab> {
     );
   }
 
-  Widget _sponsorTile(Map<String, dynamic> s) {
+  Widget _sponsorTile(AdminUserSponsor s) {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
-        title: Text(s['company_name'] ?? 'Sponsor',
+        title: Text(s.companyName ?? 'Sponsor',
             style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Text(
-            '${s['contact_name'] ?? ''} · \$${((s['total_amount_cents'] ?? 0) / 100).toStringAsFixed(2)}'),
+            '${s.contactName ?? ''} · \$${(s.totalAmountCents / 100).toStringAsFixed(2)}'),
       ),
     );
   }

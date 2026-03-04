@@ -30,10 +30,8 @@ void main() {
     mockUserRepo = MockUserRepository();
 
     // Stub KYC status (called by KycSection in initState)
-    when(() => mockUserRepo.getKycStatus()).thenAnswer((_) async => {
-          'status': 'not_started',
-          'documents': <dynamic>[],
-        });
+    when(() => mockUserRepo.getKycStatus()).thenAnswer((_) async =>
+        KycStatus(kycStatus: 'not_started'));
   });
 
   /// Pump ProfileScreen with the given user role.

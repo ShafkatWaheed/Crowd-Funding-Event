@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../../config/design_tokens.dart';
 import '../../../utils/date_time_utils.dart';
 import '../../../config/theme.dart';
+import '../../../models/admin.dart';
 import '../../../providers/admin_provider.dart';
 import '../../../repositories/base_repository.dart';
 
@@ -207,7 +208,7 @@ Widget statusChipsWithExtras(
   required String selected,
   required void Function(String) onChanged,
   Set<String> refundStatuses = const {},
-  List<Map<String, dynamic>> allItems = const [],
+  Map<String, int> statusCounts = const {},
   List<ExtraChip> extras = const [],
 }) {
   final regular =
@@ -215,8 +216,7 @@ Widget statusChipsWithExtras(
   final refund =
       statuses.where((s) => refundStatuses.contains(s)).toList();
 
-  int countFor(String status) =>
-      allItems.where((i) => i['status'] == status).length;
+  int countFor(String status) => statusCounts[status] ?? 0;
 
   return SingleChildScrollView(
     scrollDirection: Axis.horizontal,
@@ -371,37 +371,52 @@ Widget userDetailEscrowBtn(
 // Data matching / filtering helpers
 // ---------------------------------------------------------------------------
 
-bool matchesTicket(Map<String, dynamic> t, String q) {
+bool matchesTicketItem(AdminUserTicket t, String q) {
   if (q.isEmpty) return true;
   final lower = q.toLowerCase();
-  return (t['event_title']?.toString().toLowerCase().contains(lower) ??
-          false) ||
-      (t['tier_name']?.toString().toLowerCase().contains(lower) ?? false) ||
-      (t['amount_paid_cents']?.toString().contains(lower) ?? false) ||
-      (t['status']?.toString().toLowerCase().contains(lower) ?? false) ||
-      (t['attendee_display_name']?.toString().toLowerCase().contains(lower) ??
-          false);
+  return (t.eventTitle?.toLowerCase().contains(lower) ?? false) ||
+      (t.tierName?.toLowerCase().contains(lower) ?? false) ||
+      t.amountPaidCents.toString().contains(lower) ||
+      t.status.toLowerCase().contains(lower);
 }
 
-bool matchesPledge(Map<String, dynamic> p, String q) {
+bool matchesTicketSale(AdminUserTicketSale t, String q) {
   if (q.isEmpty) return true;
   final lower = q.toLowerCase();
-  return (p['event_title']?.toString().toLowerCase().contains(lower) ??
-          false) ||
-      (p['user_display_name']?.toString().toLowerCase().contains(lower) ??
-          false) ||
-      (p['amount_cents']?.toString().contains(lower) ?? false) ||
-      (p['status']?.toString().toLowerCase().contains(lower) ?? false);
+  return (t.eventTitle?.toLowerCase().contains(lower) ?? false) ||
+      (t.tierName?.toLowerCase().contains(lower) ?? false) ||
+      t.amountPaidCents.toString().contains(lower) ||
+      t.status.toLowerCase().contains(lower) ||
+      (t.attendeeDisplayName?.toLowerCase().contains(lower) ?? false);
 }
 
-Set<String> extractStatuses(
-    List<Map<String, dynamic>> items, String key) {
+bool matchesPledgeItem(AdminUserPledge p, String q) {
+  if (q.isEmpty) return true;
+  final lower = q.toLowerCase();
+  return (p.eventTitle?.toLowerCase().contains(lower) ?? false) ||
+      (p.userDisplayName?.toLowerCase().contains(lower) ?? false) ||
+      p.amountCents.toString().contains(lower) ||
+      p.status.toLowerCase().contains(lower);
+}
+
+Set<String> extractStatusesFrom<T>(
+    List<T> items, String Function(T) getStatus) {
   final statuses = <String>{};
   for (final item in items) {
-    final s = item[key]?.toString();
-    if (s != null && s.isNotEmpty) statuses.add(s);
+    final s = getStatus(item);
+    if (s.isNotEmpty) statuses.add(s);
   }
   return statuses;
+}
+
+Map<String, int> countByStatus<T>(
+    List<T> items, String Function(T) getStatus) {
+  final counts = <String, int>{};
+  for (final item in items) {
+    final s = getStatus(item);
+    counts[s] = (counts[s] ?? 0) + 1;
+  }
+  return counts;
 }
 
 // ---------------------------------------------------------------------------

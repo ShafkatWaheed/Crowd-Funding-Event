@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 
+import '../models/admin.dart';
 import '../models/event.dart';
 import 'base_repository.dart';
 
@@ -7,9 +8,25 @@ import 'base_repository.dart';
 class AdminRepository extends BaseRepository {
   AdminRepository(super.dio);
 
+  // ─── Helpers ──────────────────────────────────────────────────────────────
+
+  AdminPage<T> _parsePage<T>(
+    dynamic data,
+    T Function(Map<String, dynamic>) fromJson,
+  ) {
+    final map = Map<String, dynamic>.from(data as Map);
+    return AdminPage<T>(
+      items: (map['items'] as List?)
+              ?.map((e) => fromJson(Map<String, dynamic>.from(e as Map)))
+              .toList() ??
+          [],
+      total: (map['total'] as int?) ?? 0,
+    );
+  }
+
   // ─── Users ──────────────────────────────────────────────────────────────
 
-  Future<Map<String, dynamic>> getUsers({
+  Future<AdminPage<AdminUserItem>> getUsers({
     int offset = 0,
     int limit = 20,
     String? search,
@@ -19,17 +36,18 @@ class AdminRepository extends BaseRepository {
       'limit': limit,
       if (search != null && search.isNotEmpty) 'search': search,
     });
-    return resp.data as Map<String, dynamic>;
+    return _parsePage(resp.data, AdminUserItem.fromJson);
   }
 
-  Future<Map<String, dynamic>> getUserDetail(int userId) async {
+  Future<AdminUserDetail> getUserDetail(int userId) async {
     final resp = await dio.get('/admin/users/$userId/detail');
-    return resp.data as Map<String, dynamic>;
+    return AdminUserDetail.fromJson(
+        Map<String, dynamic>.from(resp.data as Map));
   }
 
   // ─── Events ─────────────────────────────────────────────────────────────
 
-  Future<Map<String, dynamic>> getEvents({
+  Future<AdminPage<AdminEventItem>> getEvents({
     int offset = 0,
     int limit = 20,
     String? search,
@@ -41,7 +59,7 @@ class AdminRepository extends BaseRepository {
       if (search != null && search.isNotEmpty) 'search': search,
       if (status != null && status.isNotEmpty) 'status': status,
     });
-    return resp.data as Map<String, dynamic>;
+    return _parsePage(resp.data, AdminEventItem.fromJson);
   }
 
   Future<Event> approveEvent(
@@ -76,7 +94,7 @@ class AdminRepository extends BaseRepository {
     return Event.fromJson(resp.data as Map<String, dynamic>);
   }
 
-  Future<Map<String, dynamic>> setPolicyOverrides(
+  Future<AdminPolicyOverrides> setPolicyOverrides(
     int eventId,
     Map<String, dynamic> overrides,
   ) async {
@@ -84,7 +102,8 @@ class AdminRepository extends BaseRepository {
       '/admin/events/$eventId/policy-overrides',
       data: overrides,
     );
-    return resp.data as Map<String, dynamic>;
+    return AdminPolicyOverrides.fromJson(
+        Map<String, dynamic>.from(resp.data as Map));
   }
 
   // ─── Sponsor Bids ──────────────────────────────────────────────────────
@@ -101,12 +120,12 @@ class AdminRepository extends BaseRepository {
 
   // ─── Stats & Dashboard ─────────────────────────────────────────────────
 
-  Future<Map<String, dynamic>> getStats() async {
+  Future<AdminStats> getStats() async {
     final resp = await dio.get('/admin/stats');
-    return resp.data;
+    return AdminStats.fromJson(Map<String, dynamic>.from(resp.data as Map));
   }
 
-  Future<Map<String, dynamic>> getDashboard({
+  Future<AdminDashboard> getDashboard({
     String period = '30d',
     String? genre,
     String? status,
@@ -116,40 +135,50 @@ class AdminRepository extends BaseRepository {
       if (genre != null) 'genre': genre,
       if (status != null) 'status': status,
     });
-    return Map<String, dynamic>.from(resp.data as Map);
+    return AdminDashboard.fromJson(
+        Map<String, dynamic>.from(resp.data as Map));
   }
 
   // ─── Settings ───────────────────────────────────────────────────────────
 
-  Future<List<dynamic>> getSettings() async {
+  Future<List<PlatformSetting>> getSettings() async {
     final resp = await dio.get('/admin/settings');
-    return resp.data as List<dynamic>;
+    final data = resp.data;
+    if (data is List) {
+      return data
+          .map((e) =>
+              PlatformSetting.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList();
+    }
+    return [];
   }
 
-  Future<Map<String, dynamic>> updateSetting(
+  Future<PlatformSetting> updateSetting(
     String key,
     String value,
   ) async {
     final resp =
         await dio.patch('/admin/settings/$key', data: {'value': value});
-    return resp.data as Map<String, dynamic>;
+    return PlatformSetting.fromJson(
+        Map<String, dynamic>.from(resp.data as Map));
   }
 
   // ─── Banking ────────────────────────────────────────────────────────────
 
-  Future<Map<String, dynamic>> getBankingOverview({
+  Future<AdminBankingOverview> getBankingOverview({
     String period = '30d',
   }) async {
     final resp = await dio.get(
       '/admin/banking-overview',
       queryParameters: {'period': period},
     );
-    return resp.data as Map<String, dynamic>;
+    return AdminBankingOverview.fromJson(
+        Map<String, dynamic>.from(resp.data as Map));
   }
 
   // ─── Escrows ────────────────────────────────────────────────────────────
 
-  Future<Map<String, dynamic>> getEscrows({
+  Future<AdminPage<AdminEscrowItem>> getEscrows({
     String type = 'fund',
     int limit = 50,
   }) async {
@@ -159,11 +188,11 @@ class AdminRepository extends BaseRepository {
             ? '/admin/ticket-escrows'
             : '/admin/sponsor-escrows';
     final resp = await dio.get(path, queryParameters: {'limit': '$limit'});
-    return resp.data as Map<String, dynamic>;
+    return _parsePage(resp.data, AdminEscrowItem.fromJson);
   }
 
   /// Paginated escrow list with optional search.
-  Future<Map<String, dynamic>> getEscrowList({
+  Future<AdminPage<AdminEscrowItem>> getEscrowList({
     int offset = 0,
     int limit = 20,
     String? search,
@@ -173,12 +202,13 @@ class AdminRepository extends BaseRepository {
       'limit': limit,
       if (search != null && search.isNotEmpty) 'search': search,
     });
-    return resp.data as Map<String, dynamic>;
+    return _parsePage(resp.data, AdminEscrowItem.fromJson);
   }
 
-  Future<Map<String, dynamic>> getEventEscrows(int eventId) async {
+  Future<AdminEventEscrows> getEventEscrows(int eventId) async {
     final resp = await dio.get('/admin/escrows/by-event/$eventId');
-    return resp.data as Map<String, dynamic>;
+    return AdminEventEscrows.fromJson(
+        Map<String, dynamic>.from(resp.data as Map));
   }
 
   Future<Map<String, dynamic>> releaseEscrowStage(
@@ -221,7 +251,7 @@ class AdminRepository extends BaseRepository {
     return resp.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> toggleAutoRelease(
+  Future<AdminEscrowItem> toggleAutoRelease(
     int eventId,
     String escrowType, {
     bool? stage1,
@@ -234,7 +264,8 @@ class AdminRepository extends BaseRepository {
     if (stage2 != null) body['stage2_auto_release'] = stage2;
     if (stage3 != null) body['stage3_auto_release'] = stage3;
     final resp = await dio.patch(path, data: body);
-    return resp.data as Map<String, dynamic>;
+    return AdminEscrowItem.fromJson(
+        Map<String, dynamic>.from(resp.data as Map));
   }
 
   /// Generic escrow action used by financial tab and user-detail shared.
@@ -251,7 +282,7 @@ class AdminRepository extends BaseRepository {
 
   // ─── Disputes ───────────────────────────────────────────────────────────
 
-  Future<Map<String, dynamic>> getDisputes({
+  Future<AdminPage<AdminDispute>> getDisputes({
     String? status,
     int offset = 0,
     int limit = 50,
@@ -261,7 +292,7 @@ class AdminRepository extends BaseRepository {
       'offset': offset,
       'limit': limit,
     });
-    return resp.data as Map<String, dynamic>;
+    return _parsePage(resp.data, AdminDispute.fromJson);
   }
 
   Future<Map<String, dynamic>> submitDisputeEvidence(int disputeId) async {
@@ -290,12 +321,20 @@ class AdminRepository extends BaseRepository {
 
   // ─── Reconciliation & Ledger ────────────────────────────────────────────
 
-  Future<List<dynamic>> getReconciliationHistory({int limit = 30}) async {
+  Future<List<ReconciliationEntry>> getReconciliationHistory(
+      {int limit = 30}) async {
     final resp = await dio.get(
       '/admin/reconciliation/history',
       queryParameters: {'limit': limit},
     );
-    return resp.data as List;
+    final data = resp.data;
+    if (data is List) {
+      return data
+          .map((e) => ReconciliationEntry.fromJson(
+              Map<String, dynamic>.from(e as Map)))
+          .toList();
+    }
+    return [];
   }
 
   Future<Map<String, dynamic>> runReconciliation() async {
@@ -303,16 +342,33 @@ class AdminRepository extends BaseRepository {
     return resp.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> getLedgerHealth() async {
+  Future<AdminLedgerHealth> getLedgerHealth() async {
     final resp = await dio.get('/admin/ledger-health');
-    return resp.data as Map<String, dynamic>;
+    return AdminLedgerHealth.fromJson(
+        Map<String, dynamic>.from(resp.data as Map));
   }
 
   // ─── Payouts ────────────────────────────────────────────────────────────
 
-  Future<Map<String, dynamic>> getPayoutStatus() async {
+  Future<List<AdminPayoutItem>> getPayoutStatus() async {
     final resp = await dio.get('/admin/payout-status');
-    return resp.data as Map<String, dynamic>;
+    final data = resp.data;
+    if (data is List) {
+      return data
+          .map((e) =>
+              AdminPayoutItem.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList();
+    }
+    if (data is Map) {
+      final items = data['items'];
+      if (items is List) {
+        return items
+            .map((e) =>
+                AdminPayoutItem.fromJson(Map<String, dynamic>.from(e as Map)))
+            .toList();
+      }
+    }
+    return [];
   }
 
   Future<Map<String, dynamic>> forcePayout(int organizerId) async {
@@ -323,7 +379,7 @@ class AdminRepository extends BaseRepository {
 
   // ─── Transactions ──────────────────────────────────────────────────────
 
-  Future<Map<String, dynamic>> getTransactions({
+  Future<AdminPage<AdminTransaction>> getTransactions({
     int offset = 0,
     int limit = 20,
     String? search,
@@ -335,14 +391,15 @@ class AdminRepository extends BaseRepository {
       if (search != null && search.isNotEmpty) 'search': search,
       if (status != null && status.isNotEmpty) 'status': status,
     });
-    return resp.data as Map<String, dynamic>;
+    return _parsePage(resp.data, AdminTransaction.fromJson);
   }
 
   // ─── Mock ───────────────────────────────────────────────────────────────
 
-  Future<Map<String, dynamic>> getMockOverview() async {
+  Future<AdminMockOverview> getMockOverview() async {
     final resp = await dio.get('/admin/mock-overview');
-    return Map<String, dynamic>.from(resp.data as Map);
+    return AdminMockOverview.fromJson(
+        Map<String, dynamic>.from(resp.data as Map));
   }
 
   Future<Map<String, dynamic>> simulateDispute(String transactionId) async {
@@ -375,21 +432,23 @@ class AdminRepository extends BaseRepository {
 
   // ─── Platform Account ──────────────────────────────────────────────────
 
-  Future<Map<String, dynamic>> getPlatformAccount() async {
+  Future<AdminPlatformAccount> getPlatformAccount() async {
     final resp = await dio.get('/admin/platform-account');
-    return resp.data as Map<String, dynamic>;
+    return AdminPlatformAccount.fromJson(
+        Map<String, dynamic>.from(resp.data as Map));
   }
 
-  Future<Map<String, dynamic>> updatePlatformAccount(
+  Future<AdminPlatformAccount> updatePlatformAccount(
     Map<String, dynamic> data,
   ) async {
     final resp = await dio.put('/admin/platform-account', data: data);
-    return resp.data as Map<String, dynamic>;
+    return AdminPlatformAccount.fromJson(
+        Map<String, dynamic>.from(resp.data as Map));
   }
 
   // ─── Audit Log ─────────────────────────────────────────────────────────
 
-  Future<Map<String, dynamic>> getAuditLog({
+  Future<AdminPage<AdminAuditEntry>> getAuditLog({
     int offset = 0,
     int limit = 50,
     String? action,
@@ -401,17 +460,18 @@ class AdminRepository extends BaseRepository {
       if (action != null) 'action': action,
       if (targetType != null) 'target_type': targetType,
     });
-    return resp.data as Map<String, dynamic>;
+    return _parsePage(resp.data, AdminAuditEntry.fromJson);
   }
 
   // ─── Workers (ARQ) ─────────────────────────────────────────────────────
 
-  Future<Map<String, dynamic>> getWorkerSummary() async {
+  Future<AdminWorkerSummary> getWorkerSummary() async {
     final resp = await dio.get('/admin/worker-summary');
-    return resp.data as Map<String, dynamic>;
+    return AdminWorkerSummary.fromJson(
+        Map<String, dynamic>.from(resp.data as Map));
   }
 
-  Future<Map<String, dynamic>> getWorkerRuns({
+  Future<AdminPage<AdminWorkerRun>> getWorkerRuns({
     String? taskName,
     String? status,
     int offset = 0,
@@ -423,15 +483,21 @@ class AdminRepository extends BaseRepository {
       'offset': offset,
       'limit': limit,
     });
-    return resp.data as Map<String, dynamic>;
+    return _parsePage(resp.data, AdminWorkerRun.fromJson);
   }
 
   // ─── Email Templates ───────────────────────────────────────────────────
 
-  Future<List<dynamic>> getEmailTemplates() async {
+  Future<List<EmailTemplate>> getEmailTemplates() async {
     final resp = await dio.get('/admin/email-templates');
     final data = resp.data;
-    return data is List ? List<dynamic>.from(data) : [];
+    if (data is List) {
+      return data
+          .map((e) =>
+              EmailTemplate.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList();
+    }
+    return [];
   }
 
   Future<void> uploadEmailLogo({
@@ -444,7 +510,7 @@ class AdminRepository extends BaseRepository {
     await dio.post('/admin/email-templates/upload-logo', data: formData);
   }
 
-  Future<Map<String, dynamic>> saveEmailTemplate(
+  Future<EmailTemplate> saveEmailTemplate(
     String key, {
     required String subject,
     required String bodyHtml,
@@ -455,7 +521,8 @@ class AdminRepository extends BaseRepository {
       'body_html': bodyHtml,
       'is_active': isActive,
     });
-    return resp.data as Map<String, dynamic>;
+    return EmailTemplate.fromJson(
+        Map<String, dynamic>.from(resp.data as Map));
   }
 
   Future<Map<String, dynamic>> resetAllEmailTemplates() async {
@@ -472,10 +539,10 @@ class AdminRepository extends BaseRepository {
     return {};
   }
 
-  Future<Map<String, dynamic>> resetEmailTemplate(String key) async {
+  Future<EmailTemplate> resetEmailTemplate(String key) async {
     final resp =
         await dio.post('/admin/email-templates/$key/reset', data: {});
-    if (resp.data is Map) return resp.data as Map<String, dynamic>;
-    return {};
+    return EmailTemplate.fromJson(
+        Map<String, dynamic>.from(resp.data as Map));
   }
 }

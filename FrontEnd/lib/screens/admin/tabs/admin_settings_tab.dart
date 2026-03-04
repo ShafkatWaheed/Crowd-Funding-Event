@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../config/design_tokens.dart';
 import '../../../config/theme.dart';
+import '../../../models/admin.dart';
 import '../../../widgets/admin/admin_empty_state.dart';
 import 'banking/banking_escrow_config.dart';
 
@@ -13,7 +14,7 @@ class AdminSettingsTab extends StatefulWidget {
     required this.onReloadSettings,
   });
 
-  final List<dynamic> settings;
+  final List<PlatformSetting> settings;
   final void Function(String key, String value) onUpdateSetting;
   final Future<void> Function() onReloadSettings;
 
@@ -101,13 +102,11 @@ class _AdminSettingsTabState extends State<AdminSettingsTab>
   }
 
   String _settingVal(String key) {
-    final s = widget.settings
-        .cast<Map<String, dynamic>?>()
-        .firstWhere(
-          (e) => e != null && e['key'] == key,
+    final s = widget.settings.cast<PlatformSetting?>().firstWhere(
+          (e) => e != null && e.key == key,
           orElse: () => null,
         );
-    return s?['value']?.toString() ?? '';
+    return s?.value ?? '';
   }
 
   @override
@@ -174,7 +173,7 @@ class _AdminSettingsTabState extends State<AdminSettingsTab>
   }
 
   Widget _buildGroupList(List<String> groupNames) {
-    final settingsMap = {for (var s in widget.settings) s['key']: s};
+    final settingsMap = {for (var s in widget.settings) s.key: s};
 
     return RefreshIndicator(
       onRefresh: () async {
@@ -220,10 +219,10 @@ class _AdminSettingsTabState extends State<AdminSettingsTab>
 
   static final _rateLimitPattern = RegExp(r'^\d+/(second|minute|hour|day)$');
 
-  Widget _settingRow(BuildContext context, Map<String, dynamic> s) {
-    final key = s['key'] ?? '';
-    final value = s['value'] ?? '';
-    final desc = s['description'] ?? '';
+  Widget _settingRow(BuildContext context, PlatformSetting s) {
+    final key = s.key;
+    final value = s.value;
+    final desc = s.description ?? '';
     final isRateLimit = key.startsWith('rate_limit_');
     final isPercent = !isRateLimit && key.contains('percent');
     final isCents = key.contains('_cents');

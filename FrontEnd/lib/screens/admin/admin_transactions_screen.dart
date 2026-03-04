@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
+import '../../models/admin.dart';
 import '../../providers/admin_provider.dart';
 import '../../widgets/app_toast.dart';
 import 'admin_shared.dart';
@@ -16,7 +17,7 @@ class AdminTransactionsScreen extends StatefulWidget {
 }
 
 class _AdminTransactionsScreenState extends State<AdminTransactionsScreen> {
-  List<dynamic> _transactions = [];
+  List<AdminTransaction> _transactions = [];
   int _txnTotal = 0;
   int _txnPage = 0;
   bool _loading = true;
@@ -50,7 +51,7 @@ class _AdminTransactionsScreenState extends State<AdminTransactionsScreen> {
       final admin = context.read<AdminProvider>();
       final overview = await admin.getBankingOverview();
       if (mounted) {
-        setState(() => _mockModeActive = overview['mock_mode_active'] == true);
+        setState(() => _mockModeActive = overview.mockModeActive);
       }
     } catch (_) {}
   }
@@ -66,8 +67,8 @@ class _AdminTransactionsScreenState extends State<AdminTransactionsScreen> {
       );
       if (!mounted) return;
       setState(() {
-        _transactions = resp['items'] ?? [];
-        _txnTotal = resp['total'] ?? 0;
+        _transactions = resp.items;
+        _txnTotal = resp.total;
         _txnPage = page;
         _loading = false;
       });
@@ -206,12 +207,12 @@ class _AdminTransactionsScreenState extends State<AdminTransactionsScreen> {
     );
   }
 
-  Widget _buildTxnCard(BuildContext context, Map<String, dynamic> t) {
-    final createdAt = t['created_at'] as String?;
+  Widget _buildTxnCard(BuildContext context, AdminTransaction t) {
+    final createdAt = t.createdAt;
     final dateStr = createdAt != null
         ? createdAt.substring(0, 16).replaceFirst('T', ' ')
         : '';
-    final statusColor = _statusColor(t['status']);
+    final statusColor = _statusColor(t.status);
 
     return Card(
       color: AppTheme.cardOf(context),
@@ -219,9 +220,9 @@ class _AdminTransactionsScreenState extends State<AdminTransactionsScreen> {
       child: ExpansionTile(
         dense: true,
         leading:
-            Icon(_txnIcon(t['operation']), size: 20, color: AppTheme.accentColor),
+            Icon(_txnIcon(t.operation), size: 20, color: AppTheme.accentColor),
         title: Text(
-          '${t['operation'] ?? ''} · ${centsToStr(t['amount_cents'] ?? 0)}',
+          '${t.operation} · ${centsToStr(t.amountCents)}',
           style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
@@ -235,7 +236,7 @@ class _AdminTransactionsScreenState extends State<AdminTransactionsScreen> {
                 color: statusColor.withValues(alpha:0.15),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: Text(t['status'] ?? '',
+              child: Text(t.status,
                   style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
@@ -248,12 +249,12 @@ class _AdminTransactionsScreenState extends State<AdminTransactionsScreen> {
                     color: AppTheme.textSecondaryOf(context))),
           ],
         ),
-        trailing: _mockModeActive
+        trailing: _mockModeActive && t.transactionId != null
             ? IconButton(
                 icon: const Icon(Icons.report_problem, size: 18),
                 tooltip: 'Simulate Dispute',
                 color: AppTheme.warningColor,
-                onPressed: () => _simulateDispute(t['transaction_id'] as String),
+                onPressed: () => _simulateDispute(t.transactionId!),
               )
             : null,
         children: [
@@ -262,36 +263,33 @@ class _AdminTransactionsScreenState extends State<AdminTransactionsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (t['from_account'] != null || t['to_account'] != null)
+                if (t.fromAccount != null || t.toAccount != null)
                   _txnDetailRow(context, 'Accounts',
-                      '${t['from_account'] ?? '\u2014'} \u2192 ${t['to_account'] ?? '\u2014'}'),
-                if (t['fee_cents'] != null && (t['fee_cents'] as int) > 0)
+                      '${t.fromAccount ?? '\u2014'} \u2192 ${t.toAccount ?? '\u2014'}'),
+                if (t.feeCents > 0)
                   _txnDetailRow(
-                      context, 'Fee', centsToStr(t['fee_cents'])),
-                if (t['authorization_code'] != null)
+                      context, 'Fee', centsToStr(t.feeCents)),
+                if (t.authorizationCode != null)
                   _txnDetailRow(
-                      context, 'Auth Code', '${t['authorization_code']}'),
-                if (t['receipt_reference'] != null &&
-                    (t['receipt_reference'] as String).isNotEmpty)
+                      context, 'Auth Code', t.authorizationCode!),
+                if (t.receiptReference?.isNotEmpty == true)
                   _txnDetailRow(
-                      context, 'Receipt #', '${t['receipt_reference']}'),
-                if (t['description'] != null &&
-                    (t['description'] as String).isNotEmpty)
+                      context, 'Receipt #', t.receiptReference!),
+                if (t.description?.isNotEmpty == true)
                   _txnDetailRow(
-                      context, 'Description', '${t['description']}'),
-                if (t['failure_reason'] != null &&
-                    (t['failure_reason'] as String).isNotEmpty)
+                      context, 'Description', t.description!),
+                if (t.failureReason?.isNotEmpty == true)
                   _txnDetailRow(
-                      context, 'Failure', '${t['failure_reason']}'),
-                if (t['transaction_id'] != null)
+                      context, 'Failure', t.failureReason!),
+                if (t.transactionId != null)
                   _txnDetailRow(
-                      context, 'Transaction ID', '${t['transaction_id']}'),
-                if (t['related_type'] != null)
+                      context, 'Transaction ID', t.transactionId!),
+                if (t.relatedType != null)
                   _txnDetailRow(context, 'Related',
-                      '${t['related_type']} #${t['related_id'] ?? ''}'),
-                if (t['completed_at'] != null)
+                      '${t.relatedType} #${t.relatedId ?? ''}'),
+                if (t.completedAt != null)
                   _txnDetailRow(context, 'Completed',
-                      (t['completed_at'] as String).substring(0, 16).replaceFirst('T', ' ')),
+                      t.completedAt!.substring(0, 16).replaceFirst('T', ' ')),
               ],
             ),
           ),

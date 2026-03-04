@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../admin_shared.dart';
 import '../../../config/theme.dart';
+import '../../../models/admin.dart';
 import 'package:provider/provider.dart';
 
 import '../../../providers/admin_provider.dart';
@@ -10,7 +11,7 @@ import '../../../widgets/app_toast.dart';
 
 class AdminArqTab extends StatefulWidget {
   final void Function(String) onSnack;
-  final List<dynamic> settings;
+  final List<PlatformSetting> settings;
   final void Function(String key, String value) onUpdateSetting;
 
   const AdminArqTab({
@@ -25,7 +26,7 @@ class AdminArqTab extends StatefulWidget {
 }
 
 class _AdminArqTabState extends State<AdminArqTab> {
-  List<Map<String, dynamic>> _tasks = [];
+  List<AdminWorkerTask> _tasks = [];
   bool _summaryLoading = true;
 
   @override
@@ -40,7 +41,7 @@ class _AdminArqTabState extends State<AdminArqTab> {
       final data = await context.read<AdminProvider>().getWorkerSummary();
       if (mounted) {
         setState(() {
-          _tasks = (data['tasks'] as List).cast<Map<String, dynamic>>();
+          _tasks = data.tasks;
           _summaryLoading = false;
         });
       }
@@ -145,14 +146,14 @@ class _AdminArqTabState extends State<AdminArqTab> {
     );
   }
 
-  Widget _buildTaskCard(Map<String, dynamic> task) {
-    final name = task['task_name'] as String;
-    final enabled = task['enabled'] == true;
-    final settingKey = task['setting_key'] as String;
-    final totalRuns = task['total_runs'] ?? 0;
-    final totalErrors = task['total_errors'] ?? 0;
-    final lastRunAt = task['last_run_at'] as String?;
-    final lastStatus = task['last_status'] as String?;
+  Widget _buildTaskCard(AdminWorkerTask task) {
+    final name = task.taskName;
+    final enabled = task.enabled;
+    final settingKey = task.settingKey;
+    final totalRuns = task.totalRuns;
+    final totalErrors = task.totalErrors;
+    final lastRunAt = task.lastRunAt;
+    final lastStatus = task.lastStatus;
 
     return Card(
       color: AppTheme.cardOf(context),
@@ -244,9 +245,9 @@ class _AdminArqTabState extends State<AdminArqTab> {
     int totalErrors = 0;
     String? latestRun;
     for (final t in _tasks) {
-      totalRuns += (t['total_runs'] as int?) ?? 0;
-      totalErrors += (t['total_errors'] as int?) ?? 0;
-      final runAt = t['last_run_at'] as String?;
+      totalRuns += t.totalRuns;
+      totalErrors += t.totalErrors;
+      final runAt = t.lastRunAt;
       if (runAt != null && (latestRun == null || runAt.compareTo(latestRun) > 0)) {
         latestRun = runAt;
       }

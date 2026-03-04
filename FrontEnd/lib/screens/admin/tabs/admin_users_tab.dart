@@ -4,11 +4,12 @@ import 'package:go_router/go_router.dart';
 
 import '../admin_shared.dart';
 import '../../../config/theme.dart';
+import '../../../models/admin.dart';
 import '../../../widgets/admin/admin_search_bar.dart';
 import '../../../widgets/admin/admin_empty_state.dart';
 
-/// Callback for loading users. Returns API-shaped map with 'items' and 'total'.
-typedef AdminUsersLoadCallback = Future<Map<String, dynamic>> Function(
+/// Callback for loading users. Returns typed AdminPage<AdminUserItem>.
+typedef AdminUsersLoadCallback = Future<AdminPage<AdminUserItem>> Function(
   int offset,
   int limit, {
   String? search,
@@ -24,7 +25,7 @@ class AdminUsersTab extends StatefulWidget {
     required this.onLoadMore,
   });
 
-  final List<dynamic> users;
+  final List<AdminUserItem> users;
   final int usersTotal;
   final void Function(String) onSnack;
   final AdminUsersLoadCallback onLoadMore;
@@ -38,7 +39,7 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
   String _userRoleFilter = 'all';
   final _usersScrollCtrl = ScrollController();
   Timer? _userSearchDebounce;
-  List<dynamic> _users = [];
+  List<AdminUserItem> _users = [];
   int _usersTotal = 0;
   bool _usersLoadingMore = false;
 
@@ -75,10 +76,10 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
     }
   }
 
-  List<dynamic> get _filteredUsers {
+  List<AdminUserItem> get _filteredUsers {
     var list = _users;
     if (_userRoleFilter != 'all') {
-      list = list.where((u) => u['role'] == _userRoleFilter).toList();
+      list = list.where((u) => u.role == _userRoleFilter).toList();
     }
     return list;
   }
@@ -96,8 +97,8 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
         );
         if (mounted) {
           setState(() {
-            _users = (resp['items'] as List<dynamic>?) ?? [];
-            _usersTotal = (resp['total'] as int?) ?? 0;
+            _users = resp.items;
+            _usersTotal = resp.total;
           });
         }
       } catch (e) { debugPrint(e.toString()); }
@@ -114,11 +115,10 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
         search: _userSearch.isEmpty ? null : _userSearch,
         role: _userRoleFilter == 'all' ? null : _userRoleFilter,
       );
-      final items = (resp['items'] as List<dynamic>?) ?? [];
       if (mounted) {
         setState(() {
-          _users.addAll(items);
-          _usersTotal = (resp['total'] as int?) ?? _usersTotal;
+          _users.addAll(resp.items);
+          _usersTotal = resp.total;
         });
       }
     } catch (e) { debugPrint(e.toString()); }
@@ -136,8 +136,8 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
       );
       if (mounted) {
         setState(() {
-          _users = (resp['items'] as List<dynamic>?) ?? [];
-          _usersTotal = (resp['total'] as int?) ?? 0;
+          _users = resp.items;
+          _usersTotal = resp.total;
           _usersLoadingMore = false;
         });
       }
@@ -213,11 +213,10 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
                         );
                       }
                       final user = displayList[i];
-                      final name = user['display_name'] ?? 'No name';
-                      final email = user['email'] ?? '';
-                      final role = user['role'] ?? 'unknown';
+                      final name = user.displayName ?? 'No name';
+                      final email = user.email;
+                      final role = user.role;
                       final initial = (name != 'No name' ? name : email)
-                          .toString()
                           .substring(0, 1)
                           .toUpperCase();
 
@@ -225,7 +224,7 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
                         margin: const EdgeInsets.only(bottom: 8),
                         child: ListTile(
                           onTap: () =>
-                              context.push('/admin/users/${user['id']}'),
+                              context.push('/admin/users/${user.id}'),
                           leading: CircleAvatar(
                             backgroundColor:
                                 AppTheme.accentOf(context).withValues(alpha: 0.15),
@@ -239,8 +238,8 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
                           subtitle: Text(email),
                           trailing: statusChip(
                             context,
-                            role.toString().toUpperCase(),
-                            roleColor(context, role.toString()),
+                            role.toUpperCase(),
+                            roleColor(context, role),
                           ),
                         ),
                       );

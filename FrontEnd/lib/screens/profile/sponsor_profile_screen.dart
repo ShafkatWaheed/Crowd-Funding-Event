@@ -9,6 +9,9 @@ import '../../utils/date_time_utils.dart';
 
 import '../../config/api_config.dart';
 import '../../config/theme.dart';
+import '../../models/sponsor.dart';
+import '../../models/user.dart';
+import '../../models/rating.dart';
 import '../../repositories/base_repository.dart';
 import '../../providers/user_provider.dart';
 import '../../providers/sponsor_provider.dart';
@@ -30,11 +33,11 @@ class SponsorProfileScreen extends StatefulWidget {
 }
 
 class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
-  Map<String, dynamic>? _profile;
-  Map<String, dynamic>? _ratingsSummary;
+  SponsorPublicProfile? _profile;
+  RatingsSummary? _ratingsSummary;
   bool _loading = true;
 
-  List<Map<String, dynamic>> _events = [];
+  List<SponsorEventItem> _events = [];
   bool _loadingEvents = true;
 
   final _eventSearchCtrl = TextEditingController();
@@ -68,16 +71,16 @@ class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
     super.dispose();
   }
 
-  List<Map<String, dynamic>> get _filteredEvents {
+  List<SponsorEventItem> get _filteredEvents {
     var list = _events;
     if (_eventStatusFilter != null) {
-      list = list.where((e) => e['status'] == _eventStatusFilter).toList();
+      list = list.where((e) => e.status == _eventStatusFilter).toList();
     }
     if (_eventSearchQuery.isNotEmpty) {
       final q = _eventSearchQuery.toLowerCase();
       list = list.where((e) {
-        final title = (e['title'] ?? '').toString().toLowerCase();
-        final venue = (e['venue_name'] ?? '').toString().toLowerCase();
+        final title = e.title.toLowerCase();
+        final venue = (e.venueName ?? '').toLowerCase();
         return title.contains(q) || venue.contains(q);
       }).toList();
     }
@@ -142,7 +145,7 @@ class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final companyName = _profile?['company_name'] ?? _profile?['display_name'] ?? 'Sponsor';
+    final companyName = _profile?.companyName ?? _profile?.displayName ?? 'Sponsor';
 
     return Scaffold(
       appBar: AppBar(title: Text(_loading ? 'Sponsor Profile' : companyName)),
@@ -161,12 +164,12 @@ class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
                       _buildHeader(),
                       const SizedBox(height: 20),
                       _buildStats(),
-                      if (_profile!['description'] != null &&
-                          (_profile!['description'] as String).isNotEmpty) ...[
+                      if (_profile!.description != null &&
+                          _profile!.description!.isNotEmpty) ...[
                         const SizedBox(height: 20),
                         _buildDescription(),
                       ],
-                      if (_ratingsSummary != null && (_ratingsSummary!['count'] as int? ?? 0) > 0) ...[
+                      if (_ratingsSummary != null && _ratingsSummary!.count > 0) ...[
                         const SizedBox(height: 20),
                         _buildRatingsSection(context),
                       ],
@@ -182,12 +185,12 @@ class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
 
   Widget _buildHeader() {
     final p = _profile!;
-    final companyName = p['company_name'] ?? p['display_name'] ?? 'Sponsor';
-    final contactName = p['contact_name'] ?? '';
-    final profession = p['profession'] ?? '';
-    final logoUrl = p['logo_url'];
-    final websiteUrl = p['website_url'];
-    final memberSince = p['member_since'];
+    final companyName = p.companyName ?? p.displayName ?? 'Sponsor';
+    final contactName = p.contactName ?? '';
+    final profession = p.profession ?? '';
+    final logoUrl = p.logoUrl;
+    final websiteUrl = p.websiteUrl;
+    final memberSince = p.memberSince;
 
     DateTime? joinDate;
     if (memberSince != null) {
@@ -214,10 +217,10 @@ class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
           CircleAvatar(
             radius: 40,
             backgroundColor: AppTheme.accentColor.withValues(alpha: 0.15),
-            backgroundImage: logoUrl != null && logoUrl.toString().isNotEmpty
+            backgroundImage: logoUrl != null && logoUrl.isNotEmpty
                 ? NetworkImage(ApiConfig.imageUrl(logoUrl))
                 : null,
-            child: logoUrl == null || logoUrl.toString().isEmpty
+            child: logoUrl == null || logoUrl.isEmpty
                 ? Text(initial,
                     style: TextStyle(
                         fontSize: 32,
@@ -256,7 +259,7 @@ class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
             ),
           ],
           const SizedBox(height: 14),
-          if (websiteUrl != null && websiteUrl.toString().isNotEmpty)
+          if (websiteUrl != null && websiteUrl.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: GestureDetector(
@@ -268,7 +271,7 @@ class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
                         size: 14, color: AppTheme.accentColor),
                     const SizedBox(width: 5),
                     Text(
-                      websiteUrl.toString().replaceFirst(RegExp(r'^https?://'), ''),
+                      websiteUrl.replaceFirst(RegExp(r'^https?://'), ''),
                       style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
@@ -292,9 +295,9 @@ class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
 
   Widget _buildStats() {
     final p = _profile!;
-    final totalBids = p['total_bids'] ?? 0;
-    final acceptedBids = p['accepted_bids'] ?? 0;
-    final eventsSponsored = p['events_sponsored'] ?? 0;
+    final totalBids = p.totalBids;
+    final acceptedBids = p.acceptedBids;
+    final eventsSponsored = p.eventsSponsored;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -409,7 +412,7 @@ class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
           ),
           const SizedBox(height: 12),
           Text(
-            _profile!['description'],
+            _profile!.description!,
             style: TextStyle(
                 fontSize: 14,
                 height: 1.5,
@@ -422,10 +425,10 @@ class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
 
   Widget _buildRatingsSection(BuildContext context) {
     final s = _ratingsSummary!;
-    final avgStars = s['avg_stars'] as double?;
-    final count = s['count'] as int? ?? 0;
-    final topReviews = (s['top_reviews'] as List?) ?? [];
-    final worstReviews = (s['worst_reviews'] as List?) ?? [];
+    final avgStars = s.avgStars;
+    final count = s.count;
+    final topReviews = s.topReviews;
+    final worstReviews = s.worstReviews;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -454,7 +457,7 @@ class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
             const SizedBox(height: 6),
             ...topReviews.take(5).map((r) => _reviewTile(r)),
           ],
-          if (worstReviews.isNotEmpty && (worstReviews.first['stars'] as int? ?? 5) < 4) ...[
+          if (worstReviews.isNotEmpty && worstReviews.first.stars < 4) ...[
             const SizedBox(height: 14),
             Text('Critical Reviews',
                 style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondaryOf(context))),
@@ -466,10 +469,10 @@ class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
     );
   }
 
-  Widget _reviewTile(dynamic r) {
-    final stars = r['stars'] as int? ?? 0;
-    final name = r['rater_name'] ?? 'Anonymous';
-    final desc = r['description'] as String? ?? '';
+  Widget _reviewTile(Rating r) {
+    final stars = r.stars;
+    final name = r.raterName;
+    final desc = r.description ?? '';
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Row(
@@ -631,25 +634,20 @@ class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
 
 
 class _SponsorEventCard extends StatelessWidget {
-  final Map<String, dynamic> event;
+  final SponsorEventItem event;
 
   const _SponsorEventCard({required this.event});
 
   @override
   Widget build(BuildContext context) {
-    final title = event['title'] ?? 'Untitled';
-    final status = event['status'] ?? '';
-    final venueName = event['venue_name'];
-    final venueCity = event['venue_city'];
-    final startTime = event['start_time'];
-    final totalCents = event['total_amount_cents'] ?? 0;
+    final title = event.title;
+    final status = event.status;
+    final venueName = event.venueName;
+    final venueCity = event.venueCity;
+    final startTime = event.startTime;
+    final totalCents = event.totalAmountCents;
     final amount = '\$${(totalCents / 100).toStringAsFixed(2)}';
-    final bids = (event['bids'] as List?) ?? [];
-    final summary = event['bid_summary'] as Map<String, dynamic>? ?? {};
-    final pending = summary['pending'] ?? 0;
-    final accepted = summary['accepted'] ?? 0;
-    final rejected = summary['rejected'] ?? 0;
-    final paid = summary['paid'] ?? 0;
+    final bids = event.bids;
 
     String dateStr = '';
     if (startTime != null) {
@@ -660,7 +658,7 @@ class _SponsorEventCard extends StatelessWidget {
     }
 
     return GestureDetector(
-      onTap: () => context.push('/events/${event['event_id']}'),
+      onTap: () => context.push('/events/${event.eventId}'),
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
@@ -742,29 +740,12 @@ class _SponsorEventCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 6),
-            Wrap(
-              spacing: 6,
-              runSpacing: 4,
-              children: [
-                if (pending > 0)
-                  _summaryChip(context, '$pending Under Review', context.statusPending),
-                if (accepted > 0)
-                  _summaryChip(
-                      context, '$accepted Accepted', AppTheme.accentColor),
-                if (paid > 0)
-                  _summaryChip(
-                      context, '$paid Paid', AppTheme.secondaryColor),
-                if (rejected > 0)
-                  _summaryChip(
-                      context, '$rejected Rejected', AppTheme.errorColor),
-              ],
-            ),
             if (bids.isNotEmpty) ...[
               const SizedBox(height: 8),
               ...bids.map((b) {
-                final cat = b['category'] ?? '';
-                final cents = b['amount_cents'] ?? 0;
-                final bidStatus = b['status'] ?? '';
+                final cat = b.category;
+                final cents = b.amountCents;
+                final bidStatus = b.status;
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 3),
                   child: Row(
@@ -836,19 +817,6 @@ class _SponsorEventCard extends StatelessWidget {
     );
   }
 
-  Widget _summaryChip(BuildContext context, String text, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(text,
-          style:
-              TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color)),
-    );
-  }
-
   Color _bidStatusColor(BuildContext context, String status) {
     return switch (status) {
       'pending' => context.bidPending,
@@ -871,7 +839,7 @@ void showSponsorProfileSheet(BuildContext context, int sponsorUserId, {bool isOr
     ),
     backgroundColor: AppTheme.cardOf(context),
     builder: (ctx) {
-      return FutureBuilder<Map<String, dynamic>>(
+      return FutureBuilder<SponsorPublicProfile>(
         future: userRepo.getSponsorPublicProfile(sponsorUserId),
         builder: (ctx, snap) {
           if (snap.connectionState != ConnectionState.done) {
@@ -890,13 +858,13 @@ void showSponsorProfileSheet(BuildContext context, int sponsorUserId, {bool isOr
           }
 
           final p = snap.data!;
-          final companyName = p['company_name'] ?? p['display_name'] ?? 'Sponsor';
-          final contactName = p['contact_name'] ?? '';
-          final profession = p['profession'] ?? '';
-          final logoUrl = p['logo_url'];
-          final totalBids = p['total_bids'] ?? 0;
-          final acceptedBids = p['accepted_bids'] ?? 0;
-          final eventsSponsored = p['events_sponsored'] ?? 0;
+          final companyName = p.companyName ?? p.displayName ?? 'Sponsor';
+          final contactName = p.contactName ?? '';
+          final profession = p.profession ?? '';
+          final logoUrl = p.logoUrl;
+          final totalBids = p.totalBids;
+          final acceptedBids = p.acceptedBids;
+          final eventsSponsored = p.eventsSponsored;
           final initial = companyName.isNotEmpty ? companyName[0].toUpperCase() : '?';
 
           return Padding(
@@ -915,10 +883,10 @@ void showSponsorProfileSheet(BuildContext context, int sponsorUserId, {bool isOr
                 CircleAvatar(
                   radius: 32,
                   backgroundColor: AppTheme.accentColor.withValues(alpha: 0.15),
-                  backgroundImage: logoUrl != null && logoUrl.toString().isNotEmpty
+                  backgroundImage: logoUrl != null && logoUrl.isNotEmpty
                       ? NetworkImage(ApiConfig.imageUrl(logoUrl))
                       : null,
-                  child: logoUrl == null || logoUrl.toString().isEmpty
+                  child: logoUrl == null || logoUrl.isEmpty
                       ? Text(initial,
                           style: TextStyle(
                               fontSize: 24,

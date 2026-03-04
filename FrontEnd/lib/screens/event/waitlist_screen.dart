@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
+import '../../models/event.dart';
 import '../../models/ticket.dart';
 import '../../providers/event_provider.dart';
 import '../../providers/ticket_provider.dart';
@@ -31,8 +32,8 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
   late _WaitlistType _type;
 
   // Fund waitlist data
-  List<dynamic> _fundAll = [];
-  List<dynamic> _fundFiltered = [];
+  List<Registration> _fundAll = [];
+  List<Registration> _fundFiltered = [];
 
   // Ticket waitlist data
   List<TicketSale> _ticketAll = [];
@@ -77,17 +78,17 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
       final capFuture = eventRepo.getCapacityInfo(widget.eventId);
       final results = await Future.wait([regsFuture, capFuture]);
 
-      final regs = results[0] as List;
+      final regs = results[0] as List<Registration>;
       final tickets = await ticketsFuture;
-      final cap = results[1] as Map<String, dynamic>;
+      final cap = results[1] as CapacityInfo;
 
       setState(() {
-        _fundAll = regs.where((r) => r['status'] == 'waitlist').toList();
+        _fundAll = regs.where((r) => r.status == 'waitlist').toList();
         _ticketAll = tickets;
-        _maxCapacity = cap['max_capacity'] ?? 0;
-        _ticketsSold = cap['tickets_sold'] ?? 0;
-        _totalReservedSpots = cap['total_reserved_spots'] ?? 0;
-        _registrationCount = cap['registration_count'] ?? 0;
+        _maxCapacity = cap.maxCapacity;
+        _ticketsSold = cap.ticketsSold;
+        _totalReservedSpots = cap.totalReservedSpots;
+        _registrationCount = cap.registrationCount;
         _applySearch();
         _loading = false;
       });
@@ -106,8 +107,8 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
       _ticketFiltered = List.from(_ticketAll);
     } else {
       _fundFiltered = _fundAll.where((r) {
-        final userId = '${r['user_id']}'.toLowerCase();
-        final id = '${r['id']}'.toLowerCase();
+        final userId = '${r.userId}'.toLowerCase();
+        final id = '${r.id}'.toLowerCase();
         return userId.contains(q) || id.contains(q);
       }).toList();
       _ticketFiltered = _ticketAll.where((t) {
@@ -175,9 +176,9 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
 
   // ── Helpers ──
 
-  List<dynamic> get _currentAll =>
+  List<Object> get _currentAll =>
       _type == _WaitlistType.fund ? _fundAll : _ticketAll;
-  List<dynamic> get _currentFiltered =>
+  List<Object> get _currentFiltered =>
       _type == _WaitlistType.fund ? _fundFiltered : _ticketFiltered;
 
   String get _emptyLabel => _type == _WaitlistType.fund
@@ -378,10 +379,9 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
                                   horizontal: 16, vertical: 4),
                               itemCount: _currentFiltered.length,
                               itemBuilder: (context, i) {
-                                final item = _currentFiltered[i];
                                 return _type == _WaitlistType.fund
-                                    ? _fundCard(item)
-                                    : _ticketCard(item);
+                                    ? _fundCard(_fundFiltered[i])
+                                    : _ticketCard(_ticketFiltered[i]);
                               },
                             ),
                           ),
@@ -551,9 +551,9 @@ class _WaitlistScreenState extends State<WaitlistScreen> {
 
   // ── Fund waitlist card ──
 
-  Widget _fundCard(dynamic reg) {
-    final regId = reg['id'] as int;
-    final userId = reg['user_id'];
+  Widget _fundCard(Registration reg) {
+    final regId = reg.id;
+    final userId = reg.userId;
     // After approving a fund registration, the user becomes registered –
     // registration_count increases by 1 but capacity math unchanged.
     final newRegCount = _registrationCount + 1;

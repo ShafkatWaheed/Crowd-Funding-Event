@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../config/api_config.dart';
 import '../../config/theme.dart';
+import '../../models/sponsor.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../providers/sponsor_provider.dart';
 import '../../widgets/app_toast.dart';
@@ -25,7 +26,7 @@ class _OrganizerSponsorsScreenState extends State<OrganizerSponsorsScreen> {
   static const _pageSize = 20;
 
   final _scrollCtrl = ScrollController();
-  List<Map<String, dynamic>> _sponsors = [];
+  List<OrganizerSponsorItem> _sponsors = [];
   bool _loading = true;
   bool _loadingMore = false;
   bool _hasMore = true;
@@ -99,12 +100,12 @@ class _OrganizerSponsorsScreenState extends State<OrganizerSponsorsScreen> {
     }
   }
 
-  List<Map<String, dynamic>> get _filtered {
+  List<OrganizerSponsorItem> get _filtered {
     if (_search.isEmpty) return _sponsors;
     final q = _search.toLowerCase();
     return _sponsors.where((s) {
-      final name = (s['company_name'] ?? '').toString().toLowerCase();
-      final contact = (s['contact_name'] ?? '').toString().toLowerCase();
+      final name = s.companyName.toLowerCase();
+      final contact = s.contactName.toLowerCase();
       return name.contains(q) || contact.contains(q);
     }).toList();
   }
@@ -226,7 +227,7 @@ class _OrganizerSponsorsScreenState extends State<OrganizerSponsorsScreen> {
                               return _SponsorCard(
                                 sponsor: s,
                                 onTap: () => context.push(
-                                  '/users/${s['sponsor_user_id']}/sponsor-profile',
+                                  '/users/${s.sponsorUserId}/sponsor-profile',
                                   extra: {'isOrganizerView': true},
                                 ),
                               );
@@ -241,19 +242,18 @@ class _OrganizerSponsorsScreenState extends State<OrganizerSponsorsScreen> {
 }
 
 class _SponsorCard extends StatelessWidget {
-  final Map<String, dynamic> sponsor;
+  final OrganizerSponsorItem sponsor;
   final VoidCallback onTap;
 
   const _SponsorCard({required this.sponsor, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final name = sponsor['company_name'] ?? 'Unknown';
-    final contact = sponsor['contact_name'] ?? '';
-    final logo = sponsor['logo_url'];
-    final totalBids = sponsor['total_bids'] ?? 0;
-    final totalCents = sponsor['total_amount_cents'] ?? 0;
-    final amount = '\$${(totalCents / 100).toStringAsFixed(2)}';
+    final name = sponsor.companyName;
+    final contact = sponsor.contactName;
+    final logo = sponsor.logoUrl;
+    final totalBids = sponsor.totalBids;
+    final amount = sponsor.totalAmountDisplay;
 
     return GestureDetector(
       onTap: onTap,

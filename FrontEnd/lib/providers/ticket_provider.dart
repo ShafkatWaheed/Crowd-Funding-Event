@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import '../models/discount.dart';
+import '../models/receipt.dart';
 import '../models/ticket.dart';
 import '../models/ticket_strategy.dart';
 import '../repositories/base_repository.dart';
@@ -57,7 +59,7 @@ class TicketProvider extends ChangeNotifier {
 
   // ─── Ticket pricing ───
 
-  Future<Map<String, dynamic>> getTicketPrice(
+  Future<TicketPricePreview> getTicketPrice(
           int eventId, int ticketTierId) =>
       _repo.getTicketPrice(eventId, ticketTierId);
 
@@ -70,24 +72,24 @@ class TicketProvider extends ChangeNotifier {
 
   // ─── Ticket receipts ───
 
-  Future<Map<String, dynamic>> getTicketReceipt(int eventId, int saleId) =>
+  Future<TicketReceipt> getTicketReceipt(int eventId, int saleId) =>
       _repo.getTicketReceipt(eventId, saleId);
 
-  Future<Map<String, dynamic>> getMyTicketReceipt(int saleId) =>
+  Future<TicketReceipt> getMyTicketReceipt(int saleId) =>
       _repo.getMyTicketReceipt(saleId);
 
-  Future<Map<String, dynamic>> getPurchaseGroupReceipt(
+  Future<PurchaseGroupReceipt> getPurchaseGroupReceipt(
           int eventId, String groupId) =>
       _repo.getPurchaseGroupReceipt(eventId, groupId);
 
   // ─── Ticket sales stats ───
 
-  Future<Map<String, dynamic>> getTicketSalesStats(int eventId) =>
+  Future<TicketSalesStats> getTicketSalesStats(int eventId) =>
       _repo.getTicketSalesStats(eventId);
 
   // ─── Ticket scanning ───
 
-  Future<Map<String, dynamic>> scanTicket(int eventId,
+  Future<TicketScanResult> scanTicket(int eventId,
           {String? ticketCode, String? encryptedPayload}) =>
       _repo.scanTicket(eventId,
           ticketCode: ticketCode, encryptedPayload: encryptedPayload);
@@ -161,25 +163,25 @@ class TicketProvider extends ChangeNotifier {
 
   // ─── Event discounts ───
 
-  Future<List<dynamic>> getEventDiscounts(int eventId) =>
+  Future<List<EventDiscount>> getEventDiscounts(int eventId) =>
       _repo.getEventDiscounts(eventId);
 
-  Future<Map<String, dynamic>> createEventDiscount(
+  Future<EventDiscount> createEventDiscount(
           int eventId, Map<String, dynamic> data) =>
       _repo.createEventDiscount(eventId, data);
 
   Future<void> deleteEventDiscount(int eventId, int discountId) =>
       _repo.deleteEventDiscount(eventId, discountId);
 
-  Future<List<dynamic>> getMyDiscounts(int eventId) =>
+  Future<MyDiscounts> getMyDiscounts(int eventId) =>
       _repo.getMyDiscounts(eventId);
 
   // ─── Discount strategies ───
 
-  Future<List<dynamic>> getDiscountStrategies() =>
+  Future<List<DiscountStrategy>> getDiscountStrategies() =>
       _repo.getDiscountStrategies();
 
-  Future<Map<String, dynamic>> createDiscountStrategy(
+  Future<DiscountStrategy> createDiscountStrategy(
           Map<String, dynamic> data) =>
       _repo.createDiscountStrategy(data);
 
@@ -193,12 +195,12 @@ class TicketProvider extends ChangeNotifier {
   Future<void> detachDiscountStrategy(int eventId, int strategyId) =>
       _repo.detachDiscountStrategy(eventId, strategyId);
 
-  Future<List<dynamic>> getEventDiscountStrategies(int eventId) =>
+  Future<List<EventDiscountStrategy>> getEventDiscountStrategies(int eventId) =>
       _repo.getEventDiscountStrategies(eventId);
 
   // ─── Customer discount claims ───
 
-  Future<List<dynamic>> getClaimableDiscounts(int eventId) =>
+  Future<List<ClaimableDiscount>> getClaimableDiscounts(int eventId) =>
       _repo.getClaimableDiscounts(eventId);
 
   Future<void> claimDiscount(int eventId, int linkId) =>

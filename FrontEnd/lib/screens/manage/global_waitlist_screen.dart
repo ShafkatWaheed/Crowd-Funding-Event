@@ -73,9 +73,13 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
         try {
           final regs = await eventRepo.getRegistrations(eventId);
           for (final r in regs) {
-            if (r['status'] == 'waitlist') {
+            if (r.status == 'waitlist') {
               fundCombined.add({
-                ...Map<String, dynamic>.from(r),
+                'id': r.id,
+                'event_id': r.eventId,
+                'user_id': r.userId,
+                'status': r.status,
+                'created_at': r.createdAt.toIso8601String(),
                 '_event_title': eventTitle,
                 '_event_id': eventId,
               });

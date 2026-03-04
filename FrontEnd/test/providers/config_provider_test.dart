@@ -1,15 +1,21 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import '../../lib/models/payment.dart';
 import '../../lib/providers/config_provider.dart';
+import '../../lib/repositories/payment_repository.dart';
 import '../helpers/mock_event_repository.dart';
+
+class MockPaymentRepository extends Mock implements PaymentRepository {}
 
 void main() {
   late MockEventRepository mockRepo;
+  late MockPaymentRepository mockPaymentRepo;
   late ConfigProvider provider;
 
   setUp(() {
     mockRepo = MockEventRepository();
-    provider = ConfigProvider(mockRepo);
+    mockPaymentRepo = MockPaymentRepository();
+    provider = ConfigProvider(mockRepo, mockPaymentRepo);
   });
 
   group('ConfigProvider', () {
@@ -20,6 +26,7 @@ void main() {
       expect(provider.featureScheduleEnabled, true);
       expect(provider.featureSponsorsEnabled, true);
       expect(provider.featureCommunityRulesEnabled, true);
+      expect(provider.stripeEnabled, false);
       expect(provider.loaded, false);
     });
 
@@ -32,6 +39,8 @@ void main() {
             'feature_sponsors_enabled': false,
             'feature_community_rules_enabled': true,
           });
+      when(() => mockPaymentRepo.getStripeConfig()).thenAnswer(
+          (_) async => StripeConfig(stripeEnabled: true, publishableKey: 'pk_test'));
 
       await provider.fetchConfig();
 
@@ -39,6 +48,7 @@ void main() {
       expect(provider.maxTicketsFrontendEnabled, true);
       expect(provider.featureMilestonesEnabled, false);
       expect(provider.featureSponsorsEnabled, false);
+      expect(provider.stripeEnabled, true);
       expect(provider.loaded, true);
     });
 
@@ -58,12 +68,35 @@ void main() {
             'max_tickets_per_purchase': 3,
             // Other keys missing
           });
+      when(() => mockPaymentRepo.getStripeConfig()).thenAnswer(
+          (_) async => StripeConfig(stripeEnabled: false));
 
       await provider.fetchConfig();
 
       expect(provider.maxTicketsPerPurchase, 3);
       expect(provider.featureMilestonesEnabled, true); // default
       expect(provider.loaded, true);
+    });
+
+    test('createPaymentIntent forwards to payment repo', () async {
+      final mockIntent = PaymentIntent(
+        clientSecret: 'pi_secret_test',
+        amountCents: 5000,
+        status: 'requires_payment_method',
+      );
+      when(() => mockPaymentRepo.createPaymentIntent(
+            amountCents: any(named: 'amountCents'),
+            description: any(named: 'description'),
+            idempotencyKey: any(named: 'idempotencyKey'),
+          )).thenAnswer((_) async => mockIntent);
+
+      final result = await provider.createPaymentIntent(
+        amountCents: 5000,
+        description: 'Test payment',
+      );
+
+      expect(result.clientSecret, 'pi_secret_test');
+      expect(result.amountCents, 5000);
     });
   });
 }

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
 import '../../config/design_tokens.dart';
+import '../../models/user.dart';
 import '../../providers/user_provider.dart';
 import '../../widgets/app_toast.dart';
 import 'profile_section_card.dart';
@@ -16,7 +17,7 @@ class ProfilePaymentSection extends StatefulWidget {
 
 class _ProfilePaymentSectionState extends State<ProfilePaymentSection> {
   bool _loading = false;
-  Map<String, dynamic>? _paymentInfo;
+  PaymentInfo? _paymentInfo;
   final _cardHolderCtrl = TextEditingController();
   final _billingAddressCtrl = TextEditingController();
 
@@ -40,8 +41,8 @@ class _ProfilePaymentSectionState extends State<ProfilePaymentSection> {
       if (mounted) {
         setState(() {
           _paymentInfo = data;
-          _cardHolderCtrl.text = data['card_holder_name'] ?? '';
-          _billingAddressCtrl.text = data['billing_address'] ?? '';
+          _cardHolderCtrl.text = data.cardHolderName ?? '';
+          _billingAddressCtrl.text = data.billingAddress ?? '';
         });
       }
     } catch (e) {
@@ -77,8 +78,7 @@ class _ProfilePaymentSectionState extends State<ProfilePaymentSection> {
           ? [const Center(child: CircularProgressIndicator())]
           : [
               if (_paymentInfo != null &&
-                  (_paymentInfo!['card_last_four'] ?? '')
-                      .toString()
+                  (_paymentInfo!.cardLastFour ?? '')
                       .isNotEmpty)
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -97,16 +97,15 @@ class _ProfilePaymentSectionState extends State<ProfilePaymentSection> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              '${(_paymentInfo!['card_brand'] ?? 'Card').toString().toUpperCase()} •••• ${_paymentInfo!['card_last_four']}',
+                              '${(_paymentInfo!.cardBrand ?? 'Card').toUpperCase()} •••• ${_paymentInfo!.cardLastFour}',
                               style: TextStyle(
                                   fontWeight: FontWeight.w600,
                                   color: AppTheme.textPrimaryOf(context)),
                             ),
-                            if ((_paymentInfo!['card_holder_name'] ?? '')
-                                .toString()
+                            if ((_paymentInfo!.cardHolderName ?? '')
                                 .isNotEmpty)
                               Text(
-                                _paymentInfo!['card_holder_name'],
+                                _paymentInfo!.cardHolderName!,
                                 style: TextStyle(
                                     fontSize: 13,
                                     color:

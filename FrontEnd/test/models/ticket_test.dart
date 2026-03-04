@@ -123,4 +123,90 @@ void main() {
       expect(sale.commissionCents, 0);
     });
   });
+
+  group('TicketPricePreview', () {
+    test('fromJson parses all fields', () {
+      final preview = TicketPricePreview.fromJson({
+        'tier_price_cents': 10000,
+        'common_discount_cents': 500,
+        'selective_discount_cents': 300,
+        'pledge_discount_cents': 200,
+        'event_discount_cents': 100,
+        'total_discount_cents': 1100,
+        'final_price_cents': 8900,
+        'commission_cents': 445,
+        'net_to_organizer_cents': 8455,
+        'ticket_commission_percent': 5,
+      });
+
+      expect(preview.tierPriceCents, 10000);
+      expect(preview.commonDiscountCents, 500);
+      expect(preview.selectiveDiscountCents, 300);
+      expect(preview.pledgeDiscountCents, 200);
+      expect(preview.eventDiscountCents, 100);
+      expect(preview.totalDiscountCents, 1100);
+      expect(preview.finalPriceCents, 8900);
+      expect(preview.commissionCents, 445);
+      expect(preview.netToOrganizerCents, 8455);
+      expect(preview.ticketCommissionPercent, 5);
+    });
+
+    test('finalPriceFormatted', () {
+      final preview = TicketPricePreview.fromJson({
+        'final_price_cents': 7550,
+      });
+      expect(preview.finalPriceFormatted, '\$75.50');
+    });
+
+    test('defaults when fields missing', () {
+      final preview = TicketPricePreview.fromJson({});
+      expect(preview.tierPriceCents, 0);
+      expect(preview.finalPriceCents, 0);
+      expect(preview.commissionCents, 0);
+    });
+  });
+
+  group('TicketSalesStats', () {
+    test('fromJson parses all fields', () {
+      final stats = TicketSalesStats.fromJson({
+        'total_sold': 150,
+        'total_scanned': 120,
+      });
+      expect(stats.totalSold, 150);
+      expect(stats.totalScanned, 120);
+    });
+
+    test('defaults when fields missing', () {
+      final stats = TicketSalesStats.fromJson({});
+      expect(stats.totalSold, 0);
+      expect(stats.totalScanned, 0);
+    });
+  });
+
+  group('TicketScanResult', () {
+    test('fromJson parses all fields', () {
+      final result = TicketScanResult.fromJson({
+        'already_scanned': true,
+        'ticket': {
+          'id': 1, 'event_id': 1, 'user_id': 1, 'ticket_tier_id': 1,
+          'ticket_code': 'TKT-001', 'amount_paid_cents': 5000,
+          'status': 'active', 'created_at': '2025-01-01T00:00:00',
+        },
+      });
+      expect(result.alreadyScanned, true);
+      expect(result.ticket.id, 1);
+      expect(result.ticket.ticketCode, 'TKT-001');
+    });
+
+    test('alreadyScanned defaults to false', () {
+      final result = TicketScanResult.fromJson({
+        'ticket': {
+          'id': 1, 'event_id': 1, 'user_id': 1, 'ticket_tier_id': 1,
+          'ticket_code': 'TKT-001', 'amount_paid_cents': 5000,
+          'status': 'active', 'created_at': '2025-01-01T00:00:00',
+        },
+      });
+      expect(result.alreadyScanned, false);
+    });
+  });
 }

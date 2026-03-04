@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
 import '../../config/design_tokens.dart';
+import '../../models/user.dart';
 import '../../providers/user_provider.dart';
 import '../../widgets/app_toast.dart';
 import 'profile_section_card.dart';
@@ -17,7 +18,7 @@ class ProfileBankSection extends StatefulWidget {
 
 class _ProfileBankSectionState extends State<ProfileBankSection> {
   bool _loading = false;
-  Map<String, dynamic>? _bankData;
+  BankAccount? _bankData;
   bool _stripeMode = false;
   bool _stripeConnected = false;
 
@@ -48,11 +49,10 @@ class _ProfileBankSectionState extends State<ProfileBankSection> {
       final userRepo = context.read<UserProvider>();
       final data = await userRepo.getBankAccount();
       if (mounted) {
-        final mode = data['mode'];
-        if (mode == 'stripe_connect') {
+        if (data.mode == 'stripe_connect') {
           setState(() {
             _stripeMode = true;
-            _stripeConnected = data['stripe_connected'] == true;
+            _stripeConnected = data.stripeConnected == true;
             _bankData = data;
           });
         } else {
@@ -170,43 +170,43 @@ class _ProfileBankSectionState extends State<ProfileBankSection> {
               ? _buildStripeConnectSection(context)
               : [
               if (_bankData != null &&
-                  _bankData!['has_bank_account'] == true &&
+                  _bankData!.hasBankAccount &&
                   !_editing) ...[
                 _bankDetailRow(
-                    context, 'Institution', _bankData!['institution_number'] ?? '—'),
+                    context, 'Institution', _bankData!.institutionNumber ?? '—'),
                 const SizedBox(height: 8),
                 _bankDetailRow(
-                    context, 'Transit', _bankData!['transit_number'] ?? '—'),
+                    context, 'Transit', _bankData!.transitNumber ?? '—'),
                 const SizedBox(height: 8),
                 _bankDetailRow(
-                    context, 'Account', '••••${_bankData!['account_last_four'] ?? ''}'),
+                    context, 'Account', '••••${_bankData!.accountLastFour ?? ''}'),
                 const SizedBox(height: 8),
                 _bankDetailRow(
-                    context, 'Holder', _bankData!['account_holder_masked'] ?? ''),
+                    context, 'Holder', _bankData!.accountHolderMasked ?? ''),
                 const SizedBox(height: 8),
                 Row(
                   children: [
                     Icon(
-                      _bankData!['verified'] == true
+                      _bankData!.verified
                           ? Icons.verified
                           : Icons.pending,
                       size: 16,
-                      color: _bankData!['verified'] == true
+                      color: _bankData!.verified
                           ? AppTheme.successColor
                           : AppTheme.warningColor,
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      _bankData!['verified'] == true
+                      _bankData!.verified
                           ? 'Verified'
-                          : _bankData!['verification_status'] == 'rejected'
+                          : _bankData!.verificationStatus == 'rejected'
                               ? 'Rejected'
                               : 'Pending verification',
                       style: TextStyle(
                         fontSize: 13,
-                        color: _bankData!['verified'] == true
+                        color: _bankData!.verified
                             ? AppTheme.successColor
-                            : _bankData!['verification_status'] == 'rejected'
+                            : _bankData!.verificationStatus == 'rejected'
                                 ? AppTheme.errorColor
                                 : AppTheme.warningColor,
                         fontWeight: FontWeight.w600,
@@ -214,10 +214,10 @@ class _ProfileBankSectionState extends State<ProfileBankSection> {
                     ),
                   ],
                 ),
-                if (_bankData!['rejection_reason'] != null) ...[
+                if (_bankData!.rejectionReason != null) ...[
                   const SizedBox(height: 4),
                   Text(
-                    _bankData!['rejection_reason'],
+                    _bankData!.rejectionReason!,
                     style: TextStyle(fontSize: 12, color: AppTheme.errorColor),
                   ),
                 ],
@@ -298,7 +298,7 @@ class _ProfileBankSectionState extends State<ProfileBankSection> {
                 AppSpacing.vLg,
                 Row(
                   children: [
-                    if (_bankData != null && _bankData!['has_bank_account'] == true)
+                    if (_bankData != null && _bankData!.hasBankAccount)
                       Expanded(
                         child: OutlinedButton(
                           onPressed: () => setState(() => _editing = false),
@@ -309,7 +309,7 @@ class _ProfileBankSectionState extends State<ProfileBankSection> {
                           child: const Text('Cancel'),
                         ),
                       ),
-                    if (_bankData != null && _bankData!['has_bank_account'] == true)
+                    if (_bankData != null && _bankData!.hasBankAccount)
                       const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton.icon(

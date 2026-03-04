@@ -39,13 +39,12 @@ async def _check_cancel_threshold(db: AsyncSession, event: Event, user: User, re
                 extra={"event_id": event.id, "pledge_percent": pledge_pct, "threshold": threshold, "user_id": user.id},
             )
             from datetime import datetime, timezone
-            event.pending_cancellation = {
+            await event_repo.update_fields(db, event, pending_cancellation={
                 "reason": reason or "Organizer requested cancellation",
                 "requested_at": datetime.now(timezone.utc).isoformat(),
                 "requested_by": user.id,
                 "pledge_percent": pledge_pct,
-            }
-            await event_repo.flush_and_refresh(db, event)
+            })
             return True
     return False
 
@@ -73,13 +72,12 @@ async def cancel_event(db: AsyncSession, event: Event, user: User, *, reason: st
     # selling_tickets: non-admin must request admin approval
     if event.status == EventStatus.selling_tickets and user.role != UserRole.admin:
         from datetime import datetime, timezone
-        event.pending_cancellation = {
+        await event_repo.update_fields(db, event, pending_cancellation={
             "reason": reason or "Organizer requested cancellation",
             "requested_at": datetime.now(timezone.utc).isoformat(),
             "requested_by": user.id,
             "status": event.status.value,
-        }
-        await event_repo.flush_and_refresh(db, event)
+        })
         raise ConflictError(
             "Cancellation request has been sent to admin for approval."
         )
@@ -92,8 +90,7 @@ async def cancel_event(db: AsyncSession, event: Event, user: User, *, reason: st
             "Your cancellation request has been sent to admin for approval."
         )
 
-    event.status = EventStatus.cancelled
-    event.cancellation_reason = reason
+    await event_repo.update_fields(db, event, status=EventStatus.cancelled, cancellation_reason=reason)
     logger.info("Event cancelled", extra={"event_id": event.id, "user_id": user.id})
     from app.services import funding as funding_service
     await funding_service.refund_all_pledges_for_event(db, event_id=event.id)
@@ -102,13 +99,9 @@ async def cancel_event(db: AsyncSession, event: Event, user: User, *, reason: st
     from app.services import ticket as ticket_service
     await ticket_service.refund_all_tickets_for_event(db, event_id=event.id)
 
-    from app.models.escrow import EscrowStatus
+    from app.repositories.escrow_repo import escrow_repo
     fund_esc, ticket_esc, sponsor_esc = await event_repo.get_escrow_records(db, event.id)
-    for esc in (fund_esc, ticket_esc, sponsor_esc):
-        if esc and esc.status not in (EscrowStatus.fully_released, EscrowStatus.refunded):
-            esc.status = EscrowStatus.refunded
-
-    await event_repo.flush_and_refresh(db, event)
+    await escrow_repo.mark_escrows_refunded(db, [fund_esc, ticket_esc, sponsor_esc])
     return event
 
 
@@ -123,9 +116,8 @@ async def reactivate_event(db: AsyncSession, event: Event, user: User) -> Event:
         raise ForbiddenError("You cannot reactivate this event")
     if event.status != EventStatus.cancelled:
         raise ConflictError("Only cancelled events can be moved back to draft")
-    event.status = EventStatus.draft
     logger.info("Event reactivated to draft", extra={"event_id": event.id, "user_id": user.id})
-    await event_repo.flush_and_refresh(db, event)
+    await event_repo.update_fields(db, event, status=EventStatus.draft)
     return event
 
 
@@ -162,8 +154,7 @@ async def extend_funding(
         pending["funding_end_at"] = new_funding_end_at.isoformat()
     if new_funding_goal_cents is not None:
         pending["funding_goal_cents"] = new_funding_goal_cents
-    event.pending_extension = pending
-    await event_repo.flush_event(db)
+    await event_repo.update_fields(db, event, pending_extension=pending)
     return event
 
 
@@ -193,10 +184,7 @@ async def set_event_date(
         if new_start_time <= funding_end:
             raise ConflictError("Event start time must be after the funding deadline")
 
-    event.start_time = new_start_time
-    event.end_time = new_end_time
-
-    await event_repo.flush_event(db)
+    await event_repo.update_fields(db, event, start_time=new_start_time, end_time=new_end_time)
     return event
 
 
@@ -228,10 +216,8 @@ async def start_selling_tickets(
         if now < funding_end:
             raise ConflictError("Cannot start selling tickets while funding is still active")
 
-    event.status = EventStatus.selling_tickets
-    event.ticket_selling_started_at = datetime.now(timezone.utc)
     logger.info("Event transitioned to selling_tickets", extra={"event_id": event.id})
-    await event_repo.flush_event(db)
+    await event_repo.update_fields(db, event, status=EventStatus.selling_tickets, ticket_selling_started_at=datetime.now(timezone.utc))
     return event
 
 
@@ -245,7 +231,7 @@ async def approve_extension(db: AsyncSession, event: Event, admin: User) -> Even
         raise ConflictError("No pending extension to approve")
     funding_end = datetime.fromisoformat(ext["funding_end_at"]) if ext.get("funding_end_at") else None
     goal_cents = ext.get("funding_goal_cents")
-    event.pending_extension = None
+    await event_repo.update_fields(db, event, pending_extension=None)
     return await _apply_funding_extension(db, event, funding_end, goal_cents)
 
 
@@ -256,8 +242,7 @@ async def reject_extension(db: AsyncSession, event: Event, admin: User) -> Event
         raise ForbiddenError("Only admin can reject extensions")
     if not event.pending_extension:
         raise ConflictError("No pending extension to reject")
-    event.pending_extension = None
-    await event_repo.flush_event(db)
+    await event_repo.update_fields(db, event, pending_extension=None)
     return event
 
 
@@ -268,14 +253,15 @@ async def _apply_funding_extension(
     new_funding_goal_cents: int | None,
 ) -> Event:
     """Apply funding extension directly (new deadline and/or goal)."""
+    changes: dict = {}
     if new_funding_end_at is not None:
-        event.funding_end_at = new_funding_end_at
+        changes["funding_end_at"] = new_funding_end_at
     if new_funding_goal_cents is not None:
-        event.funding_goal_cents = new_funding_goal_cents
+        changes["funding_goal_cents"] = new_funding_goal_cents
     # If event was in waiting_event_date with new funding deadline, move back to approved (funding re-opens)
     if event.status == EventStatus.waiting_event_date and new_funding_end_at is not None:
-        event.status = EventStatus.approved
-    await event_repo.flush_event(db)
+        changes["status"] = EventStatus.approved
+    await event_repo.update_fields(db, event, **changes)
     return event
 
 
@@ -283,9 +269,12 @@ async def approve_cancellation(db: AsyncSession, event: Event) -> Event:
     """Admin approves a pending cancellation — cancel event, issue all refunds, send email."""
     log_step(logger, "Approve cancellation", event_id=event.id)
     reason = event.pending_cancellation.get("reason", "Admin-approved cancellation")
-    event.pending_cancellation = None
-    event.status = EventStatus.cancelled
-    event.cancellation_reason = reason
+    await event_repo.update_fields(
+        db, event,
+        pending_cancellation=None,
+        status=EventStatus.cancelled,
+        cancellation_reason=reason,
+    )
 
     from app.services import funding as funding_service
     from app.services import sponsor as sponsor_service
@@ -293,7 +282,6 @@ async def approve_cancellation(db: AsyncSession, event: Event) -> Event:
     await funding_service.refund_all_pledges_for_event(db, event_id=event.id)
     await sponsor_service.refund_all_sponsor_payments_for_event(db, event_id=event.id)
     await ticket_service.refund_all_tickets_for_event(db, event_id=event.id)
-    await event_repo.flush_event(db)
 
     from app.worker.redis_pool import enqueue as arq_enqueue
     await arq_enqueue(
@@ -309,8 +297,7 @@ async def approve_cancellation(db: AsyncSession, event: Event) -> Event:
 async def reject_cancellation(db: AsyncSession, event: Event) -> Event:
     """Admin rejects a pending cancellation — clear the pending flag."""
     log_step(logger, "Reject cancellation", event_id=event.id)
-    event.pending_cancellation = None
-    await event_repo.flush_event(db)
+    await event_repo.update_fields(db, event, pending_cancellation=None)
     return event
 
 
@@ -338,7 +325,6 @@ async def delete_or_cancel(db: AsyncSession, event: Event, user: User) -> None:
                 f"This event is {event.pending_cancellation['pledge_percent']}% funded. "
                 "Your cancellation request has been sent to admin for approval."
             )
-        event.status = EventStatus.cancelled
+        await event_repo.update_fields(db, event, status=EventStatus.cancelled)
         from app.services import funding as funding_service
         await funding_service.refund_all_pledges_for_event(db, event_id=event.id)
-        await event_repo.flush_event(db)

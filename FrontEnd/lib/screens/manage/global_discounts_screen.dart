@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/theme.dart';
+import '../../models/discount.dart';
 import '../../providers/ticket_provider.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/shimmer_loaders.dart';
@@ -16,7 +17,7 @@ class GlobalDiscountsScreen extends StatefulWidget {
 
 class _GlobalDiscountsScreenState extends State<GlobalDiscountsScreen> {
   final _searchCtrl = TextEditingController();
-  List<Map<String, dynamic>> _strategies = [];
+  List<DiscountStrategy> _strategies = [];
   bool _loading = true;
 
   // Create form
@@ -37,7 +38,7 @@ class _GlobalDiscountsScreenState extends State<GlobalDiscountsScreen> {
       final list = await context.read<TicketProvider>().getDiscountStrategies();
       if (mounted) {
         setState(() {
-          _strategies = list.cast<Map<String, dynamic>>();
+          _strategies = list;
           _loading = false;
         });
       }
@@ -84,20 +85,20 @@ class _GlobalDiscountsScreenState extends State<GlobalDiscountsScreen> {
     }
   }
 
-  List<Map<String, dynamic>> get _filtered {
+  List<DiscountStrategy> get _filtered {
     final q = _searchCtrl.text.toLowerCase();
     if (q.isEmpty) return _strategies;
     return _strategies.where((d) {
-      final name = (d['name'] ?? '').toString().toLowerCase();
-      final type = (d['discount_type'] ?? '').toString().toLowerCase();
+      final name = d.name.toLowerCase();
+      final type = d.discountType.toLowerCase();
       return name.contains(q) || type.contains(q);
     }).toList();
   }
 
-  String _describe(Map<String, dynamic> d) {
-    final type = d['discount_type'] as String? ?? '';
-    final val = d['value'] ?? 0;
-    final tgt = d['target'] ?? 'all';
+  String _describe(DiscountStrategy d) {
+    final type = d.discountType;
+    final val = d.value;
+    final tgt = d.target;
     String desc;
     switch (type) {
       case 'ticket_percent':
@@ -380,7 +381,7 @@ class _GlobalDiscountsScreenState extends State<GlobalDiscountsScreen> {
     );
   }
 
-  Widget _buildCard(Map<String, dynamic> d) {
+  Widget _buildCard(DiscountStrategy d) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
@@ -397,10 +398,10 @@ class _GlobalDiscountsScreenState extends State<GlobalDiscountsScreen> {
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: context.sponsorAccent.withValues(alpha: 0.15),
-          child: Icon(_typeIcon(d['discount_type'] ?? ''),
+          child: Icon(_typeIcon(d.discountType),
               color: context.sponsorAccent, size: 20),
         ),
-        title: Text(d['name'] ?? 'Discount',
+        title: Text(d.name,
             style: TextStyle(
                 fontWeight: FontWeight.w600,
                 color: AppTheme.textPrimaryOf(context))),
@@ -409,7 +410,7 @@ class _GlobalDiscountsScreenState extends State<GlobalDiscountsScreen> {
                 fontSize: 13, color: AppTheme.textSecondaryOf(context))),
         trailing: IconButton(
           icon: const Icon(Icons.delete_outline, color: AppTheme.errorColor),
-          onPressed: () => _delete(d['id']),
+          onPressed: () => _delete(d.id),
         ),
       ),
     );

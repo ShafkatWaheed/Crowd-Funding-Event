@@ -9,6 +9,7 @@ from app.logger import get_logger, log_step
 from app.models.venue import Venue
 from app.core.exceptions import NotFoundError, ConflictError
 from app.repositories.venue_repo import venue_repo
+from app.repositories.event_repo import event_repo
 
 logger = get_logger("svc.venue")
 
@@ -104,3 +105,17 @@ async def update(
     venue = await venue_repo.update_venue(db, venue)
     logger.info("Venue updated", extra={"venue_id": venue.id})
     return venue
+
+
+async def prepare_venue_deletion(db: AsyncSession, venue_id: int) -> None:
+    """Ensure completed/cancelled events have venue snapshots, then nullify their venue_id.
+
+    Safety net: if any terminal event somehow missed its snapshot during
+    status transition, we backfill it here before unlinking.
+    """
+    from app.services.event.crud import _snapshot_venue
+
+    terminal_events = await event_repo.get_terminal_events_for_venue(db, venue_id)
+    for ev in terminal_events:
+        await _snapshot_venue(db, ev)
+    await venue_repo.nullify_venue_on_terminal_events(db, venue_id)

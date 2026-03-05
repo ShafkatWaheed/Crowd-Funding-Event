@@ -466,7 +466,7 @@ class TestCreateNotification:
                 title="Approved",
                 message="Your event was approved.",
             )
-        assert notif.data is None
+        assert notif.data == {"type": "event_approved"}
 
     @pytest.mark.asyncio
     async def test_enqueue_failure_swallowed(self, db_session, test_users):

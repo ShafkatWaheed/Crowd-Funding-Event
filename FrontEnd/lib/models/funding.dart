@@ -36,10 +36,10 @@ class Pledge {
 
   factory Pledge.fromJson(Map<String, dynamic> json) {
     return Pledge(
-      id: json['id'] as int,
-      eventId: json['event_id'] as int,
-      userId: (json['user_id'] ?? 0) as int,
-      amountCents: (json['amount_cents'] ?? 0) as int,
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      eventId: (json['event_id'] as num?)?.toInt() ?? 0,
+      userId: (json['user_id'] as num?)?.toInt() ?? 0,
+      amountCents: (json['amount_cents'] as num?)?.toInt() ?? 0,
       reservedSpots: json['reserved_spots'] ?? 0,
       receiptNumber: json['receipt_number'],
       platformCutCents: json['platform_cut_cents'] ?? 0,

@@ -4,6 +4,7 @@ Event model: status, registration type, funding fields.
 import enum
 from datetime import datetime
 from sqlalchemy import BigInteger, Boolean, String, Text, Integer, Float, DateTime, ForeignKey, Enum, UniqueConstraint, JSON
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -48,7 +49,7 @@ class Event(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     organizer_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
-    venue_id: Mapped[int] = mapped_column(ForeignKey("venues.id"), nullable=False, index=True)
+    venue_id: Mapped[int | None] = mapped_column(ForeignKey("venues.id"), nullable=True, index=True)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     start_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)  # event date (can be set later)
@@ -67,6 +68,7 @@ class Event(Base):
     cancellation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     review_notes: Mapped[str | None] = mapped_column(Text, nullable=True)  # failure message when under_review
     review_log: Mapped[list | None] = mapped_column(JSON, nullable=True, default=list)
+    venue_snapshot: Mapped[dict | None] = mapped_column(JSONB, nullable=True)  # frozen venue data for completed/cancelled events
     registration_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # denormalized for trending
     genre: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True)
     community_rules: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

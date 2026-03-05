@@ -17,12 +17,12 @@ class EventPost {
 
   factory EventPost.fromJson(Map<String, dynamic> json) {
     return EventPost(
-      id: json['id'],
-      eventId: json['event_id'],
-      userId: json['user_id'],
-      authorName: json['author_name'],
-      content: json['content'] ?? '',
-      createdAt: DateTime.parse(json['created_at']),
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      eventId: (json['event_id'] as num?)?.toInt() ?? 0,
+      userId: (json['user_id'] as num?)?.toInt() ?? 0,
+      authorName: json['author_name'] as String?,
+      content: json['content'] as String? ?? '',
+      createdAt: DateTime.parse(json['created_at'] as String),
     );
   }
 }

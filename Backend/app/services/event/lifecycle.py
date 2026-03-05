@@ -90,6 +90,8 @@ async def cancel_event(db: AsyncSession, event: Event, user: User, *, reason: st
             "Your cancellation request has been sent to admin for approval."
         )
 
+    from app.services.event.crud import _snapshot_venue
+    await _snapshot_venue(db, event)
     await event_repo.update_fields(db, event, status=EventStatus.cancelled, cancellation_reason=reason)
     logger.info("Event cancelled", extra={"event_id": event.id, "user_id": user.id})
     from app.services import funding as funding_service
@@ -269,6 +271,8 @@ async def approve_cancellation(db: AsyncSession, event: Event) -> Event:
     """Admin approves a pending cancellation — cancel event, issue all refunds, send email."""
     log_step(logger, "Approve cancellation", event_id=event.id)
     reason = event.pending_cancellation.get("reason", "Admin-approved cancellation")
+    from app.services.event.crud import _snapshot_venue
+    await _snapshot_venue(db, event)
     await event_repo.update_fields(
         db, event,
         pending_cancellation=None,
@@ -325,6 +329,8 @@ async def delete_or_cancel(db: AsyncSession, event: Event, user: User) -> None:
                 f"This event is {event.pending_cancellation['pledge_percent']}% funded. "
                 "Your cancellation request has been sent to admin for approval."
             )
+        from app.services.event.crud import _snapshot_venue as _snap
+        await _snap(db, event)
         await event_repo.update_fields(db, event, status=EventStatus.cancelled)
         from app.services import funding as funding_service
         await funding_service.refund_all_pledges_for_event(db, event_id=event.id)

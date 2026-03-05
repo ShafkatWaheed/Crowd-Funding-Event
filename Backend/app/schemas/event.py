@@ -2,7 +2,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 
 # Predefined genres
 EVENT_GENRES = [
@@ -173,8 +173,9 @@ class EventResponse(BaseModel):
     id: int
     organizer_id: int
     organizer_name: str | None = None
-    venue_id: int
-    venue: EventVenueInfo
+    venue_id: int | None = None
+    venue: EventVenueInfo | None = None
+    venue_snapshot: dict | None = Field(None, exclude=True)
     title: str
     description: str | None
     start_time: datetime | None
@@ -239,6 +240,13 @@ class EventResponse(BaseModel):
     effective_refund_deadline_percent: int | None = None
     created_at: datetime
     updated_at: datetime
+
+    @model_validator(mode="after")
+    def apply_venue_snapshot(self) -> "EventResponse":
+        """For completed/cancelled events, prefer frozen venue snapshot over live FK."""
+        if self.status in ("completed", "cancelled") and self.venue_snapshot:
+            self.venue = EventVenueInfo(**self.venue_snapshot)
+        return self
 
 
 class EventPostCreate(BaseModel):

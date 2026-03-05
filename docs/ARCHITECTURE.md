@@ -31,7 +31,7 @@
 │                        BACKEND (FastAPI — async)                             │
 │                                                                              │
 │  ┌──────────────────────────────────────────────────────────────────────┐    │
-│  │               API Layer (18 top-level routers)                       │    │
+│  │               API Layer (18 top-level routers, 36 route files)       │    │
 │  │  auth · events/* · sponsors/* · chat (WS) · admin · banking         │    │
 │  │  milestones · schedule · venues · notifications · ratings · config  │    │
 │  │  discount-strategies · ticket-strategies · public-profiles · map    │    │
@@ -40,7 +40,7 @@
 │                                 │                                            │
 │  ┌──────────────┐  ┌───────────▼──────────┐  ┌──────────────────────┐       │
 │  │  Middleware   │  │   Service Layer      │  │   Background Tasks   │       │
-│  │  ─────────── │  │   (53 services)      │  │   (ARQ + Redis)      │       │
+│  │  ─────────── │  │   (54 services)      │  │   (ARQ + Redis)      │       │
 │  │  Rate Limit  │  │   event, funding,    │  │   ──────────────     │       │
 │  │  (slowapi)   │  │   ticket, sponsor,   │  │   • 9 email tasks    │       │
 │  │  Request Log │  │   escrow, email,     │  │   • 5 refund tasks   │       │
@@ -49,7 +49,7 @@
 │                                │              │   • 2 bank mock      │       │
 │                     ┌──────────▼──────────┐   └──────────┬───────────┘       │
 │                     │  Repository Layer   │              │                   │
-│                     │  (20 repos — ALL    │              │                   │
+│                     │  (19 repos — ALL    │              │                   │
 │                     │   DB queries here)  │              │                   │
 │                     └──────────┬──────────┘              │                   │
 │                     ┌──────────▼──────────┐   ┌──────────▼───────────┐       │
@@ -127,7 +127,7 @@ Backend/
 │   │   ├── milestones.py          # Funding milestones (feature-flagged)
 │   │   ├── schedule.py            # Event schedule/agenda (feature-flagged)
 │   │   └── ...                    # venues, ratings, notifications, users, map, config
-│   ├── repositories/              # 20 repository modules (ALL database queries)
+│   ├── repositories/              # 19 repository modules (ALL database queries)
 │   │   ├── base.py                #   Base repo helpers
 │   │   ├── event_repo.py          #   Event CRUD, search, images, posts, reactions
 │   │   ├── funding_repo.py        #   Pledges, refunds, organizer/admin views
@@ -150,7 +150,7 @@ Backend/
 │   │   └── worker_run_repo.py     #   ARQ worker run logs
 │   ├── models/                    # 31 files, 40+ SQLAlchemy models
 │   ├── schemas/                   # Pydantic request/response models
-│   ├── services/                  # 53 service modules (business logic only, no DB ops)
+│   ├── services/                  # 54 service modules (business logic only, no DB ops)
 │   │   ├── event/                 #   7 modules: crud, lifecycle, queries, organizers,
 │   │   │                          #     permissions, attendance, discounts, reactions
 │   │   ├── funding/               #   3 modules: pledges, reservations, summary
@@ -240,9 +240,9 @@ The backend enforces a strict separation of concerns across three layers:
 | **Service** | `app/services/` | Validation, business rules, commission calculations, orchestration | `db.execute`, `select()`, `func`, `db.add`, `db.flush` |
 | **Repository** | `app/repositories/` | `select`, `db.execute`, `db.add`, `db.flush`, `db.refresh`, `db.delete` | Business logic, HTTP responses |
 
-- **20 repository modules** own all SQLAlchemy operations — zero direct DB calls in services or routes
-- **53 service modules** contain pure business logic — they call repository methods, never `db.execute`
-- **18 route modules** are thin wrappers — authenticate, parse, delegate to service, return response
+- **19 repository modules** own all SQLAlchemy operations — zero direct DB calls in services or routes
+- **54 service modules** contain pure business logic — they call repository methods, never `db.execute`
+- **18 top-level routers** (36 route files) are thin wrappers — authenticate, parse, delegate to service, return response
 - **1,906 backend tests** verify this architecture — all passing
 
 ---
@@ -258,9 +258,33 @@ Screen (UI only)  →  Provider (state mgmt)  →  Repository (Dio HTTP, typed m
 
 - **Screens** use `context.watch<XProvider>()` to read state and `context.read<XProvider>().method()` to dispatch actions. No direct repository access.
 - **Providers** (13 total) hold loading/error/pagination state and forward calls to their repository. Registered in `MultiProvider` in `main.dart`.
-- **Repositories** (12 total, extending `BaseRepository`) own all `Dio` HTTP calls and return typed Dart model classes — never raw `Map<String, dynamic>`.
+- **Repositories** (12 total, extending `BaseRepository`) own all `Dio` HTTP calls. Return typed response models via `fromJson()` and accept typed request models with `toJson()` — zero raw `Map<String, dynamic>` at API boundaries.
 
-### 4.2 Directory Structure
+### 4.2 Typed Model System
+
+Every API boundary is fully typed — both **requests** and **responses**:
+
+**Response models** — All 12 repositories return typed Dart classes via `fromJson()` factories. Zero raw `Map<String, dynamic>` returns (exception: `PaymentRepository` for Stripe pass-through).
+
+**Request models** — All 25 repository methods that accept request bodies use typed classes with `toJson()` methods. No `Map<String, dynamic>` input parameters.
+
+| Domain | Request Classes |
+|--------|----------------|
+| Ticket | `CreateTicketStrategyRequest`, `CreateTicketTierRequest`, `UpdateTicketTierRequest` |
+| Discount | `CreateEventDiscountRequest`, `CreateDiscountStrategyRequest`, `CreateEarlyBirdDiscountRequest`, `UpdateEarlyBirdDiscountRequest` |
+| Schedule | `CreateScheduleItemRequest`, `UpdateScheduleItemRequest` |
+| Event | `EventCreateRequest`, `EventUpdateRequest`, `AddEventOrganizerRequest`, `ExtendFundingInput`, `SetEventDateInput` |
+| User | `UpdateProfileRequest`, `UpdatePaymentInfoRequest`, `UpdateBankAccountRequest` |
+| Venue | `CreateVenueRequest`, `UpdateVenueRequest` |
+| Sponsor | `SponsorProfileRequest`, `CreateSponsorshipCategoryRequest`, `UpdateSponsorshipCategoryRequest`, `PlaceBidRequest`, `UpdateBidRequest`, `CreateSponsorCategoryTemplateRequest`, `UpdateSponsorCategoryTemplateRequest` |
+| Funding | `MilestoneRequest`, `TierReservationInput` |
+
+**Why this matters:**
+- A typo in a key string (`'disply_name'` vs `'display_name'`) is caught at compile time, not silently sent to the API
+- IDE autocomplete shows available fields — no guessing what the backend expects
+- Refactoring a field name propagates through the compiler — every call site that needs updating is flagged
+
+### 4.3 Directory Structure
 
 ```
 FrontEnd/
@@ -274,15 +298,24 @@ FrontEnd/
 │   ├── db/
 │   │   ├── app_database.dart        # Drift schema (12 tables, schema v4)
 │   │   └── app_database.g.dart      # Generated Drift code
-│   ├── models/                      # 14 typed Dart data classes
-│   │   ├── event.dart               #   Event, EventStatus
-│   │   ├── user.dart                #   AppUser
-│   │   ├── ticket.dart              #   Ticket, TicketSale, TicketTier
-│   │   ├── funding.dart             #   Pledge, FundingSummary
-│   │   ├── sponsor.dart             #   SponsorProfile, SponsorBid, SponsorTicketModel, ...
+│   ├── models/                      # 21 typed Dart model files (response + request classes)
+│   │   ├── event.dart               #   Event, EventCreateRequest, EventUpdateRequest, AddEventOrganizerRequest
+│   │   ├── user.dart                #   AppUser, UpdateProfileRequest, UpdatePaymentInfoRequest, UpdateBankAccountRequest
+│   │   ├── ticket.dart              #   TicketSale, TicketTier, CreateTicketStrategyRequest, Create/UpdateTicketTierRequest
+│   │   ├── funding.dart             #   Pledge, FundingSummary, TierReservationInput
+│   │   ├── sponsor.dart             #   SponsorProfile, SponsorBid, SponsorProfileRequest, Place/UpdateBidRequest, ...
+│   │   ├── discount.dart            #   EventDiscount, CreateEventDiscountRequest, Create/UpdateEarlyBirdDiscountRequest
+│   │   ├── venue.dart               #   Venue, CreateVenueRequest, UpdateVenueRequest
+│   │   ├── schedule.dart            #   ScheduleDay, ScheduleItem, Create/UpdateScheduleItemRequest
+│   │   ├── milestone.dart           #   FundingMilestone, MilestoneRequest
+│   │   ├── admin.dart               #   ~45 admin typed models (AdminUser, AdminEvent, EscrowDetail, ...)
 │   │   ├── chat_message.dart        #   ChatMessage, ChatConversation
-│   │   ├── venue.dart, milestone.dart, schedule.dart, post.dart
-│   │   ├── map_event.dart, event_image.dart, ticket_strategy.dart
+│   │   ├── dashboard.dart           #   OrganizerDashboard, OrganizerTimeSeries
+│   │   ├── notification_model.dart  #   AppNotification
+│   │   ├── payment.dart             #   StripeConfig, PaymentIntent
+│   │   ├── receipt.dart             #   TicketReceipt, PledgeReceipt, PurchaseGroupReceipt
+│   │   ├── rating.dart              #   Rating, RatingsSummary, MyRating
+│   │   ├── post.dart, event_image.dart, map_event.dart, ticket_strategy.dart
 │   │   └── event_form_models.dart   #   Create/edit form state
 │   ├── repositories/                # 12 repository modules (ALL Dio HTTP calls)
 │   │   ├── base_repository.dart     #   BaseRepository, PaginatedResult<T>, ApiError
@@ -514,7 +547,8 @@ No passwords stored in PostgreSQL — only `firebase_uid`, email, display_name, 
 | ✅ Done | Real-time chat | Implemented | Sponsor ↔ organizer WebSocket chat (Redis Streams + Pub/Sub) |
 | ✅ Done | Push notifications | Implemented | FCM push for offline chat messages |
 | ✅ Done | Canadian banking | Implemented | Encrypted bank fields, verification workflow |
-| ✅ Done | 3-Layer architecture | Implemented | Route→Service→Repo (backend, 20 repos), Screen→Provider→Repo (frontend, 13 providers, 12 repos) |
+| ✅ Done | 3-Layer architecture | Implemented | Route→Service→Repo (backend, 19 repos), Screen→Provider→Repo (frontend, 13 providers, 12 repos) |
+| ✅ Done | Typed request/response models | Implemented | 23 request classes + all response models typed across 21 model files — zero raw `Map<String, dynamic>` at API boundaries |
 | ⏳ Next | Dockerfile | Planned | Multi-stage build for deployment |
 | ⏳ Next | K8s manifests | Planned | Deployments, HPA, PDB, Ingress |
 | ⏳ Next | S3 storage | Planned | Multi-pod file sharing |
@@ -523,7 +557,7 @@ No passwords stored in PostgreSQL — only `firebase_uid`, email, display_name, 
 ### Why Not Microservices
 
 - **Tight transactional coupling**: A single ticket purchase touches tickets, funding (reserved spots), escrow, events (capacity), platform settings (commission), and registration — all in one DB transaction
-- **Small codebase**: ~90 backend modules (20 repos + 53 services + 18 routes) in a single deployable. Microservices add value at 50k+ lines with multiple teams
+- **Small codebase**: ~109 backend modules (19 repos + 54 services + 36 routes) in a single deployable. Microservices add value at 50k+ lines with multiple teams
 - **Advisory locks solve the bottleneck**: The scaling problem is DB write contention on capacity checks, not service-level scaling
 - **Revisit when**: 3+ teams deploying independently, 50k+ users, or a module with 10x different scaling needs
 

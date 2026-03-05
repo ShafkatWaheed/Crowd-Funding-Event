@@ -21,6 +21,7 @@ import '../screens/manage/global_ticket_sales_screen.dart';
 import '../screens/manage/global_waitlist_screen.dart';
 import '../screens/manage/global_discounts_screen.dart';
 import '../screens/manage/organizer_pledges_screen.dart';
+import '../models/venue.dart';
 import '../screens/venue/venue_list_screen.dart';
 import '../screens/venue/create_venue_screen.dart';
 import '../screens/ticket_strategy/ticket_strategies_screen.dart';
@@ -326,6 +327,13 @@ GoRouter createRouter(AuthProvider authProvider) {
         path: '/venues/create',
         pageBuilder: (context, state) =>
             fadeThroughPage(child: const CreateVenueScreen()),
+      ),
+      GoRoute(
+        path: '/venues/:id/edit',
+        pageBuilder: (context, state) {
+          final venue = state.extra as Venue?;
+          return fadeThroughPage(child: CreateVenueScreen(venue: venue));
+        },
       ),
 
       // ─── Ticket Strategies (fade-through) ───

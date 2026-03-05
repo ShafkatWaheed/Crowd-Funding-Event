@@ -55,14 +55,18 @@ class AppNotification {
   });
 
   factory AppNotification.fromJson(Map<String, dynamic> json) {
+    final notifType = json['type'] as String? ?? '';
+    final rawData = json['data'] != null
+        ? Map<String, dynamic>.from(json['data'] as Map)
+        : <String, dynamic>{};
+    // Ensure payload always carries the notification type for routing
+    rawData.putIfAbsent('type', () => notifType);
     return AppNotification(
       id: json['id'] as int,
-      type: json['type'] as String? ?? '',
+      type: notifType,
       title: json['title'] as String? ?? '',
       message: json['message'] as String? ?? '',
-      data: NotificationPayload.fromMap(json['data'] != null
-          ? Map<String, dynamic>.from(json['data'] as Map)
-          : {}),
+      data: NotificationPayload.fromMap(rawData),
       isRead: json['is_read'] as bool? ?? false,
       createdAt: DateTime.parse(json['created_at'] as String),
     );

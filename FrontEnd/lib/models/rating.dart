@@ -18,7 +18,7 @@ class Rating {
   });
 
   factory Rating.fromJson(Map<String, dynamic> json) => Rating(
-        id: json['id'] as int,
+        id: (json['id'] as num?)?.toInt() ?? 0,
         raterName: (json['rater_name'] as String?) ?? 'Anonymous',
         direction: (json['direction'] as String?) ?? '',
         stars: (json['stars'] as int?) ?? 0,
@@ -39,7 +39,7 @@ class MyRating {
   });
 
   factory MyRating.fromJson(Map<String, dynamic> json) => MyRating(
-        id: json['id'] as int,
+        id: (json['id'] as num?)?.toInt() ?? 0,
         stars: (json['stars'] as int?) ?? 0,
         description: json['description'] as String?,
       );

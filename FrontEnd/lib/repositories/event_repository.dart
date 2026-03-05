@@ -483,7 +483,18 @@ class EventRepository extends BaseRepository {
   Future<Registration?> getMyRegistration(int eventId) async {
     final resp = await dio.get('/events/$eventId/my-registration');
     if (resp.data == null) return null;
-    return Registration.fromJson(Map<String, dynamic>.from(resp.data as Map));
+    final data = Map<String, dynamic>.from(resp.data as Map);
+    // Endpoint returns {registered: bool, status: str|null} — not a full Registration.
+    // Only return non-null when the user is actually registered.
+    final isRegistered = data['registered'] as bool? ?? false;
+    if (!isRegistered) return null;
+    return Registration(
+      id: 0,
+      eventId: eventId,
+      userId: 0,
+      status: data['status'] as String? ?? 'registered',
+      createdAt: DateTime.now(),
+    );
   }
 
   Future<List<Registration>> getRegistrations(int eventId) async {

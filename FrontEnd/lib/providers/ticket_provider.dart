@@ -22,6 +22,10 @@ class TicketProvider extends ChangeNotifier {
   Future<TicketStrategy> getTicketStrategy(int id) =>
       _repo.getTicketStrategy(id);
 
+  Future<TicketStrategy> updateTicketStrategy(
+          int id, UpdateTicketStrategyRequest data) =>
+      _repo.updateTicketStrategy(id, data);
+
   Future<void> deleteTicketStrategy(int id) =>
       _repo.deleteTicketStrategy(id);
 

@@ -148,10 +148,10 @@ class Event {
 
   factory Event.fromJson(Map<String, dynamic> json) {
     return Event(
-      id: json['id'],
-      organizerId: json['organizer_id'],
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      organizerId: (json['organizer_id'] as num?)?.toInt() ?? 0,
       organizerName: json['organizer_name'],
-      venueId: json['venue_id'],
+      venueId: (json['venue_id'] as num?)?.toInt() ?? 0,
       title: json['title'],
       description: json['description'],
       startTime: json['start_time'] != null ? DateTime.parse(json['start_time']) : null,
@@ -454,7 +454,7 @@ class EventOrganizer {
 
   factory EventOrganizer.fromJson(Map<String, dynamic> json) =>
       EventOrganizer(
-        userId: json['user_id'] as int,
+        userId: (json['user_id'] as num?)?.toInt() ?? 0,
         displayName: json['display_name'] as String?,
         email: (json['email'] as String?) ?? '',
         isMain: (json['is_main'] as bool?) ?? false,
@@ -477,7 +477,7 @@ class OrganizerSearchResult {
 
   factory OrganizerSearchResult.fromJson(Map<String, dynamic> json) =>
       OrganizerSearchResult(
-        id: json['id'] as int,
+        id: (json['id'] as num?)?.toInt() ?? 0,
         email: (json['email'] as String?) ?? '',
         displayName: json['display_name'] as String?,
       );
@@ -499,9 +499,9 @@ class Registration {
   });
 
   factory Registration.fromJson(Map<String, dynamic> json) => Registration(
-        id: json['id'] as int,
-        eventId: json['event_id'] as int,
-        userId: json['user_id'] as int,
+        id: (json['id'] as num?)?.toInt() ?? 0,
+        eventId: (json['event_id'] as num?)?.toInt() ?? 0,
+        userId: (json['user_id'] as num?)?.toInt() ?? 0,
         status: (json['status'] as String?) ?? '',
         createdAt: DateTime.parse(json['created_at'] as String),
       );

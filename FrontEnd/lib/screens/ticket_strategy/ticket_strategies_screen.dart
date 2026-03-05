@@ -217,6 +217,19 @@ class _TicketStrategiesScreenState extends State<TicketStrategiesScreen> {
                                           color: AppTheme.textPrimaryOf(context))),
                                 ),
                                 IconButton(
+                                  onPressed: () async {
+                                    final updated = await Navigator.push<bool>(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => CreateTicketStrategyScreen(strategy: s),
+                                      ),
+                                    );
+                                    if (updated == true) _load();
+                                  },
+                                  icon: Icon(Icons.edit_outlined,
+                                      color: AppTheme.accentColor),
+                                ),
+                                IconButton(
                                   onPressed: () => _delete(s.id),
                                   icon: const Icon(Icons.delete_outline,
                                       color: AppTheme.errorColor),
@@ -283,7 +296,10 @@ class _TicketStrategiesScreenState extends State<TicketStrategiesScreen> {
 // ── Inline Create Strategy Screen ──
 
 class CreateTicketStrategyScreen extends StatefulWidget {
-  const CreateTicketStrategyScreen({super.key});
+  final TicketStrategy? strategy;
+  const CreateTicketStrategyScreen({super.key, this.strategy});
+
+  bool get isEditing => strategy != null;
 
   @override
   State<CreateTicketStrategyScreen> createState() =>
@@ -294,8 +310,24 @@ class _CreateTicketStrategyScreenState
     extends State<CreateTicketStrategyScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
-  final List<_TierInput> _tiers = [_TierInput()];
+  final List<_TierInput> _tiers = [];
   bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final s = widget.strategy;
+    if (s != null) {
+      _nameCtrl.text = s.name;
+      for (final tier in s.tiers) {
+        _tiers.add(_TierInput()
+          ..nameCtrl.text = tier.name
+          ..descCtrl.text = tier.description ?? ''
+          ..priceCtrl.text = (tier.priceCents / 100).toStringAsFixed(2));
+      }
+    }
+    if (_tiers.isEmpty) _tiers.add(_TierInput());
+  }
 
   void _addTier() => setState(() => _tiers.add(_TierInput()));
 
@@ -320,17 +352,32 @@ class _CreateTicketStrategyScreenState
 
     try {
       final api = context.read<TicketProvider>();
-      await api.createTicketStrategy(CreateTicketStrategyRequest(
-        name: _nameCtrl.text.trim(),
-        tiers: tiersData,
-      ));
-      if (mounted) {
-        AppToast.success(context, 'Ticket strategy created!');
-        Navigator.pop(context, true);
+      if (widget.isEditing) {
+        await api.updateTicketStrategy(
+          widget.strategy!.id,
+          UpdateTicketStrategyRequest(
+            name: _nameCtrl.text.trim(),
+            tiers: tiersData,
+          ),
+        );
+        if (mounted) {
+          AppToast.success(context, 'Strategy updated!');
+          Navigator.pop(context, true);
+        }
+      } else {
+        await api.createTicketStrategy(CreateTicketStrategyRequest(
+          name: _nameCtrl.text.trim(),
+          tiers: tiersData,
+        ));
+        if (mounted) {
+          AppToast.success(context, 'Ticket strategy created!');
+          Navigator.pop(context, true);
+        }
       }
     } catch (e) {
       if (mounted) {
-        AppToast.fromError(context, e, fallback: 'Failed');
+        AppToast.fromError(context, e,
+            fallback: widget.isEditing ? 'Update failed' : 'Failed');
       }
     }
     setState(() => _saving = false);
@@ -350,7 +397,7 @@ class _CreateTicketStrategyScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('New Ticket Strategy')),
+      appBar: AppBar(title: Text(widget.isEditing ? 'Edit Strategy' : 'New Ticket Strategy')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Center(
@@ -478,7 +525,7 @@ class _CreateTicketStrategyScreenState
                               child: CircularProgressIndicator(
                                   strokeWidth: 2, color: Colors.white),
                             )
-                          : const Text('Create Strategy'),
+                          : Text(widget.isEditing ? 'Save Changes' : 'Create Strategy'),
                     ),
                   ),
                 ],

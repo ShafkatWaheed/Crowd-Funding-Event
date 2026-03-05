@@ -73,7 +73,7 @@ void main() {
         'is_read': true,
         'created_at': '2025-06-01T12:00:00',
       });
-      expect(n.data.type, '');
+      expect(n.data.type, 'test');  // parent type injected into payload
       expect(n.data.eventId, isNull);
     });
   });

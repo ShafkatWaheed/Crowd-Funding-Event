@@ -6,10 +6,10 @@ instead of db.execute() directly.
 """
 from typing import Sequence
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.event import Event
+from app.models.event import Event, EventStatus
 from app.models.venue import Venue
 from app.repositories.base import BaseRepository
 
@@ -63,6 +63,26 @@ class VenueRepository(BaseRepository[Venue]):
             select(func.count()).select_from(Event).where(Event.venue_id == venue_id)
         )
         return int(result.scalar_one())
+
+    async def count_active_events_for_venue(self, db: AsyncSession, venue_id: int) -> int:
+        """Count events in non-terminal statuses (excludes completed/cancelled)."""
+        terminal = [EventStatus.completed, EventStatus.cancelled]
+        result = await db.execute(
+            select(func.count())
+            .select_from(Event)
+            .where(Event.venue_id == venue_id, Event.status.not_in(terminal))
+        )
+        return int(result.scalar_one())
+
+    async def nullify_venue_on_terminal_events(self, db: AsyncSession, venue_id: int) -> None:
+        """Set venue_id=NULL on completed/cancelled events (they have snapshots)."""
+        terminal = [EventStatus.completed, EventStatus.cancelled]
+        await db.execute(
+            update(Event)
+            .where(Event.venue_id == venue_id, Event.status.in_(terminal))
+            .values(venue_id=None)
+        )
+        await db.flush()
 
     async def list_distinct_cities(self, db: AsyncSession) -> list[str]:
         """Return sorted list of distinct non-empty venue cities."""

@@ -233,8 +233,13 @@ class EventProvider extends ChangeNotifier {
   Future<Event> createEventRaw(EventCreateRequest data) =>
       _repo.createEvent(data);
 
-  Future<Event> updateEvent(int id, EventUpdateRequest data) =>
-      _repo.updateEvent(id, data);
+  Future<Event> updateEvent(int id, EventUpdateRequest data) async {
+    final updated = await _repo.updateEvent(id, data);
+    _selectedEvent = updated;
+    _eventCache[id] = _CacheEntry(updated, DateTime.now());
+    notifyListeners();
+    return updated;
+  }
 
   Future<Event> cloneEvent(int eventId) => _repo.cloneEvent(eventId);
 

@@ -95,13 +95,16 @@ async def delete_venue(
     if not venue_service.can_edit_venue(current_user.id, venue, current_user.role == UserRole.admin):
         raise ForbiddenError("You cannot delete another organizer's venue")
 
-    # Prevent deletion if events are linked to this venue
-    event_count = await venue_repo.count_events_for_venue(db, venue_id)
-    if event_count > 0:
+    # Block deletion only if active (non-terminal) events still reference this venue
+    active_count = await venue_repo.count_active_events_for_venue(db, venue_id)
+    if active_count > 0:
         raise ConflictError(
-            f"Cannot delete venue: {event_count} event(s) are still linked to it. "
+            f"Cannot delete venue: {active_count} active event(s) are still linked to it. "
             "Reassign or delete those events first."
         )
+
+    # Snapshot venue data on completed/cancelled events, then unlink them
+    await venue_service.prepare_venue_deletion(db, venue_id)
 
     await venue_repo.delete_venue(db, venue)
     return {"ok": True}

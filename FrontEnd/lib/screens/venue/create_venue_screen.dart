@@ -11,7 +11,10 @@ import '../../providers/venue_provider.dart';
 import '../../services/mapbox_geocoding_service.dart';
 
 class CreateVenueScreen extends StatefulWidget {
-  const CreateVenueScreen({super.key});
+  final Venue? venue;
+  const CreateVenueScreen({super.key, this.venue});
+
+  bool get isEditing => venue != null;
 
   @override
   State<CreateVenueScreen> createState() => _CreateVenueScreenState();
@@ -33,6 +36,21 @@ class _CreateVenueScreenState extends State<CreateVenueScreen> {
   bool _showSuggestions = false;
   bool _geocoding = false;
   Timer? _debounce;
+
+  @override
+  void initState() {
+    super.initState();
+    final v = widget.venue;
+    if (v != null) {
+      _nameCtrl.text = v.name;
+      _addressCtrl.text = v.address;
+      _cityCtrl.text = v.city;
+      _provinceCtrl.text = v.province ?? '';
+      _capacityCtrl.text = v.maxCapacity.toString();
+      _lat = v.lat;
+      _lng = v.lng;
+    }
+  }
 
   Future<void> _onAddressChanged(String query) async {
     _lat = null;
@@ -80,16 +98,31 @@ class _CreateVenueScreenState extends State<CreateVenueScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final repo = context.read<VenueProvider>();
-      await repo.createVenue(CreateVenueRequest(
-        name: _nameCtrl.text.trim(),
-        address: _addressCtrl.text.trim(),
-        city: _cityCtrl.text.trim(),
-        province: _provinceCtrl.text.trim(),
-        maxCapacity: int.parse(_capacityCtrl.text),
-        lat: _lat,
-        lng: _lng,
-      ));
+      final provider = context.read<VenueProvider>();
+      if (widget.isEditing) {
+        await provider.updateVenue(
+          widget.venue!.id,
+          UpdateVenueRequest(
+            name: _nameCtrl.text.trim(),
+            address: _addressCtrl.text.trim(),
+            city: _cityCtrl.text.trim(),
+            province: _provinceCtrl.text.trim(),
+            maxCapacity: int.parse(_capacityCtrl.text),
+            lat: _lat,
+            lng: _lng,
+          ),
+        );
+      } else {
+        await provider.createVenue(CreateVenueRequest(
+          name: _nameCtrl.text.trim(),
+          address: _addressCtrl.text.trim(),
+          city: _cityCtrl.text.trim(),
+          province: _provinceCtrl.text.trim(),
+          maxCapacity: int.parse(_capacityCtrl.text),
+          lat: _lat,
+          lng: _lng,
+        ));
+      }
 
       if (mounted) {
         if (Navigator.of(context).canPop()) {
@@ -100,7 +133,8 @@ class _CreateVenueScreenState extends State<CreateVenueScreen> {
       }
     } catch (e) {
       if (mounted) {
-        AppToast.fromError(context, e, fallback: 'Failed to create venue');
+        AppToast.fromError(context, e,
+            fallback: widget.isEditing ? 'Failed to update venue' : 'Failed to create venue');
       }
     }
 
@@ -132,7 +166,7 @@ class _CreateVenueScreenState extends State<CreateVenueScreen> {
             }
           },
         ),
-        title: const Text('Add Venue'),
+        title: Text(widget.isEditing ? 'Edit Venue' : 'Add Venue'),
       ),
       body: GestureDetector(
         onTap: () => setState(() => _showSuggestions = false),
@@ -289,7 +323,7 @@ class _CreateVenueScreenState extends State<CreateVenueScreen> {
                                 child: CircularProgressIndicator(
                                     strokeWidth: 2, color: Colors.white),
                               )
-                            : const Text('Create Venue'),
+                            : Text(widget.isEditing ? 'Save Changes' : 'Create Venue'),
                       ),
                     ),
                   ],

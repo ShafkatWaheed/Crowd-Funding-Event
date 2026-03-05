@@ -7,6 +7,7 @@ import '../../models/venue.dart';
 import '../../providers/venue_provider.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/shimmer_loaders.dart';
+import 'create_venue_screen.dart';
 
 class VenueListScreen extends StatefulWidget {
   const VenueListScreen({super.key});
@@ -182,7 +183,20 @@ class _VenueListScreenState extends State<VenueListScreen> {
                                     Text('Cap: ${venue.maxCapacity}',
                                         style:
                                             TextStyle(color: AppTheme.textSecondaryOf(context))),
-                                    const SizedBox(width: 8),
+                                    const SizedBox(width: 4),
+                                    IconButton(
+                                      icon: Icon(Icons.edit_outlined,
+                                          color: AppTheme.accentColor),
+                                      onPressed: () async {
+                                        final updated = await Navigator.push<bool>(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => CreateVenueScreen(venue: venue),
+                                          ),
+                                        );
+                                        if (updated == true) _loadVenues();
+                                      },
+                                    ),
                                     IconButton(
                                       icon: const Icon(Icons.delete_outline,
                                           color: AppTheme.errorColor),
@@ -200,7 +214,10 @@ class _VenueListScreenState extends State<VenueListScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.push('/venues/create'),
+        onPressed: () async {
+          final created = await context.push<bool>('/venues/create');
+          if (created == true && mounted) _loadVenues();
+        },
         icon: const Icon(Icons.add),
         label: const Text('Add Venue'),
         backgroundColor: AppTheme.primaryColor,

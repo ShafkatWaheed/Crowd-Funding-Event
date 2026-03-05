@@ -27,6 +27,12 @@ class TicketRepository extends BaseRepository {
     return TicketStrategy.fromJson(Map<String, dynamic>.from(r.data as Map));
   }
 
+  Future<TicketStrategy> updateTicketStrategy(
+      int id, UpdateTicketStrategyRequest data) async {
+    final r = await dio.patch('/ticket-strategies/$id', data: data.toJson());
+    return TicketStrategy.fromJson(Map<String, dynamic>.from(r.data as Map));
+  }
+
   Future<void> deleteTicketStrategy(int id) async {
     await dio.delete('/ticket-strategies/$id');
   }

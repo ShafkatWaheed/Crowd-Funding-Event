@@ -538,12 +538,13 @@ class _OrganizerManagementSectionState
         return;
       }
       try {
-        await repo.updateEvent(event.id, EventUpdateRequest(maxCapacity: val));
-        await eventProvider.loadEvent(event.id);
+        await eventProvider.updateEvent(
+            event.id, EventUpdateRequest(maxCapacity: val));
         if (!mounted) {
           controller.dispose();
           return;
         }
+        widget.onRefresh();
         AppToast.success(context, 'Capacity updated to $val');
       } catch (e) {
         if (!mounted) {
@@ -702,7 +703,7 @@ class _OrganizerManagementSectionState
     try {
       await repo.toggleEventPosts(_event.id);
       if (!mounted) return;
-      ep.loadEvent(_event.id);
+      await ep.loadEvent(_event.id);
     } catch (e) {
       if (!mounted) return;
       AppToast.fromError(context, e, fallback: 'Failed to toggle posts');

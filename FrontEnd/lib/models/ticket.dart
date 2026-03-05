@@ -36,6 +36,18 @@ class CreateTicketStrategyRequest {
       };
 }
 
+class UpdateTicketStrategyRequest {
+  final String? name;
+  final List<CreateTicketStrategyTierInput>? tiers;
+
+  const UpdateTicketStrategyRequest({this.name, this.tiers});
+
+  Map<String, dynamic> toJson() => {
+        if (name != null) 'name': name,
+        if (tiers != null) 'tiers': tiers!.map((t) => t.toJson()).toList(),
+      };
+}
+
 // ─── Ticket Tier Request Models ───
 
 class CreateTicketTierRequest {
@@ -110,11 +122,11 @@ class TicketTier {
 
   factory TicketTier.fromJson(Map<String, dynamic> json) {
     return TicketTier(
-      id: json['id'],
-      eventId: json['event_id'],
-      name: json['name'],
-      description: json['description'],
-      priceCents: json['price_cents'],
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      eventId: (json['event_id'] as num?)?.toInt() ?? 0,
+      name: json['name'] as String? ?? '',
+      description: json['description'] as String?,
+      priceCents: (json['price_cents'] as num?)?.toInt() ?? 0,
       maxReservedSpots: json['max_reserved_spots'] ?? 0,
       ticketsSold: json['tickets_sold'] ?? 0,
       spotsReserved: json['spots_reserved'] ?? 0,
@@ -180,24 +192,24 @@ class TicketSale {
 
   factory TicketSale.fromJson(Map<String, dynamic> json) {
     return TicketSale(
-      id: json['id'],
-      eventId: json['event_id'],
-      userId: json['user_id'],
-      ticketTierId: json['ticket_tier_id'],
-      purchaseGroupId: json['purchase_group_id'],
-      ticketCode: json['ticket_code'],
-      receiptNumber: json['receipt_number'],
-      tierName: json['tier_name'],
-      eventTitle: json['event_title'],
-      eventStatus: json['event_status'],
-      attendeeDisplayName: json['attendee_display_name'],
-      scannedByDisplayName: json['scanned_by_display_name'],
-      amountPaidCents: json['amount_paid_cents'],
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      eventId: (json['event_id'] as num?)?.toInt() ?? 0,
+      userId: (json['user_id'] as num?)?.toInt() ?? 0,
+      ticketTierId: (json['ticket_tier_id'] as num?)?.toInt() ?? 0,
+      purchaseGroupId: json['purchase_group_id'] as String?,
+      ticketCode: json['ticket_code'] as String? ?? '',
+      receiptNumber: json['receipt_number'] as String?,
+      tierName: json['tier_name'] as String?,
+      eventTitle: json['event_title'] as String?,
+      eventStatus: json['event_status'] as String?,
+      attendeeDisplayName: json['attendee_display_name'] as String?,
+      scannedByDisplayName: json['scanned_by_display_name'] as String?,
+      amountPaidCents: (json['amount_paid_cents'] as num?)?.toInt() ?? 0,
       discountAppliedCents: json['discount_applied_cents'] ?? 0,
       commissionCents: json['commission_cents'] ?? 0,
       netToOrganizerCents: json['net_to_organizer_cents'] ?? 0,
-      extraPerks: json['extra_perks'],
-      status: json['status'],
+      extraPerks: json['extra_perks'] as String?,
+      status: json['status'] as String? ?? '',
       scannedAt: json['scanned_at'] != null
           ? DateTime.parse(json['scanned_at'])
           : null,

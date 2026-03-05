@@ -20,6 +20,31 @@ from app.services.event.permissions import user_can_edit_event
 log = get_logger(__name__)
 
 
+async def _snapshot_venue(db: AsyncSession, event: Event) -> None:
+    """Freeze venue data into event.venue_snapshot for historical preservation.
+
+    Called when an event transitions to completed or cancelled so that
+    future venue edits/deletions don't affect historical records.
+    """
+    if event.venue_snapshot:
+        return
+    if not event.venue_id:
+        return
+    # Ensure the venue relationship is loaded
+    venue = await event_repo.get_venue(db, event.venue_id)
+    if venue:
+        event.venue_snapshot = {
+            "id": venue.id,
+            "name": venue.name,
+            "address": venue.address,
+            "city": venue.city,
+            "province": venue.province,
+            "lat": venue.lat,
+            "lng": venue.lng,
+            "max_capacity": venue.max_capacity,
+        }
+
+
 async def auto_transition_status(db: AsyncSession, event: Event) -> Event:
     """
     Check time-based state transitions and apply them.
@@ -71,6 +96,7 @@ async def auto_transition_status(db: AsyncSession, event: Event) -> Event:
         if status == EventStatus.waiting_event_date:
             if event.event_date_deadline is not None and now >= _tz(event.event_date_deadline) and event.start_time is None:
                 event.status = EventStatus.cancelled
+                await _snapshot_venue(db, event)
                 event.cancellation_reason = "Event date was not set within the required deadline. Pledges refunded."
                 from app.services import funding as funding_service
                 await funding_service.refund_all_pledges_for_event(db, event_id=event.id, guest_refund=False)
@@ -98,6 +124,7 @@ async def auto_transition_status(db: AsyncSession, event: Event) -> Event:
             end = _tz(event.end_time)
             if end is not None and now >= end:
                 event.status = EventStatus.completed
+                await _snapshot_venue(db, event)
                 changed = True
 
     except Exception as exc:

@@ -25,13 +25,14 @@ async def create_notification(
     data: dict[str, Any] | None = None,
 ) -> Notification:
     """Create a single notification for one user."""
+    enriched = {"type": type.value, **(data or {})}
     notif = await notification_repo.create_notification(
         db,
         user_id=user_id,
         type=type,
         title=title,
         message=message,
-        data=data,
+        data=enriched,
     )
 
     try:
@@ -41,7 +42,7 @@ async def create_notification(
             user_id=user_id,
             title=title,
             body=message,
-            data=data,
+            data=enriched,
         )
     except Exception:
         logger.debug("Could not enqueue push notification for user %d", user_id)
@@ -60,13 +61,14 @@ async def create_bulk_notifications(
 ) -> int:
     """Create the same notification for multiple users. Returns count created."""
     unique_ids = list(set(user_ids))
+    enriched = {"type": type.value, **(data or {})}
     notifications_data = [
         {
             "user_id": uid,
             "type": type,
             "title": title,
             "message": message,
-            "data": data,
+            "data": enriched,
         }
         for uid in unique_ids
     ]
@@ -82,7 +84,7 @@ async def create_bulk_notifications(
             user_ids=unique_ids,
             title=title,
             body=message,
-            data=data,
+            data=enriched,
         )
     except Exception:
         logger.debug("Could not enqueue bulk push for %d users", len(unique_ids))

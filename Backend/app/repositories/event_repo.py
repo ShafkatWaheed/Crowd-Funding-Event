@@ -839,6 +839,18 @@ class EventRepository(BaseRepository[Event]):
         q = select(Venue).where(Venue.id == venue_id)
         return (await db.execute(q)).scalar_one_or_none()
 
+    async def get_terminal_events_for_venue(
+        self, db: AsyncSession, venue_id: int
+    ) -> list[Event]:
+        """Return completed/cancelled events linked to a venue (with venue eager-loaded)."""
+        terminal = [EventStatus.completed, EventStatus.cancelled]
+        q = (
+            select(Event)
+            .options(selectinload(Event.venue))
+            .where(Event.venue_id == venue_id, Event.status.in_(terminal))
+        )
+        return list((await db.execute(q)).scalars().all())
+
     # ═══════════════════════════════════════════════════════════════════
     #  Ticket Strategy Queries
     # ═══════════════════════════════════════════════════════════════════

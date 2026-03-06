@@ -84,6 +84,39 @@ class VenueRepository(BaseRepository[Venue]):
         )
         await db.flush()
 
+    async def bulk_snapshot_terminal_events(self, db: AsyncSession, venue_id: int) -> None:
+        """Bulk-set venue_snapshot on terminal events that don't have one yet.
+
+        Single UPDATE with scalar subquery — no per-row loop, constant query count.
+        """
+        terminal = [EventStatus.completed, EventStatus.cancelled]
+        await db.execute(
+            update(Event)
+            .where(
+                Event.venue_id == venue_id,
+                Event.status.in_(terminal),
+                Event.venue_snapshot.is_(None),
+            )
+            .values(
+                venue_snapshot=select(
+                    func.jsonb_build_object(
+                        "id", Venue.id,
+                        "name", Venue.name,
+                        "address", Venue.address,
+                        "city", Venue.city,
+                        "province", Venue.province,
+                        "lat", Venue.lat,
+                        "lng", Venue.lng,
+                        "max_capacity", Venue.max_capacity,
+                    )
+                )
+                .where(Venue.id == venue_id)
+                .correlate_except(Venue)
+                .scalar_subquery()
+            )
+        )
+        await db.flush()
+
     async def list_distinct_cities(self, db: AsyncSession) -> list[str]:
         """Return sorted list of distinct non-empty venue cities."""
         q = (

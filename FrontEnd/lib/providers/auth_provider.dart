@@ -4,7 +4,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import 'package:dio/dio.dart';
+
 import '../models/user.dart';
+import '../repositories/base_repository.dart';
 import '../repositories/user_repository.dart';
 
 void _log(String msg) {
@@ -147,7 +150,7 @@ class AuthProvider extends ChangeNotifier {
     } catch (e, stackTrace) {
       _log('signUp: ERROR: $e');
       _log('signUp: STACKTRACE: $stackTrace');
-      _errorMessage = 'Registration failed: ${e.toString()}';
+      _errorMessage = _mapBackendError(e, context: 'registration');
       _user = null;
     }
 
@@ -187,7 +190,7 @@ class AuthProvider extends ChangeNotifier {
     } catch (e, stackTrace) {
       _log('signIn: ERROR: $e');
       _log('signIn: STACKTRACE: $stackTrace');
-      _errorMessage = 'Sign-in failed: ${e.toString()}';
+      _errorMessage = _mapBackendError(e, context: 'sign-in');
       // Firebase succeeded but backend rejected — sign out of Firebase
       // so the cached session doesn't auto-redirect next time.
       await _firebaseAuth.signOut();
@@ -230,6 +233,37 @@ class AuthProvider extends ChangeNotifier {
   void clearError() {
     _errorMessage = null;
     notifyListeners();
+  }
+
+  /// Map backend/network errors to user-friendly messages.
+  String _mapBackendError(Object e, {required String context}) {
+    if (e is DioException) {
+      final status = e.response?.statusCode;
+      // Extract backend detail if present (e.g. "Birthday is required")
+      final detail = e.response?.data;
+      if (detail is Map && detail.containsKey('detail')) {
+        final msg = detail['detail'];
+        if (msg is String && msg.isNotEmpty) return msg;
+      }
+      if (status == 401) {
+        return context == 'sign-in'
+            ? 'Account not found on server. Please sign up first.'
+            : 'Session could not be verified. Please try again.';
+      }
+      if (status == 429) return 'Too many attempts. Please wait a moment.';
+      if (e.type == DioExceptionType.connectionError ||
+          e.type == DioExceptionType.connectionTimeout) {
+        return 'Cannot reach server. Check your internet connection.';
+      }
+      if (e.type == DioExceptionType.receiveTimeout) {
+        return 'Server is not responding. Please try again.';
+      }
+      return ApiError.extractMessage(e);
+    }
+    final s = e.toString();
+    // Strip "Exception: " prefix if present
+    final cleaned = s.startsWith('Exception: ') ? s.substring(11) : s;
+    return cleaned.isNotEmpty ? cleaned : 'Something went wrong during $context.';
   }
 
   String _mapFirebaseError(String code) {

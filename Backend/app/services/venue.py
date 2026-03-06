@@ -9,7 +9,6 @@ from app.logger import get_logger, log_step
 from app.models.venue import Venue
 from app.core.exceptions import NotFoundError, ConflictError
 from app.repositories.venue_repo import venue_repo
-from app.repositories.event_repo import event_repo
 
 logger = get_logger("svc.venue")
 
@@ -85,6 +84,8 @@ async def update(
     max_capacity: int | None = None,
 ) -> Venue:
     log_step(logger, "Update venue", venue_id=venue.id)
+    # Snapshot venue on terminal events BEFORE changing live data (single bulk query)
+    await venue_repo.bulk_snapshot_terminal_events(db, venue.id)
     if max_capacity is not None and max_capacity <= 0:
         logger.warning("Update venue rejected: invalid capacity", extra={"venue_id": venue.id, "max_capacity": max_capacity})
         raise ConflictError("max_capacity must be greater than 0")
@@ -110,12 +111,7 @@ async def update(
 async def prepare_venue_deletion(db: AsyncSession, venue_id: int) -> None:
     """Ensure completed/cancelled events have venue snapshots, then nullify their venue_id.
 
-    Safety net: if any terminal event somehow missed its snapshot during
-    status transition, we backfill it here before unlinking.
+    Safety net before deletion — bulk snapshot + bulk nullify (2 queries total).
     """
-    from app.services.event.crud import _snapshot_venue
-
-    terminal_events = await event_repo.get_terminal_events_for_venue(db, venue_id)
-    for ev in terminal_events:
-        await _snapshot_venue(db, ev)
+    await venue_repo.bulk_snapshot_terminal_events(db, venue_id)
     await venue_repo.nullify_venue_on_terminal_events(db, venue_id)

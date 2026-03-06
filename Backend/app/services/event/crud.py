@@ -96,7 +96,6 @@ async def auto_transition_status(db: AsyncSession, event: Event) -> Event:
         if status == EventStatus.waiting_event_date:
             if event.event_date_deadline is not None and now >= _tz(event.event_date_deadline) and event.start_time is None:
                 event.status = EventStatus.cancelled
-                await _snapshot_venue(db, event)
                 event.cancellation_reason = "Event date was not set within the required deadline. Pledges refunded."
                 from app.services import funding as funding_service
                 await funding_service.refund_all_pledges_for_event(db, event_id=event.id, guest_refund=False)
@@ -124,7 +123,6 @@ async def auto_transition_status(db: AsyncSession, event: Event) -> Event:
             end = _tz(event.end_time)
             if end is not None and now >= end:
                 event.status = EventStatus.completed
-                await _snapshot_venue(db, event)
                 changed = True
 
     except Exception as exc:

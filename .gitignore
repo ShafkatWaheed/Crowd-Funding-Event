@@ -1,3 +1,50 @@
 Kub_docker/.env
 Kub_docker/*.json
 Kub_docker/**/*.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Distribution / packaging
+*.egg-info/
+dist/
+build/
+
+# Testing
+.coverage
+.pytest_cache/
+htmlcov/
+
+# Environment
+.env
+*.env
+
+# IDE
+.idea/
+.vscode/
+
+# Uploads / static generated files
+Backend/static/uploads/
+
+# Credentials
+cred/
+cognee/
+firebase-api.txt
+
+# Scripts (local only)
+scripts/
+
+# Flutter / Dart
+FrontEnd/.dart_tool/
+FrontEnd/build/
+FrontEnd/.flutter-plugins
+FrontEnd/.flutter-plugins-dependencies

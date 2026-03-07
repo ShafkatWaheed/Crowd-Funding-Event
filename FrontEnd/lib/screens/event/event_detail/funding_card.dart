@@ -1148,9 +1148,9 @@ class _FundingCardState extends State<FundingCard> {
                     height: 40,
                     child: ElevatedButton.icon(
                       onPressed: _pledging ? null : _showPledgeDialog,
-                      icon: Icon(widget.isRegistered ? Icons.volunteer_activism : Icons.card_giftcard_rounded, size: AppIconSize.md),
-                      label: Text(widget.isRegistered ? 'Pledge' : 'Donate',
-                          style: const TextStyle(fontWeight: FontWeight.w700)),
+                      icon: Icon(widget.isRegistered ? Icons.volunteer_activism : Icons.card_giftcard_rounded, size: 16),
+                      label: FittedBox(fit: BoxFit.scaleDown, child: Text(widget.isRegistered ? 'Pledge' : 'Donate',
+                          style: const TextStyle(fontWeight: FontWeight.w700))),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.accentColor,
                         foregroundColor: Colors.white,
@@ -1173,8 +1173,8 @@ class _FundingCardState extends State<FundingCard> {
                                 width: 16, height: 16,
                                 child: CircularProgressIndicator(strokeWidth: 2),
                               ),
-                              label: const Text('Refund Processing…',
-                                  style: TextStyle(fontWeight: FontWeight.w700)),
+                              label: const FittedBox(fit: BoxFit.scaleDown, child: Text('Refund Processing…',
+                                  style: TextStyle(fontWeight: FontWeight.w700))),
                               style: OutlinedButton.styleFrom(
                                 side: BorderSide(color: Colors.grey.shade400),
                                 shape: RoundedRectangleBorder(
@@ -1183,12 +1183,12 @@ class _FundingCardState extends State<FundingCard> {
                             )
                           : OutlinedButton.icon(
                               onPressed: _pledging ? null : _unpledge,
-                              icon: Icon(Icons.money_off,
-                                  size: AppIconSize.md, color: AppTheme.warningColor),
-                              label: const Text('Unpledge',
+                              icon: const Icon(Icons.money_off,
+                                  size: 16, color: AppTheme.warningColor),
+                              label: const FittedBox(fit: BoxFit.scaleDown, child: Text('Unpledge',
                                   style: TextStyle(
                                       fontWeight: FontWeight.w700,
-                                      color: AppTheme.warningColor)),
+                                      color: AppTheme.warningColor))),
                               style: OutlinedButton.styleFrom(
                                 side: const BorderSide(color: AppTheme.warningColor),
                                 shape: RoundedRectangleBorder(

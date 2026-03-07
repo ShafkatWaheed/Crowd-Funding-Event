@@ -356,7 +356,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                               hasPreviewImages, heroUrl),
                           SliverToBoxAdapter(
                             child: Padding(
-                              padding: AppSpacing.paddingXl,
+                              padding: EdgeInsets.fromLTRB(
+                                AppSpacing.xl,
+                                AppSpacing.xl,
+                                AppSpacing.xl,
+                                AppSpacing.xl +
+                                    MediaQuery.of(context).padding.bottom +
+                                    80,
+                              ),
                               child: Center(
                                 child: ConstrainedBox(
                                   constraints:

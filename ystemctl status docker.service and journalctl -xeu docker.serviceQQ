@@ -1,0 +1,635 @@
+Mar 06 20:27:53 localhost.localdomain systemd[1]: Starting docker.service - Docker Application Container Engine...
+[0;38;5;245m░░ [0m[0;32mSubject: A start job for unit docker.service has begun execution[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mA start job for unit docker.service has begun execution.[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe job identifier is 14794.[0m
+Mar 06 20:27:54 localhost.localdomain dockerd[22898]: time="2026-03-06T20:27:54.011299046-05:00" level=info msg="Starting up"
+Mar 06 20:27:54 localhost.localdomain dockerd[22898]: time="2026-03-06T20:27:54.017186691-05:00" level=info msg="OTEL tracing is not configured, using no-op tracer provider"
+Mar 06 20:27:54 localhost.localdomain dockerd[22898]: time="2026-03-06T20:27:54.018981959-05:00" level=info msg="detected 127.0.0.53 nameserver, assuming systemd-resolved, so using resolv.conf: /run/systemd/resolve/resolv.conf"
+Mar 06 20:27:54 localhost.localdomain dockerd[22898]: time="2026-03-06T20:27:54.068010205-05:00" level=info msg="Creating a containerd client" address=/run/containerd/containerd.sock timeout=1m0s
+Mar 06 20:27:54 localhost.localdomain dockerd[22898]: time="2026-03-06T20:27:54.110551350-05:00" level=info msg="[graphdriver] using prior storage driver: overlay2"
+Mar 06 20:27:54 localhost.localdomain dockerd[22898]: time="2026-03-06T20:27:54.146661682-05:00" level=info msg="Loading containers: start."
+Mar 06 20:27:54 localhost.localdomain dockerd[22898]: time="2026-03-06T20:27:54.199806290-05:00" level=info msg="Firewalld: docker zone already exists, returning"
+Mar 06 20:27:54 localhost.localdomain dockerd[22898]: time="2026-03-06T20:27:54.206199768-05:00" level=warning msg="failed to find iptables" error="exec: \"iptables\": executable file not found in $PATH"
+Mar 06 20:27:54 localhost.localdomain dockerd[22898]: time="2026-03-06T20:27:54.250903178-05:00" level=info msg="stopping event stream following graceful shutdown" error="<nil>" module=libcontainerd namespace=moby
+Mar 06 20:27:54 localhost.localdomain dockerd[22898]: failed to start daemon: Error initializing network controller: error obtaining controller instance: failed to register "bridge" driver: failed to create NAT chain DOCKER: COMMAND_FAILED: INVALID_IPV: 'ipv4' is not a valid backend or is unavailable
+Mar 06 20:27:54 localhost.localdomain systemd[1]: [0;1;39m[0;1;31m[0;1;39mdocker.service: Main process exited, code=exited, status=1/FAILURE[0m
+[0;38;5;245m░░ [0m[0;32mSubject: Unit process exited[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mAn ExecStart= process belonging to unit docker.service has exited.[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe process' exit code is 'exited' and its exit status is 1.[0m
+Mar 06 20:27:54 localhost.localdomain systemd[1]: [0;1;38:5:185m[0;1;39m[0;1;38:5:185mdocker.service: Failed with result 'exit-code'.[0m
+[0;38;5;245m░░ [0m[0;32mSubject: Unit failed[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe unit docker.service has entered the 'failed' state with result 'exit-code'.[0m
+Mar 06 20:27:54 localhost.localdomain systemd[1]: [0;1;31m[0;1;39m[0;1;31mFailed to start docker.service - Docker Application Container Engine.[0m
+[0;38;5;245m░░ [0m[0;32mSubject: A start job for unit docker.service has failed[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mA start job for unit docker.service has finished with a failure.[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe job identifier is 14794 and the job result is failed.[0m
+Mar 06 20:27:54 localhost.localdomain systemd[1]: docker.service: Consumed 199ms CPU time, 91.1M memory peak.
+[0;38;5;245m░░ [0m[0;32mSubject: Resources consumed by unit runtime[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe unit docker.service completed and consumed the indicated resources.[0m
+Mar 06 20:27:56 localhost.localdomain systemd[1]: docker.service: Scheduled restart job, restart counter is at 1.
+[0;38;5;245m░░ [0m[0;32mSubject: Automatic restarting of a unit has been scheduled[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mAutomatic restarting of the unit docker.service has been scheduled, as the result for[0m
+[0;38;5;245m░░[0m [0;32mthe configured Restart= setting for the unit.[0m
+Mar 06 20:27:56 localhost.localdomain systemd[1]: Starting docker.service - Docker Application Container Engine...
+[0;38;5;245m░░ [0m[0;32mSubject: A start job for unit docker.service has begun execution[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mA start job for unit docker.service has begun execution.[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe job identifier is 14946.[0m
+Mar 06 20:27:56 localhost.localdomain dockerd[22929]: time="2026-03-06T20:27:56.459935732-05:00" level=info msg="Starting up"
+Mar 06 20:27:56 localhost.localdomain dockerd[22929]: time="2026-03-06T20:27:56.460737381-05:00" level=info msg="OTEL tracing is not configured, using no-op tracer provider"
+Mar 06 20:27:56 localhost.localdomain dockerd[22929]: time="2026-03-06T20:27:56.461074701-05:00" level=info msg="detected 127.0.0.53 nameserver, assuming systemd-resolved, so using resolv.conf: /run/systemd/resolve/resolv.conf"
+Mar 06 20:27:56 localhost.localdomain dockerd[22929]: time="2026-03-06T20:27:56.470513270-05:00" level=info msg="Creating a containerd client" address=/run/containerd/containerd.sock timeout=1m0s
+Mar 06 20:27:56 localhost.localdomain dockerd[22929]: time="2026-03-06T20:27:56.504549688-05:00" level=info msg="[graphdriver] using prior storage driver: overlay2"
+Mar 06 20:27:56 localhost.localdomain dockerd[22929]: time="2026-03-06T20:27:56.510647005-05:00" level=info msg="Loading containers: start."
+Mar 06 20:27:56 localhost.localdomain dockerd[22929]: time="2026-03-06T20:27:56.526692940-05:00" level=info msg="Firewalld: docker zone already exists, returning"
+Mar 06 20:27:56 localhost.localdomain dockerd[22929]: time="2026-03-06T20:27:56.529855056-05:00" level=warning msg="failed to find iptables" error="exec: \"iptables\": executable file not found in $PATH"
+Mar 06 20:27:56 localhost.localdomain dockerd[22929]: time="2026-03-06T20:27:56.569223567-05:00" level=info msg="stopping event stream following graceful shutdown" error="<nil>" module=libcontainerd namespace=moby
+Mar 06 20:27:56 localhost.localdomain dockerd[22929]: failed to start daemon: Error initializing network controller: error obtaining controller instance: failed to register "bridge" driver: failed to create NAT chain DOCKER: COMMAND_FAILED: INVALID_IPV: 'ipv4' is not a valid backend or is unavailable
+Mar 06 20:27:56 localhost.localdomain systemd[1]: [0;1;39m[0;1;31m[0;1;39mdocker.service: Main process exited, code=exited, status=1/FAILURE[0m
+[0;38;5;245m░░ [0m[0;32mSubject: Unit process exited[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mAn ExecStart= process belonging to unit docker.service has exited.[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe process' exit code is 'exited' and its exit status is 1.[0m
+Mar 06 20:27:56 localhost.localdomain systemd[1]: [0;1;38:5:185m[0;1;39m[0;1;38:5:185mdocker.service: Failed with result 'exit-code'.[0m
+[0;38;5;245m░░ [0m[0;32mSubject: Unit failed[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe unit docker.service has entered the 'failed' state with result 'exit-code'.[0m
+Mar 06 20:27:56 localhost.localdomain systemd[1]: [0;1;31m[0;1;39m[0;1;31mFailed to start docker.service - Docker Application Container Engine.[0m
+[0;38;5;245m░░ [0m[0;32mSubject: A start job for unit docker.service has failed[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mA start job for unit docker.service has finished with a failure.[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe job identifier is 14946 and the job result is failed.[0m
+Mar 06 20:27:58 localhost.localdomain systemd[1]: docker.service: Scheduled restart job, restart counter is at 2.
+[0;38;5;245m░░ [0m[0;32mSubject: Automatic restarting of a unit has been scheduled[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mAutomatic restarting of the unit docker.service has been scheduled, as the result for[0m
+[0;38;5;245m░░[0m [0;32mthe configured Restart= setting for the unit.[0m
+Mar 06 20:27:58 localhost.localdomain systemd[1]: Starting docker.service - Docker Application Container Engine...
+[0;38;5;245m░░ [0m[0;32mSubject: A start job for unit docker.service has begun execution[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mA start job for unit docker.service has begun execution.[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe job identifier is 15098.[0m
+Mar 06 20:27:58 localhost.localdomain dockerd[22953]: time="2026-03-06T20:27:58.740789914-05:00" level=info msg="Starting up"
+Mar 06 20:27:58 localhost.localdomain dockerd[22953]: time="2026-03-06T20:27:58.741445015-05:00" level=info msg="OTEL tracing is not configured, using no-op tracer provider"
+Mar 06 20:27:58 localhost.localdomain dockerd[22953]: time="2026-03-06T20:27:58.741645393-05:00" level=info msg="detected 127.0.0.53 nameserver, assuming systemd-resolved, so using resolv.conf: /run/systemd/resolve/resolv.conf"
+Mar 06 20:27:58 localhost.localdomain dockerd[22953]: time="2026-03-06T20:27:58.750945458-05:00" level=info msg="Creating a containerd client" address=/run/containerd/containerd.sock timeout=1m0s
+Mar 06 20:27:58 localhost.localdomain dockerd[22953]: time="2026-03-06T20:27:58.781745080-05:00" level=info msg="[graphdriver] using prior storage driver: overlay2"
+Mar 06 20:27:58 localhost.localdomain dockerd[22953]: time="2026-03-06T20:27:58.789593302-05:00" level=info msg="Loading containers: start."
+Mar 06 20:27:58 localhost.localdomain dockerd[22953]: time="2026-03-06T20:27:58.807272091-05:00" level=info msg="Firewalld: docker zone already exists, returning"
+Mar 06 20:27:58 localhost.localdomain dockerd[22953]: time="2026-03-06T20:27:58.810520468-05:00" level=warning msg="failed to find iptables" error="exec: \"iptables\": executable file not found in $PATH"
+Mar 06 20:27:58 localhost.localdomain dockerd[22953]: time="2026-03-06T20:27:58.847084815-05:00" level=info msg="stopping event stream following graceful shutdown" error="<nil>" module=libcontainerd namespace=moby
+Mar 06 20:27:58 localhost.localdomain dockerd[22953]: time="2026-03-06T20:27:58.847747148-05:00" level=info msg="stopping event stream following graceful shutdown" error="context canceled" module=libcontainerd namespace=plugins.moby
+Mar 06 20:27:58 localhost.localdomain dockerd[22953]: failed to start daemon: Error initializing network controller: error obtaining controller instance: failed to register "bridge" driver: failed to create NAT chain DOCKER: COMMAND_FAILED: INVALID_IPV: 'ipv4' is not a valid backend or is unavailable
+Mar 06 20:27:58 localhost.localdomain systemd[1]: [0;1;39m[0;1;31m[0;1;39mdocker.service: Main process exited, code=exited, status=1/FAILURE[0m
+[0;38;5;245m░░ [0m[0;32mSubject: Unit process exited[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mAn ExecStart= process belonging to unit docker.service has exited.[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe process' exit code is 'exited' and its exit status is 1.[0m
+Mar 06 20:27:58 localhost.localdomain systemd[1]: [0;1;38:5:185m[0;1;39m[0;1;38:5:185mdocker.service: Failed with result 'exit-code'.[0m
+[0;38;5;245m░░ [0m[0;32mSubject: Unit failed[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe unit docker.service has entered the 'failed' state with result 'exit-code'.[0m
+Mar 06 20:27:58 localhost.localdomain systemd[1]: [0;1;31m[0;1;39m[0;1;31mFailed to start docker.service - Docker Application Container Engine.[0m
+[0;38;5;245m░░ [0m[0;32mSubject: A start job for unit docker.service has failed[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mA start job for unit docker.service has finished with a failure.[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe job identifier is 15098 and the job result is failed.[0m
+Mar 06 20:28:00 localhost.localdomain systemd[1]: docker.service: Scheduled restart job, restart counter is at 3.
+[0;38;5;245m░░ [0m[0;32mSubject: Automatic restarting of a unit has been scheduled[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mAutomatic restarting of the unit docker.service has been scheduled, as the result for[0m
+[0;38;5;245m░░[0m [0;32mthe configured Restart= setting for the unit.[0m
+Mar 06 20:28:00 localhost.localdomain systemd[1]: [0;1;38:5:185m[0;1;39m[0;1;38:5:185mdocker.service: Start request repeated too quickly.[0m
+Mar 06 20:28:00 localhost.localdomain systemd[1]: [0;1;38:5:185m[0;1;39m[0;1;38:5:185mdocker.service: Failed with result 'exit-code'.[0m
+[0;38;5;245m░░ [0m[0;32mSubject: Unit failed[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe unit docker.service has entered the 'failed' state with result 'exit-code'.[0m
+Mar 06 20:28:00 localhost.localdomain systemd[1]: [0;1;31m[0;1;39m[0;1;31mFailed to start docker.service - Docker Application Container Engine.[0m
+[0;38;5;245m░░ [0m[0;32mSubject: A start job for unit docker.service has failed[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mA start job for unit docker.service has finished with a failure.[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe job identifier is 15250 and the job result is failed.[0m
+Mar 06 20:29:07 localhost.localdomain systemd[1]: Starting docker.service - Docker Application Container Engine...
+[0;38;5;245m░░ [0m[0;32mSubject: A start job for unit docker.service has begun execution[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mA start job for unit docker.service has begun execution.[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe job identifier is 16450.[0m
+Mar 06 20:29:07 localhost.localdomain dockerd[23236]: time="2026-03-06T20:29:07.203468978-05:00" level=info msg="Starting up"
+Mar 06 20:29:07 localhost.localdomain dockerd[23236]: time="2026-03-06T20:29:07.204147167-05:00" level=info msg="OTEL tracing is not configured, using no-op tracer provider"
+Mar 06 20:29:07 localhost.localdomain dockerd[23236]: time="2026-03-06T20:29:07.204306074-05:00" level=info msg="detected 127.0.0.53 nameserver, assuming systemd-resolved, so using resolv.conf: /run/systemd/resolve/resolv.conf"
+Mar 06 20:29:07 localhost.localdomain dockerd[23236]: time="2026-03-06T20:29:07.213769542-05:00" level=info msg="Creating a containerd client" address=/run/containerd/containerd.sock timeout=1m0s
+Mar 06 20:29:07 localhost.localdomain dockerd[23236]: time="2026-03-06T20:29:07.239662619-05:00" level=info msg="[graphdriver] using prior storage driver: overlay2"
+Mar 06 20:29:07 localhost.localdomain dockerd[23236]: time="2026-03-06T20:29:07.246357689-05:00" level=info msg="Loading containers: start."
+Mar 06 20:29:07 localhost.localdomain dockerd[23236]: time="2026-03-06T20:29:07.260561607-05:00" level=info msg="Firewalld: docker zone already exists, returning"
+Mar 06 20:29:07 localhost.localdomain dockerd[23236]: time="2026-03-06T20:29:07.263433387-05:00" level=warning msg="failed to find iptables" error="exec: \"iptables\": executable file not found in $PATH"
+Mar 06 20:29:07 localhost.localdomain dockerd[23236]: time="2026-03-06T20:29:07.300141403-05:00" level=info msg="stopping event stream following graceful shutdown" error="<nil>" module=libcontainerd namespace=moby
+Mar 06 20:29:07 localhost.localdomain dockerd[23236]: failed to start daemon: Error initializing network controller: error obtaining controller instance: failed to register "bridge" driver: failed to create NAT chain DOCKER: COMMAND_FAILED: INVALID_IPV: 'ipv4' is not a valid backend or is unavailable
+Mar 06 20:29:07 localhost.localdomain dockerd[23236]: time="2026-03-06T20:29:07.300841383-05:00" level=info msg="stopping event stream following graceful shutdown" error="context canceled" module=libcontainerd namespace=plugins.moby
+Mar 06 20:29:07 localhost.localdomain systemd[1]: [0;1;39m[0;1;31m[0;1;39mdocker.service: Main process exited, code=exited, status=1/FAILURE[0m
+[0;38;5;245m░░ [0m[0;32mSubject: Unit process exited[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mAn ExecStart= process belonging to unit docker.service has exited.[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe process' exit code is 'exited' and its exit status is 1.[0m
+Mar 06 20:29:07 localhost.localdomain systemd[1]: [0;1;38:5:185m[0;1;39m[0;1;38:5:185mdocker.service: Failed with result 'exit-code'.[0m
+[0;38;5;245m░░ [0m[0;32mSubject: Unit failed[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe unit docker.service has entered the 'failed' state with result 'exit-code'.[0m
+Mar 06 20:29:07 localhost.localdomain systemd[1]: [0;1;31m[0;1;39m[0;1;31mFailed to start docker.service - Docker Application Container Engine.[0m
+[0;38;5;245m░░ [0m[0;32mSubject: A start job for unit docker.service has failed[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mA start job for unit docker.service has finished with a failure.[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe job identifier is 16450 and the job result is failed.[0m
+Mar 06 20:29:09 localhost.localdomain systemd[1]: docker.service: Scheduled restart job, restart counter is at 1.
+[0;38;5;245m░░ [0m[0;32mSubject: Automatic restarting of a unit has been scheduled[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mAutomatic restarting of the unit docker.service has been scheduled, as the result for[0m
+[0;38;5;245m░░[0m [0;32mthe configured Restart= setting for the unit.[0m
+Mar 06 20:29:09 localhost.localdomain systemd[1]: Starting docker.service - Docker Application Container Engine...
+[0;38;5;245m░░ [0m[0;32mSubject: A start job for unit docker.service has begun execution[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mA start job for unit docker.service has begun execution.[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe job identifier is 16602.[0m
+Mar 06 20:29:09 localhost.localdomain dockerd[23264]: time="2026-03-06T20:29:09.498918946-05:00" level=info msg="Starting up"
+Mar 06 20:29:09 localhost.localdomain dockerd[23264]: time="2026-03-06T20:29:09.500042087-05:00" level=info msg="OTEL tracing is not configured, using no-op tracer provider"
+Mar 06 20:29:09 localhost.localdomain dockerd[23264]: time="2026-03-06T20:29:09.500289974-05:00" level=info msg="detected 127.0.0.53 nameserver, assuming systemd-resolved, so using resolv.conf: /run/systemd/resolve/resolv.conf"
+Mar 06 20:29:09 localhost.localdomain dockerd[23264]: time="2026-03-06T20:29:09.511687707-05:00" level=info msg="Creating a containerd client" address=/run/containerd/containerd.sock timeout=1m0s
+Mar 06 20:29:09 localhost.localdomain dockerd[23264]: time="2026-03-06T20:29:09.538827166-05:00" level=info msg="[graphdriver] using prior storage driver: overlay2"
+Mar 06 20:29:09 localhost.localdomain dockerd[23264]: time="2026-03-06T20:29:09.547687575-05:00" level=info msg="Loading containers: start."
+Mar 06 20:29:09 localhost.localdomain dockerd[23264]: time="2026-03-06T20:29:09.563183451-05:00" level=info msg="Firewalld: docker zone already exists, returning"
+Mar 06 20:29:09 localhost.localdomain dockerd[23264]: time="2026-03-06T20:29:09.566019181-05:00" level=warning msg="failed to find iptables" error="exec: \"iptables\": executable file not found in $PATH"
+Mar 06 20:29:09 localhost.localdomain dockerd[23264]: time="2026-03-06T20:29:09.604800795-05:00" level=info msg="stopping event stream following graceful shutdown" error="<nil>" module=libcontainerd namespace=moby
+Mar 06 20:29:09 localhost.localdomain dockerd[23264]: time="2026-03-06T20:29:09.605514929-05:00" level=info msg="stopping event stream following graceful shutdown" error="context canceled" module=libcontainerd namespace=plugins.moby
+Mar 06 20:29:09 localhost.localdomain dockerd[23264]: failed to start daemon: Error initializing network controller: error obtaining controller instance: failed to register "bridge" driver: failed to create NAT chain DOCKER: COMMAND_FAILED: INVALID_IPV: 'ipv4' is not a valid backend or is unavailable
+Mar 06 20:29:09 localhost.localdomain systemd[1]: [0;1;39m[0;1;31m[0;1;39mdocker.service: Main process exited, code=exited, status=1/FAILURE[0m
+[0;38;5;245m░░ [0m[0;32mSubject: Unit process exited[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mAn ExecStart= process belonging to unit docker.service has exited.[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe process' exit code is 'exited' and its exit status is 1.[0m
+Mar 06 20:29:09 localhost.localdomain systemd[1]: [0;1;38:5:185m[0;1;39m[0;1;38:5:185mdocker.service: Failed with result 'exit-code'.[0m
+[0;38;5;245m░░ [0m[0;32mSubject: Unit failed[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe unit docker.service has entered the 'failed' state with result 'exit-code'.[0m
+Mar 06 20:29:09 localhost.localdomain systemd[1]: [0;1;31m[0;1;39m[0;1;31mFailed to start docker.service - Docker Application Container Engine.[0m
+[0;38;5;245m░░ [0m[0;32mSubject: A start job for unit docker.service has failed[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mA start job for unit docker.service has finished with a failure.[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe job identifier is 16602 and the job result is failed.[0m
+Mar 06 20:29:11 localhost.localdomain systemd[1]: docker.service: Scheduled restart job, restart counter is at 2.
+[0;38;5;245m░░ [0m[0;32mSubject: Automatic restarting of a unit has been scheduled[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mAutomatic restarting of the unit docker.service has been scheduled, as the result for[0m
+[0;38;5;245m░░[0m [0;32mthe configured Restart= setting for the unit.[0m
+Mar 06 20:29:11 localhost.localdomain systemd[1]: Starting docker.service - Docker Application Container Engine...
+[0;38;5;245m░░ [0m[0;32mSubject: A start job for unit docker.service has begun execution[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mA start job for unit docker.service has begun execution.[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe job identifier is 16754.[0m
+Mar 06 20:29:11 localhost.localdomain dockerd[23294]: time="2026-03-06T20:29:11.711942232-05:00" level=info msg="Starting up"
+Mar 06 20:29:11 localhost.localdomain dockerd[23294]: time="2026-03-06T20:29:11.713371323-05:00" level=info msg="OTEL tracing is not configured, using no-op tracer provider"
+Mar 06 20:29:11 localhost.localdomain dockerd[23294]: time="2026-03-06T20:29:11.713881872-05:00" level=info msg="detected 127.0.0.53 nameserver, assuming systemd-resolved, so using resolv.conf: /run/systemd/resolve/resolv.conf"
+Mar 06 20:29:11 localhost.localdomain dockerd[23294]: time="2026-03-06T20:29:11.730586414-05:00" level=info msg="Creating a containerd client" address=/run/containerd/containerd.sock timeout=1m0s
+Mar 06 20:29:11 localhost.localdomain dockerd[23294]: time="2026-03-06T20:29:11.765641982-05:00" level=info msg="[graphdriver] using prior storage driver: overlay2"
+Mar 06 20:29:11 localhost.localdomain dockerd[23294]: time="2026-03-06T20:29:11.772114838-05:00" level=info msg="Loading containers: start."
+Mar 06 20:29:11 localhost.localdomain dockerd[23294]: time="2026-03-06T20:29:11.790249273-05:00" level=info msg="Firewalld: docker zone already exists, returning"
+Mar 06 20:29:11 localhost.localdomain dockerd[23294]: time="2026-03-06T20:29:11.792950024-05:00" level=warning msg="failed to find iptables" error="exec: \"iptables\": executable file not found in $PATH"
+Mar 06 20:29:11 localhost.localdomain dockerd[23294]: time="2026-03-06T20:29:11.830700760-05:00" level=info msg="stopping event stream following graceful shutdown" error="<nil>" module=libcontainerd namespace=moby
+Mar 06 20:29:11 localhost.localdomain dockerd[23294]: time="2026-03-06T20:29:11.831459982-05:00" level=info msg="stopping event stream following graceful shutdown" error="context canceled" module=libcontainerd namespace=plugins.moby
+Mar 06 20:29:11 localhost.localdomain dockerd[23294]: failed to start daemon: Error initializing network controller: error obtaining controller instance: failed to register "bridge" driver: failed to create NAT chain DOCKER: COMMAND_FAILED: INVALID_IPV: 'ipv4' is not a valid backend or is unavailable
+Mar 06 20:29:11 localhost.localdomain systemd[1]: [0;1;39m[0;1;31m[0;1;39mdocker.service: Main process exited, code=exited, status=1/FAILURE[0m
+[0;38;5;245m░░ [0m[0;32mSubject: Unit process exited[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mAn ExecStart= process belonging to unit docker.service has exited.[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe process' exit code is 'exited' and its exit status is 1.[0m
+Mar 06 20:29:11 localhost.localdomain systemd[1]: [0;1;38:5:185m[0;1;39m[0;1;38:5:185mdocker.service: Failed with result 'exit-code'.[0m
+[0;38;5;245m░░ [0m[0;32mSubject: Unit failed[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe unit docker.service has entered the 'failed' state with result 'exit-code'.[0m
+Mar 06 20:29:11 localhost.localdomain systemd[1]: [0;1;31m[0;1;39m[0;1;31mFailed to start docker.service - Docker Application Container Engine.[0m
+[0;38;5;245m░░ [0m[0;32mSubject: A start job for unit docker.service has failed[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mA start job for unit docker.service has finished with a failure.[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe job identifier is 16754 and the job result is failed.[0m
+Mar 06 20:29:13 localhost.localdomain systemd[1]: docker.service: Scheduled restart job, restart counter is at 3.
+[0;38;5;245m░░ [0m[0;32mSubject: Automatic restarting of a unit has been scheduled[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mAutomatic restarting of the unit docker.service has been scheduled, as the result for[0m
+[0;38;5;245m░░[0m [0;32mthe configured Restart= setting for the unit.[0m
+Mar 06 20:29:13 localhost.localdomain systemd[1]: [0;1;38:5:185m[0;1;39m[0;1;38:5:185mdocker.service: Start request repeated too quickly.[0m
+Mar 06 20:29:13 localhost.localdomain systemd[1]: [0;1;38:5:185m[0;1;39m[0;1;38:5:185mdocker.service: Failed with result 'exit-code'.[0m
+[0;38;5;245m░░ [0m[0;32mSubject: Unit failed[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe unit docker.service has entered the 'failed' state with result 'exit-code'.[0m
+Mar 06 20:29:13 localhost.localdomain systemd[1]: [0;1;31m[0;1;39m[0;1;31mFailed to start docker.service - Docker Application Container Engine.[0m
+[0;38;5;245m░░ [0m[0;32mSubject: A start job for unit docker.service has failed[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mA start job for unit docker.service has finished with a failure.[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe job identifier is 16906 and the job result is failed.[0m
+Mar 06 20:32:02 localhost.localdomain systemd[1]: Starting docker.service - Docker Application Container Engine...
+[0;38;5;245m░░ [0m[0;32mSubject: A start job for unit docker.service has begun execution[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mA start job for unit docker.service has begun execution.[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe job identifier is 18555.[0m
+Mar 06 20:32:02 localhost.localdomain dockerd[23699]: time="2026-03-06T20:32:02.917480377-05:00" level=info msg="Starting up"
+Mar 06 20:32:02 localhost.localdomain dockerd[23699]: time="2026-03-06T20:32:02.918484179-05:00" level=info msg="OTEL tracing is not configured, using no-op tracer provider"
+Mar 06 20:32:02 localhost.localdomain dockerd[23699]: time="2026-03-06T20:32:02.918743879-05:00" level=info msg="detected 127.0.0.53 nameserver, assuming systemd-resolved, so using resolv.conf: /run/systemd/resolve/resolv.conf"
+Mar 06 20:32:02 localhost.localdomain dockerd[23699]: time="2026-03-06T20:32:02.931071388-05:00" level=info msg="Creating a containerd client" address=/run/containerd/containerd.sock timeout=1m0s
+Mar 06 20:32:02 localhost.localdomain dockerd[23699]: time="2026-03-06T20:32:02.973289540-05:00" level=info msg="[graphdriver] using prior storage driver: overlay2"
+Mar 06 20:32:02 localhost.localdomain dockerd[23699]: time="2026-03-06T20:32:02.979650482-05:00" level=info msg="Loading containers: start."
+Mar 06 20:32:03 localhost.localdomain dockerd[23699]: time="2026-03-06T20:32:03.000683037-05:00" level=info msg="Firewalld: docker zone already exists, returning"
+Mar 06 20:32:03 localhost.localdomain dockerd[23699]: time="2026-03-06T20:32:03.003631664-05:00" level=warning msg="failed to find iptables" error="exec: \"iptables\": executable file not found in $PATH"
+Mar 06 20:32:03 localhost.localdomain dockerd[23699]: time="2026-03-06T20:32:03.040273514-05:00" level=info msg="stopping event stream following graceful shutdown" error="<nil>" module=libcontainerd namespace=moby
+Mar 06 20:32:03 localhost.localdomain dockerd[23699]: time="2026-03-06T20:32:03.041063320-05:00" level=info msg="stopping event stream following graceful shutdown" error="context canceled" module=libcontainerd namespace=plugins.moby
+Mar 06 20:32:03 localhost.localdomain dockerd[23699]: failed to start daemon: Error initializing network controller: error obtaining controller instance: failed to register "bridge" driver: failed to create NAT chain DOCKER: COMMAND_FAILED: INVALID_IPV: 'ipv4' is not a valid backend or is unavailable
+Mar 06 20:32:03 localhost.localdomain systemd[1]: [0;1;39m[0;1;31m[0;1;39mdocker.service: Main process exited, code=exited, status=1/FAILURE[0m
+[0;38;5;245m░░ [0m[0;32mSubject: Unit process exited[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mAn ExecStart= process belonging to unit docker.service has exited.[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe process' exit code is 'exited' and its exit status is 1.[0m
+Mar 06 20:32:03 localhost.localdomain systemd[1]: [0;1;38:5:185m[0;1;39m[0;1;38:5:185mdocker.service: Failed with result 'exit-code'.[0m
+[0;38;5;245m░░ [0m[0;32mSubject: Unit failed[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe unit docker.service has entered the 'failed' state with result 'exit-code'.[0m
+Mar 06 20:32:03 localhost.localdomain systemd[1]: [0;1;31m[0;1;39m[0;1;31mFailed to start docker.service - Docker Application Container Engine.[0m
+[0;38;5;245m░░ [0m[0;32mSubject: A start job for unit docker.service has failed[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mA start job for unit docker.service has finished with a failure.[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe job identifier is 18555 and the job result is failed.[0m
+Mar 06 20:32:05 localhost.localdomain systemd[1]: docker.service: Scheduled restart job, restart counter is at 1.
+[0;38;5;245m░░ [0m[0;32mSubject: Automatic restarting of a unit has been scheduled[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mAutomatic restarting of the unit docker.service has been scheduled, as the result for[0m
+[0;38;5;245m░░[0m [0;32mthe configured Restart= setting for the unit.[0m
+Mar 06 20:32:05 localhost.localdomain systemd[1]: Starting docker.service - Docker Application Container Engine...
+[0;38;5;245m░░ [0m[0;32mSubject: A start job for unit docker.service has begun execution[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mA start job for unit docker.service has begun execution.[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe job identifier is 18707.[0m
+Mar 06 20:32:05 localhost.localdomain dockerd[23724]: time="2026-03-06T20:32:05.203070786-05:00" level=info msg="Starting up"
+Mar 06 20:32:05 localhost.localdomain dockerd[23724]: time="2026-03-06T20:32:05.204099005-05:00" level=info msg="OTEL tracing is not configured, using no-op tracer provider"
+Mar 06 20:32:05 localhost.localdomain dockerd[23724]: time="2026-03-06T20:32:05.204362749-05:00" level=info msg="detected 127.0.0.53 nameserver, assuming systemd-resolved, so using resolv.conf: /run/systemd/resolve/resolv.conf"
+Mar 06 20:32:05 localhost.localdomain dockerd[23724]: time="2026-03-06T20:32:05.218003710-05:00" level=info msg="Creating a containerd client" address=/run/containerd/containerd.sock timeout=1m0s
+Mar 06 20:32:05 localhost.localdomain dockerd[23724]: time="2026-03-06T20:32:05.250563961-05:00" level=info msg="[graphdriver] using prior storage driver: overlay2"
+Mar 06 20:32:05 localhost.localdomain dockerd[23724]: time="2026-03-06T20:32:05.259783866-05:00" level=info msg="Loading containers: start."
+Mar 06 20:32:05 localhost.localdomain dockerd[23724]: time="2026-03-06T20:32:05.275215027-05:00" level=info msg="Firewalld: docker zone already exists, returning"
+Mar 06 20:32:05 localhost.localdomain dockerd[23724]: time="2026-03-06T20:32:05.277307494-05:00" level=warning msg="failed to find iptables" error="exec: \"iptables\": executable file not found in $PATH"
+Mar 06 20:32:05 localhost.localdomain dockerd[23724]: time="2026-03-06T20:32:05.314008903-05:00" level=info msg="stopping event stream following graceful shutdown" error="<nil>" module=libcontainerd namespace=moby
+Mar 06 20:32:05 localhost.localdomain dockerd[23724]: time="2026-03-06T20:32:05.314733877-05:00" level=info msg="stopping event stream following graceful shutdown" error="context canceled" module=libcontainerd namespace=plugins.moby
+Mar 06 20:32:05 localhost.localdomain dockerd[23724]: failed to start daemon: Error initializing network controller: error obtaining controller instance: failed to register "bridge" driver: failed to create NAT chain DOCKER: COMMAND_FAILED: INVALID_IPV: 'ipv4' is not a valid backend or is unavailable
+Mar 06 20:32:05 localhost.localdomain systemd[1]: [0;1;39m[0;1;31m[0;1;39mdocker.service: Main process exited, code=exited, status=1/FAILURE[0m
+[0;38;5;245m░░ [0m[0;32mSubject: Unit process exited[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mAn ExecStart= process belonging to unit docker.service has exited.[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe process' exit code is 'exited' and its exit status is 1.[0m
+Mar 06 20:32:05 localhost.localdomain systemd[1]: [0;1;38:5:185m[0;1;39m[0;1;38:5:185mdocker.service: Failed with result 'exit-code'.[0m
+[0;38;5;245m░░ [0m[0;32mSubject: Unit failed[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe unit docker.service has entered the 'failed' state with result 'exit-code'.[0m
+Mar 06 20:32:05 localhost.localdomain systemd[1]: [0;1;31m[0;1;39m[0;1;31mFailed to start docker.service - Docker Application Container Engine.[0m
+[0;38;5;245m░░ [0m[0;32mSubject: A start job for unit docker.service has failed[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mA start job for unit docker.service has finished with a failure.[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe job identifier is 18707 and the job result is failed.[0m
+Mar 06 20:32:07 localhost.localdomain systemd[1]: docker.service: Scheduled restart job, restart counter is at 2.
+[0;38;5;245m░░ [0m[0;32mSubject: Automatic restarting of a unit has been scheduled[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mAutomatic restarting of the unit docker.service has been scheduled, as the result for[0m
+[0;38;5;245m░░[0m [0;32mthe configured Restart= setting for the unit.[0m
+Mar 06 20:32:07 localhost.localdomain systemd[1]: Starting docker.service - Docker Application Container Engine...
+[0;38;5;245m░░ [0m[0;32mSubject: A start job for unit docker.service has begun execution[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mA start job for unit docker.service has begun execution.[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe job identifier is 18859.[0m
+Mar 06 20:32:07 localhost.localdomain dockerd[23754]: time="2026-03-06T20:32:07.452645274-05:00" level=info msg="Starting up"
+Mar 06 20:32:07 localhost.localdomain dockerd[23754]: time="2026-03-06T20:32:07.453626060-05:00" level=info msg="OTEL tracing is not configured, using no-op tracer provider"
+Mar 06 20:32:07 localhost.localdomain dockerd[23754]: time="2026-03-06T20:32:07.453894897-05:00" level=info msg="detected 127.0.0.53 nameserver, assuming systemd-resolved, so using resolv.conf: /run/systemd/resolve/resolv.conf"
+Mar 06 20:32:07 localhost.localdomain dockerd[23754]: time="2026-03-06T20:32:07.466745873-05:00" level=info msg="Creating a containerd client" address=/run/containerd/containerd.sock timeout=1m0s
+Mar 06 20:32:07 localhost.localdomain dockerd[23754]: time="2026-03-06T20:32:07.496588707-05:00" level=info msg="[graphdriver] using prior storage driver: overlay2"
+Mar 06 20:32:07 localhost.localdomain dockerd[23754]: time="2026-03-06T20:32:07.503254373-05:00" level=info msg="Loading containers: start."
+Mar 06 20:32:07 localhost.localdomain dockerd[23754]: time="2026-03-06T20:32:07.520445685-05:00" level=info msg="Firewalld: docker zone already exists, returning"
+Mar 06 20:32:07 localhost.localdomain dockerd[23754]: time="2026-03-06T20:32:07.522977762-05:00" level=warning msg="failed to find iptables" error="exec: \"iptables\": executable file not found in $PATH"
+Mar 06 20:32:07 localhost.localdomain dockerd[23754]: time="2026-03-06T20:32:07.561199465-05:00" level=info msg="stopping event stream following graceful shutdown" error="<nil>" module=libcontainerd namespace=moby
+Mar 06 20:32:07 localhost.localdomain dockerd[23754]: time="2026-03-06T20:32:07.561771644-05:00" level=info msg="stopping event stream following graceful shutdown" error="context canceled" module=libcontainerd namespace=plugins.moby
+Mar 06 20:32:07 localhost.localdomain dockerd[23754]: failed to start daemon: Error initializing network controller: error obtaining controller instance: failed to register "bridge" driver: failed to create NAT chain DOCKER: COMMAND_FAILED: INVALID_IPV: 'ipv4' is not a valid backend or is unavailable
+Mar 06 20:32:07 localhost.localdomain systemd[1]: [0;1;39m[0;1;31m[0;1;39mdocker.service: Main process exited, code=exited, status=1/FAILURE[0m
+[0;38;5;245m░░ [0m[0;32mSubject: Unit process exited[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mAn ExecStart= process belonging to unit docker.service has exited.[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe process' exit code is 'exited' and its exit status is 1.[0m
+Mar 06 20:32:07 localhost.localdomain systemd[1]: [0;1;38:5:185m[0;1;39m[0;1;38:5:185mdocker.service: Failed with result 'exit-code'.[0m
+[0;38;5;245m░░ [0m[0;32mSubject: Unit failed[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe unit docker.service has entered the 'failed' state with result 'exit-code'.[0m
+Mar 06 20:32:07 localhost.localdomain systemd[1]: [0;1;31m[0;1;39m[0;1;31mFailed to start docker.service - Docker Application Container Engine.[0m
+[0;38;5;245m░░ [0m[0;32mSubject: A start job for unit docker.service has failed[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mA start job for unit docker.service has finished with a failure.[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe job identifier is 18859 and the job result is failed.[0m
+Mar 06 20:32:09 localhost.localdomain systemd[1]: docker.service: Scheduled restart job, restart counter is at 3.
+[0;38;5;245m░░ [0m[0;32mSubject: Automatic restarting of a unit has been scheduled[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mAutomatic restarting of the unit docker.service has been scheduled, as the result for[0m
+[0;38;5;245m░░[0m [0;32mthe configured Restart= setting for the unit.[0m
+Mar 06 20:32:09 localhost.localdomain systemd[1]: [0;1;38:5:185m[0;1;39m[0;1;38:5:185mdocker.service: Start request repeated too quickly.[0m
+Mar 06 20:32:09 localhost.localdomain systemd[1]: [0;1;38:5:185m[0;1;39m[0;1;38:5:185mdocker.service: Failed with result 'exit-code'.[0m
+[0;38;5;245m░░ [0m[0;32mSubject: Unit failed[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe unit docker.service has entered the 'failed' state with result 'exit-code'.[0m
+Mar 06 20:32:09 localhost.localdomain systemd[1]: [0;1;31m[0;1;39m[0;1;31mFailed to start docker.service - Docker Application Container Engine.[0m
+[0;38;5;245m░░ [0m[0;32mSubject: A start job for unit docker.service has failed[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mA start job for unit docker.service has finished with a failure.[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe job identifier is 19011 and the job result is failed.[0m
+Mar 06 20:33:15 localhost.localdomain systemd[1]: Starting docker.service - Docker Application Container Engine...
+[0;38;5;245m░░ [0m[0;32mSubject: A start job for unit docker.service has begun execution[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mA start job for unit docker.service has begun execution.[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe job identifier is 20508.[0m
+Mar 06 20:33:15 localhost.localdomain dockerd[23976]: time="2026-03-06T20:33:15.626411024-05:00" level=info msg="Starting up"
+Mar 06 20:33:15 localhost.localdomain dockerd[23976]: time="2026-03-06T20:33:15.627099621-05:00" level=info msg="OTEL tracing is not configured, using no-op tracer provider"
+Mar 06 20:33:15 localhost.localdomain dockerd[23976]: time="2026-03-06T20:33:15.627302126-05:00" level=info msg="detected 127.0.0.53 nameserver, assuming systemd-resolved, so using resolv.conf: /run/systemd/resolve/resolv.conf"
+Mar 06 20:33:15 localhost.localdomain dockerd[23976]: time="2026-03-06T20:33:15.636467138-05:00" level=info msg="Creating a containerd client" address=/run/containerd/containerd.sock timeout=1m0s
+Mar 06 20:33:15 localhost.localdomain dockerd[23976]: time="2026-03-06T20:33:15.679579408-05:00" level=info msg="[graphdriver] using prior storage driver: overlay2"
+Mar 06 20:33:15 localhost.localdomain dockerd[23976]: time="2026-03-06T20:33:15.688125579-05:00" level=info msg="Loading containers: start."
+Mar 06 20:33:15 localhost.localdomain dockerd[23976]: time="2026-03-06T20:33:15.704243752-05:00" level=info msg="Firewalld: docker zone already exists, returning"
+Mar 06 20:33:15 localhost.localdomain dockerd[23976]: time="2026-03-06T20:33:15.745408454-05:00" level=info msg="stopping event stream following graceful shutdown" error="<nil>" module=libcontainerd namespace=moby
+Mar 06 20:33:15 localhost.localdomain dockerd[23976]: failed to start daemon: Error initializing network controller: error obtaining controller instance: failed to register "bridge" driver: failed to create NAT chain DOCKER: COMMAND_FAILED: INVALID_IPV: 'ipv4' is not a valid backend or is unavailable
+Mar 06 20:33:15 localhost.localdomain systemd[1]: [0;1;39m[0;1;31m[0;1;39mdocker.service: Main process exited, code=exited, status=1/FAILURE[0m
+[0;38;5;245m░░ [0m[0;32mSubject: Unit process exited[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mAn ExecStart= process belonging to unit docker.service has exited.[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe process' exit code is 'exited' and its exit status is 1.[0m
+Mar 06 20:33:15 localhost.localdomain systemd[1]: [0;1;38:5:185m[0;1;39m[0;1;38:5:185mdocker.service: Failed with result 'exit-code'.[0m
+[0;38;5;245m░░ [0m[0;32mSubject: Unit failed[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe unit docker.service has entered the 'failed' state with result 'exit-code'.[0m
+Mar 06 20:33:15 localhost.localdomain systemd[1]: [0;1;31m[0;1;39m[0;1;31mFailed to start docker.service - Docker Application Container Engine.[0m
+[0;38;5;245m░░ [0m[0;32mSubject: A start job for unit docker.service has failed[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mA start job for unit docker.service has finished with a failure.[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe job identifier is 20508 and the job result is failed.[0m
+Mar 06 20:33:17 localhost.localdomain systemd[1]: docker.service: Scheduled restart job, restart counter is at 1.
+[0;38;5;245m░░ [0m[0;32mSubject: Automatic restarting of a unit has been scheduled[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mAutomatic restarting of the unit docker.service has been scheduled, as the result for[0m
+[0;38;5;245m░░[0m [0;32mthe configured Restart= setting for the unit.[0m
+Mar 06 20:33:17 localhost.localdomain systemd[1]: Starting docker.service - Docker Application Container Engine...
+[0;38;5;245m░░ [0m[0;32mSubject: A start job for unit docker.service has begun execution[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mA start job for unit docker.service has begun execution.[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe job identifier is 20660.[0m
+Mar 06 20:33:17 localhost.localdomain dockerd[24008]: time="2026-03-06T20:33:17.978254035-05:00" level=info msg="Starting up"
+Mar 06 20:33:17 localhost.localdomain dockerd[24008]: time="2026-03-06T20:33:17.978995040-05:00" level=info msg="OTEL tracing is not configured, using no-op tracer provider"
+Mar 06 20:33:17 localhost.localdomain dockerd[24008]: time="2026-03-06T20:33:17.979184027-05:00" level=info msg="detected 127.0.0.53 nameserver, assuming systemd-resolved, so using resolv.conf: /run/systemd/resolve/resolv.conf"
+Mar 06 20:33:17 localhost.localdomain dockerd[24008]: time="2026-03-06T20:33:17.988699450-05:00" level=info msg="Creating a containerd client" address=/run/containerd/containerd.sock timeout=1m0s
+Mar 06 20:33:18 localhost.localdomain dockerd[24008]: time="2026-03-06T20:33:18.039397836-05:00" level=info msg="[graphdriver] using prior storage driver: overlay2"
+Mar 06 20:33:18 localhost.localdomain dockerd[24008]: time="2026-03-06T20:33:18.046631018-05:00" level=info msg="Loading containers: start."
+Mar 06 20:33:18 localhost.localdomain dockerd[24008]: time="2026-03-06T20:33:18.063464340-05:00" level=info msg="Firewalld: docker zone already exists, returning"
+Mar 06 20:33:18 localhost.localdomain dockerd[24008]: time="2026-03-06T20:33:18.104017235-05:00" level=info msg="stopping event stream following graceful shutdown" error="<nil>" module=libcontainerd namespace=moby
+Mar 06 20:33:18 localhost.localdomain dockerd[24008]: failed to start daemon: Error initializing network controller: error obtaining controller instance: failed to register "bridge" driver: failed to create NAT chain DOCKER: COMMAND_FAILED: INVALID_IPV: 'ipv4' is not a valid backend or is unavailable
+Mar 06 20:33:18 localhost.localdomain dockerd[24008]: time="2026-03-06T20:33:18.104638298-05:00" level=info msg="stopping event stream following graceful shutdown" error="context canceled" module=libcontainerd namespace=plugins.moby
+Mar 06 20:33:18 localhost.localdomain systemd[1]: [0;1;39m[0;1;31m[0;1;39mdocker.service: Main process exited, code=exited, status=1/FAILURE[0m
+[0;38;5;245m░░ [0m[0;32mSubject: Unit process exited[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mAn ExecStart= process belonging to unit docker.service has exited.[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe process' exit code is 'exited' and its exit status is 1.[0m
+Mar 06 20:33:18 localhost.localdomain systemd[1]: [0;1;38:5:185m[0;1;39m[0;1;38:5:185mdocker.service: Failed with result 'exit-code'.[0m
+[0;38;5;245m░░ [0m[0;32mSubject: Unit failed[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe unit docker.service has entered the 'failed' state with result 'exit-code'.[0m
+Mar 06 20:33:18 localhost.localdomain systemd[1]: [0;1;31m[0;1;39m[0;1;31mFailed to start docker.service - Docker Application Container Engine.[0m
+[0;38;5;245m░░ [0m[0;32mSubject: A start job for unit docker.service has failed[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mA start job for unit docker.service has finished with a failure.[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe job identifier is 20660 and the job result is failed.[0m
+Mar 06 20:33:20 localhost.localdomain systemd[1]: docker.service: Scheduled restart job, restart counter is at 2.
+[0;38;5;245m░░ [0m[0;32mSubject: Automatic restarting of a unit has been scheduled[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mAutomatic restarting of the unit docker.service has been scheduled, as the result for[0m
+[0;38;5;245m░░[0m [0;32mthe configured Restart= setting for the unit.[0m
+Mar 06 20:33:20 localhost.localdomain systemd[1]: Starting docker.service - Docker Application Container Engine...
+[0;38;5;245m░░ [0m[0;32mSubject: A start job for unit docker.service has begun execution[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mA start job for unit docker.service has begun execution.[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe job identifier is 20812.[0m
+Mar 06 20:33:20 localhost.localdomain dockerd[24035]: time="2026-03-06T20:33:20.197801896-05:00" level=info msg="Starting up"
+Mar 06 20:33:20 localhost.localdomain dockerd[24035]: time="2026-03-06T20:33:20.198924723-05:00" level=info msg="OTEL tracing is not configured, using no-op tracer provider"
+Mar 06 20:33:20 localhost.localdomain dockerd[24035]: time="2026-03-06T20:33:20.199235238-05:00" level=info msg="detected 127.0.0.53 nameserver, assuming systemd-resolved, so using resolv.conf: /run/systemd/resolve/resolv.conf"
+Mar 06 20:33:20 localhost.localdomain dockerd[24035]: time="2026-03-06T20:33:20.212663128-05:00" level=info msg="Creating a containerd client" address=/run/containerd/containerd.sock timeout=1m0s
+Mar 06 20:33:20 localhost.localdomain dockerd[24035]: time="2026-03-06T20:33:20.240349363-05:00" level=info msg="[graphdriver] using prior storage driver: overlay2"
+Mar 06 20:33:20 localhost.localdomain dockerd[24035]: time="2026-03-06T20:33:20.252801917-05:00" level=info msg="Loading containers: start."
+Mar 06 20:33:20 localhost.localdomain dockerd[24035]: time="2026-03-06T20:33:20.265533348-05:00" level=info msg="Firewalld: docker zone already exists, returning"
+Mar 06 20:33:20 localhost.localdomain dockerd[24035]: time="2026-03-06T20:33:20.305793716-05:00" level=info msg="stopping event stream following graceful shutdown" error="<nil>" module=libcontainerd namespace=moby
+Mar 06 20:33:20 localhost.localdomain dockerd[24035]: failed to start daemon: Error initializing network controller: error obtaining controller instance: failed to register "bridge" driver: failed to create NAT chain DOCKER: COMMAND_FAILED: INVALID_IPV: 'ipv4' is not a valid backend or is unavailable
+Mar 06 20:33:20 localhost.localdomain systemd[1]: [0;1;39m[0;1;31m[0;1;39mdocker.service: Main process exited, code=exited, status=1/FAILURE[0m
+[0;38;5;245m░░ [0m[0;32mSubject: Unit process exited[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mAn ExecStart= process belonging to unit docker.service has exited.[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe process' exit code is 'exited' and its exit status is 1.[0m
+Mar 06 20:33:20 localhost.localdomain systemd[1]: [0;1;38:5:185m[0;1;39m[0;1;38:5:185mdocker.service: Failed with result 'exit-code'.[0m
+[0;38;5;245m░░ [0m[0;32mSubject: Unit failed[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe unit docker.service has entered the 'failed' state with result 'exit-code'.[0m
+Mar 06 20:33:20 localhost.localdomain systemd[1]: [0;1;31m[0;1;39m[0;1;31mFailed to start docker.service - Docker Application Container Engine.[0m
+[0;38;5;245m░░ [0m[0;32mSubject: A start job for unit docker.service has failed[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mA start job for unit docker.service has finished with a failure.[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe job identifier is 20812 and the job result is failed.[0m
+Mar 06 20:33:22 localhost.localdomain systemd[1]: docker.service: Scheduled restart job, restart counter is at 3.
+[0;38;5;245m░░ [0m[0;32mSubject: Automatic restarting of a unit has been scheduled[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mAutomatic restarting of the unit docker.service has been scheduled, as the result for[0m
+[0;38;5;245m░░[0m [0;32mthe configured Restart= setting for the unit.[0m
+Mar 06 20:33:22 localhost.localdomain systemd[1]: [0;1;38:5:185m[0;1;39m[0;1;38:5:185mdocker.service: Start request repeated too quickly.[0m
+Mar 06 20:33:22 localhost.localdomain systemd[1]: [0;1;38:5:185m[0;1;39m[0;1;38:5:185mdocker.service: Failed with result 'exit-code'.[0m
+[0;38;5;245m░░ [0m[0;32mSubject: Unit failed[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe unit docker.service has entered the 'failed' state with result 'exit-code'.[0m
+Mar 06 20:33:22 localhost.localdomain systemd[1]: [0;1;31m[0;1;39m[0;1;31mFailed to start docker.service - Docker Application Container Engine.[0m
+[0;38;5;245m░░ [0m[0;32mSubject: A start job for unit docker.service has failed[0m
+[0;38;5;245m░░[0m [0;32mDefined-By: systemd[0m
+[0;38;5;245m░░[0m [0;32mSupport: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mA start job for unit docker.service has finished with a failure.[0m
+[0;38;5;245m░░[0m [0;32m[0m
+[0;38;5;245m░░[0m [0;32mThe job identifier is 20964 and the job result is failed.[0m

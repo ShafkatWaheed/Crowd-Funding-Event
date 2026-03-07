@@ -25,6 +25,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _birthdayController = TextEditingController();
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   String _selectedRole = 'customer';
@@ -38,6 +39,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _phoneController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _birthdayController.dispose();
     super.dispose();
   }
 
@@ -61,7 +63,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       lastDate: now,
     );
     if (picked != null && mounted) {
-      setState(() => _selectedBirthday = picked);
+      setState(() {
+        _selectedBirthday = picked;
+        _birthdayController.text = AppDateFormat.dateOnly(picked);
+      });
     }
   }
 
@@ -82,7 +87,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     await context.read<AuthProvider>().signUp(
-          email: _emailController.text.trim(),
+          email: _emailController.text.trim().toLowerCase(),
           password: _passwordController.text,
           role: _selectedRole,
           displayName: _nameController.text.trim(),
@@ -256,8 +261,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               if (value == null || value.trim().isEmpty) {
                                 return 'Please enter your email';
                               }
-                              if (!value.contains('@')) {
-                                return 'Please enter a valid email';
+                              final emailRegex = RegExp(r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$');
+                              if (!emailRegex.hasMatch(value.trim())) {
+                                return 'Please enter a valid email address';
                               }
                               return null;
                             },
@@ -271,6 +277,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               prefixIcon: Icon(Icons.phone_outlined),
                               hintText: '+1 234 567 8900',
                             ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) return null;
+                              final digits = value.replaceAll(RegExp(r'[^\d]'), '');
+                              if (digits.length < 7 || digits.length > 15) {
+                                return 'Enter a valid phone number (7–15 digits)';
+                              }
+                              return null;
+                            },
                           ),
                           AppSpacing.vLg,
                           TextFormField(
@@ -352,11 +366,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                         )
                                       : const Icon(Icons.calendar_today_outlined, size: 20),
                                 ),
-                                controller: TextEditingController(
-                                  text: _selectedBirthday != null
-                                      ? AppDateFormat.dateOnly(_selectedBirthday!)
-                                      : '',
-                                ),
+                                controller: _birthdayController,
                                 validator: (_) {
                                   if (_selectedBirthday == null) return 'Birthday is required';
                                   if (_calculatedAge != null && _calculatedAge! < 13) {

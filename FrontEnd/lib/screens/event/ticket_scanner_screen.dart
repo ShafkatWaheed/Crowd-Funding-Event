@@ -118,10 +118,14 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
       if (rawData.trimLeft().startsWith('{')) {
         try {
           final json = jsonDecode(rawData) as Map<String, dynamic>;
-          ticketCode = json['ticket_code'] as String?;
+          // Backend plaintext-fallback payload uses 'tc'; legacy format uses 'ticket_code'
+          ticketCode = (json['tc'] ?? json['ticket_code']) as String?;
         } catch (_) {
           ticketCode = rawData;
         }
+        // If neither key was present, fall back to sending raw JSON as encrypted_payload
+        // so the backend's decrypt function can handle it.
+        if (ticketCode == null) encryptedPayload = rawData;
       } else {
         encryptedPayload = rawData;
       }

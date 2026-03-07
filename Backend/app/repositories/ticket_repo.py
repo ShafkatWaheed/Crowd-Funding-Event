@@ -231,6 +231,29 @@ class TicketRepository(BaseRepository[TicketSale]):
         result = await db.execute(q)
         return {int(row.event_id): int(row.cnt) for row in result.all()}
 
+    async def get_total_tier_capacity_for_events(
+        self, db: AsyncSession, event_ids: list[int],
+    ) -> dict[int, int]:
+        """Return {event_id: sum_of_tier_max_reserved_spots} for each event."""
+        if not event_ids:
+            return {}
+        q = (
+            select(TicketTier.event_id, func.sum(TicketTier.max_reserved_spots).label("total"))
+            .where(TicketTier.event_id.in_(event_ids))
+            .group_by(TicketTier.event_id)
+        )
+        result = await db.execute(q)
+        return {int(row.event_id): int(row.total) for row in result.all()}
+
+    async def get_total_tier_capacity(
+        self, db: AsyncSession, event_id: int,
+    ) -> int:
+        """Return total tier capacity (sum of max_reserved_spots) for a single event."""
+        q = select(func.coalesce(func.sum(TicketTier.max_reserved_spots), 0)).where(
+            TicketTier.event_id == event_id,
+        )
+        return int((await db.execute(q)).scalar_one())
+
     # ═══════════════════════════════════════════════════════════════════
     #  List queries — customer
     # ═══════════════════════════════════════════════════════════════════

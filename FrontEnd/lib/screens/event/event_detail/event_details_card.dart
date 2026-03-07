@@ -9,8 +9,18 @@ import 'event_detail_helpers.dart';
 
 class EventDetailsCard extends StatelessWidget {
   final Event event;
+  final bool isOrganizerOrAdmin;
 
-  const EventDetailsCard({super.key, required this.event});
+  const EventDetailsCard({
+    super.key,
+    required this.event,
+    this.isOrganizerOrAdmin = true,
+  });
+
+  static bool _showTicketStats(Event event) =>
+      event.status == EventStatus.selling_tickets ||
+      event.status == EventStatus.live ||
+      event.status == EventStatus.completed;
 
   @override
   Widget build(BuildContext context) {
@@ -62,19 +72,33 @@ class EventDetailsCard extends StatelessWidget {
                   'Date',
                   'Announced after funding milestone',
                   valueColor: context.fundingAccent),
-            EventDetailHelpers.modernInfoRow(
-              context,
-              Icons.people_alt_rounded,
-              'Capacity',
-              event.maxCapacity > 0
-                  ? EventDetailHelpers.capacityLabel(event)
-                  : '${event.registrationCount} registered',
-              valueColor: event.maxCapacity > 0 &&
-                      EventDetailHelpers.capacityUsed(event) >=
-                          event.maxCapacity
-                  ? AppTheme.errorColor
-                  : null,
-            ),
+            if (isOrganizerOrAdmin)
+              EventDetailHelpers.modernInfoRow(
+                context,
+                Icons.people_alt_rounded,
+                'Capacity',
+                event.maxCapacity > 0
+                    ? EventDetailHelpers.capacityLabel(event)
+                    : '${event.registrationCount} registered',
+                valueColor: event.maxCapacity > 0 &&
+                        EventDetailHelpers.capacityUsed(event) >=
+                            event.maxCapacity
+                    ? AppTheme.errorColor
+                    : null,
+              ),
+            if (!isOrganizerOrAdmin && _showTicketStats(event))
+              EventDetailHelpers.modernInfoRow(
+                context,
+                Icons.confirmation_number_rounded,
+                'Tickets Sold',
+                event.totalTierCapacity > 0
+                    ? '${event.ticketsSoldCount} / ${event.totalTierCapacity}'
+                    : '${event.ticketsSoldCount}',
+                valueColor: event.totalTierCapacity > 0 &&
+                        event.ticketsSoldCount >= event.totalTierCapacity
+                    ? AppTheme.errorColor
+                    : null,
+              ),
             EventDetailHelpers.modernInfoRow(
                 context,
                 Icons.badge_rounded,
@@ -86,7 +110,7 @@ class EventDetailsCard extends StatelessWidget {
                   Icons.hourglass_bottom_rounded,
                   'Set Event Date By',
                   AppDateFormat.fullDateTime(event.eventDateDeadline!)),
-            if (event.ticketStrategyName != null)
+            if (event.ticketStrategyName != null && isOrganizerOrAdmin)
               EventDetailHelpers.modernInfoRow(
                   context,
                   Icons.confirmation_number_rounded,

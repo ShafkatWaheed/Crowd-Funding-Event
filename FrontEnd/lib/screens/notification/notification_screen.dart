@@ -19,6 +19,14 @@ String? resolveNotificationRoute(NotificationPayload payload) {
   switch (payload.type) {
     // ── Tickets ──
     case 'ticket_purchased':
+      if (eventId != null && payload.purchaseGroupId != null) {
+        return '/events/$eventId/purchase-group/${payload.purchaseGroupId}/receipt';
+      }
+      if (eventId != null && saleId != null) {
+        return '/events/$eventId/tickets/$saleId/receipt';
+      }
+    case 'ticket_sold':
+      if (eventId != null) return '/events/$eventId/ticket-sales';
     case 'ticket_waitlist_approved':
     case 'refund_issued':
       if (eventId != null && saleId != null) {
@@ -123,6 +131,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
       case 'milestone_reached':
         return Icons.emoji_events_outlined;
       case 'ticket_purchased':
+      case 'ticket_sold':
         return Icons.confirmation_number_outlined;
       case 'ticket_waitlist_approved':
         return Icons.check_circle;
@@ -173,6 +182,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     if (type.contains('approved') || type.contains('confirmed') || type.contains('accepted')) {
       return AppTheme.successColor;
     }
+    if (type == 'ticket_sold') return AppTheme.successColor;
     if (type == 'sponsor_payment_received') return AppTheme.successColor;
     if (type == 'refund_requested') return AppTheme.warningColor;
     if (type == 'settings_warning') return AppTheme.warningColor;
@@ -187,6 +197,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
       case 'ticket_purchased':
       case 'ticket_waitlist_approved':
         return 'View ticket';
+      case 'ticket_sold':
+        return 'View sales';
       case 'ticket_waitlist_rejected':
         return 'View waitlist';
       case 'refund_requested':

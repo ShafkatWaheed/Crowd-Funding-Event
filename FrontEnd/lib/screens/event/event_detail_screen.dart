@@ -822,7 +822,11 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           ),
 
         // Details Card
-        EventDetailsCard(event: event),
+        EventDetailsCard(
+          event: event,
+          isOrganizerOrAdmin: user != null &&
+              (user.isOrganizer || user.isAdmin),
+        ),
         AppSpacing.vXl,
 
         // Getting There

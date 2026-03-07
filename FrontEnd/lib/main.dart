@@ -267,7 +267,11 @@ class _AppShellState extends State<_AppShell> {
 
     _router ??= createRouter(authProvider);
 
-    final loading = authProvider.isLoading;
+    // Show SplashScreen only during the one-time initial Firebase session
+    // check. After that, isLoading may still be true during signIn/signUp —
+    // but we must NOT replace the router child then, because doing so unmounts
+    // the entire Navigator and destroys form state on the login/register pages.
+    final initializing = !authProvider.initialCheckDone;
 
     return MaterialApp.router(
       title: 'CrowdFund Events',
@@ -277,7 +281,7 @@ class _AppShellState extends State<_AppShell> {
       themeMode: themeProvider.mode,
       routerConfig: _router!,
       builder: (context, child) {
-        if (loading) return const SplashScreen();
+        if (initializing) return const SplashScreen();
         return child ?? const SizedBox.shrink();
       },
     );

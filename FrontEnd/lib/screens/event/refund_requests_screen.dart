@@ -20,6 +20,7 @@ class _RefundRequestsScreenState extends State<RefundRequestsScreen> {
   List<TicketSale> _requests = [];
   bool _loading = true;
   String? _error;
+  String _search = '';
 
   @override
   void initState() {
@@ -80,8 +81,25 @@ class _RefundRequestsScreenState extends State<RefundRequestsScreen> {
     }
   }
 
+  List<TicketSale> get _filtered {
+    if (_search.isEmpty) return _requests;
+    final q = _search.toLowerCase();
+    return _requests.where((t) {
+      final name = (t.attendeeDisplayName ?? '').toLowerCase();
+      final tier = (t.tierName ?? '').toLowerCase();
+      final code = t.ticketCode.toLowerCase();
+      final receipt = (t.receiptNumber ?? '').toLowerCase();
+      return name.contains(q) ||
+          tier.contains(q) ||
+          code.contains(q) ||
+          receipt.contains(q);
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final filtered = _filtered;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Refund Requests')),
       body: _loading
@@ -103,11 +121,46 @@ class _RefundRequestsScreenState extends State<RefundRequestsScreen> {
                     )
                   : RefreshIndicator(
                       onRefresh: _load,
-                      child: ListView.separated(
-                        padding: AppSpacing.paddingLg,
-                        itemCount: _requests.length,
-                        separatorBuilder: (_, __) => AppSpacing.vMd,
-                        itemBuilder: (context, i) => _buildCard(_requests[i]),
+                      child: Column(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(
+                              AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 0,
+                            ),
+                            child: TextField(
+                              onChanged: (v) => setState(() => _search = v),
+                              decoration: InputDecoration(
+                                hintText: 'Search by name, tier, code...',
+                                prefixIcon: const Icon(Icons.search, size: 20),
+                                suffixIcon: _search.isNotEmpty
+                                    ? IconButton(
+                                        icon: const Icon(Icons.close, size: 18),
+                                        onPressed: () => setState(() => _search = ''),
+                                      )
+                                    : null,
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  vertical: AppSpacing.sm,
+                                ),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: filtered.isEmpty
+                                ? Center(
+                                    child: Text('No results for "$_search"',
+                                        style: TextStyle(
+                                            color: AppTheme.textSecondaryOf(context))),
+                                  )
+                                : ListView.separated(
+                                    padding: AppSpacing.paddingLg,
+                                    itemCount: filtered.length,
+                                    separatorBuilder: (_, __) => AppSpacing.vMd,
+                                    itemBuilder: (context, i) =>
+                                        _buildCard(filtered[i]),
+                                  ),
+                          ),
+                        ],
                       ),
                     ),
     );

@@ -25,6 +25,7 @@ class OrganizerDashboardTab extends StatefulWidget {
   final void Function(int) onToggleBookmark;
   final void Function(List<int> eventIds)? onEventsLoaded;
   final void Function(String? status, String? genre)? onNavigateToExplore;
+  final void Function(void Function() refresh)? onRefreshReady;
 
   const OrganizerDashboardTab({
     super.key,
@@ -32,6 +33,7 @@ class OrganizerDashboardTab extends StatefulWidget {
     required this.onToggleBookmark,
     this.onEventsLoaded,
     this.onNavigateToExplore,
+    this.onRefreshReady,
   });
 
   @override
@@ -60,7 +62,10 @@ class _OrganizerDashboardTabState extends State<OrganizerDashboardTab> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadDashboard());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      widget.onRefreshReady?.call(_loadDashboard);
+      _loadDashboard();
+    });
   }
 
   Future<void> _loadDashboard({

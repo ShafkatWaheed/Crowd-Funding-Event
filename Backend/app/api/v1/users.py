@@ -479,6 +479,7 @@ async def get_organizer_dashboard(
     pledged_map = await funding_service.get_pledged_totals_for_events(db, event_ids=event_ids) if event_ids else {}
     from app.services import ticket as ts
     tickets_sold_map = await ts.get_ticket_sold_counts_for_events(db, event_ids=event_ids) if event_ids else {}
+    tier_caps_map = await ts.get_total_tier_capacity_for_events(db, event_ids=event_ids) if event_ids else {}
     first_images = await _get_first_images(db, event_ids) if event_ids else {}
 
     now = datetime.now(timezone.utc)
@@ -497,6 +498,7 @@ async def get_organizer_dashboard(
                 total_pledged_cents=total_cents,
                 funding_days_left=days_left,
                 tickets_sold_count=tickets_sold_map.get(e.id, 0),
+                total_tier_capacity=tier_caps_map.get(e.id, 0),
                 first_image_url=first_images.get(e.id),
             ))
         return result

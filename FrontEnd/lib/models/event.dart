@@ -39,6 +39,7 @@ class Event {
   final int? fundingDaysLeft;
   final int totalReservedSpots;
   final int ticketsSoldCount;
+  final int totalTierCapacity;
   final String? cancellationReason;
   final String? reviewNotes;
   final int registrationCount;
@@ -105,6 +106,7 @@ class Event {
     this.fundingDaysLeft,
     this.totalReservedSpots = 0,
     this.ticketsSoldCount = 0,
+    this.totalTierCapacity = 0,
     this.cancellationReason,
     this.reviewNotes,
     this.registrationCount = 0,
@@ -179,6 +181,7 @@ class Event {
       fundingDaysLeft: json['funding_days_left'],
       totalReservedSpots: json['total_reserved_spots'] ?? 0,
       ticketsSoldCount: json['tickets_sold_count'] ?? 0,
+      totalTierCapacity: json['total_tier_capacity'] ?? 0,
       cancellationReason: json['cancellation_reason'],
       reviewNotes: json['review_notes'],
       registrationCount: json['registration_count'] ?? 0,

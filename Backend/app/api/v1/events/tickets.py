@@ -210,13 +210,26 @@ async def purchase_ticket(
             discount_cents=first.discount_applied_cents,
             commission_cents=getattr(first, "commission_cents", 0) or 0,
         )
+        notif_data: dict = {"event_id": event_id, "ticket_sale_id": first.id}
+        if first.purchase_group_id:
+            notif_data["purchase_group_id"] = first.purchase_group_id
         await notif_svc.create_notification(
             db, user_id=current_user.id,
             type=NotificationType.ticket_purchased,
             title="Ticket Purchased",
             message=f"You purchased {len(sales)} ticket(s) for \"{event.title if event else 'the event'}\".",
-            data={"event_id": event_id, "ticket_sale_id": first.id},
+            data=notif_data,
         )
+        # Notify the organizer about the sale
+        if event and event.organizer_id != current_user.id:
+            buyer_name = current_user.display_name or current_user.email
+            await notif_svc.create_notification(
+                db, user_id=event.organizer_id,
+                type=NotificationType.ticket_sold,
+                title="Ticket Sold",
+                message=f"{buyer_name} purchased {len(sales)} ticket(s) for \"{event.title}\".",
+                data={"event_id": event_id, "ticket_sale_id": first.id},
+            )
     return [_ticket_sale_to_response(s) for s in sales]
 
 

@@ -20,6 +20,14 @@ from app.services.event.permissions import user_can_edit_event
 log = get_logger(__name__)
 
 
+def _is_read_only_session(db: AsyncSession) -> bool:
+    """Check if the session is bound to a read-only engine (replica)."""
+    try:
+        return db.bind.sync_engine._execution_options.get("postgresql_readonly", False)
+    except (AttributeError, TypeError):
+        return False
+
+
 async def _snapshot_venue(db: AsyncSession, event: Event) -> None:
     """Freeze venue data into event.venue_snapshot for historical preservation.
 
@@ -50,6 +58,10 @@ async def auto_transition_status(db: AsyncSession, event: Event) -> Event:
     Check time-based state transitions and apply them.
     Called on every event fetch to keep status current.
 
+    On read-only sessions: computes the new status (so the API response is
+    correct) but skips all write side effects (flush, refunds, notifications).
+    The transition will be persisted on the next write-session request.
+
     Lifecycle:
       approved -> (funding_end_at passes):
         - If start_time set -> waiting_event_date (organizer must manually start selling)
@@ -67,6 +79,9 @@ async def auto_transition_status(db: AsyncSession, event: Event) -> Event:
     now = datetime.now(timezone.utc)
     changed = False
     previous_status = event.status
+
+    # Detect read-only session: read-replica engine sets postgresql_readonly=True
+    read_only = _is_read_only_session(db)
 
     def _tz(dt: datetime | None) -> datetime | None:
         if dt is None:
@@ -97,17 +112,18 @@ async def auto_transition_status(db: AsyncSession, event: Event) -> Event:
             if event.event_date_deadline is not None and now >= _tz(event.event_date_deadline) and event.start_time is None:
                 event.status = EventStatus.cancelled
                 event.cancellation_reason = "Event date was not set within the required deadline. Pledges refunded."
-                from app.services import funding as funding_service
-                await funding_service.refund_all_pledges_for_event(db, event_id=event.id, guest_refund=False)
-                from app.services import email_notifications as email_notify
-                import asyncio
-                asyncio.ensure_future(email_notify.notify_event_cancelled(
-                    db,
-                    event_id=event.id,
-                    event_title=event.title or f"Event #{event.id}",
-                    reason=event.cancellation_reason,
-                    event_date=event.start_time,
-                ))
+                if not read_only:
+                    from app.services import funding as funding_service
+                    await funding_service.refund_all_pledges_for_event(db, event_id=event.id, guest_refund=False)
+                    from app.services import email_notifications as email_notify
+                    import asyncio
+                    asyncio.ensure_future(email_notify.notify_event_cancelled(
+                        db,
+                        event_id=event.id,
+                        event_title=event.title or f"Event #{event.id}",
+                        reason=event.cancellation_reason,
+                        event_date=event.start_time,
+                    ))
                 changed = True
 
         # -- selling_tickets / approved -> check if event started --
@@ -116,7 +132,8 @@ async def auto_transition_status(db: AsyncSession, event: Event) -> Event:
             if start is not None and now >= start:
                 event.status = EventStatus.live
                 changed = True
-                await event_repo.zero_reserved_spots(db, event.id)
+                if not read_only:
+                    await event_repo.zero_reserved_spots(db, event.id)
 
         # -- live -> check if event ended --
         if event.status == EventStatus.live:
@@ -126,6 +143,10 @@ async def auto_transition_status(db: AsyncSession, event: Event) -> Event:
                 changed = True
 
     except Exception as exc:
+        if read_only:
+            log.debug("Auto-transition skipped on read-only session for event %s: %s", event.id, exc)
+            event.status = previous_status
+            return event
         log.exception("Auto-transition failed for event %s (was %s): %s", event.id, previous_status.value, exc)
         event.status = EventStatus.under_review
         event.review_notes = f"Auto-transition from '{previous_status.value}' failed: {exc}"
@@ -151,7 +172,7 @@ async def auto_transition_status(db: AsyncSession, event: Event) -> Event:
         except Exception:
             log.exception("Failed to send under_review notification for event %s", event.id)
 
-    if changed:
+    if changed and not read_only:
         await event_repo.flush_event(db)
 
     return event

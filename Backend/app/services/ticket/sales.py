@@ -204,6 +204,24 @@ async def get_ticket_sold_counts_for_events(
     return await ticket_repo.get_sold_counts_for_events(db, event_ids)
 
 
+async def get_total_tier_capacity_for_events(
+    db: AsyncSession,
+    *,
+    event_ids: list[int],
+) -> dict[int, int]:
+    """Return { event_id: sum_of_tier_max_reserved_spots } for each event."""
+    return await ticket_repo.get_total_tier_capacity_for_events(db, event_ids)
+
+
+async def get_total_tier_capacity(
+    db: AsyncSession,
+    *,
+    event_id: int,
+) -> int:
+    """Return total tier capacity for a single event."""
+    return await ticket_repo.get_total_tier_capacity(db, event_id)
+
+
 async def get_ticket_sales_stats(db: AsyncSession, *, event_id: int) -> dict:
     """Return total_sold and total_scanned counts for an event."""
     total_sold = await ticket_repo.count_purchased(db, event_id)

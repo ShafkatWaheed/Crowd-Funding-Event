@@ -342,6 +342,7 @@ class _HomeTabState extends State<HomeTab> {
                       isBookmarked: widget.bookmarkedIds.contains(event.id),
                       onBookmarkToggle: () =>
                           widget.onToggleBookmark(event.id),
+                      isOrganizerOrAdmin: false,
                     ),
                   );
                 },
@@ -739,6 +740,7 @@ class _HomeTabState extends State<HomeTab> {
                           isBookmarked: widget.bookmarkedIds.contains(event.id),
                           onBookmarkToggle: () =>
                               widget.onToggleBookmark(event.id),
+                          isOrganizerOrAdmin: false,
                         ),
                       );
                     },

@@ -32,6 +32,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late int _navIndex;
   void Function()? _exploreRefresh;
+  void Function()? _orgDashRefresh;
   EventProvider? _eventProvider;
 
   // Bookmarks — batch-checked once per event list load
@@ -144,6 +145,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     bookmarkedIds: _bookmarkedIds,
                     onToggleBookmark: _toggleBookmark,
                     onEventsLoaded: _batchCheckBookmarks,
+                    onRefreshReady: (refresh) => _orgDashRefresh = refresh,
                     onNavigateToExplore: (status, genre) {
                       setState(() {
                         _exploreInitialStatus = status;
@@ -177,7 +179,10 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           if (isOrg)
             ManageTab(
-              onEventCreated: () => _exploreRefresh?.call(),
+              onEventCreated: () {
+                _exploreRefresh?.call();
+                _orgDashRefresh?.call();
+              },
               headerIcons: _buildHeaderIcons(hasChatTab),
             )
           else if (user != null && user.isSponsor)
@@ -234,6 +239,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       final created = await context.push<bool>('/events/create');
                       if (created == true && mounted) {
                         _exploreRefresh?.call();
+                        _orgDashRefresh?.call();
                       }
                     },
                     backgroundColor: AppTheme.accentColor,

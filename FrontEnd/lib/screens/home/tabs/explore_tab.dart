@@ -708,6 +708,8 @@ class _ExploreTabState extends State<ExploreTab> {
                         isBookmarked: widget.bookmarkedIds.contains(event.id),
                         onBookmarkToggle: () =>
                             widget.onToggleBookmark(event.id),
+                        isOrganizerOrAdmin: user != null &&
+                            (user.isOrganizer || user.isAdmin),
                       ),
                     );
                   },

@@ -6,6 +6,7 @@ class NotificationPayload {
   final int? bidId;
   final int? categoryId;
   final int? ticketSaleId;
+  final String? purchaseGroupId;
   final int? pledgeId;
 
   const NotificationPayload({
@@ -14,6 +15,7 @@ class NotificationPayload {
     this.bidId,
     this.categoryId,
     this.ticketSaleId,
+    this.purchaseGroupId,
     this.pledgeId,
   });
 
@@ -24,6 +26,7 @@ class NotificationPayload {
       bidId: _parseInt(data['bid_id']),
       categoryId: _parseInt(data['category_id']),
       ticketSaleId: _parseInt(data['ticket_sale_id']),
+      purchaseGroupId: data['purchase_group_id'] as String?,
       pledgeId: _parseInt(data['pledge_id']),
     );
   }

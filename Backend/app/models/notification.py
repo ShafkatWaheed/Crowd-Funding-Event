@@ -23,6 +23,7 @@ class NotificationType(str, enum.Enum):
 
     # Tickets
     ticket_purchased = "ticket_purchased"
+    ticket_sold = "ticket_sold"
     ticket_waitlist_approved = "ticket_waitlist_approved"
     ticket_waitlist_rejected = "ticket_waitlist_rejected"
 

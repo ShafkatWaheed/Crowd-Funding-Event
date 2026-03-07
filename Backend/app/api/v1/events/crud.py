@@ -93,6 +93,7 @@ async def list_events(
     pledged = await funding_service.get_pledged_totals_for_events(db, event_ids=event_ids)
     reserved = await funding_service.get_total_reserved_spots_for_events(db, event_ids=event_ids)
     tickets_sold = await ticket_service.get_ticket_sold_counts_for_events(db, event_ids=event_ids)
+    tier_caps = await ticket_service.get_total_tier_capacity_for_events(db, event_ids=event_ids)
     first_images = await _get_first_images(db, event_ids)
     now = datetime.now(timezone.utc)
     out = []
@@ -110,6 +111,7 @@ async def list_events(
                 funding_days_left=days_left,
                 total_reserved_spots=reserved.get(e.id, 0),
                 tickets_sold_count=tickets_sold.get(e.id, 0),
+                total_tier_capacity=tier_caps.get(e.id, 0),
                 first_image_url=first_images.get(e.id),
             )
         )
@@ -157,6 +159,7 @@ async def get_featured_events(request: Request, db: ReadDbSession, sponsorship_o
         pledged = await funding_service.get_pledged_totals_for_events(db, event_ids=all_ids)
         reserved = await funding_service.get_total_reserved_spots_for_events(db, event_ids=all_ids)
         tickets_sold = await ticket_service.get_ticket_sold_counts_for_events(db, event_ids=all_ids)
+        tier_caps = await ticket_service.get_total_tier_capacity_for_events(db, event_ids=all_ids)
         first_images = await _get_first_images(db, all_ids)
 
         now = datetime.now(timezone.utc)
@@ -174,6 +177,7 @@ async def get_featured_events(request: Request, db: ReadDbSession, sponsorship_o
                 funding_days_left=days_left,
                 total_reserved_spots=reserved.get(e.id, 0),
                 tickets_sold_count=tickets_sold.get(e.id, 0),
+                total_tier_capacity=tier_caps.get(e.id, 0),
                 first_image_url=first_images.get(e.id),
             )
 
@@ -272,6 +276,7 @@ async def get_event(event_id: int, db: ReadDbSession, current_user: CurrentUserO
         raise NotFoundError("Event", event_id)
     summary = await funding_service.get_summary(db, event_id=event_id)
     ticket_stats = await ticket_service.get_ticket_sales_stats(db, event_id=event_id)
+    tier_cap = await ticket_service.get_total_tier_capacity(db, event_id=event_id)
     now = datetime.now(timezone.utc)
     days_left = None
     if event.funding_end_at is not None:
@@ -287,6 +292,7 @@ async def get_event(event_id: int, db: ReadDbSession, current_user: CurrentUserO
         funding_days_left=days_left,
         total_reserved_spots=summary.get("total_reserved_spots", 0),
         tickets_sold_count=ticket_stats["total_sold"],
+        total_tier_capacity=tier_cap,
         include_dislike=is_admin,
         organizer_trust=trust,
         first_image_url=first_images.get(event.id),

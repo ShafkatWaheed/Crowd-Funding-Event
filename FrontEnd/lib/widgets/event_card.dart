@@ -13,6 +13,7 @@ class EventCard extends StatefulWidget {
   final bool isBookmarked;
   final VoidCallback? onBookmarkToggle;
   final String? imageUrl;
+  final bool isOrganizerOrAdmin;
 
   const EventCard({
     super.key,
@@ -21,6 +22,7 @@ class EventCard extends StatefulWidget {
     this.isBookmarked = false,
     this.onBookmarkToggle,
     this.imageUrl,
+    this.isOrganizerOrAdmin = true,
   });
 
   @override
@@ -35,6 +37,11 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
 
   bool get _isFull =>
       widget.event.maxCapacity > 0 && _attendeeCount >= widget.event.maxCapacity;
+
+  bool get _showTicketStats =>
+      widget.event.status == EventStatus.selling_tickets ||
+      widget.event.status == EventStatus.live ||
+      widget.event.status == EventStatus.completed;
 
   @override
   Widget build(BuildContext context) {
@@ -66,7 +73,7 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
             children: [
               _buildHeader(context, event, isDark),
               _buildBody(context, event),
-              if (event.maxCapacity > 0)
+              if (event.maxCapacity > 0 && widget.isOrganizerOrAdmin)
                 _buildCapacityBar(context),
             ],
           ),
@@ -138,7 +145,7 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
                         ),
                       ),
                       AppSpacing.hSm,
-                      _FrostedStatusBadge(status: event.status),
+                      _FrostedStatusBadge(status: event.status, hasFunding: event.isFunding),
                       if (event.ageRestricted) ...[
                         const SizedBox(width: 6),
                         Container(
@@ -205,15 +212,34 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
           Row(
             children: [
               _StatChip(icon: Icons.favorite_rounded, value: '${event.likeCount}'),
-              if (_attendeeCount > 0)
-                Flexible(
-                  child: _StatChip(
-                    icon: Icons.group_rounded,
-                    value: event.maxCapacity > 0
-                        ? '$_attendeeCount / ${event.maxCapacity}'
-                        : '$_attendeeCount going',
+              if (widget.isOrganizerOrAdmin) ...[
+                if (_attendeeCount > 0)
+                  Flexible(
+                    child: _StatChip(
+                      icon: Icons.group_rounded,
+                      value: event.maxCapacity > 0
+                          ? '$_attendeeCount / ${event.maxCapacity}'
+                          : '$_attendeeCount going',
+                    ),
                   ),
-                ),
+              ] else if (_showTicketStats) ...[
+                if (event.totalTierCapacity > 0)
+                  Flexible(
+                    child: _StatChip(
+                      icon: Icons.confirmation_number_rounded,
+                      value: event.ticketsSoldCount >= event.totalTierCapacity
+                          ? 'Sold Out'
+                          : '${event.ticketsSoldCount}/${event.totalTierCapacity}',
+                    ),
+                  )
+                else if (event.ticketsSoldCount > 0)
+                  Flexible(
+                    child: _StatChip(
+                      icon: Icons.confirmation_number_rounded,
+                      value: '${event.ticketsSoldCount}',
+                    ),
+                  ),
+              ],
               if (hasFunding) ...[
                 const Spacer(),
                 Flexible(
@@ -323,14 +349,15 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
 
 class _FrostedStatusBadge extends StatelessWidget {
   final EventStatus status;
-  const _FrostedStatusBadge({required this.status});
+  final bool hasFunding;
+  const _FrostedStatusBadge({required this.status, this.hasFunding = false});
 
   @override
   Widget build(BuildContext context) {
     final label = switch (status) {
       EventStatus.draft => 'Draft',
       EventStatus.pending_approval => 'Waiting Approval',
-      EventStatus.approved => 'Funding',
+      EventStatus.approved => hasFunding ? 'Funding' : 'Tickets',
       EventStatus.live => 'LIVE',
       EventStatus.selling_tickets => 'Tickets',
       EventStatus.waiting_event_date => 'Awaiting',

@@ -32,7 +32,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     await context.read<AuthProvider>().signIn(
-          email: _emailController.text.trim(),
+          email: _emailController.text.trim().toLowerCase(),
           password: _passwordController.text,
         );
   }
@@ -140,8 +140,9 @@ class _LoginScreenState extends State<LoginScreen> {
                               if (value == null || value.trim().isEmpty) {
                                 return 'Please enter your email';
                               }
-                              if (!value.contains('@')) {
-                                return 'Please enter a valid email';
+                              final emailRegex = RegExp(r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$');
+                              if (!emailRegex.hasMatch(value.trim())) {
+                                return 'Please enter a valid email address';
                               }
                               return null;
                             },

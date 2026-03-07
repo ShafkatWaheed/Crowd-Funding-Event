@@ -1,0 +1,45 @@
+# Python
+**/__pycache__
+**/*.pyc
+Backend/venv/
+Backend/.venv/
+Backend/tests/
+Backend/.pytest_cache/
+Backend/.coverage
+Backend/htmlcov/
+
+# Flutter
+FrontEnd/.dart_tool/
+FrontEnd/.flutter-plugins*
+FrontEnd/build/
+FrontEnd/.packages
+FrontEnd/android/
+FrontEnd/ios/
+FrontEnd/linux/
+FrontEnd/macos/
+FrontEnd/windows/
+FrontEnd/test/
+
+# IDE and OS
+.idea/
+.vscode/
+.cursor/
+.claude/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Secrets (never bake into image)
+cred/
+Backend/.env
+FrontEnd/.env
+*.pem
+
+# Other
+venv/
+.git/
+docs/
+feature_imp/
+planned/
+cognee/
+node_modules/

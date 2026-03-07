@@ -1,0 +1,109 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-event_db}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "${PG_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-event_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build:
+      context: ..
+      dockerfile: Kub_docker/backend/Dockerfile
+    image: crowd-funding-backend:latest
+    restart: unless-stopped
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-event_db}
+      REDIS_URL: redis://redis:6379/0
+      RATELIMIT_STORAGE_URL: redis://redis:6379/1
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
+      GOOGLE_APPLICATION_CREDENTIALS: /app/cred/firebase-credentials.json
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      BANK_ENCRYPTION_KEY: ${BANK_ENCRYPTION_KEY}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      - uploads:/app/static/uploads
+      - ${FIREBASE_CRED_PATH:?Set FIREBASE_CRED_PATH in .env}:/app/cred/firebase-credentials.json:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  worker:
+    image: crowd-funding-backend:latest
+    restart: unless-stopped
+    command: ["arq", "app.worker.main.WorkerSettings"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-event_db}
+      REDIS_URL: redis://redis:6379/0
+      RATELIMIT_STORAGE_URL: redis://redis:6379/1
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
+      GOOGLE_APPLICATION_CREDENTIALS: /app/cred/firebase-credentials.json
+      BANK_ENCRYPTION_KEY: ${BANK_ENCRYPTION_KEY}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      SKIP_MIGRATIONS: "true"
+    volumes:
+      - uploads:/app/static/uploads
+      - ${FIREBASE_CRED_PATH}:/app/cred/firebase-credentials.json:ro
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: Kub_docker/frontend/Dockerfile
+      args:
+        API_BASE_URL: ${API_BASE_URL:-http://localhost:8000}
+        FIREBASE_API_KEY: ${FIREBASE_API_KEY}
+        FIREBASE_AUTH_DOMAIN: ${FIREBASE_AUTH_DOMAIN}
+        FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
+        FIREBASE_STORAGE_BUCKET: ${FIREBASE_STORAGE_BUCKET}
+        FIREBASE_MESSAGING_SENDER_ID: ${FIREBASE_MESSAGING_SENDER_ID}
+        FIREBASE_APP_ID: ${FIREBASE_APP_ID}
+        FIREBASE_MEASUREMENT_ID: ${FIREBASE_MEASUREMENT_ID}
+        MAPBOX_ACCESS_TOKEN: ${MAPBOX_ACCESS_TOKEN}
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  uploads:

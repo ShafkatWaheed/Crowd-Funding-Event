@@ -1,6 +1,6 @@
 """Event Schedule API tests."""
 import pytest
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from httpx import AsyncClient
 
 from tests.conftest import SKIP_DB
@@ -13,8 +13,8 @@ pytestmark = [
 
 BASE = "/api/v1/events"
 
-# Helper: a valid future date string for schedule items
-_future_date = (date.today() + timedelta(days=30)).isoformat()
+# Helper: must use UTC date to match the test_event fixture (which uses datetime.now(timezone.utc))
+_future_date = (datetime.now(timezone.utc).date() + timedelta(days=30)).isoformat()
 
 
 # =====================================================================

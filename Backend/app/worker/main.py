@@ -48,7 +48,7 @@ def _load_cron_config() -> dict:
     }
     try:
         import asyncio
-        from app.db.base import async_session_factory
+        from app.db.base import async_session_maker as async_session_factory
         from app.services import platform_settings as s
 
         async def _read():

@@ -33,6 +33,9 @@ services:
       dockerfile: Kub_docker/backend/Dockerfile
     image: crowd-funding-backend:latest
     restart: unless-stopped
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     depends_on:
@@ -62,6 +65,9 @@ services:
   worker:
     image: crowd-funding-backend:latest
     restart: unless-stopped
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     command: ["arq", "app.worker.main.WorkerSettings"]
     depends_on:
       postgres:
@@ -75,7 +81,7 @@ services:
       REDIS_URL: redis://redis:6379/0
       RATELIMIT_STORAGE_URL: redis://redis:6379/1
       FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
-      GOOGLE_APPLICATION_CREDENTIALS: /app/cred/firebase-credentials.json
+      GOOGLE_APPLICATION_CREDENTIALS: firebase-credentials.json
       BANK_ENCRYPTION_KEY: ${BANK_ENCRYPTION_KEY}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       SKIP_MIGRATIONS: "true"

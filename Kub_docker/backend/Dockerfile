@@ -18,8 +18,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY Backend/app /app/app
 COPY Backend/alembic /app/alembic
 COPY Backend/alembic.ini /app/alembic.ini
-COPY Backend/scripts /app/scripts
-
 # Create directories for uploads and credentials
 RUN mkdir -p /app/static/uploads /app/cred
 

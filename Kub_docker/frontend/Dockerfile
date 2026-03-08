@@ -8,6 +8,9 @@ COPY FrontEnd/pubspec.yaml FrontEnd/pubspec.lock /app/
 
 RUN flutter pub get
 
+# Pre-download the Flutter Web SDK so flutter build web doesn't fetch it at build time
+RUN flutter precache --web
+
 # Copy the rest of the source
 COPY FrontEnd/ /app/
 

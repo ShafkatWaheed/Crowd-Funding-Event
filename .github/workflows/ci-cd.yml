@@ -94,6 +94,7 @@ jobs:
           FIREBASE_APP_ID=${{ secrets.FIREBASE_APP_ID }}
           FIREBASE_MEASUREMENT_ID=${{ secrets.FIREBASE_MEASUREMENT_ID }}
           MAPBOX_ACCESS_TOKEN=${{ secrets.MAPBOX_ACCESS_TOKEN }}
+          API_BASE_URL=${{ secrets.FRONTEND_URL }}
           ENVEOF
 
       - name: Deploy with Docker Compose

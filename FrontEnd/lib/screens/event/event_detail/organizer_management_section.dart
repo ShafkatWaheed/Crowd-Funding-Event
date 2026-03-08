@@ -494,7 +494,6 @@ class _OrganizerManagementSectionState
   Future<void> _showChangeCapacityDialog(Event event) async {
     final controller =
         TextEditingController(text: event.maxCapacity.toString());
-    final repo = context.read<EventProvider>();
     final eventProvider = context.read<EventProvider>();
     final secondaryColor = AppTheme.textSecondaryOf(context);
 

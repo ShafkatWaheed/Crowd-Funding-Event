@@ -37,6 +37,12 @@ jobs:
           python-version: "3.12"
       - name: Install dependencies
         run: pip install -r Backend/requirements.txt
+      - name: Run migrations
+        run: cd Backend && alembic upgrade head
+        env:
+          DATABASE_URL: postgresql+asyncpg://postgres:test@localhost:5432/event_db_test
+          FIREBASE_PROJECT_ID: test-project
+          GOOGLE_APPLICATION_CREDENTIALS: ""
       - name: Run tests
         run: cd Backend && pytest -v --tb=short
         env:

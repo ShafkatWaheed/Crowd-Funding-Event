@@ -46,6 +46,7 @@ jobs:
       - name: Run tests
         run: cd Backend && pytest -v --tb=short
         env:
+          DATABASE_URL: postgresql+asyncpg://postgres:test@localhost:5432/event_db_test
           TEST_DATABASE_URL: postgresql+asyncpg://postgres:test@localhost:5432/event_db_test
           RATELIMIT_STORAGE_URL: memory://
           FIREBASE_PROJECT_ID: test-project

@@ -65,20 +65,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Write backend .env
+      - name: Write Firebase credentials
         run: |
-          cat > Backend/.env << 'ENVEOF'
-          DATABASE_URL=${{ secrets.DATABASE_URL }}
+          mkdir -p cred
+          echo '${{ secrets.FIREBASE_CRED_JSON }}' > cred/cred.json
+
+      - name: Write docker-compose .env
+        run: |
+          cat > .env << 'ENVEOF'
+          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
           FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}
-          GOOGLE_APPLICATION_CREDENTIALS=../cred/cred.json
-          REDIS_URL=${{ secrets.REDIS_URL }}
+          FIREBASE_CRED_PATH=${{ github.workspace }}/cred/cred.json
           TICKET_ENCRYPTION_KEY=${{ secrets.TICKET_ENCRYPTION_KEY }}
           BANK_ENCRYPTION_KEY=${{ secrets.BANK_ENCRYPTION_KEY }}
           CORS_ORIGINS=*
+          API_BASE_URL=${{ secrets.API_BASE_URL }}
+          FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }}
+          FIREBASE_AUTH_DOMAIN=${{ secrets.FIREBASE_AUTH_DOMAIN }}
+          FIREBASE_STORAGE_BUCKET=${{ secrets.FIREBASE_STORAGE_BUCKET }}
+          FIREBASE_MESSAGING_SENDER_ID=${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
+          FIREBASE_APP_ID=${{ secrets.FIREBASE_APP_ID }}
+          FIREBASE_MEASUREMENT_ID=${{ secrets.FIREBASE_MEASUREMENT_ID }}
+          MAPBOX_ACCESS_TOKEN=${{ secrets.MAPBOX_ACCESS_TOKEN }}
           ENVEOF
-
-      - name: Write Firebase credentials
-        run: echo '${{ secrets.FIREBASE_CRED_JSON }}' > cred/cred.json
 
       - name: Deploy with Docker Compose
         run: docker compose -f Kub_docker/docker-compose.yml up -d --build

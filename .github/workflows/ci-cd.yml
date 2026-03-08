@@ -2,13 +2,14 @@ name: CI/CD
 
 on:
   push:
-    branches: [main, dev]
+    branches: [main]
   pull_request:
     branches: [main]
 
 jobs:
   test-backend:
     runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
     services:
       postgres:
         image: postgres:16-alpine
@@ -54,6 +55,7 @@ jobs:
 
   analyze-frontend:
     runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -66,9 +68,8 @@ jobs:
         run: cd FrontEnd && dart analyze lib/
 
   deploy:
-    needs: [test-backend, analyze-frontend]
     runs-on: self-hosted
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
 

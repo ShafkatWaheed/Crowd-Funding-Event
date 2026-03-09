@@ -237,7 +237,7 @@ class TestLogMockEmail:
                 new_callable=AsyncMock,
                 return_value=100,
             ):
-                with patch("app.services.email_service.random.randint", return_value=1):
+                with patch("random.randint", return_value=1):
                     status = await _log_mock_email("user@test.com", "Subj", "<p>hi</p>")
 
         assert status == "bounced"

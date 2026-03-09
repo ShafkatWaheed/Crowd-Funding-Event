@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../config/app_icons.dart';
 import '../../config/theme.dart';
+import '../../models/funding.dart';
 import '../../models/receipt.dart';
 import '../../utils/date_time_utils.dart';
 import '../../repositories/base_repository.dart';
@@ -102,7 +104,15 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
     final typeLabel = isDonation ? 'Donation' : 'Pledge';
     final createdAt = r.createdAt.toLocal();
 
-    final headerColor = isDonation ? context.photoAccent : context.sponsorAccent;
+    final isDark = AppTheme.isDark(context);
+    final pledgeStatus = PledgeStatus.values.firstWhere(
+      (s) => s.name == status,
+      orElse: () => PledgeStatus.pledged,
+    );
+    final headerColor = isDonation
+        ? AppIcons.donationColor(isDark: isDark)
+        : AppIcons.pledgeStatusColor(pledgeStatus, isDark: isDark);
+    final headerBg = Color.lerp(headerColor, Colors.black, isDark ? 0.15 : 0.45)!;
 
     return RefreshIndicator(
       onRefresh: _load,
@@ -131,25 +141,36 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 28),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: isDonation
-                          ? [context.photoAccent, context.photoAccent.withValues(alpha: 0.8)]
-                          : [context.sponsorAccent, context.sponsorAccent.withValues(alpha: 0.8)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
+                    color: headerBg,
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
                   ),
                   child: Column(
                     children: [
-                      Icon(isDonation ? Icons.card_giftcard_rounded : Icons.volunteer_activism_rounded,
-                          size: 40, color: Colors.white),
+                      Icon(
+                        isDonation ? AppIcons.donationIcon : AppIcons.pledgeStatusIcon(pledgeStatus),
+                        size: 40,
+                        color: Colors.white,
+                        shadows: const [Shadow(color: Colors.black38, blurRadius: 6)],
+                      ),
                       const SizedBox(height: 10),
-                      Text('$typeLabel Confirmed',
-                          style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                      Text(
+                        '$typeLabel Confirmed',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          shadows: [Shadow(color: Colors.black38, blurRadius: 4)],
+                        ),
+                      ),
                       const SizedBox(height: 4),
-                      Text(receiptNumber,
-                          style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12)),
+                      Text(
+                        receiptNumber,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.85),
+                          fontSize: 12,
+                          shadows: const [Shadow(color: Colors.black38, blurRadius: 4)],
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -265,11 +286,11 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
                             Clipboard.setData(ClipboardData(text: receiptNumber));
                             AppToast.success(context, 'Receipt number copied');
                           },
-                          icon: Icon(Icons.copy_rounded, size: 18, color: headerColor),
+                          icon: Icon(Icons.copy_rounded, size: 18, color: headerBg),
                           label: Text('Copy Receipt Number',
-                              style: TextStyle(color: headerColor)),
+                              style: TextStyle(color: headerBg)),
                           style: OutlinedButton.styleFrom(
-                            side: BorderSide(color: headerColor.withValues(alpha: 0.4)),
+                            side: BorderSide(color: headerBg.withValues(alpha: 0.4)),
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12)),
                           ),
@@ -283,7 +304,7 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
                         child: ElevatedButton(
                           onPressed: () => Navigator.of(context).pop(),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: headerColor,
+                            backgroundColor: headerBg,
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12)),

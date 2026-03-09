@@ -261,37 +261,6 @@ class _MyPledgesScreenState extends State<MyPledgesScreen> {
     );
   }
 
-  Widget _statChip(IconData icon, String label, {
-    required int count,
-    required int amountCents,
-    Color? iconColor,
-  }) {
-    final isDark    = AppTheme.isDark(context);
-    final bg        = AppTheme.frostedBg(isDark);
-    final fg        = AppTheme.frostedFg(isDark);
-    final fgSub     = AppTheme.frostedFgSub(isDark);
-    final amountStr = '\$${(amountCents / 100).toStringAsFixed(2)}';
-    final countStr  = '$count ${count == 1 ? label : '${label}s'}';
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: AppSpacing.sm),
-      decoration: BoxDecoration(color: bg, borderRadius: AppRadius.md),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 18, color: iconColor ?? fg),
-          AppSpacing.hSm,
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(amountStr, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: fg)),
-              Text(countStr,  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: fgSub)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _filterChip(String label, String value) {
     final active = _filterStatus == value;
     final isDark = Theme.of(context).brightness == Brightness.dark;

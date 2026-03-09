@@ -20,6 +20,7 @@ class _KycSectionState extends State<KycSection> {
   bool _loading = true;
   bool _submitting = false;
   bool _uploading = false;
+  bool _expanded = false;
 
   static const _docLabels = {
     'id_front': 'Government ID (Front)',
@@ -152,7 +153,8 @@ class _KycSectionState extends State<KycSection> {
         // Remove the default divider lines ExpansionTile adds
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
-          initiallyExpanded: false,
+          initiallyExpanded: _expanded,
+          onExpansionChanged: (v) => setState(() => _expanded = v),
           tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
           childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
           expandedCrossAxisAlignment: CrossAxisAlignment.start,

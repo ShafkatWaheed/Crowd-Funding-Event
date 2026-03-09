@@ -3,10 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
-import '../../lib/models/event.dart';
-import '../../lib/providers/event_provider.dart';
-import '../../lib/repositories/event_repository.dart';
-import '../../lib/widgets/calendar_bottom_sheet.dart';
+import 'package:crowd_funding_app/models/event.dart';
+import 'package:crowd_funding_app/providers/event_provider.dart';
+import 'package:crowd_funding_app/widgets/calendar_bottom_sheet.dart';
 import '../helpers/fixtures.dart';
 import '../helpers/mock_event_repository.dart';
 import '../helpers/pump_app.dart';

@@ -2,16 +2,19 @@
 library;
 
 import 'package:mocktail/mocktail.dart';
-import '../../lib/providers/auth_provider.dart';
-import '../../lib/providers/event_provider.dart';
-import '../../lib/providers/notification_provider.dart';
-import '../../lib/providers/config_provider.dart';
-import '../../lib/providers/theme_provider.dart';
-import '../../lib/providers/chat_provider.dart';
+import 'package:crowd_funding_app/providers/auth_provider.dart';
+import 'package:crowd_funding_app/providers/event_provider.dart';
+import 'package:crowd_funding_app/providers/notification_provider.dart';
+import 'package:crowd_funding_app/providers/config_provider.dart';
+import 'package:crowd_funding_app/providers/theme_provider.dart';
+import 'package:crowd_funding_app/providers/chat_provider.dart';
 
 class MockAuthProvider extends Mock implements AuthProvider {}
 
-class MockEventProvider extends Mock implements EventProvider {}
+class MockEventProvider extends Mock implements EventProvider {
+  @override
+  int get registrationVersion => 0;
+}
 
 class MockNotificationProvider extends Mock implements NotificationProvider {}
 

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import '../../lib/models/sponsor.dart';
+import 'package:crowd_funding_app/models/sponsor.dart';
 import '../helpers/fixtures.dart';
 
 void main() {

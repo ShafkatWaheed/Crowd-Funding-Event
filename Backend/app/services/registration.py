@@ -25,7 +25,9 @@ from app.core.exceptions import ConflictError, NotFoundError
 from app.models.event import EventStatus, RegistrationType
 from app.models.registration import Registration, RegistrationStatus
 from app.models.user import User
+from app.repositories.funding_repo import funding_repo
 from app.repositories.registration_repo import registration_repo
+from app.repositories.ticket_repo import ticket_repo
 from app.services import funding as funding_service
 
 
@@ -198,6 +200,16 @@ async def unregister(
     if reg.status == RegistrationStatus.cancelled:
         logger.warning("Unregister rejected: not registered", extra={"event_id": event_id, "user_id": user.id})
         raise ConflictError("You are not registered for this event")
+
+    # For selling_tickets / live events: only allow unregister if the user has
+    # no active ticket purchases AND no active pledges.
+    # Active pledges cannot be refunded once the event is in selling/live state,
+    # so unregistering would silently forfeit the pledged amount.
+    if event.status in (EventStatus.selling_tickets, EventStatus.live):
+        if await ticket_repo.has_active_ticket_sales(db, event_id, user.id):
+            raise ConflictError("Cannot unregister — you have active ticket purchases for this event")
+        if await funding_repo.has_active_pledges(db, event_id, user.id):
+            raise ConflictError("Cannot unregister — you have an active pledge that can no longer be refunded")
 
     # Check if we are still within the refund window
     now = datetime.now(timezone.utc)

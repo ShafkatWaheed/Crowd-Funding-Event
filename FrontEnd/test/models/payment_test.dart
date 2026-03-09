@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import '../../lib/models/payment.dart';
+import 'package:crowd_funding_app/models/payment.dart';
 
 void main() {
   group('StripeConfig', () {

@@ -3,8 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
-import '../../lib/providers/auth_provider.dart';
-import '../../lib/screens/auth/register_screen.dart';
+import 'package:crowd_funding_app/providers/auth_provider.dart';
+import 'package:crowd_funding_app/screens/auth/register_screen.dart';
 import '../helpers/mock_providers.dart';
 import '../helpers/pump_app.dart';
 

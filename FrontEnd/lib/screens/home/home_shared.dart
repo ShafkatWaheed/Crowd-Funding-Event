@@ -1,80 +1,22 @@
 import 'package:flutter/material.dart';
 
+import '../../config/app_icons.dart';
 import '../../config/design_tokens.dart';
-import '../../config/theme.dart';
 import '../../models/event.dart';
 import '../../utils/date_time_utils.dart';
 
 export '../../models/sponsor.dart' show SponsorBidEvent;
 
-String statusDisplayName(EventStatus s) {
-  switch (s) {
-    case EventStatus.draft:
-      return 'Draft';
-    case EventStatus.pending_approval:
-      return 'Waiting Approval';
-    case EventStatus.approved:
-      return 'Funding';
-    case EventStatus.selling_tickets:
-      return 'Selling Tickets';
-    case EventStatus.waiting_event_date:
-      return 'Awaiting Date';
-    case EventStatus.live:
-      return 'Live';
-    case EventStatus.completed:
-      return 'Completed';
-    case EventStatus.cancelled:
-      return 'Cancelled';
-    case EventStatus.under_review:
-      return 'Under Review';
-  }
-}
+String statusDisplayName(EventStatus s) =>
+    AppIcons.forEventStatus(s).displayName;
 
 Color statusChipColor(BuildContext context, EventStatus s) {
-  switch (s) {
-    case EventStatus.approved:
-      return AppTheme.accentColor;
-    case EventStatus.selling_tickets:
-      return context.statusApproved;
-    case EventStatus.live:
-      return AppTheme.errorColor;
-    case EventStatus.completed:
-      return context.sponsorAccent;
-    case EventStatus.cancelled:
-      return context.statusCancelled;
-    case EventStatus.draft:
-      return context.statusDraft;
-    case EventStatus.pending_approval:
-      return context.statusPending;
-    case EventStatus.waiting_event_date:
-      return context.statusSelling;
-    case EventStatus.under_review:
-      return AppTheme.warningColor;
-  }
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  return AppIcons.forEventStatus(s).color(isDark);
 }
 
-IconData statusChipIcon(EventStatus s) {
-  switch (s) {
-    case EventStatus.approved:
-      return Icons.check_circle_rounded;
-    case EventStatus.selling_tickets:
-      return Icons.confirmation_number_rounded;
-    case EventStatus.live:
-      return Icons.play_circle_rounded;
-    case EventStatus.completed:
-      return Icons.task_alt_rounded;
-    case EventStatus.cancelled:
-      return Icons.cancel_rounded;
-    case EventStatus.draft:
-      return Icons.edit_note_rounded;
-    case EventStatus.pending_approval:
-      return Icons.hourglass_top_rounded;
-    case EventStatus.waiting_event_date:
-      return Icons.event_rounded;
-    case EventStatus.under_review:
-      return Icons.warning_amber_rounded;
-  }
-}
+IconData statusChipIcon(EventStatus s) =>
+    AppIcons.forEventStatus(s).icon;
 
 String formatCents(int cents) =>
     '\$${(cents / 100).toStringAsFixed(2)}';

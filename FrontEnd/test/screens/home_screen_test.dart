@@ -7,14 +7,13 @@ import 'package:mocktail/mocktail.dart';
 import 'package:nested/nested.dart';
 import 'package:provider/provider.dart';
 
-import '../../lib/models/event.dart';
-import '../../lib/models/user.dart';
-import '../../lib/providers/auth_provider.dart';
-import '../../lib/providers/chat_provider.dart';
-import '../../lib/providers/event_provider.dart';
-import '../../lib/providers/notification_provider.dart';
-import '../../lib/repositories/event_repository.dart';
-import '../../lib/screens/home/home_screen.dart';
+import 'package:crowd_funding_app/models/event.dart';
+import 'package:crowd_funding_app/models/user.dart';
+import 'package:crowd_funding_app/providers/auth_provider.dart';
+import 'package:crowd_funding_app/providers/chat_provider.dart';
+import 'package:crowd_funding_app/providers/event_provider.dart';
+import 'package:crowd_funding_app/providers/notification_provider.dart';
+import 'package:crowd_funding_app/screens/home/home_screen.dart';
 import '../helpers/mock_event_repository.dart';
 import '../helpers/mock_providers.dart';
 import '../helpers/fixtures.dart';
@@ -67,7 +66,7 @@ void main() {
         )).thenAnswer((_) async => <Event>[]);
   });
 
-  List<SingleChildWidget> _providers(AppUser? user) {
+  List<SingleChildWidget> providers(AppUser? user) {
     when(() => mockAuth.user).thenReturn(user);
     when(() => mockAuth.isAuthenticated).thenReturn(user != null);
     when(() => mockAuth.isLoading).thenReturn(false);
@@ -89,7 +88,7 @@ void main() {
       await pumpApp(
         tester,
         const HomeScreen(),
-        overrides: _providers(user),
+        overrides: providers(user),
       );
       await tester.pump();
 
@@ -110,7 +109,7 @@ void main() {
       await pumpApp(
         tester,
         const HomeScreen(),
-        overrides: _providers(user),
+        overrides: providers(user),
       );
       await tester.pump();
 
@@ -129,7 +128,7 @@ void main() {
       await pumpApp(
         tester,
         const HomeScreen(),
-        overrides: _providers(user),
+        overrides: providers(user),
       );
       await tester.pump();
 
@@ -150,7 +149,7 @@ void main() {
       await pumpApp(
         tester,
         const HomeScreen(),
-        overrides: _providers(user),
+        overrides: providers(user),
       );
       await tester.pump();
 

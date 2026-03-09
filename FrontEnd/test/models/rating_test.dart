@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import '../../lib/models/rating.dart';
+import 'package:crowd_funding_app/models/rating.dart';
 
 void main() {
   group('Rating', () {

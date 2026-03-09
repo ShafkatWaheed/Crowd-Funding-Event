@@ -5,12 +5,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
-import '../../lib/models/ticket.dart';
-import '../../lib/repositories/sponsor_repository.dart';
-import '../../lib/repositories/ticket_repository.dart';
-import '../../lib/providers/sponsor_provider.dart';
-import '../../lib/providers/ticket_provider.dart';
-import '../../lib/screens/event/ticket_sales_screen.dart';
+import 'package:crowd_funding_app/models/ticket.dart';
+import 'package:crowd_funding_app/providers/sponsor_provider.dart';
+import 'package:crowd_funding_app/providers/ticket_provider.dart';
+import 'package:crowd_funding_app/screens/event/ticket_sales_screen.dart';
 import '../helpers/mock_sponsor_repository.dart';
 import '../helpers/mock_ticket_repository.dart';
 import '../helpers/pump_app.dart';

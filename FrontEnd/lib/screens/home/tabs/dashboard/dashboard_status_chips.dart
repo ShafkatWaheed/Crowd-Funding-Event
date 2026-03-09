@@ -89,6 +89,12 @@ class DashboardStatusChips extends StatelessWidget {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
+                              Icon(
+                                statusChipIcon(statusEnum),
+                                size: 14,
+                                color: isActive ? Colors.white : color,
+                              ),
+                              AppSpacing.hXs,
                               Text(
                                 statusDisplayName(statusEnum),
                                 style: TextStyle(

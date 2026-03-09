@@ -6,10 +6,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
-import '../../lib/models/map_event.dart';
-import '../../lib/providers/event_provider.dart';
-import '../../lib/repositories/event_repository.dart';
-import '../../lib/widgets/event_map_widget.dart';
+import 'package:crowd_funding_app/models/map_event.dart';
+import 'package:crowd_funding_app/providers/event_provider.dart';
+import 'package:crowd_funding_app/widgets/event_map_widget.dart';
 import '../helpers/mock_event_repository.dart';
 import '../helpers/pump_app.dart';
 

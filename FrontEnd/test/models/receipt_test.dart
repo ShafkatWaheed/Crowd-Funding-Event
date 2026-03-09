@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import '../../lib/models/receipt.dart';
+import 'package:crowd_funding_app/models/receipt.dart';
 
 void main() {
   group('TicketReceipt', () {

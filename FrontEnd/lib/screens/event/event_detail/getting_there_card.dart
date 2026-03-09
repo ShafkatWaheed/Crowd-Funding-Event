@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../config/app_icons.dart';
 import '../../../config/theme.dart';
 import '../../../config/design_tokens.dart';
 import '../../../models/event.dart';
@@ -33,9 +34,9 @@ class GettingThereCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(Icons.directions_rounded,
+                  Icon(AppIcons.venueHeader.icon,
                       size: AppIconSize.sm,
-                      color: AppTheme.textSecondaryOf(context)),
+                      color: AppIcons.venueHeader.color(isDark)),
                   AppSpacing.hSm,
                   Text(
                     'Getting There',
@@ -50,30 +51,31 @@ class GettingThereCard extends StatelessWidget {
               ),
               AppSpacing.vMd,
               if (event.venue != null) ...[
-                EventDetailHelpers.modernInfoRow(
-                    context, Icons.place_rounded, 'Venue', event.venue!.name),
-                EventDetailHelpers.modernInfoRow(context, Icons.map_outlined,
-                    'Address', event.venue!.fullAddress),
+                EventDetailHelpers.modernInfoRow(context,
+                    AppIcons.venueName.icon, 'Venue', event.venue!.name,
+                    iconColor: AppIcons.venueName.color(isDark)),
+                EventDetailHelpers.modernInfoRow(context,
+                    AppIcons.venueAddress.icon, 'Address', event.venue!.fullAddress,
+                    iconColor: AppIcons.venueAddress.color(isDark)),
               ],
               if (event.parkingInfo != null && event.parkingInfo!.isNotEmpty)
                 EventDetailHelpers.modernInfoRow(context,
-                    Icons.local_parking_rounded, 'Parking', event.parkingInfo!),
+                    AppIcons.venueParking.icon, 'Parking', event.parkingInfo!,
+                    iconColor: AppIcons.venueParking.color(isDark)),
               if (event.transitInfo != null && event.transitInfo!.isNotEmpty)
-                EventDetailHelpers.modernInfoRow(
-                    context,
-                    Icons.directions_transit_rounded,
-                    'Transit',
-                    event.transitInfo!),
+                EventDetailHelpers.modernInfoRow(context,
+                    AppIcons.venueTransit.icon, 'Transit', event.transitInfo!,
+                    iconColor: AppIcons.venueTransit.color(isDark)),
               if (event.rideshareInfo != null && event.rideshareInfo!.isNotEmpty)
                 EventDetailHelpers.modernInfoRow(context,
-                    Icons.local_taxi_rounded, 'Rideshare', event.rideshareInfo!),
+                    AppIcons.venueRideshare.icon, 'Rideshare', event.rideshareInfo!,
+                    iconColor: AppIcons.venueRideshare.color(isDark)),
               if (event.accessibilityInfo != null &&
                   event.accessibilityInfo!.isNotEmpty)
-                EventDetailHelpers.modernInfoRow(
-                    context,
-                    Icons.accessible_rounded,
-                    'Accessibility',
-                    event.accessibilityInfo!),
+                EventDetailHelpers.modernInfoRow(context,
+                    AppIcons.venueAccessibility.icon, 'Accessibility',
+                    event.accessibilityInfo!,
+                    iconColor: AppIcons.venueAccessibility.color(isDark)),
               if (event.directionsUrl != null) ...[
                 AppSpacing.vMd,
                 SizedBox(
@@ -86,7 +88,7 @@ class GettingThereCard extends StatelessWidget {
                             mode: LaunchMode.externalApplication);
                       }
                     },
-                    icon: const Icon(Icons.navigation_rounded,
+                    icon: Icon(AppIcons.venueHeader.icon,
                         size: AppIconSize.sm),
                     label: const Text('Get Directions'),
                     style: OutlinedButton.styleFrom(

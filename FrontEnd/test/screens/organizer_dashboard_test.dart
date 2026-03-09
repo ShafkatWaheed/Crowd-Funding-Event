@@ -5,13 +5,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
-import '../../lib/models/dashboard.dart';
-import '../../lib/models/event.dart';
-import '../../lib/models/user.dart';
-import '../../lib/providers/auth_provider.dart';
-import '../../lib/providers/event_provider.dart';
-import '../../lib/repositories/event_repository.dart';
-import '../../lib/screens/home/tabs/organizer_dashboard_tab.dart';
+import 'package:crowd_funding_app/models/dashboard.dart';
+import 'package:crowd_funding_app/models/event.dart';
+import 'package:crowd_funding_app/models/user.dart';
+import 'package:crowd_funding_app/providers/auth_provider.dart';
+import 'package:crowd_funding_app/providers/event_provider.dart';
+import 'package:crowd_funding_app/screens/home/tabs/organizer_dashboard_tab.dart';
 import '../helpers/mock_providers.dart';
 import '../helpers/mock_event_repository.dart';
 import '../helpers/pump_app.dart';
@@ -32,11 +31,11 @@ void main() {
   });
 
   /// Build a KpiItem from raw values.
-  KpiItem _kpiItem(int value, {double? deltaPct}) =>
+  KpiItem kpiItem(int value, {double? deltaPct}) =>
       KpiItem.fromJson({'value': value, 'delta_percent': deltaPct});
 
   /// Build a KpiFloatItem from raw values.
-  KpiFloatItem _kpiFloatItem(double value, {double? deltaPct}) =>
+  KpiFloatItem kpiFloatItem(double value, {double? deltaPct}) =>
       KpiFloatItem.fromJson({'value': value, 'delta_percent': deltaPct});
 
   /// Stub the dashboard API to return a valid response.
@@ -46,12 +45,12 @@ void main() {
   }) {
     final data = dashboardData ??
         OrganizerDashboard(
-          totalRevenue: _kpiItem(600000, deltaPct: 9.1),
-          ticketsSold: _kpiItem(120, deltaPct: 9.1),
-          totalBackers: _kpiItem(45, deltaPct: 12.5),
-          totalEvents: _kpiItem(5, deltaPct: 25.0),
-          totalSponsors: _kpiItem(3, deltaPct: 50.0),
-          refundRate: _kpiFloatItem(2.5, deltaPct: -16.7),
+          totalRevenue: kpiItem(600000, deltaPct: 9.1),
+          ticketsSold: kpiItem(120, deltaPct: 9.1),
+          totalBackers: kpiItem(45, deltaPct: 12.5),
+          totalEvents: kpiItem(5, deltaPct: 25.0),
+          totalSponsors: kpiItem(3, deltaPct: 50.0),
+          refundRate: kpiFloatItem(2.5, deltaPct: -16.7),
           statusBreakdown: [
             StatusBreakdown(status: 'approved', count: 2),
             StatusBreakdown(status: 'selling_tickets', count: 1),
@@ -146,12 +145,12 @@ void main() {
           )).thenAnswer((_) async => OrganizerTimeSeries(points: [], granularity: 'daily'));
 
       dashCompleter.complete(OrganizerDashboard(
-        totalRevenue: _kpiItem(0),
-        ticketsSold: _kpiItem(0),
-        totalBackers: _kpiItem(0),
-        totalEvents: _kpiItem(0),
-        totalSponsors: _kpiItem(0),
-        refundRate: _kpiFloatItem(0.0),
+        totalRevenue: kpiItem(0),
+        ticketsSold: kpiItem(0),
+        totalBackers: kpiItem(0),
+        totalEvents: kpiItem(0),
+        totalSponsors: kpiItem(0),
+        refundRate: kpiFloatItem(0.0),
         statusBreakdown: [],
         trendingEvents: [],
         topEvents: [],
@@ -161,12 +160,12 @@ void main() {
 
     testWidgets('empty state when zero events in dashboard', (tester) async {
       stubDashboardSuccess(dashboardData: OrganizerDashboard(
-        totalRevenue: _kpiItem(0),
-        ticketsSold: _kpiItem(0),
-        totalBackers: _kpiItem(0),
-        totalEvents: _kpiItem(0),
-        totalSponsors: _kpiItem(0),
-        refundRate: _kpiFloatItem(0.0),
+        totalRevenue: kpiItem(0),
+        ticketsSold: kpiItem(0),
+        totalBackers: kpiItem(0),
+        totalEvents: kpiItem(0),
+        totalSponsors: kpiItem(0),
+        refundRate: kpiFloatItem(0.0),
         statusBreakdown: [],
         trendingEvents: [],
         topEvents: [],

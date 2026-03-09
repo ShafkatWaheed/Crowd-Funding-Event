@@ -3,9 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
-import '../../lib/models/notification_model.dart';
-import '../../lib/providers/notification_provider.dart';
-import '../../lib/screens/notification/notification_screen.dart';
+import 'package:crowd_funding_app/models/notification_model.dart';
+import 'package:crowd_funding_app/providers/notification_provider.dart';
+import 'package:crowd_funding_app/screens/notification/notification_screen.dart';
 import '../helpers/mock_providers.dart';
 import '../helpers/pump_app.dart';
 

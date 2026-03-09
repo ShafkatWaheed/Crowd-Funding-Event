@@ -5,15 +5,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
-import '../../lib/models/event.dart';
-import '../../lib/models/funding.dart';
-import '../../lib/models/user.dart';
-import '../../lib/providers/auth_provider.dart';
-import '../../lib/repositories/funding_repository.dart';
-import '../../lib/repositories/ticket_repository.dart';
-import '../../lib/providers/pledge_provider.dart';
-import '../../lib/providers/ticket_provider.dart';
-import '../../lib/screens/event/event_detail/funding_card.dart';
+import 'package:crowd_funding_app/models/event.dart';
+import 'package:crowd_funding_app/models/funding.dart';
+import 'package:crowd_funding_app/models/user.dart';
+import 'package:crowd_funding_app/providers/auth_provider.dart';
+import 'package:crowd_funding_app/providers/pledge_provider.dart';
+import 'package:crowd_funding_app/providers/ticket_provider.dart';
+import 'package:crowd_funding_app/screens/event/event_detail/funding_card.dart';
 import '../helpers/mock_providers.dart';
 import '../helpers/mock_funding_repository.dart';
 import '../helpers/mock_ticket_repository.dart';
@@ -189,7 +187,7 @@ void main() {
 
   group('FundingCard — optimistic state update after unpledge', () {
     /// Event that has canPledge == true (approved + fundingEndAt set).
-    Event _pledgableEvent() => Event.fromJson(eventJson(
+    Event pledgableEvent() => Event.fromJson(eventJson(
           id: 1,
           status: 'approved',
           fundingGoalCents: 100000,
@@ -229,7 +227,7 @@ void main() {
                 status: 'completed',
               ));
 
-      await pumpFundingCard(tester, event: _pledgableEvent(), isRegistered: true);
+      await pumpFundingCard(tester, event: pledgableEvent(), isRegistered: true);
       // Initial state: $500.00 raised
       expect(find.textContaining('\$500.00'), findsWidgets);
 
@@ -280,7 +278,7 @@ void main() {
                 status: 'completed',
               ));
 
-      await pumpFundingCard(tester, event: _pledgableEvent(), isRegistered: true);
+      await pumpFundingCard(tester, event: pledgableEvent(), isRegistered: true);
       // Initial: 10 backers
       expect(find.textContaining('10 backers'), findsOneWidget);
 

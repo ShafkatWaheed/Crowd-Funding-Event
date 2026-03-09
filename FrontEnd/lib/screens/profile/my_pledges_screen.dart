@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../config/app_icons.dart';
 import '../../config/design_tokens.dart';
 import '../../utils/date_time_utils.dart';
 import '../../config/theme.dart';
@@ -119,11 +120,6 @@ class _MyPledgesScreenState extends State<MyPledgesScreen> {
 
   Widget _buildContent(PledgeProvider p) {
     final grouped = _groupedByEvent;
-    final pledges = p.pledges;
-    final pledgedCount = pledges.where((pl) => pl.status == PledgeStatus.pledged && !pl.isGuest).length;
-    final donationCount = pledges.where((pl) => pl.isGuest).length;
-    final refundedCount = pledges.where((pl) => pl.status == PledgeStatus.refunded).length;
-    final totalCents = pledges.fold<int>(0, (s, pl) => s + pl.amountCents);
 
     return RefreshIndicator(
       onRefresh: p.refresh,
@@ -138,42 +134,6 @@ class _MyPledgesScreenState extends State<MyPledgesScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      _statChip(Icons.volunteer_activism_rounded, '${pledges.length}', 'Total'),
-                      AppSpacing.hMd,
-                      _statChip(Icons.check_circle_rounded, '$pledgedCount', 'Pledged',
-                          color: AppTheme.successColor),
-                      if (donationCount > 0) ...[
-                        AppSpacing.hMd,
-                        _statChip(Icons.card_giftcard_rounded, '$donationCount', 'Donations',
-                            color: context.photoAccent),
-                      ],
-                      if (refundedCount > 0) ...[
-                        AppSpacing.hMd,
-                        _statChip(Icons.undo_rounded, '$refundedCount', 'Refunded',
-                            color: AppTheme.errorColor),
-                      ],
-                    ],
-                  ),
-                  AppSpacing.vMd,
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: AppSpacing.sm),
-                    decoration: BoxDecoration(
-                      color: context.sponsorAccent.withValues(alpha: 0.08),
-                      borderRadius: AppRadius.md,
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.attach_money_rounded, size: 18, color: context.sponsorAccent),
-                        AppSpacing.hSm,
-                        Text('Total Contributed: \$${(totalCents / 100).toStringAsFixed(2)}',
-                            style: TextStyle(
-                                fontSize: 14, fontWeight: FontWeight.w700, color: context.sponsorAccent)),
-                      ],
-                    ),
-                  ),
-                  AppSpacing.vLg,
                   TextField(
                     decoration: InputDecoration(
                       hintText: 'Search by event, receipt...',
@@ -207,25 +167,25 @@ class _MyPledgesScreenState extends State<MyPledgesScreen> {
                           'amount_low': 'Amount \u2193',
                         }.entries.map((e) => Padding(
                               padding: const EdgeInsets.only(right: AppSpacing.sm),
-                              child: ChoiceChip(
-                                label: Text(e.value),
-                                selected: p.sortBy == e.key,
-                                onSelected: (_) => p.setSortBy(e.key),
-                                selectedColor: context.sponsorAccent,
-                                backgroundColor: AppTheme.cardOf(context),
-                                side: BorderSide(
-                                  color: p.sortBy == e.key
-                                      ? context.sponsorAccent
-                                      : AppTheme.dividerOf(context),
-                                ),
-                                labelStyle: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: p.sortBy == e.key
-                                      ? Colors.white
-                                      : AppTheme.textPrimaryOf(context),
-                                ),
-                              ),
+                              child: Builder(builder: (context) {
+                                final (activeBg, activeLabel) = AppTheme.chipActive(context.sponsorAccent);
+                                return ChoiceChip(
+                                  label: Text(e.value),
+                                  selected: p.sortBy == e.key,
+                                  onSelected: (_) => p.setSortBy(e.key),
+                                  showCheckmark: false,
+                                  color: WidgetStateProperty.resolveWith((states) =>
+                                      states.contains(WidgetState.selected) ? activeBg : AppTheme.cardOf(context)),
+                                  side: BorderSide(
+                                    color: p.sortBy == e.key ? activeBg : AppTheme.dividerOf(context),
+                                  ),
+                                  labelStyle: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: p.sortBy == e.key ? activeLabel : AppTheme.textPrimaryOf(context),
+                                  ),
+                                );
+                              }),
                             )),
                       ],
                     ),
@@ -254,7 +214,7 @@ class _MyPledgesScreenState extends State<MyPledgesScreen> {
 
           if (grouped.isEmpty)
             SliverFillRemaining(
-              child: pledges.isEmpty
+              child: p.pledges.isEmpty
                   ? EmptyState(
                       icon: Icons.volunteer_activism_outlined,
                       title: 'No pledges yet',
@@ -301,49 +261,30 @@ class _MyPledgesScreenState extends State<MyPledgesScreen> {
     );
   }
 
-  Widget _statChip(IconData icon, String value, String label, {Color? color}) {
-    final c = color ?? AppTheme.textPrimaryOf(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: AppSpacing.sm),
-      decoration: BoxDecoration(
-        color: c.withValues(alpha: 0.08),
-        borderRadius: AppRadius.md,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 18, color: c),
-          AppSpacing.hSm,
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(value,
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: c)),
-              Text(label,
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500,
-                      color: c.withValues(alpha: 0.7))),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _filterChip(String label, String value) {
     final active = _filterStatus == value;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final (chipIcon, chipColor) = switch (value) {
+      'all'      => (Icons.volunteer_activism_rounded, AppTheme.accentColor),
+      'pledged'  => (AppIcons.pledgeStatusIcon(PledgeStatus.pledged),  AppIcons.pledgeStatusColor(PledgeStatus.pledged,  isDark: isDark)),
+      'donation' => (AppIcons.donationIcon, AppIcons.donationColor(isDark: isDark)),
+      'refunded' => (AppIcons.pledgeStatusIcon(PledgeStatus.refunded), AppIcons.pledgeStatusColor(PledgeStatus.refunded, isDark: isDark)),
+      _          => (Icons.list_rounded, AppTheme.accentColor),
+    };
+    final (activeBg, activeLabel) = AppTheme.chipActive(chipColor);
     return ChoiceChip(
+      avatar: Icon(chipIcon, size: 14, color: active ? activeLabel : chipColor),
       label: Text(label),
       selected: active,
+      showCheckmark: false,
       onSelected: (_) => setState(() => _filterStatus = value),
-      selectedColor: AppTheme.primaryColor,
-      backgroundColor: AppTheme.cardOf(context),
-      side: BorderSide(
-        color: active ? AppTheme.primaryColor : AppTheme.dividerOf(context),
-      ),
+      color: WidgetStateProperty.resolveWith((states) =>
+          states.contains(WidgetState.selected) ? activeBg : AppTheme.cardOf(context)),
+      side: BorderSide(color: active ? activeBg : AppTheme.dividerOf(context)),
       labelStyle: TextStyle(
         fontSize: 13,
         fontWeight: FontWeight.w600,
-        color: active ? Colors.white : AppTheme.textPrimaryOf(context),
+        color: active ? activeLabel : AppTheme.textPrimaryOf(context),
       ),
     );
   }
@@ -362,10 +303,23 @@ class _EventPledgeGroup extends StatelessWidget {
     required this.onEventTap,
   });
 
+  String _fmt(int cents) => '\$${(cents / 100).toStringAsFixed(2)}';
+
   @override
   Widget build(BuildContext context) {
-    final donationCount = pledges.where((p) => p.isGuest).length;
-    final totalCents = pledges.fold<int>(0, (s, p) => s + p.amountCents);
+    final pledgedCents  = pledges.where((p) => !p.isGuest && p.status != PledgeStatus.refunded)
+        .fold<int>(0, (s, p) => s + p.amountCents);
+    final donationCents = pledges.where((p) => p.isGuest)
+        .fold<int>(0, (s, p) => s + p.amountCents);
+    final refundedCents = pledges.where((p) => !p.isGuest && p.status == PledgeStatus.refunded)
+        .fold<int>(0, (s, p) => s + p.amountCents);
+
+    final parts = <String>[
+      if (pledgedCents > 0) '${_fmt(pledgedCents)} pledged',
+      if (donationCents > 0) '${_fmt(donationCents)} donated',
+      if (refundedCents > 0) '${_fmt(refundedCents)} refunded',
+    ];
+    final subtitle = parts.join(' \u2022 ');
 
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.xl),
@@ -404,13 +358,9 @@ class _EventPledgeGroup extends StatelessWidget {
                                 fontWeight: FontWeight.w700, fontSize: 14,
                                 color: AppTheme.textPrimaryOf(context))),
                         AppSpacing.vXs,
-                        Text(
-                          '${pledges.length} pledge${pledges.length == 1 ? '' : 's'}'
-                          '${donationCount > 0 ? ' \u2022 $donationCount donation${donationCount == 1 ? '' : 's'}' : ''}'
-                          ' \u2022 \$${(totalCents / 100).toStringAsFixed(2)}',
-                          style: TextStyle(
-                              fontSize: 12, color: AppTheme.textSecondaryOf(context)),
-                        ),
+                        Text(subtitle,
+                            style: TextStyle(
+                                fontSize: 12, color: AppTheme.textSecondaryOf(context))),
                       ],
                     ),
                   ),
@@ -441,7 +391,9 @@ class _PledgeCard extends StatelessWidget {
     final isDark = AppTheme.isDark(context);
 
     final statusLabel = pledge.isGuest ? 'DONATION' : pledge.status.name.toUpperCase();
-    final headerColor = pledge.isGuest ? context.photoAccent : context.sponsorAccent;
+    final headerColor = pledge.isGuest
+        ? AppIcons.donationColor(isDark: isDark)
+        : AppIcons.pledgeStatusColor(pledge.status, isDark: isDark);
 
     return GestureDetector(
       onTap: () {
@@ -463,8 +415,9 @@ class _PledgeCard extends StatelessWidget {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md + 2, AppSpacing.lg, AppSpacing.md),
-              decoration: BoxDecoration(
+              decoration: AppTheme.glowHeaderDecoration(
                 color: headerColor,
+                isDark: isDark,
                 borderRadius: AppRadius.topLg,
               ),
               child: Row(
@@ -472,12 +425,12 @@ class _PledgeCard extends StatelessWidget {
                   Container(
                     width: 36, height: 36,
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.12),
+                      color: AppTheme.glowHeaderIconBox(headerColor, isDark),
                       borderRadius: AppRadius.sm,
                     ),
                     child: Icon(
                       pledge.isGuest ? Icons.card_giftcard_rounded : Icons.volunteer_activism_rounded,
-                      color: Colors.white, size: 20),
+                      color: AppTheme.glowHeaderTitle(isDark), size: 20),
                   ),
                   AppSpacing.hMd,
                   Expanded(
@@ -486,8 +439,8 @@ class _PledgeCard extends StatelessWidget {
                       children: [
                         Text(
                           pledge.isGuest ? 'Guest Donation' : 'Pledge',
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: AppTheme.glowHeaderTitle(isDark),
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
                           ),
@@ -497,7 +450,7 @@ class _PledgeCard extends StatelessWidget {
                           Text(
                             '${pledge.reservedSpots} spot(s) reserved',
                             style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.6),
+                              color: AppTheme.glowHeaderSubtitle(isDark),
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
                             ),
@@ -509,14 +462,14 @@ class _PledgeCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: AppSpacing.xs),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
+                      color: AppTheme.glowHeaderBadgeBg(headerColor, isDark),
                       borderRadius: AppRadius.pill,
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.4)),
+                      border: Border.all(color: AppTheme.glowHeaderBadgeBorder(headerColor, isDark)),
                     ),
                     child: Text(
                       statusLabel,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: AppTheme.glowHeaderBadgeText(headerColor, isDark),
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.5,
@@ -559,7 +512,7 @@ class _PledgeCard extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 6),
                         decoration: BoxDecoration(
-                          color: headerColor.withValues(alpha: 0.1),
+                          color: AppTheme.frostedBg(isDark, darkAlpha: 0.12, lightAlpha: 0.08),
                           borderRadius: AppRadius.sm,
                         ),
                         child: Text(
@@ -567,28 +520,12 @@ class _PledgeCard extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w800,
-                            color: headerColor,
+                            color: AppTheme.frostedFg(isDark),
                           ),
                         ),
                       ),
                       const Spacer(),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: AppSpacing.sm),
-                        decoration: BoxDecoration(
-                          color: headerColor,
-                          borderRadius: AppRadius.sm,
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.receipt_long_rounded, size: 16, color: Colors.white),
-                            SizedBox(width: 6),
-                            Text('View Receipt',
-                                style: TextStyle(
-                                    color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
-                          ],
-                        ),
-                      ),
+                      const _ReceiptButton(),
                     ],
                   ),
                 ],
@@ -632,6 +569,30 @@ class _PledgeCard extends StatelessWidget {
             child: Icon(Icons.copy_rounded, size: 14, color: AppTheme.textSecondaryOf(context)),
           ),
       ],
+    );
+  }
+}
+
+class _ReceiptButton extends StatelessWidget {
+  const _ReceiptButton();
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
+    final bg = AppTheme.frostedBg(isDark, darkAlpha: 0.12, lightAlpha: 0.08);
+    final fg = AppTheme.frostedFg(isDark);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: AppSpacing.sm),
+      decoration: BoxDecoration(color: bg, borderRadius: AppRadius.sm),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.receipt_long_rounded, size: 16, color: fg),
+          const SizedBox(width: 6),
+          Text('View Receipt',
+              style: TextStyle(color: fg, fontSize: 12, fontWeight: FontWeight.w600)),
+        ],
+      ),
     );
   }
 }

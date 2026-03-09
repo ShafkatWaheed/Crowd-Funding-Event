@@ -3,10 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
-import '../../lib/models/discount.dart';
-import '../../lib/repositories/ticket_repository.dart';
-import '../../lib/providers/ticket_provider.dart';
-import '../../lib/screens/manage/global_discounts_screen.dart';
+import 'package:crowd_funding_app/models/discount.dart';
+import 'package:crowd_funding_app/providers/ticket_provider.dart';
+import 'package:crowd_funding_app/screens/manage/global_discounts_screen.dart';
 import '../helpers/mock_ticket_repository.dart';
 import '../helpers/pump_app.dart';
 

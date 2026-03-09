@@ -13,6 +13,7 @@ class EventDetailHelpers {
     String label,
     String value, {
     Color? valueColor,
+    Color? iconColor,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.md),
@@ -26,7 +27,7 @@ class EventDetailHelpers {
             ),
             child: Icon(icon,
                 size: AppIconSize.sm,
-                color: AppTheme.textSecondaryOf(context)),
+                color: iconColor ?? AppTheme.textSecondaryOf(context)),
           ),
           AppSpacing.hMd,
           Expanded(

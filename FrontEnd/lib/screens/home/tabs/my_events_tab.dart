@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../home_shared.dart';
+import '../../../config/app_icons.dart';
 import '../../../config/design_tokens.dart';
 import '../../../config/theme.dart';
 import '../../../models/event.dart';
@@ -43,6 +44,8 @@ class _MyEventsTabState extends State<MyEventsTab> {
   String? _myEventsStatus;
   String _myEventsSortBy = 'newest';
   static const int _myEventsPageSize = 20;
+  int? _loadedForUserId;
+  int _lastRegistrationVersion = -1;
 
   List<EventStatus> get _manageVisibleStatuses {
     final user = context.read<AuthProvider>().user;
@@ -65,9 +68,30 @@ class _MyEventsTabState extends State<MyEventsTab> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadMyEvents());
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Use Provider.of (listen: true) so this method re-fires when either
+    // provider notifies — context.read() does NOT create a dependency.
+    final userId = Provider.of<AuthProvider>(context).user?.id;
+    final regVersion = Provider.of<EventProvider>(context).registrationVersion;
+
+    if (userId != null && userId != _loadedForUserId) {
+      // First load or user switched — load fresh.
+      _loadedForUserId = userId;
+      _lastRegistrationVersion = regVersion;
+      _loadMyEvents();
+    } else if (userId != null && regVersion != _lastRegistrationVersion) {
+      // User registered or unregistered — silently refresh the list.
+      _lastRegistrationVersion = regVersion;
+      _loadMyEvents();
+    }
+  }
+
   Future<void> _loadMyEvents() async {
     final auth = context.read<AuthProvider>();
     if (auth.user == null) return;
+    _loadedForUserId = auth.user!.id;
     setState(() {
       _myEventsLoading = true;
       _myEventsHasMore = true;
@@ -278,27 +302,30 @@ class _MyEventsTabState extends State<MyEventsTab> {
                 child: Row(
                   children: widget.genres.map((g) {
                     final isActive = _myEventsGenre == g;
+                    final isDark = Theme.of(context).brightness == Brightness.dark;
+                    final genreColor = AppIcons.genreColor(g, isDark: isDark);
                     return Padding(
                       padding: const EdgeInsets.only(right: AppSpacing.sm),
                       child: ChoiceChip(
+                        avatar: Icon(
+                          AppIcons.genreIcon(g),
+                          size: 14,
+                          color: isActive ? Colors.white : genreColor,
+                        ),
                         label: Text(g[0].toUpperCase() + g.substring(1)),
                         selected: isActive,
                         onSelected: (selected) {
                           setState(() => _myEventsGenre = selected ? g : null);
                         },
-                        selectedColor: AppTheme.primaryColor,
+                        selectedColor: genreColor,
                         backgroundColor: AppTheme.cardOf(context),
                         side: BorderSide(
-                          color: isActive
-                              ? AppTheme.primaryColor
-                              : AppTheme.dividerOf(context),
+                          color: isActive ? genreColor : AppTheme.dividerOf(context),
                         ),
                         labelStyle: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: isActive
-                              ? Colors.white
-                              : AppTheme.textPrimaryOf(context),
+                          color: isActive ? Colors.white : AppTheme.textPrimaryOf(context),
                         ),
                       ),
                     );
@@ -314,6 +341,11 @@ class _MyEventsTabState extends State<MyEventsTab> {
                     return Padding(
                       padding: const EdgeInsets.only(right: AppSpacing.sm),
                       child: ChoiceChip(
+                        avatar: Icon(
+                          statusChipIcon(s),
+                          size: 14,
+                          color: isActive ? Colors.white : statusChipColor(context, s),
+                        ),
                         label: Text(statusDisplayName(s)),
                         selected: isActive,
                         onSelected: (selected) {
@@ -329,8 +361,7 @@ class _MyEventsTabState extends State<MyEventsTab> {
                         labelStyle: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color:
-                              isActive ? Colors.white : AppTheme.textPrimaryOf(context),
+                          color: isActive ? Colors.white : AppTheme.textPrimaryOf(context),
                         ),
                       ),
                     );

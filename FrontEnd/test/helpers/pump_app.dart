@@ -6,11 +6,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nested/nested.dart';
 import 'package:provider/provider.dart';
 
-import '../../lib/providers/auth_provider.dart';
-import '../../lib/providers/event_provider.dart';
-import '../../lib/providers/notification_provider.dart';
-import '../../lib/providers/config_provider.dart';
-import '../../lib/providers/theme_provider.dart';
 
 /// Pumps [child] wrapped in MaterialApp with optional providers.
 ///

@@ -1,4 +1,4 @@
 import 'package:mocktail/mocktail.dart';
-import '../../lib/repositories/admin_repository.dart';
+import 'package:crowd_funding_app/repositories/admin_repository.dart';
 
 class MockAdminRepository extends Mock implements AdminRepository {}

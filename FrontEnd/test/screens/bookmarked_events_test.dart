@@ -3,11 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
-import '../../lib/providers/auth_provider.dart';
-import '../../lib/providers/bookmark_provider.dart';
-import '../../lib/models/event.dart';
-import '../../lib/repositories/bookmark_repository.dart';
-import '../../lib/screens/bookmark/bookmarked_events_screen.dart';
+import 'package:crowd_funding_app/providers/auth_provider.dart';
+import 'package:crowd_funding_app/providers/bookmark_provider.dart';
+import 'package:crowd_funding_app/models/event.dart';
+import 'package:crowd_funding_app/screens/bookmark/bookmarked_events_screen.dart';
 import '../helpers/mock_providers.dart';
 import '../helpers/mock_bookmark_repository.dart';
 import '../helpers/pump_app.dart';

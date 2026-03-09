@@ -4,12 +4,30 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    branches: [main, dev]
 
 jobs:
-  test-backend:
+  changes:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'Backend/**'
+            frontend:
+              - 'FrontEnd/**'
+
+  test-backend:
+    needs: changes
+    runs-on: ubuntu-latest
+    if: needs.changes.outputs.backend == 'true'
     services:
       postgres:
         image: postgres:16-alpine
@@ -54,8 +72,9 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS: ""
 
   test-frontend:
+    needs: changes
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    if: needs.changes.outputs.frontend == 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2

@@ -1,14 +1,11 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
-import '../../lib/models/sponsor.dart';
-import '../../lib/providers/sponsor_provider.dart';
-import '../../lib/repositories/sponsor_repository.dart';
-import '../../lib/screens/sponsor/organizer_sponsors_screen.dart';
+import 'package:crowd_funding_app/models/sponsor.dart';
+import 'package:crowd_funding_app/providers/sponsor_provider.dart';
+import 'package:crowd_funding_app/screens/sponsor/organizer_sponsors_screen.dart';
 import '../helpers/mock_sponsor_repository.dart';
 import '../helpers/pump_app.dart';
 

@@ -11,7 +11,10 @@ import 'package:crowd_funding_app/providers/chat_provider.dart';
 
 class MockAuthProvider extends Mock implements AuthProvider {}
 
-class MockEventProvider extends Mock implements EventProvider {}
+class MockEventProvider extends Mock implements EventProvider {
+  @override
+  int get registrationVersion => 0;
+}
 
 class MockNotificationProvider extends Mock implements NotificationProvider {}
 

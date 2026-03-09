@@ -106,4 +106,4 @@ jobs:
           ENVEOF
 
       - name: Deploy with Docker Compose
-        run: docker compose -f Kub_docker/docker-compose.yml --env-file .env up -d --build
+        run: docker compose -f Kub_docker/docker-compose.yml --env-file .env up -d --build --remove-orphans

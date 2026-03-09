@@ -29,7 +29,7 @@ class AppUser {
 
   factory AppUser.fromJson(Map<String, dynamic> json) {
     return AppUser(
-      id: json['id'],
+      id: (json['id'] as num).toInt(),
       email: json['email'] ?? '',
       displayName: json['display_name'],
       phone: json['phone'],
@@ -39,7 +39,7 @@ class AppUser {
       ),
       address: json['address'],
       birthday: json['birthday'],
-      yearsOfExperience: json['years_of_experience'],
+      yearsOfExperience: (json['years_of_experience'] as num?)?.toInt(),
       kycStatus: json['kyc_status'] ?? 'not_started',
       kycVerified: json['kyc_verified'] ?? false,
       kycVerifiedAt: json['kyc_verified_at'],

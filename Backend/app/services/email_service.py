@@ -14,7 +14,6 @@ To add a new provider:
 
 from __future__ import annotations
 
-import random
 from abc import ABC, abstractmethod
 from typing import Any
 
@@ -201,29 +200,18 @@ async def _log_mock_email(
     template_key: str | None = None,
 ) -> str:
     """Write to EmailMockLog with bounce-rate simulation. Returns status."""
-    # Exception: worker-context self-managed session — no DI session available
-    from app.db.base import async_session_maker
     from app.repositories.email_template_repo import email_template_repo
-    from app.services import platform_settings as settings_svc
 
-    status = "sent"
     try:
-        async with async_session_maker() as db:
-            bounce_rate = await settings_svc.get_int(db, "mock_email_bounce_rate_percent")
-            if bounce_rate > 0 and random.randint(1, 100) <= bounce_rate:
-                status = "bounced"
-            await email_template_repo.create_mock_log(
-                db,
-                to_email=to_email,
-                subject=subject,
-                body_html=body_html,
-                template_key=template_key,
-                status=status,
-            )
-            await db.commit()
+        return await email_template_repo.log_mock_email(
+            to_email=to_email,
+            subject=subject,
+            body_html=body_html,
+            template_key=template_key,
+        )
     except Exception:
         logger.exception("Failed to log mock email to %s", to_email)
-    return status
+    return "sent"
 
 
 async def send_email(

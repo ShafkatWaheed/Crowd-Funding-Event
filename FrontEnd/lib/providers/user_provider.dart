@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/foundation.dart';
 
 import '../models/event.dart';
@@ -71,8 +73,8 @@ class UserProvider extends ChangeNotifier {
   Future<KycStatus> getKycStatus() => _repo.getKycStatus();
 
   Future<KycDocumentUpload> uploadKycDocument(
-          String filePath, String documentType) =>
-      _repo.uploadKycDocument(filePath, documentType);
+          Uint8List bytes, String filename, String documentType) =>
+      _repo.uploadKycDocument(bytes, filename, documentType);
 
   Future<void> deleteKycDocument(int documentId) =>
       _repo.deleteKycDocument(documentId);

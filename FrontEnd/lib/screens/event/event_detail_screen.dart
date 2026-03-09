@@ -21,6 +21,7 @@ import '../../providers/ticket_provider.dart';
 import '../../widgets/animated_list_item.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/error_state.dart';
+import '../../widgets/event_bottom_strip.dart';
 import '../../widgets/event_lifecycle_bar.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../services/sync_service.dart';
@@ -55,7 +56,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   List<EventImage> _images = [];
   final ScrollController _scrollCtrl = ScrollController();
   bool _scrolledPastHero = false;
+  // Hero expands to _heroHeight; the title card visually overlaps the bottom _heroOverlap px.
   static const double _heroHeight = 300;
+  static const double _heroOverlap = 32;
 
   bool _isRegistered = false;
   String? _regStatus;
@@ -110,7 +113,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   }
 
   void _onScroll() {
-    final past = _scrollCtrl.offset > _heroHeight - kToolbarHeight;
+    final past = _scrollCtrl.offset > (_heroHeight - _heroOverlap) - kToolbarHeight;
     if (past != _scrolledPastHero) setState(() => _scrolledPastHero = past);
   }
 
@@ -288,52 +291,22 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     final hasHero = heroUrl != null || hasPreviewImages;
 
     return Scaffold(
-      bottomNavigationBar:
-          !widget.isPreview && event != null && _scrolledPastHero
-              ? AnimatedSlide(
-                  offset:
-                      _scrolledPastHero ? Offset.zero : const Offset(0, 1),
-                  duration: AppDuration.fast,
-                  curve: AppCurve.enter,
-                  child: AnimatedOpacity(
-                    opacity: _scrolledPastHero ? 1.0 : 0.0,
-                    duration: AppDuration.fast,
-                    child: Container(
-                      padding: EdgeInsets.only(
-                        left: AppSpacing.lg,
-                        right: AppSpacing.lg,
-                        top: AppSpacing.sm,
-                        bottom: MediaQuery.of(context).padding.bottom +
-                            AppSpacing.sm,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppTheme.surfaceOf(context),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.08),
-                            blurRadius: 12,
-                            offset: const Offset(0, -4),
-                          ),
-                        ],
-                      ),
-                      child: QuickActionBar(
-                        event: event,
-                        isRegistered: _isRegistered,
-                        regStatus: _regStatus,
-                        ageBlocked: _isUserAgeBlocked(event),
-                        onRegistrationChanged: (isRegistered, status) {
-                          setState(() {
-                            _isRegistered = isRegistered;
-                            _regStatus = status;
-                          });
-                          _loadMyTicketCount();
-                          _loadMyReservedSpots();
-                        },
-                      ),
-                    ),
-                  ),
-                )
-              : null,
+      bottomNavigationBar: !widget.isPreview && event != null
+          ? EventBottomStrip(
+              event: event,
+              isRegistered: _isRegistered,
+              regStatus: _regStatus,
+              ageBlocked: _isUserAgeBlocked(event),
+              onRegistrationChanged: (isRegistered, status) {
+                setState(() {
+                  _isRegistered = isRegistered;
+                  _regStatus = status;
+                });
+                _loadMyTicketCount();
+                _loadMyReservedSpots();
+              },
+            )
+          : null,
       body: !widget.isPreview && eventProvider!.isLoading
           ? const ShimmerDetailHeader()
           : !widget.isPreview && eventProvider!.error != null
@@ -355,22 +328,12 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                           _buildSliverAppBar(context, event, hasHero,
                               hasPreviewImages, heroUrl),
                           SliverToBoxAdapter(
-                            child: Padding(
-                              padding: EdgeInsets.fromLTRB(
-                                AppSpacing.xl,
-                                AppSpacing.xl,
-                                AppSpacing.xl,
-                                AppSpacing.xl +
-                                    MediaQuery.of(context).padding.bottom +
-                                    80,
-                              ),
-                              child: Center(
-                                child: ConstrainedBox(
-                                  constraints:
-                                      const BoxConstraints(maxWidth: 700),
-                                  child: _buildContent(
-                                      context, event, user, isDark),
-                                ),
+                            child: Center(
+                              child: ConstrainedBox(
+                                constraints:
+                                    const BoxConstraints(maxWidth: 700),
+                                child: _buildContent(
+                                    context, event, user, isDark),
                               ),
                             ),
                           ),
@@ -383,7 +346,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   Widget _buildSliverAppBar(BuildContext context, Event event, bool hasHero,
       bool hasPreviewImages, String? heroUrl) {
     return SliverAppBar(
-      expandedHeight: hasHero ? _heroHeight : 0,
+      expandedHeight: hasHero ? _heroHeight - _heroOverlap : 0,
       pinned: true,
       stretch: hasHero,
       backgroundColor: AppTheme.surfaceOf(context),
@@ -473,7 +436,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                     : AppTheme.surfaceOf(context).withValues(alpha: 0.7),
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.share_rounded, size: AppIconSize.sm),
+              child: Icon(Icons.ios_share_rounded, size: AppIconSize.sm),
             ),
             onPressed: () => showShareSheet(context, event),
           ),
@@ -486,7 +449,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                     : AppTheme.surfaceOf(context).withValues(alpha: 0.7),
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.calendar_month_rounded, size: AppIconSize.sm),
+              child: Icon(Icons.calendar_today_rounded, size: AppIconSize.sm),
             ),
             onPressed: () => showCalendarSheet(context, event),
           ),
@@ -607,100 +570,145 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Hero Header (title, pills)
-        Text(
-          event.title,
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.w900,
-            letterSpacing: -0.8,
-            height: 1.15,
-            color: AppTheme.textPrimaryOf(context),
+        // ── Floating title card — overlaps hero by _heroOverlap ──
+        Transform.translate(
+          offset: const Offset(0, -_heroOverlap),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
+          decoration: BoxDecoration(
+            color: AppTheme.cardOf(context),
+            borderRadius: AppRadius.xxl,
+            boxShadow: isDark
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.60),
+                      blurRadius: 36,
+                      offset: const Offset(0, 10),
+                    ),
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.30),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.11),
+                      blurRadius: 36,
+                      offset: const Offset(0, 10),
+                    ),
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.06),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Title
+              Text(
+                event.title,
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.7,
+                  height: 1.2,
+                  color: AppTheme.textPrimaryOf(context),
+                ),
+              )
+                  .animate()
+                  .fadeIn(duration: 400.ms)
+                  .slideY(begin: 0.08, duration: 400.ms, curve: AppCurve.enter),
+              const SizedBox(height: 10),
+              // Status + meta pills
+              Wrap(
+                spacing: AppSpacing.xs,
+                runSpacing: AppSpacing.xs,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  EventDetailHelpers.statusPill(context, event.status),
+                  if (event.genre != null && event.genre!.isNotEmpty)
+                    EventDetailHelpers.tagPill(
+                      icon: Icons.category_rounded,
+                      label: event.genre![0].toUpperCase() +
+                          event.genre!.substring(1),
+                      color: AppTheme.secondaryColor,
+                    ),
+                  if (event.registrationCount > 0)
+                    EventDetailHelpers.tagPill(
+                      icon: Icons.group_rounded,
+                      label: '${event.registrationCount} joined',
+                      color: AppTheme.accentColor,
+                    ),
+                  if (event.organizerName != null &&
+                      event.organizerName!.isNotEmpty)
+                    GestureDetector(
+                      onTap: () => _showOrganizerBottomSheet(event),
+                      child: EventDetailHelpers.tagPill(
+                        icon: Icons.person_rounded,
+                        label: event.organizerName!,
+                        color: AppTheme.accentColor,
+                      ),
+                    ),
+                  GestureDetector(
+                    onTap: () => _showOrganizerBottomSheet(event),
+                    child: EventDetailHelpers.trustBadgePill(context, event),
+                  ),
+                  if (_revenueCents > 0 &&
+                      user != null &&
+                      (user.isOrganizer ||
+                          user.isAdmin ||
+                          event.viewerIsCoOrganizer) &&
+                      !widget.readOnly)
+                    EventDetailHelpers.tagPill(
+                      icon: Icons.paid_rounded,
+                      label:
+                          '\$${(_revenueCents / 100).toStringAsFixed(0)} revenue',
+                      color: context.ticketAccent,
+                    ),
+                ],
+              )
+                  .animate()
+                  .fadeIn(duration: 300.ms, delay: 80.ms)
+                  .slideX(begin: -0.04, duration: 300.ms),
+              const SizedBox(height: 16),
+              // Lifecycle breadcrumb (Lifecycle B style)
+              EventLifecycleBreadcrumb(event: event),
+            ],
+          ),
+        ),
           ),
         )
             .animate()
-            .fadeIn(duration: 400.ms)
-            .slideY(begin: 0.1, duration: 400.ms, curve: AppCurve.enter),
-        AppSpacing.vMd,
+            .fadeIn(duration: 350.ms)
+            .slideY(begin: 0.06, duration: 350.ms, curve: AppCurve.enter),
 
-        // Status pills
-        Wrap(
-          spacing: AppSpacing.sm,
-          runSpacing: AppSpacing.sm,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            EventDetailHelpers.statusPill(context, event.status),
-            if (event.genre != null && event.genre!.isNotEmpty)
-              EventDetailHelpers.tagPill(
-                icon: Icons.category_rounded,
-                label: event.genre![0].toUpperCase() +
-                    event.genre!.substring(1),
-                color: AppTheme.secondaryColor,
-              ),
-            if (event.registrationCount > 0)
-              EventDetailHelpers.tagPill(
-                icon: Icons.group_rounded,
-                label: '${event.registrationCount} joined',
-                color: AppTheme.accentColor,
-              ),
-            if (event.organizerName != null &&
-                event.organizerName!.isNotEmpty)
-              GestureDetector(
-                onTap: () => _showOrganizerBottomSheet(event),
-                child: EventDetailHelpers.tagPill(
-                  icon: Icons.person_rounded,
-                  label: event.organizerName!,
-                  color: AppTheme.accentColor,
-                ),
-              ),
-            GestureDetector(
-              onTap: () => _showOrganizerBottomSheet(event),
-              child: EventDetailHelpers.trustBadgePill(context, event),
-            ),
-            if (_revenueCents > 0 &&
-                user != null &&
-                (user.isOrganizer ||
-                    user.isAdmin ||
-                    event.viewerIsCoOrganizer) &&
-                !widget.readOnly)
-              EventDetailHelpers.tagPill(
-                icon: Icons.paid_rounded,
-                label:
-                    '\$${(_revenueCents / 100).toStringAsFixed(0)} revenue',
-                color: context.ticketAccent,
-              ),
-          ],
-        )
-            .animate()
-            .fadeIn(duration: 300.ms, delay: 100.ms)
-            .slideX(begin: -0.05, duration: 300.ms),
-        AppSpacing.vLg,
+        // ── Stats row (below title card, same 14px margins) ──
+        Transform.translate(
+          offset: const Offset(0, -_heroOverlap),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+            child: _buildStatsRow(context, event, isDark),
+          ),
+        ),
+
+        // ── Content sections (padded 14px sides, shifted up by heroOverlap) ──
+        Transform.translate(
+          offset: const Offset(0, -_heroOverlap),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 80),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
 
         if (widget.isPreview) ...[
           EventDetailHelpers.previewBanner(context),
           AppSpacing.vLg,
-        ],
-
-        EventLifecycleBar(event: event),
-        AppSpacing.vLg,
-
-        // Quick Action Bar
-        if (!widget.isPreview) ...[
-          QuickActionBar(
-            event: event,
-            isRegistered: _isRegistered,
-            regStatus: _regStatus,
-            ageBlocked: _isUserAgeBlocked(event),
-            onRegistrationChanged: (isRegistered, status) {
-              setState(() {
-                _isRegistered = isRegistered;
-                _regStatus = status;
-              });
-              _loadMyTicketCount();
-              _loadMyReservedSpots();
-            },
-          ),
-          AppSpacing.vXl,
         ],
 
         // Reaction Bar
@@ -1010,7 +1018,91 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
             postsEnabled: event.postsEnabled,
             isRegistered: _isRegistered,
           ),
+
+              ], // end inner Column children
+            ),   // end inner Column
+          ),     // end inner Padding
+        ),       // end Transform.translate (content)
       ],
+    );
+  }
+
+  // ── Stats row: registered count / funding days / capacity ──
+  Widget _buildStatsRow(BuildContext context, Event event, bool isDark) {
+    final items = <({String val, String lbl})>[];
+
+    if (event.registrationCount > 0) {
+      final regLabel = event.isFunding
+          ? 'Backers'
+          : (event.status == EventStatus.selling_tickets ||
+                  event.status == EventStatus.live ||
+                  event.status == EventStatus.completed)
+              ? 'Engaged'
+              : 'Joined';
+      items.add((val: '${event.registrationCount}', lbl: regLabel));
+    }
+
+    if (event.isFunding && event.fundingDaysLeft != null) {
+      items.add((val: '${event.fundingDaysLeft!}', lbl: 'Days Left'));
+    } else if (event.startTime != null) {
+      final diff = event.startTime!.difference(DateTime.now());
+      if (diff.inDays > 0) {
+        items.add((val: '${diff.inDays}', lbl: 'Days Left'));
+      }
+    }
+
+    if (event.totalReservedSpots > 0) {
+      items.add((val: '${event.totalReservedSpots}', lbl: 'Backers'));
+    }
+
+    if (items.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.cardOf(context),
+        borderRadius: AppRadius.lg,
+        border: Border.all(color: AppTheme.dividerOf(context)),
+      ),
+      child: Row(
+        children: List.generate(items.length, (i) {
+          final item = items[i];
+          return Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+              decoration: BoxDecoration(
+                border: i < items.length - 1
+                    ? Border(
+                        right: BorderSide(color: AppTheme.dividerOf(context)),
+                      )
+                    : null,
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    item.val,
+                    style: TextStyle(
+                      fontSize: 19,
+                      fontWeight: FontWeight.w900,
+                      color: AppTheme.textPrimaryOf(context),
+                      height: 1,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    item.lbl.toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.07 * 9,
+                      color: AppTheme.textSecondaryOf(context),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }),
+      ),
     );
   }
 

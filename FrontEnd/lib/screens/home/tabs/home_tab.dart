@@ -4,6 +4,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../../config/app_icons.dart';
 import '../../../config/design_tokens.dart';
 import '../../../config/theme.dart';
 import '../../../db/app_database.dart';
@@ -488,20 +489,27 @@ class _HomeTabState extends State<HomeTab> {
                       scrollDirection: Axis.horizontal,
                       children: widget.genres.map((g) {
                         final isActive = _homeGenre == g;
+                        final isDark = Theme.of(context).brightness == Brightness.dark;
+                        final genreColor = AppIcons.genreColor(g, isDark: isDark);
                         return Padding(
                           padding: const EdgeInsets.only(right: AppSpacing.sm),
                           child: ChoiceChip(
+                            avatar: Icon(
+                              AppIcons.genreIcon(g),
+                              size: 14,
+                              color: isActive ? Colors.white : genreColor,
+                            ),
                             label: Text(g[0].toUpperCase() + g.substring(1)),
                             selected: isActive,
                             onSelected: (selected) {
                               setState(() => _homeGenre = selected ? g : null);
                               _homeSearch();
                             },
-                            selectedColor: AppTheme.primaryColor,
+                            selectedColor: genreColor,
                             backgroundColor: AppTheme.cardOf(context),
                             side: BorderSide(
                               color: isActive
-                                  ? AppTheme.primaryColor
+                                  ? genreColor
                                   : AppTheme.dividerOf(context),
                             ),
                             labelStyle: TextStyle(
@@ -526,6 +534,13 @@ class _HomeTabState extends State<HomeTab> {
                         return Padding(
                           padding: const EdgeInsets.only(right: AppSpacing.sm),
                           child: ChoiceChip(
+                            avatar: Icon(
+                              statusChipIcon(s),
+                              size: 14,
+                              color: isActive
+                                  ? Colors.white
+                                  : statusChipColor(context, s),
+                            ),
                             label: Text(statusDisplayName(s)),
                             selected: isActive,
                             onSelected: (selected) {

@@ -294,6 +294,43 @@ class Event {
       (rideshareInfo != null && rideshareInfo!.isNotEmpty) ||
       (accessibilityInfo != null && accessibilityInfo!.isNotEmpty);
 
+  Event copyWithRegistrationCount(int count) => Event(
+        id: id, organizerId: organizerId, organizerName: organizerName,
+        venueId: venueId, title: title, description: description,
+        startTime: startTime, endTime: endTime, lat: lat, lng: lng,
+        fundingGoalCents: fundingGoalCents, fundingEndAt: fundingEndAt,
+        minPledgeCents: minPledgeCents, status: status,
+        registrationType: registrationType, maxCapacity: maxCapacity,
+        maxReservedSpotsPerUser: maxReservedSpotsPerUser,
+        commonDiscountPercent: commonDiscountPercent,
+        pledgeDiscountPercent: pledgeDiscountPercent,
+        totalPledgedCents: totalPledgedCents, fundingDaysLeft: fundingDaysLeft,
+        totalReservedSpots: totalReservedSpots,
+        ticketsSoldCount: ticketsSoldCount, totalTierCapacity: totalTierCapacity,
+        cancellationReason: cancellationReason, reviewNotes: reviewNotes,
+        registrationCount: count,
+        genre: genre, communityRules: communityRules, postsEnabled: postsEnabled,
+        refundDeadlineDays: refundDeadlineDays, eventDateDeadline: eventDateDeadline,
+        ticketStrategyId: ticketStrategyId, ticketStrategyName: ticketStrategyName,
+        likeCount: likeCount, dislikeCount: dislikeCount,
+        pendingExtension: pendingExtension, pendingCancellation: pendingCancellation,
+        organizerTrustScore: organizerTrustScore, organizerTrustLabel: organizerTrustLabel,
+        organizerCompletedEvents: organizerCompletedEvents,
+        organizerPublishedEvents: organizerPublishedEvents,
+        parkingInfo: parkingInfo, transitInfo: transitInfo,
+        rideshareInfo: rideshareInfo, accessibilityInfo: accessibilityInfo,
+        hasSchedule: hasSchedule, linkFundingToTiers: linkFundingToTiers,
+        maxDiscountPercent: maxDiscountPercent, ageRestricted: ageRestricted,
+        minAge: minAge, directionsUrl: directionsUrl, firstImageUrl: firstImageUrl,
+        viewerCoOrganizerPermission: viewerCoOrganizerPermission,
+        viewerIsRegistered: viewerIsRegistered,
+        viewerRegistrationStatus: viewerRegistrationStatus,
+        venue: venue, createdAt: createdAt,
+        waitlistMaxSize: waitlistMaxSize, waitlistAutoApprove: waitlistAutoApprove,
+        eventMaxImages: eventMaxImages, maxPostsPerDay: maxPostsPerDay,
+        maxCoOrganizers: maxCoOrganizers,
+      );
+
   /// Whether registering / unregistering is allowed.
   /// Whether registering / unregistering is allowed.
   bool get canUnregister =>

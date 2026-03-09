@@ -8,12 +8,11 @@ import 'package:mocktail/mocktail.dart';
 import 'package:nested/nested.dart';
 import 'package:provider/provider.dart';
 
-import '../../lib/models/event.dart';
-import '../../lib/models/user.dart';
-import '../../lib/providers/auth_provider.dart';
-import '../../lib/providers/event_provider.dart';
-import '../../lib/screens/home/tabs/explore_tab.dart';
-import '../../lib/widgets/shimmer_loaders.dart';
+import 'package:crowd_funding_app/models/user.dart';
+import 'package:crowd_funding_app/providers/auth_provider.dart';
+import 'package:crowd_funding_app/providers/event_provider.dart';
+import 'package:crowd_funding_app/screens/home/tabs/explore_tab.dart';
+import 'package:crowd_funding_app/widgets/shimmer_loaders.dart';
 import '../helpers/mock_providers.dart';
 import '../helpers/fixtures.dart';
 import '../helpers/pump_app.dart';
@@ -49,7 +48,7 @@ void main() {
         ChangeNotifierProvider<EventProvider>.value(value: mockEvent),
       ];
 
-  Widget _buildExploreTab() {
+  Widget buildExploreTab() {
     return Scaffold(
       body: ExploreTab(
         bookmarkedIds: const {},
@@ -62,7 +61,7 @@ void main() {
 
   group('ExploreTab', () {
     testWidgets('renders search field', (tester) async {
-      await pumpApp(tester, _buildExploreTab(), overrides: buildProviders());
+      await pumpApp(tester, buildExploreTab(), overrides: buildProviders());
       await tester.pump();
 
       // The search TextField should have the hint text
@@ -73,7 +72,7 @@ void main() {
     });
 
     testWidgets('search field accepts text input', (tester) async {
-      await pumpApp(tester, _buildExploreTab(), overrides: buildProviders());
+      await pumpApp(tester, buildExploreTab(), overrides: buildProviders());
       await tester.pump();
 
       final searchField = find.widgetWithText(TextField, 'Search events...');
@@ -88,7 +87,7 @@ void main() {
     });
 
     testWidgets('renders filter chips for visible statuses', (tester) async {
-      await pumpApp(tester, _buildExploreTab(), overrides: buildProviders());
+      await pumpApp(tester, buildExploreTab(), overrides: buildProviders());
       await tester.pump();
 
       // Customer sees: Funding, Awaiting Date, Selling Tickets, Live
@@ -104,7 +103,7 @@ void main() {
         (tester) async {
       when(() => mockEvent.isLoading).thenReturn(true);
 
-      await pumpApp(tester, _buildExploreTab(), overrides: buildProviders());
+      await pumpApp(tester, buildExploreTab(), overrides: buildProviders());
       await tester.pump();
 
       // ShimmerEventList is rendered during loading
@@ -116,7 +115,7 @@ void main() {
       when(() => mockEvent.events).thenReturn([]);
       when(() => mockEvent.error).thenReturn(null);
 
-      await pumpApp(tester, _buildExploreTab(), overrides: buildProviders());
+      await pumpApp(tester, buildExploreTab(), overrides: buildProviders());
       await tester.pump();
 
       expect(find.text('No events found'), findsOneWidget);
@@ -131,7 +130,7 @@ void main() {
       when(() => mockEvent.events).thenReturn([]);
       when(() => mockEvent.loadEvents()).thenAnswer((_) async {});
 
-      await pumpApp(tester, _buildExploreTab(), overrides: buildProviders());
+      await pumpApp(tester, buildExploreTab(), overrides: buildProviders());
       await tester.pump();
 
       expect(find.text('Network error'), findsOneWidget);
@@ -149,7 +148,7 @@ void main() {
       when(() => mockEvent.events).thenReturn(events);
       when(() => mockEvent.error).thenReturn(null);
 
-      await pumpApp(tester, _buildExploreTab(), overrides: buildProviders());
+      await pumpApp(tester, buildExploreTab(), overrides: buildProviders());
       await tester.pump();
 
       // Events should be rendered (not empty state, not shimmer)
@@ -170,7 +169,7 @@ void main() {
           .thenReturn([makeEvent(id: 1, title: 'Music Fest')]);
       when(() => mockEvent.isLoadingMore).thenReturn(true);
 
-      await pumpApp(tester, _buildExploreTab(), overrides: buildProviders());
+      await pumpApp(tester, buildExploreTab(), overrides: buildProviders());
       await tester.pump();
 
       // The SliverToBoxAdapter rendered when isLoadingMore is true contains a
@@ -192,7 +191,7 @@ void main() {
       when(() => mockEvent.isLoadingMore).thenReturn(false);
       when(() => mockEvent.hasMore).thenReturn(false);
 
-      await pumpApp(tester, _buildExploreTab(), overrides: buildProviders());
+      await pumpApp(tester, buildExploreTab(), overrides: buildProviders());
       await tester.pump();
 
       expect(find.byType(CircularProgressIndicator), findsNothing);
@@ -216,7 +215,7 @@ void main() {
       when(() => mockEvent.hasMore).thenReturn(true);
       when(() => mockEvent.loadMoreEvents()).thenAnswer((_) async {});
 
-      await pumpApp(tester, _buildExploreTab(), overrides: buildProviders());
+      await pumpApp(tester, buildExploreTab(), overrides: buildProviders());
       await tester.pump();
 
       // Scroll all the way to the bottom to trigger the NotificationListener
@@ -243,7 +242,7 @@ void main() {
       when(() => mockEvent.isLoadingMore).thenReturn(true);
       when(() => mockEvent.hasMore).thenReturn(true);
 
-      await pumpApp(tester, _buildExploreTab(), overrides: buildProviders());
+      await pumpApp(tester, buildExploreTab(), overrides: buildProviders());
       await tester.pump();
 
       // The loading-more spinner is visible (isLoadingMore: true)

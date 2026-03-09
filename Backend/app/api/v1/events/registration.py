@@ -91,8 +91,8 @@ async def unregister_event(
     log_step(logger, "Unregistering from event", user_id=current_user.id, event_id=event_id)
     event = await event_service.get_or_404(db, event_id)
     blocked_statuses = (
-        EventStatus.selling_tickets, EventStatus.waiting_event_date,
-        EventStatus.live, EventStatus.completed,
+        EventStatus.waiting_event_date,
+        EventStatus.completed,
     )
     if event.status in blocked_statuses:
         logger.warning("Unregister rejected: event in blocked state", extra={"user_id": current_user.id, "event_id": event_id, "status": event.status.value})

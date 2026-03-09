@@ -1,18 +1,11 @@
 /// Factory methods for test data objects.
 library;
 
-import '../../lib/models/user.dart';
-import '../../lib/models/event.dart';
-import '../../lib/models/venue.dart';
-import '../../lib/models/funding.dart';
-import '../../lib/models/ticket.dart';
-import '../../lib/models/sponsor.dart';
-import '../../lib/models/chat_message.dart';
-import '../../lib/models/milestone.dart';
-import '../../lib/models/schedule.dart';
-import '../../lib/models/ticket_strategy.dart';
-import '../../lib/models/event_image.dart';
-import '../../lib/models/post.dart';
+import 'package:crowd_funding_app/models/user.dart';
+import 'package:crowd_funding_app/models/event.dart';
+import 'package:crowd_funding_app/models/venue.dart';
+import 'package:crowd_funding_app/models/funding.dart';
+import 'package:crowd_funding_app/models/ticket.dart';
 
 // ── JSON builders (for fromJson round-trip tests) ──
 

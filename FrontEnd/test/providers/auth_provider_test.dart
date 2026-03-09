@@ -4,11 +4,12 @@
 /// unit-test signIn/signUp/signOut without a Firebase mock package.
 /// Instead we test the state properties and clearError behaviour via the
 /// MockAuthProvider (which implements the same interface).
+library;
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import '../../lib/providers/auth_provider.dart';
-import '../../lib/models/user.dart';
+import 'package:crowd_funding_app/models/user.dart';
 import '../helpers/mock_providers.dart';
 
 void main() {

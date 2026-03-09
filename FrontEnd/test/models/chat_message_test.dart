@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import '../../lib/models/chat_message.dart';
+import 'package:crowd_funding_app/models/chat_message.dart';
 import '../helpers/fixtures.dart';
 
 void main() {

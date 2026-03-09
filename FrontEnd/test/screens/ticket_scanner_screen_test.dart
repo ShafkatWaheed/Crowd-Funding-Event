@@ -3,11 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
-import '../../lib/db/app_database.dart';
-import '../../lib/services/sync_service.dart';
-import '../../lib/repositories/ticket_repository.dart';
-import '../../lib/providers/ticket_provider.dart';
-import '../../lib/screens/event/ticket_scanner_screen.dart';
+import 'package:crowd_funding_app/db/app_database.dart';
+import 'package:crowd_funding_app/services/sync_service.dart';
+import 'package:crowd_funding_app/providers/ticket_provider.dart';
+import 'package:crowd_funding_app/screens/event/ticket_scanner_screen.dart';
 import '../helpers/mock_ticket_repository.dart';
 import '../helpers/pump_app.dart';
 

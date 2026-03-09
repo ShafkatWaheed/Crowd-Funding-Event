@@ -1,6 +1,76 @@
 import 'package:flutter/material.dart';
+import '../config/app_icons.dart';
 import '../config/theme.dart';
 import '../models/event.dart';
+
+// ─── Shared step model ───
+
+class _Step {
+  final String label;
+  final IconData icon;
+  final EventStatus status;
+  final bool isFundingActive;
+
+  _Step(this.label, this.icon, this.status, {this.isFundingActive = false});
+}
+
+// ─── Shared helpers (used by both EventLifecycleBar and EventLifecycleBreadcrumb) ───
+
+List<_Step> _stepsForEvent(Event event) {
+  final hasFunding = event.fundingEndAt != null;
+  final hasEventDate = event.startTime != null;
+
+  if (hasFunding && hasEventDate) {
+    return [
+      _Step('Published', Icons.check_circle_outline, EventStatus.approved),
+      _Step('Funding', Icons.volunteer_activism, EventStatus.approved,
+          isFundingActive: true),
+      _Step('Tickets', Icons.confirmation_number, EventStatus.selling_tickets),
+      _Step('Live', Icons.play_circle_filled, EventStatus.live),
+      _Step('Done', Icons.flag, EventStatus.completed),
+    ];
+  } else if (hasFunding && !hasEventDate) {
+    return [
+      _Step('Published', Icons.check_circle_outline, EventStatus.approved),
+      _Step('Funding', Icons.volunteer_activism, EventStatus.approved,
+          isFundingActive: true),
+      _Step('Set Date', Icons.calendar_month, EventStatus.waiting_event_date),
+      _Step('Tickets', Icons.confirmation_number, EventStatus.selling_tickets),
+      _Step('Live', Icons.play_circle_filled, EventStatus.live),
+      _Step('Done', Icons.flag, EventStatus.completed),
+    ];
+  } else {
+    return [
+      _Step('Published', Icons.check_circle_outline, EventStatus.approved),
+      _Step('Tickets', Icons.confirmation_number, EventStatus.selling_tickets),
+      _Step('Live', Icons.play_circle_filled, EventStatus.live),
+      _Step('Done', Icons.flag, EventStatus.completed),
+    ];
+  }
+}
+
+int _activeIndexForEvent(Event event, List<_Step> steps) {
+  final status = event.status;
+  if (status == EventStatus.cancelled) { return -1; }
+  if (status == EventStatus.draft ||
+      status == EventStatus.pending_approval) { return -1; }
+  for (int i = steps.length - 1; i >= 0; i--) {
+    final step = steps[i];
+    if (step.status == status) {
+      if (step.isFundingActive && !event.isFunding) continue;
+      return i;
+    }
+  }
+  if (status == EventStatus.approved) return 0;
+  return -1;
+}
+
+Color _stepActiveColor(BuildContext context, _Step step) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  return AppIcons.forEventStatus(step.status).color(isDark);
+}
+
+// ─── EventLifecycleBar (original — compact bar for cards, full bar for detail) ───
 
 /// Uber-style lifecycle progress bar for events.
 class EventLifecycleBar extends StatelessWidget {
@@ -15,74 +85,150 @@ class EventLifecycleBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final steps = _buildSteps();
-    final activeIndex = _activeStepIndex(steps);
+    final steps = _stepsForEvent(event);
+    final activeIndex = _activeIndexForEvent(event, steps);
 
     if (compact) {
       return _CompactBar(steps: steps, activeIndex: activeIndex);
     }
     return _FullBar(steps: steps, activeIndex: activeIndex);
   }
+}
 
-  List<_Step> _buildSteps() {
-    final hasFunding = event.fundingEndAt != null;
-    final hasEventDate = event.startTime != null;
+// ─── EventLifecycleBreadcrumb (Lifecycle B — scrollable pills + progress bar) ───
 
-    if (hasFunding && hasEventDate) {
-      return [
-        _Step('Published', Icons.check_circle_outline, EventStatus.approved),
-        _Step('Funding', Icons.volunteer_activism, EventStatus.approved,
-            isFundingActive: true),
-        _Step('Tickets', Icons.confirmation_number, EventStatus.selling_tickets),
-        _Step('Live', Icons.play_circle_filled, EventStatus.live),
-        _Step('Done', Icons.flag, EventStatus.completed),
-      ];
-    } else if (hasFunding && !hasEventDate) {
-      return [
-        _Step('Published', Icons.check_circle_outline, EventStatus.approved),
-        _Step('Funding', Icons.volunteer_activism, EventStatus.approved,
-            isFundingActive: true),
-        _Step('Set Date', Icons.calendar_month, EventStatus.waiting_event_date),
-        _Step('Tickets', Icons.confirmation_number, EventStatus.selling_tickets),
-        _Step('Live', Icons.play_circle_filled, EventStatus.live),
-        _Step('Done', Icons.flag, EventStatus.completed),
-      ];
-    } else {
-      return [
-        _Step('Published', Icons.check_circle_outline, EventStatus.approved),
-        _Step('Tickets', Icons.confirmation_number, EventStatus.selling_tickets),
-        _Step('Live', Icons.play_circle_filled, EventStatus.live),
-        _Step('Done', Icons.flag, EventStatus.completed),
-      ];
-    }
-  }
+/// Compact lifecycle breadcrumb: thin progress bar + horizontal scrollable step pills.
+/// Designed to sit inside the floating title card on the event detail screen.
+class EventLifecycleBreadcrumb extends StatelessWidget {
+  final Event event;
 
-  int _activeStepIndex(List<_Step> steps) {
-    final status = event.status;
-    if (status == EventStatus.cancelled) return -1;
-    if (status == EventStatus.draft ||
-        status == EventStatus.pending_approval) {
-      return -1;
-    }
-    for (int i = steps.length - 1; i >= 0; i--) {
-      final step = steps[i];
-      if (step.status == status) {
-        if (step.isFundingActive && !event.isFunding) continue;
-        return i;
-      }
-    }
-    if (status == EventStatus.approved) return 0;
-    return -1;
+  const EventLifecycleBreadcrumb({super.key, required this.event});
+
+  @override
+  Widget build(BuildContext context) {
+    final steps = _stepsForEvent(event);
+    final activeIndex = _activeIndexForEvent(event, steps);
+
+    if (activeIndex == -1) return const SizedBox.shrink();
+
+    final currentStep = steps[activeIndex];
+    final progress = (activeIndex + 1) / steps.length;
+    final activeColor = _stepActiveColor(context, currentStep);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Thin progress bar
+        ClipRRect(
+          borderRadius: BorderRadius.circular(2),
+          child: LinearProgressIndicator(
+            value: progress,
+            minHeight: 3,
+            backgroundColor: AppTheme.dividerOf(context),
+            valueColor: AlwaysStoppedAnimation<Color>(activeColor),
+          ),
+        ),
+        const SizedBox(height: 10),
+        // Scrollable step pills
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: List.generate(steps.length, (i) {
+              final step = steps[i];
+              final isActive = i <= activeIndex;
+              final isCurrent = i == activeIndex;
+              return _BreadcrumbPill(
+                step: step,
+                isActive: isActive,
+                isCurrent: isCurrent,
+                activeColor: activeColor,
+                isLast: i == steps.length - 1,
+              );
+            }),
+          ),
+        ),
+      ],
+    );
   }
 }
 
-class _Step {
-  final String label;
-  final IconData icon;
-  final EventStatus status;
-  final bool isFundingActive;
+class _BreadcrumbPill extends StatelessWidget {
+  final _Step step;
+  final bool isActive;
+  final bool isCurrent;
+  final Color activeColor;
+  final bool isLast;
 
-  _Step(this.label, this.icon, this.status, {this.isFundingActive = false});
+  const _BreadcrumbPill({
+    required this.step,
+    required this.isActive,
+    required this.isCurrent,
+    required this.activeColor,
+    required this.isLast,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color bg = isCurrent
+        ? activeColor
+        : isActive
+            // past: very subtle fill (matches combined_design.html rgba(0,0,0,.05))
+            ? (isDark
+                ? Colors.white.withValues(alpha: 0.08)
+                : Colors.black.withValues(alpha: 0.05))
+            : Colors.transparent; // future: no background
+    final Color fg = isCurrent
+        ? Colors.white
+        : isActive
+            ? (isDark
+                ? AppTheme.textSecondaryOf(context)
+                : const Color(0xFF5C5C5C))
+            : AppTheme.textSecondaryOf(context).withValues(alpha: 0.55);
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isCurrent ? step.icon : (isActive ? Icons.check : step.icon),
+                size: 12,
+                color: fg,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                step.label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
+                  color: fg,
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (!isLast) ...[
+          const SizedBox(width: 4),
+          Icon(
+            Icons.chevron_right,
+            size: 14,
+            color: AppTheme.textSecondaryOf(context),
+          ),
+          const SizedBox(width: 4),
+        ],
+      ],
+    );
+  }
 }
 
 // ─── Compact bar: coloured segments (for cards) ───
@@ -123,7 +269,7 @@ class _CompactBar extends StatelessWidget {
   }
 }
 
-// ─── Full bar: segments + icons + labels (for detail) ───
+// ─── Full bar: segments + icons + labels (for detail, legacy) ───
 
 class _FullBar extends StatelessWidget {
   final List<_Step> steps;
@@ -204,13 +350,6 @@ class _FullBar extends StatelessWidget {
 
   Color _segmentColor(BuildContext context, _Step step, bool isCurrent) {
     if (!isCurrent) return AppTheme.accentColor.withValues(alpha: 0.4);
-    return switch (step.status) {
-      EventStatus.approved => AppTheme.accentColor,
-      EventStatus.selling_tickets => context.statusSelling,
-      EventStatus.waiting_event_date => context.statusPending,
-      EventStatus.live => AppTheme.successColor,
-      EventStatus.completed => AppTheme.textSecondaryOf(context),
-      _ => AppTheme.accentColor,
-    };
+    return _stepActiveColor(context, step);
   }
 }

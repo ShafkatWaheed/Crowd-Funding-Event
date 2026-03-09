@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../home_shared.dart';
 import '../../../utils/date_time_utils.dart';
+import '../../../config/app_icons.dart';
 import '../../../config/design_tokens.dart';
 import '../../../config/theme.dart';
 import '../../../models/event.dart';
@@ -377,6 +378,13 @@ class _ExploreTabState extends State<ExploreTab> {
                                   right: AppSpacing.sm,
                                 ),
                                 child: ChoiceChip(
+                                  avatar: Icon(
+                                    statusChipIcon(s),
+                                    size: 14,
+                                    color: isActive
+                                        ? Colors.white
+                                        : statusChipColor(context, s),
+                                  ),
                                   label: Text(statusDisplayName(s)),
                                   selected: isActive,
                                   onSelected: (selected) {
@@ -510,8 +518,17 @@ class _ExploreTabState extends State<ExploreTab> {
                               ),
                               ...widget.genres.map((g) => DropdownMenuItem(
                                     value: g,
-                                    child: Text(
-                                      g[0].toUpperCase() + g.substring(1),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          AppIcons.genreIcon(g),
+                                          size: AppIconSize.sm,
+                                          color: AppIcons.genreColor(g,
+                                              isDark: Theme.of(context).brightness == Brightness.dark),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(g[0].toUpperCase() + g.substring(1)),
+                                      ],
                                     ),
                                   )),
                             ],

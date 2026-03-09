@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import '../../lib/models/event_form_models.dart';
+import 'package:crowd_funding_app/models/event_form_models.dart';
 
 void main() {
   group('StrategyTierInput', () {

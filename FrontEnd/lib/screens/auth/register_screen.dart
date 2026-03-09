@@ -33,6 +33,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
   DateTime? _selectedBirthday;
 
   @override
+  void initState() {
+    super.initState();
+    // Clear any error left over from the login screen.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<AuthProvider>().clearError();
+    });
+  }
+
+  @override
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();

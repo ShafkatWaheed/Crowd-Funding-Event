@@ -10,6 +10,25 @@ class AppTheme {
   static const Color successColor = Color(0xFF05944F);       // Green
   static const Color warningColor = Color(0xFFFFC043);       // Uber amber
 
+  // ─── Extended vibrant brand palette (from combined_design.html) ───
+  static const Color purpleColor  = Color(0xFF9333EA);   // --pu  (VIP/premium)
+  static const Color orangeColor  = Color(0xFFFF8C00);   // --ora (pledge base)
+  static const Color magentaColor = Color(0xFFC026D3);   // --donate
+  static const Color cyanColor    = Color(0xFF0891B2);   // selling_tickets, refund_processing
+  static const Color tealColor    = Color(0xFF0D9488);   // education genre
+  static const Color slateColor   = Color(0xFF475569);   // business genre
+  static const Color yellowColor  = Color(0xFFEAB308);   // under_review
+
+  // ─── Tinted surfaces for vibrant colours (light mode) ───
+  static const Color purpleSurface  = Color(0xFFF5F0FF);
+  static const Color orangeSurface  = Color(0xFFFFF3E0);
+  static const Color magentaSurface = Color(0xFFFCF0FF);
+
+  // ─── Tinted surfaces for vibrant colours (dark mode) ───
+  static const Color _dkPurpleSurface  = Color(0xFF1E1028);
+  static const Color _dkOrangeSurface  = Color(0xFF2A1E08);
+  static const Color _dkMagentaSurface = Color(0xFF2A0E28);
+
   // ─── Gradient accents ───
   static const LinearGradient primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
@@ -33,6 +52,20 @@ class AppTheme {
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: [Color(0xFF1A1A2E), Color(0xFF16213E)],
+  );
+
+  /// Amber pledge gradient — `#FF8C00 → #FFC043` (matches combined_design.html).
+  static const LinearGradient pledgeGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFFF8C00), Color(0xFFFFC043)],
+  );
+
+  /// Purple–magenta donate gradient.
+  static const LinearGradient donateGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF9333EA), Color(0xFFC026D3)],
   );
 
   // ─── Tinted surface colours (light mode) ───
@@ -111,6 +144,86 @@ class AppTheme {
 
   static bool isDark(BuildContext context) =>
       Theme.of(context).brightness == Brightness.dark;
+
+  /// Option-A glow header decoration — single source of truth.
+  /// Dark: near-black base with colour radiating from top-left corner.
+  /// Light: very pale pastel tint base with softer colour glow.
+  static BoxDecoration glowHeaderDecoration({
+    required Color color,
+    required bool isDark,
+    BorderRadius? borderRadius,
+  }) {
+    // LinearGradient top-left → bottom-right reliably covers the full header
+    // regardless of dimensions. Both stops fully opaque so the glow is vivid.
+    final Color glowStop, base;
+    if (isDark) {
+      base = const Color(0xFF0A0A0A);
+      glowStop = Color.lerp(base, color, 0.88)!;
+    } else {
+      base = Color.lerp(color, Colors.white, 0.92)!;
+      glowStop = Color.lerp(base, color, 0.55)!;
+    }
+    return BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.centerLeft,
+        end: Alignment.centerRight,
+        colors: [glowStop, base, base],
+        stops: const [0.0, 0.55, 1.0],
+      ),
+      borderRadius: borderRadius,
+    );
+  }
+
+  /// Foreground colours to use on top of [glowHeaderDecoration].
+  static Color glowHeaderTitle(bool isDark) =>
+      isDark ? Colors.white : textPrimary;
+  static Color glowHeaderSubtitle(bool isDark) =>
+      isDark ? Colors.white.withValues(alpha: 0.6) : textSecondary;
+  static Color glowHeaderIconBox(Color color, bool isDark) =>
+      isDark ? Colors.white.withValues(alpha: 0.12) : color.withValues(alpha: 0.12);
+  static Color glowHeaderBadgeBg(Color color, bool isDark) =>
+      isDark ? Colors.white.withValues(alpha: 0.18) : color.withValues(alpha: 0.10);
+  static Color glowHeaderBadgeBorder(Color color, bool isDark) =>
+      isDark ? Colors.white.withValues(alpha: 0.35) : color.withValues(alpha: 0.28);
+  static Color glowHeaderBadgeText(Color color, bool isDark) =>
+      isDark ? Colors.white : color;
+
+  // ─── Frosted-glass neutral tokens (chip/button backgrounds) ───
+  /// Semi-transparent neutral background — works on any card surface.
+  static Color frostedBg(bool isDark, {double darkAlpha = 0.08, double lightAlpha = 0.06}) =>
+      isDark ? Colors.white.withValues(alpha: darkAlpha) : Colors.black.withValues(alpha: lightAlpha);
+
+  /// Primary foreground (text + icon) on a frosted-glass surface.
+  static Color frostedFg(bool isDark) => isDark ? Colors.white : Colors.black87;
+
+  /// Secondary / subdued foreground on a frosted-glass surface.
+  static Color frostedFgSub(bool isDark) =>
+      isDark ? Colors.white.withValues(alpha: 0.5) : Colors.black.withValues(alpha: 0.45);
+
+  /// Foreground colour to place on a solid coloured chip/button.
+  /// Returns white or near-black depending on the background luminance.
+  static Color onColor(Color background) =>
+      ThemeData.estimateBrightnessForColor(background) == Brightness.light
+          ? Colors.black87
+          : Colors.white;
+
+  /// Returns the [bg, label] pair for an active filter chip.
+  /// Light colours are darkened just enough so white text is always legible,
+  /// keeping chip labels visually consistent regardless of the chip's hue.
+  static (Color bg, Color label) chipActive(Color color) {
+    final bg = ThemeData.estimateBrightnessForColor(color) == Brightness.light
+        ? Color.lerp(color, Colors.black, 0.28)!
+        : color;
+    return (bg, Colors.white);
+  }
+
+  // ─── Vibrant colour surfaces (context-aware) ───
+  static Color purpleSurfaceOf(BuildContext context) =>
+      isDark(context) ? _dkPurpleSurface : purpleSurface;
+  static Color orangeSurfaceOf(BuildContext context) =>
+      isDark(context) ? _dkOrangeSurface : orangeSurface;
+  static Color magentaSurfaceOf(BuildContext context) =>
+      isDark(context) ? _dkMagentaSurface : magentaSurface;
 
   // ─── Brand colours – dark-mode–aware variants ───
   static Color accentOf(BuildContext context) =>
@@ -378,12 +491,20 @@ class AppTheme {
 extension AppColors on BuildContext {
   bool get _dk => Theme.of(this).brightness == Brightness.dark;
 
+  // ─── Vibrant extended palette (purple / orange / magenta) ───
+  Color get purpleAccent   => _dk ? const Color(0xFFBB86FC) : AppTheme.purpleColor;
+  Color get orangeAccent   => _dk ? const Color(0xFFFFB74D) : AppTheme.orangeColor;
+  Color get magentaAccent  => _dk ? const Color(0xFFE040FB) : AppTheme.magentaColor;
+  Color get purpleSurface  => _dk ? AppTheme._dkPurpleSurface  : AppTheme.purpleSurface;
+  Color get orangeSurface  => _dk ? AppTheme._dkOrangeSurface  : AppTheme.orangeSurface;
+  Color get magentaSurface => _dk ? AppTheme._dkMagentaSurface : AppTheme.magentaSurface;
+
   // ─── Section accent colours (icons, titles, buttons in themed sections) ───
   Color get ticketAccent    => _dk ? const Color(0xFF4DB6AC) : Colors.teal;
   Color get fundingAccent   => _dk ? const Color(0xFFFFB74D) : Colors.orange;
   Color get sponsorAccent   => _dk ? const Color(0xFFB39DDB) : Colors.deepPurple;
   Color get managementAccent => _dk ? const Color(0xFF7986CB) : Colors.indigo;
-  Color get photoAccent     => _dk ? const Color(0xFFFFD54F) : Colors.amber.shade700;
+  Color get photoAccent     => _dk ? const Color(0xFFFFE57F) : Colors.amber.shade500;
   Color get scheduleAccent  => _dk ? const Color(0xFF81C784) : Colors.green;
   Color get discountAccent  => _dk ? const Color(0xFFEF5350) : Colors.red;
   Color get reviewAccent    => _dk ? const Color(0xFFFFD54F) : Colors.amber;

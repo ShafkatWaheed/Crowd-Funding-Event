@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import '../../lib/providers/event_provider.dart';
-import '../../lib/models/event.dart';
+import 'package:crowd_funding_app/providers/event_provider.dart';
+import 'package:crowd_funding_app/models/event.dart';
 import '../helpers/mock_event_repository.dart';
 import '../helpers/fixtures.dart';
 

@@ -30,6 +30,9 @@ class EventProvider extends ChangeNotifier {
   final Map<int, _CacheEntry<Event>> _eventCache = {};
   static const Duration _cacheTtl = Duration(seconds: 60);
 
+  // Incremented on every register/unregister so listeners can react.
+  int _registrationVersion = 0;
+
   EventProvider(this._repo);
 
   List<Event> get events => _events;
@@ -39,6 +42,7 @@ class EventProvider extends ChangeNotifier {
   bool get isLoadingMore => _isLoadingMore;
   bool get hasMore => _hasMore;
   String? get error => _error;
+  int get registrationVersion => _registrationVersion;
 
   Future<void> loadEvents({EventFilters? filters}) async {
     _isLoading = true;
@@ -106,6 +110,20 @@ class EventProvider extends ChangeNotifier {
     }
 
     _isLoading = false;
+    notifyListeners();
+  }
+
+  /// Optimistically adjust the registration count on the selected event.
+  /// Call immediately after a successful register/unregister so the UI
+  /// updates without waiting for the background [loadEvent] round-trip.
+  void patchRegistrationCount(int eventId, int delta) {
+    if (_selectedEvent == null || _selectedEvent!.id != eventId) return;
+    final updated = _selectedEvent!.copyWithRegistrationCount(
+      (_selectedEvent!.registrationCount + delta).clamp(0, 999999),
+    );
+    _selectedEvent = updated;
+    _eventCache[eventId] = _CacheEntry(updated, DateTime.now());
+    _registrationVersion++;
     notifyListeners();
   }
 

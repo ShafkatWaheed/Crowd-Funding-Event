@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import '../../lib/models/notification_model.dart';
-import '../../lib/providers/notification_provider.dart';
-import '../../lib/repositories/notification_repository.dart';
+import 'package:crowd_funding_app/models/notification_model.dart';
+import 'package:crowd_funding_app/providers/notification_provider.dart';
+import 'package:crowd_funding_app/repositories/notification_repository.dart';
 
 class MockNotificationRepository extends Mock
     implements NotificationRepository {}

@@ -61,6 +61,7 @@ async def mark_notification_read(
     """Mark a single notification as read."""
     log_step(logger, "Marking notification read", notification_id=notification_id, user_id=current_user.id)
     ok = await notif_svc.mark_read(db, notification_id=notification_id, user_id=current_user.id)
+    await db.commit()
     return {"success": ok}
 
 
@@ -69,6 +70,7 @@ async def mark_all_notifications_read(db: DbSession, current_user: CurrentUser):
     """Mark all notifications as read for the current user."""
     log_step(logger, "Marking all notifications read", user_id=current_user.id)
     count = await notif_svc.mark_all_read(db, user_id=current_user.id)
+    await db.commit()
     return {"marked_read": count}
 
 
@@ -80,6 +82,7 @@ async def delete_notification(
 ):
     """Delete a single notification. Only the owner can delete."""
     await notif_svc.delete_notification(db, notification_id=notification_id, user_id=current_user.id)
+    await db.commit()
 
 
 # ── Device tokens (FCM push) ──

@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 
 import '../models/event.dart';
@@ -25,7 +27,10 @@ class UserRepository extends BaseRepository {
     if (termsAcceptedAt != null) data['terms_accepted_at'] = termsAcceptedAt;
     if (birthday != null) data['birthday'] = birthday;
     final resp = await dio.post('/auth/verify', data: data);
-    return AppUser.fromJson(resp.data);
+    final body = Map<String, dynamic>.from(resp.data as Map);
+    // VerifyResponse uses user_id; AppUser.fromJson expects id
+    body['id'] ??= body['user_id'];
+    return AppUser.fromJson(body);
   }
 
   // ─── User Profile ───
@@ -111,11 +116,12 @@ class UserRepository extends BaseRepository {
   }
 
   Future<KycDocumentUpload> uploadKycDocument(
-    String filePath,
+    Uint8List bytes,
+    String filename,
     String documentType,
   ) async {
     final formData = FormData.fromMap({
-      'file': await MultipartFile.fromFile(filePath),
+      'file': MultipartFile.fromBytes(bytes, filename: filename),
       'document_type': documentType,
     });
     final resp = await dio.post('/me/kyc-documents', data: formData);

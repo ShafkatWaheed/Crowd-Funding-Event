@@ -230,6 +230,9 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
                       value: event.ticketsSoldCount >= event.totalTierCapacity
                           ? 'Sold Out'
                           : '${event.ticketsSoldCount}/${event.totalTierCapacity}',
+                      color: event.ticketsSoldCount >= event.totalTierCapacity
+                          ? AppTheme.errorColor
+                          : null,
                     ),
                   )
                 else if (event.ticketsSoldCount > 0)
@@ -484,7 +487,8 @@ class _InfoRow extends StatelessWidget {
 class _StatChip extends StatelessWidget {
   final IconData icon;
   final String value;
-  const _StatChip({required this.icon, required this.value});
+  final Color? color;
+  const _StatChip({required this.icon, required this.value, this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -498,7 +502,7 @@ class _StatChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: AppTheme.textSecondaryOf(context)),
+          Icon(icon, size: 14, color: color ?? AppTheme.textSecondaryOf(context)),
           AppSpacing.hXs,
           Flexible(
             child: Text(
@@ -506,7 +510,7 @@ class _StatChip extends StatelessWidget {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: AppTheme.textPrimaryOf(context),
+                color: color ?? AppTheme.textPrimaryOf(context),
               ),
               overflow: TextOverflow.ellipsis,
             ),

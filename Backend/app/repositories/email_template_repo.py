@@ -66,6 +66,35 @@ class EmailTemplateRepository:
         db.add(log)
         await db.flush()
 
+    async def log_mock_email(
+        self,
+        *,
+        to_email: str,
+        subject: str,
+        body_html: str,
+        template_key: str | None,
+    ) -> str:
+        """Self-managed session: resolve bounce status, write log, commit. Returns status."""
+        import random
+        from app.db.base import async_session_maker
+        from app.services import platform_settings as settings_svc
+
+        async with async_session_maker() as db:
+            bounce_rate = await settings_svc.get_int(db, "mock_email_bounce_rate_percent")
+            status = "sent"
+            if bounce_rate > 0 and random.randint(1, 100) <= bounce_rate:
+                status = "bounced"
+            await self.create_mock_log(
+                db,
+                to_email=to_email,
+                subject=subject,
+                body_html=body_html,
+                template_key=template_key,
+                status=status,
+            )
+            await db.commit()
+        return status
+
 
 # Module-level singleton
 email_template_repo = EmailTemplateRepository()

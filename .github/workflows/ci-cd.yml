@@ -74,9 +74,11 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Write Firebase credentials
+        env:
+          FIREBASE_CRED_JSON: ${{ secrets.FIREBASE_CRED_JSON }}
         run: |
           mkdir -p cred
-          echo '${{ secrets.FIREBASE_CRED_JSON }}' > cred/cred.json
+          printf '%s' "$FIREBASE_CRED_JSON" > cred/cred.json
 
       - name: Write docker-compose .env
         run: |

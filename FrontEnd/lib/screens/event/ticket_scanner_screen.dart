@@ -344,6 +344,7 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
             ? Icons.info_rounded
             : Icons.error_rounded;
 
+    _cameraController.stop();
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -419,7 +420,11 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
               width: double.infinity,
               height: 48,
               child: ElevatedButton(
-                onPressed: () => Navigator.pop(ctx),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _cameraController.start();
+                  if (mounted) setState(() => _isProcessing = false);
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: color,
                   foregroundColor: Colors.white,
@@ -446,6 +451,7 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
     required List<String> categoryNames,
   }) {
     final color = AppTheme.successColor;
+    _cameraController.stop();
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -521,7 +527,11 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
                 width: double.infinity,
                 height: 48,
                 child: ElevatedButton(
-                  onPressed: () => Navigator.pop(ctx),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _cameraController.start();
+                    if (mounted) setState(() => _isProcessing = false);
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: color,
                     foregroundColor: Colors.white,
@@ -548,6 +558,7 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
     required int totalDelegates,
     required int checkedInCount,
   }) {
+    _cameraController.stop();
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -565,7 +576,10 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
           if (mounted) setState(() => _scannedCount++);
         },
       ),
-    );
+    ).whenComplete(() {
+      _cameraController.start();
+      if (mounted) setState(() => _isProcessing = false);
+    });
   }
 
   Widget _modeTab({

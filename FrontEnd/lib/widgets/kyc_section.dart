@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../config/theme.dart';
 import '../models/user.dart';
+import '../providers/auth_provider.dart';
 import '../providers/user_provider.dart';
 import '../widgets/app_toast.dart';
 
@@ -20,8 +21,6 @@ class _KycSectionState extends State<KycSection> {
   bool _submitting = false;
   bool _uploading = false;
 
-  static const _requiredDocs = ['id_front', 'proof_of_address'];
-  static const _optionalDocs = ['id_back', 'selfie', 'tax_id'];
   static const _docLabels = {
     'id_front': 'Government ID (Front)',
     'id_back': 'Government ID (Back)',
@@ -29,6 +28,17 @@ class _KycSectionState extends State<KycSection> {
     'selfie': 'Selfie with ID',
     'tax_id': 'Tax ID Document',
   };
+
+  bool get _isCustomer {
+    final role = context.read<AuthProvider>().user?.role ?? UserRole.customer;
+    return role == UserRole.customer;
+  }
+
+  List<String> get _requiredDocTypes => _isCustomer
+      ? ['id_front', 'id_back']
+      : ['id_front', 'id_back', 'proof_of_address', 'tax_id'];
+
+  List<String> get _optionalDocTypes => ['selfie'];
 
   @override
   void initState() {
@@ -48,9 +58,7 @@ class _KycSectionState extends State<KycSection> {
     }
   }
 
-  List<KycDocument> get _documents {
-    return _kycData?.documents ?? [];
-  }
+  List<KycDocument> get _documents => _kycData?.documents ?? [];
 
   KycDocument? _docForType(String type) {
     try {
@@ -63,7 +71,7 @@ class _KycSectionState extends State<KycSection> {
   bool get _canSubmit {
     final status = _kycData?.kycStatus ?? 'not_started';
     if (status == 'verified' || status == 'submitted') return false;
-    for (final dt in _requiredDocs) {
+    for (final dt in _requiredDocTypes) {
       if (_docForType(dt) == null) return false;
     }
     return true;
@@ -73,15 +81,18 @@ class _KycSectionState extends State<KycSection> {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf'],
+      withData: true,
     );
     if (result == null || result.files.isEmpty) return;
     final file = result.files.first;
-    if (file.path == null) return;
+    final bytes = file.bytes;
+    if (bytes == null) return;
+    final filename = file.name;
 
     setState(() => _uploading = true);
     if (!mounted) return;
     try {
-      await context.read<UserProvider>().uploadKycDocument(file.path!, docType);
+      await context.read<UserProvider>().uploadKycDocument(bytes, filename, docType);
       await _loadKycStatus();
       if (mounted) AppToast.success(context, 'Document uploaded');
     } catch (e) {
@@ -124,96 +135,99 @@ class _KycSectionState extends State<KycSection> {
     }
 
     final status = _kycData?.kycStatus ?? 'not_started';
-    final verified = _kycData?.kycVerified ?? false;
-    final required = _kycData?.kycRequiredForRole ?? false;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildStatusBanner(status, verified, required),
-        if (status == 'verified') ...[
-          const SizedBox(height: 8),
-          _buildVerifiedContent(),
-        ] else if (status == 'submitted') ...[
-          const SizedBox(height: 8),
-          _buildSubmittedContent(),
-        ] else ...[
-          const SizedBox(height: 12),
-          _buildDocumentUploadList(),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: (_canSubmit && !_submitting) ? _submitForReview : null,
-              icon: _submitting
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                    )
-                  : const Icon(Icons.send_rounded, size: 18),
-              label: Text(_submitting ? 'Submitting...' : 'Submit for Verification'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.accentColor,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                padding: const EdgeInsets.symmetric(vertical: 14),
+    return _buildExpansionTile(status);
+  }
+
+  Widget _buildExpansionTile(String status) {
+    final (icon, color, label) = _statusDisplay(status);
+
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+        borderRadius: BorderRadius.circular(10),
+        color: color.withValues(alpha: 0.04),
+      ),
+      child: Theme(
+        // Remove the default divider lines ExpansionTile adds
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          initiallyExpanded: false,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+          childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+          expandedCrossAxisAlignment: CrossAxisAlignment.start,
+          title: Row(
+            children: [
+              Icon(icon, color: color, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Identity Verification',
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                ),
               ),
-            ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  label,
+                  style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
           ),
-          if (status == 'rejected') ...[
-            const SizedBox(height: 8),
-            _buildRejectionInfo(),
+          children: [
+            const SizedBox(height: 4),
+            if (status == 'verified')
+              _buildVerifiedContent()
+            else if (status == 'submitted')
+              _buildSubmittedContent()
+            else ...[
+              _buildDocumentUploadList(),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: (_canSubmit && !_submitting) ? _submitForReview : null,
+                  icon: _submitting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Icon(Icons.send_rounded, size: 18),
+                  label: Text(_submitting ? 'Submitting...' : 'Submit for Verification'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.accentColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                ),
+              ),
+              if (status == 'rejected') ...[
+                const SizedBox(height: 8),
+                _buildRejectionInfo(),
+              ],
+            ],
           ],
-        ],
-      ],
+        ),
+      ),
     );
   }
 
-  Widget _buildStatusBanner(String status, bool verified, bool required) {
-    IconData icon;
-    Color color;
-    String label;
-
-    switch (status) {
-      case 'verified':
-        icon = Icons.verified;
-        color = AppTheme.successColor;
-        label = 'Identity Verified';
-      case 'submitted':
-        icon = Icons.hourglass_top_rounded;
-        color = AppTheme.warningColor;
-        label = 'Under Review';
-      case 'rejected':
-        icon = Icons.error_outline;
-        color = Colors.red;
-        label = 'Verification Rejected';
-      default:
-        icon = Icons.shield_outlined;
-        color = required ? AppTheme.warningColor : AppTheme.textSecondaryOf(context);
-        label = required ? 'Verification Required' : 'Not Verified';
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: color, size: 22),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(fontWeight: FontWeight.w600, color: color, fontSize: 14),
-            ),
-          ),
-        ],
-      ),
-    );
+  (IconData, Color, String) _statusDisplay(String status) {
+    return switch (status) {
+      'verified' => (Icons.verified, AppTheme.successColor, 'Verified'),
+      'submitted' => (Icons.hourglass_top_rounded, AppTheme.warningColor, 'Under Review'),
+      'rejected' => (Icons.error_outline, Colors.red, 'Rejected'),
+      _ => (Icons.shield_outlined,
+            (_kycData?.kycRequiredForRole ?? false) ? AppTheme.warningColor : AppTheme.textSecondaryOf(context),
+            (_kycData?.kycRequiredForRole ?? false) ? 'Required' : 'Not Started'),
+    };
   }
 
   Widget _buildVerifiedContent() {
@@ -221,9 +235,11 @@ class _KycSectionState extends State<KycSection> {
       children: [
         Icon(Icons.check_circle, color: AppTheme.successColor, size: 16),
         const SizedBox(width: 6),
-        Text(
-          'Your identity has been verified. No further action needed.',
-          style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryOf(context)),
+        Expanded(
+          child: Text(
+            'Your identity has been verified. No further action needed.',
+            style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryOf(context)),
+          ),
         ),
       ],
     );
@@ -245,11 +261,11 @@ class _KycSectionState extends State<KycSection> {
   }
 
   Widget _buildDocumentUploadList() {
-    final allDocs = [..._requiredDocs, ..._optionalDocs];
+    final allDocs = [..._requiredDocTypes, ..._optionalDocTypes];
     return Column(
       children: allDocs.map((docType) {
         final doc = _docForType(docType);
-        final isRequired = _requiredDocs.contains(docType);
+        final isRequired = _requiredDocTypes.contains(docType);
         final label = _docLabels[docType] ?? docType;
 
         return Padding(
@@ -264,7 +280,7 @@ class _KycSectionState extends State<KycSection> {
             child: Row(
               children: [
                 Icon(
-                  doc != null ? Icons.check_circle : Icons.upload_file,
+                  doc != null ? Icons.description : Icons.upload_file,
                   color: doc != null ? AppTheme.successColor : AppTheme.textSecondaryOf(context),
                   size: 20,
                 ),
@@ -278,13 +294,18 @@ class _KycSectionState extends State<KycSection> {
                           Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
                           if (isRequired) ...[
                             const SizedBox(width: 4),
-                            Text('*', style: TextStyle(color: Colors.red, fontSize: 13)),
+                            const Text('*', style: TextStyle(color: Colors.red, fontSize: 13)),
                           ],
                         ],
                       ),
-                      if (doc != null)
+                      if (doc == null && (docType == 'id_front' || docType == 'id_back'))
                         Text(
-                          doc.originalFilename ?? '',
+                          'Passport or Driver\'s License',
+                          style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context)),
+                        ),
+                      if (doc != null && doc.originalFilename != null)
+                        Text(
+                          doc.originalFilename!,
                           style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context)),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -336,7 +357,7 @@ class _KycSectionState extends State<KycSection> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Rejection reasons:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.red)),
+          const Text('Rejection reasons:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.red)),
           const SizedBox(height: 4),
           ...docs.map((d) => Padding(
                 padding: const EdgeInsets.only(bottom: 2),

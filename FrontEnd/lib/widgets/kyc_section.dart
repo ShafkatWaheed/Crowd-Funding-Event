@@ -20,6 +20,7 @@ class _KycSectionState extends State<KycSection> {
   bool _loading = true;
   bool _submitting = false;
   bool _uploading = false;
+  bool _expanded = false;
 
   static const _docLabels = {
     'id_front': 'Government ID (Front)',
@@ -92,9 +93,29 @@ class _KycSectionState extends State<KycSection> {
     setState(() => _uploading = true);
     if (!mounted) return;
     try {
-      await context.read<UserProvider>().uploadKycDocument(bytes, filename, docType);
-      await _loadKycStatus();
-      if (mounted) AppToast.success(context, 'Document uploaded');
+      final uploaded = await context.read<UserProvider>().uploadKycDocument(bytes, filename, docType);
+      if (mounted && _kycData != null) {
+        final newDoc = KycDocument(
+          id: uploaded.documentId ?? 0,
+          documentType: uploaded.documentType ?? docType,
+          fileUrl: uploaded.fileUrl,
+          originalFilename: filename,
+          status: uploaded.status ?? 'pending',
+        );
+        setState(() {
+          _kycData = KycStatus(
+            kycStatus: _kycData!.kycStatus,
+            kycVerified: _kycData!.kycVerified,
+            kycVerifiedAt: _kycData!.kycVerifiedAt,
+            kycRequiredForRole: _kycData!.kycRequiredForRole,
+            documents: [
+              ..._kycData!.documents.where((d) => d.documentType != docType),
+              newDoc,
+            ],
+          );
+        });
+        AppToast.success(context, 'Document uploaded');
+      }
     } catch (e) {
       if (mounted) AppToast.fromError(context, e, fallback: 'Upload failed');
     } finally {
@@ -105,8 +126,18 @@ class _KycSectionState extends State<KycSection> {
   Future<void> _deleteDocument(int docId) async {
     try {
       await context.read<UserProvider>().deleteKycDocument(docId);
-      await _loadKycStatus();
-      if (mounted) AppToast.success(context, 'Document removed');
+      if (mounted && _kycData != null) {
+        setState(() {
+          _kycData = KycStatus(
+            kycStatus: _kycData!.kycStatus,
+            kycVerified: _kycData!.kycVerified,
+            kycVerifiedAt: _kycData!.kycVerifiedAt,
+            kycRequiredForRole: _kycData!.kycRequiredForRole,
+            documents: _kycData!.documents.where((d) => d.id != docId).toList(),
+          );
+        });
+        AppToast.success(context, 'Document removed');
+      }
     } catch (e) {
       if (mounted) AppToast.fromError(context, e, fallback: 'Delete failed');
     }
@@ -152,7 +183,8 @@ class _KycSectionState extends State<KycSection> {
         // Remove the default divider lines ExpansionTile adds
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
-          initiallyExpanded: false,
+          initiallyExpanded: _expanded,
+          onExpansionChanged: (v) => setState(() => _expanded = v),
           tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
           childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
           expandedCrossAxisAlignment: CrossAxisAlignment.start,

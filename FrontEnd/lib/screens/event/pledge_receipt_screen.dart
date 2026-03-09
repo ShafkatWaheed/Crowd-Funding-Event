@@ -150,16 +150,16 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
                         isDonation ? AppIcons.donationIcon : AppIcons.pledgeStatusIcon(pledgeStatus),
                         size: 40,
                         color: Colors.white,
-                        shadows: const [Shadow(color: Colors.black38, blurRadius: 6)],
+                        shadows: [Shadow(color: AppTheme.shadowColor, blurRadius: 6)],
                       ),
                       const SizedBox(height: 10),
                       Text(
                         '$typeLabel Confirmed',
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: Colors.white,
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          shadows: [Shadow(color: Colors.black38, blurRadius: 4)],
+                          shadows: [Shadow(color: AppTheme.shadowColor, blurRadius: 4)],
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -168,7 +168,7 @@ class _PledgeReceiptScreenState extends State<PledgeReceiptScreen> {
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.85),
                           fontSize: 12,
-                          shadows: const [Shadow(color: Colors.black38, blurRadius: 4)],
+                          shadows: [Shadow(color: AppTheme.shadowColor, blurRadius: 4)],
                         ),
                       ),
                     ],

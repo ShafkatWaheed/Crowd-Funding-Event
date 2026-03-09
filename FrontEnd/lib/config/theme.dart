@@ -193,6 +193,9 @@ class AppTheme {
   static Color frostedBg(bool isDark, {double darkAlpha = 0.08, double lightAlpha = 0.06}) =>
       isDark ? Colors.white.withValues(alpha: darkAlpha) : Colors.black.withValues(alpha: lightAlpha);
 
+  /// Shadow colour for text/icon shadows on coloured backgrounds.
+  static Color shadowColor = Colors.black.withValues(alpha: 0.38);
+
   /// Primary foreground (text + icon) on a frosted-glass surface.
   static Color frostedFg(bool isDark) => isDark ? Colors.white : Colors.black87;
 

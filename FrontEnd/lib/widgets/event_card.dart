@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../config/api_config.dart';
+import '../config/app_icons.dart';
 import '../config/theme.dart';
 import '../config/design_tokens.dart';
 import '../models/event.dart';
@@ -72,7 +73,7 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
             mainAxisSize: MainAxisSize.min,
             children: [
               _buildHeader(context, event, isDark),
-              _buildBody(context, event),
+              _buildBody(context, event, isDark),
               if (event.maxCapacity > 0 && widget.isOrganizerOrAdmin)
                 _buildCapacityBar(context),
             ],
@@ -179,7 +180,7 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
     );
   }
 
-  Widget _buildBody(BuildContext context, Event event) {
+  Widget _buildBody(BuildContext context, Event event, bool isDark) {
     final hasFunding = event.fundingGoalCents != null && event.fundingGoalCents! > 0;
 
     return Padding(
@@ -188,7 +189,7 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _InfoRow(
-            icon: Icons.schedule_rounded,
+            icon: AppIcons.cardTime.icon,
             text: event.startTime != null
                 ? AppDateFormat.eventCard(event.startTime!)
                 : 'Event date: TBD',
@@ -196,50 +197,57 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
           if (event.venue != null) ...[
             const SizedBox(height: 4),
             _InfoRow(
-              icon: Icons.location_on_rounded,
+              icon: AppIcons.cardLocation.icon,
               text: '${event.venue!.name}, ${event.venue!.city}',
+              color: AppIcons.cardLocation.color(isDark),
             ),
           ],
           if (event.genre != null && event.genre!.isNotEmpty) ...[
             const SizedBox(height: 4),
             _InfoRow(
-              icon: Icons.label_rounded,
+              icon: AppIcons.genreIcon(event.genre!),
               text: event.genre![0].toUpperCase() + event.genre!.substring(1),
-              color: AppTheme.accentColor,
+              color: AppIcons.genreColor(event.genre!, isDark: Theme.of(context).brightness == Brightness.dark),
             ),
           ],
           const SizedBox(height: 8),
           Row(
             children: [
-              _StatChip(icon: Icons.favorite_rounded, value: '${event.likeCount}'),
+              _StatChip(
+                icon: AppIcons.cardLikes.icon,
+                value: '${event.likeCount}',
+                color: AppIcons.cardLikes.color(isDark),
+              ),
               if (widget.isOrganizerOrAdmin) ...[
                 if (_attendeeCount > 0)
                   Flexible(
                     child: _StatChip(
-                      icon: Icons.group_rounded,
+                      icon: AppIcons.cardAttendees.icon,
                       value: event.maxCapacity > 0
                           ? '$_attendeeCount / ${event.maxCapacity}'
                           : '$_attendeeCount going',
+                      color: AppIcons.cardAttendees.color(isDark),
                     ),
                   ),
               ] else if (_showTicketStats) ...[
                 if (event.totalTierCapacity > 0)
                   Flexible(
                     child: _StatChip(
-                      icon: Icons.confirmation_number_rounded,
+                      icon: AppIcons.cardTickets.icon,
                       value: event.ticketsSoldCount >= event.totalTierCapacity
                           ? 'Sold Out'
                           : '${event.ticketsSoldCount}/${event.totalTierCapacity}',
                       color: event.ticketsSoldCount >= event.totalTierCapacity
                           ? AppTheme.errorColor
-                          : null,
+                          : AppIcons.cardTickets.color(isDark),
                     ),
                   )
                 else if (event.ticketsSoldCount > 0)
                   Flexible(
                     child: _StatChip(
-                      icon: Icons.confirmation_number_rounded,
+                      icon: AppIcons.cardTickets.icon,
                       value: '${event.ticketsSoldCount}',
+                      color: AppIcons.cardTickets.color(isDark),
                     ),
                   ),
               ],
@@ -327,24 +335,8 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
   }
 
   LinearGradient _statusGradient(EventStatus status) {
-    return switch (status) {
-      EventStatus.live => const LinearGradient(
-          colors: [Color(0xFF05944F), Color(0xFF0A7544)]),
-      EventStatus.selling_tickets => const LinearGradient(
-          colors: [Color(0xFF00838F), Color(0xFF00695C)]),
-      EventStatus.waiting_event_date => const LinearGradient(
-          colors: [Color(0xFFE65100), Color(0xFFBF360C)]),
-      EventStatus.completed => const LinearGradient(
-          colors: [Color(0xFF424242), Color(0xFF212121)]),
-      EventStatus.cancelled => const LinearGradient(
-          colors: [Color(0xFF8B0000), Color(0xFF5D0000)]),
-      EventStatus.draft => const LinearGradient(
-          colors: [Color(0xFF757575), Color(0xFF545454)]),
-      EventStatus.pending_approval => const LinearGradient(
-          colors: [Color(0xFFE65100), Color(0xFFBF360C)]),
-      _ => const LinearGradient(
-          colors: [Color(0xFF141414), Color(0xFF2C2C2C)]),
-    };
+    final colors = AppIcons.forEventStatus(status).gradientColors;
+    return LinearGradient(colors: colors);
   }
 }
 
@@ -357,17 +349,11 @@ class _FrostedStatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = switch (status) {
-      EventStatus.draft => 'Draft',
-      EventStatus.pending_approval => 'Waiting Approval',
-      EventStatus.approved => hasFunding ? 'Funding' : 'Tickets',
-      EventStatus.live => 'LIVE',
-      EventStatus.selling_tickets => 'Tickets',
-      EventStatus.waiting_event_date => 'Awaiting',
-      EventStatus.completed => 'Completed',
-      EventStatus.cancelled => 'Cancelled',
-      EventStatus.under_review => 'Review',
-    };
+    final label = status == EventStatus.approved
+        ? (hasFunding ? 'Funding' : 'Tickets')
+        : status == EventStatus.live
+            ? 'LIVE'
+            : AppIcons.forEventStatus(status).displayName;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),

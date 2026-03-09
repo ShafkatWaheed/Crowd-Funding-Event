@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../config/app_icons.dart';
 import '../../../config/theme.dart';
 import '../../../config/design_tokens.dart';
 import '../../../models/event.dart';
@@ -57,75 +58,66 @@ class EventDetailsCard extends StatelessWidget {
             ),
             AppSpacing.vMd,
             if (event.startTime != null)
-              EventDetailHelpers.modernInfoRow(context, Icons.event_rounded,
-                  'Starts', AppDateFormat.fullDateTime(event.startTime!)),
+              EventDetailHelpers.modernInfoRow(context,
+                  AppIcons.detailStarts.icon, 'Starts',
+                  AppDateFormat.fullDateTime(event.startTime!),
+                  iconColor: AppIcons.detailStarts.color(isDark)),
             if (event.endTime != null)
-              EventDetailHelpers.modernInfoRow(
-                  context,
-                  Icons.event_available_rounded,
-                  'Ends',
-                  AppDateFormat.fullDateTime(event.endTime!)),
+              EventDetailHelpers.modernInfoRow(context,
+                  AppIcons.detailEnds.icon, 'Ends',
+                  AppDateFormat.fullDateTime(event.endTime!),
+                  iconColor: AppIcons.detailEnds.color(isDark)),
             if (event.startTime == null && event.endTime == null)
-              EventDetailHelpers.modernInfoRow(
-                  context,
-                  Icons.schedule_rounded,
-                  'Date',
+              EventDetailHelpers.modernInfoRow(context,
+                  AppIcons.detailDateTbd.icon, 'Date',
                   'Announced after funding milestone',
+                  iconColor: AppIcons.detailDateTbd.color(isDark),
                   valueColor: context.fundingAccent),
             if (isOrganizerOrAdmin)
-              EventDetailHelpers.modernInfoRow(
-                context,
-                Icons.people_alt_rounded,
-                'Capacity',
-                event.maxCapacity > 0
-                    ? EventDetailHelpers.capacityLabel(event)
-                    : '${event.registrationCount} registered',
-                valueColor: event.maxCapacity > 0 &&
-                        EventDetailHelpers.capacityUsed(event) >=
-                            event.maxCapacity
-                    ? AppTheme.errorColor
-                    : null,
-              ),
+              EventDetailHelpers.modernInfoRow(context,
+                  AppIcons.detailCapacity.icon, 'Capacity',
+                  event.maxCapacity > 0
+                      ? EventDetailHelpers.capacityLabel(event)
+                      : '${event.registrationCount} registered',
+                  iconColor: AppIcons.detailCapacity.color(isDark),
+                  valueColor: event.maxCapacity > 0 &&
+                          EventDetailHelpers.capacityUsed(event) >=
+                              event.maxCapacity
+                      ? AppTheme.errorColor
+                      : null),
             if (!isOrganizerOrAdmin && _showTicketStats(event))
-              EventDetailHelpers.modernInfoRow(
-                context,
-                Icons.confirmation_number_rounded,
-                'Tickets Sold',
-                event.totalTierCapacity > 0
-                    ? '${event.ticketsSoldCount} / ${event.totalTierCapacity}'
-                    : '${event.ticketsSoldCount}',
-                valueColor: event.totalTierCapacity > 0 &&
-                        event.ticketsSoldCount >= event.totalTierCapacity
-                    ? AppTheme.errorColor
-                    : null,
-              ),
-            EventDetailHelpers.modernInfoRow(
-                context,
-                Icons.badge_rounded,
-                'Registration',
-                event.registrationType.name.replaceAll('_', ' ')),
+              EventDetailHelpers.modernInfoRow(context,
+                  AppIcons.detailTicketsSold.icon, 'Tickets Sold',
+                  event.totalTierCapacity > 0
+                      ? '${event.ticketsSoldCount} / ${event.totalTierCapacity}'
+                      : '${event.ticketsSoldCount}',
+                  iconColor: AppIcons.detailTicketsSold.color(isDark),
+                  valueColor: event.totalTierCapacity > 0 &&
+                          event.ticketsSoldCount >= event.totalTierCapacity
+                      ? AppTheme.errorColor
+                      : null),
+            EventDetailHelpers.modernInfoRow(context,
+                AppIcons.detailRegistration.icon, 'Registration',
+                event.registrationType.name.replaceAll('_', ' '),
+                iconColor: AppIcons.detailRegistration.color(isDark)),
             if (event.eventDateDeadline != null)
-              EventDetailHelpers.modernInfoRow(
-                  context,
-                  Icons.hourglass_bottom_rounded,
-                  'Set Event Date By',
-                  AppDateFormat.fullDateTime(event.eventDateDeadline!)),
+              EventDetailHelpers.modernInfoRow(context,
+                  AppIcons.detailSetDateBy.icon, 'Set Event Date By',
+                  AppDateFormat.fullDateTime(event.eventDateDeadline!),
+                  iconColor: AppIcons.detailSetDateBy.color(isDark)),
             if (event.ticketStrategyName != null && isOrganizerOrAdmin)
-              EventDetailHelpers.modernInfoRow(
-                  context,
-                  Icons.confirmation_number_rounded,
-                  'Ticket Strategy',
-                  event.ticketStrategyName!),
+              EventDetailHelpers.modernInfoRow(context,
+                  AppIcons.detailTicketStrategy.icon, 'Ticket Strategy',
+                  event.ticketStrategyName!,
+                  iconColor: AppIcons.detailTicketStrategy.color(isDark)),
             if (event.refundDeadlineDays != null)
-              EventDetailHelpers.modernInfoRow(
-                context,
-                Icons.shield_rounded,
-                'Refund',
-                event.refundDeadlineDays! > 0
-                    ? '${event.refundDeadlineDays}d before event starts'
-                    : 'Until event starts',
-                valueColor: AppTheme.secondaryColor,
-              ),
+              EventDetailHelpers.modernInfoRow(context,
+                  AppIcons.detailRefund.icon, 'Refund',
+                  event.refundDeadlineDays! > 0
+                      ? '${event.refundDeadlineDays}d before event starts'
+                      : 'Until event starts',
+                  iconColor: AppIcons.detailRefund.color(isDark),
+                  valueColor: AppTheme.secondaryColor),
           ],
         ),
       ),

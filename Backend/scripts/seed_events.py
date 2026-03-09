@@ -43,6 +43,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from app.models.event import Event, EventStatus, RegistrationType
+from app.models.ticket import TicketTier
 from app.models.user import User, UserRole
 from app.models.venue import Venue
 
@@ -88,6 +89,16 @@ SEED_VENUES: list[tuple] = [
 ]
 
 ALL_STATUSES = [s.value for s in EventStatus]
+
+# Statuses that require ticket tiers (tickets are actively being sold)
+TICKETED_STATUSES = {EventStatus.selling_tickets, EventStatus.live}
+
+# Tiers inserted for every event in a TICKETED_STATUS
+SEED_TIERS = [
+    {"name": "General Admission", "price_cents": 2500, "display_order": 0, "max_reserved_spots": 500},
+    {"name": "VIP",               "price_cents": 7500, "display_order": 1, "max_reserved_spots": 100},
+    {"name": "Early Bird",        "price_cents": 1500, "display_order": 2, "max_reserved_spots": 200},
+]
 
 # ---------------------------------------------------------------------------
 # Engine setup (mirrors manage_users.py)
@@ -301,11 +312,25 @@ async def run_seed(statuses: list[str], count: int) -> None:
 
             inserted = 0
             for batch in _chunks(rows, BATCH_SIZE):
-                await session.execute(pg_insert(Event).values(batch))
-                inserted += len(batch)
+                result = await session.execute(
+                    pg_insert(Event).values(batch).returning(Event.id)
+                )
+                event_ids = [row[0] for row in result.fetchall()]
+                inserted += len(event_ids)
+
+                # Bulk-insert ticket tiers for statuses that sell tickets
+                if status in TICKETED_STATUSES:
+                    tier_rows = [
+                        {"event_id": eid, **tier}
+                        for eid in event_ids
+                        for tier in SEED_TIERS
+                    ]
+                    for tier_batch in _chunks(tier_rows, BATCH_SIZE):
+                        await session.execute(pg_insert(TicketTier).values(tier_batch))
 
             total_inserted += inserted
-            print(f"  [{status_str:<22}] inserted {inserted:>5} events")
+            tiers_note = f" + {len(SEED_TIERS)} tiers/event" if status in TICKETED_STATUSES else ""
+            print(f"  [{status_str:<22}] inserted {inserted:>5} events{tiers_note}")
 
         await session.commit()
 

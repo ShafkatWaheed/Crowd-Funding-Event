@@ -291,6 +291,9 @@ async def run_seed(statuses: list[str], count: int) -> None:
                     "organizer_id": organizer.id,
                     # Cycle through all world venues so events are geographically spread
                     "venue_id": venues[i % len(venues)].id,
+                    # Copy venue coordinates onto the event so map pins work
+                    "lat": venues[i % len(venues)].lat,
+                    "lng": venues[i % len(venues)].lng,
                     **_event_fields(status, i, now),
                 }
                 for i in range(count)

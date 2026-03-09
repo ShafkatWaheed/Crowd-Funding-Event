@@ -66,26 +66,27 @@ GENRES = [
 # World-spanning seed venues — one per city, cycled across all events.
 # (name, address, city, province_or_state, max_capacity, lat, lng)
 SEED_VENUES: list[tuple] = [
-    ("[SEED] The Roundhouse",          "101 Roundhouse Way",          "London",        "England",          5_000,   51.5337,   -0.1760),
+    # (name, address, city, province, max_capacity, lat, lng)
+    ("[SEED] The Roundhouse",          "Chalk Farm Rd",               "London",        "England",          5_000,   51.5437,   -0.1476),
     ("[SEED] Palais des Congrès",      "2 Place de la Porte Maillot", "Paris",         "Île-de-France",    3_500,   48.8784,    2.2833),
     ("[SEED] Tempodrom",               "Möckernstraße 10",            "Berlin",        "Berlin",           3_000,   52.5023,   13.3757),
-    ("[SEED] Hammersmith Apollo",      "45 Queen Caroline St",        "London",        "England",          5_039,   51.4929,   -0.2242),
+    ("[SEED] Hammersmith Apollo",      "45 Queen Caroline St",        "London",        "England",          5_039,   51.4933,   -0.2255),
     ("[SEED] Madison Square Garden",   "4 Pennsylvania Plaza",        "New York",      "NY",              20_789,   40.7505,  -73.9934),
     ("[SEED] The Fillmore",            "1805 Geary Blvd",             "San Francisco", "CA",               1_150,   37.7842, -122.4328),
     ("[SEED] Rogers Centre",           "1 Blue Jays Way",             "Toronto",       "ON",              55_000,   43.6414,  -79.3894),
-    ("[SEED] Olympic Stadium",         "4141 Pierre-De Coubertin",    "Montreal",      "QC",              61_004,   45.5626,  -73.5514),
+    ("[SEED] Olympic Stadium",         "4141 Ave Pierre-De Coubertin","Montreal",      "QC",              61_004,   45.5596,  -73.5517),
     ("[SEED] Saitama Super Arena",     "8 Shintoshin",                "Saitama",       "Saitama",         37_000,   35.8951,  139.6306),
-    ("[SEED] Tokyo Dome",              "1-3-61 Koraku",               "Tokyo",         "Tokyo",           55_000,   35.7056,  139.7519),
-    ("[SEED] Marvel Stadium",          "740 Bourke St",               "Melbourne",     "VIC",             53_359,  -37.8162,  144.9475),
-    ("[SEED] Accor Stadium",           "Edwin Flack Ave",             "Sydney",        "NSW",             83_500,  -33.8473,  151.0633),
-    ("[SEED] Coca-Cola Arena",         "City Walk",                   "Dubai",         "Dubai",           17_000,   25.1855,   55.2398),
+    ("[SEED] Tokyo Dome",              "1-3-61 Koraku, Bunkyo",       "Tokyo",         "Tokyo",           55_000,   35.7056,  139.7519),
+    ("[SEED] Marvel Stadium",          "740 Bourke St, Docklands",    "Melbourne",     "VIC",             53_359,  -37.8165,  144.9476),
+    ("[SEED] Accor Stadium",           "Edwin Flack Ave, Olympic Pk", "Sydney",        "NSW",             83_500,  -33.8473,  151.0634),
+    ("[SEED] Coca-Cola Arena",         "City Walk, Al Wasl",          "Dubai",         "Dubai",           17_000,   25.1855,   55.2399),
     ("[SEED] Allianz Parque",          "Av. Francisco Matarazzo 1705","São Paulo",     "SP",              43_713,  -23.5274,  -46.6681),
-    ("[SEED] Foro Sol",                "Av. Viaducto Río de la Piedad","Mexico City",  "CDMX",            65_000,   19.3592,  -99.0864),
-    ("[SEED] DY Patil Stadium",        "Sector 4, Nerul",             "Mumbai",        "Maharashtra",     55_000,   19.0468,   73.0157),
-    ("[SEED] Cape Town Stadium",       "Fritz Sonnenberg Rd",         "Cape Town",     "Western Cape",    64_500,  -33.9034,   18.4106),
-    ("[SEED] Johannesburg Stadium",    "Nasrec Rd",                   "Johannesburg",  "Gauteng",         94_700,  -26.2343,   27.9826),
+    ("[SEED] Foro Sol",                "Av. Viaducto Río de la Piedad","Mexico City",  "CDMX",            65_000,   19.3593,  -99.0857),
+    ("[SEED] DY Patil Stadium",        "Sector 4, Nerul",             "Navi Mumbai",   "Maharashtra",     55_000,   19.0468,   73.0157),
+    ("[SEED] Cape Town Stadium",       "Fritz Sonnenberg Rd, GreenPt","Cape Town",     "Western Cape",    64_500,  -33.9034,   18.4109),
+    ("[SEED] FNB Stadium",             "Nasrec Rd, Nasrec",           "Johannesburg",  "Gauteng",         94_700,  -26.2348,   27.9826),
     ("[SEED] Azteca Stadium",          "Calzada de Tlalpan 3465",     "Mexico City",   "CDMX",           105_000,   19.3030,  -99.1500),
-    ("[SEED] Rod Laver Arena",         "Melbourne Park",              "Melbourne",     "VIC",             14_820,  -37.8215,  144.9789),
+    ("[SEED] Rod Laver Arena",         "Melbourne Park, Batman Ave",  "Melbourne",     "VIC",             14_820,  -37.8215,  144.9789),
 ]
 
 ALL_STATUSES = [s.value for s in EventStatus]

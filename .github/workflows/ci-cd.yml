@@ -53,7 +53,7 @@ jobs:
           FIREBASE_PROJECT_ID: test-project
           GOOGLE_APPLICATION_CREDENTIALS: ""
 
-  analyze-frontend:
+  test-frontend:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     steps:
@@ -66,6 +66,8 @@ jobs:
         run: cd FrontEnd && flutter pub get
       - name: Analyze
         run: cd FrontEnd && dart analyze lib/
+      - name: Run tests
+        run: cd FrontEnd && flutter test --no-pub
 
   deploy:
     runs-on: self-hosted

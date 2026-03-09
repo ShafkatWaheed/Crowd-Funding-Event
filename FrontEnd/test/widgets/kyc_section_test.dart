@@ -6,25 +6,40 @@ import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
 import '../../lib/models/user.dart';
+import '../../lib/providers/auth_provider.dart';
 import '../../lib/providers/user_provider.dart';
 import '../../lib/repositories/user_repository.dart';
 import '../../lib/widgets/kyc_section.dart';
+import '../helpers/mock_providers.dart';
 import '../helpers/mock_user_repository.dart';
 import '../helpers/pump_app.dart';
 
 void main() {
   late MockUserRepository mockUserRepo;
+  late MockAuthProvider mockAuth;
 
   setUp(() {
     mockUserRepo = MockUserRepository();
+    mockAuth = MockAuthProvider();
+    // Default: no logged-in user → treated as customer role
+    when(() => mockAuth.user).thenReturn(null);
   });
 
   Future<void> pumpKyc(WidgetTester tester) async {
     await pumpApp(
       tester,
       const Scaffold(body: SingleChildScrollView(child: KycSection())),
-      overrides: [ChangeNotifierProvider<UserProvider>.value(value: UserProvider(mockUserRepo))],
+      overrides: [
+        ChangeNotifierProvider<UserProvider>.value(value: UserProvider(mockUserRepo)),
+        ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
+      ],
     );
+  }
+
+  /// Expands the KYC accordion.
+  Future<void> expandAccordion(WidgetTester tester) async {
+    await tester.tap(find.text('Identity Verification'));
+    await tester.pumpAndSettle();
   }
 
   KycStatus kycResponse({
@@ -62,16 +77,17 @@ void main() {
 
       await pumpKyc(tester);
       await tester.pumpAndSettle();
+      await expandAccordion(tester);
 
-      // Status banner
-      expect(find.text('Not Verified'), findsOneWidget);
-      // Required doc labels
+      // Status badge
+      expect(find.text('Not Started'), findsOneWidget);
+      // Customer role: id_front + id_back required, selfie optional
       expect(find.text('Government ID (Front)'), findsOneWidget);
-      expect(find.text('Proof of Address'), findsOneWidget);
-      // Optional docs
       expect(find.text('Government ID (Back)'), findsOneWidget);
       expect(find.text('Selfie with ID'), findsOneWidget);
-      expect(find.text('Tax ID Document'), findsOneWidget);
+      // Non-customer docs should NOT appear for customer role
+      expect(find.text('Proof of Address'), findsNothing);
+      expect(find.text('Tax ID Document'), findsNothing);
       // Upload buttons
       expect(find.text('Upload'), findsWidgets);
       // Submit disabled (required docs not uploaded)
@@ -81,6 +97,28 @@ void main() {
       expect(submitButton.onPressed, isNull);
     });
 
+    testWidgets('renders all docs for organizer role', (tester) async {
+      final orgUser = AppUser(
+        id: 1,
+        email: 'org@test.com',
+        displayName: 'Organizer',
+        role: UserRole.organizer,
+      );
+      when(() => mockAuth.user).thenReturn(orgUser);
+      when(() => mockUserRepo.getKycStatus())
+          .thenAnswer((_) async => kycResponse(status: 'not_started'));
+
+      await pumpKyc(tester);
+      await tester.pumpAndSettle();
+      await expandAccordion(tester);
+
+      expect(find.text('Government ID (Front)'), findsOneWidget);
+      expect(find.text('Government ID (Back)'), findsOneWidget);
+      expect(find.text('Proof of Address'), findsOneWidget);
+      expect(find.text('Tax ID Document'), findsOneWidget);
+      expect(find.text('Selfie with ID'), findsOneWidget);
+    });
+
     testWidgets('renders "not_started" with required flag', (tester) async {
       when(() => mockUserRepo.getKycStatus())
           .thenAnswer((_) async => kycResponse(status: 'not_started', required: true));
@@ -88,7 +126,8 @@ void main() {
       await pumpKyc(tester);
       await tester.pumpAndSettle();
 
-      expect(find.text('Verification Required'), findsOneWidget);
+      // Badge visible without expanding
+      expect(find.text('Required'), findsOneWidget);
     });
 
     testWidgets('renders "verified" state without upload list', (tester) async {
@@ -97,8 +136,9 @@ void main() {
 
       await pumpKyc(tester);
       await tester.pumpAndSettle();
+      await expandAccordion(tester);
 
-      expect(find.text('Identity Verified'), findsOneWidget);
+      expect(find.text('Verified'), findsOneWidget);
       expect(find.text('Your identity has been verified. No further action needed.'), findsOneWidget);
       // No upload buttons
       expect(find.text('Upload'), findsNothing);
@@ -111,6 +151,7 @@ void main() {
 
       await pumpKyc(tester);
       await tester.pumpAndSettle();
+      await expandAccordion(tester);
 
       expect(find.text('Under Review'), findsOneWidget);
       expect(
@@ -136,13 +177,14 @@ void main() {
 
       await pumpKyc(tester);
       await tester.pumpAndSettle();
+      await expandAccordion(tester);
 
-      expect(find.text('Verification Rejected'), findsOneWidget);
+      expect(find.text('Rejected'), findsOneWidget);
       expect(find.text('Rejection reasons:'), findsOneWidget);
       expect(find.textContaining('Image is blurry'), findsOneWidget);
     });
 
-    testWidgets('shows check icon for uploaded documents', (tester) async {
+    testWidgets('shows filename and close icon for uploaded documents', (tester) async {
       when(() => mockUserRepo.getKycStatus()).thenAnswer((_) async => kycResponse(
             status: 'not_started',
             documents: [
@@ -157,26 +199,27 @@ void main() {
 
       await pumpKyc(tester);
       await tester.pumpAndSettle();
+      await expandAccordion(tester);
 
       // Uploaded file name visible
       expect(find.text('my_id.jpg'), findsOneWidget);
-      // Check icon for uploaded doc
-      expect(find.byIcon(Icons.check_circle), findsOneWidget);
       // Close/remove button for pending doc
       expect(find.byIcon(Icons.close), findsOneWidget);
     });
 
     testWidgets('submit button enabled when required docs are uploaded', (tester) async {
+      // Customer requires id_front + id_back
       when(() => mockUserRepo.getKycStatus()).thenAnswer((_) async => kycResponse(
             status: 'not_started',
             documents: [
               KycDocument(id: 1, documentType: 'id_front', originalFilename: 'a.jpg', status: 'pending'),
-              KycDocument(id: 2, documentType: 'proof_of_address', originalFilename: 'b.pdf', status: 'pending'),
+              KycDocument(id: 2, documentType: 'id_back', originalFilename: 'b.jpg', status: 'pending'),
             ],
           ));
 
       await pumpKyc(tester);
       await tester.pumpAndSettle();
+      await expandAccordion(tester);
 
       final submitButton = tester.widget<ElevatedButton>(
         find.widgetWithText(ElevatedButton, 'Submit for Verification'),
@@ -185,12 +228,12 @@ void main() {
     });
 
     testWidgets('tapping submit calls submitKyc and reloads', (tester) async {
-      // First load: required docs uploaded
+      // Customer requires id_front + id_back
       when(() => mockUserRepo.getKycStatus()).thenAnswer((_) async => kycResponse(
             status: 'not_started',
             documents: [
               KycDocument(id: 1, documentType: 'id_front', originalFilename: 'a.jpg', status: 'pending'),
-              KycDocument(id: 2, documentType: 'proof_of_address', originalFilename: 'b.pdf', status: 'pending'),
+              KycDocument(id: 2, documentType: 'id_back', originalFilename: 'b.jpg', status: 'pending'),
             ],
           ));
       when(() => mockUserRepo.submitKyc())
@@ -198,6 +241,7 @@ void main() {
 
       await pumpKyc(tester);
       await tester.pumpAndSettle();
+      await expandAccordion(tester);
 
       // After submit, return submitted state
       when(() => mockUserRepo.getKycStatus())
@@ -222,6 +266,7 @@ void main() {
 
       await pumpKyc(tester);
       await tester.pumpAndSettle();
+      await expandAccordion(tester);
 
       // Reload after delete returns empty
       when(() => mockUserRepo.getKycStatus())

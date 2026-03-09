@@ -23,11 +23,11 @@
 ## Service layer
 
 - **Module(s):** `app.services.notification_service`.
-- **Main functions:** create_notification, create_bulk_notifications (both enqueue FCM push via ARQ when push_notifications_enabled), list_notifications, unread_count, mark_read, mark_all_read. Trigger points include admin settings: when an admin sets `stripe_enabled` to true, create_bulk_notifications is called for all admin user IDs with type `settings_warning`, title "Stripe Enabled — Not Yet Implemented", and a message to disable or implement the gateway.
+- **Main functions:** create_notification, create_bulk_notifications (both enqueue FCM push via ARQ when push_notifications_enabled), list_notifications, unread_count, mark_read, mark_all_read. Trigger points include admin settings (settings_warning) and ticket purchase (ticket_sold to event organizers). **Persistence:** mark_read, mark_all_read, and delete_notification routes call `db.commit()` so changes are persisted (fix for notifications never persisting).
 
 ## Models and DB
 
-- **Models:** `Notification` (user_id, type, title, message, data, is_read, created_at). NotificationType enum includes **settings_warning** (admin warnings, e.g. when Stripe is enabled but not yet implemented). `DeviceToken` (user_id, token, platform) for FCM — see [62-fcm-push-notifications.md](62-fcm-push-notifications.md).
+- **Models:** `Notification` (user_id, type, title, message, data, is_read, created_at). NotificationType enum includes **settings_warning** (admin warnings) and **ticket_sold** (organizer notified on ticket purchase; see [19-tickets](19-tickets.md)). `DeviceToken` (user_id, token, platform) for FCM — see [62-fcm-push-notifications.md](62-fcm-push-notifications.md).
 - **Tables updated/read:** `notifications`, `device_tokens` (for push).
 
 ## Dependencies

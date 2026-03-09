@@ -7,7 +7,7 @@
 
 ## Frontend flow
 
-- **Screen/Widget:** `EventDetailScreen` → `FundingCard` (self-contained: loads funding summary, shows progress, backers, deadline, min pledge).
+- **Screen/Widget:** `EventDetailScreen` → `FundingCard` (self-contained: loads funding summary, shows progress, backers, deadline, min pledge). **Button UX:** Pledge, Donate, and Unpledge buttons use consistent 16px icon size and labels wrapped in FittedBox for readable scaling; styles aligned for accessibility.
 - **User action:** Enter amount (and optional reserved spots or tier reservations); tap Pledge → preview → confirm; or Unpledge.
 - **API calls:** `getFundingSummary(eventId)`, `getPledgePreview(eventId, amountCents, reservedSpots)`, `pledge(eventId, body)`, `unpledge(eventId)`, `getPledgeReceipt(eventId, pledgeId)`, `getRefundStatus(eventId)` → GET/POST `/api/v1/events/{id}/funding`, `/pledge-preview`, `/pledge`, `/unpledge`, `/pledges/{pledge_id}/receipt`, `/refund-status`.
 

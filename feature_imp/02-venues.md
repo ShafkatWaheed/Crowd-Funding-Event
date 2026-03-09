@@ -23,13 +23,13 @@
 
 ## Models and DB
 
-- **Models:** `Venue`.
-- **Tables updated/read:** `venues` (CRUD). Event count check via `events` for delete guard.
+- **Models:** `Venue`. **Event** has optional **venue_snapshot** (JSONB) and **venue_id** (nullable). For completed or cancelled events, venue data is preserved in `venue_snapshot` so historical accuracy is kept even if the venue is later deleted or unlinked.
+- **Tables updated/read:** `venues` (CRUD), `events` (venue_id, venue_snapshot). Event count check via `events` for delete guard. **Venue deletion:** Before unlinking or deleting, active events are checked; for terminal events (completed, cancelled), venue data is snapshotted into `events.venue_snapshot` (via VenueRepository bulk snapshot) so event history is preserved. VenueRepository provides **bulk_set_venue_snapshot_for_terminal_events** (no per-row loop) for performance.
 
 ## Dependencies
 
 - **Requires:** [Auth](01-auth-users.md) for organizer/admin (create/update/delete); optional auth for list/get (customers see all).
-- **Triggers / side effects:** Events reference venue_id; no cascade delete (blocked if events use venue).
+- **Triggers / side effects:** Events reference venue_id; no cascade delete (blocked if events use venue). When a venue is updated or deleted, terminal events (completed, cancelled) receive a venue_snapshot so display and reporting remain correct. Venue update flow creates snapshots before modifying live data; delete flow uses bulk snapshot for terminal events then unlinks.
 
 ## Prompt
 

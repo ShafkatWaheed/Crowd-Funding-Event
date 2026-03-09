@@ -1,15 +1,12 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
-import '../../lib/models/user.dart';
-import '../../lib/models/chat_message.dart';
-import '../../lib/providers/auth_provider.dart';
-import '../../lib/providers/chat_provider.dart';
-import '../../lib/screens/chat/conversations_screen.dart';
+import 'package:crowd_funding_app/models/user.dart';
+import 'package:crowd_funding_app/providers/auth_provider.dart';
+import 'package:crowd_funding_app/providers/chat_provider.dart';
+import 'package:crowd_funding_app/screens/chat/conversations_screen.dart';
 import '../helpers/mock_providers.dart';
 import '../helpers/pump_app.dart';
 import '../helpers/fixtures.dart';

@@ -1,17 +1,15 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
-import '../../lib/models/funding.dart';
-import '../../lib/models/user.dart';
-import '../../lib/providers/auth_provider.dart';
-import '../../lib/providers/pledge_provider.dart';
-import '../../lib/repositories/base_repository.dart';
-import '../../lib/repositories/funding_repository.dart';
-import '../../lib/screens/profile/my_pledges_screen.dart';
+import 'package:crowd_funding_app/models/funding.dart';
+import 'package:crowd_funding_app/models/user.dart';
+import 'package:crowd_funding_app/providers/auth_provider.dart';
+import 'package:crowd_funding_app/providers/pledge_provider.dart';
+import 'package:crowd_funding_app/repositories/base_repository.dart';
+import 'package:crowd_funding_app/repositories/funding_repository.dart';
+import 'package:crowd_funding_app/screens/profile/my_pledges_screen.dart';
 import '../helpers/mock_providers.dart';
 import '../helpers/pump_app.dart';
 import '../helpers/fixtures.dart';
@@ -30,7 +28,7 @@ void main() {
     when(() => mockAuth.user).thenReturn(makeUser(role: UserRole.customer));
   });
 
-  Pledge _makePledge({
+  Pledge makePledge({
     int id = 1,
     int eventId = 10,
     int amountCents = 2000,
@@ -75,8 +73,8 @@ void main() {
             sortBy: any(named: 'sortBy'),
           )).thenAnswer((_) async => PaginatedResult(
             items: [
-              _makePledge(id: 1, eventId: 10, amountCents: 2000, eventTitle: 'Music Fest'),
-              _makePledge(id: 2, eventId: 10, amountCents: 3000, eventTitle: 'Music Fest'),
+              makePledge(id: 1, eventId: 10, amountCents: 2000, eventTitle: 'Music Fest'),
+              makePledge(id: 2, eventId: 10, amountCents: 3000, eventTitle: 'Music Fest'),
             ],
             hasMore: false,
           ));
@@ -96,7 +94,7 @@ void main() {
             limit: any(named: 'limit'),
             sortBy: any(named: 'sortBy'),
           )).thenAnswer((_) async => PaginatedResult(
-            items: [_makePledge(id: 1, eventId: 10, amountCents: 2000, eventTitle: 'Test')],
+            items: [makePledge(id: 1, eventId: 10, amountCents: 2000, eventTitle: 'Test')],
             hasMore: false,
           ));
 
@@ -145,7 +143,7 @@ void main() {
             sortBy: any(named: 'sortBy'),
           )).thenAnswer((_) async => PaginatedResult(
             items: [
-              _makePledge(
+              makePledge(
                 id: 1,
                 eventId: 10,
                 amountCents: 5000,

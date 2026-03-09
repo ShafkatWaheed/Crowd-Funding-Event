@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import '../../lib/models/discount.dart';
+import 'package:crowd_funding_app/models/discount.dart';
 
 void main() {
   group('EventDiscount', () {

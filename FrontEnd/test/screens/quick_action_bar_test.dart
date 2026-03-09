@@ -12,11 +12,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
-import '../../lib/models/event.dart';
-import '../../lib/models/user.dart';
-import '../../lib/providers/auth_provider.dart';
-import '../../lib/providers/event_provider.dart';
-import '../../lib/screens/event/event_detail/quick_action_bar.dart';
+import 'package:crowd_funding_app/models/event.dart';
+import 'package:crowd_funding_app/models/user.dart';
+import 'package:crowd_funding_app/providers/auth_provider.dart';
+import 'package:crowd_funding_app/providers/event_provider.dart';
+import 'package:crowd_funding_app/screens/event/event_detail/quick_action_bar.dart';
 import '../helpers/mock_providers.dart';
 import '../helpers/fixtures.dart';
 import '../helpers/pump_app.dart';
@@ -44,7 +44,7 @@ void main() {
 
   /// Event with `canUnregister == true` (status approved) and a funding
   /// deadline so the widget renders correctly.
-  Event _makeApprovedEvent() => Event.fromJson(eventJson(
+  Event makeApprovedEvent() => Event.fromJson(eventJson(
         id: 1,
         status: 'approved',
         fundingEndAt: DateTime.now()
@@ -64,7 +64,7 @@ void main() {
       tester,
       Scaffold(
         body: QuickActionBar(
-          event: event ?? _makeApprovedEvent(),
+          event: event ?? makeApprovedEvent(),
           isRegistered: isRegistered,
           regStatus: regStatus,
           onRegistrationChanged: onChanged,

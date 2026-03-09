@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import '../../lib/models/notification_model.dart';
+import 'package:crowd_funding_app/models/notification_model.dart';
 
 void main() {
   group('AppNotification', () {

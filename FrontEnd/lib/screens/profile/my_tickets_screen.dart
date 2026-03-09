@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../config/app_icons.dart';
 import '../../config/design_tokens.dart';
 import '../../utils/date_time_utils.dart';
 import '../../config/theme.dart';
@@ -545,14 +546,32 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
 
   Widget _filterChip(String label, String value) {
     final active = _filterStatus == value;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // 'all' and 'refund_pending' are synthetic filters — delegate to AppIcons for real status equivalents
+    final chipIcon = value == 'all'
+        ? Icons.list_rounded
+        : value == 'refund_pending'
+            ? AppIcons.ticketStatusIcon('refund_requested')
+            : AppIcons.ticketStatusIcon(value);
+    final chipColor = value == 'all'
+        ? AppTheme.accentColor
+        : AppIcons.ticketStatusColor(
+            value == 'refund_pending' ? 'refund_requested' : value,
+            isDark: isDark,
+          );
     return ChoiceChip(
+      avatar: Icon(
+        chipIcon,
+        size: 14,
+        color: active ? Colors.white : chipColor,
+      ),
       label: Text(label),
       selected: active,
       onSelected: (_) => setState(() => _filterStatus = value),
-      selectedColor: AppTheme.primaryColor,
+      selectedColor: chipColor,
       backgroundColor: AppTheme.cardOf(context),
       side: BorderSide(
-        color: active ? AppTheme.primaryColor : AppTheme.dividerOf(context),
+        color: active ? chipColor : AppTheme.dividerOf(context),
       ),
       labelStyle: TextStyle(
         fontSize: 13,

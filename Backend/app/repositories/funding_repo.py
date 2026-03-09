@@ -719,5 +719,18 @@ class FundingRepository(BaseRepository[Funding]):
         return list((await db.execute(q)).scalars().all())
 
 
+    async def has_active_pledges(
+        self, db: AsyncSession, event_id: int, user_id: int
+    ) -> bool:
+        """Return True if the user has pledges that have not been refunded (pledged or collected)."""
+        active_statuses = (FundingStatus.pledged, FundingStatus.collected)
+        q = select(func.count()).where(
+            Funding.event_id == event_id,
+            Funding.user_id == user_id,
+            Funding.status.in_(active_statuses),
+        )
+        return int((await db.execute(q)).scalar_one()) > 0
+
+
 # Module-level singleton
 funding_repo = FundingRepository()

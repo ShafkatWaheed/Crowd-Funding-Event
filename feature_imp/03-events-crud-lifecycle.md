@@ -23,8 +23,8 @@
 
 ## Models and DB
 
-- **Models:** `Event`, `EventOrganizer`, `EventDiscount`, `TicketTier`, etc.
-- **Tables updated/read:** `events` (CRUD and status fields: status, pending_cancellation, cancellation_reason, pending_extension); related tables for tiers, discounts, organizers.
+- **Models:** `Event` (venue_id nullable; **venue_snapshot** JSONB for completed/cancelled events — see [02-venues](02-venues.md)), `EventOrganizer`, `EventDiscount`, `TicketTier`, etc.
+- **Tables updated/read:** `events` (CRUD and status fields: status, pending_cancellation, cancellation_reason, pending_extension, venue_id, venue_snapshot); related tables for tiers, discounts, organizers.
 
 ## Dependencies
 

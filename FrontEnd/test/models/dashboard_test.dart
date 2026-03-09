@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import '../../lib/models/dashboard.dart';
-import '../../lib/models/event.dart';
+import 'package:crowd_funding_app/models/dashboard.dart';
 import '../helpers/fixtures.dart';
 
 void main() {

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../lib/widgets/searchable_dropdown.dart';
+import 'package:crowd_funding_app/widgets/searchable_dropdown.dart';
 import '../helpers/pump_app.dart';
 
 void main() {

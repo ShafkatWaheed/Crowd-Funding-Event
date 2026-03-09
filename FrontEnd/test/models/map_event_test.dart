@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import '../../lib/models/map_event.dart';
+import 'package:crowd_funding_app/models/map_event.dart';
 
 void main() {
   group('EventMarker', () {

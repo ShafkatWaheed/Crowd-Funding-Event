@@ -653,6 +653,18 @@ class TicketRepository(BaseRepository[TicketSale]):
         return int((await db.execute(q)).scalar_one()) > 0
 
 
+    async def has_active_ticket_sales(
+        self, db: AsyncSession, event_id: int, user_id: int
+    ) -> bool:
+        """Return True if the user has any ticket sales that are not refunded or cancelled."""
+        non_active = {TicketSaleStatus.refunded, TicketSaleStatus.cancelled}
+        q = select(func.count()).where(
+            TicketSale.event_id == event_id,
+            TicketSale.user_id == user_id,
+            TicketSale.status.not_in(non_active),
+        )
+        return int((await db.execute(q)).scalar_one()) > 0
+
     # ── Refund retry helpers ────────────────────────────────────────
 
     async def get_sale_by_id(

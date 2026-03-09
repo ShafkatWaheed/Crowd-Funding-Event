@@ -3,8 +3,8 @@ library;
 
 import 'package:dio/dio.dart';
 import 'package:mocktail/mocktail.dart';
-import '../../lib/repositories/payment_repository.dart';
-import '../../lib/services/chat_socket_service.dart';
+import 'package:crowd_funding_app/repositories/payment_repository.dart';
+import 'package:crowd_funding_app/services/chat_socket_service.dart';
 
 class MockPaymentRepository extends Mock implements PaymentRepository {}
 

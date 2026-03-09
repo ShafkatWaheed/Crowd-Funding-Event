@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import '../../lib/models/event.dart';
-import '../../lib/models/payment.dart';
-import '../../lib/providers/config_provider.dart';
-import '../../lib/repositories/payment_repository.dart';
+import 'package:crowd_funding_app/models/event.dart';
+import 'package:crowd_funding_app/models/payment.dart';
+import 'package:crowd_funding_app/providers/config_provider.dart';
+import 'package:crowd_funding_app/repositories/payment_repository.dart';
 import '../helpers/mock_event_repository.dart';
 
 class MockPaymentRepository extends Mock implements PaymentRepository {}

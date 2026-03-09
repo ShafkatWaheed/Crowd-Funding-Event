@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../lib/providers/theme_provider.dart';
+import 'package:crowd_funding_app/providers/theme_provider.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

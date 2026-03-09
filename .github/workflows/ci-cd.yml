@@ -64,6 +64,9 @@ jobs:
           channel: stable
       - name: Install dependencies
         run: cd FrontEnd && flutter pub get
+      - name: Create stub .env for tests
+        run: |
+          echo "API_BASE_URL=http://localhost:8000" > FrontEnd/.env
       - name: Analyze
         run: cd FrontEnd && dart analyze lib/
       - name: Run tests

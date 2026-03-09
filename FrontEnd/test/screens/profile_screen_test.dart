@@ -13,6 +13,7 @@ import '../../lib/providers/user_provider.dart';
 import '../../lib/repositories/sponsor_repository.dart';
 import '../../lib/repositories/user_repository.dart';
 import '../../lib/screens/profile/profile_screen.dart';
+import '../../lib/widgets/kyc_section.dart';
 import '../helpers/mock_providers.dart';
 import '../helpers/mock_sponsor_repository.dart';
 import '../helpers/mock_user_repository.dart';
@@ -98,8 +99,8 @@ void main() {
     testWidgets('KYC section visible for non-admin users', (tester) async {
       await pumpProfile(tester, role: UserRole.customer);
 
-      // Identity Verification is the title of the KYC section card
-      expect(find.text('Identity Verification'), findsOneWidget);
+      // The KycSection widget itself must be present in the tree
+      expect(find.byType(KycSection), findsOneWidget);
     });
 
     testWidgets('edit fields exist for personal information', (tester) async {

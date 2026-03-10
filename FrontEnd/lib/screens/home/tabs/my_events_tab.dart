@@ -12,6 +12,7 @@ import '../../../providers/event_provider.dart';
 import '../../../widgets/animated_list_item.dart';
 import '../../../widgets/empty_state.dart';
 import '../../../widgets/event_card.dart';
+import '../../../widgets/app_chip.dart';
 import '../../../widgets/shimmer_loaders.dart';
 
 class MyEventsTab extends StatefulWidget {
@@ -271,8 +272,8 @@ class _MyEventsTabState extends State<MyEventsTab> {
                       final isActive = _myEventsSortBy == e.key;
                       return Padding(
                         padding: const EdgeInsets.only(right: AppSpacing.sm),
-                        child: ChoiceChip(
-                          label: Text(e.value),
+                        child: AppChip(
+                          label: e.value,
                           selected: isActive,
                           onSelected: (_) {
                             if (_myEventsSortBy != e.key) {
@@ -280,16 +281,8 @@ class _MyEventsTabState extends State<MyEventsTab> {
                               _loadMyEvents();
                             }
                           },
-                          selectedColor: AppTheme.accentColor,
-                          backgroundColor: AppTheme.cardOf(context),
-                          side: BorderSide(
-                            color: isActive ? AppTheme.accentColor : AppTheme.dividerOf(context),
-                          ),
-                          labelStyle: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: isActive ? Colors.white : AppTheme.textPrimaryOf(context),
-                          ),
+                          chipColor: AppTheme.accentColor,
+                          fontSize: 12,
                         ),
                       );
                     }),
@@ -306,27 +299,14 @@ class _MyEventsTabState extends State<MyEventsTab> {
                     final genreColor = AppIcons.genreColor(g, isDark: isDark);
                     return Padding(
                       padding: const EdgeInsets.only(right: AppSpacing.sm),
-                      child: ChoiceChip(
-                        avatar: Icon(
-                          AppIcons.genreIcon(g),
-                          size: 14,
-                          color: isActive ? Colors.white : genreColor,
-                        ),
-                        label: Text(g[0].toUpperCase() + g.substring(1)),
+                      child: AppChip(
+                        label: g[0].toUpperCase() + g.substring(1),
                         selected: isActive,
                         onSelected: (selected) {
                           setState(() => _myEventsGenre = selected ? g : null);
                         },
-                        selectedColor: genreColor,
-                        backgroundColor: AppTheme.cardOf(context),
-                        side: BorderSide(
-                          color: isActive ? genreColor : AppTheme.dividerOf(context),
-                        ),
-                        labelStyle: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: isActive ? Colors.white : AppTheme.textPrimaryOf(context),
-                        ),
+                        chipColor: genreColor,
+                        avatarIcon: AppIcons.genreIcon(g),
                       ),
                     );
                   }).toList(),
@@ -340,29 +320,14 @@ class _MyEventsTabState extends State<MyEventsTab> {
                     final isActive = _myEventsStatus == s.name;
                     return Padding(
                       padding: const EdgeInsets.only(right: AppSpacing.sm),
-                      child: ChoiceChip(
-                        avatar: Icon(
-                          statusChipIcon(s),
-                          size: 14,
-                          color: isActive ? Colors.white : statusChipColor(context, s),
-                        ),
-                        label: Text(statusDisplayName(s)),
+                      child: AppChip(
+                        label: statusDisplayName(s),
                         selected: isActive,
                         onSelected: (selected) {
                           setState(() => _myEventsStatus = selected ? s.name : null);
                         },
-                        selectedColor: statusChipColor(context, s),
-                        backgroundColor: AppTheme.cardOf(context),
-                        side: BorderSide(
-                          color: isActive
-                              ? statusChipColor(context, s)
-                              : AppTheme.dividerOf(context),
-                        ),
-                        labelStyle: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: isActive ? Colors.white : AppTheme.textPrimaryOf(context),
-                        ),
+                        chipColor: statusChipColor(context, s),
+                        avatarIcon: statusChipIcon(s),
                       ),
                     );
                   }).toList(),

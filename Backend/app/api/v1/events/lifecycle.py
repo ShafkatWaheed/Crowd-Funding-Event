@@ -94,6 +94,8 @@ async def extend_funding_endpoint(
     )
     await _invalidate_event_cache(event_id)
     event = await event_service.get_by_id(db, event.id, load_venue=True)
+    from app.worker.event_jobs import schedule_event_transitions
+    await schedule_event_transitions(event)
     return _event_to_response(event)
 
 
@@ -119,6 +121,8 @@ async def set_event_date_endpoint(
     )
     await _invalidate_event_cache(event_id)
     event = await event_service.get_by_id(db, event.id, load_venue=True)
+    from app.worker.event_jobs import schedule_event_transitions
+    await schedule_event_transitions(event)
     return _event_to_response(event)
 
 
@@ -134,6 +138,8 @@ async def start_selling_tickets_endpoint(
     event = await event_service.start_selling_tickets(db, event, current_user)
     await _invalidate_event_cache(event_id)
     event = await event_service.get_by_id(db, event.id, load_venue=True)
+    from app.worker.event_jobs import schedule_event_transitions
+    await schedule_event_transitions(event)
     return _event_to_response(event)
 
 
@@ -173,6 +179,8 @@ async def publish_event(
     )
     await _invalidate_event_cache(event_id)
     event = await event_service.get_by_id(db, event.id, load_venue=True)
+    from app.worker.event_jobs import schedule_event_transitions
+    await schedule_event_transitions(event)
     return _event_to_response(event)
 
 
@@ -211,6 +219,9 @@ async def decide_extension(
         raise HTTPException(status_code=400, detail="action must be 'approve' or 'reject'")
     await _invalidate_event_cache(event_id)
     event = await event_service.get_by_id(db, event.id, load_venue=True)
+    if body.action == "approve":
+        from app.worker.event_jobs import schedule_event_transitions
+        await schedule_event_transitions(event)
     return _event_to_response(event)
 
 

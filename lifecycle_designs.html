@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Lifecycle — Editorial Integration</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --accent:#276EF1;--success:#05944F;--warning:#FFC043;--error:#E11900;
+  --pledge-a:#FF8C00;--pledge-b:#FFC043;
+  --live:#05944F;--tickets:#276EF1;--funding:#FF8C00;--waiting:#9333EA;--done:#6B7280;
+  --text:#141414;--text2:#6B6B6B;--text3:#9E9E9E;--divider:#E8E8E8;
+  --card:#FFF;--surface:#F5F5F5;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#C9D8E8;min-height:100dvh;display:flex;flex-direction:column;align-items:center;padding:28px 16px 64px;color:var(--text);transition:background .3s;}
+body.dark{background:#0A0A0A;}
+
+/* top bar */
+.topbar{width:100%;max-width:980px;display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px;}
+.topbar h1{font-size:18px;font-weight:800;color:var(--text);transition:color .3s;}
+body.dark .topbar h1{color:#fff;}
+.ctrls{display:flex;gap:8px;flex-wrap:wrap;}
+.ctrl{padding:7px 14px;border-radius:20px;border:1.5px solid rgba(0,0,0,.1);font-size:12px;font-weight:700;cursor:pointer;background:rgba(255,255,255,.85);backdrop-filter:blur(6px);color:var(--text);transition:all .2s;white-space:nowrap;}
+body.dark .ctrl{background:rgba(28,28,28,.85);color:#ddd;border-color:rgba(255,255,255,.1);}
+.ctrl.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+.stage-btn{background:rgba(255,255,255,.7);}
+.stage-btn.active{background:var(--accent);color:#fff;}
+
+/* phone grid */
+.grid{display:grid;grid-template-columns:repeat(3,340px);gap:24px;justify-content:center;}
+
+/* device */
+.device{background:#111;border-radius:48px;padding:10px;box-shadow:0 0 0 1px rgba(255,255,255,.06),0 32px 64px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.04);}
+.notch{width:100px;height:28px;background:#111;border-radius:0 0 16px 16px;margin:0 auto;display:flex;align-items:center;justify-content:center;gap:5px;}
+.nc{width:9px;height:9px;background:#1c1c1c;border-radius:50%;border:1px solid #2a2a2a;}
+.np{width:55px;height:8px;background:#1c1c1c;border-radius:8px;}
+.screen{background:var(--card);border-radius:38px;overflow:hidden;height:680px;display:flex;flex-direction:column;position:relative;transition:background .3s;}
+body.dark .screen{background:#121212;}
+.sbar{height:42px;padding:12px 20px 0;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;position:absolute;top:0;left:0;right:0;z-index:20;font-size:13px;font-weight:700;}
+.scroll{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:24px;}
+.scroll::-webkit-scrollbar{display:none;}
+
+/* concept label */
+.concept-lbl{text-align:center;margin-bottom:10px;}
+.concept-name{font-size:14px;font-weight:900;color:var(--text);transition:color .3s;}
+body.dark .concept-name{color:#eee;}
+.concept-sub{font-size:11px;color:var(--text2);margin-top:2px;}
+.rec{display:inline-block;background:linear-gradient(135deg,#276EF1,#FF8C00);color:#fff;font-size:9px;font-weight:900;padding:2px 8px;border-radius:20px;letter-spacing:.08em;text-transform:uppercase;margin-left:5px;}
+
+/* ── Shared editorial base ── */
+.hero{height:220px;position:relative;overflow:hidden;flex-shrink:0;}
+.hero-bg{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:64px;position:relative;}
+.hero-bg::after{content:'';position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.05) 30%,rgba(0,0,0,.55) 100%);}
+.hero-emoji{position:relative;z-index:1;filter:drop-shadow(0 8px 20px rgba(0,0,0,.4));}
+.hero-nav{position:absolute;top:46px;left:0;right:0;padding:0 14px;display:flex;justify-content:space-between;align-items:center;z-index:5;}
+.back{color:#fff;font-size:22px;cursor:pointer;opacity:.9;}
+.fab-row{display:flex;gap:7px;}
+.fab{width:32px;height:32px;background:rgba(0,0,0,.3);backdrop-filter:blur(6px);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff;}
+
+/* floating title card */
+.title-card{margin:-26px 12px 0;background:var(--card);border-radius:22px;padding:16px;box-shadow:0 8px 28px rgba(0,0,0,.1);position:relative;z-index:5;transition:background .3s;}
+body.dark .title-card{background:#1E1E1E;box-shadow:0 8px 28px rgba(0,0,0,.5);}
+.tag-row{display:flex;gap:5px;margin-bottom:9px;flex-wrap:wrap;}
+.tag{padding:3px 9px;border-radius:20px;font-size:9px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;}
+.tag-genre{background:#FFF3E0;color:#E65100;}
+.tag-status{background:#E6F7EE;color:var(--success);}
+.etitle{font-size:19px;font-weight:900;line-height:1.2;margin-bottom:7px;}
+.meta-row{display:flex;gap:8px;font-size:11px;color:var(--text2);}
+
+/* section after title card */
+.editorial{padding:0 12px;}
+.sec-head{display:flex;align-items:center;justify-content:space-between;margin:14px 0 10px;}
+.sec-title{font-size:14px;font-weight:900;}
+.see-all{font-size:11px;color:var(--accent);font-weight:700;}
+.ecard{background:var(--surface);border-radius:14px;padding:12px;transition:background .3s;}
+body.dark .ecard{background:#1E1E1E;}
+
+/* ══════════════════════════════════════
+   A — CHAPTER CARD
+   Standalone card, "act" metaphor,
+   large stage name, tinted background
+══════════════════════════════════════ */
+.chapter-card{
+  border-radius:16px;padding:14px 16px;margin:0;
+  position:relative;overflow:hidden;
+  transition:background .3s;
+}
+.chapter-card::before{content:'';position:absolute;top:-20px;right:-20px;width:100px;height:100px;border-radius:50%;opacity:.15;pointer-events:none;}
+
+.chapter-step-row{display:flex;gap:0;margin-bottom:12px;position:relative;}
+.chapter-step-row::before{content:'';position:absolute;top:11px;left:11px;right:11px;height:2px;background:rgba(0,0,0,.08);z-index:0;}
+body.dark .chapter-step-row::before{background:rgba(255,255,255,.08);}
+.ch-step{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;position:relative;z-index:1;}
+.ch-dot{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;flex-shrink:0;transition:all .3s;}
+.ch-dot.past{background:rgba(0,0,0,.12);color:rgba(0,0,0,.4);}
+.ch-dot.current{color:#fff;box-shadow:0 0 0 3px rgba(255,255,255,.5);}
+.ch-dot.future{background:rgba(0,0,0,.05);color:rgba(0,0,0,.2);border:1.5px solid rgba(0,0,0,.1);}
+body.dark .ch-dot.past{background:rgba(255,255,255,.1);color:rgba(255,255,255,.3);}
+body.dark .ch-dot.future{background:rgba(255,255,255,.04);color:rgba(255,255,255,.15);border-color:rgba(255,255,255,.1);}
+.ch-dot-line{position:absolute;top:11px;left:50%;right:-50%;height:2px;z-index:-1;}
+.ch-label{font-size:8px;font-weight:700;text-align:center;letter-spacing:.03em;opacity:.7;}
+.ch-label.current-lbl{opacity:1;font-weight:900;}
+
+.chapter-current{display:flex;align-items:center;gap:10px;}
+.chapter-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+.chapter-text{}
+.chapter-stage{font-size:16px;font-weight:900;}
+.chapter-sub{font-size:11px;margin-top:2px;opacity:.7;}
+
+/* connector fill */
+.ch-connector{position:absolute;top:11px;left:0;height:2px;z-index:0;transition:width .6s ease;}
+
+/* ══════════════════════════════════════
+   B — EMBEDDED IN TITLE CARD
+   The journey lives inside the floating
+   title card as a breadcrumb trail
+══════════════════════════════════════ */
+.breadcrumb{display:flex;align-items:center;margin-top:10px;overflow-x:auto;scrollbar-width:none;}
+.breadcrumb::-webkit-scrollbar{display:none;}
+.bc-item{display:flex;align-items:center;gap:0;flex-shrink:0;}
+.bc-stage{display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;font-size:10px;font-weight:700;white-space:nowrap;transition:all .3s;}
+.bc-stage.past{background:rgba(0,0,0,.05);color:var(--text2);}
+.bc-stage.current{color:#fff;}
+.bc-stage.future{color:var(--text3);}
+body.dark .bc-stage.past{background:rgba(255,255,255,.07);color:#888;}
+body.dark .bc-stage.future{color:#555;}
+.bc-arrow{font-size:12px;color:var(--text3);margin:0 1px;flex-shrink:0;}
+
+/* progress line under breadcrumb */
+.bc-progress{height:3px;border-radius:3px;margin-top:8px;background:var(--divider);overflow:hidden;transition:background .3s;}
+body.dark .bc-progress{background:#2C2C2C;}
+.bc-fill{height:100%;border-radius:3px;transition:width .6s ease;}
+
+/* ══════════════════════════════════════
+   C — TIMELINE STRIP
+   A horizontal "film strip" with stage
+   tiles, current one elevated/larger
+══════════════════════════════════════ */
+.strip-scroll{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:2px 2px 4px;}
+.strip-scroll::-webkit-scrollbar{display:none;}
+.strip-tile{flex-shrink:0;border-radius:12px;padding:10px 10px 8px;display:flex;flex-direction:column;align-items:center;gap:5px;transition:all .3s;position:relative;}
+.strip-tile.past{background:var(--surface);width:58px;opacity:.7;}
+body.dark .strip-tile.past{background:#1C1C1C;}
+.strip-tile.current{width:90px;box-shadow:0 4px 16px rgba(0,0,0,.12);}
+.strip-tile.future{background:transparent;border:1.5px dashed var(--divider);width:58px;opacity:.5;}
+body.dark .strip-tile.future{border-color:#2C2C2C;}
+.st-icon{font-size:18px;}
+.st-icon.sm{font-size:14px;}
+.st-label{font-size:9px;font-weight:700;text-align:center;letter-spacing:.02em;}
+.st-label.current{font-size:10px;font-weight:900;}
+.st-check{position:absolute;top:6px;right:6px;width:14px;height:14px;background:var(--success);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;color:#fff;}
+.st-pulse{position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;animation:pulse2 1.8s ease-in-out infinite;}
+@keyframes pulse2{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.4)}}
+
+/* ── Stage data ── */
+/* Funding */
+.s-fund{--sc:#FF8C00;--sc-bg:#FFF3E0;}
+/* Tickets */
+.s-tick{--sc:#276EF1;--sc-bg:#EEF3FF;}
+/* Waiting */
+.s-wait{--sc:#9333EA;--sc-bg:#FAF0FE;}
+/* Live */
+.s-live{--sc:#05944F;--sc-bg:#E6F7EE;}
+/* Done */
+.s-done{--sc:#6B7280;--sc-bg:#F3F4F6;}
+
+/* note */
+.note{border-radius:0 10px 10px 0;border-left:3px solid var(--accent);background:#EEF3FF;padding:9px 12px;font-size:11px;line-height:1.6;color:var(--text);margin:14px 0 0;}
+body.dark .note{background:#1A2340;color:#ccc;}
+
+/* stage selector row */
+.stage-row{display:flex;gap:6px;flex-wrap:wrap;}
+
+/* dark adjustments for ch-dot past  */
+body.dark .ch-dot.past{background:rgba(255,255,255,.15);}
+</style>
+</head>
+<body id="body">
+
+<div class="topbar">
+  <h1>Lifecycle × Editorial</h1>
+  <div class="ctrls">
+    <button class="ctrl active" onclick="toggleDark()" id="darkBtn">☀️ Light</button>
+    <span style="font-size:11px;color:var(--text2);align-self:center;font-weight:600">Stage:</span>
+    <button class="ctrl stage-btn active" onclick="setStage('funding')">Funding</button>
+    <button class="ctrl stage-btn" onclick="setStage('tickets')">Tickets</button>
+    <button class="ctrl stage-btn" onclick="setStage('waiting')">Waiting</button>
+    <button class="ctrl stage-btn" onclick="setStage('live')">Live</button>
+    <button class="ctrl stage-btn" onclick="setStage('done')">Done</button>
+  </div>
+</div>
+
+<div class="grid">
+
+  <!-- ══ A — CHAPTER CARD ══ -->
+  <div>
+    <div class="concept-lbl">
+      <div class="concept-name">A — Chapter Card</div>
+      <div class="concept-sub">Dedicated section below title card, tinted background</div>
+    </div>
+    <div class="device">
+      <div class="notch"><div class="nc"></div><div class="np"></div></div>
+      <div class="screen">
+        <div class="sbar"><span>9:41</span><span>●●● 🔋</span></div>
+        <div class="scroll">
+          <div class="hero">
+            <div class="hero-bg" id="aHeroBg" style="background:linear-gradient(135deg,#1a1035,#FF8C00 80%)">
+              <span class="hero-emoji">🎪</span>
+            </div>
+            <div class="hero-nav">
+              <span class="back">‹</span>
+              <div class="fab-row"><div class="fab">🔖</div><div class="fab">↗</div></div>
+            </div>
+          </div>
+
+          <div class="title-card">
+            <div class="tag-row">
+              <span class="tag tag-genre">🎪 Festival</span>
+              <span class="tag tag-status" id="aStatusTag">● Funding</span>
+            </div>
+            <div class="etitle">Summer Groove Festival 2026</div>
+            <div class="meta-row"><span>📅 Aug 14</span><span>📍 Toronto</span><span>👥 1.2k going</span></div>
+          </div>
+
+          <!-- CHAPTER CARD — placed between title card and stats -->
+          <div class="editorial">
+            <div class="sec-head" style="margin-top:14px"><span class="sec-title">Event Journey</span></div>
+            <div class="chapter-card" id="aChapterCard">
+              <!-- step dots row -->
+              <div class="chapter-step-row" id="aStepRow"></div>
+              <!-- current stage callout -->
+              <div class="chapter-current" id="aCurrentBlock"></div>
+            </div>
+
+            <!-- rest of editorial -->
+            <div class="sec-head"><span class="sec-title">Funding</span></div>
+            <div class="ecard">
+              <div style="font-size:22px;font-weight:900;color:var(--accent);margin-bottom:6px">$62,000</div>
+              <div style="height:5px;background:var(--divider);border-radius:5px;overflow:hidden"><div style="width:62%;height:100%;background:linear-gradient(90deg,#FF8C00,#FFC043);border-radius:5px"></div></div>
+              <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text2);margin-top:5px"><span>62% of $100k</span><span>248 backers</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ B — EMBEDDED IN TITLE CARD ══ -->
+  <div>
+    <div class="concept-lbl">
+      <div class="concept-name">B — Inside Title Card <span class="rec">Recommended</span></div>
+      <div class="concept-sub">Breadcrumb trail baked into the floating card</div>
+    </div>
+    <div class="device">
+      <div class="notch"><div class="nc"></div><div class="np"></div></div>
+      <div class="screen">
+        <div class="sbar"><span>9:41</span><span>●●● 🔋</span></div>
+        <div class="scroll">
+          <div class="hero">
+            <div class="hero-bg" id="bHeroBg" style="background:linear-gradient(135deg,#1a1035,#FF8C00 80%)">
+              <span class="hero-emoji">🎪</span>
+            </div>
+            <div class="hero-nav">
+              <span class="back">‹</span>
+              <div class="fab-row"><div class="fab">🔖</div><div class="fab">↗</div></div>
+            </div>
+          </div>
+
+          <div class="title-card">
+            <div class="tag-row">
+              <span class="tag tag-genre">🎪 Festival</span>
+              <span class="tag tag-status" id="bStatusTag">● Funding</span>
+            </div>
+            <div class="etitle">Summer Groove Festival 2026</div>
+            <div class="meta-row"><span>📅 Aug 14</span><span>📍 Toronto</span></div>
+
+            <!-- BREADCRUMB inside title card -->
+            <div class="breadcrumb" id="bBreadcrumb"></div>
+            <div class="bc-progress"><div class="bc-fill" id="bFill"></div></div>
+            <div style="font-size:10px;color:var(--text2);margin-top:5px" id="bCaption"></div>
+          </div>
+
+          <div class="editorial">
+            <div class="sec-head" style="margin-top:14px"><span class="sec-title">Funding</span></div>
+            <div class="ecard">
+              <div style="font-size:22px;font-weight:900;color:var(--accent);margin-bottom:6px">$62,000</div>
+              <div style="height:5px;background:var(--divider);border-radius:5px;overflow:hidden"><div style="width:62%;height:100%;background:linear-gradient(90deg,#FF8C00,#FFC043);border-radius:5px"></div></div>
+              <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text2);margin-top:5px"><span>62% of $100k</span><span>248 backers</span></div>
+            </div>
+
+            <div class="sec-head"><span class="sec-title">Tickets</span></div>
+            <div class="ecard" style="display:flex;flex-direction:column;gap:8px">
+              <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px;font-weight:700">General Admission</span><span style="font-size:14px;font-weight:900;color:var(--accent)">$89</span></div>
+              <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px;font-weight:700">VIP</span><span style="font-size:14px;font-weight:900;color:#9333EA">$199</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ C — FILM STRIP TILES ══ -->
+  <div>
+    <div class="concept-lbl">
+      <div class="concept-name">C — Stage Tiles</div>
+      <div class="concept-sub">Horizontal scroll, current tile elevated & larger</div>
+    </div>
+    <div class="device">
+      <div class="notch"><div class="nc"></div><div class="np"></div></div>
+      <div class="screen">
+        <div class="sbar"><span>9:41</span><span>●●● 🔋</span></div>
+        <div class="scroll">
+          <div class="hero">
+            <div class="hero-bg" id="cHeroBg" style="background:linear-gradient(135deg,#1a1035,#FF8C00 80%)">
+              <span class="hero-emoji">🎪</span>
+            </div>
+            <div class="hero-nav">
+              <span class="back">‹</span>
+              <div class="fab-row"><div class="fab">🔖</div><div class="fab">↗</div></div>
+            </div>
+          </div>
+
+          <div class="title-card">
+            <div class="tag-row">
+              <span class="tag tag-genre">🎪 Festival</span>
+              <span class="tag tag-status" id="cStatusTag">● Funding</span>
+            </div>
+            <div class="etitle">Summer Groove Festival 2026</div>
+            <div class="meta-row"><span>📅 Aug 14</span><span>📍 Toronto</span><span>👥 1.2k going</span></div>
+          </div>
+
+          <div class="editorial">
+            <div class="sec-head" style="margin-top:14px"><span class="sec-title">Event Journey</span></div>
+            <!-- STRIP TILES -->
+            <div class="strip-scroll" id="cStripRow"></div>
+
+            <div class="sec-head" style="margin-top:14px"><span class="sec-title">Funding</span></div>
+            <div class="ecard">
+              <div style="font-size:22px;font-weight:900;color:var(--accent);margin-bottom:6px">$62,000</div>
+              <div style="height:5px;background:var(--divider);border-radius:5px;overflow:hidden"><div style="width:62%;height:100%;background:linear-gradient(90deg,#FF8C00,#FFC043);border-radius:5px"></div></div>
+              <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text2);margin-top:5px"><span>62% of $100k</span><span>248 backers</span></div>
+            </div>
+            <div class="sec-head"><span class="sec-title">Tickets</span></div>
+            <div class="ecard" style="display:flex;flex-direction:column;gap:8px">
+              <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px;font-weight:700">General Admission</span><span style="font-size:14px;font-weight:900;color:var(--accent)">$89</span></div>
+              <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px;font-weight:700">VIP</span><span style="font-size:14px;font-weight:900;color:#9333EA">$199</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /grid -->
+
+<script>
+// ── Stage definitions
+const STAGES = [
+  { key:'published', label:'Published', icon:'✓',  short:'Pub',  color:'#276EF1', bg:'#EEF3FF',  heroBg:'linear-gradient(135deg,#1a1035,#276EF1 80%)', statusLabel:'Approved',        note:'Event approved — setting up funding.',        pct:10 },
+  { key:'funding',   label:'Funding',   icon:'🤍', short:'Fund', color:'#FF8C00', bg:'#FFF3E0',  heroBg:'linear-gradient(135deg,#1a1035,#FF8C00 80%)', statusLabel:'Seeking Funding',  note:'38 days left to reach the $100k goal.',      pct:30 },
+  { key:'tickets',   label:'Tickets',   icon:'🎟', short:'Tick', color:'#276EF1', bg:'#EEF3FF',  heroBg:'linear-gradient(135deg,#0F1730,#276EF1 80%)', statusLabel:'Selling Tickets',  note:'Tickets on sale — 380 GA spots remaining.',  pct:55 },
+  { key:'waiting',   label:'Set Date',  icon:'📅', short:'Date', color:'#9333EA', bg:'#FAF0FE',  heroBg:'linear-gradient(135deg,#1a0f3a,#9333EA 80%)', statusLabel:'Setting Date',     note:'Funding complete. Date announcement soon.', pct:70 },
+  { key:'live',      label:'Live Now',  icon:'▶', short:'Live', color:'#05944F', bg:'#E6F7EE',  heroBg:'linear-gradient(135deg,#0a1f14,#05944F 80%)', statusLabel:'🔴 Live',          note:'Event is happening right now!',              pct:85 },
+  { key:'done',      label:'Completed', icon:'🏁', short:'Done', color:'#6B7280', bg:'#F3F4F6',  heroBg:'linear-gradient(135deg,#1a1a1a,#6B7280 80%)', statusLabel:'Completed',        note:'Event ended. Check reviews below.',          pct:100 },
+];
+
+let currentStageIdx = 1; // funding
+
+function stageIndex(key){ return STAGES.findIndex(s=>s.key===key); }
+
+// ── Render A (Chapter Card)
+function renderA(si){
+  const s = STAGES[si];
+  // tinted card
+  const card = document.getElementById('aChapterCard');
+  card.style.background = s.bg;
+  card.querySelector && (card.style.setProperty('--cc', s.color));
+  // hero
+  document.getElementById('aHeroBg').style.background = s.heroBg;
+  // status tag
+  document.getElementById('aStatusTag').textContent = '● '+s.statusLabel;
+
+  // step dots
+  const stepRow = document.getElementById('aStepRow');
+  stepRow.innerHTML = '';
+  const stages = STAGES.slice(0,6); // all 6
+  stages.forEach((st,i)=>{
+    const step = document.createElement('div');
+    step.className='ch-step';
+    const state = i<si?'past': i===si?'current':'future';
+    step.innerHTML = `
+      <div class="ch-dot ${state}" style="${state==='current'?`background:${st.color};box-shadow:0 0 0 3px ${st.color}40`:''}">${state==='past'?'✓': st.icon}</div>
+      <div class="ch-label ${state==='current'?'current-lbl':''}" style="${state==='current'?`color:${st.color}`:'color:inherit'}">${st.short}</div>
+    `;
+    stepRow.appendChild(step);
+  });
+
+  // connector line (drawn via the ::before pseudo, use a real div here)
+  const existing = stepRow.querySelector('.ch-connector');
+  if(existing) existing.remove();
+  const connector = document.createElement('div');
+  connector.className='ch-connector';
+  const pct = si === 0 ? 0 : Math.round((si/(stages.length-1))*100);
+  connector.style.cssText = `position:absolute;top:11px;left:11px;height:2px;z-index:0;background:${s.color};width:calc(${pct}% - 11px);transition:width .6s ease;border-radius:2px;`;
+  stepRow.appendChild(connector);
+
+  // current block
+  const cur = document.getElementById('aCurrentBlock');
+  cur.innerHTML = `
+    <div class="chapter-icon" style="background:${s.bg}">
+      <span style="font-size:22px">${s.icon}</span>
+    </div>
+    <div class="chapter-text">
+      <div class="chapter-stage" style="color:${s.color}">${s.label}</div>
+      <div class="chapter-sub" style="color:var(--text2)">${s.note}</div>
+    </div>
+  `;
+}
+
+// ── Render B (Breadcrumb)
+function renderB(si){
+  const s = STAGES[si];
+  document.getElementById('bHeroBg').style.background = s.heroBg;
+  document.getElementById('bStatusTag').textContent = '● '+s.statusLabel;
+
+  const bc = document.getElementById('bBreadcrumb');
+  bc.innerHTML='';
+  STAGES.forEach((st,i)=>{
+    const state = i<si?'past': i===si?'current':'future';
+    const item = document.createElement('div');
+    item.className='bc-item';
+    const pill = document.createElement('div');
+    pill.className=`bc-stage ${state}`;
+    if(state==='current') pill.style.background=st.color;
+    pill.textContent = (state==='past'?'✓ ':'')+st.short;
+    item.appendChild(pill);
+    if(i<STAGES.length-1){
+      const arr=document.createElement('div');
+      arr.className='bc-arrow';
+      arr.textContent='›';
+      item.appendChild(arr);
+    }
+    bc.appendChild(item);
+    // scroll current into view
+    if(state==='current') setTimeout(()=>pill.scrollIntoView({inline:'center',behavior:'smooth'}),50);
+  });
+
+  // progress fill
+  const fill = document.getElementById('bFill');
+  const pct = Math.round((si/(STAGES.length-1))*100);
+  fill.style.cssText = `width:${pct}%;height:100%;border-radius:3px;background:${s.color};transition:width .6s ease;`;
+
+  document.getElementById('bCaption').textContent = `Step ${si+1} of ${STAGES.length} · ${s.note}`;
+}
+
+// ── Render C (Strip Tiles)
+function renderC(si){
+  const s = STAGES[si];
+  document.getElementById('cHeroBg').style.background = s.heroBg;
+  document.getElementById('cStatusTag').textContent = '● '+s.statusLabel;
+
+  const row = document.getElementById('cStripRow');
+  row.innerHTML='';
+  STAGES.forEach((st,i)=>{
+    const state = i<si?'past': i===si?'current':'future';
+    const tile = document.createElement('div');
+    tile.className=`strip-tile ${state}`;
+    if(state==='current'){
+      tile.style.background=st.bg;
+      tile.style.border=`2px solid ${st.color}`;
+    }
+    let inner = '';
+    if(state==='past'){
+      inner=`<span class="st-icon sm">✓</span><div class="st-label" style="color:var(--success)">${st.short}</div>
+             <div class="st-check">✓</div>`;
+    } else if(state==='current'){
+      inner=`<span class="st-icon">${st.icon}</span>
+             <div class="st-label current" style="color:${st.color}">${st.label}</div>
+             <div class="st-pulse" style="background:${st.color}"></div>`;
+    } else {
+      inner=`<span class="st-icon sm" style="opacity:.3">${st.icon}</span><div class="st-label">${st.short}</div>`;
+    }
+    tile.innerHTML=inner;
+    row.appendChild(tile);
+    // scroll current into view
+    if(state==='current') setTimeout(()=>tile.scrollIntoView({inline:'center',behavior:'smooth'}),50);
+  });
+}
+
+// ── Master render
+function renderAll(si){
+  renderA(si); renderB(si); renderC(si);
+}
+
+function setStage(key){
+  const si = stageIndex(key);
+  currentStageIdx = si;
+  renderAll(si);
+  document.querySelectorAll('.stage-btn').forEach((b,i)=>{
+    const keys=['published','funding','tickets','waiting','live','done'];
+    // match by text vs key
+    b.classList.toggle('active', b.textContent.toLowerCase().replace(' ','')===key||
+      (key==='funding'&&b.textContent==='Funding')||
+      (key==='tickets'&&b.textContent==='Tickets')||
+      (key==='waiting'&&b.textContent==='Waiting')||
+      (key==='live'&&b.textContent==='Live')||
+      (key==='done'&&b.textContent==='Done'));
+  });
+}
+
+function toggleDark(){
+  const d=document.body.classList.toggle('dark');
+  document.getElementById('darkBtn').textContent=d?'🌙 Dark':'☀️ Light';
+  document.getElementById('darkBtn').classList.toggle('active',!d);
+}
+
+// init
+renderAll(currentStageIdx);
+
+// mobile
+function checkMobile(){
+  if(window.innerWidth<=600){
+    document.querySelector('.grid').style.gridTemplateColumns='1fr';
+  } else if(window.innerWidth<=900){
+    document.querySelector('.grid').style.gridTemplateColumns='repeat(2,340px)';
+  } else {
+    document.querySelector('.grid').style.gridTemplateColumns='repeat(3,340px)';
+  }
+}
+window.addEventListener('resize',checkMobile);
+checkMobile();
+</script>
+</body>
+</html>

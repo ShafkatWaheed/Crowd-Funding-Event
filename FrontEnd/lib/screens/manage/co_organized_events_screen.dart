@@ -11,6 +11,7 @@ import '../../providers/event_provider.dart';
 import '../../widgets/animated_list_item.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/event_card.dart';
+import '../../widgets/app_chip.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../home/home_shared.dart';
 
@@ -179,8 +180,8 @@ class _CoOrganizedEventsScreenState extends State<CoOrganizedEventsScreen> {
                       final isActive = _selectedStatus == s.name;
                       return Padding(
                         padding: const EdgeInsets.only(right: AppSpacing.sm),
-                        child: ChoiceChip(
-                          label: Text(statusDisplayName(s)),
+                        child: AppChip(
+                          label: statusDisplayName(s),
                           selected: isActive,
                           onSelected: (selected) {
                             setState(() {
@@ -188,20 +189,7 @@ class _CoOrganizedEventsScreenState extends State<CoOrganizedEventsScreen> {
                             });
                             _load();
                           },
-                          selectedColor: statusChipColor(context, s),
-                          backgroundColor: AppTheme.cardOf(context),
-                          side: BorderSide(
-                            color: isActive
-                                ? statusChipColor(context, s)
-                                : AppTheme.dividerOf(context),
-                          ),
-                          labelStyle: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: isActive
-                                ? Colors.white
-                                : AppTheme.textPrimaryOf(context),
-                          ),
+                          chipColor: statusChipColor(context, s),
                         ),
                       );
                     }).toList(),

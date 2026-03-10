@@ -1,0 +1,1333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Event Detail — Design C 🍁</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --blue:    #276EF1;
+    --green:   #05944F;
+    --amber:   #FFC043;
+    --orange:  #FF8C00;
+    --purple:  #9333EA;
+    --magenta: #C026D3;
+    --red:     #E11900;
+    --black:   #111111;
+    --grey1:   #F6F6F6;
+    --grey2:   #E2E2E2;
+    --grey3:   #AFAFAF;
+    --grey4:   #545454;
+    --white:   #FFFFFF;
+    --radius:  20px;
+    --card-radius: 16px;
+    --shadow:  0 2px 16px rgba(0,0,0,0.08);
+    --shadow-lg: 0 8px 40px rgba(0,0,0,0.14);
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #0a0a0a;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+    padding: 40px 16px 80px;
+  }
+
+  /* ── Phone shell ── */
+  .phone {
+    width: 390px;
+    min-height: 844px;
+    background: var(--white);
+    border-radius: 44px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.08);
+  }
+
+  /* ── Scroll container ── */
+  .scroll-body {
+    height: 844px;
+    overflow-y: auto;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    position: relative;
+  }
+  .scroll-body::-webkit-scrollbar { display: none; }
+
+  /* ── Status bar ── */
+  .status-bar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 44px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px 0;
+    z-index: 100;
+    color: white;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .status-bar.dark { color: #111; }
+  .status-icons { display: flex; gap: 6px; align-items: center; font-size: 12px; }
+
+  /* ── Top nav overlay ── */
+  .nav-overlay {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 52px 16px 12px;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, transparent 100%);
+    margin-top: -210px;
+    pointer-events: none;
+  }
+  .nav-btn {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.35);
+    backdrop-filter: blur(8px);
+    display: flex; align-items: center; justify-content: center;
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+    pointer-events: all;
+    border: none;
+  }
+  .nav-right { display: flex; gap: 8px; }
+
+  /* ── Hero ── */
+  .hero {
+    height: 420px;
+    position: relative;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .hero-img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    background: linear-gradient(135deg, #8B0000 0%, #CC0000 35%, #FF0000 65%, #FF6B6B 100%);
+    position: relative;
+  }
+  .hero-img::after {
+    content: '🍁';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -60%);
+    font-size: 80px;
+    opacity: 0.25;
+  }
+  .hero-gradient {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 200px;
+    background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%);
+  }
+
+  /* live badge on hero */
+  .hero-live {
+    position: absolute;
+    top: 56px; right: 16px;
+    background: var(--red);
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .live-dot {
+    width: 6px; height: 6px;
+    background: white;
+    border-radius: 50%;
+    animation: pulse 1.2s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* image dots */
+  .hero-dots {
+    position: absolute;
+    bottom: 76px; left: 50%;
+    transform: translateX(-50%);
+    display: flex; gap: 5px;
+  }
+  .hero-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.4);
+  }
+  .hero-dot.active { background: white; width: 18px; border-radius: 3px; }
+
+  /* ── Content card (rises over hero) ── */
+  .content-card {
+    background: var(--white);
+    border-radius: 28px 28px 0 0;
+    margin-top: -52px;
+    position: relative;
+    z-index: 10;
+    padding-bottom: 100px;
+  }
+
+  /* drag handle */
+  .drag-handle {
+    width: 36px; height: 4px;
+    background: var(--grey2);
+    border-radius: 2px;
+    margin: 12px auto 20px;
+  }
+
+  /* ── Title block ── */
+  .title-block { padding: 0 20px 20px; }
+  .event-title {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--black);
+    line-height: 1.25;
+    letter-spacing: -0.5px;
+    margin-bottom: 10px;
+  }
+  .meta-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .meta-chip {
+    display: flex; align-items: center; gap: 4px;
+    font-size: 13px;
+    color: var(--grey4);
+    font-weight: 500;
+  }
+  .meta-chip .icon { font-size: 14px; }
+  .rating-chip {
+    display: flex; align-items: center; gap: 4px;
+    background: var(--grey1);
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--black);
+  }
+  .star { color: #FFC043; }
+
+  /* ── Stat row ── */
+  .stat-row {
+    display: flex;
+    gap: 10px;
+    padding: 0 20px 20px;
+  }
+  .stat-card {
+    flex: 1;
+    background: var(--grey1);
+    border-radius: var(--card-radius);
+    padding: 12px 10px;
+    text-align: center;
+  }
+  .stat-value {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--black);
+    line-height: 1;
+  }
+  .stat-label {
+    font-size: 11px;
+    color: var(--grey3);
+    font-weight: 500;
+    margin-top: 3px;
+    letter-spacing: 0.3px;
+  }
+  .stat-card.blue .stat-value { color: var(--blue); }
+  .stat-card.green .stat-value { color: var(--green); }
+  .stat-card.orange .stat-value { color: var(--orange); }
+
+  /* ── Divider ── */
+  .divider {
+    height: 1px;
+    background: var(--grey2);
+    margin: 4px 20px 20px;
+  }
+
+  /* ── Section header ── */
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 20px 14px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .section-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--black);
+    letter-spacing: -0.2px;
+  }
+  .section-chevron {
+    font-size: 14px;
+    color: var(--grey3);
+    transition: transform 0.25s;
+  }
+  .section-chevron.open { transform: rotate(180deg); }
+
+  /* collapsible body */
+  .section-body {
+    overflow: hidden;
+    transition: max-height 0.35s cubic-bezier(0.4,0,0.2,1);
+    max-height: 0;
+  }
+  .section-body.open { max-height: 1200px; }
+
+  /* ── About ── */
+  .about-text {
+    padding: 0 20px 4px;
+    font-size: 15px;
+    line-height: 1.65;
+    color: var(--grey4);
+  }
+  .read-more {
+    padding: 8px 20px 20px;
+    font-size: 14px;
+    color: var(--blue);
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  /* ── Funding card ── */
+  .funding-card {
+    margin: 0 20px 16px;
+    background: linear-gradient(135deg, #fff8f0 0%, #fff3e0 100%);
+    border: 1.5px solid #FFD699;
+    border-radius: var(--card-radius);
+    padding: 16px;
+    overflow: hidden;
+    position: relative;
+  }
+  .funding-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+  }
+  .funding-amount {
+    font-size: 26px;
+    font-weight: 800;
+    color: var(--orange);
+    letter-spacing: -0.5px;
+  }
+  .funding-amount span {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--grey3);
+  }
+  .funding-goal { font-size: 13px; color: var(--grey4); margin-top: 1px; }
+  .funding-pct-badge {
+    background: var(--orange);
+    color: white;
+    font-size: 13px;
+    font-weight: 800;
+    padding: 5px 12px;
+    border-radius: 20px;
+  }
+  .progress-track {
+    height: 8px;
+    background: #FFD699;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 14px;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--orange), var(--amber));
+    border-radius: 4px;
+    width: 72%;
+    position: relative;
+  }
+  .progress-fill::after {
+    content: '';
+    position: absolute;
+    right: -1px; top: -1px; bottom: -1px;
+    width: 10px;
+    background: white;
+    border-radius: 50%;
+    box-shadow: 0 0 0 2px var(--orange);
+  }
+  .funding-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--grey4);
+    margin-bottom: 14px;
+  }
+  .funding-actions { display: flex; gap: 10px; }
+  .btn {
+    flex: 1;
+    padding: 12px;
+    border: none;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .btn-pledge {
+    background: linear-gradient(135deg, var(--orange), var(--amber));
+    color: white;
+    box-shadow: 0 4px 14px rgba(255,140,0,0.4);
+  }
+  .btn-donate {
+    background: linear-gradient(135deg, var(--purple), var(--magenta));
+    color: white;
+    box-shadow: 0 4px 14px rgba(147,51,234,0.35);
+  }
+
+  /* ── Milestones ── */
+  .milestone-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0 20px 20px;
+    position: relative;
+  }
+  .milestone-row::before {
+    content: '';
+    position: absolute;
+    left: 44px; right: 44px;
+    top: 17px;
+    height: 2px;
+    background: var(--grey2);
+    z-index: 0;
+  }
+  .milestone-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    position: relative;
+    z-index: 1;
+  }
+  .milestone-dot {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    border: 2px solid transparent;
+  }
+  .milestone-dot.done {
+    background: var(--green);
+    color: white;
+  }
+  .milestone-dot.active {
+    background: white;
+    border-color: var(--orange);
+    color: var(--orange);
+    box-shadow: 0 0 0 4px rgba(255,140,0,0.15);
+  }
+  .milestone-dot.locked {
+    background: var(--grey1);
+    color: var(--grey3);
+    border-color: var(--grey2);
+  }
+  .milestone-label { font-size: 10px; color: var(--grey4); font-weight: 600; text-align: center; max-width: 60px; }
+  .milestone-pct { font-size: 11px; color: var(--grey3); font-weight: 500; }
+
+  /* ── Schedule ── */
+  .schedule-item {
+    display: flex;
+    align-items: flex-start;
+    padding: 0 20px 16px;
+    gap: 14px;
+  }
+  .schedule-time {
+    min-width: 52px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--blue);
+    padding-top: 2px;
+  }
+  .schedule-line {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+  .schedule-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--blue);
+    border: 2px solid white;
+    box-shadow: 0 0 0 2px var(--blue);
+    flex-shrink: 0;
+    margin-top: 4px;
+  }
+  .schedule-dot.current { background: var(--orange); box-shadow: 0 0 0 2px var(--orange), 0 0 0 5px rgba(255,140,0,0.2); }
+  .schedule-connector {
+    width: 2px;
+    flex: 1;
+    min-height: 30px;
+    background: var(--grey2);
+    margin-top: 4px;
+  }
+  .schedule-info {}
+  .schedule-name { font-size: 14px; font-weight: 700; color: var(--black); }
+  .schedule-desc { font-size: 12px; color: var(--grey3); margin-top: 2px; }
+  .schedule-badge {
+    display: inline-block;
+    margin-top: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: rgba(255,140,0,0.12);
+    color: var(--orange);
+  }
+  .see-all {
+    display: block;
+    text-align: center;
+    padding: 4px 20px 20px;
+    font-size: 14px;
+    color: var(--blue);
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  /* ── Map / Getting There ── */
+  .map-tile {
+    margin: 0 20px 14px;
+    height: 140px;
+    border-radius: var(--card-radius);
+    overflow: hidden;
+    position: relative;
+    background: linear-gradient(160deg, #e8f4f8 0%, #d4eaf4 50%, #c8e2f0 100%);
+  }
+  .map-grid {
+    position: absolute; inset: 0;
+    opacity: 0.3;
+    background-image:
+      linear-gradient(var(--grey3) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grey3) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+  .map-road-h {
+    position: absolute;
+    left: 0; right: 0;
+    height: 8px; background: white;
+    opacity: 0.8;
+  }
+  .map-road-v {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 8px; background: white;
+    opacity: 0.8;
+  }
+  .map-pin {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -100%);
+    font-size: 28px;
+    filter: drop-shadow(0 3px 6px rgba(0,0,0,0.3));
+  }
+  .map-label {
+    position: absolute;
+    bottom: 10px; left: 14px;
+    background: white;
+    border-radius: 10px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--black);
+    box-shadow: var(--shadow);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .transport-chips {
+    display: flex;
+    gap: 8px;
+    padding: 0 20px 20px;
+    flex-wrap: wrap;
+  }
+  .transport-chip {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--grey1);
+    border-radius: 20px;
+    padding: 7px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--black);
+  }
+
+  /* ── Ticket tiers ── */
+  .ticket-card {
+    margin: 0 20px 10px;
+    border-radius: var(--card-radius);
+    border: 1.5px solid var(--grey2);
+    overflow: hidden;
+    transition: box-shadow 0.2s;
+  }
+  .ticket-card:hover { box-shadow: var(--shadow-lg); }
+  .ticket-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px;
+  }
+  .ticket-name { font-size: 15px; font-weight: 700; color: var(--black); }
+  .ticket-desc { font-size: 12px; color: var(--grey3); margin-top: 2px; }
+  .ticket-price { font-size: 18px; font-weight: 800; color: var(--black); }
+  .ticket-price small { font-size: 12px; font-weight: 500; color: var(--grey3); }
+  .ticket-owned-badge {
+    background: var(--green);
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 20px;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .ticket-footer {
+    background: var(--grey1);
+    border-top: 1px solid var(--grey2);
+    padding: 10px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .ticket-avail { font-size: 12px; color: var(--grey3); }
+  .ticket-avail strong { color: var(--black); }
+  .btn-sm {
+    padding: 8px 18px;
+    border: none;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .btn-buy { background: var(--blue); color: white; }
+  .btn-sold { background: var(--grey2); color: var(--grey3); }
+  .btn-waitlist { background: var(--amber); color: var(--black); }
+  .ticket-card.vip {
+    border-color: #DDD5F5;
+    background: linear-gradient(135deg, #faf8ff 0%, #f3eeff 100%);
+  }
+  .ticket-card.vip .ticket-footer { background: #f0ebff; border-color: #DDD5F5; }
+
+  /* perks list */
+  .ticket-perks {
+    padding: 0 16px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .perk {
+    font-size: 12px;
+    color: var(--grey4);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .perk::before {
+    content: '✓';
+    color: var(--green);
+    font-weight: 700;
+    font-size: 11px;
+    width: 16px;
+    height: 16px;
+    background: var(--grey1);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .ticket-card.vip .perk::before { background: #ede8ff; color: var(--purple); }
+
+  /* ── Discounts ── */
+  .discount-list { padding: 0 20px 20px; display: flex; flex-direction: column; gap: 10px; }
+  .discount-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: var(--grey1);
+    border-radius: var(--card-radius);
+    padding: 12px 14px;
+  }
+  .discount-icon {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    background: #FFF3E0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+  .discount-icon.blue { background: var(--accentSurface, #EEF4FF); }
+  .discount-name { font-size: 14px; font-weight: 700; color: var(--black); }
+  .discount-detail { font-size: 12px; color: var(--grey3); margin-top: 1px; }
+  .discount-value {
+    margin-left: auto;
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--orange);
+  }
+  .discount-value.blue { color: var(--blue); }
+
+  /* ── Sponsors ── */
+  .sponsor-strip {
+    display: flex;
+    gap: 12px;
+    padding: 0 20px 20px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .sponsor-strip::-webkit-scrollbar { display: none; }
+  .sponsor-logo {
+    width: 72px; height: 44px;
+    background: var(--grey1);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--grey4);
+    flex-shrink: 0;
+    border: 1px solid var(--grey2);
+  }
+
+  /* ── Reviews ── */
+  .review-summary {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 0 20px 16px;
+  }
+  .big-score {
+    font-size: 48px;
+    font-weight: 800;
+    color: var(--black);
+    line-height: 1;
+    letter-spacing: -2px;
+  }
+  .stars-col { display: flex; flex-direction: column; gap: 4px; }
+  .stars-row { display: flex; gap: 3px; font-size: 18px; color: var(--amber); }
+  .review-count { font-size: 13px; color: var(--grey3); margin-top: 2px; }
+  .review-bar-row { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+  .review-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--grey3);
+  }
+  .review-track {
+    flex: 1;
+    height: 5px;
+    background: var(--grey2);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .review-fill { height: 100%; background: var(--amber); border-radius: 3px; }
+  .review-card {
+    margin: 0 20px 12px;
+    background: var(--grey1);
+    border-radius: var(--card-radius);
+    padding: 14px;
+  }
+  .reviewer-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .avatar {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--blue), var(--purple));
+    display: flex; align-items: center; justify-content: center;
+    color: white;
+    font-weight: 700;
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+  .reviewer-name { font-size: 14px; font-weight: 700; color: var(--black); }
+  .review-date { font-size: 12px; color: var(--grey3); }
+  .mini-stars { font-size: 12px; color: var(--amber); margin-left: auto; }
+  .review-text { font-size: 13px; color: var(--grey4); line-height: 1.5; }
+
+  /* ── Sticky bottom CTA ── */
+  .sticky-cta {
+    position: sticky;
+    bottom: 0;
+    z-index: 40;
+    background: white;
+    border-top: 1px solid var(--grey2);
+    padding: 12px 20px 24px;
+    display: flex;
+    gap: 10px;
+  }
+  .sticky-cta::before {
+    content: '';
+    position: absolute;
+    bottom: 100%; left: 0; right: 0;
+    height: 40px;
+    background: linear-gradient(to top, white, transparent);
+    pointer-events: none;
+  }
+  .btn-cta {
+    flex: 1;
+    padding: 15px;
+    border: none;
+    border-radius: 14px;
+    font-size: 15px;
+    font-weight: 800;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    letter-spacing: -0.2px;
+  }
+  .btn-cta-pledge {
+    background: linear-gradient(135deg, var(--orange) 0%, var(--amber) 100%);
+    color: white;
+    box-shadow: 0 4px 20px rgba(255,140,0,0.45);
+  }
+  .btn-cta-ticket {
+    background: var(--blue);
+    color: white;
+    box-shadow: 0 4px 20px rgba(39,110,241,0.4);
+  }
+
+  /* ── Reaction bar ── */
+  .reaction-bar {
+    display: flex;
+    gap: 6px;
+    padding: 0 20px 20px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .reaction-bar::-webkit-scrollbar { display: none; }
+  .reaction-chip {
+    display: flex; align-items: center; gap: 5px;
+    background: var(--grey1);
+    border-radius: 20px;
+    padding: 6px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--black);
+    flex-shrink: 0;
+    border: 1.5px solid var(--grey2);
+    cursor: pointer;
+  }
+  .reaction-chip.active {
+    background: #EEF4FF;
+    border-color: #C3D6FD;
+    color: var(--blue);
+  }
+  .reaction-emoji { font-size: 16px; }
+
+  /* ── Quick info row ── */
+  .info-row {
+    padding: 0 20px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .info-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .info-icon-box {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    background: var(--grey1);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .info-icon-box.blue { background: #EEF4FF; }
+  .info-icon-box.green { background: var(--successSurface, #ECFDF3); }
+  .info-icon-box.amber { background: #FFF8E1; }
+  .info-label { font-size: 12px; color: var(--grey3); font-weight: 500; }
+  .info-value { font-size: 14px; font-weight: 700; color: var(--black); margin-top: 1px; }
+
+  /* ── Section spacer ── */
+  .section-gap { height: 8px; background: var(--grey1); margin: 0 0 20px; }
+
+  /* ── Annotation labels (design guide only) ── */
+  .annotation {
+    position: absolute;
+    right: -170px;
+    background: #1a1a2e;
+    color: #7dd3fc;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 6px;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  .annotation::before {
+    content: '';
+    position: absolute;
+    left: -6px; top: 50%;
+    transform: translateY(-50%);
+    border: 5px solid transparent;
+    border-right-color: #1a1a2e;
+  }
+
+  /* ── Desktop label ── */
+  .design-label {
+    position: fixed;
+    top: 20px; left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255,255,255,0.07);
+    color: rgba(255,255,255,0.6);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 6px 20px;
+    border-radius: 20px;
+    letter-spacing: 0.5px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.1);
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<div class="design-label">Design C — Premium Event Detail 🍁 · 390 × 844</div>
+
+<div class="phone">
+  <div class="scroll-body" id="scroll">
+
+    <!-- Hero -->
+    <div class="hero">
+      <div class="hero-img"></div>
+      <div class="hero-gradient"></div>
+      <div class="hero-live"><div class="live-dot"></div> LIVE</div>
+      <div class="hero-dots">
+        <div class="hero-dot active"></div>
+        <div class="hero-dot"></div>
+        <div class="hero-dot"></div>
+        <div class="hero-dot"></div>
+      </div>
+    </div>
+
+    <!-- Nav overlay -->
+    <div class="nav-overlay">
+      <button class="nav-btn">←</button>
+      <div class="nav-right">
+        <button class="nav-btn">♡</button>
+        <button class="nav-btn">⤴</button>
+        <button class="nav-btn">⋯</button>
+      </div>
+    </div>
+
+    <!-- Content card rising over hero -->
+    <div class="content-card">
+      <div class="drag-handle"></div>
+
+      <!-- Title -->
+      <div class="title-block">
+        <div class="event-title">Toronto Rooftop Sessions 2025 🍁</div>
+        <div class="meta-row">
+          <span class="meta-chip"><span class="icon">📅</span> Sat 12 Jul · 8 PM</span>
+          <span class="meta-chip"><span class="icon">📍</span> Stackt Market, Toronto</span>
+          <div class="rating-chip"><span class="star">★</span> 4.8 <span style="color:var(--grey3);font-weight:500">(128)</span></div>
+        </div>
+      </div>
+
+      <!-- 3-stat row -->
+      <div class="stat-row">
+        <div class="stat-card blue">
+          <div class="stat-value">450</div>
+          <div class="stat-label">CAPACITY</div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-value">72%</div>
+          <div class="stat-label">FUNDED</div>
+        </div>
+        <div class="stat-card orange">
+          <div class="stat-value">12d</div>
+          <div class="stat-label">LEFT</div>
+        </div>
+      </div>
+
+      <!-- Quick info -->
+      <div class="info-row">
+        <div class="info-item">
+          <div class="info-icon-box blue">📅</div>
+          <div>
+            <div class="info-label">Date & Time</div>
+            <div class="info-value">Saturday, 12 July 2025 · 8:00 PM – 1:00 AM</div>
+          </div>
+        </div>
+        <div class="info-item">
+          <div class="info-icon-box green">📍</div>
+          <div>
+            <div class="info-label">Venue</div>
+            <div class="info-value">Stackt Market Rooftop · King West, Toronto ON</div>
+          </div>
+        </div>
+        <div class="info-item">
+          <div class="info-icon-box amber">👥</div>
+          <div>
+            <div class="info-label">Attendance</div>
+            <div class="info-value">312 registered · 138 spots remaining</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- About (always visible, non-collapsible) -->
+      <div class="section-header" onclick="toggle('about')">
+        <span class="section-title">About</span>
+        <span class="section-chevron open" id="chevron-about">▼</span>
+      </div>
+      <div class="section-body open" id="body-about">
+        <div class="about-text">
+          An iconic summer night on Toronto's most celebrated rooftop. Featuring three chart-topping Canadian indie acts, local craft beer, poutine bites, and a skyline view of the CN Tower you won't forget, eh.
+        </div>
+        <div class="read-more">Read more →</div>
+      </div>
+
+      <!-- Reactions -->
+      <div class="reaction-bar">
+        <div class="reaction-chip active"><span class="reaction-emoji">🔥</span> 214</div>
+        <div class="reaction-chip"><span class="reaction-emoji">🎵</span> 98</div>
+        <div class="reaction-chip"><span class="reaction-emoji">❤️</span> 76</div>
+        <div class="reaction-chip"><span class="reaction-emoji">🙌</span> 43</div>
+        <div class="reaction-chip"><span class="reaction-emoji">😍</span> 31</div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- ── Funding & Milestones ── -->
+      <div class="section-header" onclick="toggle('funding')">
+        <span class="section-title">Funding & Milestones</span>
+        <span class="section-chevron open" id="chevron-funding">▼</span>
+      </div>
+      <div class="section-body open" id="body-funding">
+        <div class="funding-card">
+          <div class="funding-header">
+            <div>
+              <div class="funding-amount">$54,000 <span>CAD raised</span></div>
+              <div class="funding-goal">of $75,000 goal · 48 pledges</div>
+            </div>
+            <div class="funding-pct-badge">72%</div>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill"></div>
+          </div>
+          <div class="funding-meta">
+            <span>⏱ 12 days remaining</span>
+            <span>🎯 $21,000 CAD to go</span>
+          </div>
+          <div class="funding-actions">
+            <button class="btn btn-pledge">🤝 Pledge</button>
+            <button class="btn btn-donate">💜 Donate</button>
+          </div>
+        </div>
+
+        <!-- Milestones -->
+        <div class="milestone-row">
+          <div class="milestone-step">
+            <div class="milestone-dot done">✓</div>
+            <div class="milestone-label">Stage Setup</div>
+            <div class="milestone-pct">25%</div>
+          </div>
+          <div class="milestone-step">
+            <div class="milestone-dot done">✓</div>
+            <div class="milestone-label">Lighting</div>
+            <div class="milestone-pct">50%</div>
+          </div>
+          <div class="milestone-step">
+            <div class="milestone-dot active">🎸</div>
+            <div class="milestone-label">Headliner</div>
+            <div class="milestone-pct">75%</div>
+          </div>
+          <div class="milestone-step">
+            <div class="milestone-dot locked">🔒</div>
+            <div class="milestone-label">Maple Bar</div>
+            <div class="milestone-pct">100%</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- ── Schedule ── -->
+      <div class="section-header" onclick="toggle('schedule')">
+        <span class="section-title">Schedule</span>
+        <span class="section-chevron open" id="chevron-schedule">▼</span>
+      </div>
+      <div class="section-body open" id="body-schedule">
+        <div class="schedule-item">
+          <div class="schedule-time">8:00 PM</div>
+          <div class="schedule-line">
+            <div class="schedule-dot"></div>
+            <div class="schedule-connector"></div>
+          </div>
+          <div class="schedule-info">
+            <div class="schedule-name">Doors Open</div>
+            <div class="schedule-desc">Craft beer & poutine · Welcome drinks</div>
+          </div>
+        </div>
+        <div class="schedule-item">
+          <div class="schedule-time">8:30 PM</div>
+          <div class="schedule-line">
+            <div class="schedule-dot current"></div>
+            <div class="schedule-connector"></div>
+          </div>
+          <div class="schedule-info">
+            <div class="schedule-name">Opening Act — The Ottawa Folk Collective</div>
+            <div class="schedule-desc">Indie folk / 45 min</div>
+            <div class="schedule-badge">🔴 LIVE NOW</div>
+          </div>
+        </div>
+        <div class="schedule-item">
+          <div class="schedule-time">9:30 PM</div>
+          <div class="schedule-line">
+            <div class="schedule-dot"></div>
+            <div class="schedule-connector"></div>
+          </div>
+          <div class="schedule-info">
+            <div class="schedule-name">Intermission</div>
+            <div class="schedule-desc">Molson Canadian bar open · CN Tower photo zone</div>
+          </div>
+        </div>
+        <a class="see-all">+3 more items  →</a>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- ── Getting There ── -->
+      <div class="section-header" onclick="toggle('map')">
+        <span class="section-title">Getting There</span>
+        <span class="section-chevron open" id="chevron-map">▼</span>
+      </div>
+      <div class="section-body open" id="body-map">
+        <div class="map-tile">
+          <div class="map-grid"></div>
+          <div class="map-road-h" style="top: 45%"></div>
+          <div class="map-road-h" style="top: 65%"></div>
+          <div class="map-road-v" style="left: 35%"></div>
+          <div class="map-road-v" style="left: 60%"></div>
+          <div class="map-pin">📍</div>
+          <div class="map-label">🏢 Stackt Market · 0.2 km</div>
+        </div>
+        <div class="transport-chips">
+          <div class="transport-chip">🚋 504 King Streetcar · 3 min</div>
+          <div class="transport-chip">🚇 Union Station GO</div>
+          <div class="transport-chip">🅿 Green P · $15/night</div>
+          <div class="transport-chip">🚗 Uber / Lyft</div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- ── Tickets ── -->
+      <div class="section-header" onclick="toggle('tickets')">
+        <span class="section-title">Tickets</span>
+        <span class="section-chevron open" id="chevron-tickets">▼</span>
+      </div>
+      <div class="section-body open" id="body-tickets">
+
+        <!-- Free tier -->
+        <div class="ticket-card">
+          <div class="ticket-header">
+            <div>
+              <div class="ticket-name">General Admission</div>
+              <div class="ticket-desc">Standing, access to main stage</div>
+            </div>
+            <div>
+              <div class="ticket-price">$45 <small>CAD</small></div>
+            </div>
+          </div>
+          <div class="ticket-perks">
+            <div class="perk">Main stage access</div>
+            <div class="perk">Welcome drink included</div>
+          </div>
+          <div class="ticket-footer">
+            <span class="ticket-avail"><strong>138</strong> remaining</span>
+            <button class="btn-sm btn-buy">Buy →</button>
+          </div>
+        </div>
+
+        <!-- My ticket card -->
+        <div class="ticket-card" style="border-color:#A7F3D0; background: linear-gradient(135deg,#f0fdf4,#ecfdf3)">
+          <div class="ticket-header">
+            <div>
+              <div class="ticket-name">Mezzanine · Reserved Seating</div>
+              <div class="ticket-desc">Elevated view, table service</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+              <div class="ticket-price">$85 <small>CAD</small></div>
+              <div class="ticket-owned-badge">✓ You have 2</div>
+            </div>
+          </div>
+          <div class="ticket-footer" style="background:#dcfce7;border-color:#A7F3D0">
+            <span class="ticket-avail"><strong>24</strong> remaining</span>
+            <button class="btn-sm" style="background:white;color:var(--green);border:1.5px solid var(--green);font-weight:700;">View tickets</button>
+          </div>
+        </div>
+
+        <!-- VIP -->
+        <div class="ticket-card vip">
+          <div class="ticket-header">
+            <div>
+              <div class="ticket-name" style="color:var(--purple)">✦ VIP Experience</div>
+              <div class="ticket-desc">Backstage, meet & greet, open bar</div>
+            </div>
+            <div class="ticket-price" style="color:var(--purple)">$175 <small>CAD</small></div>
+          </div>
+          <div class="ticket-perks">
+            <div class="perk">Backstage access</div>
+            <div class="perk">Meet & greet with artists</div>
+            <div class="perk">Open bar (Molson + craft spirits)</div>
+            <div class="perk">Exclusive Maple Lounge access</div>
+          </div>
+          <div class="ticket-footer">
+            <span class="ticket-avail"><strong>6</strong> remaining · selling fast</span>
+            <button class="btn-sm" style="background:linear-gradient(135deg,var(--purple),var(--magenta));color:white;">Buy →</button>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- ── Discounts ── -->
+      <div class="section-header" onclick="toggle('discounts')">
+        <span class="section-title">Your Discounts</span>
+        <span class="section-chevron open" id="chevron-discounts">▼</span>
+      </div>
+      <div class="section-body open" id="body-discounts">
+        <div class="discount-list">
+          <div class="discount-row">
+            <div class="discount-icon">🐣</div>
+            <div>
+              <div class="discount-name">MAPLE10</div>
+              <div class="discount-detail">Early bird 🍁 · Expires in 3 days</div>
+            </div>
+            <div class="discount-value">−10%</div>
+          </div>
+          <div class="discount-row">
+            <div class="discount-icon blue">🎓</div>
+            <div>
+              <div class="discount-name">STUDENT25</div>
+              <div class="discount-detail">Student discount · Verified</div>
+            </div>
+            <div class="discount-value blue">−25%</div>
+          </div>
+          <div class="discount-row" style="opacity:0.5">
+            <div class="discount-icon" style="background:#f5f5f5">🏷</div>
+            <div>
+              <div class="discount-name">CANADA150</div>
+              <div class="discount-detail">Unlocks at 100% funded · 🔒 locked</div>
+            </div>
+            <div class="discount-value" style="color:var(--grey3)">−50%</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- ── Sponsors ── -->
+      <div class="section-header" onclick="toggle('sponsors')">
+        <span class="section-title">Sponsors</span>
+        <span class="section-chevron open" id="chevron-sponsors">▼</span>
+      </div>
+      <div class="section-body open" id="body-sponsors">
+        <div class="sponsor-strip">
+          <div class="sponsor-logo">RBC</div>
+          <div class="sponsor-logo">Tim<br>Hortons</div>
+          <div class="sponsor-logo">Rogers</div>
+          <div class="sponsor-logo">Molson<br>Coors</div>
+          <div class="sponsor-logo">Shopify</div>
+          <div class="sponsor-logo">Air<br>Canada</div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- ── Reviews ── -->
+      <div class="section-header" onclick="toggle('reviews')">
+        <span class="section-title">Reviews</span>
+        <span class="section-chevron open" id="chevron-reviews">▼</span>
+      </div>
+      <div class="section-body open" id="body-reviews">
+        <div class="review-summary">
+          <div class="big-score">4.8</div>
+          <div class="stars-col">
+            <div class="stars-row">★★★★★</div>
+            <div class="review-count">128 reviews</div>
+          </div>
+          <div class="review-bar-row">
+            <div class="review-bar"><span>5</span><div class="review-track"><div class="review-fill" style="width:78%"></div></div></div>
+            <div class="review-bar"><span>4</span><div class="review-track"><div class="review-fill" style="width:15%"></div></div></div>
+            <div class="review-bar"><span>3</span><div class="review-track"><div class="review-fill" style="width:5%"></div></div></div>
+            <div class="review-bar"><span>2</span><div class="review-track"><div class="review-fill" style="width:1%"></div></div></div>
+            <div class="review-bar"><span>1</span><div class="review-track"><div class="review-fill" style="width:1%"></div></div></div>
+          </div>
+        </div>
+
+        <div class="review-card">
+          <div class="reviewer-row">
+            <div class="avatar">RK</div>
+            <div>
+              <div class="reviewer-name">Tyler M.</div>
+              <div class="review-date">2 weeks ago</div>
+            </div>
+            <div class="mini-stars">★★★★★</div>
+          </div>
+          <div class="review-text">"Absolutely incredible night, eh! The rooftop view of the CN Tower was unreal and the band was world-class. Already bought tickets for next year's session!"</div>
+        </div>
+
+        <div class="review-card">
+          <div class="reviewer-row">
+            <div class="avatar" style="background:linear-gradient(135deg,var(--green),var(--blue))">TS</div>
+            <div>
+              <div class="reviewer-name">Sarah C.</div>
+              <div class="review-date">1 month ago</div>
+            </div>
+            <div class="mini-stars">★★★★☆</div>
+          </div>
+          <div class="review-text">"Great vibe, great music, great poutine. Sound could be a tiny bit louder in the back but overall a proper Canadian summer night. 10/10."</div>
+        </div>
+
+        <a class="see-all">See all 128 reviews, buddy →</a>
+      </div>
+
+    </div><!-- /content-card -->
+
+    <!-- Sticky CTA -->
+    <div class="sticky-cta">
+      <button class="btn-cta btn-cta-pledge">🤝 Pledge</button>
+      <button class="btn-cta btn-cta-ticket">🎟 Buy Ticket</button>
+    </div>
+
+  </div><!-- /scroll-body -->
+</div><!-- /phone -->
+
+<script>
+function toggle(id) {
+  const body = document.getElementById('body-' + id);
+  const chevron = document.getElementById('chevron-' + id);
+  const isOpen = body.classList.contains('open');
+  body.classList.toggle('open', !isOpen);
+  chevron.classList.toggle('open', !isOpen);
+}
+</script>
+</body>
+</html>

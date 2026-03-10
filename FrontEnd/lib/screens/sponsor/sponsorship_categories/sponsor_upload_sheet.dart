@@ -6,6 +6,7 @@ import '../../../config/theme.dart';
 import '../../../models/sponsor.dart';
 import '../../../repositories/base_repository.dart';
 import '../../../providers/sponsor_provider.dart';
+import '../../../widgets/app_chip.dart';
 import '../../../widgets/app_toast.dart';
 
 class SponsorUploadSheet extends StatefulWidget {
@@ -147,8 +148,8 @@ class _SponsorUploadSheetState extends State<SponsorUploadSheet> {
                     final isSelected = _selectedBidId == b.id;
                     return Padding(
                       padding: const EdgeInsets.only(right: 8),
-                      child: ChoiceChip(
-                        label: Text('Bid ${b.amountDisplay}'),
+                      child: AppChip(
+                        label: 'Bid ${b.amountDisplay}',
                         selected: isSelected,
                         onSelected: (sel) {
                           if (sel) {
@@ -156,14 +157,9 @@ class _SponsorUploadSheetState extends State<SponsorUploadSheet> {
                             _loadUploads(b.id);
                           }
                         },
-                        selectedColor: AppTheme.accentColor,
-                        labelStyle: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: isSelected ? Colors.white : AppTheme.textPrimaryOf(context),
-                        ),
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        visualDensity: VisualDensity.compact,
+                        chipColor: AppTheme.accentColor,
+                        fontSize: 12,
+                        compact: true,
                       ),
                     );
                   }).toList(),

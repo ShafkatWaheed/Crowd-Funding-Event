@@ -830,6 +830,44 @@ class EventRepository(BaseRepository[Event]):
         )
         return int((await db.execute(q)).scalar_one())
 
+    async def get_events_needing_transition(self, db: AsyncSession, now: datetime) -> list[Event]:
+        """Return all events in transitional states whose trigger date has passed.
+
+        Used by the reconcile_event_statuses safety-net cron to catch any events that
+        missed their deferred transition job (e.g. due to Redis flush or worker downtime).
+        """
+        from sqlalchemy import or_, and_
+        q = select(Event).where(
+            or_(
+                # approved → waiting_event_date
+                and_(
+                    Event.status == EventStatus.approved,
+                    Event.funding_end_at.isnot(None),
+                    Event.funding_end_at <= now,
+                ),
+                # waiting_event_date → cancelled
+                and_(
+                    Event.status == EventStatus.waiting_event_date,
+                    Event.event_date_deadline.isnot(None),
+                    Event.event_date_deadline <= now,
+                    Event.start_time.is_(None),
+                ),
+                # selling_tickets / approved → live
+                and_(
+                    Event.status.in_([EventStatus.selling_tickets, EventStatus.approved]),
+                    Event.start_time.isnot(None),
+                    Event.start_time <= now,
+                ),
+                # live → completed
+                and_(
+                    Event.status == EventStatus.live,
+                    Event.end_time.isnot(None),
+                    Event.end_time <= now,
+                ),
+            )
+        )
+        return list((await db.execute(q)).scalars().all())
+
     # ═══════════════════════════════════════════════════════════════════
     #  Venue Queries
     # ═══════════════════════════════════════════════════════════════════

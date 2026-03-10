@@ -1,0 +1,1303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Event Detail — Premium Concepts</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --blue:    #276EF1;
+    --green:   #05944F;
+    --amber:   #FFC043;
+    --orange:  #FF8C00;
+    --purple:  #9333EA;
+    --teal:    #0D9488;
+    --red:     #E11900;
+    --black:   #111111;
+    --grey1:   #F6F6F6;
+    --grey2:   #E2E2E2;
+    --grey3:   #AFAFAF;
+    --grey4:   #545454;
+    --white:   #FFFFFF;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+    background: #080808;
+    display: flex;
+    justify-content: center;
+    gap: 48px;
+    flex-wrap: wrap;
+    padding: 40px 24px 80px;
+    min-height: 100vh;
+  }
+
+  /* ── Labels ── */
+  .variant-label {
+    text-align: center;
+    color: #555;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+
+  /* ── Phone shell ── */
+  .phone {
+    width: 390px;
+    height: 844px;
+    background: var(--white);
+    border-radius: 44px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 40px 100px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.07);
+    flex-shrink: 0;
+  }
+  .phone.dark { background: #0f0f0f; }
+
+  .scroll-body {
+    height: 844px;
+    overflow-y: auto;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    position: relative;
+  }
+  .scroll-body::-webkit-scrollbar { display: none; }
+
+  /* ── Status bar ── */
+  .status-bar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 44px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 24px 0;
+    z-index: 100;
+    color: white;
+    font-size: 13px;
+    font-weight: 600;
+    pointer-events: none;
+  }
+  .status-bar.dark-text { color: #111; }
+  .status-icons { display: flex; gap: 5px; align-items: center; font-size: 11px; }
+
+  /* ═══════════════════════════════════════
+     CONCEPT A — IMMERSIVE HERO
+  ═══════════════════════════════════════ */
+
+  /* Hero */
+  .hero-immersive {
+    width: 100%;
+    height: 320px;
+    position: relative;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .hero-immersive img, .hero-bg {
+    width: 100%; height: 100%;
+    object-fit: cover;
+  }
+  .hero-bg {
+    background: linear-gradient(135deg, #1a0533 0%, #0d1f4c 40%, #0c3d2e 100%);
+  }
+  /* Simulated photo with overlaid shapes */
+  .hero-photo {
+    width: 100%; height: 100%;
+    background:
+      radial-gradient(ellipse at 30% 40%, rgba(255,140,0,0.35) 0%, transparent 55%),
+      radial-gradient(ellipse at 80% 20%, rgba(147,51,234,0.3) 0%, transparent 50%),
+      linear-gradient(160deg, #0d1b3e 0%, #1a0a2e 50%, #0a1f15 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 72px;
+  }
+  .hero-gradient-fade {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 180px;
+    background: linear-gradient(to bottom, transparent 0%, rgba(255,255,255,0.0) 20%, rgba(255,255,255,0.85) 70%, #fff 100%);
+  }
+  .hero-gradient-fade.dark {
+    background: linear-gradient(to bottom, transparent 0%, rgba(10,10,10,0.0) 20%, rgba(10,10,10,0.9) 70%, #0f0f0f 100%);
+  }
+  .hero-top-nav {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    padding: 52px 20px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 10;
+  }
+  .hero-icon-btn {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.35);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    cursor: pointer;
+    border: 1px solid rgba(255,255,255,0.15);
+  }
+  .hero-icon-row { display: flex; gap: 8px; }
+
+  /* Content sheet floating over hero */
+  .content-sheet {
+    background: #fff;
+    border-radius: 28px 28px 0 0;
+    margin-top: -32px;
+    position: relative;
+    z-index: 2;
+    padding: 0 0 120px;
+  }
+  .content-sheet.dark { background: #0f0f0f; }
+  .sheet-handle {
+    width: 36px; height: 4px;
+    background: #E2E2E2;
+    border-radius: 2px;
+    margin: 12px auto 20px;
+  }
+  .sheet-handle.dark { background: #2a2a2a; }
+
+  /* Status pill */
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 100px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+  }
+  .status-live { background: rgba(5,148,79,0.12); color: #05944F; }
+  .status-live-dark { background: rgba(102,187,106,0.15); color: #66BB6A; }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .status-dot.pulse {
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.7); }
+  }
+
+  /* Event title */
+  .event-title-xl {
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.6px;
+    line-height: 1.15;
+    color: #0f0f0f;
+    margin: 8px 0 14px;
+  }
+  .event-title-xl.dark { color: #f0f0f0; }
+
+  /* Stat grid */
+  .stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: #E2E2E2;
+    border-radius: 16px;
+    overflow: hidden;
+    margin: 16px 0;
+  }
+  .stat-grid.dark { background: #222; }
+  .stat-cell {
+    background: #F6F6F6;
+    padding: 12px 14px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .stat-cell.dark { background: #1a1a1a; }
+  .stat-icon {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px;
+    flex-shrink: 0;
+  }
+  .stat-icon.date { background: rgba(39,110,241,0.1); }
+  .stat-icon.location { background: rgba(5,148,79,0.1); }
+  .stat-icon.organizer { background: rgba(147,51,234,0.1); }
+  .stat-icon.capacity { background: rgba(255,140,0,0.1); }
+  .stat-label {
+    font-size: 10px;
+    color: #AFAFAF;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+  .stat-value {
+    font-size: 13px;
+    font-weight: 700;
+    color: #111;
+    line-height: 1.2;
+  }
+  .stat-value.dark { color: #eee; }
+
+  /* Tags */
+  .tag-row { display: flex; gap: 6px; flex-wrap: wrap; margin: 12px 0; }
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 10px;
+    border-radius: 100px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .tag-music { background: rgba(147,51,234,0.1); color: #9333EA; }
+  .tag-outdoor { background: rgba(5,148,79,0.1); color: #05944F; }
+  .tag-fest { background: rgba(255,140,0,0.1); color: #FF8C00; }
+
+  /* Section header with left accent */
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .section-accent-bar {
+    width: 3px;
+    height: 18px;
+    border-radius: 2px;
+  }
+  .section-title-text {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.2px;
+  }
+
+  /* Glass card */
+  .glass-card {
+    background: rgba(255,255,255,0.7);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.9);
+    border-radius: 20px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.06), 0 1px 4px rgba(0,0,0,0.04);
+    padding: 18px;
+    margin-bottom: 12px;
+  }
+  .glass-card.dark {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+  }
+
+  /* ── FUNDING CARD — Arc Progress ── */
+  .funding-card {
+    border-radius: 20px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+  .funding-card-light {
+    background: linear-gradient(135deg, #fff8ed 0%, #fff3d6 100%);
+    border: 1px solid rgba(255,192,67,0.3);
+    box-shadow: 0 4px 24px rgba(255,140,0,0.1);
+  }
+  .funding-card-dark {
+    background: linear-gradient(135deg, #1e1200 0%, #2a1800 100%);
+    border: 1px solid rgba(255,140,0,0.2);
+    box-shadow: 0 4px 24px rgba(255,140,0,0.15);
+  }
+  .funding-glow {
+    position: absolute;
+    top: -40px; right: -40px;
+    width: 160px; height: 160px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,192,67,0.25) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .funding-arc-row {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+  .arc-container {
+    position: relative;
+    width: 88px; height: 88px;
+    flex-shrink: 0;
+  }
+  .arc-container svg {
+    transform: rotate(-220deg);
+  }
+  .arc-center-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .arc-pct {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: #FF8C00;
+  }
+  .arc-label {
+    font-size: 9px;
+    font-weight: 600;
+    color: #AFAFAF;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+  }
+  .funding-text-col { flex: 1; }
+  .funding-amount {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: #111;
+  }
+  .funding-amount.dark { color: #f5f5f5; }
+  .funding-sub {
+    font-size: 12px;
+    color: #AFAFAF;
+    margin-top: 2px;
+  }
+  .funding-backers {
+    font-size: 13px;
+    font-weight: 700;
+    color: #FF8C00;
+    margin-top: 6px;
+  }
+  .pledge-btn {
+    width: 100%;
+    height: 48px;
+    border-radius: 14px;
+    background: linear-gradient(90deg, #FF8C00, #FFC043);
+    border: none;
+    color: white;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.1px;
+    cursor: pointer;
+    margin-top: 16px;
+    box-shadow: 0 4px 16px rgba(255,140,0,0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  /* ── TICKET TIERS — Horizontal scroll ── */
+  .ticket-scroll {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+    margin: 0 -20px;
+    padding: 4px 20px 8px;
+  }
+  .ticket-scroll::-webkit-scrollbar { display: none; }
+  .ticket-card {
+    min-width: 160px;
+    border-radius: 18px;
+    padding: 16px;
+    position: relative;
+    overflow: hidden;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+  .ticket-card-base {
+    background: #F6F6F6;
+    border: 1px solid #E2E2E2;
+  }
+  .ticket-card-base.dark {
+    background: #1a1a1a;
+    border: 1px solid #2a2a2a;
+  }
+  .ticket-card-featured {
+    background: linear-gradient(145deg, #0d1b3e, #1a0a2e);
+    border: 1px solid rgba(39,110,241,0.4);
+    box-shadow: 0 8px 28px rgba(39,110,241,0.2);
+  }
+  .ticket-popular-badge {
+    position: absolute;
+    top: 10px; right: 10px;
+    background: var(--blue);
+    color: white;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    padding: 3px 7px;
+    border-radius: 100px;
+  }
+  .ticket-tier-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: #111;
+    margin-bottom: 4px;
+  }
+  .ticket-tier-name.light { color: #f0f0f0; }
+  .ticket-tier-desc {
+    font-size: 11px;
+    color: #888;
+    line-height: 1.4;
+    margin-bottom: 12px;
+  }
+  .ticket-price {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: #111;
+  }
+  .ticket-price.light { color: #fff; }
+  .ticket-price-sub {
+    font-size: 10px;
+    color: #AFAFAF;
+    margin-top: 1px;
+  }
+  .ticket-buy-btn {
+    width: 100%;
+    height: 36px;
+    border-radius: 10px;
+    border: none;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 12px;
+  }
+  .ticket-buy-dark {
+    background: rgba(39,110,241,0.2);
+    color: #276EF1;
+    border: 1px solid rgba(39,110,241,0.35);
+  }
+  .ticket-buy-light {
+    background: #111;
+    color: #fff;
+  }
+  .ticket-buy-featured {
+    background: linear-gradient(90deg, #276EF1, #5B8DEF);
+    color: white;
+    box-shadow: 0 4px 12px rgba(39,110,241,0.35);
+  }
+  .ticket-availability {
+    font-size: 10px;
+    color: #05944F;
+    font-weight: 600;
+    margin-top: 6px;
+  }
+
+  /* ── DESCRIPTION ── */
+  .description-text {
+    font-size: 14px;
+    line-height: 1.65;
+    color: #545454;
+  }
+  .description-text.dark { color: #888; }
+  .read-more {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--blue);
+    margin-top: 8px;
+    display: inline-block;
+  }
+
+  /* ── LOCATION CARD ── */
+  .location-map-placeholder {
+    width: 100%;
+    height: 120px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #e8f0fe 0%, #d2e3fc 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    margin-bottom: 12px;
+    position: relative;
+    overflow: hidden;
+  }
+  .location-map-placeholder.dark {
+    background: linear-gradient(135deg, #0d1f4c 0%, #091830 100%);
+  }
+  .map-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(39,110,241,0.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(39,110,241,0.08) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+  .map-pin {
+    position: relative;
+    z-index: 1;
+    font-size: 32px;
+    filter: drop-shadow(0 4px 8px rgba(39,110,241,0.4));
+  }
+  .location-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .location-info h4 {
+    font-size: 14px;
+    font-weight: 700;
+    color: #111;
+  }
+  .location-info h4.dark { color: #eee; }
+  .location-info p {
+    font-size: 12px;
+    color: #888;
+    margin-top: 2px;
+  }
+  .directions-btn {
+    padding: 8px 14px;
+    border-radius: 100px;
+    background: rgba(39,110,241,0.1);
+    color: var(--blue);
+    font-size: 12px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  /* ── ORGANIZER ── */
+  .organizer-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .organizer-avatar {
+    width: 48px; height: 48px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #9333EA, #C026D3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+  .organizer-name {
+    font-size: 15px;
+    font-weight: 700;
+    color: #111;
+  }
+  .organizer-name.dark { color: #eee; }
+  .organizer-events {
+    font-size: 12px;
+    color: #888;
+    margin-top: 2px;
+  }
+  .follow-btn {
+    margin-left: auto;
+    padding: 8px 16px;
+    border-radius: 100px;
+    background: #111;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .follow-btn.dark {
+    background: rgba(255,255,255,0.1);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+
+  /* ── SPONSORS ── */
+  .sponsor-row {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: 4px;
+  }
+  .sponsor-row::-webkit-scrollbar { display: none; }
+  .sponsor-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .sponsor-logo {
+    width: 52px; height: 52px;
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    border: 1px solid rgba(0,0,0,0.06);
+  }
+  .sponsor-logo.dark { border: 1px solid rgba(255,255,255,0.06); }
+  .sponsor-name {
+    font-size: 10px;
+    color: #888;
+    font-weight: 500;
+    text-align: center;
+    max-width: 52px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* ── REVIEWS ── */
+  .review-score-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 14px;
+  }
+  .review-big-score {
+    font-size: 48px;
+    font-weight: 800;
+    letter-spacing: -2px;
+    color: #111;
+    line-height: 1;
+  }
+  .review-big-score.dark { color: #f0f0f0; }
+  .review-stars { color: #FFC043; font-size: 18px; letter-spacing: 1px; }
+  .review-count { font-size: 12px; color: #888; margin-top: 3px; }
+  .review-bars { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+  .review-bar-row {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 10px; color: #888;
+  }
+  .review-bar-track {
+    flex: 1; height: 4px; background: #E2E2E2; border-radius: 2px;
+  }
+  .review-bar-track.dark { background: #2a2a2a; }
+  .review-bar-fill { height: 100%; border-radius: 2px; background: #FFC043; }
+
+  /* ── BOTTOM BAR ── */
+  .bottom-bar {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    /* In phone context, we use sticky */
+  }
+  .bottom-strip {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    padding: 12px 16px 28px;
+    background: rgba(255,255,255,0.88);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border-top: 1px solid rgba(0,0,0,0.06);
+    display: flex;
+    gap: 10px;
+    z-index: 50;
+  }
+  .bottom-strip.dark {
+    background: rgba(15,15,15,0.9);
+    border-top: 1px solid rgba(255,255,255,0.07);
+  }
+  .bottom-register-btn {
+    flex: 5;
+    height: 52px;
+    border-radius: 16px;
+    background: #111;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .bottom-register-btn.dark {
+    background: #fff;
+    color: #111;
+  }
+  .bottom-pledge-btn {
+    flex: 3;
+    height: 52px;
+    border-radius: 16px;
+    background: linear-gradient(90deg, #FF8C00, #FFC043);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    box-shadow: 0 4px 16px rgba(255,140,0,0.3);
+  }
+
+  /* ── PADDING HELPERS ── */
+  .px { padding-left: 20px; padding-right: 20px; }
+  .py-sm { padding-top: 8px; padding-bottom: 8px; }
+  .mb-4 { margin-bottom: 4px; }
+  .mb-8 { margin-bottom: 8px; }
+  .mb-12 { margin-bottom: 12px; }
+  .mb-16 { margin-bottom: 16px; }
+  .mb-20 { margin-bottom: 20px; }
+  .mt-4 { margin-top: 4px; }
+  .divider { height: 1px; background: #E2E2E2; margin: 20px 0; }
+  .divider.dark { background: #1e1e1e; }
+
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════
+     VARIANT A — LIGHT MODE
+═══════════════════════════════════════ -->
+<div>
+  <p class="variant-label">Concept A · Light</p>
+  <div class="phone">
+    <div class="scroll-body">
+
+      <!-- Status bar -->
+      <div class="status-bar">
+        <span>9:41</span>
+        <div class="status-icons">
+          <span>●●●</span>
+          <span>WiFi</span>
+          <span>🔋</span>
+        </div>
+      </div>
+
+      <!-- Hero -->
+      <div class="hero-immersive">
+        <div class="hero-photo">🎵</div>
+        <div class="hero-gradient-fade"></div>
+        <div class="hero-top-nav">
+          <div class="hero-icon-btn">←</div>
+          <div class="hero-icon-row">
+            <div class="hero-icon-btn">🔖</div>
+            <div class="hero-icon-btn">↗</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Content sheet -->
+      <div class="content-sheet">
+        <div class="sheet-handle"></div>
+
+        <div class="px">
+          <!-- Status + tags -->
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span class="status-pill status-live">
+              <span class="status-dot pulse"></span>
+              Live
+            </span>
+            <span class="tag tag-music">🎵 Music</span>
+            <span class="tag tag-outdoor">🌿 Outdoor</span>
+          </div>
+
+          <!-- Title -->
+          <h1 class="event-title-xl">Neon Horizon<br>Music Festival</h1>
+
+          <!-- Stat grid -->
+          <div class="stat-grid">
+            <div class="stat-cell">
+              <div class="stat-icon date">📅</div>
+              <div>
+                <div class="stat-label">Date</div>
+                <div class="stat-value">Apr 12–14, 2026</div>
+              </div>
+            </div>
+            <div class="stat-cell">
+              <div class="stat-icon location">📍</div>
+              <div>
+                <div class="stat-label">Location</div>
+                <div class="stat-value">Riverside Park, NY</div>
+              </div>
+            </div>
+            <div class="stat-cell">
+              <div class="stat-icon organizer">👤</div>
+              <div>
+                <div class="stat-label">Organizer</div>
+                <div class="stat-value">Neon Events Co.</div>
+              </div>
+            </div>
+            <div class="stat-cell">
+              <div class="stat-icon capacity">👥</div>
+              <div>
+                <div class="stat-label">Capacity</div>
+                <div class="stat-value">5,000 spots</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <!-- Funding Card -->
+          <div class="section-header">
+            <div class="section-accent-bar" style="background: linear-gradient(to bottom, #FF8C00, #FFC043);"></div>
+            <span class="section-title-text">Crowdfunding</span>
+          </div>
+
+          <div class="funding-card funding-card-light">
+            <div class="funding-glow"></div>
+            <div class="funding-arc-row">
+              <!-- Arc progress SVG -->
+              <div class="arc-container">
+                <svg width="88" height="88" viewBox="0 0 88 88" fill="none">
+                  <!-- Track -->
+                  <circle cx="44" cy="44" r="36"
+                    stroke="#FFE5B4"
+                    stroke-width="7"
+                    stroke-dasharray="197 226"
+                    stroke-linecap="round"
+                    fill="none"/>
+                  <!-- Fill: 73% of 197 ≈ 144 -->
+                  <circle cx="44" cy="44" r="36"
+                    stroke="url(#fundGrad)"
+                    stroke-width="7"
+                    stroke-dasharray="144 226"
+                    stroke-linecap="round"
+                    fill="none"/>
+                  <defs>
+                    <linearGradient id="fundGrad" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stop-color="#FF8C00"/>
+                      <stop offset="100%" stop-color="#FFC043"/>
+                    </linearGradient>
+                  </defs>
+                </svg>
+                <div class="arc-center-text">
+                  <span class="arc-pct">73%</span>
+                  <span class="arc-label">funded</span>
+                </div>
+              </div>
+              <div class="funding-text-col">
+                <div class="funding-amount">$36,520</div>
+                <div class="funding-sub">of $50,000 goal</div>
+                <div class="funding-backers">🔥 248 backers</div>
+              </div>
+            </div>
+            <button class="pledge-btn">
+              <span>💛</span> Back This Event
+            </button>
+          </div>
+
+          <div class="divider"></div>
+
+          <!-- Tickets -->
+          <div class="section-header">
+            <div class="section-accent-bar" style="background: linear-gradient(to bottom, #0D9488, #14b8a6);"></div>
+            <span class="section-title-text">Tickets</span>
+          </div>
+
+          <div class="ticket-scroll">
+            <!-- General -->
+            <div class="ticket-card ticket-card-base">
+              <div class="ticket-tier-name">General</div>
+              <div class="ticket-tier-desc">Full access to all stages and areas</div>
+              <div class="ticket-price">$49</div>
+              <div class="ticket-price-sub">per person</div>
+              <div class="ticket-availability">✓ 312 left</div>
+              <button class="ticket-buy-btn ticket-buy-light">Buy Now</button>
+            </div>
+            <!-- VIP — featured -->
+            <div class="ticket-card ticket-card-featured">
+              <div class="ticket-popular-badge">Popular</div>
+              <div class="ticket-tier-name light">VIP Access</div>
+              <div class="ticket-tier-desc" style="color:#8899cc;">Front row + lounge + merch pack</div>
+              <div class="ticket-price light">$129</div>
+              <div class="ticket-price-sub">per person</div>
+              <div class="ticket-availability" style="color:#66BB6A;">✓ 48 left</div>
+              <button class="ticket-buy-btn ticket-buy-featured">Buy Now</button>
+            </div>
+            <!-- Backstage -->
+            <div class="ticket-card ticket-card-base">
+              <div class="ticket-tier-name">Backstage</div>
+              <div class="ticket-tier-desc">Meet artists + premium catering</div>
+              <div class="ticket-price">$299</div>
+              <div class="ticket-price-sub">per person</div>
+              <div class="ticket-availability">✓ 12 left</div>
+              <button class="ticket-buy-btn ticket-buy-light">Buy Now</button>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <!-- About -->
+          <div class="section-header">
+            <div class="section-accent-bar" style="background: #276EF1;"></div>
+            <span class="section-title-text">About</span>
+          </div>
+          <p class="description-text">Three days of non-stop music across 5 stages featuring 40+ artists from around the world. Set in the heart of Riverside Park with stunning skyline views...</p>
+          <a class="read-more">Read more →</a>
+
+          <div class="divider"></div>
+
+          <!-- Location -->
+          <div class="section-header">
+            <div class="section-accent-bar" style="background: #05944F;"></div>
+            <span class="section-title-text">Getting There</span>
+          </div>
+
+          <div class="glass-card">
+            <div class="location-map-placeholder">
+              <div class="map-grid"></div>
+              <span class="map-pin">📍</span>
+            </div>
+            <div class="location-row">
+              <div class="location-info">
+                <h4>Riverside Park, Gate B</h4>
+                <p>West 72nd St, New York, NY 10024</p>
+              </div>
+              <button class="directions-btn">Directions</button>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <!-- Organizer -->
+          <div class="section-header">
+            <div class="section-accent-bar" style="background: #9333EA;"></div>
+            <span class="section-title-text">Organizer</span>
+          </div>
+          <div class="glass-card">
+            <div class="organizer-row">
+              <div class="organizer-avatar">🎪</div>
+              <div>
+                <div class="organizer-name">Neon Events Co.</div>
+                <div class="organizer-events">24 events hosted · 98% satisfaction</div>
+              </div>
+              <button class="follow-btn">Follow</button>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <!-- Sponsors -->
+          <div class="section-header">
+            <div class="section-accent-bar" style="background: #9333EA;"></div>
+            <span class="section-title-text">Sponsors</span>
+          </div>
+          <div class="sponsor-row">
+            <div class="sponsor-item">
+              <div class="sponsor-logo" style="background:rgba(39,110,241,0.08);">🎧</div>
+              <span class="sponsor-name">SoundCo</span>
+            </div>
+            <div class="sponsor-item">
+              <div class="sponsor-logo" style="background:rgba(5,148,79,0.08);">🌿</div>
+              <span class="sponsor-name">EcoWear</span>
+            </div>
+            <div class="sponsor-item">
+              <div class="sponsor-logo" style="background:rgba(255,140,0,0.08);">🍺</div>
+              <span class="sponsor-name">BrewHouse</span>
+            </div>
+            <div class="sponsor-item">
+              <div class="sponsor-logo" style="background:rgba(147,51,234,0.08);">📱</div>
+              <span class="sponsor-name">TechVibe</span>
+            </div>
+            <div class="sponsor-item">
+              <div class="sponsor-logo" style="background:rgba(192,38,211,0.08);">💄</div>
+              <span class="sponsor-name">Luxe Co</span>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <!-- Reviews -->
+          <div class="section-header">
+            <div class="section-accent-bar" style="background: #FFC043;"></div>
+            <span class="section-title-text">Reviews</span>
+          </div>
+          <div class="glass-card">
+            <div class="review-score-row">
+              <div>
+                <div class="review-big-score">4.8</div>
+                <div class="review-stars">★★★★★</div>
+                <div class="review-count">1,204 reviews</div>
+              </div>
+              <div class="review-bars">
+                <div class="review-bar-row"><span>5</span><div class="review-bar-track"><div class="review-bar-fill" style="width:82%"></div></div></div>
+                <div class="review-bar-row"><span>4</span><div class="review-bar-track"><div class="review-bar-fill" style="width:12%"></div></div></div>
+                <div class="review-bar-row"><span>3</span><div class="review-bar-track"><div class="review-bar-fill" style="width:4%"></div></div></div>
+                <div class="review-bar-row"><span>2</span><div class="review-bar-track"><div class="review-bar-fill" style="width:1%"></div></div></div>
+                <div class="review-bar-row"><span>1</span><div class="review-bar-track"><div class="review-bar-fill" style="width:1%"></div></div></div>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /px -->
+      </div><!-- /content-sheet -->
+
+      <!-- Bottom strip -->
+      <div class="bottom-strip">
+        <button class="bottom-register-btn">🎟 Register — Free</button>
+        <button class="bottom-pledge-btn">💛 Pledge</button>
+      </div>
+
+    </div><!-- /scroll-body -->
+  </div><!-- /phone -->
+</div>
+
+
+<!-- ═══════════════════════════════════════
+     VARIANT B — DARK MODE
+═══════════════════════════════════════ -->
+<div>
+  <p class="variant-label">Concept A · Dark</p>
+  <div class="phone dark">
+    <div class="scroll-body">
+
+      <!-- Status bar -->
+      <div class="status-bar">
+        <span>9:41</span>
+        <div class="status-icons">
+          <span>●●●</span><span>WiFi</span><span>🔋</span>
+        </div>
+      </div>
+
+      <!-- Hero -->
+      <div class="hero-immersive">
+        <div class="hero-photo">🎵</div>
+        <div class="hero-gradient-fade dark"></div>
+        <div class="hero-top-nav">
+          <div class="hero-icon-btn">←</div>
+          <div class="hero-icon-row">
+            <div class="hero-icon-btn">🔖</div>
+            <div class="hero-icon-btn">↗</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Content sheet dark -->
+      <div class="content-sheet dark">
+        <div class="sheet-handle dark"></div>
+        <div class="px">
+
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span class="status-pill status-live-dark">
+              <span class="status-dot pulse"></span> Live
+            </span>
+            <span class="tag" style="background:rgba(147,51,234,0.15);color:#c084fc;">🎵 Music</span>
+            <span class="tag" style="background:rgba(5,148,79,0.15);color:#4ade80;">🌿 Outdoor</span>
+          </div>
+
+          <h1 class="event-title-xl dark">Neon Horizon<br>Music Festival</h1>
+
+          <div class="stat-grid dark">
+            <div class="stat-cell dark">
+              <div class="stat-icon date">📅</div>
+              <div>
+                <div class="stat-label">Date</div>
+                <div class="stat-value dark">Apr 12–14, 2026</div>
+              </div>
+            </div>
+            <div class="stat-cell dark">
+              <div class="stat-icon location">📍</div>
+              <div>
+                <div class="stat-label">Location</div>
+                <div class="stat-value dark">Riverside Park, NY</div>
+              </div>
+            </div>
+            <div class="stat-cell dark">
+              <div class="stat-icon organizer">👤</div>
+              <div>
+                <div class="stat-label">Organizer</div>
+                <div class="stat-value dark">Neon Events Co.</div>
+              </div>
+            </div>
+            <div class="stat-cell dark">
+              <div class="stat-icon capacity">👥</div>
+              <div>
+                <div class="stat-label">Capacity</div>
+                <div class="stat-value dark">5,000 spots</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="divider dark"></div>
+
+          <!-- Funding dark -->
+          <div class="section-header">
+            <div class="section-accent-bar" style="background: linear-gradient(to bottom, #FF8C00, #FFC043);"></div>
+            <span class="section-title-text" style="color:#f0f0f0;">Crowdfunding</span>
+          </div>
+
+          <div class="funding-card funding-card-dark">
+            <div class="funding-glow"></div>
+            <div class="funding-arc-row">
+              <div class="arc-container">
+                <svg width="88" height="88" viewBox="0 0 88 88" fill="none">
+                  <circle cx="44" cy="44" r="36" stroke="#3d1f00" stroke-width="7" stroke-dasharray="197 226" stroke-linecap="round" fill="none"/>
+                  <circle cx="44" cy="44" r="36" stroke="url(#fundGradD)" stroke-width="7" stroke-dasharray="144 226" stroke-linecap="round" fill="none"/>
+                  <defs>
+                    <linearGradient id="fundGradD" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stop-color="#FF8C00"/>
+                      <stop offset="100%" stop-color="#FFC043"/>
+                    </linearGradient>
+                  </defs>
+                </svg>
+                <div class="arc-center-text">
+                  <span class="arc-pct">73%</span>
+                  <span class="arc-label">funded</span>
+                </div>
+              </div>
+              <div class="funding-text-col">
+                <div class="funding-amount dark">$36,520</div>
+                <div class="funding-sub">of $50,000 goal</div>
+                <div class="funding-backers">🔥 248 backers</div>
+              </div>
+            </div>
+            <button class="pledge-btn">
+              <span>💛</span> Back This Event
+            </button>
+          </div>
+
+          <div class="divider dark"></div>
+
+          <!-- Tickets dark -->
+          <div class="section-header">
+            <div class="section-accent-bar" style="background: linear-gradient(to bottom, #0D9488, #14b8a6);"></div>
+            <span class="section-title-text" style="color:#f0f0f0;">Tickets</span>
+          </div>
+
+          <div class="ticket-scroll">
+            <div class="ticket-card ticket-card-base dark">
+              <div class="ticket-tier-name" style="color:#eee;">General</div>
+              <div class="ticket-tier-desc">Full access to all stages and areas</div>
+              <div class="ticket-price" style="color:#fff;">$49</div>
+              <div class="ticket-price-sub">per person</div>
+              <div class="ticket-availability">✓ 312 left</div>
+              <button class="ticket-buy-btn ticket-buy-dark">Buy Now</button>
+            </div>
+            <div class="ticket-card ticket-card-featured">
+              <div class="ticket-popular-badge">Popular</div>
+              <div class="ticket-tier-name light">VIP Access</div>
+              <div class="ticket-tier-desc" style="color:#8899cc;">Front row + lounge + merch pack</div>
+              <div class="ticket-price light">$129</div>
+              <div class="ticket-price-sub">per person</div>
+              <div class="ticket-availability" style="color:#66BB6A;">✓ 48 left</div>
+              <button class="ticket-buy-btn ticket-buy-featured">Buy Now</button>
+            </div>
+            <div class="ticket-card ticket-card-base dark">
+              <div class="ticket-tier-name" style="color:#eee;">Backstage</div>
+              <div class="ticket-tier-desc">Meet artists + premium catering</div>
+              <div class="ticket-price" style="color:#fff;">$299</div>
+              <div class="ticket-price-sub">per person</div>
+              <div class="ticket-availability">✓ 12 left</div>
+              <button class="ticket-buy-btn ticket-buy-dark">Buy Now</button>
+            </div>
+          </div>
+
+          <div class="divider dark"></div>
+
+          <!-- About dark -->
+          <div class="section-header">
+            <div class="section-accent-bar" style="background: #5B8DEF;"></div>
+            <span class="section-title-text" style="color:#f0f0f0;">About</span>
+          </div>
+          <p class="description-text dark">Three days of non-stop music across 5 stages featuring 40+ artists from around the world. Set in the heart of Riverside Park with stunning skyline views...</p>
+          <a class="read-more">Read more →</a>
+
+          <div class="divider dark"></div>
+
+          <!-- Location dark -->
+          <div class="section-header">
+            <div class="section-accent-bar" style="background: #4ade80;"></div>
+            <span class="section-title-text" style="color:#f0f0f0;">Getting There</span>
+          </div>
+          <div class="glass-card dark">
+            <div class="location-map-placeholder dark">
+              <div class="map-grid"></div>
+              <span class="map-pin">📍</span>
+            </div>
+            <div class="location-row">
+              <div class="location-info">
+                <h4 class="dark">Riverside Park, Gate B</h4>
+                <p>West 72nd St, New York, NY</p>
+              </div>
+              <button class="directions-btn">Directions</button>
+            </div>
+          </div>
+
+          <div class="divider dark"></div>
+
+          <!-- Organizer dark -->
+          <div class="section-header">
+            <div class="section-accent-bar" style="background: #c084fc;"></div>
+            <span class="section-title-text" style="color:#f0f0f0;">Organizer</span>
+          </div>
+          <div class="glass-card dark">
+            <div class="organizer-row">
+              <div class="organizer-avatar">🎪</div>
+              <div>
+                <div class="organizer-name dark">Neon Events Co.</div>
+                <div class="organizer-events">24 events · 98% satisfaction</div>
+              </div>
+              <button class="follow-btn dark">Follow</button>
+            </div>
+          </div>
+
+          <div class="divider dark"></div>
+
+          <!-- Sponsors dark -->
+          <div class="section-header">
+            <div class="section-accent-bar" style="background: #c084fc;"></div>
+            <span class="section-title-text" style="color:#f0f0f0;">Sponsors</span>
+          </div>
+          <div class="sponsor-row">
+            <div class="sponsor-item">
+              <div class="sponsor-logo dark" style="background:rgba(39,110,241,0.15);">🎧</div>
+              <span class="sponsor-name">SoundCo</span>
+            </div>
+            <div class="sponsor-item">
+              <div class="sponsor-logo dark" style="background:rgba(5,148,79,0.15);">🌿</div>
+              <span class="sponsor-name">EcoWear</span>
+            </div>
+            <div class="sponsor-item">
+              <div class="sponsor-logo dark" style="background:rgba(255,140,0,0.15);">🍺</div>
+              <span class="sponsor-name">BrewHouse</span>
+            </div>
+            <div class="sponsor-item">
+              <div class="sponsor-logo dark" style="background:rgba(147,51,234,0.15);">📱</div>
+              <span class="sponsor-name">TechVibe</span>
+            </div>
+            <div class="sponsor-item">
+              <div class="sponsor-logo dark" style="background:rgba(192,38,211,0.15);">💄</div>
+              <span class="sponsor-name">Luxe Co</span>
+            </div>
+          </div>
+
+          <div class="divider dark"></div>
+
+          <!-- Reviews dark -->
+          <div class="section-header">
+            <div class="section-accent-bar" style="background: #FFC043;"></div>
+            <span class="section-title-text" style="color:#f0f0f0;">Reviews</span>
+          </div>
+          <div class="glass-card dark">
+            <div class="review-score-row">
+              <div>
+                <div class="review-big-score dark">4.8</div>
+                <div class="review-stars">★★★★★</div>
+                <div class="review-count">1,204 reviews</div>
+              </div>
+              <div class="review-bars">
+                <div class="review-bar-row"><span>5</span><div class="review-bar-track dark"><div class="review-bar-fill" style="width:82%"></div></div></div>
+                <div class="review-bar-row"><span>4</span><div class="review-bar-track dark"><div class="review-bar-fill" style="width:12%"></div></div></div>
+                <div class="review-bar-row"><span>3</span><div class="review-bar-track dark"><div class="review-bar-fill" style="width:4%"></div></div></div>
+                <div class="review-bar-row"><span>2</span><div class="review-bar-track dark"><div class="review-bar-fill" style="width:1%"></div></div></div>
+                <div class="review-bar-row"><span>1</span><div class="review-bar-track dark"><div class="review-bar-fill" style="width:1%"></div></div></div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Bottom strip dark -->
+      <div class="bottom-strip dark">
+        <button class="bottom-register-btn dark">🎟 Register — Free</button>
+        <button class="bottom-pledge-btn">💛 Pledge</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

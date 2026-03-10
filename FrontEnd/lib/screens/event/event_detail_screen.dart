@@ -333,7 +333,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                 constraints:
                                     const BoxConstraints(maxWidth: 700),
                                 child: _buildContent(
-                                    context, event, user, isDark),
+                                    context, event, user, isDark, hasHero),
                               ),
                             ),
                           ),
@@ -566,13 +566,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   }
 
   Widget _buildContent(
-      BuildContext context, Event event, dynamic user, bool isDark) {
+      BuildContext context, Event event, dynamic user, bool isDark,
+      [bool hasHero = true]) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // ── Floating title card — overlaps hero by _heroOverlap ──
         Transform.translate(
-          offset: const Offset(0, -_heroOverlap),
+          offset: hasHero ? const Offset(0, -_heroOverlap) : Offset.zero,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14),
             child: Container(
@@ -610,20 +611,38 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Title
-              Text(
-                event.title,
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.7,
-                  height: 1.2,
-                  color: AppTheme.textPrimaryOf(context),
-                ),
-              )
-                  .animate()
-                  .fadeIn(duration: 400.ms)
-                  .slideY(begin: 0.08, duration: 400.ms, curve: AppCurve.enter),
+              // Title + reaction buttons row
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      event.title,
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.7,
+                        height: 1.2,
+                        color: AppTheme.textPrimaryOf(context),
+                      ),
+                    )
+                        .animate()
+                        .fadeIn(duration: 400.ms)
+                        .slideY(begin: 0.08, duration: 400.ms, curve: AppCurve.enter),
+                  ),
+                  if (!widget.isPreview && !(user?.isAdmin ?? false))
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: ReactionBar(
+                        eventId: widget.eventId,
+                        initialLikeCount: event.likeCount,
+                        initialDislikeCount: event.dislikeCount,
+                        isAdmin: false,
+                        compact: true,
+                      ),
+                    ),
+                ],
+              ),
               const SizedBox(height: 10),
               // Status + meta pills
               Wrap(
@@ -690,7 +709,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
         // ── Stats row (below title card, same 14px margins) ──
         Transform.translate(
-          offset: const Offset(0, -_heroOverlap),
+          offset: hasHero ? const Offset(0, -_heroOverlap) : Offset.zero,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
             child: _buildStatsRow(context, event, isDark),
@@ -699,7 +718,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
         // ── Content sections (padded 14px sides, shifted up by heroOverlap) ──
         Transform.translate(
-          offset: const Offset(0, -_heroOverlap),
+          offset: hasHero ? const Offset(0, -_heroOverlap) : Offset.zero,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(14, 14, 14, 80),
             child: Column(
@@ -711,13 +730,13 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           AppSpacing.vLg,
         ],
 
-        // Reaction Bar
-        if (!widget.isPreview) ...[
+        // Reaction Bar (admin read-only counters only)
+        if (!widget.isPreview && (user?.isAdmin ?? false)) ...[
           ReactionBar(
             eventId: widget.eventId,
             initialLikeCount: event.likeCount,
             initialDislikeCount: event.dislikeCount,
-            isAdmin: user?.isAdmin ?? false,
+            isAdmin: true,
           ),
           AppSpacing.vXl,
         ],
@@ -1031,27 +1050,25 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   Widget _buildStatsRow(BuildContext context, Event event, bool isDark) {
     final items = <({String val, String lbl})>[];
 
-    if (event.registrationCount > 0) {
-      final regLabel = event.isFunding
-          ? 'Backers'
-          : (event.status == EventStatus.selling_tickets ||
-                  event.status == EventStatus.live ||
-                  event.status == EventStatus.completed)
-              ? 'Engaged'
-              : 'Joined';
+    if (event.registrationCount > 0 && !event.isFunding &&
+        event.status != EventStatus.waiting_event_date) {
+      final regLabel = (event.status == EventStatus.selling_tickets ||
+              event.status == EventStatus.live ||
+              event.status == EventStatus.completed)
+          ? 'Engaged'
+          : 'Joined';
       items.add((val: '${event.registrationCount}', lbl: regLabel));
     }
 
-    if (event.isFunding && event.fundingDaysLeft != null) {
-      items.add((val: '${event.fundingDaysLeft!}', lbl: 'Days Left'));
-    } else if (event.startTime != null) {
+    if (!event.isFunding && event.status != EventStatus.waiting_event_date &&
+        event.startTime != null) {
       final diff = event.startTime!.difference(DateTime.now());
       if (diff.inDays > 0) {
         items.add((val: '${diff.inDays}', lbl: 'Days Left'));
       }
     }
 
-    if (event.totalReservedSpots > 0) {
+    if (event.totalReservedSpots > 0 && !event.isFunding) {
       items.add((val: '${event.totalReservedSpots}', lbl: 'Backers'));
     }
 

@@ -227,14 +227,6 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
 
   Widget _buildContent() {
     final grouped = _groupedByEvent;
-    // Stats always reflect event-scoped totals (not affected by search/status filter)
-    final statsTickets = _eventScoped;
-    final purchasedCount = statsTickets.where((t) => t.status == 'purchased').length;
-    final refundPendingCount = statsTickets.where((t) => t.status == 'refund_requested' || t.status == 'refund_processing').length;
-    final waitlistedCount = statsTickets.where((t) => t.status == 'waitlisted').length;
-    final refundedCount = statsTickets.where((t) => t.status == 'refunded').length;
-    final cancelledCount = statsTickets.where((t) => t.status == 'cancelled').length;
-    final scannedCount = statsTickets.where((t) => t.isScanned).length;
 
     return RefreshIndicator(
       onRefresh: _load,
@@ -270,7 +262,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
               ),
             ),
 
-          // ── Stats summary ──
+          // ── Search + Sort + Filter ──
           SliverToBoxAdapter(
             child: Container(
               color: AppTheme.cardOf(context),
@@ -283,73 +275,6 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Stats chips
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        _statChip(
-                          Icons.confirmation_number_rounded,
-                          '${statsTickets.length}',
-                          'Total',
-                        ),
-                        AppSpacing.hMd,
-                        _statChip(
-                          Icons.check_circle_rounded,
-                          '$purchasedCount',
-                          'Active',
-                          color: AppTheme.successColor,
-                        ),
-                        if (refundPendingCount > 0) ...[
-                          AppSpacing.hMd,
-                          _statChip(
-                            Icons.hourglass_top_rounded,
-                            '$refundPendingCount',
-                            'Pending',
-                            color: AppTheme.warningColor,
-                          ),
-                        ],
-                        if (refundedCount > 0) ...[
-                          AppSpacing.hMd,
-                          _statChip(
-                            Icons.check_circle_outline_rounded,
-                            '$refundedCount',
-                            'Refunded',
-                            color: AppTheme.accentColor,
-                          ),
-                        ],
-                        if (waitlistedCount > 0) ...[
-                          AppSpacing.hMd,
-                          _statChip(
-                            Icons.hourglass_top_rounded,
-                            '$waitlistedCount',
-                            'Waitlist',
-                            color: AppTheme.warningColor,
-                          ),
-                        ],
-                        if (cancelledCount > 0) ...[
-                          AppSpacing.hMd,
-                          _statChip(
-                            Icons.cancel_rounded,
-                            '$cancelledCount',
-                            'Cancelled',
-                            color: AppTheme.errorColor,
-                          ),
-                        ],
-                        if (scannedCount > 0) ...[
-                          AppSpacing.hMd,
-                          _statChip(
-                            Icons.qr_code_scanner_rounded,
-                            '$scannedCount',
-                            'Scanned',
-                            color: context.ticketAccent,
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  AppSpacing.vMd,
-
                   // Search bar
                   TextField(
                     decoration: InputDecoration(
@@ -373,43 +298,47 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                   // Sort chips
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        Icon(Icons.sort_rounded, size: 18,
-                            color: AppTheme.textSecondaryOf(context)),
-                        AppSpacing.hSm,
-                        ...<String, String>{
-                          'newest': 'Newest',
-                          'oldest': 'Oldest',
-                          'price_high': 'Price \u2191',
-                          'price_low': 'Price \u2193',
-                        }.entries.map((e) => Padding(
+                    child: Builder(builder: (context) {
+                      final (sortBg, sortLabel) = AppTheme.chipActive(AppTheme.accentColor);
+                      return Row(
+                        children: [
+                          Icon(Icons.sort_rounded, size: 18,
+                              color: AppTheme.textSecondaryOf(context)),
+                          AppSpacing.hSm,
+                          ...<String, String>{
+                            'newest': 'Newest',
+                            'oldest': 'Oldest',
+                            'price_high': 'Price \u2191',
+                            'price_low': 'Price \u2193',
+                          }.entries.map((e) {
+                            final active = _sortBy == e.key;
+                            return Padding(
                               padding: const EdgeInsets.only(right: AppSpacing.sm),
                               child: ChoiceChip(
                                 label: Text(e.value),
-                                selected: _sortBy == e.key,
+                                selected: active,
+                                showCheckmark: false,
                                 onSelected: (_) {
                                   setState(() => _sortBy = e.key);
                                   _load();
                                 },
-                                selectedColor: AppTheme.accentColor,
                                 backgroundColor: AppTheme.cardOf(context),
+                                color: WidgetStateProperty.resolveWith((s) =>
+                                    s.contains(WidgetState.selected) ? sortBg : AppTheme.cardOf(context)),
                                 side: BorderSide(
-                                  color: _sortBy == e.key
-                                      ? AppTheme.accentColor
-                                      : AppTheme.dividerOf(context),
+                                  color: active ? sortBg : AppTheme.dividerOf(context),
                                 ),
                                 labelStyle: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
-                                  color: _sortBy == e.key
-                                      ? Colors.white
-                                      : AppTheme.textPrimaryOf(context),
+                                  color: active ? sortLabel : AppTheme.textPrimaryOf(context),
                                 ),
                               ),
-                            )),
-                      ],
-                    ),
+                            );
+                          }),
+                        ],
+                      );
+                    }),
                   ),
                   AppSpacing.vMd,
 
@@ -466,14 +395,12 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                     final eventId = grouped.keys.elementAt(index);
                     final tickets = grouped[eventId]!;
                     final eventTitle = tickets.first.eventTitle ?? 'Event #$eventId';
-                    final scannedInGroup = tickets.where((t) => t.isScanned).length;
                     return AnimatedListItem(
                       index: index,
                       child: _EventTicketGroup(
                         eventId: eventId,
                         eventTitle: eventTitle,
                         tickets: tickets,
-                        scannedCount: scannedInGroup,
                         onTicketTap: _openReceipt,
                         onEventTap: () => context.push('/events/$eventId'),
                       ),
@@ -508,48 +435,11 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
   }
 
 
-  Widget _statChip(IconData icon, String value, String label, {Color? color}) {
-    final c = color ?? AppTheme.textPrimaryOf(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md + 2, vertical: AppSpacing.sm),
-      decoration: BoxDecoration(
-        color: c.withValues(alpha: 0.08),
-        borderRadius: AppRadius.md,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 18, color: c),
-          AppSpacing.hSm,
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(value,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: c,
-                  )),
-              Text(label,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w500,
-                    color: c.withValues(alpha: 0.7),
-                  )),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _filterChip(String label, String value) {
     final active = _filterStatus == value;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    // 'all' and 'refund_pending' are synthetic filters — delegate to AppIcons for real status equivalents
     final chipIcon = value == 'all'
-        ? Icons.list_rounded
+        ? Icons.local_activity_rounded
         : value == 'refund_pending'
             ? AppIcons.ticketStatusIcon('refund_requested')
             : AppIcons.ticketStatusIcon(value);
@@ -559,24 +449,23 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
             value == 'refund_pending' ? 'refund_requested' : value,
             isDark: isDark,
           );
+    final (activeBg, activeLabel) = AppTheme.chipActive(chipColor);
     return ChoiceChip(
-      avatar: Icon(
-        chipIcon,
-        size: 14,
-        color: active ? Colors.white : chipColor,
-      ),
+      showCheckmark: false,
+      avatar: Icon(chipIcon, size: 14, color: active ? activeLabel : chipColor),
       label: Text(label),
       selected: active,
       onSelected: (_) => setState(() => _filterStatus = value),
-      selectedColor: chipColor,
       backgroundColor: AppTheme.cardOf(context),
+      color: WidgetStateProperty.resolveWith((s) =>
+          s.contains(WidgetState.selected) ? activeBg : AppTheme.cardOf(context)),
       side: BorderSide(
-        color: active ? chipColor : AppTheme.dividerOf(context),
+        color: active ? activeBg : AppTheme.dividerOf(context),
       ),
       labelStyle: TextStyle(
         fontSize: 13,
         fontWeight: FontWeight.w600,
-        color: active ? Colors.white : AppTheme.textPrimaryOf(context),
+        color: active ? activeLabel : AppTheme.textPrimaryOf(context),
       ),
     );
   }
@@ -590,7 +479,6 @@ class _EventTicketGroup extends StatelessWidget {
   final int eventId;
   final String eventTitle;
   final List<TicketSale> tickets;
-  final int scannedCount;
   final void Function(TicketSale) onTicketTap;
   final VoidCallback onEventTap;
 
@@ -598,13 +486,31 @@ class _EventTicketGroup extends StatelessWidget {
     required this.eventId,
     required this.eventTitle,
     required this.tickets,
-    required this.scannedCount,
     required this.onTicketTap,
     required this.onEventTap,
   });
 
+  static String _fmt(int cents) => '\$${(cents / 100).toStringAsFixed(2)}';
+
   @override
   Widget build(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
+    final purchasedCents = tickets
+        .where((t) => t.status == 'purchased')
+        .fold<int>(0, (s, t) => s + t.amountPaidCents);
+    final refundedCents = tickets
+        .where((t) => t.status == 'refunded')
+        .fold<int>(0, (s, t) => s + t.amountPaidCents);
+    final scannedCount = tickets.where((t) => t.isScanned).length;
+
+    final parts = <String>[];
+    if (purchasedCents > 0) parts.add('${_fmt(purchasedCents)} purchased');
+    if (refundedCents > 0) parts.add('${_fmt(refundedCents)} refunded');
+    if (scannedCount > 0) parts.add('$scannedCount scanned');
+    final subtitle = parts.isNotEmpty
+        ? parts.join(' \u2022 ')
+        : '${tickets.length} ticket${tickets.length == 1 ? '' : 's'}';
+
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.xl),
       child: Column(
@@ -615,13 +521,12 @@ class _EventTicketGroup extends StatelessWidget {
             onTap: onEventTap,
             child: Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md + 2, vertical: AppSpacing.sm + 2),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withValues(alpha: 0.06),
+                color: context.sponsorAccent.withValues(alpha: isDark ? 0.28 : 0.18),
                 borderRadius: AppRadius.md,
                 border: Border.all(
-                    color: AppTheme.primaryColor.withValues(alpha: 0.12)),
+                    color: context.sponsorAccent.withValues(alpha: 0.28)),
               ),
               child: Row(
                 children: [
@@ -629,11 +534,11 @@ class _EventTicketGroup extends StatelessWidget {
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                      color: context.sponsorAccent.withValues(alpha: 0.18),
                       borderRadius: AppRadius.sm,
                     ),
-                    child: const Icon(Icons.event_rounded,
-                        size: 18, color: AppTheme.primaryColor),
+                    child: Icon(Icons.event_rounded,
+                        size: 18, color: context.sponsorAccent),
                   ),
                   AppSpacing.hMd,
                   Expanded(
@@ -649,8 +554,7 @@ class _EventTicketGroup extends StatelessWidget {
                                 color: AppTheme.textPrimaryOf(context))),
                         AppSpacing.vXs,
                         Text(
-                          '${tickets.length} ticket${tickets.length == 1 ? '' : 's'}'
-                          '${scannedCount > 0 ? ' \u2022 $scannedCount scanned' : ''}',
+                          subtitle,
                           style: TextStyle(
                               fontSize: 12,
                               color: AppTheme.textSecondaryOf(context)),
@@ -692,16 +596,20 @@ class _TicketCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isFree = ticket.amountPaidCents == 0;
-    final statusColor = _statusColor(context, ticket.status);
     final isDark = AppTheme.isDark(context);
+    final headerColor = AppIcons.ticketStatusColor(ticket.status, isDark: isDark);
 
     return GestureDetector(
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: AppTheme.cardOf(context),
+          color: Color.alphaBlend(
+            context.sponsorAccent.withValues(alpha: 0.04),
+            AppTheme.cardOf(context),
+          ),
           borderRadius: AppRadius.lg,
           boxShadow: AppShadow.card(isDark),
+          border: Border.all(color: AppTheme.dividerOf(context), width: 1.5),
         ),
         child: Column(
           children: [
@@ -714,8 +622,9 @@ class _TicketCard extends StatelessWidget {
                 AppSpacing.lg,
                 AppSpacing.md,
               ),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryColor,
+              decoration: AppTheme.glowHeaderDecoration(
+                color: headerColor,
+                isDark: isDark,
                 borderRadius: AppRadius.topLg,
               ),
               child: Row(
@@ -725,11 +634,11 @@ class _TicketCard extends StatelessWidget {
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.12),
+                      color: AppTheme.glowHeaderIconBox(headerColor, isDark),
                       borderRadius: AppRadius.sm,
                     ),
-                    child: const Icon(Icons.confirmation_number_rounded,
-                        color: Colors.white, size: 20),
+                    child: Icon(AppIcons.ticketStatusIcon(ticket.status),
+                        color: AppTheme.glowHeaderTitle(isDark), size: 20),
                   ),
                   AppSpacing.hMd,
                   // Event title
@@ -741,8 +650,8 @@ class _TicketCard extends StatelessWidget {
                           ticket.eventTitle ?? 'Event #${ticket.eventId}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: AppTheme.glowHeaderTitle(isDark),
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
                           ),
@@ -752,7 +661,7 @@ class _TicketCard extends StatelessWidget {
                           Text(
                             ticket.tierName!,
                             style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.6),
+                              color: AppTheme.glowHeaderSubtitle(isDark),
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
                             ),
@@ -766,17 +675,15 @@ class _TicketCard extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(
                         horizontal: AppSpacing.sm + 2, vertical: AppSpacing.xs),
                     decoration: BoxDecoration(
-                      color: statusColor.withValues(alpha: 0.2),
+                      color: AppTheme.glowHeaderBadgeBg(headerColor, isDark),
                       borderRadius: AppRadius.pill,
                       border: Border.all(
-                          color: statusColor.withValues(alpha: 0.4)),
+                          color: AppTheme.glowHeaderBadgeBorder(headerColor, isDark)),
                     ),
                     child: Text(
-                      ticket.status.toUpperCase(),
+                      ticket.status.replaceAll('_', ' ').toUpperCase(),
                       style: TextStyle(
-                        color: statusColor == AppTheme.warningColor
-                            ? Colors.white
-                            : statusColor,
+                        color: AppTheme.glowHeaderBadgeText(headerColor, isDark),
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.5,
@@ -839,9 +746,7 @@ class _TicketCard extends StatelessWidget {
                             horizontal: AppSpacing.md,
                             vertical: AppSpacing.sm - 2),
                         decoration: BoxDecoration(
-                          color: isFree
-                              ? AppTheme.successColor.withValues(alpha: 0.1)
-                              : AppTheme.accentColor.withValues(alpha: 0.1),
+                          color: AppTheme.frostedBg(isDark),
                           borderRadius: AppRadius.sm,
                         ),
                         child: Text(
@@ -849,9 +754,7 @@ class _TicketCard extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w800,
-                            color: isFree
-                                ? AppTheme.successColor
-                                : AppTheme.accentColor,
+                            color: AppTheme.frostedFg(isDark),
                           ),
                         ),
                       ),
@@ -901,31 +804,35 @@ class _TicketCard extends StatelessWidget {
                             ),
                           ),
                         ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.md + 2,
-                            vertical: AppSpacing.sm),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryColor,
-                          borderRadius: AppRadius.sm,
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.receipt_long_rounded,
-                                size: AppIconSize.sm, color: Colors.white),
-                            SizedBox(width: 6),
-                            Text(
-                              'View Receipt',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
+                      Builder(builder: (context) {
+                        final isDark = AppTheme.isDark(context);
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.md + 2,
+                              vertical: AppSpacing.sm),
+                          decoration: BoxDecoration(
+                            color: AppTheme.frostedBg(isDark),
+                            borderRadius: AppRadius.sm,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.receipt_long_rounded,
+                                  size: AppIconSize.sm,
+                                  color: AppTheme.frostedFg(isDark)),
+                              const SizedBox(width: 6),
+                              Text(
+                                'View Receipt',
+                                style: TextStyle(
+                                  color: AppTheme.frostedFg(isDark),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
+                            ],
+                          ),
+                        );
+                      }),
                     ],
                   ),
 
@@ -982,21 +889,4 @@ class _TicketCard extends StatelessWidget {
     });
   }
 
-  Color _statusColor(BuildContext context, String status) {
-    switch (status.toLowerCase()) {
-      case 'purchased':
-        return AppTheme.successColor;
-      case 'waitlisted':
-      case 'refund_requested':
-      case 'refund_processing':
-        return AppTheme.warningColor;
-      case 'cancelled':
-      case 'refund_failed':
-        return AppTheme.errorColor;
-      case 'refunded':
-        return AppTheme.accentColor;
-      default:
-        return AppTheme.textSecondaryOf(context);
-    }
-  }
 }

@@ -160,8 +160,8 @@ class AppTheme {
       base = const Color(0xFF0A0A0A);
       glowStop = Color.lerp(base, color, 0.88)!;
     } else {
-      base = Color.lerp(color, Colors.white, 0.92)!;
-      glowStop = Color.lerp(base, color, 0.55)!;
+      base = Color.lerp(color, Colors.white, 0.86)!;
+      glowStop = Color.lerp(base, color, 0.65)!;
     }
     return BoxDecoration(
       gradient: LinearGradient(

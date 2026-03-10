@@ -18,6 +18,7 @@ import '../../../widgets/animated_list_item.dart';
 import '../../../widgets/empty_state.dart';
 import '../../../widgets/kyc_required_banner.dart';
 import '../../../widgets/event_card.dart';
+import '../../../widgets/app_chip.dart';
 import '../../../widgets/section_header.dart';
 import '../home_shared.dart';
 
@@ -493,32 +494,15 @@ class _HomeTabState extends State<HomeTab> {
                         final genreColor = AppIcons.genreColor(g, isDark: isDark);
                         return Padding(
                           padding: const EdgeInsets.only(right: AppSpacing.sm),
-                          child: ChoiceChip(
-                            avatar: Icon(
-                              AppIcons.genreIcon(g),
-                              size: 14,
-                              color: isActive ? Colors.white : genreColor,
-                            ),
-                            label: Text(g[0].toUpperCase() + g.substring(1)),
+                          child: AppChip(
+                            label: g[0].toUpperCase() + g.substring(1),
                             selected: isActive,
                             onSelected: (selected) {
                               setState(() => _homeGenre = selected ? g : null);
                               _homeSearch();
                             },
-                            selectedColor: genreColor,
-                            backgroundColor: AppTheme.cardOf(context),
-                            side: BorderSide(
-                              color: isActive
-                                  ? genreColor
-                                  : AppTheme.dividerOf(context),
-                            ),
-                            labelStyle: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: isActive
-                                  ? Colors.white
-                                  : AppTheme.textPrimaryOf(context),
-                            ),
+                            chipColor: genreColor,
+                            avatarIcon: AppIcons.genreIcon(g),
                           ),
                         );
                       }).toList(),
@@ -533,35 +517,16 @@ class _HomeTabState extends State<HomeTab> {
                         final isActive = _homeStatus == s.name;
                         return Padding(
                           padding: const EdgeInsets.only(right: AppSpacing.sm),
-                          child: ChoiceChip(
-                            avatar: Icon(
-                              statusChipIcon(s),
-                              size: 14,
-                              color: isActive
-                                  ? Colors.white
-                                  : statusChipColor(context, s),
-                            ),
-                            label: Text(statusDisplayName(s)),
+                          child: AppChip(
+                            label: statusDisplayName(s),
                             selected: isActive,
                             onSelected: (selected) {
                               setState(
                                   () => _homeStatus = selected ? s.name : null);
                               _homeSearch();
                             },
-                            selectedColor: statusChipColor(context, s),
-                            backgroundColor: AppTheme.cardOf(context),
-                            side: BorderSide(
-                              color: isActive
-                                  ? statusChipColor(context, s)
-                                  : AppTheme.dividerOf(context),
-                            ),
-                            labelStyle: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: isActive
-                                  ? Colors.white
-                                  : AppTheme.textPrimaryOf(context),
-                            ),
+                            chipColor: statusChipColor(context, s),
+                            avatarIcon: statusChipIcon(s),
                           ),
                         );
                       }).toList(),

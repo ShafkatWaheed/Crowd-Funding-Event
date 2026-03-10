@@ -7,6 +7,7 @@ import '../../models/event.dart';
 import '../../utils/date_time_utils.dart';
 import '../../repositories/base_repository.dart';
 import '../../providers/bookmark_provider.dart';
+import '../../widgets/app_chip.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/event_lifecycle_bar.dart';
@@ -251,26 +252,16 @@ class _BookmarkedEventsScreenState extends State<BookmarkedEventsScreen> {
     final selected = _statusFilter == value;
     return Padding(
       padding: const EdgeInsets.only(right: 8),
-      child: ChoiceChip(
-        label: Text(label),
+      child: AppChip(
+        label: label,
         selected: selected,
         onSelected: (_) {
           setState(() => _statusFilter = value);
           _load();
         },
-        selectedColor: AppTheme.accentColor,
-        labelStyle: TextStyle(
-          color: selected ? Colors.white : AppTheme.textPrimaryOf(context),
-          fontWeight: FontWeight.w600,
-          fontSize: 12,
-        ),
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        side: BorderSide(
-          color: selected
-              ? AppTheme.accentColor
-              : AppTheme.dividerOf(context),
-        ),
+        chipColor: AppTheme.accentColor,
+        fontSize: 12,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
     );
   }

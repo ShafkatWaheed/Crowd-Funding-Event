@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Icon Reference — Event States & Genres</title>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #0f0f13;
+    padding: 48px 24px 80px;
+    min-height: 100vh;
+    color: white;
+  }
+
+  h1 {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.35);
+    margin-bottom: 32px;
+    text-align: center;
+  }
+
+  .section-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.3);
+    margin: 40px 0 16px;
+    padding-left: 4px;
+  }
+
+  /* ── Grid ── */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px;
+  }
+
+  .chip {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.07);
+    cursor: pointer;
+    transition: transform 0.15s, background 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+  .chip:hover {
+    transform: translateY(-2px);
+    background: rgba(255,255,255,0.09);
+  }
+  .chip::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--chip-color, transparent);
+    opacity: 0.08;
+    border-radius: inherit;
+  }
+
+  .icon-bubble {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: var(--chip-color);
+  }
+  .icon-bubble .material-icons-round {
+    font-size: 20px;
+    color: white;
+  }
+
+  .chip-info {
+    flex: 1;
+    min-width: 0;
+  }
+  .chip-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: white;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .chip-key {
+    font-size: 11px;
+    color: rgba(255,255,255,0.4);
+    margin-top: 2px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* ── Status pill variant (wider) ── */
+  .pill-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .pill {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 18px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.07);
+    transition: transform 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+  .pill:hover { transform: translateX(4px); }
+  .pill::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 4px;
+    background: var(--chip-color);
+    border-radius: 2px 0 0 2px;
+  }
+  .pill .icon-bubble {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+  }
+  .pill .icon-bubble .material-icons-round { font-size: 18px; }
+
+  .pill-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+  }
+  .pill-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: white;
+  }
+  .pill-desc {
+    font-size: 12px;
+    color: rgba(255,255,255,0.4);
+  }
+  .pill-icon-name {
+    font-size: 11px;
+    color: rgba(255,255,255,0.25);
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  /* colour dot in pill */
+  .color-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--chip-color);
+    flex-shrink: 0;
+    box-shadow: 0 0 8px var(--chip-color);
+  }
+
+  /* live pulse */
+  .pulse {
+    animation: pulse 1.4s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(0.92); }
+  }
+
+  /* two-column layout on wider screens */
+  @media (min-width: 800px) {
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+      align-items: start;
+    }
+  }
+
+  /* hex colour badge */
+  .hex-badge {
+    font-size: 10px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.35);
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    margin-left: auto;
+    background: rgba(255,255,255,0.06);
+    padding: 2px 7px;
+    border-radius: 6px;
+    flex-shrink: 0;
+  }
+
+  .page-title {
+    font-size: 28px;
+    font-weight: 800;
+    color: white;
+    text-align: center;
+    margin-bottom: 6px;
+    letter-spacing: -0.5px;
+  }
+  .page-sub {
+    font-size: 14px;
+    color: rgba(255,255,255,0.35);
+    text-align: center;
+    margin-bottom: 48px;
+  }
+
+  .divider {
+    height: 1px;
+    background: rgba(255,255,255,0.07);
+    margin: 40px 0;
+  }
+</style>
+</head>
+<body>
+
+<div class="page-title">Icon Reference</div>
+<div class="page-sub">Event States &amp; Genres — Material Icons Round + Brand Colours</div>
+
+<div class="layout">
+
+  <!-- ── LEFT: Event States ── -->
+  <div>
+    <div class="section-label">Event States</div>
+    <div class="pill-grid">
+
+      <div class="pill" style="--chip-color:#6B7280">
+        <div class="icon-bubble" style="--chip-color:#6B7280">
+          <span class="material-icons-round">edit_note</span>
+        </div>
+        <div class="pill-meta">
+          <div class="pill-name">Draft</div>
+          <div class="pill-desc">Being written by organizer</div>
+        </div>
+        <div class="hex-badge">#6B7280</div>
+      </div>
+
+      <div class="pill" style="--chip-color:#FFC043">
+        <div class="icon-bubble" style="--chip-color:#FFC043">
+          <span class="material-icons-round" style="color:#1a1a1a">hourglass_top</span>
+        </div>
+        <div class="pill-meta">
+          <div class="pill-name">Pending Approval</div>
+          <div class="pill-desc">Awaiting admin review</div>
+        </div>
+        <div class="hex-badge">#FFC043</div>
+      </div>
+
+      <div class="pill" style="--chip-color:#276EF1">
+        <div class="icon-bubble" style="--chip-color:#276EF1">
+          <span class="material-icons-round">rocket_launch</span>
+        </div>
+        <div class="pill-meta">
+          <div class="pill-name">Approved</div>
+          <div class="pill-desc">Live &amp; funding active</div>
+        </div>
+        <div class="hex-badge">#276EF1</div>
+      </div>
+
+      <div class="pill" style="--chip-color:#0891B2">
+        <div class="icon-bubble" style="--chip-color:#0891B2">
+          <span class="material-icons-round">confirmation_number</span>
+        </div>
+        <div class="pill-meta">
+          <div class="pill-name">Selling Tickets</div>
+          <div class="pill-desc">Ticket sales only</div>
+        </div>
+        <div class="hex-badge">#0891B2</div>
+      </div>
+
+      <div class="pill" style="--chip-color:#FF8C00">
+        <div class="icon-bubble" style="--chip-color:#FF8C00">
+          <span class="material-icons-round">pending_actions</span>
+        </div>
+        <div class="pill-meta">
+          <div class="pill-name">Waiting Event Date</div>
+          <div class="pill-desc">Organizer must set date</div>
+        </div>
+        <div class="hex-badge">#FF8C00</div>
+      </div>
+
+      <div class="pill" style="--chip-color:#E11900">
+        <div class="icon-bubble" style="--chip-color:#E11900">
+          <span class="material-icons-round pulse">sensors</span>
+        </div>
+        <div class="pill-meta">
+          <div class="pill-name">Live</div>
+          <div class="pill-desc">Event is happening now</div>
+        </div>
+        <div class="hex-badge">#E11900</div>
+      </div>
+
+      <div class="pill" style="--chip-color:#9333EA">
+        <div class="icon-bubble" style="--chip-color:#9333EA">
+          <span class="material-icons-round">emoji_events</span>
+        </div>
+        <div class="pill-meta">
+          <div class="pill-name">Completed</div>
+          <div class="pill-desc">Event ended successfully</div>
+        </div>
+        <div class="hex-badge">#9333EA</div>
+      </div>
+
+      <div class="pill" style="--chip-color:#991B1B">
+        <div class="icon-bubble" style="--chip-color:#991B1B">
+          <span class="material-icons-round">event_busy</span>
+        </div>
+        <div class="pill-meta">
+          <div class="pill-name">Cancelled</div>
+          <div class="pill-desc">Event called off</div>
+        </div>
+        <div class="hex-badge">#991B1B</div>
+      </div>
+
+      <div class="pill" style="--chip-color:#D97706">
+        <div class="icon-bubble" style="--chip-color:#D97706">
+          <span class="material-icons-round">manage_search</span>
+        </div>
+        <div class="pill-meta">
+          <div class="pill-name">Under Review</div>
+          <div class="pill-desc">Admin investigating</div>
+        </div>
+        <div class="hex-badge">#D97706</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── RIGHT: Genres ── -->
+  <div>
+    <div class="section-label">Genres</div>
+    <div class="grid">
+
+      <div class="chip" style="--chip-color:#9333EA">
+        <div class="icon-bubble" style="--chip-color:#9333EA">
+          <span class="material-icons-round">music_note</span>
+        </div>
+        <div class="chip-info">
+          <div class="chip-name">Music</div>
+          <div class="chip-key">music_note</div>
+        </div>
+      </div>
+
+      <div class="chip" style="--chip-color:#276EF1">
+        <div class="icon-bubble" style="--chip-color:#276EF1">
+          <span class="material-icons-round">computer</span>
+        </div>
+        <div class="chip-info">
+          <div class="chip-name">Tech</div>
+          <div class="chip-key">computer</div>
+        </div>
+      </div>
+
+      <div class="chip" style="--chip-color:#05944F">
+        <div class="icon-bubble" style="--chip-color:#05944F">
+          <span class="material-icons-round">sports_soccer</span>
+        </div>
+        <div class="chip-info">
+          <div class="chip-name">Sports</div>
+          <div class="chip-key">sports_soccer</div>
+        </div>
+      </div>
+
+      <div class="chip" style="--chip-color:#C026D3">
+        <div class="icon-bubble" style="--chip-color:#C026D3">
+          <span class="material-icons-round">palette</span>
+        </div>
+        <div class="chip-info">
+          <div class="chip-name">Arts</div>
+          <div class="chip-key">palette</div>
+        </div>
+      </div>
+
+      <div class="chip" style="--chip-color:#FF8C00">
+        <div class="icon-bubble" style="--chip-color:#FF8C00">
+          <span class="material-icons-round">restaurant</span>
+        </div>
+        <div class="chip-info">
+          <div class="chip-name">Food</div>
+          <div class="chip-key">restaurant</div>
+        </div>
+      </div>
+
+      <div class="chip" style="--chip-color:#E11900">
+        <div class="icon-bubble" style="--chip-color:#E11900">
+          <span class="material-icons-round">favorite</span>
+        </div>
+        <div class="chip-info">
+          <div class="chip-name">Charity</div>
+          <div class="chip-key">favorite</div>
+        </div>
+      </div>
+
+      <div class="chip" style="--chip-color:#0891B2">
+        <div class="icon-bubble" style="--chip-color:#0891B2">
+          <span class="material-icons-round">school</span>
+        </div>
+        <div class="chip-info">
+          <div class="chip-name">Education</div>
+          <div class="chip-key">school</div>
+        </div>
+      </div>
+
+      <div class="chip" style="--chip-color:#475569">
+        <div class="icon-bubble" style="--chip-color:#475569">
+          <span class="material-icons-round">business_center</span>
+        </div>
+        <div class="chip-info">
+          <div class="chip-name">Business</div>
+          <div class="chip-key">business_center</div>
+        </div>
+      </div>
+
+      <div class="chip" style="--chip-color:#FFC043">
+        <div class="icon-bubble" style="--chip-color:#FFC043">
+          <span class="material-icons-round" style="color:#1a1a1a">people</span>
+        </div>
+        <div class="chip-info">
+          <div class="chip-name">Community</div>
+          <div class="chip-key">people</div>
+        </div>
+      </div>
+
+      <div class="chip" style="--chip-color:#6B7280">
+        <div class="icon-bubble" style="--chip-color:#6B7280">
+          <span class="material-icons-round">category</span>
+        </div>
+        <div class="chip-info">
+          <div class="chip-name">Other</div>
+          <div class="chip-key">category</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── Filter chip preview ── -->
+    <div class="section-label" style="margin-top:32px">Filter Chip Preview</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px">
+
+      <div style="display:flex;align-items:center;gap:6px;background:rgba(147,51,234,0.15);border:1.5px solid rgba(147,51,234,0.4);border-radius:20px;padding:7px 14px">
+        <span class="material-icons-round" style="font-size:16px;color:#9333EA">music_note</span>
+        <span style="font-size:13px;font-weight:700;color:#c084fc">Music</span>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:6px;background:rgba(39,110,241,0.15);border:1.5px solid rgba(39,110,241,0.4);border-radius:20px;padding:7px 14px">
+        <span class="material-icons-round" style="font-size:16px;color:#276EF1">computer</span>
+        <span style="font-size:13px;font-weight:700;color:#60a5fa">Tech</span>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:6px;background:rgba(5,148,79,0.15);border:1.5px solid rgba(5,148,79,0.4);border-radius:20px;padding:7px 14px">
+        <span class="material-icons-round" style="font-size:16px;color:#05944F">sports_soccer</span>
+        <span style="font-size:13px;font-weight:700;color:#34d399">Sports</span>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:6px;background:rgba(192,38,211,0.15);border:1.5px solid rgba(192,38,211,0.4);border-radius:20px;padding:7px 14px">
+        <span class="material-icons-round" style="font-size:16px;color:#C026D3">palette</span>
+        <span style="font-size:13px;font-weight:700;color:#e879f9">Arts</span>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:6px;background:rgba(255,140,0,0.15);border:1.5px solid rgba(255,140,0,0.4);border-radius:20px;padding:7px 14px">
+        <span class="material-icons-round" style="font-size:16px;color:#FF8C00">restaurant</span>
+        <span style="font-size:13px;font-weight:700;color:#fb923c">Food</span>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:6px;background:rgba(225,25,0,0.15);border:1.5px solid rgba(225,25,0,0.4);border-radius:20px;padding:7px 14px">
+        <span class="material-icons-round" style="font-size:16px;color:#E11900">favorite</span>
+        <span style="font-size:13px;font-weight:700;color:#f87171">Charity</span>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:6px;background:rgba(8,145,178,0.15);border:1.5px solid rgba(8,145,178,0.4);border-radius:20px;padding:7px 14px">
+        <span class="material-icons-round" style="font-size:16px;color:#0891B2">school</span>
+        <span style="font-size:13px;font-weight:700;color:#22d3ee">Education</span>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:6px;background:rgba(71,85,105,0.2);border:1.5px solid rgba(71,85,105,0.5);border-radius:20px;padding:7px 14px">
+        <span class="material-icons-round" style="font-size:16px;color:#94a3b8">business_center</span>
+        <span style="font-size:13px;font-weight:700;color:#94a3b8">Business</span>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:6px;background:rgba(255,192,67,0.15);border:1.5px solid rgba(255,192,67,0.4);border-radius:20px;padding:7px 14px">
+        <span class="material-icons-round" style="font-size:16px;color:#FFC043">people</span>
+        <span style="font-size:13px;font-weight:700;color:#fbbf24">Community</span>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:6px;background:rgba(107,114,128,0.15);border:1.5px solid rgba(107,114,128,0.4);border-radius:20px;padding:7px 14px">
+        <span class="material-icons-round" style="font-size:16px;color:#9ca3af">category</span>
+        <span style="font-size:13px;font-weight:700;color:#9ca3af">Other</span>
+      </div>
+
+    </div>
+
+    <!-- ── Status badge preview ── -->
+    <div class="section-label" style="margin-top:32px">Status Badge Preview</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px">
+
+      <div style="display:flex;align-items:center;gap:5px;background:rgba(107,114,128,0.15);border-radius:20px;padding:5px 12px;border:1px solid rgba(107,114,128,0.3)">
+        <span class="material-icons-round" style="font-size:14px;color:#9ca3af">edit_note</span>
+        <span style="font-size:12px;font-weight:700;color:#9ca3af">Draft</span>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:5px;background:rgba(255,192,67,0.15);border-radius:20px;padding:5px 12px;border:1px solid rgba(255,192,67,0.3)">
+        <span class="material-icons-round" style="font-size:14px;color:#FFC043">hourglass_top</span>
+        <span style="font-size:12px;font-weight:700;color:#FFC043">Pending</span>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:5px;background:rgba(39,110,241,0.15);border-radius:20px;padding:5px 12px;border:1px solid rgba(39,110,241,0.3)">
+        <span class="material-icons-round" style="font-size:14px;color:#276EF1">rocket_launch</span>
+        <span style="font-size:12px;font-weight:700;color:#276EF1">Approved</span>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:5px;background:rgba(8,145,178,0.15);border-radius:20px;padding:5px 12px;border:1px solid rgba(8,145,178,0.3)">
+        <span class="material-icons-round" style="font-size:14px;color:#0891B2">confirmation_number</span>
+        <span style="font-size:12px;font-weight:700;color:#0891B2">Selling Tickets</span>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:5px;background:rgba(255,140,0,0.15);border-radius:20px;padding:5px 12px;border:1px solid rgba(255,140,0,0.3)">
+        <span class="material-icons-round" style="font-size:14px;color:#FF8C00">pending_actions</span>
+        <span style="font-size:12px;font-weight:700;color:#FF8C00">Awaiting Date</span>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:5px;background:rgba(225,25,0,0.18);border-radius:20px;padding:5px 12px;border:1px solid rgba(225,25,0,0.4)">
+        <span class="material-icons-round pulse" style="font-size:14px;color:#E11900">sensors</span>
+        <span style="font-size:12px;font-weight:700;color:#E11900">Live</span>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:5px;background:rgba(147,51,234,0.15);border-radius:20px;padding:5px 12px;border:1px solid rgba(147,51,234,0.3)">
+        <span class="material-icons-round" style="font-size:14px;color:#9333EA">emoji_events</span>
+        <span style="font-size:12px;font-weight:700;color:#9333EA">Completed</span>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:5px;background:rgba(153,27,27,0.2);border-radius:20px;padding:5px 12px;border:1px solid rgba(153,27,27,0.4)">
+        <span class="material-icons-round" style="font-size:14px;color:#ef4444">event_busy</span>
+        <span style="font-size:12px;font-weight:700;color:#ef4444">Cancelled</span>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:5px;background:rgba(217,119,6,0.15);border-radius:20px;padding:5px 12px;border:1px solid rgba(217,119,6,0.3)">
+        <span class="material-icons-round" style="font-size:14px;color:#D97706">manage_search</span>
+        <span style="font-size:12px;font-weight:700;color:#D97706">Under Review</span>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<div class="divider"></div>
+
+<!-- ── TICKET STATUSES ── -->
+<div class="section-label">Ticket Statuses</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;margin-bottom:40px">
+
+  <div class="pill" style="--chip-color:#05944F">
+    <div class="icon-bubble" style="--chip-color:#05944F">
+      <span class="material-icons-round">confirmation_number</span>
+    </div>
+    <div class="pill-meta">
+      <div class="pill-name">Purchased</div>
+      <div class="pill-desc">Ticket successfully bought</div>
+    </div>
+    <div class="hex-badge">#05944F</div>
+  </div>
+
+  <div class="pill" style="--chip-color:#FFC043">
+    <div class="icon-bubble" style="--chip-color:#FFC043">
+      <span class="material-icons-round" style="color:#1a1a1a">queue</span>
+    </div>
+    <div class="pill-meta">
+      <div class="pill-name">Waitlisted</div>
+      <div class="pill-desc">In queue, spot not confirmed</div>
+    </div>
+    <div class="hex-badge">#FFC043</div>
+  </div>
+
+  <div class="pill" style="--chip-color:#FF8C00">
+    <div class="icon-bubble" style="--chip-color:#FF8C00">
+      <span class="material-icons-round">assignment_return</span>
+    </div>
+    <div class="pill-meta">
+      <div class="pill-name">Refund Requested</div>
+      <div class="pill-desc">User asked for a refund</div>
+    </div>
+    <div class="hex-badge">#FF8C00</div>
+  </div>
+
+  <div class="pill" style="--chip-color:#0891B2">
+    <div class="icon-bubble" style="--chip-color:#0891B2">
+      <span class="material-icons-round pulse">sync</span>
+    </div>
+    <div class="pill-meta">
+      <div class="pill-name">Refund Processing</div>
+      <div class="pill-desc">Payment gateway processing</div>
+    </div>
+    <div class="hex-badge">#0891B2</div>
+  </div>
+
+  <div class="pill" style="--chip-color:#276EF1">
+    <div class="icon-bubble" style="--chip-color:#276EF1">
+      <span class="material-icons-round">currency_exchange</span>
+    </div>
+    <div class="pill-meta">
+      <div class="pill-name">Refunded</div>
+      <div class="pill-desc">Money returned to buyer</div>
+    </div>
+    <div class="hex-badge">#276EF1</div>
+  </div>
+
+  <div class="pill" style="--chip-color:#E11900">
+    <div class="icon-bubble" style="--chip-color:#E11900">
+      <span class="material-icons-round">error_outline</span>
+    </div>
+    <div class="pill-meta">
+      <div class="pill-name">Refund Failed</div>
+      <div class="pill-desc">Gateway error, needs attention</div>
+    </div>
+    <div class="hex-badge">#E11900</div>
+  </div>
+
+  <div class="pill" style="--chip-color:#6B7280">
+    <div class="icon-bubble" style="--chip-color:#6B7280">
+      <span class="material-icons-round">block</span>
+    </div>
+    <div class="pill-meta">
+      <div class="pill-name">Cancelled</div>
+      <div class="pill-desc">Ticket voided</div>
+    </div>
+    <div class="hex-badge">#6B7280</div>
+  </div>
+
+</div>
+
+<!-- ── PLEDGE / FUNDING STATUSES ── -->
+<div class="section-label">Pledge & Donation Statuses</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;margin-bottom:40px">
+
+  <div class="pill" style="--chip-color:#FF8C00">
+    <div class="icon-bubble" style="--chip-color:#FF8C00">
+      <span class="material-icons-round">handshake</span>
+    </div>
+    <div class="pill-meta">
+      <div class="pill-name">Pledged</div>
+      <div class="pill-desc">Active pledge on the event</div>
+    </div>
+    <div class="hex-badge">#FF8C00</div>
+  </div>
+
+  <div class="pill" style="--chip-color:#C026D3">
+    <div class="icon-bubble" style="--chip-color:#C026D3">
+      <span class="material-icons-round">volunteer_activism</span>
+    </div>
+    <div class="pill-meta">
+      <div class="pill-name">Donated</div>
+      <div class="pill-desc">One-time donation made</div>
+    </div>
+    <div class="hex-badge">#C026D3</div>
+  </div>
+
+  <div class="pill" style="--chip-color:#276EF1">
+    <div class="icon-bubble" style="--chip-color:#276EF1">
+      <span class="material-icons-round">currency_exchange</span>
+    </div>
+    <div class="pill-meta">
+      <div class="pill-name">Pledge Refunded</div>
+      <div class="pill-desc">Returned after cancellation</div>
+    </div>
+    <div class="hex-badge">#276EF1</div>
+  </div>
+
+</div>
+
+<!-- ── ACTION / CTA ICONS ── -->
+<div class="section-label">Action & CTA Icons</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-bottom:40px">
+
+  <div class="chip" style="--chip-color:#FF8C00">
+    <div class="icon-bubble" style="--chip-color:#FF8C00"><span class="material-icons-round">handshake</span></div>
+    <div class="chip-info"><div class="chip-name">Pledge</div><div class="chip-key">handshake</div></div>
+  </div>
+
+  <div class="chip" style="--chip-color:#C026D3">
+    <div class="icon-bubble" style="--chip-color:#C026D3"><span class="material-icons-round">volunteer_activism</span></div>
+    <div class="chip-info"><div class="chip-name">Donate</div><div class="chip-key">volunteer_activism</div></div>
+  </div>
+
+  <div class="chip" style="--chip-color:#276EF1">
+    <div class="icon-bubble" style="--chip-color:#276EF1"><span class="material-icons-round">confirmation_number</span></div>
+    <div class="chip-info"><div class="chip-name">Buy Ticket</div><div class="chip-key">confirmation_number</div></div>
+  </div>
+
+  <div class="chip" style="--chip-color:#E11900">
+    <div class="icon-bubble" style="--chip-color:#E11900"><span class="material-icons-round">money_off</span></div>
+    <div class="chip-info"><div class="chip-name">Unpledge</div><div class="chip-key">money_off</div></div>
+  </div>
+
+  <div class="chip" style="--chip-color:#05944F">
+    <div class="icon-bubble" style="--chip-color:#05944F"><span class="material-icons-round">qr_code_scanner</span></div>
+    <div class="chip-info"><div class="chip-name">Scan Ticket</div><div class="chip-key">qr_code_scanner</div></div>
+  </div>
+
+  <div class="chip" style="--chip-color:#9333EA">
+    <div class="icon-bubble" style="--chip-color:#9333EA"><span class="material-icons-round">receipt_long</span></div>
+    <div class="chip-info"><div class="chip-name">View Receipt</div><div class="chip-key">receipt_long</div></div>
+  </div>
+
+  <div class="chip" style="--chip-color:#0891B2">
+    <div class="icon-bubble" style="--chip-color:#0891B2"><span class="material-icons-round">assignment_return</span></div>
+    <div class="chip-info"><div class="chip-name">Request Refund</div><div class="chip-key">assignment_return</div></div>
+  </div>
+
+  <div class="chip" style="--chip-color:#FFC043">
+    <div class="icon-bubble" style="--chip-color:#FFC043"><span class="material-icons-round" style="color:#1a1a1a">playlist_add_check</span></div>
+    <div class="chip-info"><div class="chip-name">Register</div><div class="chip-key">playlist_add_check</div></div>
+  </div>
+
+  <div class="chip" style="--chip-color:#475569">
+    <div class="icon-bubble" style="--chip-color:#475569"><span class="material-icons-round">bookmark_add</span></div>
+    <div class="chip-info"><div class="chip-name">Bookmark</div><div class="chip-key">bookmark_add</div></div>
+  </div>
+
+  <div class="chip" style="--chip-color:#D97706">
+    <div class="icon-bubble" style="--chip-color:#D97706"><span class="material-icons-round">share</span></div>
+    <div class="chip-info"><div class="chip-name">Share</div><div class="chip-key">share</div></div>
+  </div>
+
+</div>
+
+<!-- ── COMBINED FILTER CHIP PREVIEW ── -->
+<div class="section-label">Filter Chip Preview — Tickets &amp; Pledges</div>
+<div style="display:flex;flex-wrap:wrap;gap:8px;padding-bottom:60px">
+
+  <div style="display:flex;align-items:center;gap:6px;background:rgba(5,148,79,0.15);border:1.5px solid rgba(5,148,79,0.4);border-radius:20px;padding:7px 14px">
+    <span class="material-icons-round" style="font-size:16px;color:#05944F">confirmation_number</span>
+    <span style="font-size:13px;font-weight:700;color:#34d399">Purchased</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:6px;background:rgba(255,192,67,0.15);border:1.5px solid rgba(255,192,67,0.4);border-radius:20px;padding:7px 14px">
+    <span class="material-icons-round" style="font-size:16px;color:#FFC043">queue</span>
+    <span style="font-size:13px;font-weight:700;color:#fbbf24">Waitlisted</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:6px;background:rgba(255,140,0,0.15);border:1.5px solid rgba(255,140,0,0.4);border-radius:20px;padding:7px 14px">
+    <span class="material-icons-round" style="font-size:16px;color:#FF8C00">assignment_return</span>
+    <span style="font-size:13px;font-weight:700;color:#fb923c">Refund Requested</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:6px;background:rgba(8,145,178,0.15);border:1.5px solid rgba(8,145,178,0.4);border-radius:20px;padding:7px 14px">
+    <span class="material-icons-round pulse" style="font-size:16px;color:#0891B2">sync</span>
+    <span style="font-size:13px;font-weight:700;color:#22d3ee">Processing</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:6px;background:rgba(39,110,241,0.15);border:1.5px solid rgba(39,110,241,0.4);border-radius:20px;padding:7px 14px">
+    <span class="material-icons-round" style="font-size:16px;color:#276EF1">currency_exchange</span>
+    <span style="font-size:13px;font-weight:700;color:#60a5fa">Refunded</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:6px;background:rgba(225,25,0,0.15);border:1.5px solid rgba(225,25,0,0.4);border-radius:20px;padding:7px 14px">
+    <span class="material-icons-round" style="font-size:16px;color:#E11900">error_outline</span>
+    <span style="font-size:13px;font-weight:700;color:#f87171">Refund Failed</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:6px;background:rgba(107,114,128,0.15);border:1.5px solid rgba(107,114,128,0.4);border-radius:20px;padding:7px 14px">
+    <span class="material-icons-round" style="font-size:16px;color:#9ca3af">block</span>
+    <span style="font-size:13px;font-weight:700;color:#9ca3af">Cancelled</span>
+  </div>
+
+  <div style="width:100%;height:1px;background:rgba(255,255,255,0.07);margin:4px 0"></div>
+
+  <div style="display:flex;align-items:center;gap:6px;background:rgba(255,140,0,0.15);border:1.5px solid rgba(255,140,0,0.4);border-radius:20px;padding:7px 14px">
+    <span class="material-icons-round" style="font-size:16px;color:#FF8C00">handshake</span>
+    <span style="font-size:13px;font-weight:700;color:#fb923c">Pledged</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:6px;background:rgba(192,38,211,0.15);border:1.5px solid rgba(192,38,211,0.4);border-radius:20px;padding:7px 14px">
+    <span class="material-icons-round" style="font-size:16px;color:#C026D3">volunteer_activism</span>
+    <span style="font-size:13px;font-weight:700;color:#e879f9">Donated</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:6px;background:rgba(39,110,241,0.15);border:1.5px solid rgba(39,110,241,0.4);border-radius:20px;padding:7px 14px">
+    <span class="material-icons-round" style="font-size:16px;color:#276EF1">currency_exchange</span>
+    <span style="font-size:13px;font-weight:700;color:#60a5fa">Pledge Refunded</span>
+  </div>
+
+</div>
+
+</body>
+</html>

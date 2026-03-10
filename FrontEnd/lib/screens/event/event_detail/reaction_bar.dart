@@ -13,12 +13,16 @@ class ReactionBar extends StatefulWidget {
   final int initialDislikeCount;
   final bool isAdmin;
 
+  /// When true, renders compact heart/broken-heart icon buttons (no counts).
+  final bool compact;
+
   const ReactionBar({
     super.key,
     required this.eventId,
     required this.initialLikeCount,
     required this.initialDislikeCount,
     required this.isAdmin,
+    this.compact = false,
   });
 
   @override
@@ -82,14 +86,14 @@ class _ReactionBarState extends State<ReactionBar> {
       // Admin: read-only counters (both like + dislike visible)
       return Row(
         children: [
-          Icon(Icons.thumb_up, size: AppIconSize.sm, color: AppTheme.accentColor),
+          Icon(Icons.favorite_rounded, size: AppIconSize.sm, color: AppTheme.errorColor),
           AppSpacing.hSm,
           Text(
             '$_likeCount like${_likeCount == 1 ? '' : 's'}',
             style: TextStyle(fontWeight: FontWeight.w600, color: AppTheme.textSecondaryOf(context)),
           ),
           AppSpacing.hXl,
-          Icon(Icons.thumb_down, size: AppIconSize.sm, color: AppTheme.textSecondaryOf(context)),
+          Icon(Icons.heart_broken_rounded, size: AppIconSize.sm, color: AppTheme.textSecondaryOf(context)),
           AppSpacing.hSm,
           Text(
             '$_dislikeCount dislike${_dislikeCount == 1 ? '' : 's'}',
@@ -99,13 +103,41 @@ class _ReactionBarState extends State<ReactionBar> {
       );
     }
 
-    // Everyone else: interactive like/dislike buttons
+    if (widget.compact) {
+      // Compact: icon-only heart buttons for the title card corner
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _IconReactionButton(
+            icon: _myReaction == 'like'
+                ? Icons.favorite_rounded
+                : Icons.favorite_border_rounded,
+            activeColor: AppTheme.errorColor,
+            isActive: _myReaction == 'like',
+            reacting: _reacting,
+            onTap: () => _react('like'),
+            context: context,
+          ),
+          const SizedBox(width: 2),
+          _IconReactionButton(
+            icon: Icons.heart_broken_rounded,
+            activeColor: AppTheme.errorColor,
+            isActive: _myReaction == 'dislike',
+            reacting: _reacting,
+            onTap: () => _react('dislike'),
+            context: context,
+          ),
+        ],
+      );
+    }
+
+    // Full mode: interactive like/dislike buttons with counts
     return Row(
       children: [
         // Like button
         Material(
           color: _myReaction == 'like'
-              ? AppTheme.accentColor.withValues(alpha: 0.1)
+              ? AppTheme.errorColor.withValues(alpha: 0.1)
               : Colors.transparent,
           borderRadius: AppRadius.xl,
           child: InkWell(
@@ -117,9 +149,9 @@ class _ReactionBarState extends State<ReactionBar> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    _myReaction == 'like' ? Icons.thumb_up : Icons.thumb_up_outlined,
+                    _myReaction == 'like' ? Icons.favorite_rounded : Icons.favorite_border_rounded,
                     size: AppIconSize.md,
-                    color: _myReaction == 'like' ? AppTheme.accentColor : AppTheme.textSecondaryOf(context),
+                    color: _myReaction == 'like' ? AppTheme.errorColor : AppTheme.textSecondaryOf(context),
                   ),
                   AppSpacing.hSm,
                   Text(
@@ -127,7 +159,7 @@ class _ReactionBarState extends State<ReactionBar> {
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 14,
-                      color: _myReaction == 'like' ? AppTheme.accentColor : AppTheme.textSecondaryOf(context),
+                      color: _myReaction == 'like' ? AppTheme.errorColor : AppTheme.textSecondaryOf(context),
                     ),
                   ),
                 ],
@@ -139,7 +171,7 @@ class _ReactionBarState extends State<ReactionBar> {
         // Dislike button
         Material(
           color: _myReaction == 'dislike'
-              ? AppTheme.errorColor.withValues(alpha: 0.1)
+              ? AppTheme.errorColor.withValues(alpha: 0.08)
               : Colors.transparent,
           borderRadius: AppRadius.xl,
           child: InkWell(
@@ -151,7 +183,7 @@ class _ReactionBarState extends State<ReactionBar> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    _myReaction == 'dislike' ? Icons.thumb_down : Icons.thumb_down_outlined,
+                    Icons.heart_broken_rounded,
                     size: AppIconSize.md,
                     color: _myReaction == 'dislike' ? AppTheme.errorColor : AppTheme.textSecondaryOf(context),
                   ),
@@ -161,6 +193,48 @@ class _ReactionBarState extends State<ReactionBar> {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ── Compact reaction icon button helper ──────────────────────────────────────
+
+class _IconReactionButton extends StatelessWidget {
+  final IconData icon;
+  final Color activeColor;
+  final bool isActive;
+  final bool reacting;
+  final VoidCallback onTap;
+  final BuildContext context;
+
+  const _IconReactionButton({
+    required this.icon,
+    required this.activeColor,
+    required this.isActive,
+    required this.reacting,
+    required this.onTap,
+    required this.context,
+  });
+
+  @override
+  Widget build(BuildContext ctx) {
+    return Material(
+      color: isActive
+          ? activeColor.withValues(alpha: 0.12)
+          : Colors.transparent,
+      borderRadius: AppRadius.md,
+      child: InkWell(
+        borderRadius: AppRadius.md,
+        onTap: reacting ? null : onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: Icon(
+            icon,
+            size: 20,
+            color: isActive ? activeColor : AppTheme.textSecondaryOf(ctx),
+          ),
+        ),
+      ),
     );
   }
 }

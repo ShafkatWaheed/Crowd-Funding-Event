@@ -6,6 +6,7 @@ import '../../config/theme.dart';
 import '../../models/funding.dart';
 import '../../utils/date_time_utils.dart';
 import '../../providers/pledge_provider.dart';
+import '../../widgets/app_chip.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../event/pledge_receipt_screen.dart';
 
@@ -216,27 +217,14 @@ class _OrganizerPledgesScreenState extends State<OrganizerPledgesScreen> {
               itemBuilder: (_, i) {
                 final s = _statuses[i];
                 final active = _statusFilter == s;
-                return ChoiceChip(
-                  label: Text(s[0].toUpperCase() + s.substring(1)),
+                return AppChip(
+                  label: s[0].toUpperCase() + s.substring(1),
                   selected: active,
                   onSelected: (_) {
                     setState(() => _statusFilter = s);
                     _load();
                   },
-                  selectedColor: context.fundingAccent,
-                  backgroundColor: AppTheme.cardOf(context),
-                  side: BorderSide(
-                    color: active
-                        ? context.fundingAccent
-                        : AppTheme.dividerOf(context),
-                  ),
-                  labelStyle: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: active
-                        ? Colors.white
-                        : AppTheme.textPrimaryOf(context),
-                  ),
+                  chipColor: context.fundingAccent,
                 );
               },
             ),

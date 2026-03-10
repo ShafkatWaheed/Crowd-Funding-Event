@@ -857,6 +857,109 @@ async def archive_resolved_chats(ctx: dict) -> None:
         await _log_cron_run("archive_resolved_chats", status="error", started_at=started_at, duration_ms=(time.monotonic() - t0) * 1000, error=traceback.format_exc()[-500:])
 
 
+async def transition_event_status(ctx: dict, event_id: int, trigger_field: str, scheduled_for_iso: str) -> None:
+    """Deferred: run auto_transition_status for a single event at the scheduled time.
+
+    Idempotency: compares event.{trigger_field}.isoformat() to scheduled_for_iso.
+    If the date has changed since this job was enqueued (stale job), exits without
+    making changes. If the event just reached waiting_event_date, enqueues a follow-up
+    job at the newly calculated event_date_deadline.
+    """
+    try:
+        from app.repositories.event_repo import event_repo
+        from app.services.event import auto_transition_status
+        from app.models.event import EventStatus
+
+        async with async_session_maker() as db:
+            event = await event_repo.get_by_id(db, event_id)
+            if event is None:
+                logger.info("transition_event_status: event %d not found, skipping", event_id)
+                return
+
+            current_val = getattr(event, trigger_field, None)
+            if current_val is None or current_val.isoformat() != scheduled_for_iso:
+                logger.info(
+                    "transition_event_status: stale job for event %d field=%s (expected %s, got %s), skipping",
+                    event_id, trigger_field, scheduled_for_iso,
+                    current_val.isoformat() if current_val else "None",
+                )
+                return
+
+            prev_status = event.status
+            await auto_transition_status(db, event)
+            await db.commit()
+
+            logger.info(
+                "transition_event_status: event %d %s → %s (via %s)",
+                event_id, prev_status.value, event.status.value, trigger_field,
+            )
+
+            # Chain: approved→waiting_event_date calculates event_date_deadline —
+            # enqueue the cancellation check job now that the deadline is known
+            if (
+                event.status != prev_status
+                and event.status == EventStatus.waiting_event_date
+                and event.event_date_deadline
+            ):
+                from app.worker.redis_pool import enqueue as arq_enqueue
+                await arq_enqueue(
+                    "transition_event_status",
+                    event_id,
+                    "event_date_deadline",
+                    event.event_date_deadline.isoformat(),
+                    _defer_until=event.event_date_deadline,
+                )
+
+    except Exception:
+        logger.exception("transition_event_status failed for event %d", event_id)
+
+
+async def reconcile_event_statuses(ctx: dict) -> None:
+    """Safety-net cron: catch events that missed their deferred transition job.
+
+    Covers all transitional statuses. Deferred jobs handle the normal case;
+    this catches stragglers from Redis flush, worker downtime, or missed jobs.
+    Interval is configurable via cron_event_reconcile_interval_min (default 60 min).
+    """
+    t0 = time.monotonic()
+    started_at = datetime.now(timezone.utc)
+    count = 0
+    try:
+        from app.repositories.event_repo import event_repo
+        from app.services.event import auto_transition_status
+        from app.models.event import EventStatus
+        from app.worker.redis_pool import enqueue as arq_enqueue
+
+        now = datetime.now(timezone.utc)
+        async with async_session_maker() as db:
+            events = await event_repo.get_events_needing_transition(db, now)
+            for event in events:
+                prev_status = event.status
+                await auto_transition_status(db, event)
+                count += 1
+                # Chain: enqueue event_date_deadline follow-up if just transitioned
+                if (
+                    event.status != prev_status
+                    and event.status == EventStatus.waiting_event_date
+                    and event.event_date_deadline
+                ):
+                    await arq_enqueue(
+                        "transition_event_status",
+                        event.id,
+                        "event_date_deadline",
+                        event.event_date_deadline.isoformat(),
+                        _defer_until=event.event_date_deadline,
+                    )
+            if count:
+                await db.commit()
+
+        logger.info("reconcile_event_statuses: processed %d events", count)
+        await _log_cron_run("reconcile_event_statuses", status="success", started_at=started_at, duration_ms=(time.monotonic() - t0) * 1000, items_processed=count)
+    except Exception:
+        logger.exception("reconcile_event_statuses failed")
+        await _log_cron_run("reconcile_event_statuses", status="error", started_at=started_at, duration_ms=(time.monotonic() - t0) * 1000, error=traceback.format_exc()[-500:])
+
+
 async def purge_old_chat_archives(ctx: dict) -> None:
     """Delete archived chat JSON files older than the retention period."""
     t0 = time.monotonic()

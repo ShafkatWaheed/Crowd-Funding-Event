@@ -247,6 +247,8 @@ async def create_event(
         organizer_birthday=current_user.birthday,
     )
     event = await event_service.get_by_id(db, event.id, load_venue=True)
+    from app.worker.event_jobs import schedule_event_transitions
+    await schedule_event_transitions(event)
     return _event_to_response(event)
 
 
@@ -424,6 +426,8 @@ async def update_event(
     await invalidate_event_cascade(event_id)
 
     updated = await event_service.get_by_id(db, updated.id, load_venue=True)
+    from app.worker.event_jobs import schedule_event_transitions
+    await schedule_event_transitions(updated)
     return _event_to_response(updated)
 
 

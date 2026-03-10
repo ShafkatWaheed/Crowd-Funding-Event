@@ -78,6 +78,10 @@ void main() {
       final event = Event.fromJson(eventJson(
         fundingGoalCents: 100000,
         totalPledgedCents: 75000,
+        fundingEndAt: DateTime.now()
+            .toUtc()
+            .add(const Duration(days: 7))
+            .toIso8601String(),
       ));
 
       await mockNetworkImagesFor(() => pumpApp(
@@ -87,7 +91,8 @@ void main() {
       await tester.pump();
 
       expect(find.textContaining('75%'), findsOneWidget);
-      expect(find.byType(LinearProgressIndicator), findsOneWidget);
+      // Card uses a custom FractionallySizedBox-based bar, not LinearProgressIndicator
+      expect(find.byType(FractionallySizedBox), findsWidgets);
     });
 
     testWidgets('does not render funding bar when no goal', (tester) async {
@@ -102,7 +107,7 @@ void main() {
           ));
       await tester.pump();
 
-      expect(find.byType(LinearProgressIndicator), findsNothing);
+      expect(find.textContaining('% raised'), findsNothing);
     });
 
     testWidgets('renders age restriction badge', (tester) async {
@@ -184,35 +189,36 @@ void main() {
       expect(tapped, isTrue);
     });
 
-    testWidgets('shows "FULL" when capacity is reached', (tester) async {
-      final json = eventJson(maxCapacity: 100);
-      // Override to fill capacity — need totalReservedSpots + ticketsSoldCount >= maxCapacity
-      json['total_reserved_spots'] = 60;
-      json['tickets_sold_count'] = 40;
+    testWidgets('shows "Sold Out" when ticket capacity is reached', (tester) async {
+      final json = eventJson(status: 'selling_tickets', maxCapacity: 100);
+      // Set tier capacity (distinct from venue maxCapacity) and fill it
+      json['total_tier_capacity'] = 100;
+      json['tickets_sold_count'] = 100;
       final event = Event.fromJson(json);
 
       await mockNetworkImagesFor(() => pumpApp(
             tester,
-            Scaffold(body: EventCard(event: event)),
+            // isOrganizerOrAdmin: false so ticket stats chip is shown instead of attendee count
+            Scaffold(body: EventCard(event: event, isOrganizerOrAdmin: false)),
           ));
       await tester.pump();
 
-      expect(find.text('FULL'), findsOneWidget);
+      expect(find.textContaining('Sold Out'), findsOneWidget);
     });
 
-    testWidgets('shows spots left when not full', (tester) async {
-      final json = eventJson(maxCapacity: 200);
-      json['total_reserved_spots'] = 30;
+    testWidgets('shows ticket count when not full', (tester) async {
+      final json = eventJson(status: 'selling_tickets', maxCapacity: 200);
+      json['total_tier_capacity'] = 200;
       json['tickets_sold_count'] = 20;
       final event = Event.fromJson(json);
 
       await mockNetworkImagesFor(() => pumpApp(
             tester,
-            Scaffold(body: EventCard(event: event)),
+            Scaffold(body: EventCard(event: event, isOrganizerOrAdmin: false)),
           ));
       await tester.pump();
 
-      expect(find.text('150 spots left'), findsOneWidget);
+      expect(find.textContaining('20/200'), findsOneWidget);
     });
 
     testWidgets('hides bookmark button when no callback', (tester) async {

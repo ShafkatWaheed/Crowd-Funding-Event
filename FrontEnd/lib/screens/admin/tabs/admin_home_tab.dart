@@ -13,6 +13,7 @@ import '../../../providers/auth_provider.dart';
 import '../../../providers/admin_provider.dart';
 import '../../../widgets/admin/admin_action_card.dart';
 import '../../../widgets/admin/admin_kpi_card.dart';
+import '../../../widgets/app_chip.dart';
 
 const double _wideBreakpoint = 900;
 
@@ -143,10 +144,12 @@ class _AdminHomeTabState extends State<AdminHomeTab> {
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             for (final p in ['7d', '30d', '90d', '130d', '1y'])
-              ChoiceChip(
-                label: Text(p),
+              AppChip(
+                label: p,
                 selected: _period == p,
                 onSelected: (_) => _onPeriodChanged(p),
+                chipColor: AppTheme.accentColor,
+                fontSize: 12,
               ),
             const SizedBox(width: AppSpacing.sm),
             _filterDropdown<String>(

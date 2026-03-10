@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Combined Design — Premium</title>
+<style>
+/* ─────────────────────────────────────────
+   TOKENS
+───────────────────────────────────────── */
+:root {
+  --a:       #276EF1;  --a2: #5B8DEF;
+  --ok:      #05944F;  --ok2: #34D399;
+  --warn:    #FFC043;
+  --err:     #E11900;
+  --pu:      #9333EA;
+  --ora:     #FF8C00;
+  --donate:  #C026D3;
+
+  --t1:      #0F0F0F;
+  --t2:      #5C5C5C;
+  --t3:      #9A9A9A;
+  --div:     #EBEBEB;
+  --card:    #FFFFFF;
+  --surf:    #F7F7F7;
+  --bg:      #E4EAF0;
+
+  --r-s: 10px; --r-m: 16px; --r-l: 24px; --r-xl: 32px;
+
+  /* stage colours (overridden by JS) */
+  --sc: #276EF1;
+  --sc-bg: #EEF3FF;
+  --sc-glow: rgba(39,110,241,.25);
+}
+[data-theme="dark"] {
+  --t1:   #F0F0F0;
+  --t2:   #9A9A9A;
+  --t3:   #5C5C5C;
+  --div:  #272727;
+  --card: #1C1C1E;
+  --surf: #141414;
+  --bg:   #0A0A0A;
+}
+
+/* ─────────────────────────────────────────
+   SHELL
+───────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+  background: var(--bg);
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 28px 16px 60px;
+  transition: background .35s;
+}
+
+/* ─────────────────────────────────────────
+   TOOLBAR
+───────────────────────────────────────── */
+.toolbar {
+  width: 100%;
+  max-width: 860px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 28px;
+}
+.toolbar-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--t1);
+  transition: color .3s;
+  white-space: nowrap;
+}
+.chip-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.chip-label { font-size: 11px; font-weight: 700; color: var(--t2); white-space: nowrap; transition: color .3s; }
+.chip {
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1.5px solid var(--div);
+  font-size: 11px; font-weight: 700;
+  cursor: pointer;
+  background: var(--card);
+  color: var(--t2);
+  transition: all .2s;
+  white-space: nowrap;
+}
+.chip.on  { background: var(--a); border-color: var(--a); color: #fff; }
+.chip.stage-chip.on { background: var(--sc); border-color: var(--sc); }
+.chip.dark-chip { background: #1C1C1E; color: #E0E0E0; border-color: #333; }
+.chip.dark-chip.on { background: var(--a); border-color: var(--a); color: #fff; }
+
+/* ─────────────────────────────────────────
+   PHONES ROW
+───────────────────────────────────────── */
+.phones { display: flex; gap: 28px; justify-content: center; flex-wrap: wrap; align-items: flex-start; }
+
+/* ─────────────────────────────────────────
+   DEVICE SHELL
+───────────────────────────────────────── */
+.phone-wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.phone-label { font-size: 12px; font-weight: 700; color: var(--t2); letter-spacing: .04em; text-transform: uppercase; transition: color .3s; }
+
+.device {
+  width: 375px;
+  background: #111;
+  border-radius: 52px;
+  padding: 12px;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,.07),
+    0 40px 80px rgba(0,0,0,.38),
+    inset 0 1px 0 rgba(255,255,255,.05);
+  position: relative;
+  flex-shrink: 0;
+}
+.notch {
+  width: 120px; height: 34px;
+  background: #111;
+  border-radius: 0 0 22px 22px;
+  position: absolute;
+  top: 12px; left: 50%; transform: translateX(-50%);
+  z-index: 30;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+}
+.notch-c { width: 11px; height: 11px; background: #1e1e1e; border-radius: 50%; border: 1px solid #2c2c2c; }
+.notch-p { width: 66px; height: 10px; background: #1e1e1e; border-radius: 10px; }
+
+.screen {
+  background: var(--card);
+  border-radius: 40px;
+  overflow: hidden;
+  height: 800px;
+  display: flex;
+  flex-direction: column;
+  transition: background .35s;
+}
+
+/* ─────────────────────────────────────────
+   STATUS BAR
+───────────────────────────────────────── */
+.sbar {
+  height: 50px;
+  padding: 16px 24px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: absolute;
+  top: 12px; left: 12px; right: 12px;
+  z-index: 25;
+  border-radius: 40px 40px 0 0;
+}
+.sbar-t { font-size: 15px; font-weight: 800; }
+.sbar-i { display: flex; gap: 4px; font-size: 12px; }
+
+/* ─────────────────────────────────────────
+   SCROLL BODY
+───────────────────────────────────────── */
+.scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 110px;
+}
+.scroll::-webkit-scrollbar { display: none; }
+
+/* ─────────────────────────────────────────
+   HERO
+───────────────────────────────────────── */
+.hero {
+  height: 260px;
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.hero-canvas {
+  width: 100%; height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: background .5s;
+}
+.hero-canvas::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(to bottom, rgba(0,0,0,.08) 20%, rgba(0,0,0,.65) 100%);
+}
+.hero-emoji {
+  font-size: 80px;
+  position: relative; z-index: 1;
+  filter: drop-shadow(0 12px 32px rgba(0,0,0,.45));
+}
+.hero-nav {
+  position: absolute;
+  top: 52px; left: 0; right: 0;
+  padding: 0 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 10;
+}
+.nav-back {
+  width: 38px; height: 38px;
+  background: rgba(0,0,0,.32);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 18px; cursor: pointer;
+  border: 1px solid rgba(255,255,255,.12);
+}
+.nav-actions { display: flex; gap: 8px; }
+.nav-btn {
+  width: 38px; height: 38px;
+  background: rgba(0,0,0,.32);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 15px; cursor: pointer;
+  border: 1px solid rgba(255,255,255,.12);
+  transition: background .2s;
+}
+.nav-btn:active { background: rgba(255,255,255,.2); }
+
+/* ─────────────────────────────────────────
+   FLOATING TITLE CARD  ← Editorial hero
+───────────────────────────────────────── */
+.title-card {
+  margin: -32px 14px 0;
+  background: var(--card);
+  border-radius: 24px;
+  padding: 18px 18px 14px;
+  box-shadow: 0 10px 36px rgba(0,0,0,.11), 0 2px 8px rgba(0,0,0,.06);
+  position: relative; z-index: 5;
+  transition: background .35s, box-shadow .35s;
+}
+[data-theme="dark"] .title-card {
+  box-shadow: 0 10px 36px rgba(0,0,0,.6), 0 2px 8px rgba(0,0,0,.3);
+}
+
+/* tag row */
+.tag-row { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+.tag {
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 10px; font-weight: 800;
+  letter-spacing: .05em; text-transform: uppercase;
+  white-space: nowrap;
+}
+.tag-genre  { background: #FFF3E0; color: #C44F00; }
+.tag-status { background: var(--sc-bg); color: var(--sc); transition: background .35s, color .35s; }
+[data-theme="dark"] .tag-genre { background: rgba(255,195,90,.15); color: #FFB347; }
+
+/* title */
+.ev-title {
+  font-size: 21px; font-weight: 900; line-height: 1.18;
+  color: var(--t1);
+  margin-bottom: 8px;
+  transition: color .3s;
+}
+
+/* meta */
+.ev-meta {
+  display: flex; gap: 10px; flex-wrap: wrap;
+  font-size: 12px; color: var(--t2);
+  margin-bottom: 14px;
+  transition: color .3s;
+}
+.ev-meta span { display: flex; align-items: center; gap: 3px; }
+
+/* ─── LIFECYCLE BREADCRUMB (B) ─── */
+.lc-breadcrumb {
+  display: flex; align-items: center;
+  overflow-x: auto; scrollbar-width: none;
+  margin-bottom: 8px;
+  padding-bottom: 2px;
+}
+.lc-breadcrumb::-webkit-scrollbar { display: none; }
+.lc-pill {
+  display: flex; align-items: center; gap: 3px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 10px; font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all .3s;
+}
+.lc-pill.lc-past {
+  background: rgba(0,0,0,.05);
+  color: var(--t2);
+}
+[data-theme="dark"] .lc-pill.lc-past {
+  background: rgba(255,255,255,.08);
+}
+.lc-pill.lc-current {
+  color: #fff;
+  /* background set via JS to --sc */
+}
+.lc-pill.lc-future {
+  color: var(--t3);
+  background: transparent;
+}
+.lc-sep {
+  font-size: 11px; color: var(--t3);
+  margin: 0 1px;
+  flex-shrink: 0;
+  transition: color .3s;
+}
+
+/* progress bar */
+.lc-bar-track {
+  height: 3px;
+  background: var(--div);
+  border-radius: 3px;
+  overflow: hidden;
+  transition: background .35s;
+}
+.lc-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width .6s cubic-bezier(.4,0,.2,1), background .4s;
+}
+
+/* caption */
+.lc-caption {
+  font-size: 10px; color: var(--t2);
+  margin-top: 6px; line-height: 1.4;
+  transition: color .3s;
+}
+.lc-caption b { color: var(--sc); transition: color .35s; }
+
+/* ─────────────────────────────────────────
+   STATS ROW  ← Editorial bold stats
+───────────────────────────────────────── */
+.stats-row {
+  display: flex;
+  margin: 14px 14px 0;
+  background: var(--card);
+  border-radius: var(--r-m);
+  border: 1px solid var(--div);
+  overflow: hidden;
+  transition: background .35s, border-color .35s;
+}
+.stat {
+  flex: 1;
+  padding: 12px 8px;
+  text-align: center;
+  border-right: 1px solid var(--div);
+  transition: border-color .35s;
+}
+.stat:last-child { border-right: none; }
+.stat-val {
+  font-size: 19px; font-weight: 900;
+  line-height: 1;
+  transition: color .35s;
+}
+.stat-lbl {
+  font-size: 9px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .07em;
+  color: var(--t3); margin-top: 3px;
+  transition: color .3s;
+}
+
+/* ─────────────────────────────────────────
+   SECTIONS
+───────────────────────────────────────── */
+.content { padding: 0 14px; }
+.sec {  margin-top: 18px; }
+.sec-hd {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 10px;
+}
+.sec-title { font-size: 15px; font-weight: 900; color: var(--t1); transition: color .3s; }
+.sec-action { font-size: 11px; font-weight: 700; color: var(--a); cursor: pointer; }
+
+/* Funding card */
+.fund-card {
+  background: var(--surf);
+  border-radius: var(--r-m);
+  padding: 16px;
+  transition: background .35s;
+}
+.fund-amount {
+  font-size: 26px; font-weight: 900; color: var(--t1);
+  margin-bottom: 3px; transition: color .3s;
+}
+.fund-amount span { font-size: 13px; font-weight: 500; color: var(--t2); }
+.fund-track {
+  height: 6px; background: var(--div);
+  border-radius: 6px; overflow: hidden;
+  margin: 10px 0 7px;
+  transition: background .35s;
+}
+.fund-fill {
+  height: 100%; border-radius: 6px;
+  background: linear-gradient(90deg, var(--ora), var(--warn));
+  width: 62%;
+  transition: width .6s, background .4s;
+}
+.fund-meta {
+  display: flex; justify-content: space-between;
+  font-size: 11px; color: var(--t2);
+  transition: color .3s;
+}
+.fund-meta b { color: var(--t1); transition: color .3s; }
+
+/* Tickets — horizontal scroll */
+.tickets-scroll {
+  display: flex; gap: 10px;
+  overflow-x: auto; scrollbar-width: none;
+  padding: 2px 2px 6px;
+}
+.tickets-scroll::-webkit-scrollbar { display: none; }
+.tier-card {
+  flex-shrink: 0; width: 148px;
+  background: var(--surf);
+  border-radius: var(--r-m);
+  padding: 14px;
+  border: 1.5px solid var(--div);
+  display: flex; flex-direction: column;
+  gap: 4px;
+  transition: background .35s, border-color .35s;
+}
+.tier-card.featured {
+  border-color: var(--a);
+  background: #EEF3FF;
+}
+[data-theme="dark"] .tier-card.featured {
+  background: #0F1E42;
+  border-color: var(--a);
+}
+.tier-badge { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
+.tier-price { font-size: 22px; font-weight: 900; color: var(--t1); line-height: 1; transition: color .3s; }
+.tier-name  { font-size: 12px; font-weight: 700; color: var(--t1); transition: color .3s; }
+.tier-spots { font-size: 10px; color: var(--t2); margin-top: 2px; transition: color .3s; }
+.tier-btn {
+  margin-top: 8px; width: 100%; height: 34px;
+  border-radius: 10px; border: none;
+  background: var(--a); color: #fff;
+  font-size: 12px; font-weight: 700;
+  cursor: pointer; transition: opacity .15s, transform .12s;
+  appearance: none; -webkit-appearance: none;
+}
+.tier-btn:active { transform: scale(.96); opacity: .85; }
+.tier-card.featured .tier-badge { color: var(--a); }
+.tier-card.vip .tier-badge { color: var(--pu); }
+.tier-card.vip .tier-btn { background: var(--pu); }
+.tier-card.early .tier-badge { color: var(--ok); }
+
+/* About */
+.about-text {
+  font-size: 13px; line-height: 1.7; color: var(--t2);
+  background: var(--surf); border-radius: var(--r-m); padding: 14px;
+  transition: background .35s, color .3s;
+}
+
+/* Venue */
+.venue-row {
+  display: flex; gap: 12px; align-items: center;
+  background: var(--surf); border-radius: var(--r-m); padding: 14px;
+  transition: background .35s;
+}
+.venue-icon {
+  width: 40px; height: 40px;
+  background: rgba(39,110,241,.1);
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; flex-shrink: 0;
+}
+[data-theme="dark"] .venue-icon { background: rgba(39,110,241,.18); }
+.venue-name { font-size: 13px; font-weight: 700; color: var(--t1); transition: color .3s; }
+.venue-addr { font-size: 11px; color: var(--t2); margin-top: 3px; transition: color .3s; }
+.venue-dir  { font-size: 11px; font-weight: 700; color: var(--a); margin-top: 5px; cursor: pointer; }
+
+/* ─────────────────────────────────────────
+   BOTTOM STRIP  ← Button Design D
+───────────────────────────────────────── */
+.bottom-strip {
+  position: sticky; bottom: 0;
+  background: rgba(255,255,255,.88);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-top: 1px solid rgba(0,0,0,.07);
+  padding: 10px 14px 22px;
+  display: flex; gap: 8px;
+  transition: background .35s, border-color .35s;
+  z-index: 20;
+}
+[data-theme="dark"] .bottom-strip {
+  background: rgba(16,16,18,.9);
+  border-color: rgba(255,255,255,.08);
+}
+.strip-btn {
+  border-radius: 14px; border: none;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 3px;
+  cursor: pointer;
+  font-weight: 700;
+  transition: transform .12s, opacity .15s, background .35s;
+  flex-shrink: 0;
+  appearance: none; -webkit-appearance: none;
+}
+.strip-btn:active { transform: scale(.94); opacity: .85; }
+
+/* Register — primary, wider */
+.strip-reg {
+  flex: 1.6;
+  height: 54px;
+  font-size: 14px;
+  gap: 6px;
+  flex-direction: row;
+  background: var(--t1);
+  color: var(--card);
+  transition: background .35s, color .35s;
+}
+/* Registered state */
+.strip-reg.done {
+  background: var(--ok);
+  color: #fff;
+}
+[data-theme="dark"] .strip-reg {
+  background: #F0F0F0;
+  color: #0F0F0F;
+}
+[data-theme="dark"] .strip-reg.done {
+  background: var(--ok);
+  color: #fff;
+}
+.strip-reg .s-icon { font-size: 18px; }
+.strip-reg .s-lbl  { font-size: 13px; font-weight: 800; }
+
+/* Pledge */
+.strip-pledge {
+  flex: 1;
+  height: 54px;
+  font-size: 10px;
+  background: linear-gradient(145deg, #FF8C00, #FFC043);
+  color: #fff;
+}
+.strip-pledge .s-icon { font-size: 20px; }
+
+/* Donate */
+.strip-donate {
+  flex: 1;
+  height: 54px;
+  font-size: 10px;
+  background: linear-gradient(145deg, #C026D3, #E879F9);
+  color: #fff;
+}
+.strip-donate .s-icon { font-size: 20px; }
+
+/* Pledge/Donate in pledged state */
+.strip-pledge.pledged { background: linear-gradient(145deg,#05944F,#34D399); }
+
+/* ─────────────────────────────────────────
+   MOBILE
+───────────────────────────────────────── */
+@media (max-width: 420px) {
+  body { padding: 0; background: var(--card) !important; align-items: stretch; }
+  .phones { gap: 0; flex-direction: column; align-items: stretch; }
+  .device { width: 100%; background: transparent; border-radius: 0; padding: 0; box-shadow: none; }
+  .device:nth-child(2) { display: none; }
+  .notch { display: none; }
+  .screen { border-radius: 0; height: 100dvh; }
+  .toolbar { padding: 14px; }
+  .phone-wrap:nth-child(2) { display: none; }
+  .phone-label { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- Toolbar -->
+<div class="toolbar">
+  <div class="toolbar-title">Combined Design — Premium</div>
+  <div class="chip-row">
+    <button class="chip on" id="themeChip" onclick="toggleTheme()">☀️ Light</button>
+    <span class="chip-label">Stage:</span>
+    <button class="chip stage-chip on" onclick="setStage(0)">Funding</button>
+    <button class="chip stage-chip"    onclick="setStage(1)">Tickets</button>
+    <button class="chip stage-chip"    onclick="setStage(2)">Waiting</button>
+    <button class="chip stage-chip"    onclick="setStage(3)">Live</button>
+    <button class="chip stage-chip"    onclick="setStage(4)">Done</button>
+  </div>
+</div>
+
+<div class="phones">
+
+  <!-- ── LIGHT / MAIN PHONE ── -->
+  <div class="phone-wrap">
+    <div class="phone-label" id="lLabel">Light mode</div>
+    <div class="device" id="devA">
+      <div class="notch"><div class="notch-c"></div><div class="notch-p"></div></div>
+      <div class="screen" data-screen="A">
+        <div class="sbar" style="color:#fff" id="sbarA">
+          <span class="sbar-t">9:41</span>
+          <div class="sbar-i"><span>●●●</span><span>WiFi</span><span>🔋</span></div>
+        </div>
+        <div class="scroll">
+          <!-- Hero -->
+          <div class="hero">
+            <div class="hero-canvas" id="heroA"></div>
+            <div class="hero-nav" style="padding-top:0">
+              <div class="nav-back">‹</div>
+              <div class="nav-actions">
+                <div class="nav-btn">🔖</div>
+                <div class="nav-btn">↗</div>
+                <div class="nav-btn">📅</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Floating title card -->
+          <div class="title-card">
+            <!-- Tags -->
+            <div class="tag-row">
+              <span class="tag tag-genre">🎪 Festival</span>
+              <span class="tag tag-status" id="statusTagA">● Seeking Funding</span>
+            </div>
+            <!-- Title -->
+            <div class="ev-title">Summer Groove Festival 2026</div>
+            <!-- Meta -->
+            <div class="ev-meta">
+              <span>📅 Aug 14–16</span>
+              <span>📍 Toronto, ON</span>
+              <span>👥 1.2k going</span>
+            </div>
+            <!-- Lifecycle breadcrumb B -->
+            <div class="lc-breadcrumb" id="lcBcA"></div>
+            <div class="lc-bar-track"><div class="lc-bar-fill" id="lcBarA"></div></div>
+            <div class="lc-caption" id="lcCapA"></div>
+          </div>
+
+          <!-- Bold stats row -->
+          <div class="stats-row" id="statsA">
+            <div class="stat"><div class="stat-val" id="sv1A" style="color:var(--ora)">62%</div><div class="stat-lbl">Funded</div></div>
+            <div class="stat"><div class="stat-val" id="sv2A" style="color:var(--a)">248</div><div class="stat-lbl">Backers</div></div>
+            <div class="stat"><div class="stat-val" id="sv3A" style="color:var(--warn)">38</div><div class="stat-lbl">Days Left</div></div>
+          </div>
+
+          <!-- Content -->
+          <div class="content">
+
+            <!-- Funding -->
+            <div class="sec">
+              <div class="sec-hd"><span class="sec-title">Funding Progress</span></div>
+              <div class="fund-card">
+                <div class="fund-amount">$62,000 <span>of $100,000 goal</span></div>
+                <div class="fund-track"><div class="fund-fill"></div></div>
+                <div class="fund-meta">
+                  <span>62% funded · <b>248</b> backers</span>
+                  <span><b>38</b> days left</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tickets -->
+            <div class="sec">
+              <div class="sec-hd"><span class="sec-title">Tickets</span><span class="sec-action">See all →</span></div>
+              <div class="tickets-scroll">
+                <div class="tier-card early">
+                  <div class="tier-badge" style="color:var(--ok)">🌱 Early Bird</div>
+                  <div class="tier-price">$49</div>
+                  <div class="tier-name">Early Access</div>
+                  <div class="tier-spots">142 spots left</div>
+                  <button class="tier-btn" style="background:var(--ok)">Buy</button>
+                </div>
+                <div class="tier-card featured">
+                  <div class="tier-badge">🔥 Popular</div>
+                  <div class="tier-price">$89</div>
+                  <div class="tier-name">General Admission</div>
+                  <div class="tier-spots">380 spots left</div>
+                  <button class="tier-btn">Buy</button>
+                </div>
+                <div class="tier-card vip">
+                  <div class="tier-badge" style="color:var(--pu)">👑 VIP</div>
+                  <div class="tier-price">$199</div>
+                  <div class="tier-name">Full Access</div>
+                  <div class="tier-spots">28 spots left</div>
+                  <button class="tier-btn" style="background:var(--pu)">Buy</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- About -->
+            <div class="sec">
+              <div class="sec-hd"><span class="sec-title">About</span></div>
+              <div class="about-text">Three days of live music across 5 stages on Toronto's waterfront. Headliners TBA — camping, food trucks, and late-night sets included with every ticket.</div>
+            </div>
+
+            <!-- Venue -->
+            <div class="sec">
+              <div class="sec-hd"><span class="sec-title">Getting There</span></div>
+              <div class="venue-row">
+                <div class="venue-icon">📍</div>
+                <div>
+                  <div class="venue-name">Rogers Centre</div>
+                  <div class="venue-addr">1 Blue Jays Way, Toronto ON M5V 1J1</div>
+                  <div class="venue-dir">Open in Maps →</div>
+                </div>
+              </div>
+            </div>
+
+          </div><!-- /content -->
+
+          <!-- Bottom strip D -->
+          <div class="bottom-strip">
+            <button class="strip-btn strip-reg" id="regBtnA" onclick="toggleReg('A')">
+              <span class="s-icon" id="regIconA">🎟</span>
+              <span class="s-lbl"  id="regLblA">Register Free</span>
+            </button>
+            <button class="strip-btn strip-pledge" id="pledgeBtnA" onclick="togglePledge('A')">
+              <span class="s-icon" id="pledgeIconA">🤍</span>
+              <span>Pledge</span>
+            </button>
+            <button class="strip-btn strip-donate">
+              <span class="s-icon">♥</span>
+              <span>Donate</span>
+            </button>
+          </div>
+
+        </div><!-- /scroll -->
+      </div><!-- /screen -->
+    </div><!-- /device -->
+  </div>
+
+  <!-- ── DARK PHONE ── -->
+  <div class="phone-wrap">
+    <div class="phone-label">Dark mode</div>
+    <div class="device" id="devB" data-theme="dark">
+      <div class="notch"><div class="notch-c"></div><div class="notch-p"></div></div>
+      <div class="screen" data-theme="dark" data-screen="B">
+        <div class="sbar" style="color:rgba(255,255,255,.75)">
+          <span class="sbar-t">9:41</span>
+          <div class="sbar-i"><span>●●●</span><span>WiFi</span><span>🔋</span></div>
+        </div>
+        <div class="scroll">
+          <div class="hero">
+            <div class="hero-canvas" id="heroB"></div>
+            <div class="hero-nav" style="padding-top:0">
+              <div class="nav-back">‹</div>
+              <div class="nav-actions">
+                <div class="nav-btn">🔖</div>
+                <div class="nav-btn">↗</div>
+                <div class="nav-btn">📅</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="title-card" data-theme="dark">
+            <div class="tag-row">
+              <span class="tag tag-genre">🎪 Festival</span>
+              <span class="tag tag-status" id="statusTagB">● Seeking Funding</span>
+            </div>
+            <div class="ev-title" data-theme="dark">Summer Groove Festival 2026</div>
+            <div class="ev-meta" data-theme="dark">
+              <span>📅 Aug 14–16</span>
+              <span>📍 Toronto, ON</span>
+              <span>👥 1.2k going</span>
+            </div>
+            <div class="lc-breadcrumb" id="lcBcB"></div>
+            <div class="lc-bar-track" data-theme="dark"><div class="lc-bar-fill" id="lcBarB"></div></div>
+            <div class="lc-caption" data-theme="dark" id="lcCapB"></div>
+          </div>
+
+          <div class="stats-row" data-theme="dark">
+            <div class="stat" data-theme="dark"><div class="stat-val" id="sv1B" style="color:var(--ora)">62%</div><div class="stat-lbl" data-theme="dark">Funded</div></div>
+            <div class="stat" data-theme="dark"><div class="stat-val" id="sv2B" style="color:var(--a)">248</div><div class="stat-lbl" data-theme="dark">Backers</div></div>
+            <div class="stat" data-theme="dark"><div class="stat-val" id="sv3B" style="color:var(--warn)">38</div><div class="stat-lbl" data-theme="dark">Days Left</div></div>
+          </div>
+
+          <div class="content">
+            <div class="sec">
+              <div class="sec-hd"><span class="sec-title" data-theme="dark">Funding Progress</span></div>
+              <div class="fund-card" data-theme="dark">
+                <div class="fund-amount" data-theme="dark">$62,000 <span>of $100,000 goal</span></div>
+                <div class="fund-track" data-theme="dark"><div class="fund-fill"></div></div>
+                <div class="fund-meta" data-theme="dark"><span>62% funded · <b>248</b> backers</span><span><b>38</b> days left</span></div>
+              </div>
+            </div>
+            <div class="sec">
+              <div class="sec-hd"><span class="sec-title" data-theme="dark">Tickets</span><span class="sec-action">See all →</span></div>
+              <div class="tickets-scroll">
+                <div class="tier-card early" data-theme="dark">
+                  <div class="tier-badge" style="color:var(--ok)">🌱 Early Bird</div>
+                  <div class="tier-price" data-theme="dark">$49</div>
+                  <div class="tier-name" data-theme="dark">Early Access</div>
+                  <div class="tier-spots" data-theme="dark">142 spots left</div>
+                  <button class="tier-btn" style="background:var(--ok)">Buy</button>
+                </div>
+                <div class="tier-card featured" data-theme="dark">
+                  <div class="tier-badge">🔥 Popular</div>
+                  <div class="tier-price" data-theme="dark">$89</div>
+                  <div class="tier-name" data-theme="dark">General Admission</div>
+                  <div class="tier-spots" data-theme="dark">380 spots left</div>
+                  <button class="tier-btn">Buy</button>
+                </div>
+                <div class="tier-card vip" data-theme="dark">
+                  <div class="tier-badge" style="color:var(--pu)">👑 VIP</div>
+                  <div class="tier-price" data-theme="dark">$199</div>
+                  <div class="tier-name" data-theme="dark">Full Access</div>
+                  <div class="tier-spots" data-theme="dark">28 spots left</div>
+                  <button class="tier-btn" style="background:var(--pu)">Buy</button>
+                </div>
+              </div>
+            </div>
+            <div class="sec">
+              <div class="sec-hd"><span class="sec-title" data-theme="dark">About</span></div>
+              <div class="about-text" data-theme="dark">Three days of live music across 5 stages on Toronto's waterfront. Headliners TBA — camping, food trucks, and late-night sets included with every ticket.</div>
+            </div>
+            <div class="sec">
+              <div class="sec-hd"><span class="sec-title" data-theme="dark">Getting There</span></div>
+              <div class="venue-row" data-theme="dark">
+                <div class="venue-icon">📍</div>
+                <div>
+                  <div class="venue-name" data-theme="dark">Rogers Centre</div>
+                  <div class="venue-addr" data-theme="dark">1 Blue Jays Way, Toronto ON M5V 1J1</div>
+                  <div class="venue-dir">Open in Maps →</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="bottom-strip" data-theme="dark">
+            <button class="strip-btn strip-reg" id="regBtnB" onclick="toggleReg('B')">
+              <span class="s-icon" id="regIconB">🎟</span>
+              <span class="s-lbl"  id="regLblB">Register Free</span>
+            </button>
+            <button class="strip-btn strip-pledge" id="pledgeBtnB" onclick="togglePledge('B')">
+              <span class="s-icon" id="pledgeIconB">🤍</span>
+              <span>Pledge</span>
+            </button>
+            <button class="strip-btn strip-donate">
+              <span class="s-icon">♥</span>
+              <span>Donate</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /phones -->
+
+<script>
+/* ── Stage data ── */
+const STAGES = [
+  { key:'funding',  label:'Funding',   short:'Fund', icon:'🤍', color:'#FF8C00', bg:'#FFF3E0',
+    heroBg:'linear-gradient(145deg,#1a0e00 0%,#3D1F00 40%,#FF8C00 100%)',
+    statusLabel:'Seeking Funding', note:'<b>38 days</b> left to reach the $100k goal.',
+    statColor:'var(--ora)', pct:30 },
+  { key:'tickets',  label:'Tickets',   short:'Tick', icon:'🎟', color:'#276EF1', bg:'#EEF3FF',
+    heroBg:'linear-gradient(145deg,#060E2A 0%,#0D2060 40%,#276EF1 100%)',
+    statusLabel:'Selling Tickets', note:'Tickets on sale · <b>380 GA</b> spots remaining.',
+    statColor:'var(--a)', pct:55 },
+  { key:'waiting',  label:'Set Date',  short:'Date', icon:'📅', color:'#9333EA', bg:'#FAF0FE',
+    heroBg:'linear-gradient(145deg,#120822 0%,#2D0D6E 40%,#9333EA 100%)',
+    statusLabel:'Awaiting Date', note:'Funding complete. <b>Date announcement</b> coming soon.',
+    statColor:'var(--pu)', pct:70 },
+  { key:'live',     label:'Live Now',  short:'Live', icon:'▶', color:'#05944F', bg:'#E6F7EE',
+    heroBg:'linear-gradient(145deg,#001A0C 0%,#003D1A 40%,#05944F 100%)',
+    statusLabel:'🔴 Live Now', note:'Event is <b>happening right now</b>. Enjoy!',
+    statColor:'var(--ok)', pct:85 },
+  { key:'done',     label:'Done',      short:'Done', icon:'🏁', color:'#6B7280', bg:'#F3F4F6',
+    heroBg:'linear-gradient(145deg,#111 0%,#222 40%,#6B7280 100%)',
+    statusLabel:'Completed', note:'This event has ended. <b>Reviews</b> are now open.',
+    statColor:'var(--t2)', pct:100 },
+];
+
+/* All 6 breadcrumb steps (published is step 0, always past) */
+const ALL_STEPS = [
+  { short:'Pub',  label:'Published', icon:'✓'  },
+  { short:'Fund', label:'Funding',   icon:'🤍' },
+  { short:'Tick', label:'Tickets',   icon:'🎟' },
+  { short:'Date', label:'Set Date',  icon:'📅' },
+  { short:'Live', label:'Live',      icon:'▶' },
+  { short:'Done', label:'Done',      icon:'🏁' },
+];
+// stage index within ALL_STEPS: funding=1, tickets=2, waiting=3, live=4, done=5
+const STAGE_STEP = [1,2,3,4,5];
+
+let currentStage = 0;
+const regState   = {A:false, B:false};
+const pledgeState = {A:false, B:false};
+
+/* ── Apply stage ── */
+function applyStage(si){
+  const s = STAGES[si];
+  const stepIdx = STAGE_STEP[si]; // which step in ALL_STEPS is current
+
+  // CSS custom properties for current stage color
+  document.documentElement.style.setProperty('--sc', s.color);
+  document.documentElement.style.setProperty('--sc-bg', s.bg);
+
+  ['A','B'].forEach(id=>{
+    // Hero gradient
+    document.getElementById('hero'+id).style.background = s.heroBg;
+    // Status tag
+    document.getElementById('statusTag'+id).textContent = '● '+s.statusLabel;
+    document.getElementById('statusTag'+id).style.background = s.bg;
+    document.getElementById('statusTag'+id).style.color = s.color;
+    // Stats
+    document.getElementById('sv1'+id).style.color = s.statColor;
+    // Lifecycle breadcrumb
+    renderBreadcrumb(id, stepIdx, s);
+  });
+
+  // Stage buttons highlight
+  document.querySelectorAll('.stage-chip').forEach((b,i)=>b.classList.toggle('on',i===si));
+}
+
+function renderBreadcrumb(id, activeStep, s){
+  const bc = document.getElementById('lcBc'+id);
+  bc.innerHTML = '';
+  ALL_STEPS.forEach((st,i)=>{
+    const state = i < activeStep ? 'past' : i === activeStep ? 'current' : 'future';
+    const pill = document.createElement('div');
+    pill.className = 'lc-pill lc-'+state;
+    if(state==='current'){
+      pill.style.background = s.color;
+      pill.style.boxShadow  = '0 2px 8px '+s.color+'55';
+    }
+    if(state==='past') pill.textContent = '✓ '+st.short;
+    else if(state==='current') pill.textContent = st.icon+' '+st.label;
+    else pill.textContent = st.short;
+    bc.appendChild(pill);
+
+    if(i < ALL_STEPS.length-1){
+      const sep = document.createElement('div');
+      sep.className='lc-sep';
+      sep.textContent='›';
+      bc.appendChild(sep);
+    }
+    if(state==='current') setTimeout(()=>pill.scrollIntoView({inline:'center',behavior:'smooth'}),80);
+  });
+
+  // Bar fill
+  const pct = Math.round((activeStep/(ALL_STEPS.length-1))*100);
+  const fill = document.getElementById('lcBar'+id);
+  fill.style.width = pct+'%';
+  fill.style.background = s.color;
+
+  // Caption
+  document.getElementById('lcCap'+id).innerHTML =
+    'Step '+(activeStep+1)+' of '+ALL_STEPS.length+' · '+s.note;
+}
+
+function setStage(i){
+  currentStage = i;
+  applyStage(i);
+}
+
+/* ── Register toggle ── */
+function toggleReg(id){
+  regState[id] = !regState[id];
+  const btn  = document.getElementById('regBtn'+id);
+  const icon = document.getElementById('regIcon'+id);
+  const lbl  = document.getElementById('regLbl'+id);
+  if(regState[id]){
+    btn.classList.add('done');
+    icon.textContent = '✓';
+    lbl.textContent  = 'Registered';
+  } else {
+    btn.classList.remove('done');
+    icon.textContent = '🎟';
+    lbl.textContent  = 'Register Free';
+  }
+}
+
+/* ── Pledge toggle ── */
+function togglePledge(id){
+  pledgeState[id] = !pledgeState[id];
+  const btn  = document.getElementById('pledgeBtn'+id);
+  const icon = document.getElementById('pledgeIcon'+id);
+  if(pledgeState[id]){
+    btn.classList.add('pledged');
+    icon.textContent='✓';
+  } else {
+    btn.classList.remove('pledged');
+    icon.textContent='🤍';
+  }
+}
+
+/* ── Theme toggle ── */
+let lightMode = true;
+function toggleTheme(){
+  lightMode = !lightMode;
+  const chip = document.getElementById('themeChip');
+  const lbl  = document.getElementById('lLabel');
+  if(lightMode){
+    document.body.removeAttribute('data-theme');
+    chip.textContent='☀️ Light'; chip.classList.add('on');
+    lbl.textContent='Light mode';
+  } else {
+    document.body.setAttribute('data-theme','dark');
+    chip.textContent='🌙 Dark'; chip.classList.remove('on');
+    lbl.textContent='Dark mode';
+  }
+}
+
+/* ── Init ── */
+applyStage(0);
+</script>
+</body>
+</html>

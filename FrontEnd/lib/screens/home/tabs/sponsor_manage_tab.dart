@@ -12,6 +12,7 @@ import '../../../providers/sponsor_provider.dart';
 import '../../../widgets/animated_list_item.dart';
 import '../../../widgets/kyc_required_banner.dart';
 import '../../../widgets/empty_state.dart';
+import '../../../widgets/app_chip.dart';
 import '../../../widgets/shimmer_loaders.dart';
 
 class SponsorManageTab extends StatefulWidget {
@@ -214,25 +215,13 @@ class _SponsorManageTabState extends State<SponsorManageTab> {
                     final isActive = _sponsorBidStatus == s.name;
                     return Padding(
                       padding: const EdgeInsets.only(right: AppSpacing.sm),
-                      child: ChoiceChip(
-                        label: Text(statusDisplayName(s)),
+                      child: AppChip(
+                        label: statusDisplayName(s),
                         selected: isActive,
                         onSelected: (selected) {
                           setState(() => _sponsorBidStatus = selected ? s.name : null);
                         },
-                        selectedColor: statusChipColor(context, s),
-                        backgroundColor: AppTheme.cardOf(context),
-                        side: BorderSide(
-                          color: isActive
-                              ? statusChipColor(context, s)
-                              : AppTheme.dividerOf(context),
-                        ),
-                        labelStyle: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color:
-                              isActive ? Colors.white : AppTheme.textPrimaryOf(context),
-                        ),
+                        chipColor: statusChipColor(context, s),
                       ),
                     );
                   }).toList(),

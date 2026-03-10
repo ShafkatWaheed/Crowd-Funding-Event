@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pledge Header Glow Options</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    padding: 0;
+  }
+
+  /* ── Theme toggle ── */
+  .theme-bar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 24px;
+    border-bottom: 1px solid var(--divider);
+    background: var(--page-bg);
+  }
+  .theme-bar span { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+  .toggle-group { display: flex; border-radius: 8px; overflow: hidden; border: 1px solid var(--divider); }
+  .toggle-btn {
+    padding: 6px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    background: var(--card-bg);
+    color: var(--text-secondary);
+    transition: all 0.15s;
+  }
+  .toggle-btn.active { background: var(--accent); color: #fff; }
+
+  /* ── CSS variables — dark (default) ── */
+  :root {
+    --page-bg: #111;
+    --card-bg: #1c1c1e;
+    --card-bg-light: #252528;
+    --divider: #2a2a2a;
+    --text-primary: #f0f0f0;
+    --text-secondary: #888;
+    --text-value: #e0e0e0;
+    --info-value-color: #e0e0e0;
+    --accent: #276EF1;
+    --header-dark: #0E0E0E;
+    --badge-bg: rgba(255,255,255,0.18);
+    --badge-border: rgba(255,255,255,0.35);
+    --badge-color: #fff;
+    --header-title: #fff;
+    --header-sub: rgba(255,255,255,0.55);
+    --icon-box-bg: rgba(255,255,255,0.10);
+    --shadow: 0 4px 24px rgba(0,0,0,0.6);
+  }
+
+  /* ── CSS variables — light ── */
+  body.light {
+    --page-bg: #f2f2f7;
+    --card-bg: #ffffff;
+    --card-bg-light: #f8f8fa;
+    --divider: #e5e5ea;
+    --text-primary: #111;
+    --text-secondary: #666;
+    --text-value: #222;
+    --info-value-color: #222;
+    --accent: #276EF1;
+    --header-dark: #0E0E0E;   /* dark headers stay dark in light mode */
+    --badge-bg: rgba(255,255,255,0.18);
+    --badge-border: rgba(255,255,255,0.35);
+    --badge-color: #fff;
+    --header-title: #fff;
+    --header-sub: rgba(255,255,255,0.6);
+    --icon-box-bg: rgba(255,255,255,0.12);
+    --shadow: 0 2px 16px rgba(0,0,0,0.10);
+  }
+
+  body { background: var(--page-bg); color: var(--text-primary); }
+
+  .page { padding: 32px 24px; }
+
+  h1 { font-size: 18px; font-weight: 700; color: var(--text-secondary); letter-spacing: 0.5px; margin-bottom: 8px; }
+  .subtitle { font-size: 13px; color: var(--text-secondary); margin-bottom: 40px; opacity: 0.7; }
+
+  .section { margin-bottom: 52px; }
+  .section-label {
+    font-size: 11px; font-weight: 700; letter-spacing: 1.2px;
+    text-transform: uppercase; color: var(--text-secondary);
+    margin-bottom: 16px; opacity: 0.7;
+  }
+  .cards-row { display: flex; gap: 20px; flex-wrap: wrap; }
+
+  /* ── Base card ── */
+  .card {
+    width: 300px;
+    border-radius: 16px;
+    overflow: hidden;
+    background: var(--card-bg);
+    box-shadow: var(--shadow);
+  }
+
+  /* ── Header ── */
+  .header {
+    width: 100%; padding: 14px 18px 12px;
+    position: relative; overflow: hidden;
+  }
+  .header-row {
+    display: flex; align-items: center; gap: 14px;
+    position: relative; z-index: 2;
+  }
+  .icon-box {
+    width: 36px; height: 36px; border-radius: 8px;
+    background: var(--icon-box-bg);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0;
+  }
+  .header-text { flex: 1; }
+  .header-title { font-size: 15px; font-weight: 700; color: var(--header-title); }
+  .header-sub { font-size: 12px; color: var(--header-sub); margin-top: 2px; }
+  .badge {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.5px;
+    padding: 3px 10px; border-radius: 99px;
+    background: var(--badge-bg); border: 1px solid var(--badge-border);
+    color: var(--badge-color); flex-shrink: 0;
+  }
+
+  /* ── Body ── */
+  .body { padding: 14px 18px 16px; background: var(--card-bg); }
+  .info-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .info-icon { font-size: 14px; color: var(--text-secondary); width: 18px; text-align: center; }
+  .info-label { color: var(--text-secondary); width: 64px; font-size: 11px; font-weight: 600; letter-spacing: 0.3px; }
+  .info-value { color: var(--info-value-color); font-weight: 600; font-size: 13px; }
+  .divider { height: 1px; background: var(--divider); }
+  .footer { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; }
+  .amount { font-size: 16px; font-weight: 800; }
+  .view-btn {
+    font-size: 12px; font-weight: 600; padding: 8px 16px;
+    border-radius: 8px; color: #fff;
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  /* ── Card type tags ── */
+  .tag {
+    display: inline-block; font-size: 10px; font-weight: 700;
+    letter-spacing: 0.8px; padding: 2px 8px; border-radius: 99px; margin-bottom: 10px;
+  }
+  .tag-pledge  { background: rgba(245,158,11,0.15); color: #F59E0B; border: 1px solid rgba(245,158,11,0.3); }
+  .tag-donation{ background: rgba(192,38,211,0.15); color: #C026D3; border: 1px solid rgba(192,38,211,0.3); }
+
+  /* ── Accent colors ── */
+  .pledge-accent  { color: #F59E0B; }
+  .donation-accent{ color: #C026D3; }
+  .pledge-btn     { background: #F59E0B; }
+  .donation-btn   { background: #C026D3; }
+  .pledge-amount  { color: #F59E0B; }
+  .donation-amount{ color: #C026D3; }
+
+  /* ════════════════════════════════════════════
+     DARK HEADER VARIANTS  (all use dark base)
+  ════════════════════════════════════════════ */
+
+  /* Option A — Radial corner */
+  .opt-a-pledge  .header { background: radial-gradient(circle at -20% -20%, rgba(245,158,11,0.55) 0%, #0D0D0D 65%); }
+  .opt-a-donation.header,
+  .opt-a-donation .header { background: radial-gradient(circle at -20% -20%, rgba(192,38,211,0.55) 0%, #0D0D0D 65%); }
+
+  /* Option B — Orb */
+  .opt-b-pledge .header,
+  .opt-b-donation .header { background: #0E0E0E; }
+  .opt-b-pledge  .glow-orb { position:absolute; width:90px; height:90px; border-radius:50%; top:-20px; left:-10px; background:rgba(245,158,11,0.28); filter:blur(28px); z-index:1; }
+  .opt-b-donation .glow-orb{ position:absolute; width:90px; height:90px; border-radius:50%; top:-20px; left:-10px; background:rgba(192,38,211,0.35); filter:blur(28px); z-index:1; }
+
+  /* Option C — Bottom rim */
+  .opt-c-pledge  .header { background: linear-gradient(to top, rgba(245,158,11,0.5) 0%, #0D0D0D 70%); }
+  .opt-c-donation .header{ background: linear-gradient(to top, rgba(192,38,211,0.5) 0%, #0D0D0D 70%); }
+
+  /* Option D — Combo */
+  .opt-d-pledge .header {
+    background: radial-gradient(circle at -10% -30%, rgba(245,158,11,0.4) 0%, #0D0D0D 55%),
+                radial-gradient(circle at 110% 110%, rgba(245,158,11,0.12) 0%, transparent 50%);
+  }
+  .opt-d-pledge .glow-orb { position:absolute; width:70px; height:70px; border-radius:50%; top:-15px; left:5px; background:rgba(245,158,11,0.3); filter:blur(20px); z-index:1; }
+  .opt-d-donation .header {
+    background: radial-gradient(circle at -10% -30%, rgba(192,38,211,0.45) 0%, #0D0D0D 55%),
+                radial-gradient(circle at 110% 110%, rgba(192,38,211,0.12) 0%, transparent 50%);
+  }
+  .opt-d-donation .glow-orb{ position:absolute; width:70px; height:70px; border-radius:50%; top:-15px; left:5px; background:rgba(192,38,211,0.35); filter:blur(20px); z-index:1; }
+
+  /* ════════════════════════════════════════════
+     LIGHT HEADER VARIANTS
+     Light mode: pastel tint header, colored glow via box-shadow on card
+  ════════════════════════════════════════════ */
+
+  /* Light A — soft tint + faint radial */
+  .light .opt-a-pledge .header  { background: radial-gradient(circle at -20% -20%, rgba(245,158,11,0.22) 0%, rgba(255,248,230,1) 65%); }
+  .light .opt-a-donation .header{ background: radial-gradient(circle at -20% -20%, rgba(192,38,211,0.18) 0%, rgba(253,240,255,1) 65%); }
+  .light .opt-a-pledge  .header-title,
+  .light .opt-a-donation .header-title { color: #111; }
+  .light .opt-a-pledge  .header-sub,
+  .light .opt-a-donation .header-sub   { color: #555; }
+  .light .opt-a-pledge  .badge,
+  .light .opt-a-donation .badge { background: rgba(0,0,0,0.07); border-color: rgba(0,0,0,0.15); color: #333; }
+  .light .opt-a-pledge  .icon-box { background: rgba(245,158,11,0.15); }
+  .light .opt-a-donation .icon-box{ background: rgba(192,38,211,0.12); }
+
+  /* Light B — white header + card glow shadow */
+  .light .opt-b-pledge .header  { background: #fff8e6; }
+  .light .opt-b-donation .header{ background: #fdf0ff; }
+  .light .opt-b-pledge  .glow-orb { background: rgba(245,158,11,0.3); filter: blur(24px); }
+  .light .opt-b-donation .glow-orb{ background: rgba(192,38,211,0.22); filter: blur(24px); }
+  .light .opt-b-pledge  .header-title,
+  .light .opt-b-donation .header-title { color: #111; }
+  .light .opt-b-pledge  .header-sub,
+  .light .opt-b-donation .header-sub   { color: #555; }
+  .light .opt-b-pledge  .badge { background: rgba(245,158,11,0.12); border-color: rgba(245,158,11,0.3); color: #b45309; }
+  .light .opt-b-donation .badge{ background: rgba(192,38,211,0.10); border-color: rgba(192,38,211,0.3); color: #86198f; }
+  .light .opt-b-pledge  .icon-box { background: rgba(245,158,11,0.15); }
+  .light .opt-b-donation .icon-box{ background: rgba(192,38,211,0.12); }
+  /* card-level colored shadow */
+  .light .opt-b-pledge  { box-shadow: 0 4px 20px rgba(245,158,11,0.25), 0 1px 4px rgba(0,0,0,0.08); }
+  .light .opt-b-donation{ box-shadow: 0 4px 20px rgba(192,38,211,0.20), 0 1px 4px rgba(0,0,0,0.08); }
+
+  /* Light C — pastel gradient bottom */
+  .light .opt-c-pledge .header  { background: linear-gradient(to top, rgba(245,158,11,0.28) 0%, #fff8e6 70%); }
+  .light .opt-c-donation .header{ background: linear-gradient(to top, rgba(192,38,211,0.20) 0%, #fdf0ff 70%); }
+  .light .opt-c-pledge  .header-title,
+  .light .opt-c-donation .header-title { color: #111; }
+  .light .opt-c-pledge  .header-sub,
+  .light .opt-c-donation .header-sub   { color: #555; }
+  .light .opt-c-pledge  .badge { background: rgba(245,158,11,0.12); border-color: rgba(245,158,11,0.3); color: #b45309; }
+  .light .opt-c-donation .badge{ background: rgba(192,38,211,0.10); border-color: rgba(192,38,211,0.3); color: #86198f; }
+  .light .opt-c-pledge  .icon-box { background: rgba(245,158,11,0.15); }
+  .light .opt-c-donation .icon-box{ background: rgba(192,38,211,0.12); }
+
+  /* Light D — combo pastel */
+  .light .opt-d-pledge .header {
+    background: radial-gradient(circle at -10% -30%, rgba(245,158,11,0.25) 0%, #fff8e6 55%),
+                radial-gradient(circle at 110% 110%, rgba(245,158,11,0.08) 0%, transparent 50%);
+  }
+  .light .opt-d-donation .header {
+    background: radial-gradient(circle at -10% -30%, rgba(192,38,211,0.20) 0%, #fdf0ff 55%),
+                radial-gradient(circle at 110% 110%, rgba(192,38,211,0.06) 0%, transparent 50%);
+  }
+  .light .opt-d-pledge  .glow-orb { background: rgba(245,158,11,0.28); filter: blur(18px); }
+  .light .opt-d-donation .glow-orb{ background: rgba(192,38,211,0.22); filter: blur(18px); }
+  .light .opt-d-pledge  .header-title,
+  .light .opt-d-donation .header-title { color: #111; }
+  .light .opt-d-pledge  .header-sub,
+  .light .opt-d-donation .header-sub   { color: #555; }
+  .light .opt-d-pledge  .badge { background: rgba(245,158,11,0.12); border-color: rgba(245,158,11,0.3); color: #b45309; }
+  .light .opt-d-donation .badge{ background: rgba(192,38,211,0.10); border-color: rgba(192,38,211,0.3); color: #86198f; }
+  .light .opt-d-pledge  .icon-box { background: rgba(245,158,11,0.15); }
+  .light .opt-d-donation .icon-box{ background: rgba(192,38,211,0.12); }
+  .light .opt-d-pledge  { box-shadow: 0 4px 20px rgba(245,158,11,0.18), 0 1px 4px rgba(0,0,0,0.07); }
+  .light .opt-d-donation{ box-shadow: 0 4px 20px rgba(192,38,211,0.15), 0 1px 4px rgba(0,0,0,0.07); }
+</style>
+</head>
+<body>
+
+<div class="theme-bar">
+  <span>Theme</span>
+  <div class="toggle-group">
+    <button class="toggle-btn active" id="btn-dark"  onclick="setTheme('dark')">🌙 Dark</button>
+    <button class="toggle-btn"        id="btn-light" onclick="setTheme('light')">☀️ Light</button>
+  </div>
+</div>
+
+<div class="page">
+<h1>Pledge Header — Glow Effect Options</h1>
+<p class="subtitle">Dark: colored glow on black base · Light: pastel tint + colored card shadow</p>
+
+<!-- ══ CARD TEMPLATE macro via JS ══ -->
+<script>
+function card(opt, type, title, sub, badge, receiptType) {
+  const isGuest = type === 'donation';
+  const amtClass = isGuest ? 'donation-amount' : 'pledge-amount';
+  const btnClass = isGuest ? 'donation-btn' : 'pledge-btn';
+  const accentClass = isGuest ? 'donation-accent' : '';
+  const tagClass  = isGuest ? 'tag-donation' : 'tag-pledge';
+  const tagLabel  = isGuest ? 'DONATION' : 'PLEDGE';
+  const icon = isGuest ? '🎁' : '🤝';
+  const donationRow = isGuest
+    ? `<div class="info-row"><span class="info-icon">ℹ️</span><span class="info-label">Type</span><span class="${accentClass} info-value">Non-refundable</span></div>`
+    : (sub ? `<div class="info-row"><span class="info-icon">🎫</span><span class="info-label">Spots</span><span class="info-value">${sub}</span></div>` : '');
+  const orb = (opt === 'b' || opt === 'd') ? '<div class="glow-orb"></div>' : '';
+  const amount = isGuest ? '$50.00' : '$200.00';
+  const receipt = isGuest ? 'RCP-00399' : 'RCP-00421';
+
+  return `
+    <div>
+      <div class="tag ${tagClass}">${tagLabel}</div>
+      <div class="card opt-${opt}-${type}">
+        <div class="header">
+          ${orb}
+          <div class="header-row">
+            <div class="icon-box">${icon}</div>
+            <div class="header-text">
+              <div class="header-title">${title}</div>
+              ${sub && !isGuest ? `<div class="header-sub">${sub}</div>` : ''}
+            </div>
+            <div class="badge">${badge}</div>
+          </div>
+        </div>
+        <div class="divider"></div>
+        <div class="body">
+          <div class="info-row"><span class="info-icon">🧾</span><span class="info-label">Receipt</span><span class="info-value">${receipt}</span></div>
+          <div class="info-row"><span class="info-icon">📅</span><span class="info-label">Date</span><span class="info-value">Mar 5, 2026</span></div>
+          ${donationRow}
+          <div class="footer">
+            <span class="amount ${amtClass}">${amount}</span>
+            <div class="view-btn ${btnClass}">🧾 View Receipt</div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function section(opt, label) {
+  return `
+    <div class="section">
+      <div class="section-label">${label}</div>
+      <div class="cards-row">
+        ${card(opt,'pledge',  'Pledge',         '2 spots reserved','PLEDGED', '')}
+        ${card(opt,'donation','Guest Donation',  '',                'DONATION','')}
+      </div>
+    </div>`;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelector('.page').insertAdjacentHTML('beforeend',
+    section('a', 'Option A — Radial glow from corner') +
+    section('b', 'Option B — Glow orb behind icon  (closest to reference)') +
+    section('c', 'Option C — Bottom rim / upward glow') +
+    section('d', 'Option D — Combo: radial corner + soft orb  (richest)')
+  );
+});
+
+function setTheme(t) {
+  document.body.classList.toggle('light', t === 'light');
+  document.getElementById('btn-dark').classList.toggle('active',  t === 'dark');
+  document.getElementById('btn-light').classList.toggle('active', t === 'light');
+}
+</script>
+
+</div><!-- .page -->
+</body>
+</html>

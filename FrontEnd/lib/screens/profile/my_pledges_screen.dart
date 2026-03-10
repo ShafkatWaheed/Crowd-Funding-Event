@@ -307,6 +307,7 @@ class _EventPledgeGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
     final pledgedCents  = pledges.where((p) => !p.isGuest && p.status != PledgeStatus.refunded)
         .fold<int>(0, (s, p) => s + p.amountCents);
     final donationCents = pledges.where((p) => p.isGuest)
@@ -332,16 +333,16 @@ class _EventPledgeGroup extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: context.sponsorSurface,
+                color: context.sponsorAccent.withValues(alpha: isDark ? 0.28 : 0.18),
                 borderRadius: AppRadius.md,
-                border: Border.all(color: context.sponsorAccent.withValues(alpha: 0.12)),
+                border: Border.all(color: context.sponsorAccent.withValues(alpha: 0.28)),
               ),
               child: Row(
                 children: [
                   Container(
                     width: 36, height: 36,
                     decoration: BoxDecoration(
-                      color: context.sponsorAccent.withValues(alpha: 0.1),
+                      color: context.sponsorAccent.withValues(alpha: 0.18),
                       borderRadius: AppRadius.sm,
                     ),
                     child: Icon(Icons.event_rounded, size: 18, color: context.sponsorAccent),
@@ -406,9 +407,13 @@ class _PledgeCard extends StatelessWidget {
       },
       child: Container(
         decoration: BoxDecoration(
-          color: AppTheme.cardOf(context),
+          color: Color.alphaBlend(
+            context.sponsorAccent.withValues(alpha: 0.04),
+            AppTheme.cardOf(context),
+          ),
           borderRadius: AppRadius.lg,
           boxShadow: AppShadow.card(isDark),
+          border: Border.all(color: AppTheme.dividerOf(context), width: 1.5),
         ),
         child: Column(
           children: [

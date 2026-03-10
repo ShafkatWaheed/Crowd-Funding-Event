@@ -4,6 +4,7 @@ import '../../../../config/design_tokens.dart';
 import '../../../../config/theme.dart';
 import '../../../../models/dashboard.dart';
 import '../../../../widgets/animated_list_item.dart';
+import '../../../../widgets/app_chip.dart';
 import 'dashboard_helpers.dart';
 
 class DashboardKpiSection extends StatelessWidget {
@@ -48,28 +49,19 @@ class DashboardKpiSection extends StatelessWidget {
                 const SizedBox(width: 10),
                 ...periodOptions.entries.map((e) => Padding(
                       padding: const EdgeInsets.only(right: 6),
-                      child: ChoiceChip(
-                        label: Text(e.value),
+                      child: AppChip(
+                        label: e.value,
                         selected: dashboardPeriod == e.key,
                         onSelected: (_) {
                           if (dashboardPeriod != e.key) {
                             onPeriodChanged(e.key);
                           }
                         },
-                        labelStyle: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: dashboardPeriod == e.key
-                              ? Colors.white
-                              : AppTheme.textSecondaryOf(context),
-                        ),
-                        selectedColor: AppTheme.accentColor,
-                        backgroundColor: AppTheme.surfaceOf(context),
-                        side: BorderSide.none,
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        materialTapTargetSize:
-                            MaterialTapTargetSize.shrinkWrap,
-                        visualDensity: VisualDensity.compact,
+                        chipColor: AppTheme.accentColor,
+                        fontSize: 12,
+                        compact: true,
+                        bgColor: AppTheme.surfaceOf(context),
+                        inactiveSide: BorderSide.none,
                       ),
                     )),
               ],

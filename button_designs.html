@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Button Designs</title>
+<style>
+/* ─── Reset & tokens ─── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+:root {
+  --accent:          #276EF1;
+  --accent-dark:     #1A55CC;
+  --accent-surf:     #EEF3FF;
+  --success:         #05944F;
+  --success-surf:    #E6F7EE;
+  --warning:         #FFC043;
+  --warn-surf:       #FFF8E1;
+  --error:           #E11900;
+  --error-surf:      #FFF0EE;
+  --pledge-a:        #FF8C00;
+  --pledge-b:        #FFC043;
+  --donate-a:        #E11900;
+  --donate-b:        #FF6B4A;
+  --text:            #141414;
+  --text-2:          #6B6B6B;
+  --text-3:          #9E9E9E;
+  --divider:         #E2E2E2;
+  --card:            #FFFFFF;
+  --surface:         #F6F6F6;
+  --radius-sm:       10px;
+  --radius-md:       14px;
+  --radius-lg:       20px;
+  --radius-pill:     100px;
+}
+
+/* ─── Desktop: outer shell ─── */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #E8ECF0;
+  min-height: 100dvh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 32px 16px 64px;
+  color: var(--text);
+  transition: background .3s;
+}
+body.dark { background: #0A0A0A; }
+
+/* ─── Phone shell (desktop only) ─── */
+.device {
+  width: 390px;
+  flex-shrink: 0;
+  background: #1A1A1A;
+  border-radius: 52px;
+  padding: 12px;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,.08),
+    0 40px 80px rgba(0,0,0,.4),
+    inset 0 0 0 1px rgba(255,255,255,.05);
+  position: relative;
+}
+.device-notch {
+  width: 120px; height: 34px;
+  background: #1A1A1A;
+  border-radius: 0 0 20px 20px;
+  margin: 0 auto 0;
+  position: absolute;
+  top: 12px; left: 50%; transform: translateX(-50%);
+  z-index: 10;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.notch-cam { width: 12px; height: 12px; background: #222; border-radius: 50%; border: 1px solid #333; }
+.notch-pill { width: 70px; height: 10px; background: #222; border-radius: 10px; }
+.device-screen {
+  background: var(--card);
+  border-radius: 40px;
+  overflow: hidden;
+  height: 780px;
+  display: flex;
+  flex-direction: column;
+  transition: background .3s;
+}
+.dark .device-screen { background: #121212; }
+
+/* ─── Controls bar (outside device) ─── */
+.controls {
+  position: fixed;
+  top: 20px; right: 20px;
+  display: flex; flex-direction: column; gap: 8px;
+  z-index: 100;
+}
+.ctrl-btn {
+  background: rgba(255,255,255,.9);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(0,0,0,.1);
+  border-radius: 12px;
+  padding: 8px 14px;
+  font-size: 12px; font-weight: 700;
+  cursor: pointer;
+  color: var(--text);
+  transition: all .2s;
+  white-space: nowrap;
+}
+body.dark .ctrl-btn { background: rgba(40,40,40,.9); color: #eee; border-color: rgba(255,255,255,.1); }
+.ctrl-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* ─── Status bar ─── */
+.status-bar {
+  height: 50px; padding: 14px 24px 0;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0;
+}
+.sb-time { font-size: 15px; font-weight: 700; }
+.sb-icons { display: flex; gap: 5px; align-items: center; font-size: 12px; }
+
+/* ─── Scrollable content area ─── */
+.screen-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 100px;
+}
+.screen-content::-webkit-scrollbar { display: none; }
+
+/* ─── Event hero ─── */
+.hero {
+  background: linear-gradient(160deg, #0F1730 0%, #276EF1 100%);
+  padding: 20px 20px 24px;
+  color: #fff;
+  position: relative;
+}
+.hero-back { font-size: 20px; margin-bottom: 16px; opacity: .7; cursor: pointer; }
+.genre-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: rgba(255,255,255,.15);
+  border-radius: var(--radius-pill);
+  padding: 4px 12px; font-size: 11px; font-weight: 700;
+  margin-bottom: 10px; letter-spacing: .03em;
+}
+.hero-title { font-size: 22px; font-weight: 800; line-height: 1.2; margin-bottom: 6px; }
+.hero-meta { font-size: 13px; opacity: .75; display: flex; gap: 12px; flex-wrap: wrap; }
+.hero-stat { display: flex; align-items: center; gap: 4px; }
+
+/* ─── Tab bar (option selector) ─── */
+.tab-bar {
+  display: flex;
+  gap: 6px;
+  padding: 14px 16px 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--divider);
+  background: var(--card);
+  transition: background .3s, border-color .3s;
+}
+.dark .tab-bar { background: #1E1E1E; border-color: #2C2C2C; }
+.tab-bar::-webkit-scrollbar { display: none; }
+.tab {
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  border: 1.5px solid var(--divider);
+  font-size: 12px; font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  color: var(--text-2);
+  background: transparent;
+  transition: all .2s;
+  flex-shrink: 0;
+}
+.dark .tab { border-color: #2C2C2C; color: #9E9E9E; }
+.tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.tab.recommend { border-color: var(--accent); color: var(--accent); }
+.tab.recommend.active { background: var(--accent); color: #fff; }
+
+/* ─── Option panels ─── */
+.option { display: none; padding: 20px 16px; }
+.option.active { display: block; }
+
+/* ─── Shared button base ─── */
+.btn {
+  width: 100%; border: none; border-radius: var(--radius-md);
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  font-size: 15px; font-weight: 700;
+  cursor: pointer;
+  transition: transform .12s, box-shadow .12s, opacity .15s;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.btn:active { transform: scale(.97); }
+.btn-lg { height: 52px; }
+.btn-md { height: 44px; font-size: 14px; }
+.btn-sm { height: 38px; font-size: 13px; }
+
+.btn-filled-accent  { background: var(--accent); color: #fff; box-shadow: 0 4px 16px rgba(39,110,241,.3); }
+.btn-filled-pledge  { background: linear-gradient(135deg,var(--pledge-a),var(--pledge-b)); color: #fff; box-shadow: 0 4px 16px rgba(255,140,0,.3); }
+.btn-filled-donate  { background: linear-gradient(135deg,var(--donate-a),var(--donate-b)); color: #fff; box-shadow: 0 4px 16px rgba(225,25,0,.25); }
+.btn-filled-success { background: var(--success); color: #fff; }
+.btn-outline        { background: transparent; border: 1.5px solid var(--divider); color: var(--text); }
+.btn-outline-accent { background: transparent; border: 2px solid var(--accent); color: var(--accent); }
+.btn-ghost          { background: transparent; color: var(--text-2); font-size: 13px; font-weight: 500; height: 36px; text-decoration: underline; }
+.btn-destructive    { background: var(--error-surf); border: 2px solid var(--error); color: var(--error); }
+
+.dark .btn-outline { border-color: #2C2C2C; color: #EAEAEA; }
+
+/* gradient border button */
+.btn-pledge-outline {
+  width: 100%; height: 52px; border-radius: var(--radius-md);
+  border: 2.5px solid transparent;
+  background: linear-gradient(var(--card), var(--card)) padding-box,
+              linear-gradient(135deg, var(--pledge-a), var(--pledge-b)) border-box;
+  color: var(--pledge-a); font-size: 15px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  cursor: pointer; transition: transform .12s;
+}
+.dark .btn-pledge-outline { background: linear-gradient(#1E1E1E,#1E1E1E) padding-box, linear-gradient(135deg,var(--pledge-a),var(--pledge-b)) border-box; }
+.btn-pledge-outline:active { transform: scale(.97); }
+
+/* pill variant */
+.btn-pill { border-radius: var(--radius-pill) !important; }
+
+/* ─── Glow animation ─── */
+.glow-wrap { position: relative; }
+.glow-wrap::before {
+  content: '';
+  position: absolute; inset: -4px;
+  border-radius: calc(var(--radius-md) + 4px);
+  background: linear-gradient(135deg, var(--accent), #5B8DEF);
+  opacity: .22; filter: blur(10px);
+  animation: glow 2.4s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes glow { 0%,100%{opacity:.18;transform:scale(1)} 50%{opacity:.36;transform:scale(1.03)} }
+
+/* ─── Status chip ─── */
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  border-radius: var(--radius-pill);
+  padding: 5px 12px; font-size: 12px; font-weight: 700;
+}
+.chip-success { background: var(--success-surf); color: var(--success); }
+.chip-warn    { background: var(--warn-surf); color: #9A6B00; }
+.chip .dot    { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+/* ─── Card ─── */
+.card {
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  border: 1px solid var(--divider);
+  margin-bottom: 12px;
+  transition: background .3s, border-color .3s;
+}
+.dark .card { background: #1E1E1E; border-color: #2C2C2C; }
+
+/* ─── Body text in options ─── */
+.body-text { font-size: 13px; color: var(--text-2); line-height: 1.6; margin-bottom: 16px; }
+.dark .body-text { color: #9E9E9E; }
+.section-title { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); margin-bottom: 10px; }
+
+/* ─── Row helpers ─── */
+.row { display: flex; gap: 10px; }
+.row > * { flex: 1; }
+.col { display: flex; flex-direction: column; gap: 10px; }
+.mt8 { margin-top: 8px; }
+.mt12 { margin-top: 12px; }
+.mt16 { margin-top: 16px; }
+
+/* ─── Swipeable unpledge row (Option E) ─── */
+.swipe-row {
+  background: var(--warn-surf);
+  border-radius: var(--radius-md);
+  padding: 13px 16px;
+  display: flex; align-items: center; gap: 12px;
+  border: 1px solid var(--warning);
+  position: relative; overflow: hidden;
+  cursor: pointer;
+  transition: transform .2s;
+}
+.swipe-row:active { transform: translateX(-8px); }
+.swipe-icon { font-size: 22px; }
+.swipe-texts { flex: 1; }
+.swipe-title { font-size: 14px; font-weight: 700; color: var(--text); }
+.swipe-hint  { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+.swipe-caret { font-size: 20px; color: var(--warning); }
+.dark .swipe-row { background: #2A2210; border-color: #3D3210; }
+.dark .swipe-title { color: #EAEAEA; }
+
+/* ─── Morph button (Option C) ─── */
+#morphReg, #morphPledge {
+  width: 100%; height: 52px; border-radius: var(--radius-md); border: none;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  font-size: 15px; font-weight: 700;
+  cursor: pointer;
+  transition: background .35s cubic-bezier(.34,1.56,.64,1),
+              color .25s, border .25s, transform .12s;
+}
+#morphReg:active, #morphPledge:active { transform: scale(.97); }
+
+/* ─── Bottom action strip (Option D) ─── */
+.bottom-strip {
+  position: sticky;
+  bottom: 0; left: 0; right: 0;
+  background: rgba(255,255,255,.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid rgba(0,0,0,.07);
+  padding: 10px 16px 18px;
+  display: flex; gap: 8px;
+  transition: background .3s;
+}
+.dark .bottom-strip { background: rgba(18,18,18,.88); border-color: rgba(255,255,255,.07); }
+.strip-btn {
+  flex: 1; height: 52px; border-radius: var(--radius-md); border: none;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  cursor: pointer; transition: transform .12s;
+  font-size: 11px; font-weight: 700;
+}
+.strip-btn:active { transform: scale(.94); }
+.strip-btn .sicon { font-size: 18px; margin-bottom: 1px; }
+.sb-register { background: var(--accent); color: #fff; flex: 1.5; }
+.sb-pledge   { background: linear-gradient(135deg,var(--pledge-a),var(--pledge-b)); color: #fff; }
+.sb-donate   { background: linear-gradient(135deg,var(--donate-a),var(--donate-b)); color: #fff; }
+
+/* ─── State flow diagram ─── */
+.flow {
+  display: flex; align-items: center; gap: 6px;
+  overflow-x: auto; padding: 4px 0;
+  scrollbar-width: none;
+}
+.flow::-webkit-scrollbar { display: none; }
+.flow-step {
+  flex-shrink: 0;
+  height: 36px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 12px; font-size: 11px; font-weight: 700; gap: 4px;
+}
+.flow-arrow { color: var(--text-3); font-size: 14px; flex-shrink: 0; }
+
+/* ─── Recommended badge ─── */
+.rec-badge {
+  display: inline-block;
+  background: linear-gradient(135deg,#276EF1,#05944F);
+  color: #fff; font-size: 10px; font-weight: 800;
+  padding: 2px 8px; border-radius: 20px;
+  letter-spacing: .05em; text-transform: uppercase;
+  vertical-align: middle; margin-left: 6px;
+}
+
+/* ─── Note box ─── */
+.note {
+  background: var(--accent-surf);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: 10px 14px;
+  font-size: 12px; line-height: 1.6;
+  color: var(--text); margin-top: 16px;
+}
+.dark .note { background: #1A2340; color: #EAEAEA; }
+
+/* ─── MOBILE: full screen, no device shell ─── */
+@media (max-width: 430px) {
+  body { padding: 0; background: var(--card); align-items: stretch; }
+  body.dark { background: #121212; }
+  .device { width: 100%; background: none; border-radius: 0; padding: 0; box-shadow: none; }
+  .device-notch { display: none; }
+  .device-screen { border-radius: 0; height: auto; min-height: 100dvh; }
+  .controls { top: auto; bottom: 16px; right: 12px; flex-direction: row; }
+  .ctrl-btn { font-size: 11px; padding: 7px 10px; }
+}
+</style>
+</head>
+<body id="body">
+
+<!-- Controls -->
+<div class="controls">
+  <button class="ctrl-btn active" id="themeBtn" onclick="toggleTheme()">☀️ Light</button>
+</div>
+
+<!-- Device frame -->
+<div class="device">
+  <div class="device-notch">
+    <div class="notch-cam"></div>
+    <div class="notch-pill"></div>
+  </div>
+
+  <div class="device-screen">
+
+    <!-- Status bar -->
+    <div class="status-bar">
+      <span class="sb-time">9:41</span>
+      <div class="sb-icons">
+        <span>●●●</span>
+        <span>WiFi</span>
+        <span>🔋</span>
+      </div>
+    </div>
+
+    <!-- Hero (shared) -->
+    <div class="hero">
+      <div class="hero-back">‹</div>
+      <div class="genre-chip">🎵 Music</div>
+      <div class="hero-title">Summer Groove Festival 2026</div>
+      <div class="hero-meta">
+        <span class="hero-stat">📅 Aug 14</span>
+        <span class="hero-stat">📍 Toronto</span>
+        <span class="hero-stat">🎟 Selling Tickets</span>
+      </div>
+    </div>
+
+    <!-- Tab bar -->
+    <div class="tab-bar">
+      <div class="tab active"   onclick="sw('a')">A — Emotional</div>
+      <div class="tab"          onclick="sw('b')">B — Hierarchy</div>
+      <div class="tab"          onclick="sw('c')">C — Morph</div>
+      <div class="tab recommend" onclick="sw('d')">D — Strip ★</div>
+      <div class="tab"          onclick="sw('e')">E — Polish</div>
+    </div>
+
+    <!-- ═══ OPTION A ═══ -->
+    <div class="option active" id="opt-a">
+      <div class="section-title">Emotional / Action-weight</div>
+      <div class="col">
+        <button class="btn btn-lg btn-filled-accent btn-pill">🎉 &nbsp;Join Event</button>
+        <button class="btn btn-lg btn-filled-pledge btn-pill">🤍 &nbsp;Pledge Support</button>
+        <button class="btn btn-lg btn-filled-donate btn-pill">♥ &nbsp;Donate Now</button>
+        <button class="btn btn-ghost" style="margin-top:4px">withdraw pledge</button>
+      </div>
+      <div class="note">
+        <strong>Blue = commitment, Amber = generosity, Red = urgency.</strong><br>
+        Each action has its own color weight. Unpledge is a plain text link — visible but not promoted.
+      </div>
+    </div>
+
+    <!-- ═══ OPTION B ═══ -->
+    <div class="option" id="opt-b">
+      <div class="section-title">Single CTA + contextual secondary</div>
+      <span class="chip chip-success"><span class="dot"></span> You're registered</span>
+      <div class="col mt12">
+        <button class="btn btn-lg btn-filled-accent" style="justify-content:space-between;padding:0 20px">
+          <span style="display:flex;align-items:center;gap:8px">🤍 Pledge Support</span>
+          <span style="font-size:12px;opacity:.75;background:rgba(255,255,255,.2);border-radius:8px;padding:3px 10px">$25 min</span>
+        </button>
+        <div class="row">
+          <button class="btn btn-md btn-outline">🎟 Buy Tickets</button>
+          <button class="btn btn-md btn-outline" style="border-color:var(--error);color:var(--error)">♥ Donate</button>
+        </div>
+        <button class="btn btn-ghost">withdraw pledge</button>
+      </div>
+      <div class="note">
+        Registration becomes a status chip once confirmed — not a button. One dominant CTA, two equal secondaries. Withdraw is a text link only shown when pledged.
+      </div>
+    </div>
+
+    <!-- ═══ OPTION C ═══ -->
+    <div class="option" id="opt-c">
+      <div class="section-title">Morphing state machine — tap to cycle</div>
+
+      <div class="card">
+        <div class="body-text" style="margin-bottom:10px">Register button</div>
+        <button id="morphReg" onclick="cycleReg()" style="background:var(--accent);color:#fff">
+          <span id="rIcon">🎟</span><span id="rLabel">Register</span>
+        </button>
+        <div class="flow mt12">
+          <div class="flow-step" style="background:var(--accent);color:#fff">🎟 Register</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step" style="background:var(--success);color:#fff">✓ Registered</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step" style="background:var(--error-surf);border:2px solid var(--error);color:var(--error)">✕ Leave</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="body-text" style="margin-bottom:10px">Pledge button</div>
+        <button id="morphPledge" onclick="cyclePledge()" style="background:linear-gradient(135deg,#FF8C00,#FFC043);color:#fff">
+          <span id="pIcon">🤍</span><span id="pLabel">Pledge Support</span>
+        </button>
+        <div class="flow mt12">
+          <div class="flow-step" style="background:linear-gradient(135deg,#FF8C00,#FFC043);color:#fff">🤍 Pledge</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step" style="background:var(--success);color:#fff">$25 ✓</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step" style="background:var(--error-surf);border:2px solid var(--error);color:var(--error)">↩ Withdraw</div>
+        </div>
+      </div>
+
+      <div class="note">Label, icon, and color transition in place — no navigation needed to confirm state. Tap the buttons above.</div>
+    </div>
+
+    <!-- ═══ OPTION D — RECOMMENDED ═══ -->
+    <div class="option" id="opt-d">
+      <div style="display:flex;align-items:center;margin-bottom:12px">
+        <span class="section-title" style="margin-bottom:0">Persistent bottom strip</span>
+        <span class="rec-badge">Recommended</span>
+      </div>
+
+      <div class="body-text">The event detail content scrolls freely. Actions are always reachable — pinned to the bottom. Unpledge lives inside the pledge bottom sheet, not on screen.</div>
+
+      <div class="card">
+        <div class="section-title">Content area (scrollable)</div>
+        <div style="font-size:13px;color:var(--text-2);line-height:1.7">
+          About this event<br><br>
+          Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Event details, performers, schedule, venue map, reviews…<br><br>
+          <em>↑ All of this scrolls freely</em>
+        </div>
+      </div>
+
+      <div class="bottom-strip" style="position:relative;margin:0 -16px;padding-left:16px;padding-right:16px">
+        <button class="strip-btn sb-register" onclick="toggleReg()">
+          <span class="sicon" id="stripRegIcon">🎟</span>
+          <span id="stripRegLabel">Register</span>
+        </button>
+        <button class="strip-btn sb-pledge">
+          <span class="sicon">🤍</span>
+          <span>Pledge</span>
+        </button>
+        <button class="strip-btn sb-donate">
+          <span class="sicon">♥</span>
+          <span>Donate</span>
+        </button>
+      </div>
+
+      <div class="note mt12">Tap Register above to see the morph. In the real app this strip stays fixed at the very bottom of the screen even while scrolling.</div>
+    </div>
+
+    <!-- ═══ OPTION E ═══ -->
+    <div class="option" id="opt-e">
+      <div class="section-title">Current layout + micro-interaction polish</div>
+      <div class="col">
+        <div class="glow-wrap">
+          <button class="btn btn-lg btn-filled-accent">🎟 &nbsp;Register for this Event</button>
+        </div>
+        <button class="btn-pledge-outline">🤍 &nbsp;Pledge Support</button>
+        <div class="swipe-row">
+          <span class="swipe-icon">💸</span>
+          <div class="swipe-texts">
+            <div class="swipe-title">$25 pledged</div>
+            <div class="swipe-hint">Swipe left to withdraw</div>
+          </div>
+          <span class="swipe-caret">‹</span>
+        </div>
+        <button class="btn btn-md btn-filled-donate">♥ &nbsp;Donate</button>
+      </div>
+      <div class="note">
+        Least invasive — same layout, big feel upgrade.<br>
+        • Register <strong>pulses</strong> to draw attention<br>
+        • Pledge uses gradient border to differ from register<br>
+        • Unpledge is a <strong>swipeable row</strong> — intentional gesture, no accidental taps<br>
+        • Swipe the amber row left to reveal withdraw
+      </div>
+    </div>
+
+  </div><!-- /device-screen -->
+</div><!-- /device -->
+
+<script>
+  // ─── Tab switching
+  function sw(id) {
+    document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['a','b','c','d','e'][i]===id));
+    document.querySelectorAll('.option').forEach(o=>o.classList.remove('active'));
+    document.getElementById('opt-'+id).classList.add('active');
+  }
+
+  // ─── Dark mode
+  function toggleTheme() {
+    const dark = document.body.classList.toggle('dark');
+    document.getElementById('themeBtn').textContent = dark ? '🌙 Dark' : '☀️ Light';
+    document.getElementById('themeBtn').classList.toggle('active', !dark);
+  }
+
+  // ─── Option C: Register morph
+  let rState = 0;
+  const rStates = [
+    { icon:'🎟', label:'Register',   bg:'var(--accent)', color:'#fff', border:'none' },
+    { icon:'✓',  label:'Registered', bg:'var(--success)', color:'#fff', border:'none' },
+    { icon:'✕',  label:'Leave Event',bg:'var(--error-surf)', color:'var(--error)', border:'2px solid var(--error)' },
+  ];
+  function cycleReg() {
+    rState = (rState+1)%3;
+    const s = rStates[rState];
+    const b = document.getElementById('morphReg');
+    b.style.background=s.bg; b.style.color=s.color; b.style.border=s.border;
+    document.getElementById('rIcon').textContent=s.icon;
+    document.getElementById('rLabel').textContent=s.label;
+  }
+
+  // ─── Option C: Pledge morph
+  let pState = 0;
+  const pStates = [
+    { icon:'🤍', label:'Pledge Support',  bg:'linear-gradient(135deg,#FF8C00,#FFC043)', color:'#fff', border:'none' },
+    { icon:'✓',  label:'$25 Pledged',     bg:'var(--success)', color:'#fff', border:'none' },
+    { icon:'↩',  label:'Withdraw Pledge', bg:'var(--error-surf)', color:'var(--error)', border:'2px solid var(--error)' },
+  ];
+  function cyclePledge() {
+    pState = (pState+1)%3;
+    const s = pStates[pState];
+    const b = document.getElementById('morphPledge');
+    b.style.background=s.bg; b.style.color=s.color; b.style.border=s.border;
+    document.getElementById('pIcon').textContent=s.icon;
+    document.getElementById('pLabel').textContent=s.label;
+  }
+
+  // ─── Option D: Register toggle in strip
+  let regDone = false;
+  function toggleReg() {
+    regDone = !regDone;
+    const btn = document.querySelector('.sb-register');
+    const icon = document.getElementById('stripRegIcon');
+    const label = document.getElementById('stripRegLabel');
+    if (regDone) {
+      btn.style.background = 'var(--success)';
+      icon.textContent = '✓';
+      label.textContent = 'Registered';
+    } else {
+      btn.style.background = 'var(--accent)';
+      icon.textContent = '🎟';
+      label.textContent = 'Register';
+    }
+  }
+</script>
+</body>
+</html>

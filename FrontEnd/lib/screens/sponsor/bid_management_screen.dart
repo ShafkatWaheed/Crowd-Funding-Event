@@ -7,6 +7,7 @@ import '../../models/sponsor.dart';
 import '../../repositories/base_repository.dart';
 import '../../providers/sponsor_provider.dart';
 import '../../widgets/app_toast.dart';
+import '../../widgets/app_chip.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../profile/sponsor_profile_screen.dart';
 
@@ -197,31 +198,17 @@ class _BidManagementScreenState extends State<BidManagementScreen> {
                       final count = counts[s] ?? 0;
                       return Padding(
                         padding: const EdgeInsets.only(right: 8),
-                        child: ChoiceChip(
-                          label: Text('${_statusLabel(s)} ($count)'),
+                        child: AppChip(
+                          label: '${_statusLabel(s)} ($count)',
                           selected: isActive,
                           onSelected: (selected) {
                             setState(() {
                               _statusFilter = selected ? s : null;
                             });
                           },
-                          selectedColor: color,
-                          backgroundColor: AppTheme.cardOf(context),
-                          side: BorderSide(
-                            color: isActive
-                                ? color
-                                : AppTheme.dividerOf(context),
-                          ),
-                          labelStyle: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: isActive
-                                ? Colors.white
-                                : AppTheme.textPrimaryOf(context),
-                          ),
-                          materialTapTargetSize:
-                              MaterialTapTargetSize.shrinkWrap,
-                          visualDensity: VisualDensity.compact,
+                          chipColor: color,
+                          fontSize: 12,
+                          compact: true,
                         ),
                       );
                     }).toList(),

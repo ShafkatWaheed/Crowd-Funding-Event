@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Event Detail Icon Suggestions</title>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0f0f0f; color: #f0f0f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 32px; }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  .subtitle { color: #888; font-size: 13px; margin-bottom: 40px; }
+  h2 { font-size: 14px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #666; margin-bottom: 16px; margin-top: 40px; }
+  .card { background: #1a1a1a; border-radius: 16px; padding: 20px; border: 1px solid #2a2a2a; }
+  .row { display: flex; align-items: center; gap: 14px; padding: 10px 0; border-bottom: 1px solid #222; }
+  .row:last-child { border-bottom: none; }
+  .icon-wrap { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .material-icons-round { font-size: 20px; }
+  .label { flex: 1; }
+  .field { font-size: 13px; font-weight: 600; color: #f0f0f0; }
+  .desc { font-size: 12px; color: #666; margin-top: 2px; }
+  .old-icon { font-size: 11px; color: #555; display: flex; align-items: center; gap: 4px; margin-top: 3px; }
+  .new-badge { font-size: 10px; font-weight: 700; background: #1e3a1e; color: #4ade80; padding: 2px 7px; border-radius: 4px; margin-left: 6px; }
+  .same-badge { font-size: 10px; font-weight: 700; background: #1a1a2e; color: #6b7280; padding: 2px 7px; border-radius: 4px; margin-left: 6px; }
+  .fix-badge { font-size: 10px; font-weight: 700; background: #3a1e1e; color: #f87171; padding: 2px 7px; border-radius: 4px; margin-left: 6px; }
+
+  .green  { background: rgba(5,148,79,.15);  color: #05944F; }
+  .grey   { background: rgba(158,158,158,.12); color: #9E9E9E; }
+  .orange { background: rgba(255,140,0,.15);  color: #FF8C00; }
+  .blue   { background: rgba(39,110,241,.15); color: #276EF1; }
+  .cyan   { background: rgba(8,145,178,.15);  color: #0891B2; }
+  .teal   { background: rgba(13,148,136,.15); color: #0D9488; }
+  .amber  { background: rgba(255,192,67,.15); color: #FFC043; }
+  .purple { background: rgba(147,51,234,.15); color: #9333EA; }
+  .red    { background: rgba(225,25,0,.15);   color: #E11900; }
+  .muted  { background: rgba(255,255,255,.05); color: #9E9E9E; }
+</style>
+</head>
+<body>
+
+<h1>Event Detail Icon Suggestions</h1>
+<p class="subtitle">Proposed icon + color changes for event_details_card, getting_there_card, and event_card</p>
+
+<!-- EVENT DETAILS CARD -->
+<h2>Event Details Card</h2>
+<div class="card">
+
+  <div class="row">
+    <div class="icon-wrap green"><span class="material-icons-round">play_circle</span></div>
+    <div class="label">
+      <div class="field">Starts <span class="new-badge">NEW ICON</span></div>
+      <div class="old-icon">was: event_rounded (no color) → now green</div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="icon-wrap grey"><span class="material-icons-round">stop_circle</span></div>
+    <div class="label">
+      <div class="field">Ends <span class="new-badge">NEW ICON</span></div>
+      <div class="old-icon">was: event_available_rounded (no color) → now grey</div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="icon-wrap orange"><span class="material-icons-round">calendar_month</span></div>
+    <div class="label">
+      <div class="field">Date — Announced after funding <span class="new-badge">NEW ICON</span></div>
+      <div class="old-icon">was: schedule_rounded → now orange</div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="icon-wrap blue"><span class="material-icons-round">groups</span></div>
+    <div class="label">
+      <div class="field">Capacity <span class="new-badge">NEW ICON</span></div>
+      <div class="old-icon">was: people_alt_rounded → blue, turns red when full</div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="icon-wrap cyan"><span class="material-icons-round">confirmation_number</span></div>
+    <div class="label">
+      <div class="field">Tickets Sold <span class="same-badge">KEEP ICON</span></div>
+      <div class="old-icon">add cyan color → turns red when sold out</div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="icon-wrap teal"><span class="material-icons-round">how_to_reg</span></div>
+    <div class="label">
+      <div class="field">Registration Type <span class="new-badge">NEW ICON</span></div>
+      <div class="old-icon">was: badge_rounded → now teal</div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="icon-wrap amber"><span class="material-icons-round">timer</span></div>
+    <div class="label">
+      <div class="field">Set Event Date By <span class="new-badge">NEW ICON</span></div>
+      <div class="old-icon">was: hourglass_bottom_rounded → now amber</div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="icon-wrap purple"><span class="material-icons-round">layers</span></div>
+    <div class="label">
+      <div class="field">Ticket Strategy <span class="fix-badge">FIXES DUPLICATE</span></div>
+      <div class="old-icon">was: confirmation_number_rounded ← same as Tickets Sold above → now purple layers</div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="icon-wrap green"><span class="material-icons-round">assignment_return</span></div>
+    <div class="label">
+      <div class="field">Refund Deadline <span class="new-badge">NEW ICON</span></div>
+      <div class="old-icon">was: shield_rounded → now green assignment_return</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- GETTING THERE CARD -->
+<h2>Getting There Card</h2>
+<div class="card">
+
+  <div class="row">
+    <div class="icon-wrap blue"><span class="material-icons-round">near_me</span></div>
+    <div class="label">
+      <div class="field">Section Header <span class="new-badge">NEW ICON</span></div>
+      <div class="old-icon">was: directions_rounded (no color) → accent blue</div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="icon-wrap blue"><span class="material-icons-round">location_city</span></div>
+    <div class="label">
+      <div class="field">Venue Name <span class="new-badge">NEW ICON</span></div>
+      <div class="old-icon">was: place_rounded (no color) → blue</div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="icon-wrap red"><span class="material-icons-round">pin_drop</span></div>
+    <div class="label">
+      <div class="field">Address <span class="new-badge">NEW ICON</span></div>
+      <div class="old-icon">was: map_outlined (no color) → red</div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="icon-wrap blue"><span class="material-icons-round">local_parking</span></div>
+    <div class="label">
+      <div class="field">Parking <span class="same-badge">KEEP ICON</span></div>
+      <div class="old-icon">add blue color</div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="icon-wrap green"><span class="material-icons-round">train</span></div>
+    <div class="label">
+      <div class="field">Transit <span class="new-badge">NEW ICON</span></div>
+      <div class="old-icon">was: directions_transit_rounded (no color) → green</div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="icon-wrap amber"><span class="material-icons-round">local_taxi</span></div>
+    <div class="label">
+      <div class="field">Rideshare <span class="same-badge">KEEP ICON</span></div>
+      <div class="old-icon">add amber color</div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="icon-wrap teal"><span class="material-icons-round">accessible</span></div>
+    <div class="label">
+      <div class="field">Accessibility <span class="same-badge">KEEP ICON</span></div>
+      <div class="old-icon">add teal color</div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="icon-wrap blue"><span class="material-icons-round">near_me</span></div>
+    <div class="label">
+      <div class="field">Get Directions Button <span class="new-badge">NEW ICON</span></div>
+      <div class="old-icon">was: navigation_rounded</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- EVENT CARD -->
+<h2>Event Card (info rows + stat chips)</h2>
+<div class="card">
+
+  <div class="row">
+    <div class="icon-wrap muted"><span class="material-icons-round">access_time</span></div>
+    <div class="label">
+      <div class="field">Time <span class="new-badge">NEW ICON</span></div>
+      <div class="old-icon">was: schedule_rounded</div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="icon-wrap muted"><span class="material-icons-round">location_on</span></div>
+    <div class="label">
+      <div class="field">Venue <span class="same-badge">KEEP</span></div>
+      <div class="old-icon">no change</div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="icon-wrap red" style="opacity:.8"><span class="material-icons-round">favorite</span></div>
+    <div class="label">
+      <div class="field">Likes stat chip <span class="new-badge">ADD COLOR</span></div>
+      <div class="old-icon">icon had no color → now red tint</div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="icon-wrap blue" style="opacity:.8"><span class="material-icons-round">group</span></div>
+    <div class="label">
+      <div class="field">Attendees stat chip <span class="new-badge">ADD COLOR</span></div>
+      <div class="old-icon">icon had no color → now blue tint</div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="icon-wrap cyan"><span class="material-icons-round">confirmation_number</span></div>
+    <div class="label">
+      <div class="field">Tickets stat chip <span class="new-badge">ADD COLOR</span></div>
+      <div class="old-icon">icon had no color → cyan, turns red when sold out</div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

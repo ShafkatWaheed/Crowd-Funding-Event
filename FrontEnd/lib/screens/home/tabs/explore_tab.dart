@@ -15,6 +15,7 @@ import '../../../widgets/empty_state.dart';
 import '../../../widgets/error_state.dart';
 import '../../../widgets/event_card.dart';
 import '../../../widgets/event_map_widget.dart';
+import '../../../widgets/app_chip.dart';
 import '../../../widgets/shimmer_loaders.dart';
 
 class ExploreTab extends StatefulWidget {
@@ -377,15 +378,8 @@ class _ExploreTabState extends State<ExploreTab> {
                                 padding: const EdgeInsets.only(
                                   right: AppSpacing.sm,
                                 ),
-                                child: ChoiceChip(
-                                  avatar: Icon(
-                                    statusChipIcon(s),
-                                    size: 14,
-                                    color: isActive
-                                        ? Colors.white
-                                        : statusChipColor(context, s),
-                                  ),
-                                  label: Text(statusDisplayName(s)),
+                                child: AppChip(
+                                  label: statusDisplayName(s),
                                   selected: isActive,
                                   onSelected: (selected) {
                                     setState(() {
@@ -393,23 +387,10 @@ class _ExploreTabState extends State<ExploreTab> {
                                     });
                                     _applyFilters();
                                   },
-                                  selectedColor: statusChipColor(context, s),
-                                  backgroundColor: AppTheme.cardOf(context),
-                                  side: BorderSide(
-                                    color: isActive
-                                        ? statusChipColor(context, s)
-                                        : AppTheme.dividerOf(context),
-                                  ),
-                                  labelStyle: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: isActive
-                                        ? Colors.white
-                                        : AppTheme.textPrimaryOf(context),
-                                  ),
-                                  materialTapTargetSize:
-                                      MaterialTapTargetSize.shrinkWrap,
-                                  visualDensity: VisualDensity.compact,
+                                  chipColor: statusChipColor(context, s),
+                                  avatarIcon: statusChipIcon(s),
+                                  fontSize: 12,
+                                  compact: true,
                                 ),
                               );
                             }).toList(),

@@ -22,29 +22,29 @@ List<_Step> _stepsForEvent(Event event) {
 
   if (hasFunding && hasEventDate) {
     return [
-      _Step('Published', Icons.check_circle_outline, EventStatus.approved),
-      _Step('Funding', Icons.volunteer_activism, EventStatus.approved,
+      _Step('Published', Icons.check_circle_rounded, EventStatus.approved),
+      _Step('Funding', Icons.volunteer_activism_rounded, EventStatus.approved,
           isFundingActive: true),
-      _Step('Tickets', Icons.confirmation_number, EventStatus.selling_tickets),
-      _Step('Live', Icons.play_circle_filled, EventStatus.live),
-      _Step('Done', Icons.flag, EventStatus.completed),
+      _Step('Tickets', Icons.confirmation_number_rounded, EventStatus.selling_tickets),
+      _Step('Live', Icons.play_circle_rounded, EventStatus.live),
+      _Step('Done', Icons.flag_rounded, EventStatus.completed),
     ];
   } else if (hasFunding && !hasEventDate) {
     return [
-      _Step('Published', Icons.check_circle_outline, EventStatus.approved),
-      _Step('Funding', Icons.volunteer_activism, EventStatus.approved,
+      _Step('Published', Icons.check_circle_rounded, EventStatus.approved),
+      _Step('Funding', Icons.volunteer_activism_rounded, EventStatus.approved,
           isFundingActive: true),
-      _Step('Set Date', Icons.calendar_month, EventStatus.waiting_event_date),
-      _Step('Tickets', Icons.confirmation_number, EventStatus.selling_tickets),
-      _Step('Live', Icons.play_circle_filled, EventStatus.live),
-      _Step('Done', Icons.flag, EventStatus.completed),
+      _Step('Set Date', Icons.calendar_month_rounded, EventStatus.waiting_event_date),
+      _Step('Tickets', Icons.confirmation_number_rounded, EventStatus.selling_tickets),
+      _Step('Live', Icons.play_circle_rounded, EventStatus.live),
+      _Step('Done', Icons.flag_rounded, EventStatus.completed),
     ];
   } else {
     return [
-      _Step('Published', Icons.check_circle_outline, EventStatus.approved),
-      _Step('Tickets', Icons.confirmation_number, EventStatus.selling_tickets),
-      _Step('Live', Icons.play_circle_filled, EventStatus.live),
-      _Step('Done', Icons.flag, EventStatus.completed),
+      _Step('Published', Icons.check_circle_rounded, EventStatus.approved),
+      _Step('Tickets', Icons.confirmation_number_rounded, EventStatus.selling_tickets),
+      _Step('Live', Icons.play_circle_rounded, EventStatus.live),
+      _Step('Done', Icons.flag_rounded, EventStatus.completed),
     ];
   }
 }
@@ -95,10 +95,10 @@ class EventLifecycleBar extends StatelessWidget {
   }
 }
 
-// ─── EventLifecycleBreadcrumb (Lifecycle B — scrollable pills + progress bar) ───
+// ─── EventLifecycleBreadcrumb (full-width stepper with icon circles) ───
 
-/// Compact lifecycle breadcrumb: thin progress bar + horizontal scrollable step pills.
-/// Designed to sit inside the floating title card on the event detail screen.
+/// Full-width lifecycle stepper that fills the title card horizontally.
+/// Each step shows a coloured icon circle + label; steps are connected by lines.
 class EventLifecycleBreadcrumb extends StatelessWidget {
   final Event event;
 
@@ -111,121 +111,144 @@ class EventLifecycleBreadcrumb extends StatelessWidget {
 
     if (activeIndex == -1) return const SizedBox.shrink();
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final currentStep = steps[activeIndex];
-    final progress = (activeIndex + 1) / steps.length;
     final activeColor = _stepActiveColor(context, currentStep);
 
-    return Column(
+    return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Thin progress bar
-        ClipRRect(
-          borderRadius: BorderRadius.circular(2),
-          child: LinearProgressIndicator(
-            value: progress,
-            minHeight: 3,
-            backgroundColor: AppTheme.dividerOf(context),
-            valueColor: AlwaysStoppedAnimation<Color>(activeColor),
+      children: List.generate(steps.length, (i) {
+        final step = steps[i];
+        final stepColor = _stepActiveColor(context, step);
+        final isActive = i <= activeIndex;
+        final isCurrent = i == activeIndex;
+        final isPast = i < activeIndex;
+
+        return Expanded(
+          child: _BreadcrumbStep(
+            step: step,
+            stepColor: stepColor,
+            activeColor: activeColor,
+            isActive: isActive,
+            isCurrent: isCurrent,
+            isPast: isPast,
+            isFirst: i == 0,
+            isLast: i == steps.length - 1,
+            isDark: isDark,
           ),
-        ),
-        const SizedBox(height: 10),
-        // Scrollable step pills
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: List.generate(steps.length, (i) {
-              final step = steps[i];
-              final isActive = i <= activeIndex;
-              final isCurrent = i == activeIndex;
-              return _BreadcrumbPill(
-                step: step,
-                isActive: isActive,
-                isCurrent: isCurrent,
-                activeColor: activeColor,
-                isLast: i == steps.length - 1,
-              );
-            }),
-          ),
-        ),
-      ],
+        );
+      }),
     );
   }
 }
 
-class _BreadcrumbPill extends StatelessWidget {
+class _BreadcrumbStep extends StatelessWidget {
   final _Step step;
+  final Color stepColor;
+  final Color activeColor;
   final bool isActive;
   final bool isCurrent;
-  final Color activeColor;
+  final bool isPast;
+  final bool isFirst;
   final bool isLast;
+  final bool isDark;
 
-  const _BreadcrumbPill({
+  const _BreadcrumbStep({
     required this.step,
+    required this.stepColor,
+    required this.activeColor,
     required this.isActive,
     required this.isCurrent,
-    required this.activeColor,
+    required this.isPast,
+    required this.isFirst,
     required this.isLast,
+    required this.isDark,
   });
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final Color bg = isCurrent
-        ? activeColor
-        : isActive
-            // past: very subtle fill (matches combined_design.html rgba(0,0,0,.05))
-            ? (isDark
-                ? Colors.white.withValues(alpha: 0.08)
-                : Colors.black.withValues(alpha: 0.05))
-            : Colors.transparent; // future: no background
-    final Color fg = isCurrent
+    // Circle colours
+    final Color circleBg = isCurrent
+        ? stepColor
+        : isPast
+            ? stepColor.withValues(alpha: isDark ? 0.22 : 0.14)
+            : AppTheme.dividerOf(context).withValues(alpha: isDark ? 0.6 : 1.0);
+    final Color iconColor = isCurrent
         ? Colors.white
-        : isActive
-            ? (isDark
-                ? AppTheme.textSecondaryOf(context)
-                : const Color(0xFF5C5C5C))
-            : AppTheme.textSecondaryOf(context).withValues(alpha: 0.55);
+        : isPast
+            ? stepColor
+            : AppTheme.textSecondaryOf(context).withValues(alpha: 0.45);
+    final Color labelColor = isCurrent
+        ? stepColor
+        : isPast
+            ? AppTheme.textSecondaryOf(context)
+            : AppTheme.textSecondaryOf(context).withValues(alpha: 0.45);
 
-    return Row(
+    final IconData icon = isPast ? Icons.check_rounded : step.icon;
+
+    // Connector line colour
+    final Color connectorColor = isPast
+        ? activeColor.withValues(alpha: 0.35)
+        : AppTheme.dividerOf(context);
+
+    return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeOut,
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                isCurrent ? step.icon : (isActive ? Icons.check : step.icon),
-                size: 12,
-                color: fg,
+        // Circle + connector row
+        Row(
+          children: [
+            // Left connector
+            Expanded(
+              child: Container(
+                height: 1.5,
+                color: isFirst ? Colors.transparent : connectorColor,
               ),
-              const SizedBox(width: 4),
-              Text(
-                step.label,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
-                  color: fg,
-                ),
+            ),
+            // Icon circle
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: circleBg,
+                shape: BoxShape.circle,
+                border: isCurrent
+                    ? null
+                    : Border.all(
+                        color: isPast
+                            ? stepColor.withValues(alpha: 0.35)
+                            : AppTheme.dividerOf(context),
+                        width: 1,
+                      ),
               ),
-            ],
-          ),
+              child: Icon(icon, size: 13, color: iconColor),
+            ),
+            // Right connector
+            Expanded(
+              child: Container(
+                height: 1.5,
+                color: isLast
+                    ? Colors.transparent
+                    : (isCurrent || isPast)
+                        ? connectorColor
+                        : AppTheme.dividerOf(context),
+              ),
+            ),
+          ],
         ),
-        if (!isLast) ...[
-          const SizedBox(width: 4),
-          Icon(
-            Icons.chevron_right,
-            size: 14,
-            color: AppTheme.textSecondaryOf(context),
+        const SizedBox(height: 5),
+        Text(
+          step.label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
+            color: labelColor,
           ),
-          const SizedBox(width: 4),
-        ],
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
       ],
     );
   }

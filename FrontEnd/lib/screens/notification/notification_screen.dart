@@ -6,6 +6,7 @@ import '../../config/theme.dart';
 import '../../models/notification_model.dart';
 import '../../utils/date_time_utils.dart';
 import '../../providers/notification_provider.dart';
+import '../../widgets/app_chip.dart';
 import '../../widgets/shimmer_loaders.dart';
 
 /// Resolves a notification payload to the appropriate route.
@@ -398,15 +399,12 @@ class _NotificationScreenState extends State<NotificationScreen> {
     final selected = _category == value;
     return Padding(
       padding: const EdgeInsets.only(right: 6),
-      child: ChoiceChip(
-        label: Text(label, style: TextStyle(
-          fontSize: 13,
-          color: selected ? Colors.white : AppTheme.textPrimaryOf(context),
-        )),
+      child: AppChip(
+        label: label,
         selected: selected,
-        selectedColor: AppTheme.accentColor,
-        backgroundColor: AppTheme.inputFillOf(context),
         onSelected: (_) => setState(() => _category = value),
+        chipColor: AppTheme.accentColor,
+        bgColor: AppTheme.inputFillOf(context),
       ),
     );
   }

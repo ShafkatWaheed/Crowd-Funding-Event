@@ -407,6 +407,7 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
     required bool selected,
     required VoidCallback onTap,
   }) {
+    final (activeBg, activeLabel) = AppTheme.chipActive(AppTheme.primaryColor);
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
@@ -416,7 +417,7 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
           margin: const EdgeInsets.symmetric(vertical: 6),
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-                  color: selected ? AppTheme.primaryColor : Colors.transparent,
+            color: selected ? activeBg : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
           ),
           child: Row(
@@ -424,14 +425,14 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
             children: [
               Icon(icon,
                   size: 18,
-                  color: selected ? Colors.white : AppTheme.textSecondaryOf(context)),
+                  color: selected ? activeLabel : AppTheme.textSecondaryOf(context)),
               const SizedBox(width: 6),
               Text(
                 label,
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: selected ? Colors.white : AppTheme.textSecondaryOf(context),
+                  color: selected ? activeLabel : AppTheme.textSecondaryOf(context),
                 ),
               ),
               if (count > 0) ...[
@@ -441,7 +442,7 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
                       const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
                     color: selected
-                        ? Colors.white.withValues(alpha: 0.25)
+                        ? activeLabel.withValues(alpha: 0.25)
                         : AppTheme.dividerOf(context).withValues(alpha: 0.5),
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -450,7 +451,7 @@ class _GlobalWaitlistScreenState extends State<GlobalWaitlistScreen> {
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
-                      color: selected ? Colors.white : AppTheme.textSecondaryOf(context),
+                      color: selected ? activeLabel : AppTheme.textSecondaryOf(context),
                     ),
                   ),
                 ),

@@ -12,6 +12,7 @@ import '../../models/user.dart';
 import '../../models/rating.dart';
 import '../../repositories/base_repository.dart';
 import '../../providers/user_provider.dart';
+import '../../widgets/app_chip.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/star_rating.dart';
@@ -549,20 +550,15 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
             itemBuilder: (ctx, i) {
               final f = _statusFilters[i];
               final active = _statusFilter == f.$2;
-              return ChoiceChip(
-                label: Text(f.$1),
+              return AppChip(
+                label: f.$1,
                 selected: active,
                 onSelected: (_) => _onStatusFilterChanged(active ? null : f.$2),
-                selectedColor: AppTheme.accentColor,
-                labelStyle: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: active ? ctx.onDarkSurface : AppTheme.textSecondaryOf(ctx),
-                ),
-                backgroundColor: AppTheme.surfaceOf(context),
-                side: BorderSide.none,
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                visualDensity: VisualDensity.compact,
+                chipColor: AppTheme.accentColor,
+                fontSize: 12,
+                compact: true,
+                bgColor: AppTheme.surfaceOf(ctx),
+                inactiveSide: BorderSide.none,
               );
             },
           ),

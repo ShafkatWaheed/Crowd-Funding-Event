@@ -9,6 +9,7 @@ import '../../../repositories/base_repository.dart';
 import '../../../providers/event_provider.dart';
 import '../../../widgets/app_toast.dart';
 import '../../../widgets/empty_state.dart';
+import '../../../widgets/app_chip.dart';
 import '../../../widgets/star_rating.dart';
 
 class ReviewsSection extends StatefulWidget {
@@ -434,21 +435,16 @@ class _AllReviewsSheetState extends State<AllReviewsSheet> {
                   final isActive = _directionFilter == d.$2;
                   return Padding(
                     padding: EdgeInsets.only(right: AppSpacing.sm),
-                    child: ChoiceChip(
-                      label: Text(d.$1),
+                    child: AppChip(
+                      label: d.$1,
                       selected: isActive,
                       onSelected: (_) {
                         setState(() { _directionFilter = d.$2; _loading = true; });
                         _load();
                       },
-                      selectedColor: context.reviewAccent,
-                      labelStyle: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: isActive ? Colors.white : AppTheme.textPrimaryOf(context),
-                      ),
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      visualDensity: VisualDensity.compact,
+                      chipColor: context.reviewAccent,
+                      fontSize: 12,
+                      compact: true,
                     ),
                   );
                 }).toList(),

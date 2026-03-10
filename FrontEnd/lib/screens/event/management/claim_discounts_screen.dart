@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../../config/theme.dart';
-import '../../models/discount.dart';
-import '../../providers/auth_provider.dart';
-import '../../providers/ticket_provider.dart';
-import '../../widgets/app_toast.dart';
-import '../../widgets/shimmer_loaders.dart';
+import '../../../config/theme.dart';
+import '../../../models/discount.dart';
+import '../../../providers/auth_provider.dart';
+import '../../../providers/ticket_provider.dart';
+import '../../../widgets/app_toast.dart';
+import '../../../widgets/shimmer_loaders.dart';
 
 /// Customer-facing page where they can search, view, and claim
 /// non-auto-apply discounts that the organizer added to an event.

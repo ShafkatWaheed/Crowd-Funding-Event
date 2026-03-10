@@ -6,7 +6,7 @@ import '../../config/theme.dart';
 import '../../utils/date_time_utils.dart';
 import '../../models/ticket.dart';
 import '../../providers/ticket_provider.dart';
-import '../event/ticket_receipt_screen.dart';
+import '../event/receipts/ticket_receipt_screen.dart';
 import '../../widgets/shimmer_loaders.dart';
 
 /// Shows ticket sales across ALL organiser events.

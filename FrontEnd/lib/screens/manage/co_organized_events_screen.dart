@@ -10,7 +10,7 @@ import '../../models/event.dart';
 import '../../providers/event_provider.dart';
 import '../../widgets/animated_list_item.dart';
 import '../../widgets/empty_state.dart';
-import '../../widgets/event_card.dart';
+import '../../widgets/event/event_card.dart';
 import '../../widgets/app_chip.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../home/home_shared.dart';

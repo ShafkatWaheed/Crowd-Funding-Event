@@ -18,7 +18,7 @@
 ## Service layer
 
 - **Module(s):** `app.services.event.lifecycle`, `app.services.event.crud` (where transition check is invoked).
-- **Main functions:** `cancel_event()`, `reactivate()`, `publish()`, `set_event_date()`, `extend_funding()`, `approve_extension()`, transition checks (e.g. approved → selling_tickets when funding_end_at passed; waiting_event_date → selling_tickets when start_time set; live → completed when end_time passed).
+- **Main functions:** `cancel_event()`, `reactivate()`, `publish()`, `set_event_date()`, `extend_funding()`, `approve_extension()`, **schedule_event_transitions()** (enqueues ARQ jobs at trigger datetimes), **transition_event_status** (ARQ job, idempotent), **reconcile_event_statuses** (safety-net cron). Time-based transitions are no longer applied inline on GET (read-only session); they use deferred ARQ jobs and a cron.
 
 ## Models and DB
 
@@ -53,9 +53,13 @@ flowchart LR
   Evt[Events CRUD] --> F
 ```
 
+## Recently implemented (deferred transitions and cron)
+
+- **Problem:** Transitions (e.g. live→completed) were skipped on GET because `auto_transition_status` saw a read-only replica session and refused to write; event list showed stale status.
+- **Solution:** **Deferred ARQ jobs** — `transition_event_status` job enqueued at the exact trigger datetime for each date field (funding_end_at, start_time, end_time). Idempotency token (field + ISO ts); stale jobs (date changed) exit without side effects. **Job chaining:** approved→waiting_event_date job enqueues the follow-up cancellation-deadline job. **schedule_event_transitions()** called from every path that sets or changes dates: create/update event, set-event-date, extend-funding, extension-decision approve, start-selling, publish, admin approve, admin resolve-review. Late-approval gap fixed: publish, admin approve, resolve-review enqueue fresh transition jobs. **Safety-net cron:** `reconcile_event_statuses` (interval: admin `cron_event_reconcile_interval_min`, default 60 min) replaces the 5-min advance_live_events sweep and covers all four transitional states. Inline **approved→selling_tickets** when ticket tier is created for non-funded events (no ARQ). **advance_live_events** (5 min) cron uses a writable session to transition live→completed when end_time passed (event_repo.get_live_past_end_time).
+
 ## Vulnerabilities
 
-- Transition checks run on fetch (no cron); if no one fetches an event, transition could be delayed. Acceptable for MVP; optional cron for time-based transitions if needed.
 - selling_tickets cancellation requires admin approval; ensure admin-only route for cancellation/approve.
 
 ## Improvements

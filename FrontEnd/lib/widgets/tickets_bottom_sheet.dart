@@ -5,7 +5,7 @@ import '../config/design_tokens.dart';
 import '../config/theme.dart';
 import '../models/ticket.dart';
 import '../providers/ticket_provider.dart';
-import '../screens/event/ticket_receipt_screen.dart';
+import '../screens/event/receipts/ticket_receipt_screen.dart';
 
 /// Bottom sheet showing the customer's tickets in a searchable, scrollable list.
 /// Mirrors the venue-events sheet pattern from EventMapWidget.

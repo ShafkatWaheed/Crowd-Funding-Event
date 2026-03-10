@@ -13,7 +13,7 @@
 
 ## Backend routing
 
-- **Entry:** `main.py`: mount api_router, rate limit middleware (slowapi), CORS, lifespan (DB pool, Redis pool for ARQ). Health: `/healthz` and `/health` (may be on main app or router).
+- **Entry:** `main.py`: mount api_router, rate limit middleware (slowapi), CORS, lifespan (DB pool, Redis pool for ARQ). Health: `/healthz` and `/health` (may be on main app or router). **Nginx (deploy):** `location /static/` uses **^~** prefix so it is preferred over regex locations (e.g. `~* \.(png|jpg|...)$`); upload URLs (`/static/uploads/*`) are proxied to the FastAPI backend instead of returning 404 from the Flutter web bundle.
 - **Handler:** Rate limit key: **per person** — user_id (authenticated) or IP (unauthenticated); limits are admin-configurable. Advisory lock: pg_advisory_xact_lock(event_id) in purchase_ticket() and create_pledge() to serialize capacity-sensitive ops per event.
 
 ## Service layer

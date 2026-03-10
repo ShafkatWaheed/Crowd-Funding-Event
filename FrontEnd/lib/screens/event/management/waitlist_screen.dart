@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../../config/theme.dart';
-import '../../models/event.dart';
-import '../../models/ticket.dart';
-import '../../providers/event_provider.dart';
-import '../../providers/ticket_provider.dart';
-import '../../widgets/app_toast.dart';
-import '../../widgets/shimmer_loaders.dart';
+import '../../../config/theme.dart';
+import '../../../models/event.dart';
+import '../../../models/ticket.dart';
+import '../../../providers/event_provider.dart';
+import '../../../providers/ticket_provider.dart';
+import '../../../widgets/app_toast.dart';
+import '../../../widgets/shimmer_loaders.dart';
 
 enum _WaitlistType { fund, ticket }
 

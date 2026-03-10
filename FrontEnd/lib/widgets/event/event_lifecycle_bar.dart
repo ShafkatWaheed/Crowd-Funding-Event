@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../config/app_icons.dart';
-import '../config/theme.dart';
-import '../models/event.dart';
+import '../../config/app_icons.dart';
+import '../../config/theme.dart';
+import '../../models/event.dart';
 
 // ─── Shared step model ───
 

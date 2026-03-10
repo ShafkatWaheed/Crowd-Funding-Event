@@ -16,7 +16,7 @@ import '../../widgets/shimmer_loaders.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/pledge_provider.dart';
 import '../../widgets/app_toast.dart';
-import '../event/pledge_receipt_screen.dart';
+import '../event/receipts/pledge_receipt_screen.dart';
 
 class MyPledgesScreen extends StatefulWidget {
   const MyPledgesScreen({super.key});

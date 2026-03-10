@@ -17,7 +17,7 @@ import '../../../services/sync_service.dart';
 import '../../../widgets/animated_list_item.dart';
 import '../../../widgets/empty_state.dart';
 import '../../../widgets/kyc_required_banner.dart';
-import '../../../widgets/event_card.dart';
+import '../../../widgets/event/event_card.dart';
 import '../../../widgets/app_chip.dart';
 import '../../../widgets/section_header.dart';
 import '../home_shared.dart';

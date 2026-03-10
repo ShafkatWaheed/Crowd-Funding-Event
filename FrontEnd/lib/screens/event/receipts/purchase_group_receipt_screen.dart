@@ -4,14 +4,14 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
-import '../../utils/date_time_utils.dart';
+import '../../../utils/date_time_utils.dart';
 
-import '../../config/theme.dart';
-import '../../models/receipt.dart';
-import '../../providers/ticket_provider.dart';
-import '../../repositories/base_repository.dart';
-import '../../widgets/app_toast.dart';
-import '../../widgets/shimmer_loaders.dart';
+import '../../../config/theme.dart';
+import '../../../models/receipt.dart';
+import '../../../providers/ticket_provider.dart';
+import '../../../repositories/base_repository.dart';
+import '../../../widgets/app_toast.dart';
+import '../../../widgets/shimmer_loaders.dart';
 import 'ticket_receipt_screen.dart';
 
 /// Aggregated receipt for a multi-ticket purchase group.

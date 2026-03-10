@@ -4,16 +4,16 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
-import '../../config/theme.dart';
-import '../../config/design_tokens.dart';
-import '../../models/receipt.dart';
-import '../../models/ticket.dart';
-import '../../utils/date_time_utils.dart';
-import '../../providers/ticket_provider.dart';
-import '../../repositories/base_repository.dart';
-import '../../widgets/app_toast.dart';
-import '../../widgets/loading_switcher.dart';
-import '../../widgets/shimmer_loaders.dart';
+import '../../../config/theme.dart';
+import '../../../config/design_tokens.dart';
+import '../../../models/receipt.dart';
+import '../../../models/ticket.dart';
+import '../../../utils/date_time_utils.dart';
+import '../../../providers/ticket_provider.dart';
+import '../../../repositories/base_repository.dart';
+import '../../../widgets/app_toast.dart';
+import '../../../widgets/loading_switcher.dart';
+import '../../../widgets/shimmer_loaders.dart';
 
 /// Beautiful ticket receipt screen.
 /// Pass [eventId] + [saleId] to load via event route,

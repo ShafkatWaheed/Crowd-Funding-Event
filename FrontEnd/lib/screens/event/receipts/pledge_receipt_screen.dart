@@ -2,16 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import '../../config/app_icons.dart';
-import '../../config/theme.dart';
-import '../../models/funding.dart';
-import '../../models/receipt.dart';
-import '../../utils/date_time_utils.dart';
-import '../../repositories/base_repository.dart';
-import '../../providers/pledge_provider.dart';
-import '../../widgets/app_toast.dart';
-import '../../widgets/loading_switcher.dart';
-import '../../widgets/shimmer_loaders.dart';
+import '../../../config/app_icons.dart';
+import '../../../config/theme.dart';
+import '../../../models/funding.dart';
+import '../../../models/receipt.dart';
+import '../../../utils/date_time_utils.dart';
+import '../../../repositories/base_repository.dart';
+import '../../../providers/pledge_provider.dart';
+import '../../../widgets/app_toast.dart';
+import '../../../widgets/loading_switcher.dart';
+import '../../../widgets/shimmer_loaders.dart';
 
 class PledgeReceiptScreen extends StatefulWidget {
   final int eventId;

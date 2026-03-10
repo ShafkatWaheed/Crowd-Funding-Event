@@ -21,8 +21,8 @@ import '../../providers/ticket_provider.dart';
 import '../../widgets/animated_list_item.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/error_state.dart';
-import '../../widgets/event_bottom_strip.dart';
-import '../../widgets/event_lifecycle_bar.dart';
+import '../../widgets/event/event_bottom_strip.dart';
+import '../../widgets/event/event_lifecycle_bar.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../services/sync_service.dart';
 import '../../widgets/share_bottom_sheet.dart';
@@ -58,7 +58,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   bool _scrolledPastHero = false;
   // Hero expands to _heroHeight; the title card visually overlaps the bottom _heroOverlap px.
   static const double _heroHeight = 300;
-  static const double _heroOverlap = 32;
+  static const double _heroOverlap = 12;
 
   bool _isRegistered = false;
   String? _regStatus;

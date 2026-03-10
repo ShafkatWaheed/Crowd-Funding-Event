@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Funding Card — Redesign Preview</title>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+<style>
+  .mi { font-family: 'Material Icons Round'; font-style: normal; font-weight: normal;
+        display: inline-block; line-height: 1; text-transform: none; letter-spacing: normal;
+        word-wrap: normal; white-space: nowrap; direction: ltr;
+        -webkit-font-feature-settings: 'liga'; font-feature-settings: 'liga';
+        font-size: 14px; vertical-align: middle; }
+</style>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+    background: #0a0a0a;
+    display: flex;
+    justify-content: center;
+    gap: 48px;
+    flex-wrap: wrap;
+    padding: 40px 24px 80px;
+  }
+
+  .col { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+  .label {
+    font-size: 11px; font-weight: 700; letter-spacing: 1.8px; text-transform: uppercase;
+    color: #555; text-align: center;
+  }
+
+  /* ── Phone shell ── */
+  .phone {
+    width: 390px;
+    background: var(--bg);
+    border-radius: 44px;
+    overflow: hidden;
+    padding: 24px 20px 32px;
+    box-shadow: 0 40px 100px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.06);
+    flex-shrink: 0;
+  }
+  .phone.light { --bg: #f2f2f7; }
+  .phone.dark  { --bg: #111111; }
+
+  /* ── Section header ── */
+  .section-header {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
+  }
+  .section-bar {
+    width: 3px; height: 16px; border-radius: 2px;
+    background: linear-gradient(to bottom, #FF8C00, #FFC043);
+  }
+  .section-title {
+    font-size: 12px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase;
+  }
+  .light .section-title { color: #8e8e93; }
+  .dark  .section-title { color: #636366; }
+
+  /* ════════════════════════════════
+     FUNDING CARD — NEW DESIGN
+  ════════════════════════════════ */
+  .funding-card {
+    border-radius: 20px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .funding-card.light-card {
+    background: linear-gradient(145deg, #fff9f0 0%, #fff4d8 60%, #ffefc0 100%);
+    border: 1px solid rgba(255,192,67,0.35);
+    box-shadow: 0 4px 24px rgba(255,140,0,0.12), 0 1px 4px rgba(0,0,0,0.05);
+  }
+  .funding-card.dark-card {
+    background: linear-gradient(145deg, #1c0f00 0%, #221400 50%, #2c1a00 100%);
+    border: 1px solid rgba(255,140,0,0.2);
+    box-shadow: 0 8px 40px rgba(255,100,0,0.18), inset 0 1px 0 rgba(255,192,67,0.07);
+  }
+
+  /* decorative glow */
+  .funding-glow {
+    position: absolute; top: -70px; right: -70px;
+    width: 220px; height: 220px; border-radius: 50%;
+    pointer-events: none;
+  }
+  .light-card .funding-glow {
+    background: radial-gradient(circle, rgba(255,200,80,0.28) 0%, transparent 68%);
+  }
+  .dark-card .funding-glow {
+    background: radial-gradient(circle, rgba(255,130,0,0.22) 0%, transparent 68%);
+  }
+
+  /* ── Row 1: Title + deadline chip ── */
+  .fc-title-row {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 16px;
+    position: relative; z-index: 1;
+  }
+  .fc-title { font-size: 15px; font-weight: 800; letter-spacing: -0.2px; }
+  .light-card .fc-title { color: #1c1c1e; }
+  .dark-card  .fc-title { color: #f2ece0; }
+  .fc-spacer { flex: 1; }
+  .deadline-chip {
+    padding: 4px 10px; border-radius: 20px;
+    font-size: 11px; font-weight: 700;
+  }
+  .deadline-chip.active {
+    background: rgba(255,140,0,0.15); color: #FF8C00;
+  }
+  .deadline-chip.expired {
+    background: rgba(120,120,128,0.15); color: #8e8e93;
+  }
+
+  /* ── Row 2: Arc + stats ── */
+  .fc-arc-row {
+    display: flex; align-items: center; gap: 16px; margin-bottom: 14px;
+    position: relative; z-index: 1;
+  }
+  /* Arc is now 110px */
+  .arc-wrap {
+    position: relative; width: 110px; height: 110px; flex-shrink: 0;
+  }
+  .arc-wrap svg { transform: rotate(-220deg); display: block; }
+  .arc-center {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .arc-pct { font-size: 22px; font-weight: 900; letter-spacing: -0.5px; color: #FF8C00; }
+  .arc-sub { font-size: 9px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; color: #AFAFAF; }
+
+  .fc-stats { flex: 1; min-width: 0; }
+  /* Raised amount is now the visual anchor */
+  .fc-raised { font-size: 28px; font-weight: 900; letter-spacing: -0.8px; line-height: 1.05; }
+  .light-card .fc-raised { color: #1c1c1e; }
+  .dark-card  .fc-raised { color: #f2ece0; }
+  .fc-raised.funded { color: #05944F !important; }
+  .fc-goal { font-size: 12px; font-weight: 500; margin-top: 3px; color: #AFAFAF; }
+  .fc-backer-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 8px; }
+  .fc-backer-item {
+    display: flex; align-items: center; gap: 4px;
+    font-size: 12px; font-weight: 600;
+  }
+  .fc-backer-item.backers  { color: #FF8C00; }
+  .fc-backer-item.spots    { color: #0D9488; }
+
+  /* ── Metadata strip (replaces 2×2 info grid) ── */
+  .fc-meta-strip {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    margin-bottom: 12px; position: relative; z-index: 1;
+  }
+  .meta-pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 5px 10px; border-radius: 20px;
+    font-size: 11px; font-weight: 600;
+  }
+  .meta-pill .mi { font-size: 12px; }
+  .light-card .meta-pill        { background: rgba(0,0,0,0.055); color: #3a3a3c; }
+  .dark-card  .meta-pill        { background: rgba(255,255,255,0.07); color: #c8b89a; }
+  .light-card .meta-pill.accent { background: rgba(255,140,0,0.12); color: #b85e00; }
+  .dark-card  .meta-pill.accent { background: rgba(255,140,0,0.14); color: #FFA733; }
+  .light-card .meta-pill.teal   { background: rgba(13,148,136,0.10); color: #0a7870; }
+  .dark-card  .meta-pill.teal   { background: rgba(13,148,136,0.13); color: #4DB6AC; }
+
+  /* ── Divider ── */
+  .fc-divider {
+    height: 1px; margin: 12px 0; position: relative; z-index: 1;
+  }
+  .light-card .fc-divider { background: rgba(255,192,67,0.22); }
+  .dark-card  .fc-divider { background: rgba(255,192,67,0.10); }
+
+  /* ── Early bird banner ── */
+  .fc-earlybird {
+    border-radius: 12px; padding: 10px 12px;
+    margin-bottom: 12px; position: relative; z-index: 1;
+    display: flex; align-items: flex-start; gap: 8px;
+  }
+  .light-card .fc-earlybird {
+    background: linear-gradient(90deg, rgba(13,148,136,0.10), rgba(13,148,136,0.03));
+    border: 1px solid rgba(13,148,136,0.25);
+  }
+  .dark-card .fc-earlybird {
+    background: linear-gradient(90deg, rgba(13,148,136,0.14), rgba(13,148,136,0.04));
+    border: 1px solid rgba(13,148,136,0.18);
+  }
+  .fc-earlybird .mi { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+  .fc-earlybird-title { font-size: 12px; font-weight: 700; color: #0D9488; }
+  .fc-earlybird-sub   { font-size: 11px; font-weight: 500; color: #0D9488; opacity: 0.8; }
+
+  /* ── Pledge button — full-width primary CTA ── */
+  .pledge-btn {
+    width: 100%; height: 50px; border-radius: 14px; border: none; cursor: pointer;
+    font-size: 16px; font-weight: 700; letter-spacing: 0.1px;
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+    background: linear-gradient(90deg, #FF7A00, #FFAA00);
+    color: white;
+    box-shadow: 0 6px 22px rgba(255,130,0,0.38);
+    position: relative; z-index: 1;
+  }
+
+  /* ── Unpledge — demoted to text link below pledge ── */
+  .unpledge-link {
+    width: 100%; padding: 9px 0 2px; text-align: center;
+    font-size: 13px; font-weight: 600; cursor: pointer;
+    background: transparent; border: none;
+    position: relative; z-index: 1;
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+  }
+  .light-card .unpledge-link { color: rgba(180,100,0,0.55); }
+  .dark-card  .unpledge-link { color: rgba(255,140,0,0.45); }
+
+  /* ── Trust strip — outside the amber card, neutral ── */
+  .fc-trust-strip {
+    display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+    padding: 9px 13px; border-radius: 12px; margin-top: 8px;
+  }
+  .phone.light .fc-trust-strip {
+    background: rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.06);
+  }
+  .phone.dark .fc-trust-strip {
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
+  }
+  .trust-item {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 11px; font-weight: 500;
+  }
+  .phone.light .trust-item { color: #636366; }
+  .phone.dark  .trust-item { color: #555; }
+  .trust-item .mi { font-size: 13px; }
+  .trust-dot {
+    width: 3px; height: 3px; border-radius: 50%;
+    background: #555; opacity: 0.35;
+  }
+  .trust-badge {
+    display: inline-flex; align-items: center; gap: 3px;
+    padding: 1px 7px; border-radius: 8px; font-size: 11px; font-weight: 700;
+  }
+  .trust-excellent { background: rgba(5,148,79,0.15); color: #05944F; }
+  .trust-events    { font-size: 10px; color: #636366; font-weight: 500; }
+
+  /* ── CURRENT (before) card — unchanged ── */
+  .current-card {
+    border-radius: 20px; padding: 20px; position: relative; overflow: hidden;
+  }
+  .current-card.light-c {
+    background: #ffffff; border: 1px solid #e5e5ea;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+  .current-card.dark-c {
+    background: #1c1c1e; border: 1px solid #38383a;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+  .c-title-row { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }
+  .c-title { font-size: 16px; font-weight: 800; }
+  .light-c .c-title { color: #1c1c1e; }
+  .dark-c  .c-title { color: #f5f5f5; }
+  .c-chip {
+    padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700;
+    background: rgba(255,140,0,0.12); color: #FF8C00; margin-left: auto;
+  }
+  .c-amount-row { display: flex; align-items: flex-end; gap: 6px; margin-bottom: 8px; }
+  .c-raised { font-size: 28px; font-weight: 900; color: #1c1c1e; }
+  .dark-c .c-raised { color: #f5f5f5; }
+  .c-goal { font-size: 14px; color: #8e8e93; font-weight: 500; padding-bottom: 4px; }
+  .c-pct { font-size: 16px; font-weight: 800; color: #FF8C00; padding-bottom: 4px; margin-left: auto; }
+  .progress-track { height: 10px; border-radius: 6px; overflow: hidden; margin-bottom: 8px; }
+  .light-c .progress-track { background: #e5e5ea; }
+  .dark-c  .progress-track { background: #38383a; }
+  .progress-fill { height: 100%; border-radius: 6px; background: #FF8C00; width: 73%; }
+  .c-fee { font-size: 11px; color: #8e8e93; margin-bottom: 10px; }
+  .c-info-row { display: flex; align-items: center; gap: 4px; margin-bottom: 6px; }
+  .c-info-row .txt { font-size: 12px; font-weight: 500; color: #8e8e93; }
+  .c-escrow { border-radius: 10px; padding: 10px 12px; margin: 10px 0; }
+  .light-c .c-escrow { background: rgba(255,140,0,0.07); border: 1px solid rgba(255,140,0,0.25); }
+  .dark-c  .c-escrow { background: rgba(255,140,0,0.1); border: 1px solid rgba(255,140,0,0.2); }
+  .c-escrow-line { display: flex; align-items: flex-start; gap: 6px; margin-bottom: 6px; }
+  .c-escrow-line:last-child { margin-bottom: 0; }
+  .c-escrow-line .txt { font-size: 11px; color: #FF8C00; }
+  .c-earlybird { border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; display: flex; gap: 8px; align-items: flex-start; }
+  .light-c .c-earlybird { background: rgba(13,148,136,0.08); border: 1px solid rgba(13,148,136,0.2); }
+  .dark-c  .c-earlybird { background: rgba(13,148,136,0.12); border: 1px solid rgba(13,148,136,0.18); }
+  .c-earlybird .title { font-size: 12px; font-weight: 700; color: #0D9488; }
+  .c-earlybird .sub   { font-size: 11px; color: #0D9488; opacity: 0.8; }
+  .c-divider { height: 1px; background: #e5e5ea; margin: 10px 0; }
+  .dark-c .c-divider { background: #38383a; }
+  .c-btn-row { display: flex; gap: 10px; }
+  .c-pledge {
+    flex: 1; height: 40px; border-radius: 12px; border: none; cursor: pointer;
+    background: #FF8C00; color: white; font-size: 14px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .c-unpledge {
+    flex: 1; height: 40px; border-radius: 12px; cursor: pointer;
+    border: 1.5px solid #e5e5ea; background: transparent;
+    color: #FF8C00; font-size: 14px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+  }
+  .dark-c .c-unpledge { border-color: #38383a; }
+
+  /* comparison arrow */
+  .arrow-col {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 8px; padding-top: 80px;
+  }
+  .arrow { font-size: 32px; color: #555; }
+  .arrow-label { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #444; text-align: center; }
+
+  /* ── Map thumbnail ── */
+  .map-thumb {
+    width: 100%; height: 130px; position: relative; overflow: hidden;
+  }
+  .map-thumb.light-map { background: #e8eedf; }
+  .map-thumb.dark-map  { background: #111c2e; }
+
+  /* block fills */
+  .map-block { position: absolute; border-radius: 2px; }
+  .light-map .map-block { background: rgba(200,215,180,0.7); }
+  .dark-map  .map-block { background: rgba(25,40,65,0.85); }
+
+  /* park */
+  .map-park  { position: absolute; border-radius: 3px; }
+  .light-map .map-park { background: rgba(140,195,100,0.45); border: 1px solid rgba(100,170,70,0.3); }
+  .dark-map  .map-park { background: rgba(40,80,40,0.55); border: 1px solid rgba(60,120,60,0.3); }
+
+  /* water */
+  .map-water { position: absolute; }
+  .light-map .map-water { background: rgba(140,180,240,0.55); }
+  .dark-map  .map-water { background: rgba(20,50,100,0.7); }
+
+  /* roads */
+  .map-road { position: absolute; }
+  .light-map .map-road { background: rgba(255,255,255,0.92); }
+  .dark-map  .map-road { background: rgba(40,55,80,0.95); }
+  .light-map .map-road.sec { background: rgba(255,255,255,0.7); }
+  .dark-map  .map-road.sec { background: rgba(32,46,70,0.85); }
+
+  /* street labels */
+  .map-lbl {
+    position: absolute; font-size: 8px; font-weight: 700; letter-spacing: 0.2px;
+    pointer-events: none; white-space: nowrap;
+  }
+  .light-map .map-lbl { color: rgba(60,80,60,0.7); }
+  .dark-map  .map-lbl { color: rgba(100,140,200,0.7); }
+
+  /* pin */
+  .map-pin-wrap {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -62%); z-index: 3;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  .map-pin-shadow {
+    width: 18px; height: 5px; border-radius: 50%; margin-top: -4px;
+    background: rgba(0,0,0,0.2); filter: blur(2px);
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════
+     FUNDING CARD COMPARISON
+════════════════════════════════════════════════ -->
+
+<!-- ─── Current Light ─── -->
+<div class="col">
+  <div class="label">Current — Light</div>
+  <div class="phone light">
+    <div class="section-header">
+      <div class="section-bar"></div>
+      <span class="section-title">Crowdfunding</span>
+    </div>
+
+    <div class="current-card light-c">
+      <div class="c-title-row">
+        <span class="mi" style="font-size:18px;color:#FF8C00;">attach_money</span>
+        <span class="c-title">Funding</span>
+        <span class="c-chip">7d 3h left</span>
+      </div>
+      <div class="c-amount-row">
+        <span class="c-raised">$36,520.00</span>
+        <span class="c-goal">of $50,000.00</span>
+        <span class="c-pct">73.0%</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill"></div></div>
+      <div class="c-fee">Platform fee: 5% of pledges</div>
+      <div class="c-info-row">
+        <span class="mi" style="color:#8e8e93;">timer</span>
+        <span class="txt">Deadline: Mar 20, 2026, 11:59 PM</span>
+        <span style="flex:1"></span>
+        <span class="mi" style="color:#8e8e93;">arrow_downward</span>
+        <span class="txt">Min: $25.00</span>
+      </div>
+      <div class="c-info-row">
+        <span class="mi" style="color:#0D9488;">person_pin</span>
+        <span class="txt" style="color:#0D9488;">Max 2 spots per pledger</span>
+      </div>
+      <div class="c-info-row">
+        <span class="mi" style="color:#8e8e93;">people</span>
+        <span class="txt">248 backers</span>
+        <span style="flex:1"></span>
+        <span class="mi" style="color:#0D9488;">event_seat</span>
+        <span class="txt" style="color:#0D9488;">12 spots reserved</span>
+      </div>
+      <div class="c-escrow">
+        <div class="c-escrow-line">
+          <span class="mi" style="color:#FF8C00;">shield</span>
+          <span class="txt">Pledges held in platform escrow until event milestones are met</span>
+        </div>
+        <div class="c-escrow-line">
+          <span class="mi" style="color:#05944F;">verified</span>
+          <span class="txt">Organizer Trust: <strong>Excellent (92%)</strong> · 18/20 events</span>
+        </div>
+      </div>
+      <div class="c-earlybird">
+        <span class="mi" style="color:#0D9488;font-size:16px;">bolt</span>
+        <div>
+          <div class="title">Early bird pledge — 15% off tickets!</div>
+          <div class="sub">2d 6h left</div>
+        </div>
+      </div>
+      <div class="c-divider"></div>
+      <div class="c-btn-row">
+        <button class="c-pledge"><span class="mi" style="font-size:15px;color:white;">volunteer_activism</span> Pledge</button>
+        <button class="c-unpledge"><span class="mi" style="font-size:15px;color:#FF8C00;">money_off</span> Unpledge</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── Arrow ─── -->
+<div class="arrow-col">
+  <div class="arrow">→</div>
+  <div class="arrow-label">Redesign<br>same info</div>
+</div>
+
+<!-- ─── New Light ─── -->
+<div class="col">
+  <div class="label">New Design — Light</div>
+  <div class="phone light">
+    <div class="section-header">
+      <div class="section-bar"></div>
+      <span class="section-title">Crowdfunding</span>
+    </div>
+
+    <div class="funding-card light-card">
+      <div class="funding-glow"></div>
+
+      <!-- Title + deadline -->
+      <div class="fc-title-row">
+        <span class="mi" style="font-size:18px;color:#FF8C00;">attach_money</span>
+        <span class="fc-title">Funding</span>
+        <span class="fc-spacer"></span>
+        <span class="deadline-chip active"><span class="mi" style="font-size:11px;">timer</span> 7d 3h left</span>
+      </div>
+
+      <!-- Arc (110px) + stats -->
+      <div class="fc-arc-row">
+        <div class="arc-wrap">
+          <!-- viewBox 110×110, cx=55 cy=55, r=46 → arc length 217 of 289 total -->
+          <svg width="110" height="110" viewBox="0 0 110 110" fill="none">
+            <circle cx="55" cy="55" r="46" stroke="#FFE5B4" stroke-width="8"
+              stroke-dasharray="217 289" stroke-linecap="round" fill="none"/>
+            <!-- 73% of 217 ≈ 158 -->
+            <circle cx="55" cy="55" r="46" stroke="url(#fgL)" stroke-width="8"
+              stroke-dasharray="158 289" stroke-linecap="round" fill="none"/>
+            <defs>
+              <linearGradient id="fgL" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="#FF7A00"/>
+                <stop offset="100%" stop-color="#FFC043"/>
+              </linearGradient>
+            </defs>
+          </svg>
+          <div class="arc-center">
+            <span class="arc-pct">73%</span>
+            <span class="arc-sub">funded</span>
+          </div>
+        </div>
+
+        <div class="fc-stats">
+          <div class="fc-raised">$36,520</div>
+          <div class="fc-goal">of $50,000 goal</div>
+          <div class="fc-backer-row">
+            <span class="fc-backer-item backers"><span class="mi" style="font-size:12px;">people</span> 248 backers</span>
+            <span class="fc-backer-item spots"><span class="mi" style="font-size:12px;">event_seat</span> 12 reserved</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Metadata strip (replaces 2×2 grid) -->
+      <div class="fc-meta-strip">
+        <span class="meta-pill accent"><span class="mi">timer</span> Deadline Mar 20</span>
+        <span class="meta-pill"><span class="mi">arrow_downward</span> Min $25</span>
+        <span class="meta-pill teal"><span class="mi">person_pin</span> 2 spots max</span>
+        <span class="meta-pill"><span class="mi">percent</span> 5% fee</span>
+      </div>
+
+      <div class="fc-divider"></div>
+
+      <!-- Early bird -->
+      <div class="fc-earlybird">
+        <span class="mi" style="color:#0D9488;">bolt</span>
+        <div>
+          <div class="fc-earlybird-title">Early bird pledge — 15% off tickets!</div>
+          <div class="fc-earlybird-sub">2d 6h left</div>
+        </div>
+      </div>
+
+      <!-- Pledge full-width CTA -->
+      <button class="pledge-btn">
+        <span class="mi" style="font-size:17px;color:white;">volunteer_activism</span> Pledge
+      </button>
+      <!-- Unpledge as text link -->
+      <button class="unpledge-link">
+        <span class="mi" style="font-size:13px;">money_off</span> Remove my pledge
+      </button>
+    </div>
+
+    <!-- Trust strip — outside the amber card -->
+    <div class="fc-trust-strip">
+      <div class="trust-item">
+        <span class="mi" style="color:#276EF1;">shield</span>
+        Escrow protected
+      </div>
+      <div class="trust-dot"></div>
+      <div class="trust-item">
+        <span class="mi" style="color:#05944F;">verified</span>
+        Organizer:
+        <span class="trust-badge trust-excellent">Excellent (92%)</span>
+        <span class="trust-events">18/20 events</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── New Dark ─── -->
+<div class="col">
+  <div class="label">New Design — Dark</div>
+  <div class="phone dark">
+    <div class="section-header">
+      <div class="section-bar"></div>
+      <span class="section-title">Crowdfunding</span>
+    </div>
+
+    <div class="funding-card dark-card">
+      <div class="funding-glow"></div>
+
+      <!-- Title + deadline -->
+      <div class="fc-title-row">
+        <span class="mi" style="font-size:18px;color:#FFA733;">attach_money</span>
+        <span class="fc-title">Funding</span>
+        <span class="fc-spacer"></span>
+        <span class="deadline-chip active"><span class="mi" style="font-size:11px;">timer</span> 7d 3h left</span>
+      </div>
+
+      <!-- Arc (110px) + stats -->
+      <div class="fc-arc-row">
+        <div class="arc-wrap">
+          <svg width="110" height="110" viewBox="0 0 110 110" fill="none">
+            <circle cx="55" cy="55" r="46" stroke="#3a2200" stroke-width="8"
+              stroke-dasharray="217 289" stroke-linecap="round" fill="none"/>
+            <circle cx="55" cy="55" r="46" stroke="url(#fgD)" stroke-width="8"
+              stroke-dasharray="158 289" stroke-linecap="round" fill="none"/>
+            <defs>
+              <linearGradient id="fgD" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="#FF7A00"/>
+                <stop offset="100%" stop-color="#FFC043"/>
+              </linearGradient>
+            </defs>
+          </svg>
+          <div class="arc-center">
+            <span class="arc-pct">73%</span>
+            <span class="arc-sub">funded</span>
+          </div>
+        </div>
+
+        <div class="fc-stats">
+          <div class="fc-raised">$36,520</div>
+          <div class="fc-goal">of $50,000 goal</div>
+          <div class="fc-backer-row">
+            <span class="fc-backer-item backers"><span class="mi" style="font-size:12px;">people</span> 248 backers</span>
+            <span class="fc-backer-item spots"><span class="mi" style="font-size:12px;">event_seat</span> 12 reserved</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Metadata strip -->
+      <div class="fc-meta-strip">
+        <span class="meta-pill accent"><span class="mi">timer</span> Deadline Mar 20</span>
+        <span class="meta-pill"><span class="mi">arrow_downward</span> Min $25</span>
+        <span class="meta-pill teal"><span class="mi">person_pin</span> 2 spots max</span>
+        <span class="meta-pill"><span class="mi">percent</span> 5% fee</span>
+      </div>
+
+      <div class="fc-divider"></div>
+
+      <!-- Early bird -->
+      <div class="fc-earlybird">
+        <span class="mi" style="color:#0D9488;">bolt</span>
+        <div>
+          <div class="fc-earlybird-title">Early bird pledge — 15% off tickets!</div>
+          <div class="fc-earlybird-sub">2d 6h left</div>
+        </div>
+      </div>
+
+      <!-- Pledge full-width CTA -->
+      <button class="pledge-btn">
+        <span class="mi" style="font-size:17px;color:white;">volunteer_activism</span> Pledge
+      </button>
+      <!-- Unpledge text link -->
+      <button class="unpledge-link">
+        <span class="mi" style="font-size:13px;">money_off</span> Remove my pledge
+      </button>
+    </div>
+
+    <!-- Trust strip — outside the dark card -->
+    <div class="fc-trust-strip">
+      <div class="trust-item">
+        <span class="mi" style="color:#5b8de8;">shield</span>
+        Escrow protected
+      </div>
+      <div class="trust-dot"></div>
+      <div class="trust-item">
+        <span class="mi" style="color:#3aab6e;">verified</span>
+        Organizer:
+        <span class="trust-badge trust-excellent">Excellent (92%)</span>
+        <span class="trust-events">18/20 events</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     FUNDING ARC STATES
+════════════════════════════════════════════════ -->
+<div style="width:100%;text-align:center;padding:32px 0 8px;">
+  <div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#333;">
+    — Funding Arc States —
+  </div>
+</div>
+
+<!-- 73% in progress -->
+<div class="col">
+  <div class="label">73% — In Progress</div>
+  <div style="background:#1a1a1a;border-radius:24px;padding:20px;width:260px;">
+    <div class="funding-card light-card" style="padding:16px;">
+      <div class="funding-glow"></div>
+      <div class="fc-arc-row" style="margin-bottom:0;">
+        <div class="arc-wrap">
+          <svg width="110" height="110" viewBox="0 0 110 110" fill="none">
+            <circle cx="55" cy="55" r="46" stroke="#FFE5B4" stroke-width="8"
+              stroke-dasharray="217 289" stroke-linecap="round" fill="none"/>
+            <circle cx="55" cy="55" r="46" stroke="url(#s1g)" stroke-width="8"
+              stroke-dasharray="158 289" stroke-linecap="round" fill="none"/>
+            <defs><linearGradient id="s1g" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#FF7A00"/><stop offset="100%" stop-color="#FFC043"/>
+            </linearGradient></defs>
+          </svg>
+          <div class="arc-center">
+            <span class="arc-pct">73%</span>
+            <span class="arc-sub">funded</span>
+          </div>
+        </div>
+        <div class="fc-stats">
+          <div class="fc-raised">$36,520</div>
+          <div class="fc-goal">of $50,000 goal</div>
+          <div class="fc-backer-row" style="margin-top:6px;">
+            <span class="fc-backer-item backers"><span class="mi" style="font-size:11px;">people</span> 248</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 100% exactly funded -->
+<div class="col">
+  <div class="label">100% — Goal Met!</div>
+  <div style="background:#1a1a1a;border-radius:24px;padding:20px;width:260px;">
+    <div style="border-radius:16px;padding:16px;position:relative;overflow:hidden;
+                background:linear-gradient(145deg,#f0fff5 0%,#d6fae6 100%);
+                border:1px solid rgba(5,148,79,0.28);
+                box-shadow:0 4px 28px rgba(5,148,79,0.14);">
+      <div style="position:absolute;top:-50px;right:-50px;width:180px;height:180px;border-radius:50%;
+                  background:radial-gradient(circle,rgba(5,148,79,0.18) 0%,transparent 70%);pointer-events:none;"></div>
+      <div class="fc-arc-row" style="margin-bottom:0;">
+        <div class="arc-wrap">
+          <svg width="110" height="110" viewBox="0 0 110 110" fill="none">
+            <circle cx="55" cy="55" r="46" stroke="#a7f3d0" stroke-width="8"
+              stroke-dasharray="217 289" stroke-linecap="round" fill="none"/>
+            <circle cx="55" cy="55" r="46" stroke="url(#s2g)" stroke-width="8"
+              stroke-dasharray="217 289" stroke-linecap="round" fill="none"/>
+            <defs><linearGradient id="s2g" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#059669"/><stop offset="100%" stop-color="#34d399"/>
+            </linearGradient></defs>
+          </svg>
+          <div class="arc-center">
+            <span class="arc-pct" style="color:#059669;">100%</span>
+            <span class="arc-sub" style="color:#059669;">funded!</span>
+          </div>
+        </div>
+        <div class="fc-stats">
+          <div class="fc-raised" style="color:#059669;font-size:26px;">$50,000</div>
+          <div class="fc-goal">of $50,000 goal</div>
+          <div class="fc-backer-row" style="margin-top:6px;">
+            <span class="fc-backer-item" style="color:#059669;"><span class="mi" style="font-size:11px;">verified</span> Goal reached!</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 320% overfunded -->
+<div class="col">
+  <div class="label">320% — Overfunded</div>
+  <div style="background:#1a1a1a;border-radius:24px;padding:20px;width:260px;">
+    <div style="border-radius:16px;padding:16px;position:relative;overflow:hidden;
+                background:linear-gradient(145deg,#f0fff5 0%,#d6fae6 100%);
+                border:1px solid rgba(5,148,79,0.28);
+                box-shadow:0 4px 28px rgba(5,148,79,0.18);">
+      <div style="position:absolute;top:-50px;right:-50px;width:180px;height:180px;border-radius:50%;
+                  background:radial-gradient(circle,rgba(5,148,79,0.22) 0%,transparent 70%);pointer-events:none;"></div>
+      <div style="position:absolute;top:10px;right:10px;padding:3px 8px;border-radius:20px;
+                  background:rgba(5,148,79,0.14);border:1px solid rgba(5,148,79,0.28);">
+        <span style="font-size:10px;font-weight:800;color:#05944F;letter-spacing:0.5px;">OVERFUNDED</span>
+      </div>
+      <div class="fc-arc-row" style="margin-bottom:0;">
+        <div class="arc-wrap">
+          <svg width="110" height="110" viewBox="0 0 110 110" fill="none">
+            <circle cx="55" cy="55" r="46" stroke="#a7f3d0" stroke-width="8"
+              stroke-dasharray="217 289" stroke-linecap="round" fill="none"/>
+            <!-- arc clamped at 100% — text shows real % -->
+            <circle cx="55" cy="55" r="46" stroke="url(#s3g)" stroke-width="8"
+              stroke-dasharray="217 289" stroke-linecap="round" fill="none"/>
+            <defs><linearGradient id="s3g" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#059669"/><stop offset="100%" stop-color="#34d399"/>
+            </linearGradient></defs>
+          </svg>
+          <div class="arc-center">
+            <span class="arc-pct" style="color:#059669;font-size:18px;">320%</span>
+            <span class="arc-sub" style="color:#059669;">funded</span>
+          </div>
+        </div>
+        <div class="fc-stats">
+          <div class="fc-raised" style="color:#059669;font-size:22px;">$160,000</div>
+          <div class="fc-goal">of $50,000 goal</div>
+          <div class="fc-backer-row" style="margin-top:6px;">
+            <span class="fc-backer-item" style="color:#059669;"><span class="mi" style="font-size:11px;">people</span> 1,204</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 999% extreme -->
+<div class="col">
+  <div class="label">999% — Extreme</div>
+  <div style="background:#1a1a1a;border-radius:24px;padding:20px;width:260px;">
+    <div style="border-radius:16px;padding:16px;position:relative;overflow:hidden;
+                background:linear-gradient(145deg,#f0fff5 0%,#d6fae6 100%);
+                border:1px solid rgba(5,148,79,0.28);
+                box-shadow:0 4px 28px rgba(5,148,79,0.2);">
+      <div style="position:absolute;top:-50px;right:-50px;width:180px;height:180px;border-radius:50%;
+                  background:radial-gradient(circle,rgba(5,148,79,0.26) 0%,transparent 70%);pointer-events:none;"></div>
+      <div style="position:absolute;top:10px;right:10px;padding:3px 8px;border-radius:20px;
+                  background:rgba(5,148,79,0.14);border:1px solid rgba(5,148,79,0.28);">
+        <span style="font-size:10px;font-weight:800;color:#05944F;letter-spacing:0.5px;">OVERFUNDED</span>
+      </div>
+      <div class="fc-arc-row" style="margin-bottom:0;">
+        <div class="arc-wrap">
+          <svg width="110" height="110" viewBox="0 0 110 110" fill="none">
+            <circle cx="55" cy="55" r="46" stroke="#a7f3d0" stroke-width="8"
+              stroke-dasharray="217 289" stroke-linecap="round" fill="none"/>
+            <circle cx="55" cy="55" r="46" stroke="url(#s4g)" stroke-width="8"
+              stroke-dasharray="217 289" stroke-linecap="round" fill="none"/>
+            <defs><linearGradient id="s4g" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#059669"/><stop offset="100%" stop-color="#34d399"/>
+            </linearGradient></defs>
+          </svg>
+          <div class="arc-center">
+            <span class="arc-pct" style="color:#059669;font-size:16px;">999%</span>
+            <span class="arc-sub" style="color:#059669;">funded</span>
+          </div>
+        </div>
+        <div class="fc-stats">
+          <div class="fc-raised" style="color:#059669;font-size:20px;">$499,500</div>
+          <div class="fc-goal">of $50,000 goal</div>
+          <div class="fc-backer-row" style="margin-top:6px;">
+            <span class="fc-backer-item" style="color:#059669;"><span class="mi" style="font-size:11px;">people</span> 6,210</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     GETTING THERE CARD COMPARISON
+════════════════════════════════════════════════ -->
+<div style="width:100%;text-align:center;padding:32px 0 8px;">
+  <div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#333;">
+    — Getting There Card —
+  </div>
+</div>
+
+<!-- ─── Current Getting There Light ─── -->
+<div class="col">
+  <div class="label">Current — Light</div>
+  <div class="phone light" style="padding:24px 20px;">
+    <div class="section-header">
+      <div class="section-bar" style="background:linear-gradient(to bottom,#276EF1,#4d94ff);"></div>
+      <span class="section-title">Getting There</span>
+    </div>
+    <div class="current-card light-c" style="padding:16px;">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;">
+        <span class="mi" style="font-size:14px;color:#276EF1;">near_me</span>
+        <span style="font-size:13px;font-weight:700;color:#8e8e93;letter-spacing:0.5px;">Getting There</span>
+      </div>
+      <div class="c-info-row" style="margin-bottom:8px;align-items:flex-start;">
+        <span class="mi" style="color:#276EF1;margin-top:1px;">location_city</span>
+        <div style="margin-left:8px;">
+          <div style="font-size:10px;font-weight:700;color:#8e8e93;text-transform:uppercase;letter-spacing:0.4px;">Venue</div>
+          <div style="font-size:13px;font-weight:600;color:#1c1c1e;margin-top:1px;">Riverside Park, Gate B</div>
+        </div>
+      </div>
+      <div class="c-info-row" style="margin-bottom:8px;align-items:flex-start;">
+        <span class="mi" style="color:#E11900;margin-top:1px;">pin_drop</span>
+        <div style="margin-left:8px;">
+          <div style="font-size:10px;font-weight:700;color:#8e8e93;text-transform:uppercase;letter-spacing:0.4px;">Address</div>
+          <div style="font-size:13px;font-weight:600;color:#1c1c1e;margin-top:1px;">West 72nd St, New York, NY 10024</div>
+        </div>
+      </div>
+      <div class="c-info-row" style="margin-bottom:8px;align-items:flex-start;">
+        <span class="mi" style="color:#276EF1;margin-top:1px;">local_parking</span>
+        <div style="margin-left:8px;">
+          <div style="font-size:10px;font-weight:700;color:#8e8e93;text-transform:uppercase;letter-spacing:0.4px;">Parking</div>
+          <div style="font-size:13px;font-weight:600;color:#1c1c1e;margin-top:1px;">Lot C on 73rd St, $25/day</div>
+        </div>
+      </div>
+      <div class="c-info-row" style="margin-bottom:8px;align-items:flex-start;">
+        <span class="mi" style="color:#05944F;margin-top:1px;">train</span>
+        <div style="margin-left:8px;">
+          <div style="font-size:10px;font-weight:700;color:#8e8e93;text-transform:uppercase;letter-spacing:0.4px;">Transit</div>
+          <div style="font-size:13px;font-weight:600;color:#1c1c1e;margin-top:1px;">1/2/3 train to 72nd St station</div>
+        </div>
+      </div>
+      <div class="c-info-row" style="margin-bottom:8px;align-items:flex-start;">
+        <span class="mi" style="color:#e6a800;margin-top:1px;">local_taxi</span>
+        <div style="margin-left:8px;">
+          <div style="font-size:10px;font-weight:700;color:#8e8e93;text-transform:uppercase;letter-spacing:0.4px;">Rideshare</div>
+          <div style="font-size:13px;font-weight:600;color:#1c1c1e;margin-top:1px;">Drop-off at West 72nd &amp; Riverside</div>
+        </div>
+      </div>
+      <div class="c-info-row" style="margin-bottom:12px;align-items:flex-start;">
+        <span class="mi" style="color:#0D9488;margin-top:1px;">accessible</span>
+        <div style="margin-left:8px;">
+          <div style="font-size:10px;font-weight:700;color:#8e8e93;text-transform:uppercase;letter-spacing:0.4px;">Accessibility</div>
+          <div style="font-size:13px;font-weight:600;color:#1c1c1e;margin-top:1px;">Wheelchair accessible, ramp at Gate B</div>
+        </div>
+      </div>
+      <button style="width:100%;height:38px;border-radius:10px;background:transparent;
+                     border:1.5px solid rgba(39,110,241,0.4);color:#276EF1;font-size:14px;
+                     font-weight:700;cursor:pointer;display:flex;align-items:center;
+                     justify-content:center;gap:6px;">
+        <span class="mi" style="font-size:15px;">near_me</span> Get Directions
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── Arrow ─── -->
+<div class="arrow-col">
+  <div class="arrow">→</div>
+  <div class="arrow-label">+ Map<br>thumbnail</div>
+</div>
+
+<!-- ─── New Getting There Light ─── -->
+<div class="col">
+  <div class="label">New Design — Light</div>
+  <div class="phone light" style="padding:24px 20px;">
+    <div class="section-header">
+      <div class="section-bar" style="background:linear-gradient(to bottom,#276EF1,#4d94ff);"></div>
+      <span class="section-title">Getting There</span>
+    </div>
+
+    <div style="border-radius:20px;overflow:hidden;background:#ffffff;
+                border:1px solid rgba(0,0,0,0.07);
+                box-shadow:0 4px 24px rgba(0,0,0,0.07),0 1px 4px rgba(0,0,0,0.04);">
+
+      <!-- Richer map thumbnail — light -->
+      <div class="map-thumb light-map">
+        <!-- Water body (river, left side) -->
+        <div class="map-water" style="left:0;top:0;bottom:0;width:18%;border-radius:0 4px 4px 0;"></div>
+        <!-- Park (centre-right) -->
+        <div class="map-park" style="left:22%;top:10%;width:32%;height:80%;"></div>
+        <!-- City blocks -->
+        <div class="map-block" style="left:58%;top:8%;width:16%;height:22%;"></div>
+        <div class="map-block" style="left:76%;top:8%;width:18%;height:22%;"></div>
+        <div class="map-block" style="left:58%;top:38%;width:16%;height:24%;"></div>
+        <div class="map-block" style="left:76%;top:38%;width:18%;height:24%;"></div>
+        <div class="map-block" style="left:58%;top:70%;width:16%;height:22%;"></div>
+        <div class="map-block" style="left:76%;top:70%;width:18%;height:22%;"></div>
+        <!-- Main horizontal road (72nd St) -->
+        <div class="map-road" style="top:50%;left:18%;right:0;height:10px;transform:translateY(-50%);"></div>
+        <!-- Secondary horizontal roads -->
+        <div class="map-road sec" style="top:28%;left:54%;right:0;height:6px;transform:translateY(-50%);"></div>
+        <div class="map-road sec" style="top:72%;left:54%;right:0;height:6px;transform:translateY(-50%);"></div>
+        <!-- Main vertical road (Riverside Dr) -->
+        <div class="map-road" style="left:54%;top:0;bottom:0;width:10px;transform:translateX(-50%);"></div>
+        <!-- Secondary vertical roads -->
+        <div class="map-road sec" style="left:73%;top:0;bottom:0;width:6px;transform:translateX(-50%);"></div>
+        <!-- Street labels -->
+        <div class="map-lbl" style="top:41%;left:23%;">W 72nd St</div>
+        <div class="map-lbl" style="top:15%;left:56%;transform:rotate(90deg);transform-origin:left center;">Riverside Dr</div>
+        <div class="map-lbl" style="top:20%;left:25%;color:rgba(80,130,60,0.8);">Riverside Park</div>
+        <!-- Pin at intersection -->
+        <div class="map-pin-wrap" style="top:50%;left:54%;">
+          <span class="mi" style="font-size:34px;color:#E11900;
+                filter:drop-shadow(0 3px 10px rgba(225,25,0,0.4));">pin_drop</span>
+          <div class="map-pin-shadow"></div>
+        </div>
+        <!-- Bottom fade -->
+        <div style="position:absolute;bottom:0;left:0;right:0;height:28px;
+                    background:linear-gradient(transparent,rgba(255,255,255,0.6));"></div>
+      </div>
+
+      <!-- Info content -->
+      <div style="padding:14px 16px;">
+        <!-- Venue name + address compact -->
+        <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;">
+          <span class="mi" style="font-size:16px;color:#276EF1;flex-shrink:0;margin-top:2px;">location_city</span>
+          <div>
+            <div style="font-size:14px;font-weight:700;color:#1c1c1e;">Riverside Park, Gate B</div>
+            <div style="font-size:12px;color:#8e8e93;margin-top:2px;display:flex;align-items:center;gap:3px;">
+              <span class="mi" style="font-size:11px;color:#E11900;">pin_drop</span>
+              West 72nd St, New York, NY 10024
+            </div>
+          </div>
+        </div>
+
+        <div style="height:1px;background:rgba(39,110,241,0.09);margin-bottom:10px;"></div>
+
+        <!-- Transport chips (no hint label) -->
+        <div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:12px;" id="chips-light">
+
+          <div onclick="toggleChip(this,'#276EF1')" style="cursor:pointer;display:flex;align-items:center;gap:5px;padding:5px 10px;
+                      border-radius:20px;background:rgba(39,110,241,0.07);border:1px solid rgba(39,110,241,0.14);
+                      transition:all 0.2s;">
+            <span class="mi" style="font-size:12px;color:#276EF1;">local_parking</span>
+            <span class="chip-short" style="font-size:11px;font-weight:600;color:#276EF1;">Lot C · $25/day</span>
+            <span class="chip-full" style="display:none;font-size:11px;font-weight:500;color:#276EF1;">Lot C on 73rd St, $25/day · 200 spaces</span>
+            <span class="mi chip-arrow" style="font-size:11px;color:#276EF1;margin-left:1px;">expand_more</span>
+          </div>
+
+          <div onclick="toggleChip(this,'#05944F')" style="cursor:pointer;display:flex;align-items:center;gap:5px;padding:5px 10px;
+                      border-radius:20px;background:rgba(5,148,79,0.07);border:1px solid rgba(5,148,79,0.14);
+                      transition:all 0.2s;">
+            <span class="mi" style="font-size:12px;color:#05944F;">train</span>
+            <span class="chip-short" style="font-size:11px;font-weight:600;color:#05944F;">1/2/3 → 72nd St</span>
+            <span class="chip-full" style="display:none;font-size:11px;font-weight:500;color:#05944F;">Take the 1, 2, or 3 train to 72nd St station, 5 min walk to Gate B</span>
+            <span class="mi chip-arrow" style="font-size:11px;color:#05944F;margin-left:1px;">expand_more</span>
+          </div>
+
+          <div onclick="toggleChip(this,'#c98a00')" style="cursor:pointer;display:flex;align-items:center;gap:5px;padding:5px 10px;
+                      border-radius:20px;background:rgba(230,168,0,0.07);border:1px solid rgba(230,168,0,0.18);
+                      transition:all 0.2s;">
+            <span class="mi" style="font-size:12px;color:#c98a00;">local_taxi</span>
+            <span class="chip-short" style="font-size:11px;font-weight:600;color:#c98a00;">72nd &amp; Riverside</span>
+            <span class="chip-full" style="display:none;font-size:11px;font-weight:500;color:#c98a00;">Drop-off at West 72nd St &amp; Riverside Drive, use app pin "Riverside Park Gate B"</span>
+            <span class="mi chip-arrow" style="font-size:11px;color:#c98a00;margin-left:1px;">expand_more</span>
+          </div>
+
+          <div onclick="toggleChip(this,'#0D9488')" style="cursor:pointer;display:flex;align-items:center;gap:5px;padding:5px 10px;
+                      border-radius:20px;background:rgba(13,148,136,0.07);border:1px solid rgba(13,148,136,0.14);
+                      transition:all 0.2s;">
+            <span class="mi" style="font-size:12px;color:#0D9488;">accessible</span>
+            <span class="chip-short" style="font-size:11px;font-weight:600;color:#0D9488;">Ramp at Gate B</span>
+            <span class="chip-full" style="display:none;font-size:11px;font-weight:500;color:#0D9488;">Wheelchair accessible, ramp at Gate B. Accessible restrooms in pavilion.</span>
+            <span class="mi chip-arrow" style="font-size:11px;color:#0D9488;margin-left:1px;">expand_more</span>
+          </div>
+
+        </div>
+
+        <!-- Directions button -->
+        <button style="width:100%;height:44px;border-radius:12px;background:transparent;
+                       border:1.5px solid rgba(39,110,241,0.32);color:#276EF1;font-size:14px;
+                       font-weight:700;cursor:pointer;display:flex;align-items:center;
+                       justify-content:center;gap:7px;">
+          <span class="mi" style="font-size:16px;">near_me</span> Get Directions
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── New Getting There Dark ─── -->
+<div class="col">
+  <div class="label">New Design — Dark</div>
+  <div class="phone dark" style="padding:24px 20px;">
+    <div class="section-header">
+      <div class="section-bar" style="background:linear-gradient(to bottom,#276EF1,#4d94ff);"></div>
+      <span class="section-title" style="color:#636366;">Getting There</span>
+    </div>
+
+    <div style="border-radius:20px;overflow:hidden;
+                background:#1c1c1e;
+                border:1px solid rgba(255,255,255,0.07);
+                box-shadow:0 4px 32px rgba(0,0,0,0.5);">
+
+      <!-- Richer map thumbnail — dark -->
+      <div class="map-thumb dark-map">
+        <!-- Water body -->
+        <div class="map-water" style="left:0;top:0;bottom:0;width:18%;border-radius:0 4px 4px 0;"></div>
+        <!-- Park -->
+        <div class="map-park" style="left:22%;top:10%;width:32%;height:80%;"></div>
+        <!-- City blocks -->
+        <div class="map-block" style="left:58%;top:8%;width:16%;height:22%;"></div>
+        <div class="map-block" style="left:76%;top:8%;width:18%;height:22%;"></div>
+        <div class="map-block" style="left:58%;top:38%;width:16%;height:24%;"></div>
+        <div class="map-block" style="left:76%;top:38%;width:18%;height:24%;"></div>
+        <div class="map-block" style="left:58%;top:70%;width:16%;height:22%;"></div>
+        <div class="map-block" style="left:76%;top:70%;width:18%;height:22%;"></div>
+        <!-- Roads -->
+        <div class="map-road" style="top:50%;left:18%;right:0;height:10px;transform:translateY(-50%);"></div>
+        <div class="map-road sec" style="top:28%;left:54%;right:0;height:6px;transform:translateY(-50%);"></div>
+        <div class="map-road sec" style="top:72%;left:54%;right:0;height:6px;transform:translateY(-50%);"></div>
+        <div class="map-road" style="left:54%;top:0;bottom:0;width:10px;transform:translateX(-50%);"></div>
+        <div class="map-road sec" style="left:73%;top:0;bottom:0;width:6px;transform:translateX(-50%);"></div>
+        <!-- Street labels -->
+        <div class="map-lbl" style="top:41%;left:23%;">W 72nd St</div>
+        <div class="map-lbl" style="top:15%;left:56%;transform:rotate(90deg);transform-origin:left center;">Riverside Dr</div>
+        <div class="map-lbl" style="top:20%;left:25%;color:rgba(60,140,80,0.75);">Riverside Park</div>
+        <!-- Pin -->
+        <div class="map-pin-wrap" style="top:50%;left:54%;">
+          <span class="mi" style="font-size:34px;color:#ef5350;
+                filter:drop-shadow(0 3px 10px rgba(239,83,80,0.5));">pin_drop</span>
+          <div class="map-pin-shadow"></div>
+        </div>
+        <div style="position:absolute;bottom:0;left:0;right:0;height:28px;
+                    background:linear-gradient(transparent,rgba(28,28,30,0.6));"></div>
+      </div>
+
+      <!-- Info content dark -->
+      <div style="padding:14px 16px;">
+        <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;">
+          <span class="mi" style="font-size:16px;color:#90CAF9;flex-shrink:0;margin-top:2px;">location_city</span>
+          <div>
+            <div style="font-size:14px;font-weight:700;color:#f5f5f5;">Riverside Park, Gate B</div>
+            <div style="font-size:12px;color:#636366;margin-top:2px;display:flex;align-items:center;gap:3px;">
+              <span class="mi" style="font-size:11px;color:#ef5350;">pin_drop</span>
+              West 72nd St, New York, NY 10024
+            </div>
+          </div>
+        </div>
+
+        <div style="height:1px;background:rgba(255,255,255,0.06);margin-bottom:10px;"></div>
+
+        <!-- Transport chips dark (expandable) -->
+        <div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:12px;">
+
+          <div onclick="toggleChip(this,'#90CAF9')" style="cursor:pointer;display:flex;align-items:center;gap:5px;padding:5px 10px;
+                      border-radius:20px;background:rgba(144,202,249,0.07);border:1px solid rgba(144,202,249,0.14);
+                      transition:all 0.2s;">
+            <span class="mi" style="font-size:12px;color:#90CAF9;">local_parking</span>
+            <span class="chip-short" style="font-size:11px;font-weight:600;color:#90CAF9;">Lot C · $25/day</span>
+            <span class="chip-full" style="display:none;font-size:11px;font-weight:500;color:#90CAF9;">Lot C on 73rd St, $25/day · 200 spaces</span>
+            <span class="mi chip-arrow" style="font-size:11px;color:#90CAF9;margin-left:1px;">expand_more</span>
+          </div>
+
+          <div onclick="toggleChip(this,'#66BB6A')" style="cursor:pointer;display:flex;align-items:center;gap:5px;padding:5px 10px;
+                      border-radius:20px;background:rgba(102,187,106,0.07);border:1px solid rgba(102,187,106,0.14);
+                      transition:all 0.2s;">
+            <span class="mi" style="font-size:12px;color:#66BB6A;">train</span>
+            <span class="chip-short" style="font-size:11px;font-weight:600;color:#66BB6A;">1/2/3 → 72nd St</span>
+            <span class="chip-full" style="display:none;font-size:11px;font-weight:500;color:#66BB6A;">Take the 1, 2, or 3 train to 72nd St station, 5 min walk to Gate B</span>
+            <span class="mi chip-arrow" style="font-size:11px;color:#66BB6A;margin-left:1px;">expand_more</span>
+          </div>
+
+          <div onclick="toggleChip(this,'#FFD54F')" style="cursor:pointer;display:flex;align-items:center;gap:5px;padding:5px 10px;
+                      border-radius:20px;background:rgba(255,213,79,0.07);border:1px solid rgba(255,213,79,0.14);
+                      transition:all 0.2s;">
+            <span class="mi" style="font-size:12px;color:#FFD54F;">local_taxi</span>
+            <span class="chip-short" style="font-size:11px;font-weight:600;color:#FFD54F;">72nd &amp; Riverside</span>
+            <span class="chip-full" style="display:none;font-size:11px;font-weight:500;color:#FFD54F;">Drop-off at West 72nd St &amp; Riverside Drive, use app pin "Riverside Park Gate B"</span>
+            <span class="mi chip-arrow" style="font-size:11px;color:#FFD54F;margin-left:1px;">expand_more</span>
+          </div>
+
+          <div onclick="toggleChip(this,'#4DB6AC')" style="cursor:pointer;display:flex;align-items:center;gap:5px;padding:5px 10px;
+                      border-radius:20px;background:rgba(77,182,172,0.07);border:1px solid rgba(77,182,172,0.14);
+                      transition:all 0.2s;">
+            <span class="mi" style="font-size:12px;color:#4DB6AC;">accessible</span>
+            <span class="chip-short" style="font-size:11px;font-weight:600;color:#4DB6AC;">Ramp at Gate B</span>
+            <span class="chip-full" style="display:none;font-size:11px;font-weight:500;color:#4DB6AC;">Wheelchair accessible, ramp at Gate B. Accessible restrooms in pavilion.</span>
+            <span class="mi chip-arrow" style="font-size:11px;color:#4DB6AC;margin-left:1px;">expand_more</span>
+          </div>
+        </div>
+
+        <!-- Directions button dark -->
+        <button style="width:100%;height:44px;border-radius:12px;background:transparent;
+                       border:1.5px solid rgba(144,202,249,0.25);color:#90CAF9;font-size:14px;
+                       font-weight:700;cursor:pointer;display:flex;align-items:center;
+                       justify-content:center;gap:7px;">
+          <span class="mi" style="font-size:16px;">near_me</span> Get Directions
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleChip(el, color) {
+  const short = el.querySelector('.chip-short');
+  const full  = el.querySelector('.chip-full');
+  const arrow = el.querySelector('.chip-arrow');
+  const expanded = full.style.display !== 'none';
+  if (expanded) {
+    full.style.display  = 'none';
+    short.style.display = '';
+    arrow.textContent   = 'expand_more';
+    el.style.borderRadius = '20px';
+  } else {
+    full.style.display  = '';
+    short.style.display = 'none';
+    arrow.textContent   = 'expand_less';
+    el.style.borderRadius = '12px';
+  }
+}
+</script>
+</body>
+</html>

@@ -7,7 +7,7 @@ import '../../../../models/dashboard.dart';
 import '../../../../models/event.dart';
 import '../../../../widgets/animated_list_item.dart';
 import '../../../../widgets/empty_state.dart';
-import '../../../../widgets/event_card.dart';
+import '../../../../widgets/event/event_card.dart';
 import '../../../../widgets/press_feedback.dart';
 
 class DashboardEventCarousels extends StatelessWidget {

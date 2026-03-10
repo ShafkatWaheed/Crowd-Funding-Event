@@ -10,7 +10,7 @@ import '../../providers/bookmark_provider.dart';
 import '../../widgets/app_chip.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../widgets/app_toast.dart';
-import '../../widgets/event_lifecycle_bar.dart';
+import '../../widgets/event/event_lifecycle_bar.dart';
 
 class BookmarkedEventsScreen extends StatefulWidget {
   const BookmarkedEventsScreen({super.key});

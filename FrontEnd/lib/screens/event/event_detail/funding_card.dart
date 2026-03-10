@@ -16,7 +16,7 @@ import '../../../providers/pledge_provider.dart';
 import '../../../providers/ticket_provider.dart';
 import '../../../providers/config_provider.dart';
 import '../../../widgets/app_toast.dart';
-import '../pledge_receipt_screen.dart';
+import '../receipts/pledge_receipt_screen.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 
 // ═══════════════════════════════════════════

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../config/theme.dart';
-import '../../widgets/app_toast.dart';
-import '../../models/ticket_strategy.dart';
-import '../../providers/ticket_provider.dart';
+import '../../../config/theme.dart';
+import '../../../widgets/app_toast.dart';
+import '../../../models/ticket_strategy.dart';
+import '../../../providers/ticket_provider.dart';
 
 /// Full-page ticket strategy picker. Returns the selected [TicketStrategy]
 /// via Navigator.pop. Highlights the currently active strategy when

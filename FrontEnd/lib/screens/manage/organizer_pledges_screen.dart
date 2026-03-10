@@ -8,7 +8,7 @@ import '../../utils/date_time_utils.dart';
 import '../../providers/pledge_provider.dart';
 import '../../widgets/app_chip.dart';
 import '../../widgets/shimmer_loaders.dart';
-import '../event/pledge_receipt_screen.dart';
+import '../event/receipts/pledge_receipt_screen.dart';
 
 class OrganizerPledgesScreen extends StatefulWidget {
   final String? eventStatus;

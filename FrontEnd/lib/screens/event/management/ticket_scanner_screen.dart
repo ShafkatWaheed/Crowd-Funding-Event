@@ -6,13 +6,13 @@ import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:provider/provider.dart';
 
-import '../../config/theme.dart';
-import '../../db/app_database.dart';
-import '../../models/sponsor.dart';
-import '../../providers/ticket_provider.dart';
-import '../../repositories/base_repository.dart';
-import '../../providers/sponsor_provider.dart';
-import '../../services/sync_service.dart';
+import '../../../config/theme.dart';
+import '../../../db/app_database.dart';
+import '../../../models/sponsor.dart';
+import '../../../providers/ticket_provider.dart';
+import '../../../repositories/base_repository.dart';
+import '../../../providers/sponsor_provider.dart';
+import '../../../services/sync_service.dart';
 
 
 /// Full-screen QR code scanner for organizers to scan tickets at events.

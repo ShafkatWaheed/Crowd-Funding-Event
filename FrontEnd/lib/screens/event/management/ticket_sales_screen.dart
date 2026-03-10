@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../../config/theme.dart';
-import '../../models/ticket.dart';
-import '../../models/sponsor.dart';
-import '../../utils/date_time_utils.dart';
-import '../../providers/ticket_provider.dart';
-import '../../providers/sponsor_provider.dart';
-import '../../widgets/shimmer_loaders.dart';
-import 'ticket_receipt_screen.dart';
+import '../../../config/theme.dart';
+import '../../../models/ticket.dart';
+import '../../../models/sponsor.dart';
+import '../../../utils/date_time_utils.dart';
+import '../../../providers/ticket_provider.dart';
+import '../../../providers/sponsor_provider.dart';
+import '../../../widgets/shimmer_loaders.dart';
+import '../receipts/ticket_receipt_screen.dart';
 
 /// Full-page ticket sales list.
 /// [scannedOnly] = false → all sales, true → only scanned tickets.

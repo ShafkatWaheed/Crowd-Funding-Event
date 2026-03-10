@@ -8,7 +8,7 @@ import 'package:provider/provider.dart';
 
 import 'package:crowd_funding_app/models/map_event.dart';
 import 'package:crowd_funding_app/providers/event_provider.dart';
-import 'package:crowd_funding_app/widgets/event_map_widget.dart';
+import 'package:crowd_funding_app/widgets/event/event_map_widget.dart';
 import '../helpers/mock_event_repository.dart';
 import '../helpers/pump_app.dart';
 

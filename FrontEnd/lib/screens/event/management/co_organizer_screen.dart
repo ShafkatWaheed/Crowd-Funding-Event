@@ -4,12 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../../config/theme.dart';
-import '../../models/event.dart';
-import '../../widgets/app_toast.dart';
-import '../../widgets/shimmer_loaders.dart';
-import '../../providers/auth_provider.dart';
-import '../../providers/event_provider.dart';
+import '../../../config/theme.dart';
+import '../../../models/event.dart';
+import '../../../widgets/app_toast.dart';
+import '../../../widgets/shimmer_loaders.dart';
+import '../../../providers/auth_provider.dart';
+import '../../../providers/event_provider.dart';
 
 class CoOrganizerScreen extends StatefulWidget {
   final int eventId;

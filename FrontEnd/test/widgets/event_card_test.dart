@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 
 import 'package:crowd_funding_app/models/event.dart';
-import 'package:crowd_funding_app/widgets/event_card.dart';
+import 'package:crowd_funding_app/widgets/event/event_card.dart';
 import '../helpers/fixtures.dart';
 import '../helpers/pump_app.dart';
 

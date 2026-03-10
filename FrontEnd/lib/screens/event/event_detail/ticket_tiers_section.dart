@@ -13,8 +13,8 @@ import '../../../providers/ticket_provider.dart';
 import '../../../providers/config_provider.dart';
 import '../../../widgets/app_toast.dart';
 import 'package:flutter_stripe/flutter_stripe.dart' hide Card;
-import '../ticket_receipt_screen.dart';
-import '../purchase_group_receipt_screen.dart';
+import '../receipts/ticket_receipt_screen.dart';
+import '../receipts/purchase_group_receipt_screen.dart';
 
 class TicketTiersSection extends StatefulWidget {
   final Event event;
@@ -99,22 +99,32 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
         }
         final isDark = AppTheme.isDark(context);
         final popularId = _popularTierId(tiers);
-        return SizedBox(
-          height: 226,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: EdgeInsets.zero,
-            itemCount: tiers.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
-            itemBuilder: (context, i) {
-              final t = tiers[i];
-              return _TierCard(
-                tier: t,
-                isFeatured: t.id == popularId,
-                isDark: isDark,
-              );
-            },
-          ),
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            const cardWidth = 160.0;
+            const sepWidth  = 12.0;
+            final totalW = tiers.length * cardWidth +
+                (tiers.length - 1) * sepWidth;
+            final sidePad = ((constraints.maxWidth - totalW) / 2)
+                .clamp(0.0, double.infinity);
+            return SizedBox(
+              height: 226,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: EdgeInsets.symmetric(horizontal: sidePad),
+                itemCount: tiers.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 12),
+                itemBuilder: (context, i) {
+                  final t = tiers[i];
+                  return _TierCard(
+                    tier: t,
+                    isFeatured: t.id == popularId,
+                    isDark: isDark,
+                  );
+                },
+              ),
+            );
+          },
         );
       },
     );
@@ -960,6 +970,7 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
             _buildYourTicketsSection(),
             AppSpacing.vSm,
           ],
+          const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
             height: 48,

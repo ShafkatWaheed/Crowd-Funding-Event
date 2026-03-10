@@ -3,13 +3,13 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../config/design_tokens.dart';
-import '../config/theme.dart';
-import '../models/event.dart';
-import '../providers/auth_provider.dart';
-import '../providers/event_provider.dart';
-import '../widgets/app_toast.dart';
-import '../widgets/press_feedback.dart';
+import '../../config/design_tokens.dart';
+import '../../config/theme.dart';
+import '../../models/event.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/event_provider.dart';
+import '../../widgets/app_toast.dart';
+import '../../widgets/press_feedback.dart';
 
 /// Premium frosted-glass bottom action strip for the event detail screen.
 ///

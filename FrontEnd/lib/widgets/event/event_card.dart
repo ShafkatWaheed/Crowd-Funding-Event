@@ -1,11 +1,11 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import '../config/api_config.dart';
-import '../config/app_icons.dart';
-import '../config/theme.dart';
-import '../config/design_tokens.dart';
-import '../models/event.dart';
-import '../utils/date_time_utils.dart';
+import '../../config/api_config.dart';
+import '../../config/app_icons.dart';
+import '../../config/theme.dart';
+import '../../config/design_tokens.dart';
+import '../../models/event.dart';
+import '../../utils/date_time_utils.dart';
 import 'event_lifecycle_bar.dart';
 
 class EventCard extends StatefulWidget {
@@ -112,11 +112,11 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
               padding: const EdgeInsets.fromLTRB(
                 AppSpacing.lg, 20, AppSpacing.lg, AppSpacing.md,
               ),
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, Colors.black87],
+                  colors: [Colors.transparent, Colors.black.withValues(alpha: 0.87)],
                 ),
               ),
               child: Column(

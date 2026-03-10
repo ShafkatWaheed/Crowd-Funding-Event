@@ -20,7 +20,7 @@ import '../../widgets/animated_list_item.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/error_state.dart';
 import '../../widgets/share_bottom_sheet.dart';
-import '../event/ticket_receipt_screen.dart';
+import '../event/receipts/ticket_receipt_screen.dart';
 
 /// Screen for customers to view all their purchased tickets, grouped by event.
 /// Each ticket card shows key info and tapping opens the full receipt.

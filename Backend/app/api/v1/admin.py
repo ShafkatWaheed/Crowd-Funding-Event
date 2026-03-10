@@ -138,6 +138,9 @@ async def approve_event(
         )
     from app.cache import invalidate_event_cascade
     await invalidate_event_cascade(event_id)
+    if body.approved:
+        from app.worker.event_jobs import schedule_event_transitions
+        await schedule_event_transitions(event)
     return {"ok": True, "event_id": event.id, "status": event.status.value}
 
 
@@ -727,12 +730,16 @@ async def resolve_review(
     event = await ev_repo.get_event_by_id_basic(db, event_id)
     if not event:
         raise NotFoundError("Event", event_id)
-    return await admin_service.resolve_review(
+    result = await admin_service.resolve_review(
         db, event,
         target_status=body.target_status,
         notes=body.notes,
         admin_email=current_user.email,
     )
+    if body.target_status == "approved":
+        from app.worker.event_jobs import schedule_event_transitions
+        await schedule_event_transitions(event)
+    return result
 
 
 # ----- Audit Log -----

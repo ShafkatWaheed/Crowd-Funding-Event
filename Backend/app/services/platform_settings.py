@@ -159,6 +159,7 @@ DEFAULTS = {
     "cron_reconciliation_hour": 2,
     "cron_payout_hour": 0,
     "cron_escrow_check_interval_min": 15,
+    "cron_event_reconcile_interval_min": 60,
     # ── Financial Policy ──
     "payout_minimum_cents": 1000,
     "max_events_per_organizer": 50,
@@ -342,6 +343,7 @@ DESCRIPTIONS = {
     "cron_reconciliation_hour": "Hour (0-23) for daily reconciliation cron job (takes effect on worker restart)",
     "cron_payout_hour": "Hour (0-23) for scheduled payouts cron job (takes effect on worker restart)",
     "cron_escrow_check_interval_min": "Minutes between escrow check cron runs (takes effect on worker restart)",
+    "cron_event_reconcile_interval_min": "Minutes between event status reconciliation cron runs (takes effect on worker restart)",
     "payout_minimum_cents": "Minimum balance (cents) before a payout is processed (e.g. 1000 = $10)",
     "max_events_per_organizer": "Maximum number of active events an organizer can have",
     "escrow_trust_score_threshold": "Trust score (0-100) above which organizers get bonus stage-1 release percentage",

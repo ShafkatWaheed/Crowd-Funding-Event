@@ -120,6 +120,12 @@ async def create_ticket_tier(
         max_reserved_spots=body.max_reserved_spots,
         display_order=body.display_order,
     )
+    # Trigger approved→selling_tickets for non-funded events that now have a tier
+    event = await event_service.get_or_404(db, event_id)
+    from app.models.event import EventStatus
+    if event.status == EventStatus.approved and event.funding_end_at is None and event.start_time:
+        from app.services.event import auto_transition_status
+        await auto_transition_status(db, event)
     return TicketTierResponse.model_validate(tier)
 
 

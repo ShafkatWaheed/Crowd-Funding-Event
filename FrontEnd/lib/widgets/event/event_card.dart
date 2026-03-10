@@ -179,7 +179,7 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
     final hasFunding = (event.fundingGoalCents ?? 0) > 0 && event.fundingEndAt != null;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

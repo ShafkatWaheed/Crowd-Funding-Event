@@ -56,6 +56,7 @@ class CreateTicketTierRequest {
   final int displayOrder;
   final String? description;
   final int? maxReservedSpots;
+  final bool isFeatured;
 
   const CreateTicketTierRequest({
     required this.name,
@@ -63,6 +64,7 @@ class CreateTicketTierRequest {
     this.displayOrder = 0,
     this.description,
     this.maxReservedSpots,
+    this.isFeatured = false,
   });
 
   Map<String, dynamic> toJson() => {
@@ -71,6 +73,7 @@ class CreateTicketTierRequest {
         'display_order': displayOrder,
         if (description != null && description!.isNotEmpty) 'description': description,
         if (maxReservedSpots != null && maxReservedSpots! > 0) 'max_reserved_spots': maxReservedSpots,
+        'is_featured': isFeatured,
       };
 }
 
@@ -79,12 +82,14 @@ class UpdateTicketTierRequest {
   final int? priceCents;
   final String? description;
   final int? maxReservedSpots;
+  final bool? isFeatured;
 
   const UpdateTicketTierRequest({
     this.name,
     this.priceCents,
     this.description,
     this.maxReservedSpots,
+    this.isFeatured,
   });
 
   Map<String, dynamic> toJson() => {
@@ -92,6 +97,7 @@ class UpdateTicketTierRequest {
         if (priceCents != null) 'price_cents': priceCents,
         if (description != null) 'description': description,
         if (maxReservedSpots != null) 'max_reserved_spots': maxReservedSpots,
+        if (isFeatured != null) 'is_featured': isFeatured,
       };
 }
 
@@ -106,6 +112,7 @@ class TicketTier {
   final int spotsReserved;
   final int displayOrder;
   final bool fromStrategy;
+  final bool isFeatured;
 
   TicketTier({
     required this.id,
@@ -118,6 +125,7 @@ class TicketTier {
     this.spotsReserved = 0,
     required this.displayOrder,
     this.fromStrategy = false,
+    this.isFeatured = false,
   });
 
   factory TicketTier.fromJson(Map<String, dynamic> json) {
@@ -132,6 +140,7 @@ class TicketTier {
       spotsReserved: json['spots_reserved'] ?? 0,
       displayOrder: json['display_order'] ?? 0,
       fromStrategy: json['from_strategy'] ?? false,
+      isFeatured: json['is_featured'] ?? false,
     );
   }
 

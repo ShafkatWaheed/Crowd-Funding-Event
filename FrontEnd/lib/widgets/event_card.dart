@@ -36,9 +36,6 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
   int get _attendeeCount =>
       widget.event.totalReservedSpots + widget.event.ticketsSoldCount;
 
-  bool get _isFull =>
-      widget.event.maxCapacity > 0 && _attendeeCount >= widget.event.maxCapacity;
-
   bool get _showTicketStats =>
       widget.event.status == EventStatus.selling_tickets ||
       widget.event.status == EventStatus.live ||
@@ -74,8 +71,6 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
             children: [
               _buildHeader(context, event, isDark),
               _buildBody(context, event, isDark),
-              if (event.maxCapacity > 0 && widget.isOrganizerOrAdmin)
-                _buildCapacityBar(context),
             ],
           ),
         ),
@@ -181,7 +176,7 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
   }
 
   Widget _buildBody(BuildContext context, Event event, bool isDark) {
-    final hasFunding = event.fundingGoalCents != null && event.fundingGoalCents! > 0;
+    final hasFunding = (event.fundingGoalCents ?? 0) > 0 && event.fundingEndAt != null;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
@@ -195,7 +190,7 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
                 : 'Event date: TBD',
           ),
           if (event.venue != null) ...[
-            const SizedBox(height: 4),
+            Divider(height: 1, thickness: 0.5, color: AppTheme.dividerOf(context).withValues(alpha: 0.6)),
             _InfoRow(
               icon: AppIcons.cardLocation.icon,
               text: '${event.venue!.name}, ${event.venue!.city}',
@@ -203,7 +198,7 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
             ),
           ],
           if (event.genre != null && event.genre!.isNotEmpty) ...[
-            const SizedBox(height: 4),
+            Divider(height: 1, thickness: 0.5, color: AppTheme.dividerOf(context).withValues(alpha: 0.6)),
             _InfoRow(
               icon: AppIcons.genreIcon(event.genre!),
               text: event.genre![0].toUpperCase() + event.genre!.substring(1),
@@ -251,86 +246,14 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
                     ),
                   ),
               ],
-              if (hasFunding) ...[
-                const Spacer(),
-                Flexible(
-                  child: Text(
-                    '${(event.fundingProgress * 100).clamp(0, 999).toStringAsFixed(0)}% raised${event.fundingEndAt != null ? ' · ${event.fundingHasTimeLeft ? event.fundingTimeLeftFormatted : "Ended"}' : ''}',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 11,
-                      color: event.fundingProgress >= 1.0
-                          ? AppTheme.successColor
-                          : AppTheme.accentColor,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
             ],
           ),
           if (hasFunding) ...[
-            const SizedBox(height: 6),
-            ClipRRect(
-              borderRadius: AppRadius.sm,
-              child: LinearProgressIndicator(
-                value: event.fundingProgress.clamp(0.0, 1.0),
-                minHeight: 4,
-                backgroundColor: AppTheme.dividerOf(context),
-                valueColor: AlwaysStoppedAnimation(
-                  event.fundingProgress >= 1.0
-                      ? AppTheme.successColor
-                      : AppTheme.accentColor,
-                ),
-              ),
-            ),
+            const SizedBox(height: 8),
+            _FundingBarA(event: event, isDark: isDark),
           ],
         ],
       ),
-    );
-  }
-
-  Widget _buildCapacityBar(BuildContext context) {
-    final progress = (_attendeeCount / widget.event.maxCapacity).clamp(0.0, 1.0);
-    final color = _isFull ? AppTheme.errorColor : AppTheme.accentColor;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          height: 3,
-          margin: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(2),
-            color: AppTheme.dividerOf(context),
-          ),
-          child: FractionallySizedBox(
-            alignment: Alignment.centerLeft,
-            widthFactor: progress,
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(2),
-                color: color,
-              ),
-            ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.lg, AppSpacing.xs, AppSpacing.lg, AppSpacing.md,
-          ),
-          child: Text(
-            _isFull
-                ? 'FULL'
-                : '${widget.event.maxCapacity - _attendeeCount} spots left',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: _isFull ? AppTheme.errorColor : AppTheme.textSecondaryOf(context),
-            ),
-          ),
-        ),
-      ],
     );
   }
 
@@ -340,7 +263,7 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
   }
 }
 
-// ─── Frosted glass status badge ───
+// ─── Colored status badge with icon ───
 
 class _FrostedStatusBadge extends StatelessWidget {
   final EventStatus status;
@@ -355,20 +278,90 @@ class _FrostedStatusBadge extends StatelessWidget {
             ? 'LIVE'
             : AppIcons.forEventStatus(status).displayName;
 
+    final meta = AppIcons.forEventStatus(status);
+    // Always on a dark hero — use the dark variant for legibility
+    final color = meta.color(true);
+    final icon = hasFunding && status == EventStatus.approved
+        ? Icons.volunteer_activism_rounded
+        : meta.icon;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.35),
+        color: color.withValues(alpha: 0.22),
         borderRadius: AppRadius.pill,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+        border: Border.all(color: color.withValues(alpha: 0.45)),
       ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.5,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (status == EventStatus.live)
+            const _LivePulseDot()
+          else
+            Icon(icon, size: 11, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Live pulse dot ───
+
+class _LivePulseDot extends StatefulWidget {
+  const _LivePulseDot();
+
+  @override
+  State<_LivePulseDot> createState() => _LivePulseDotState();
+}
+
+class _LivePulseDotState extends State<_LivePulseDot>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..repeat(reverse: true);
+    _anim = Tween(begin: 1.0, end: 0.3)
+        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _anim,
+      child: Container(
+        width: 6,
+        height: 6,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: AppTheme.successColor,
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.successColor.withValues(alpha: 0.6),
+              blurRadius: 5,
+            ),
+          ],
         ),
       ),
     );
@@ -447,21 +440,116 @@ class _InfoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fallback = AppTheme.textSecondaryOf(context);
-    return Row(
-      children: [
-        Icon(icon, size: AppIconSize.sm, color: color ?? fallback),
-        AppSpacing.hSm,
-        Expanded(
-          child: Text(
-            text,
-            style: TextStyle(
-              color: color ?? fallback,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
+    final c = color ?? fallback;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        children: [
+          Container(
+            width: 26,
+            height: 26,
+            decoration: BoxDecoration(
+              color: c.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            child: Icon(icon, size: 14, color: c),
           ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                color: AppTheme.textPrimaryOf(context),
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Funding bar (Option A: gradient bar + glow) ───
+
+class _FundingBarA extends StatelessWidget {
+  final Event event;
+  final bool isDark;
+  const _FundingBarA({required this.event, required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    final pct = (event.fundingProgress * 100).clamp(0, 999).toStringAsFixed(0);
+    final isFunded = event.fundingProgress >= 1.0;
+    final barColor = isFunded ? AppTheme.successColor : AppTheme.orangeColor;
+    final progress = event.fundingProgress.clamp(0.0, 1.0);
+    final timeLabel = event.fundingEndAt != null
+        ? (event.fundingHasTimeLeft ? event.fundingTimeLeftFormatted : 'Ended')
+        : null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Stack(
+          children: [
+            Container(
+              height: 5,
+              decoration: BoxDecoration(
+                color: AppTheme.dividerOf(context),
+                borderRadius: AppRadius.sm,
+              ),
+            ),
+            FractionallySizedBox(
+              widthFactor: progress,
+              child: Container(
+                height: 5,
+                decoration: BoxDecoration(
+                  borderRadius: AppRadius.sm,
+                  gradient: LinearGradient(
+                    colors: isFunded
+                        ? [AppTheme.successColor, AppTheme.tealColor]
+                        : [AppTheme.orangeColor, AppTheme.warningColor],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: barColor.withValues(alpha: 0.5),
+                      blurRadius: 10,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            Text(
+              '$pct% raised',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: isFunded ? AppTheme.successColor : AppTheme.orangeColor,
+              ),
+            ),
+            if (timeLabel != null) ...[
+              const Spacer(),
+              Icon(Icons.timer_rounded, size: 11,
+                  color: AppTheme.textSecondaryOf(context)),
+              const SizedBox(width: 3),
+              Text(
+                timeLabel,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: AppTheme.textSecondaryOf(context),
+                ),
+              ),
+            ],
+          ],
         ),
       ],
     );
@@ -484,6 +572,10 @@ class _StatChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.surfaceOf(context),
         borderRadius: AppRadius.sm,
+        border: Border.all(
+          color: AppTheme.dividerOf(context),
+          width: 0.8,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

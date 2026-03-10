@@ -100,6 +100,8 @@ async def list_ticket_tiers(event_id: int, db: DbSession):
             tickets_sold=sold_counts.get(t.id, 0),
             spots_reserved=reserved_counts.get(t.id, 0),
             display_order=t.display_order,
+            from_strategy=t.from_strategy,
+            is_featured=t.is_featured,
         )
         for t in tiers
     ]
@@ -119,6 +121,7 @@ async def create_ticket_tier(
         price_cents=body.price_cents,
         max_reserved_spots=body.max_reserved_spots,
         display_order=body.display_order,
+        is_featured=body.is_featured,
     )
     # Trigger approved→selling_tickets for non-funded events that now have a tier
     event = await event_service.get_or_404(db, event_id)
@@ -145,6 +148,7 @@ async def update_ticket_tier(
         price_cents=body.price_cents,
         max_reserved_spots=body.max_reserved_spots,
         display_order=body.display_order,
+        is_featured=body.is_featured,
     )
     return TicketTierResponse.model_validate(tier)
 

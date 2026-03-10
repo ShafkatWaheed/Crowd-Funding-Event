@@ -11,6 +11,7 @@ class TicketTierCreate(BaseModel):
     price_cents: int
     max_reserved_spots: int = 0
     display_order: int = 0
+    is_featured: bool = False
 
     @field_validator("price_cents")
     @classmethod
@@ -33,6 +34,7 @@ class TicketTierUpdate(BaseModel):
     price_cents: int | None = None
     max_reserved_spots: int | None = None
     display_order: int | None = None
+    is_featured: bool | None = None
 
     @field_validator("price_cents")
     @classmethod
@@ -60,6 +62,7 @@ class TicketTierResponse(BaseModel):
     spots_reserved: int = 0
     display_order: int
     from_strategy: bool = False
+    is_featured: bool = False
 
     model_config = {"from_attributes": True}
 

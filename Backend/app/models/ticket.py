@@ -32,6 +32,7 @@ class TicketTier(Base):
     max_reserved_spots: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     display_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     from_strategy: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    is_featured: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     event = relationship("Event", back_populates="ticket_tiers")
     ticket_sales = relationship("TicketSale", back_populates="ticket_tier", cascade="all, delete-orphan")

@@ -658,10 +658,12 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                           event.genre!.substring(1),
                       color: AppTheme.secondaryColor,
                     ),
-                  if (event.registrationCount > 0)
+                  if (event.registrationCount > 0 &&
+                      event.status != EventStatus.approved &&
+                      event.status != EventStatus.waiting_event_date)
                     EventDetailHelpers.tagPill(
                       icon: Icons.group_rounded,
-                      label: '${event.registrationCount} joined',
+                      label: '${event.registrationCount} ${(event.status == EventStatus.selling_tickets || event.status == EventStatus.live) ? 'engaged' : 'joined'}',
                       color: AppTheme.accentColor,
                     ),
                   if (event.organizerName != null &&
@@ -674,10 +676,12 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                         color: AppTheme.accentColor,
                       ),
                     ),
-                  GestureDetector(
-                    onTap: () => _showOrganizerBottomSheet(event),
-                    child: EventDetailHelpers.trustBadgePill(context, event),
-                  ),
+                  if (event.status != EventStatus.approved &&
+                      event.status != EventStatus.waiting_event_date)
+                    GestureDetector(
+                      onTap: () => _showOrganizerBottomSheet(event),
+                      child: EventDetailHelpers.trustBadgePill(context, event),
+                    ),
                   if (_revenueCents > 0 &&
                       user != null &&
                       (user.isOrganizer ||
@@ -1051,22 +1055,12 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     final items = <({String val, String lbl})>[];
 
     if (event.registrationCount > 0 && !event.isFunding &&
-        event.status != EventStatus.waiting_event_date) {
-      final regLabel = (event.status == EventStatus.selling_tickets ||
-              event.status == EventStatus.live ||
-              event.status == EventStatus.completed)
-          ? 'Engaged'
-          : 'Joined';
-      items.add((val: '${event.registrationCount}', lbl: regLabel));
+        event.status != EventStatus.waiting_event_date &&
+        event.status != EventStatus.selling_tickets &&
+        event.status != EventStatus.live) {
+      items.add((val: '${event.registrationCount}', lbl: 'Joined'));
     }
 
-    if (!event.isFunding && event.status != EventStatus.waiting_event_date &&
-        event.startTime != null) {
-      final diff = event.startTime!.difference(DateTime.now());
-      if (diff.inDays > 0) {
-        items.add((val: '${diff.inDays}', lbl: 'Days Left'));
-      }
-    }
 
     if (event.totalReservedSpots > 0 && !event.isFunding) {
       items.add((val: '${event.totalReservedSpots}', lbl: 'Backers'));

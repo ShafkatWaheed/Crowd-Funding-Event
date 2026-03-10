@@ -241,9 +241,11 @@ class _TicketTierManagementState extends State<TicketTierManagement> {
                                           AppTheme.textSecondaryOf(context)),
                                   tooltip: 'Edit tier',
                                   onPressed: () => _showEditTierDialog(
-                                      widget.event.id, tierId, name, '',
+                                      widget.event.id, tierId, name,
+                                      tier.description ?? '',
                                       priceCents, tierMaxSpots,
-                                      remainingCapacity),
+                                      remainingCapacity,
+                                      isFeatured: tier.isFeatured),
                                 ),
                                 if (canDelete && !tier.fromStrategy)
                                   IconButton(
@@ -362,7 +364,7 @@ class _TicketTierManagementState extends State<TicketTierManagement> {
 
   Future<void> _showEditTierDialog(int eventId, int tierId, String name,
       String description, int priceCents, int currentSpots,
-      int remainingCapacity) async {
+      int remainingCapacity, {bool isFeatured = false}) async {
     final nameCtrl = TextEditingController(text: name);
     final descCtrl = TextEditingController(text: description);
     final priceCtrl = TextEditingController(
@@ -372,68 +374,87 @@ class _TicketTierManagementState extends State<TicketTierManagement> {
 
     final saved = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Edit Tier'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameCtrl,
-              decoration: const InputDecoration(labelText: 'Tier Name'),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          bool featured = isFeatured;
+          return AlertDialog(
+            title: const Text('Edit Tier'),
+            content: StatefulBuilder(
+              builder: (ctx2, setInner) {
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nameCtrl,
+                      decoration: const InputDecoration(labelText: 'Tier Name'),
+                    ),
+                    AppSpacing.vSm,
+                    TextField(
+                      controller: descCtrl,
+                      decoration: const InputDecoration(labelText: 'Description'),
+                      maxLines: 2,
+                    ),
+                    AppSpacing.vSm,
+                    TextField(
+                      controller: priceCtrl,
+                      decoration: const InputDecoration(
+                          labelText: 'Price', prefixText: '\$ '),
+                      keyboardType: TextInputType.number,
+                    ),
+                    AppSpacing.vSm,
+                    TextField(
+                      controller: spotsCtrl,
+                      decoration: InputDecoration(
+                        labelText: 'Reserved Spots',
+                        helperText: 'Up to $maxAvailable available',
+                        prefixIcon:
+                            const Icon(Icons.event_seat_rounded, size: 20),
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                    AppSpacing.vSm,
+                    SwitchListTile(
+                      value: featured,
+                      onChanged: (v) => setInner(() => featured = v),
+                      title: const Text('Mark as Popular'),
+                      subtitle: const Text(
+                          'Highlights this tier with a "Popular" badge'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ],
+                );
+              },
             ),
-            AppSpacing.vSm,
-            TextField(
-              controller: descCtrl,
-              decoration: const InputDecoration(labelText: 'Description'),
-              maxLines: 2,
-            ),
-            AppSpacing.vSm,
-            TextField(
-              controller: priceCtrl,
-              decoration: const InputDecoration(
-                  labelText: 'Price', prefixText: '\$ '),
-              keyboardType: TextInputType.number,
-            ),
-            AppSpacing.vSm,
-            TextField(
-              controller: spotsCtrl,
-              decoration: InputDecoration(
-                labelText: 'Reserved Spots',
-                helperText: 'Up to $maxAvailable available',
-                prefixIcon:
-                    const Icon(Icons.event_seat_rounded, size: 20),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Cancel')),
+              ElevatedButton(
+                onPressed: () async {
+                  final price = double.tryParse(priceCtrl.text);
+                  if (nameCtrl.text.trim().isEmpty || price == null) return;
+                  final spots = int.tryParse(spotsCtrl.text.trim()) ?? 0;
+                  try {
+                    final ticketRepo = context.read<TicketProvider>();
+                    await ticketRepo.updateTicketTier(eventId, tierId, UpdateTicketTierRequest(
+                      name: nameCtrl.text.trim(),
+                      description: descCtrl.text.trim(),
+                      priceCents: (price * 100).toInt(),
+                      maxReservedSpots: spots,
+                      isFeatured: featured,
+                    ));
+                    if (ctx.mounted) Navigator.pop(ctx, true);
+                  } catch (e) {
+                    if (ctx.mounted) {
+                      AppToast.fromError(ctx, e, fallback: 'Failed to update tier');
+                    }
+                  }
+                },
+                child: const Text('Save'),
               ),
-              keyboardType: TextInputType.number,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              final price = double.tryParse(priceCtrl.text);
-              if (nameCtrl.text.trim().isEmpty || price == null) return;
-              final spots = int.tryParse(spotsCtrl.text.trim()) ?? 0;
-              try {
-                final ticketRepo = context.read<TicketProvider>();
-                await ticketRepo.updateTicketTier(eventId, tierId, UpdateTicketTierRequest(
-                  name: nameCtrl.text.trim(),
-                  description: descCtrl.text.trim(),
-                  priceCents: (price * 100).toInt(),
-                  maxReservedSpots: spots,
-                ));
-                if (ctx.mounted) Navigator.pop(ctx, true);
-              } catch (e) {
-                if (ctx.mounted) {
-                  AppToast.fromError(ctx, e, fallback: 'Failed to update tier');
-                }
-              }
-            },
-            child: const Text('Save'),
-          ),
-        ],
+            ],
+          );
+        },
       ),
     );
     if (saved == true && mounted) {
@@ -451,70 +472,89 @@ class _TicketTierManagementState extends State<TicketTierManagement> {
 
     final created = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Add Tier'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameCtrl,
-              decoration: const InputDecoration(labelText: 'Tier Name'),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          bool featured = false;
+          return AlertDialog(
+            title: const Text('Add Tier'),
+            content: StatefulBuilder(
+              builder: (ctx2, setInner) {
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nameCtrl,
+                      decoration: const InputDecoration(labelText: 'Tier Name'),
+                    ),
+                    AppSpacing.vSm,
+                    TextField(
+                      controller: descCtrl,
+                      decoration: const InputDecoration(labelText: 'Description'),
+                      maxLines: 2,
+                    ),
+                    AppSpacing.vSm,
+                    TextField(
+                      controller: priceCtrl,
+                      decoration: const InputDecoration(
+                          labelText: 'Price', prefixText: '\$ '),
+                      keyboardType: TextInputType.number,
+                    ),
+                    AppSpacing.vSm,
+                    TextField(
+                      controller: spotsCtrl,
+                      decoration: InputDecoration(
+                        labelText: 'Reserved Spots',
+                        helperText: remainingCapacity > 0
+                            ? '$remainingCapacity spots available'
+                            : 'No spots remaining — increase capacity first',
+                        prefixIcon:
+                            const Icon(Icons.event_seat_rounded, size: 20),
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                    AppSpacing.vSm,
+                    SwitchListTile(
+                      value: featured,
+                      onChanged: (v) => setInner(() => featured = v),
+                      title: const Text('Mark as Popular'),
+                      subtitle: const Text(
+                          'Highlights this tier with a "Popular" badge'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ],
+                );
+              },
             ),
-            AppSpacing.vSm,
-            TextField(
-              controller: descCtrl,
-              decoration: const InputDecoration(labelText: 'Description'),
-              maxLines: 2,
-            ),
-            AppSpacing.vSm,
-            TextField(
-              controller: priceCtrl,
-              decoration: const InputDecoration(
-                  labelText: 'Price', prefixText: '\$ '),
-              keyboardType: TextInputType.number,
-            ),
-            AppSpacing.vSm,
-            TextField(
-              controller: spotsCtrl,
-              decoration: InputDecoration(
-                labelText: 'Reserved Spots',
-                helperText: remainingCapacity > 0
-                    ? '$remainingCapacity spots available'
-                    : 'No spots remaining — increase capacity first',
-                prefixIcon:
-                    const Icon(Icons.event_seat_rounded, size: 20),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Cancel')),
+              ElevatedButton(
+                onPressed: () async {
+                  final price = double.tryParse(priceCtrl.text);
+                  if (nameCtrl.text.trim().isEmpty || price == null) return;
+                  final spots = int.tryParse(spotsCtrl.text.trim()) ?? 0;
+                  try {
+                    final ticketRepo = context.read<TicketProvider>();
+                    await ticketRepo.createTicketTier(eventId, CreateTicketTierRequest(
+                      name: nameCtrl.text.trim(),
+                      description: descCtrl.text.trim(),
+                      priceCents: (price * 100).toInt(),
+                      maxReservedSpots: spots > 0 ? spots : null,
+                      isFeatured: featured,
+                    ));
+                    if (ctx.mounted) Navigator.pop(ctx, true);
+                  } catch (e) {
+                    if (ctx.mounted) {
+                      AppToast.fromError(ctx, e, fallback: 'Failed to create tier');
+                    }
+                  }
+                },
+                child: const Text('Create'),
               ),
-              keyboardType: TextInputType.number,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              final price = double.tryParse(priceCtrl.text);
-              if (nameCtrl.text.trim().isEmpty || price == null) return;
-              final spots = int.tryParse(spotsCtrl.text.trim()) ?? 0;
-              try {
-                final ticketRepo = context.read<TicketProvider>();
-                await ticketRepo.createTicketTier(eventId, CreateTicketTierRequest(
-                  name: nameCtrl.text.trim(),
-                  description: descCtrl.text.trim(),
-                  priceCents: (price * 100).toInt(),
-                  maxReservedSpots: spots > 0 ? spots : null,
-                ));
-                if (ctx.mounted) Navigator.pop(ctx, true);
-              } catch (e) {
-                if (ctx.mounted) {
-                  AppToast.fromError(ctx, e, fallback: 'Failed to create tier');
-                }
-              }
-            },
-            child: const Text('Create'),
-          ),
-        ],
+            ],
+          );
+        },
       ),
     );
     if (created == true && mounted) {

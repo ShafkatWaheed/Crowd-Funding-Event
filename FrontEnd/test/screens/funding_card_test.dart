@@ -87,8 +87,8 @@ void main() {
     testWidgets('renders funding progress bar', (tester) async {
       await pumpFundingCard(tester);
 
-      // The card uses LinearProgressIndicator for the funding bar
-      expect(find.byType(LinearProgressIndicator), findsOneWidget);
+      // The card uses a custom arc painter (CustomPaint) — check the percentage is shown
+      expect(find.textContaining('50%'), findsOneWidget);
     });
 
     testWidgets('renders pledge amount (total raised)', (tester) async {
@@ -149,8 +149,8 @@ void main() {
 
       await pumpFundingCard(tester, event: ev, isRegistered: true);
 
-      // Unpledge button is shown for registered users when canPledge is true
-      expect(find.text('Unpledge'), findsOneWidget);
+      // Unpledge link is shown for registered users when canPledge is true
+      expect(find.textContaining('Remove my pledge'), findsOneWidget);
     });
 
     testWidgets('funding goal displayed', (tester) async {
@@ -231,9 +231,9 @@ void main() {
       // Initial state: $500.00 raised
       expect(find.textContaining('\$500.00'), findsWidgets);
 
-      // Tap the card's Unpledge button (OutlinedButton.icon).
-      // The dialog later also shows "Unpledge" text, so be specific.
-      await tester.tap(find.widgetWithText(OutlinedButton, 'Unpledge'));
+      // Tap the card's "Remove my pledge" TextButton link.
+      // The dialog confirm button also shows "Unpledge" text, so be specific.
+      await tester.tap(find.text('Remove my pledge'));
       await tester.pump(); // show confirmation dialog
 
       // Dialog confirm button is an ElevatedButton labelled "Unpledge"
@@ -282,7 +282,7 @@ void main() {
       // Initial: 10 backers
       expect(find.textContaining('10 backers'), findsOneWidget);
 
-      await tester.tap(find.widgetWithText(OutlinedButton, 'Unpledge'));
+      await tester.tap(find.text('Remove my pledge'));
       await tester.pump();
       await tester.tap(find.widgetWithText(ElevatedButton, 'Unpledge'));
       await tester.pump();

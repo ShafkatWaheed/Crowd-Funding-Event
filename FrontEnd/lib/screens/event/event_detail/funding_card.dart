@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' show pi;
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -785,6 +786,39 @@ class _FundingCardState extends State<FundingCard> {
     });
   }
 
+  // ── Metadata pill chip helper ──
+  Widget _metaPill({
+    required IconData icon,
+    required String label,
+    required bool isDark,
+    bool accent = false,
+    bool teal = false,
+  }) {
+    final Color bg, fg;
+    if (accent) {
+      bg = const Color(0xFFFF8C00).withValues(alpha: isDark ? 0.14 : 0.10);
+      fg = isDark ? const Color(0xFFFFA733) : const Color(0xFFB85E00);
+    } else if (teal) {
+      bg = AppTheme.tealColor.withValues(alpha: isDark ? 0.13 : 0.10);
+      fg = isDark ? const Color(0xFF4DB6AC) : const Color(0xFF0A7870);
+    } else {
+      bg = isDark ? Colors.white.withValues(alpha: 0.07) : Colors.black.withValues(alpha: 0.055);
+      fg = isDark ? const Color(0xFFC8B89A) : const Color(0xFF3A3A3C);
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(color: bg, borderRadius: AppRadius.pill),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: fg),
+          const SizedBox(width: 4),
+          Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: fg)),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = AppTheme.isDark(context);
@@ -794,415 +828,604 @@ class _FundingCardState extends State<FundingCard> {
     final isOrganizerOrAdmin = user != null && (user.isOrganizer || user.isAdmin);
     final canPledge = event.canPledge && !isOrganizerOrAdmin;
 
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: AppTheme.cardOf(context),
-        borderRadius: AppRadius.lg,
-        boxShadow: AppShadow.card(isDark),
+    // ── Funding card decoration ──
+    final cardDecoration = BoxDecoration(
+      gradient: LinearGradient(
+        begin: const Alignment(1, -1),
+        end: const Alignment(-1, 1),
+        colors: isDark
+            // deep navy → rich Uber-blue → dark teal
+            ? const [Color(0xFF0D1A2E), Color(0xFF112D5E), Color(0xFF0A2825)]
+            // warm amber cream → pale ivory → soft blue-white
+            : const [Color(0xFFFFF6E8), Color(0xFFFFF0D4), Color(0xFFEEF4FF)],
+        stops: const [0.0, 0.5, 1.0],
       ),
-      padding: AppSpacing.paddingLg,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Title row
-          Row(
+      borderRadius: AppRadius.lg,
+      border: Border.all(
+        color: isDark
+            ? const Color(0xFF276EF1).withValues(alpha: 0.22)
+            : const Color(0xFFFF8C00).withValues(alpha: 0.28),
+        width: isDark ? 1.0 : 1.2,
+      ),
+      boxShadow: [
+        BoxShadow(
+          color: isDark
+              ? const Color(0xFF276EF1).withValues(alpha: 0.28)
+              : const Color(0xFFFF8C00).withValues(alpha: 0.16),
+          blurRadius: isDark ? 32 : 24,
+          offset: const Offset(0, 4),
+        ),
+      ],
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // ── Amber gradient card ──
+        Container(
+          width: double.infinity,
+          decoration: cardDecoration,
+          padding: AppSpacing.paddingLg,
+          child: Stack(
+            clipBehavior: Clip.none,
             children: [
-              Icon(Icons.attach_money, size: AppIconSize.md, color: AppTheme.accentColor),
-              AppSpacing.hSm,
-              const Text('Funding',
-                  style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.3)),
-              const Spacer(),
-              if (event.fundingEndAt != null)
-                Container(
-                  padding:
-                      EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
+              // Decorative glow orb (top-right)
+              Positioned(
+                top: 0,
+                right: 0,
+                child: Container(
+                  width: 160,
+                  height: 160,
                   decoration: BoxDecoration(
-                    color: hasTimeLeft
-                        ? AppTheme.accentColor.withValues(alpha: 0.12)
-                        : AppTheme.textSecondaryOf(context).withValues(alpha: 0.12),
-                    borderRadius: AppRadius.xl,
-                  ),
-                  child: Text(
-                    fundingTimeLeft,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: hasTimeLeft
-                          ? AppTheme.accentColor
-                          : AppTheme.textSecondaryOf(context),
+                    gradient: RadialGradient(
+                      center: Alignment.topRight,
+                      radius: 1.0,
+                      colors: [
+                        isDark
+                            ? const Color(0xFF276EF1).withValues(alpha: 0.25)
+                            : const Color(0xFFFF8C00).withValues(alpha: 0.18),
+                        Colors.transparent,
+                      ],
                     ),
                   ),
                 ),
-            ],
-          ),
-          AppSpacing.vMd,
-
-          // Raised / Goal
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                _totalFormatted,
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.5,
-                  color: _progress >= 1.0
-                      ? AppTheme.successColor
-                      : AppTheme.textPrimaryOf(context),
-                ),
               ),
-              AppSpacing.hSm,
-              Padding(
-                padding: EdgeInsets.only(bottom: AppSpacing.xs),
-                child: Text(
-                  'of $_goalFormatted',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppTheme.textSecondaryOf(context),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              const Spacer(),
-              Padding(
-                padding: EdgeInsets.only(bottom: AppSpacing.xs),
-                child: Text(
-                  '${(_progress * 100).clamp(0, 999).toStringAsFixed(1)}%',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: _progress >= 1.0
-                        ? AppTheme.successColor
-                        : AppTheme.accentColor,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          AppSpacing.vSm,
-
-          // Progress bar
-          ClipRRect(
-            borderRadius: AppRadius.sm,
-            child: LinearProgressIndicator(
-              value: _progress.clamp(0.0, 1.0),
-              minHeight: 10,
-              backgroundColor: AppTheme.dividerOf(context),
-              valueColor: AlwaysStoppedAnimation(
-                _progress >= 1.0
-                    ? AppTheme.successColor
-                    : AppTheme.accentColor,
-              ),
-            ),
-          ),
-          if (_fundingCommissionPercent > 0)
-            Padding(
-              padding: EdgeInsets.only(top: AppSpacing.xs),
-              child: Text(
-                'Platform fee: $_fundingCommissionPercent% of pledges',
-                style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context)),
-              ),
-            ),
-          AppSpacing.vMd,
-
-          // Deadline + Min pledge row
-          Row(
-            children: [
-              if (event.fundingEndAt != null) ...[
-                Icon(Icons.timer_outlined,
-                    size: AppIconSize.sm, color: AppTheme.textSecondaryOf(context)),
-                AppSpacing.hXs,
-                Text(
-                  'Deadline: ${AppDateFormat.fullDateTime(event.fundingEndAt!)}',
-                  style: TextStyle(
-                      fontSize: 12,
-                      color: AppTheme.textSecondaryOf(context),
-                      fontWeight: FontWeight.w500),
-                ),
-              ],
-              const Spacer(),
-              if (event.minPledgeCents > 0) ...[
-                Icon(Icons.arrow_downward,
-                    size: AppIconSize.sm, color: AppTheme.textSecondaryOf(context)),
-                AppSpacing.hXs,
-                Text(
-                  'Min: \$${(event.minPledgeCents / 100).toStringAsFixed(2)}',
-                  style: TextStyle(
-                      fontSize: 12,
-                      color: AppTheme.textSecondaryOf(context),
-                      fontWeight: FontWeight.w500),
-                ),
-              ],
-            ],
-          ),
-
-          if (event.maxReservedSpotsPerUser > 0) ...[
-            AppSpacing.vSm,
-            Row(
-              children: [
-                Icon(Icons.person_pin_rounded,
-                    size: AppIconSize.sm, color: context.ticketAccent),
-                AppSpacing.hXs,
-                Text(
-                  'Max ${event.maxReservedSpotsPerUser} spot${event.maxReservedSpotsPerUser == 1 ? '' : 's'} per pledger',
-                  style: TextStyle(
-                      fontSize: 12,
-                      color: context.ticketAccent,
-                      fontWeight: FontWeight.w500),
-                ),
-              ],
-            ),
-          ],
-
-          // Backers count + reserved spots
-          if (_backersCount > 0 || _totalReservedSpots > 0) ...[
-            AppSpacing.vSm,
-            Wrap(
-              spacing: AppSpacing.md,
-              runSpacing: AppSpacing.xs,
-              children: [
-                if (_backersCount > 0)
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.people_outline, size: 14, color: AppTheme.textSecondaryOf(context)),
-                      const SizedBox(width: 4),
-                      Text(
-                        '$_backersCount backer${_backersCount == 1 ? '' : 's'}',
-                        style: TextStyle(
-                            fontSize: 12,
-                            color: AppTheme.textSecondaryOf(context),
-                            fontWeight: FontWeight.w500),
-                      ),
-                    ],
-                  ),
-                if (_totalReservedSpots > 0)
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.event_seat, size: AppIconSize.sm, color: context.ticketAccent),
-                      AppSpacing.hXs,
-                      Text(
-                        '$_totalReservedSpots spot${_totalReservedSpots == 1 ? '' : 's'} reserved',
-                        style: TextStyle(
-                            fontSize: 12,
-                            color: context.ticketAccent,
-                            fontWeight: FontWeight.w500),
-                      ),
-                    ],
-                  ),
-              ],
-            ),
-          ],
-
-          // Escrow + Organizer Trust indicator
-          Padding(
-            padding: EdgeInsets.only(top: AppSpacing.sm),
-            child: Container(
-              padding: AppSpacing.paddingMd,
-              decoration: BoxDecoration(
-                color: AppTheme.accentSurfaceOf(context),
-                borderRadius: AppRadius.sm,
-                border: Border.all(color: AppTheme.accentColor.withValues(alpha: 0.3)),
-              ),
-              child: Column(
+              // Card content
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Escrow line
+                  // ── Title row ──
                   Row(
                     children: [
-                      Icon(Icons.shield_outlined, size: AppIconSize.sm, color: AppTheme.accentColor),
-                      AppSpacing.hSm,
-                      Expanded(
-                        child: Text(
-                          'Pledges held in platform escrow until event milestones are met',
-                          style: TextStyle(fontSize: 11, color: AppTheme.accentColor),
-                        ),
-                      ),
-                    ],
-                  ),
-                  AppSpacing.vSm,
-                  // Trust score line
-                  Row(
-                    children: [
-                      Icon(
-                        _trustIcon(event.organizerTrustLabel),
-                        size: AppIconSize.sm,
-                        color: _trustColor(context, event.organizerTrustLabel),
-                      ),
+                      Icon(Icons.attach_money,
+                          size: AppIconSize.md,
+                          color: isDark ? const Color(0xFFFFA733) : const Color(0xFFFF8C00)),
                       AppSpacing.hSm,
                       Text(
-                        'Organizer Trust: ',
-                        style: TextStyle(fontSize: 11, color: AppTheme.accentColor),
-                      ),
-                      Container(
-                        padding: EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
-                        decoration: BoxDecoration(
-                          color: _trustColor(context, event.organizerTrustLabel).withValues(alpha: 0.15),
-                          borderRadius: AppRadius.sm,
+                        'Funding',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.2,
+                          color: isDark ? const Color(0xFFF2ECE0) : const Color(0xFF1C1C1E),
                         ),
-                        child: Text(
-                          '${event.organizerTrustLabel} (${(event.organizerTrustScore * 100).toInt()}%)',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: _trustColor(context, event.organizerTrustLabel),
+                      ),
+                      const Spacer(),
+                      if (event.fundingEndAt != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: hasTimeLeft
+                                ? const Color(0xFFFF8C00).withValues(alpha: 0.15)
+                                : AppTheme.textSecondaryOf(context).withValues(alpha: 0.12),
+                            borderRadius: AppRadius.xl,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.timer_rounded,
+                                  size: 11,
+                                  color: hasTimeLeft
+                                      ? const Color(0xFFFF8C00)
+                                      : AppTheme.textSecondaryOf(context)),
+                              const SizedBox(width: 3),
+                              Text(
+                                fundingTimeLeft,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: hasTimeLeft
+                                      ? const Color(0xFFFF8C00)
+                                      : AppTheme.textSecondaryOf(context),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ),
-                      AppSpacing.hSm,
-                      Text(
-                        '${event.organizerCompletedEvents}/${event.organizerPublishedEvents} events',
-                        style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryOf(context)),
-                      ),
                     ],
                   ),
-                ],
-              ),
-            ),
-          ),
+                  AppSpacing.vLg,
 
-          // Early bird discount banner
-          ..._earlyBirdDiscounts.where((eb) {
-            return eb.isActive;
-          }).map((eb) {
-            final appliesTo = eb.target;
-            final discType = eb.discountType;
-            final value = eb.value;
-            final windowEnd = eb.endsAt != null
-                ? DateTime.tryParse(eb.endsAt!)
-                : null;
-            final remaining = windowEnd != null
-                ? windowEnd.difference(DateTime.now().toUtc())
-                : Duration.zero;
-            final daysLeft = remaining.inDays;
-            final hoursLeft = remaining.inHours % 24;
-            final discLabel = discType == 'percent'
-                ? '$value% off'
-                : '\$${(value / 100).toStringAsFixed(2)} off';
-            final timeLabel = daysLeft > 0
-                ? '${daysLeft}d ${hoursLeft}h left'
-                : '${remaining.inHours}h left';
-            return Padding(
-              padding: EdgeInsets.only(top: AppSpacing.sm),
-              child: Container(
-                padding: AppSpacing.paddingMd,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      context.scheduleAccent.withValues(alpha: 0.12),
-                      context.scheduleAccent.withValues(alpha: 0.04),
+                  // ── Arc (110px) + Stats ──
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: 110,
+                        height: 110,
+                        child: Stack(
+                          children: [
+                            CustomPaint(
+                              size: const Size(110, 110),
+                              painter: _ArcPainter(
+                                progress: _progress,
+                                isDark: isDark,
+                                isFunded: _progress >= 1.0,
+                              ),
+                            ),
+                            Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    '${(_progress * 100).clamp(0, 999).toStringAsFixed(0)}%',
+                                    style: TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: -0.5,
+                                      color: _progress >= 1.0
+                                          ? AppTheme.successColor
+                                          : const Color(0xFFFF8C00),
+                                    ),
+                                  ),
+                                  Text(
+                                    _progress >= 1.0 ? 'funded!' : 'funded',
+                                    style: const TextStyle(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.4,
+                                      color: Color(0xFFAFAFAF),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Raised amount — visual anchor
+                            Text(
+                              _totalFormatted,
+                              style: TextStyle(
+                                fontSize: 28,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: -0.8,
+                                height: 1.05,
+                                color: _progress >= 1.0
+                                    ? AppTheme.successColor
+                                    : (isDark
+                                        ? const Color(0xFFF2ECE0)
+                                        : const Color(0xFF1C1C1E)),
+                              ),
+                            ),
+                            Text(
+                              'of $_goalFormatted goal',
+                              style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: Color(0xFFAFAFAF)),
+                            ),
+                            if (_backersCount > 0 || _totalReservedSpots > 0) ...[
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 10,
+                                runSpacing: 4,
+                                children: [
+                                  if (_backersCount > 0)
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.people_rounded,
+                                            size: 12, color: Color(0xFFFF8C00)),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '$_backersCount backer${_backersCount == 1 ? '' : 's'}',
+                                          style: const TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w600,
+                                              color: Color(0xFFFF8C00)),
+                                        ),
+                                      ],
+                                    ),
+                                  if (_totalReservedSpots > 0)
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.event_seat,
+                                            size: 12, color: AppTheme.tealColor),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '$_totalReservedSpots reserved',
+                                          style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w600,
+                                              color: AppTheme.tealColor),
+                                        ),
+                                      ],
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
                     ],
                   ),
-                  borderRadius: AppRadius.sm,
-                  border: Border.all(color: context.scheduleAccent.withValues(alpha: 0.3)),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.bolt_rounded, size: 18, color: context.scheduleAccent),
-                    AppSpacing.hSm,
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            appliesTo == 'funding'
-                                ? 'Early bird pledge — $discLabel tickets!'
-                                : 'Early bird tickets — $discLabel!',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: context.scheduleAccent,
+                  AppSpacing.vMd,
+
+                  // ── Metadata strip (pill chips) ──
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      if (event.fundingEndAt != null)
+                        _metaPill(
+                          icon: Icons.timer_rounded,
+                          label: 'Deadline ${AppDateFormat.dateOnly(event.fundingEndAt!)}',
+                          isDark: isDark,
+                          accent: true,
+                        ),
+                      if (event.minPledgeCents > 0)
+                        _metaPill(
+                          icon: Icons.arrow_downward,
+                          label: 'Min \$${(event.minPledgeCents / 100).toStringAsFixed(0)}',
+                          isDark: isDark,
+                        ),
+                      if (event.maxReservedSpotsPerUser > 0)
+                        _metaPill(
+                          icon: Icons.person_pin_rounded,
+                          label:
+                              '${event.maxReservedSpotsPerUser} spot${event.maxReservedSpotsPerUser == 1 ? '' : 's'} max',
+                          isDark: isDark,
+                          teal: true,
+                        ),
+                      if (_fundingCommissionPercent > 0)
+                        _metaPill(
+                          icon: Icons.percent,
+                          label: '$_fundingCommissionPercent% fee',
+                          isDark: isDark,
+                        ),
+                    ],
+                  ),
+                  AppSpacing.vMd,
+
+                  // ── Amber divider ──
+                  Container(
+                    height: 1,
+                    color: isDark
+                        ? const Color(0xFFFFC043).withValues(alpha: 0.10)
+                        : const Color(0xFFFF8C00).withValues(alpha: 0.18),
+                  ),
+                  AppSpacing.vMd,
+
+                  // ── Early bird banners ──
+                  ..._earlyBirdDiscounts.where((eb) => eb.isActive).map((eb) {
+                    final discType = eb.discountType;
+                    final value = eb.value;
+                    final windowEnd =
+                        eb.endsAt != null ? DateTime.tryParse(eb.endsAt!) : null;
+                    final remaining = windowEnd != null
+                        ? windowEnd.difference(DateTime.now().toUtc())
+                        : Duration.zero;
+                    final daysLeft = remaining.inDays;
+                    final hoursLeft = remaining.inHours % 24;
+                    final discLabel = discType == 'percent'
+                        ? '$value% off'
+                        : '\$${(value / 100).toStringAsFixed(2)} off';
+                    final timeLabel = daysLeft > 0
+                        ? '${daysLeft}d ${hoursLeft}h left'
+                        : '${remaining.inHours}h left';
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                      child: Container(
+                        padding: AppSpacing.paddingMd,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(colors: [
+                            context.scheduleAccent.withValues(alpha: 0.14),
+                            context.scheduleAccent.withValues(alpha: 0.04),
+                          ]),
+                          borderRadius: AppRadius.sm,
+                          border: Border.all(
+                              color: context.scheduleAccent.withValues(alpha: 0.25)),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.bolt_rounded, size: 14, color: context.scheduleAccent),
+                            AppSpacing.hSm,
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    eb.target == 'funding'
+                                        ? 'Early bird pledge — $discLabel tickets!'
+                                        : 'Early bird tickets — $discLabel!',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: context.scheduleAccent),
+                                  ),
+                                  Text(
+                                    timeLabel,
+                                    style: TextStyle(
+                                        fontSize: 11,
+                                        color: context.scheduleAccent.withValues(alpha: 0.8)),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                          Text(
-                            timeLabel,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: context.scheduleAccent.withValues(alpha: 0.8),
-                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
+
+                  // ── Pledge button (full-width gradient CTA) ──
+                  if (canPledge) ...[
+                    Container(
+                      width: double.infinity,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                            colors: [Color(0xFFFF7A00), Color(0xFFFFAA00)]),
+                        borderRadius: AppRadius.md,
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFFF8C00).withValues(alpha: 0.38),
+                            blurRadius: 20,
+                            offset: const Offset(0, 6),
                           ),
                         ],
                       ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }),
-
-          // Pledge / Unpledge buttons
-          if (canPledge) ...[
-            AppSpacing.vMd,
-            const Divider(height: 1),
-            AppSpacing.vMd,
-            Row(
-              children: [
-                Expanded(
-                  child: SizedBox(
-                    height: 40,
-                    child: ElevatedButton.icon(
-                      onPressed: _pledging ? null : _showPledgeDialog,
-                      icon: Icon(widget.isRegistered ? Icons.volunteer_activism : Icons.card_giftcard_rounded, size: 16),
-                      label: FittedBox(fit: BoxFit.scaleDown, child: Text(widget.isRegistered ? 'Pledge' : 'Donate',
-                          style: const TextStyle(fontWeight: FontWeight.w700))),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.accentColor,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: AppRadius.md),
-                        elevation: 0,
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: _pledging ? null : _showPledgeDialog,
+                          borderRadius: AppRadius.md,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                widget.isRegistered
+                                    ? Icons.volunteer_activism
+                                    : Icons.card_giftcard_rounded,
+                                color: Colors.white,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                widget.isRegistered ? 'Pledge' : 'Donate',
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700),
+                              ),
+                              if (_pledging) ...[
+                                const SizedBox(width: 10),
+                                const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2, color: Colors.white),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
-                if (widget.isRegistered) ...[
-                  AppSpacing.hMd,
-                  Expanded(
-                    child: SizedBox(
-                      height: 40,
-                      child: _refundProcessing
-                          ? OutlinedButton.icon(
-                              onPressed: null,
-                              icon: const SizedBox(
-                                width: 16, height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              ),
-                              label: const FittedBox(fit: BoxFit.scaleDown, child: Text('Refund Processing…',
-                                  style: TextStyle(fontWeight: FontWeight.w700))),
-                              style: OutlinedButton.styleFrom(
-                                side: BorderSide(color: Colors.grey.shade400),
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: AppRadius.md),
-                              ),
-                            )
-                          : OutlinedButton.icon(
-                              onPressed: _pledging ? null : _unpledge,
-                              icon: const Icon(Icons.money_off,
-                                  size: 16, color: AppTheme.warningColor),
-                              label: const FittedBox(fit: BoxFit.scaleDown, child: Text('Unpledge',
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                      color: AppTheme.warningColor))),
-                              style: OutlinedButton.styleFrom(
-                                side: const BorderSide(color: AppTheme.warningColor),
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: AppRadius.md),
-                              ),
+                    // Unpledge — demoted to text link
+                    if (widget.isRegistered)
+                      Center(
+                        child: TextButton.icon(
+                          onPressed: _pledging ? null : _unpledge,
+                          icon: Icon(
+                            Icons.money_off,
+                            size: 13,
+                            color: _refundProcessing
+                                ? AppTheme.textSecondaryOf(context)
+                                : (isDark
+                                    ? const Color(0xFFFF8C00).withValues(alpha: 0.55)
+                                    : const Color(0xFFB85E00).withValues(alpha: 0.65)),
+                          ),
+                          label: Text(
+                            _refundProcessing ? 'Refund Processing…' : 'Remove my pledge',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: _refundProcessing
+                                  ? AppTheme.textSecondaryOf(context)
+                                  : (isDark
+                                      ? const Color(0xFFFF8C00).withValues(alpha: 0.55)
+                                      : const Color(0xFFB85E00).withValues(alpha: 0.65)),
                             ),
-                    ),
+                          ),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                        ),
+                      ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        // ── Trust strip — outside the amber card, neutral ──
+        Container(
+          margin: const EdgeInsets.only(top: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+          decoration: BoxDecoration(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.04)
+                : Colors.black.withValues(alpha: 0.04),
+            borderRadius: AppRadius.md,
+            border: Border.all(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.07)
+                  : Colors.black.withValues(alpha: 0.06),
+            ),
+          ),
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.shield_outlined,
+                      size: 13,
+                      color: isDark ? const Color(0xFF5B8DE8) : AppTheme.accentColor),
+                  const SizedBox(width: 5),
+                  Text(
+                    'Escrow protected',
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.textSecondaryOf(context)),
                   ),
                 ],
-              ],
-            ),
-          ],
-        ],
-      ),
+              ),
+              Container(
+                width: 3,
+                height: 3,
+                decoration: BoxDecoration(
+                  color: AppTheme.textSecondaryOf(context).withValues(alpha: 0.35),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 5,
+                runSpacing: 4,
+                children: [
+                  Icon(_trustIcon(event.organizerTrustLabel),
+                      size: 13,
+                      color: _trustColor(context, event.organizerTrustLabel)),
+                  Text(
+                    'Organizer:',
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.textSecondaryOf(context)),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: _trustColor(context, event.organizerTrustLabel)
+                          .withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '${event.organizerTrustLabel} (${(event.organizerTrustScore * 100).toInt()}%)',
+                      style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: _trustColor(context, event.organizerTrustLabel)),
+                    ),
+                  ),
+                  Text(
+                    '${event.organizerCompletedEvents}/${event.organizerPublishedEvents} events',
+                    style: TextStyle(
+                        fontSize: 10,
+                        color: AppTheme.textSecondaryOf(context).withValues(alpha: 0.7)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
+}
+
+// ═══════════════════════════════════════════════════════════
+// Arc CustomPainter — 270° horseshoe, orange→amber gradient
+// ═══════════════════════════════════════════════════════════
+
+class _ArcPainter extends CustomPainter {
+  final double progress;
+  final bool isDark;
+  final bool isFunded;
+
+  const _ArcPainter({
+    required this.progress,
+    required this.isDark,
+    required this.isFunded,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2 - 5.5;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+    const startAngle = 135 * pi / 180;  // 7.5 o'clock position
+    const sweepAngle = 270 * pi / 180;  // 270° arc
+    const strokeWidth = 8.5;
+
+    // Track arc
+    canvas.drawArc(
+      rect,
+      startAngle,
+      sweepAngle,
+      false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.round
+        ..color = isDark ? const Color(0xFF3A2200) : const Color(0xFFFFE5B4),
+    );
+
+    if (progress <= 0) return;
+
+    final fillSweep = progress.clamp(0.0, 1.0) * sweepAngle;
+    final Color c1, c2;
+    if (isFunded) {
+      c1 = const Color(0xFF059669);
+      c2 = const Color(0xFF34D399);
+    } else {
+      c1 = const Color(0xFFFF7A00);
+      c2 = const Color(0xFFFFAA00);
+    }
+
+    canvas.drawArc(
+      rect,
+      startAngle,
+      fillSweep,
+      false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.round
+        ..shader = SweepGradient(
+          startAngle: startAngle,
+          endAngle: startAngle + sweepAngle,
+          colors: [c1, c2],
+        ).createShader(rect),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_ArcPainter old) =>
+      old.progress != progress || old.isDark != isDark || old.isFunded != isFunded;
 }

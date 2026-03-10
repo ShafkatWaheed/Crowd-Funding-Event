@@ -182,8 +182,8 @@ void main() {
       await pumpTiersSection(tester);
       await tester.pumpAndSettle();
 
-      // spotsLeft = 10 - 8 - 2 = 0 => "Sold out"
-      expect(find.text('Sold out'), findsOneWidget);
+      // spotsLeft = 10 - 8 - 2 = 0 => "✕ Sold out"
+      expect(find.textContaining('Sold out'), findsOneWidget);
     });
 
     testWidgets('buy button exists for customer on selling_tickets event',
@@ -221,8 +221,8 @@ void main() {
       await pumpTiersSection(tester);
       await tester.pumpAndSettle();
 
-      // Should show available spots text "35 of 50 spots available"
-      expect(find.textContaining('35 of 50 spots available'), findsOneWidget);
+      // Should show available spots text "✓ 35 left"
+      expect(find.textContaining('35 left'), findsOneWidget);
     });
   });
 }

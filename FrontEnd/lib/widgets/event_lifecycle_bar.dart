@@ -172,17 +172,17 @@ class _BreadcrumbStep extends StatelessWidget {
         ? stepColor
         : isPast
             ? stepColor.withValues(alpha: isDark ? 0.22 : 0.14)
-            : AppTheme.dividerOf(context).withValues(alpha: isDark ? 0.6 : 1.0);
+            : stepColor.withValues(alpha: isDark ? 0.10 : 0.07);
     final Color iconColor = isCurrent
         ? Colors.white
         : isPast
             ? stepColor
-            : AppTheme.textSecondaryOf(context).withValues(alpha: 0.45);
+            : stepColor.withValues(alpha: isDark ? 0.45 : 0.38);
     final Color labelColor = isCurrent
         ? stepColor
         : isPast
             ? AppTheme.textSecondaryOf(context)
-            : AppTheme.textSecondaryOf(context).withValues(alpha: 0.45);
+            : stepColor.withValues(alpha: isDark ? 0.50 : 0.42);
 
     final IconData icon = isPast ? Icons.check_rounded : step.icon;
 
@@ -216,9 +216,8 @@ class _BreadcrumbStep extends StatelessWidget {
                 border: isCurrent
                     ? null
                     : Border.all(
-                        color: isPast
-                            ? stepColor.withValues(alpha: 0.35)
-                            : AppTheme.dividerOf(context),
+                        color: stepColor.withValues(
+                            alpha: isPast ? 0.35 : (isDark ? 0.25 : 0.20)),
                         width: 1,
                       ),
               ),

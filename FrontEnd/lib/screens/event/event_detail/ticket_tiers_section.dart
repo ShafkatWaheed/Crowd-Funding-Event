@@ -15,7 +15,6 @@ import '../../../widgets/app_toast.dart';
 import 'package:flutter_stripe/flutter_stripe.dart' hide Card;
 import '../ticket_receipt_screen.dart';
 import '../purchase_group_receipt_screen.dart';
-import 'ticket_price_breakdown.dart';
 
 class TicketTiersSection extends StatefulWidget {
   final Event event;
@@ -44,112 +43,78 @@ class TicketTiersSection extends StatefulWidget {
 }
 
 class _TicketTiersSectionState extends State<TicketTiersSection> {
-  Widget _buildTicketTiersSection() {
+  Future<(List<TicketTier>, Map<int, TicketPricePreview>)>
+      _loadTiersWithPreviews() async {
     final ticketRepo = context.read<TicketProvider>();
-    final user = context.read<AuthProvider>().user;
-    final isCustomer = user != null && !user.isOrganizer && !user.isAdmin;
+    final tiers = await ticketRepo.getTicketTiers(widget.event.id);
+    final previews = <int, TicketPricePreview>{};
+    await Future.wait(tiers.map((t) async {
+      if (t.priceCents > 0) {
+        try {
+          previews[t.id] =
+              await ticketRepo.getTicketPrice(widget.event.id, t.id);
+        } catch (_) {}
+      }
+    }));
+    return (tiers, previews);
+  }
 
-    return FutureBuilder(
-      future: ticketRepo.getTicketTiers(widget.event.id),
+  int? _popularTierId(List<TicketTier> tiers) {
+    // Priority 1: manually featured
+    for (final t in tiers) {
+      if (t.isFeatured) return t.id;
+    }
+    // Priority 2: highest sell-through ≥ 20% among paid tiers with capacity
+    TicketTier? best;
+    double bestRate = 0.2; // minimum threshold
+    for (final t in tiers) {
+      if (t.priceCents == 0 || t.maxReservedSpots <= 0) continue;
+      final rate = t.ticketsSold / t.maxReservedSpots;
+      if (rate >= bestRate) {
+        bestRate = rate;
+        best = t;
+      }
+    }
+    return best?.id;
+  }
+
+  Widget _buildTicketTiersSection() {
+    return FutureBuilder<(List<TicketTier>, Map<int, TicketPricePreview>)>(
+      future: _loadTiersWithPreviews(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const SizedBox(
+            height: 226,
+            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          );
         }
         if (snapshot.hasError || !snapshot.hasData) {
           return Text('Could not load ticket tiers',
               style: TextStyle(color: AppTheme.textSecondaryOf(context)));
         }
-        final tiers = snapshot.data!;
+        final (tiers, _) = snapshot.data!;
         if (tiers.isEmpty) {
           return Text('No tiers configured yet',
               style: TextStyle(color: AppTheme.textSecondaryOf(context)));
         }
-        return Column(
-          children: tiers.map((t) {
-            final tierId = t.id;
-            final name = t.name;
-            final priceCents = t.priceCents;
-            final isFree = t.isFree;
-            final basePrice = isFree ? null : (priceCents / 100).toStringAsFixed(2);
-            final maxSpots = t.maxReservedSpots;
-            final spotsLeft = t.spotsLeft;
-
-            return Card(
-              margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-              shape: RoundedRectangleBorder(borderRadius: AppRadius.md),
-              child: Padding(
-                padding: AppSpacing.paddingMd,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.confirmation_number,
-                            size: AppIconSize.sm, color: Colors.teal),
-                        AppSpacing.hSm,
-                        Expanded(
-                          child: Text(name,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w600)),
-                        ),
-                        if (isFree)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: Colors.green.shade50,
-                              borderRadius: AppRadius.pill,
-                              border: Border.all(color: Colors.green.shade300),
-                            ),
-                            child: Text('FREE',
-                                style: TextStyle(
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 12,
-                                    color: Colors.green.shade700)),
-                          )
-                        else
-                          Text('\$$basePrice',
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.teal)),
-                      ],
-                    ),
-                    if (maxSpots > 0)
-                      Padding(
-                        padding: const EdgeInsets.only(left: 28, top: 4),
-                        child: Row(
-                          children: [
-                            Icon(Icons.event_seat_rounded,
-                                size: 12,
-                                color: spotsLeft <= 0
-                                    ? AppTheme.errorColor
-                                    : spotsLeft <= 3
-                                        ? AppTheme.warningColor
-                                        : AppTheme.textSecondaryOf(context)),
-                            const SizedBox(width: 4),
-                            Text(
-                              spotsLeft > 0
-                                  ? '$spotsLeft of $maxSpots spots available'
-                                  : 'Sold out',
-                              style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: spotsLeft <= 0
-                                      ? AppTheme.errorColor
-                                      : spotsLeft <= 3
-                                          ? AppTheme.warningColor
-                                          : AppTheme.textSecondaryOf(context)),
-                            ),
-                          ],
-                        ),
-                      ),
-                    // Note: TicketTier model lacks 'description' field
-                    if (isCustomer && !isFree)
-                      TicketPriceBreakdown(eventId: widget.event.id, tierId: tierId, basePriceCents: priceCents),
-                  ],
-                ),
-              ),
-            );
-          }).toList(),
+        final isDark = AppTheme.isDark(context);
+        final popularId = _popularTierId(tiers);
+        return SizedBox(
+          height: 226,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: EdgeInsets.zero,
+            itemCount: tiers.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (context, i) {
+              final t = tiers[i];
+              return _TierCard(
+                tier: t,
+                isFeatured: t.id == popularId,
+                isDark: isDark,
+              );
+            },
+          ),
         );
       },
     );
@@ -1019,6 +984,174 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
             ),
           ),
         ],
+      ],
+    );
+  }
+}
+
+// ─── Premium horizontal tier card ───────────────────────────────────────────
+
+class _TierCard extends StatelessWidget {
+  final TicketTier tier;
+  final bool isFeatured;
+  final bool isDark;
+
+  const _TierCard({
+    required this.tier,
+    required this.isFeatured,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final spotsLeft = tier.spotsLeft;
+    final maxSpots = tier.maxReservedSpots;
+    final hasCapacity = maxSpots > 0;
+    final isSoldOut = hasCapacity && spotsLeft <= 0;
+    final isLow = hasCapacity && !isSoldOut && spotsLeft <= 5;
+
+    // Availability label
+    String availText;
+    Color availColor;
+    String availIcon;
+    if (!hasCapacity) {
+      availText = 'Open availability';
+      availColor = AppTheme.successColor;
+      availIcon = '✓';
+    } else if (isSoldOut) {
+      availText = 'Sold out';
+      availColor = AppTheme.errorColor;
+      availIcon = '✕';
+    } else if (isLow) {
+      availText = '$spotsLeft left';
+      availColor = AppTheme.warningColor;
+      availIcon = '⚠';
+    } else {
+      availText = '$spotsLeft left';
+      availColor = AppTheme.successColor;
+      availIcon = '✓';
+    }
+
+    // Card visual properties
+    final Color nameFg = isFeatured
+        ? Colors.white
+        : AppTheme.textPrimaryOf(context);
+    final Color mutedFg = isFeatured
+        ? Colors.white.withValues(alpha: 0.65)
+        : AppTheme.textSecondaryOf(context);
+
+    final BoxDecoration cardDecoration = isFeatured
+        ? BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            gradient: const LinearGradient(
+              begin: Alignment(0.6, -0.8),
+              end: Alignment(-0.6, 0.8),
+              colors: [Color(0xFF0D1B3E), Color(0xFF1A0A2E)],
+            ),
+            border: Border.all(
+              color: AppTheme.accentColor.withValues(alpha: 0.40),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.accentColor.withValues(alpha: 0.20),
+                blurRadius: 28,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          )
+        : BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            color: isDark ? const Color(0xFF1A1A1A) : const Color(0xFFF6F6F6),
+            border: Border.all(
+              color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFE2E2E2),
+              width: 1,
+            ),
+          );
+
+    return Stack(
+      children: [
+        Container(
+          width: 160,
+          padding: const EdgeInsets.all(16),
+          decoration: cardDecoration,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (isFeatured) const SizedBox(height: 18),
+              Text(
+                tier.name,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: nameFg,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              if (tier.description != null && tier.description!.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  tier.description!,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: mutedFg,
+                    height: 1.4,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ] else
+                const SizedBox(height: 10),
+              const Spacer(),
+              Text(
+                tier.isFree ? 'FREE' : tier.priceFormatted,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.5,
+                  color: tier.isFree
+                      ? AppTheme.successColor
+                      : nameFg,
+                ),
+              ),
+              Text(
+                'per person',
+                style: TextStyle(fontSize: 10, color: mutedFg),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '$availIcon $availText',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: availColor,
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (isFeatured)
+          Positioned(
+            top: 10,
+            right: 10,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: AppTheme.accentColor,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Text(
+                'POPULAR',
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                  letterSpacing: 0.4,
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }

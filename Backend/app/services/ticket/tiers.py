@@ -43,6 +43,7 @@ async def create_tier(
     price_cents: int,
     max_reserved_spots: int = 0,
     display_order: int = 0,
+    is_featured: bool = False,
 ) -> TicketTier:
     log_step(logger, "Creating tier", event_id=event_id, tier_name=name, price_cents=price_cents)
     event = await event_service.get_or_404(db, event_id)
@@ -62,6 +63,7 @@ async def create_tier(
         price_cents=price_cents,
         max_reserved_spots=max_reserved_spots,
         display_order=display_order,
+        is_featured=is_featured,
     )
     tier = await ticket_repo.create_tier(db, tier)
     logger.info("Tier created", extra={"event_id": event_id, "tier_id": tier.id, "tier_name": name})
@@ -78,6 +80,7 @@ async def update_tier(
     price_cents: int | None = None,
     max_reserved_spots: int | None = None,
     display_order: int | None = None,
+    is_featured: bool | None = None,
 ) -> TicketTier:
     log_step(logger, "Updating tier", event_id=tier.event_id, tier_id=tier.id)
     event = await event_service.get_or_404(db, tier.event_id)
@@ -101,6 +104,8 @@ async def update_tier(
         tier.max_reserved_spots = max_reserved_spots
     if display_order is not None:
         tier.display_order = display_order
+    if is_featured is not None:
+        tier.is_featured = is_featured
     await ticket_repo.update_tier(db, tier)
     logger.info("Tier updated", extra={"event_id": tier.event_id, "tier_id": tier.id})
     return tier

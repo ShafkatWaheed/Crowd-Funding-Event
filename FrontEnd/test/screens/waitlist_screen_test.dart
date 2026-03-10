@@ -9,7 +9,7 @@ import 'package:crowd_funding_app/models/event.dart';
 import 'package:crowd_funding_app/models/ticket.dart';
 import 'package:crowd_funding_app/providers/event_provider.dart';
 import 'package:crowd_funding_app/providers/ticket_provider.dart';
-import 'package:crowd_funding_app/screens/event/waitlist_screen.dart';
+import 'package:crowd_funding_app/screens/event/management/waitlist_screen.dart';
 import '../helpers/mock_event_repository.dart';
 import '../helpers/mock_ticket_repository.dart';
 import '../helpers/pump_app.dart';

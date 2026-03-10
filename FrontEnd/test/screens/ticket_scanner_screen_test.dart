@@ -6,7 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:crowd_funding_app/db/app_database.dart';
 import 'package:crowd_funding_app/services/sync_service.dart';
 import 'package:crowd_funding_app/providers/ticket_provider.dart';
-import 'package:crowd_funding_app/screens/event/ticket_scanner_screen.dart';
+import 'package:crowd_funding_app/screens/event/management/ticket_scanner_screen.dart';
 import '../helpers/mock_ticket_repository.dart';
 import '../helpers/pump_app.dart';
 

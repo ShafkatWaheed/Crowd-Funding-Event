@@ -8,7 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:crowd_funding_app/models/ticket.dart';
 import 'package:crowd_funding_app/providers/sponsor_provider.dart';
 import 'package:crowd_funding_app/providers/ticket_provider.dart';
-import 'package:crowd_funding_app/screens/event/ticket_sales_screen.dart';
+import 'package:crowd_funding_app/screens/event/management/ticket_sales_screen.dart';
 import '../helpers/mock_sponsor_repository.dart';
 import '../helpers/mock_ticket_repository.dart';
 import '../helpers/pump_app.dart';

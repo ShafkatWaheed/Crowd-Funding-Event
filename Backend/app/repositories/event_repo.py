@@ -830,6 +830,18 @@ class EventRepository(BaseRepository[Event]):
         )
         return int((await db.execute(q)).scalar_one())
 
+    async def get_live_past_end_time(self, db: AsyncSession, now: datetime) -> list[Event]:
+        """Return all live events whose end_time has passed — candidates for completion."""
+        q = (
+            select(Event)
+            .where(
+                Event.status == EventStatus.live,
+                Event.end_time.isnot(None),
+                Event.end_time <= now,
+            )
+        )
+        return list((await db.execute(q)).scalars().all())
+
     # ═══════════════════════════════════════════════════════════════════
     #  Venue Queries
     # ═══════════════════════════════════════════════════════════════════

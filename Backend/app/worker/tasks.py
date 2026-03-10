@@ -857,6 +857,31 @@ async def archive_resolved_chats(ctx: dict) -> None:
         await _log_cron_run("archive_resolved_chats", status="error", started_at=started_at, duration_ms=(time.monotonic() - t0) * 1000, error=traceback.format_exc()[-500:])
 
 
+async def advance_live_events(ctx: dict) -> None:
+    """Cron: transition live events whose end_time has passed to completed."""
+    t0 = time.monotonic()
+    started_at = datetime.now(timezone.utc)
+    count = 0
+    try:
+        from app.repositories.event_repo import event_repo
+        from app.services.event import auto_transition_status
+
+        now = datetime.now(timezone.utc)
+        async with async_session_maker() as db:
+            events = await event_repo.get_live_past_end_time(db, now)
+            for event in events:
+                await auto_transition_status(db, event)
+                count += 1
+            if count:
+                await db.commit()
+
+        logger.info("advance_live_events: transitioned %d events to completed", count)
+        await _log_cron_run("advance_live_events", status="success", started_at=started_at, duration_ms=(time.monotonic() - t0) * 1000, items_processed=count)
+    except Exception:
+        logger.exception("advance_live_events failed")
+        await _log_cron_run("advance_live_events", status="error", started_at=started_at, duration_ms=(time.monotonic() - t0) * 1000, error=traceback.format_exc()[-500:])
+
+
 async def purge_old_chat_archives(ctx: dict) -> None:
     """Delete archived chat JSON files older than the retention period."""
     t0 = time.monotonic()

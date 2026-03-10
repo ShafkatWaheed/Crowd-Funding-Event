@@ -35,6 +35,7 @@ from app.worker.tasks import (
     cleanup_old_records,
     archive_resolved_chats,
     purge_old_chat_archives,
+    advance_live_events,
 )
 
 
@@ -75,6 +76,7 @@ def _build_cron_jobs():
         cron(check_all_sponsor_escrows, minute=offset_mins),
         cron(process_scheduled_payouts, hour={cfg["payout_h"]}, minute={0}),
         cron(daily_reconciliation, hour={cfg["recon_h"]}, minute={0}),
+        cron(advance_live_events, minute=set(range(0, 60, 5))),
         cron(cleanup_old_records, hour={3}, minute={30}),
         cron(archive_resolved_chats, hour={3}, minute={0}),
         cron(purge_old_chat_archives, hour={3}, minute={45}),

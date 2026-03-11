@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ticket Tier Color Schemes</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+
+/* ── Brand tokens ── */
+:root {
+  --blue:    #276EF1;
+  --feed:    #2196F3;
+  --green:   #05944F;
+  --orange:  #FF8C00;
+  --purple:  #9333EA;
+  --teal:    #009688;
+  --cyan:    #0891B2;
+  --amber:   #FFC043;
+  --red:     #E11900;
+  --rose:    #E91E8C;
+}
+
+/* ── Dark palette ── */
+.dark {
+  --bg:        #0F0F0F;
+  --card:      #1A1A1A;
+  --surface:   #242424;
+  --border:    rgba(255,255,255,0.08);
+  --divider:   rgba(255,255,255,0.07);
+  --text-pri:  #F0F0F0;
+  --text-sec:  #888;
+  --text-ter:  #555;
+  --feed-c:    #90CAF9;
+  --green-c:   #05944F;
+  --orange-c:  #FFB74D;
+  --purple-c:  #BB86FC;
+  --teal-c:    #4DB6AC;
+  --cyan-c:    #26C6DA;
+  --amber-c:   #FFD54F;
+  --btn-txt:   #FFFFFF;
+}
+
+/* ── Light palette ── */
+.light {
+  --bg:        #F2F4F7;
+  --card:      #FFFFFF;
+  --surface:   #F7F8FA;
+  --border:    rgba(0,0,0,0.08);
+  --divider:   rgba(0,0,0,0.07);
+  --text-pri:  #111111;
+  --text-sec:  #6B7280;
+  --text-ter:  #9CA3AF;
+  --feed-c:    #2196F3;
+  --green-c:   #05944F;
+  --orange-c:  #FF8C00;
+  --purple-c:  #9333EA;
+  --teal-c:    #009688;
+  --cyan-c:    #0891B2;
+  --amber-c:   #F59E0B;
+  --btn-txt:   #FFFFFF;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #E2E5EB;
+  font-family: 'Inter', sans-serif;
+  padding: 36px 24px 80px;
+}
+
+/* ── Page header ── */
+.page-hd {
+  text-align: center;
+  margin-bottom: 52px;
+}
+.page-hd h1 {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 28px; font-weight: 800; letter-spacing: -0.8px;
+  color: #111; margin-bottom: 6px;
+}
+.page-hd p { font-size: 14px; color: #6B7280; }
+
+/* ── Section ── */
+.scheme-section { margin-bottom: 64px; }
+
+.scheme-hd { margin-bottom: 22px; }
+.scheme-label {
+  font-size: 11px; font-weight: 700; letter-spacing: 1.5px;
+  text-transform: uppercase; color: #6366F1; margin-bottom: 4px;
+}
+.scheme-title {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 22px; font-weight: 800; letter-spacing: -0.4px;
+  color: #111; margin-bottom: 4px;
+}
+.scheme-desc { font-size: 13px; color: #6B7280; line-height: 1.5; max-width: 560px; }
+.rec-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: rgba(5,148,79,.1); border: 1px solid rgba(5,148,79,.25);
+  border-radius: 100px; padding: 3px 10px; margin-top: 8px;
+  font-size: 11px; font-weight: 700; color: #05944F;
+}
+
+/* ── Side-by-side panels ── */
+.panels {
+  display: flex; gap: 20px; align-items: flex-start;
+}
+.panel {
+  flex: 1; min-width: 0;
+  padding: 20px; border-radius: 20px;
+  background: var(--bg);
+}
+.panel-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 1px;
+  text-transform: uppercase; margin-bottom: 14px; text-align: center;
+}
+.dark  .panel-label { color: #555; }
+.light .panel-label { color: #B0B7C3; }
+
+.divider-line { height: 1px; background: #CDD2DC; margin: 56px 0; }
+
+/* ── Outer card container ── */
+.tier-container {
+  background: var(--card);
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  padding: 18px;
+}
+
+.tier-hdr {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 16px;
+}
+.tier-hdr-icon { font-size: 15px; }
+.tier-hdr-title {
+  font-size: 13px; font-weight: 700;
+  color: var(--text-sec); letter-spacing: 0.5px; flex: 1;
+}
+.tier-hdr-count {
+  font-size: 11px; font-weight: 600;
+  color: var(--text-ter);
+}
+
+/* ── Horizontal card strip ── */
+.card-strip {
+  display: flex; gap: 10px; overflow-x: auto;
+  padding-bottom: 4px;
+}
+.card-strip::-webkit-scrollbar { height: 3px; }
+.card-strip::-webkit-scrollbar-track { background: transparent; }
+.card-strip::-webkit-scrollbar-thumb { background: var(--divider); border-radius: 100px; }
+
+/* ── Tier card base ── */
+.tier-card {
+  width: 152px; flex-shrink: 0;
+  background: var(--surface);
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+  position: relative;
+  display: flex; flex-direction: column;
+}
+.tier-card.featured {
+  border-width: 1.5px;
+}
+
+/* Featured badge */
+.feat-badge {
+  position: absolute; top: 8px; right: 8px;
+  font-size: 9px; font-weight: 800; letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 2px 7px; border-radius: 100px;
+  background: var(--amber); color: #fff;
+  display: none;
+}
+.tier-card.featured .feat-badge { display: block; }
+
+/* Card header accent area */
+.card-accent {
+  height: 7px;
+  border-radius: 0;
+}
+
+/* Card body */
+.card-body { padding: 11px 11px 10px; flex: 1; display: flex; flex-direction: column; }
+
+.tier-name {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 13px; font-weight: 700;
+  color: var(--text-pri); margin-bottom: 2px;
+  line-height: 1.3;
+}
+.tier-desc {
+  font-size: 10px; color: var(--text-sec); margin-bottom: 8px;
+  line-height: 1.4; flex: 1;
+}
+
+.price-row { margin-bottom: 7px; }
+.price-free {
+  display: inline-block;
+  font-size: 12px; font-weight: 800;
+  padding: 2px 8px; border-radius: 6px;
+}
+.price-paid {
+  font-size: 17px; font-weight: 800;
+  color: var(--text-pri);
+}
+.price-label {
+  font-size: 9px; font-weight: 600;
+  color: var(--text-sec); margin-left: 2px;
+}
+
+/* Spots bar */
+.spots-bar-wrap { margin-bottom: 9px; }
+.spots-bar-track {
+  height: 3px; border-radius: 100px;
+  background: var(--divider); overflow: hidden; margin-bottom: 3px;
+}
+.spots-bar-fill { height: 100%; border-radius: 100px; }
+.spots-label { font-size: 9px; color: var(--text-sec); }
+
+/* Buy button */
+.buy-btn {
+  width: 100%; padding: 7px 0; border-radius: 8px;
+  font-size: 11px; font-weight: 700; text-align: center;
+  cursor: pointer; border: none;
+  color: var(--btn-txt);
+}
+.buy-btn.outline {
+  background: transparent;
+  border: 1.5px solid currentColor;
+}
+
+/* Sold out overlay */
+.sold-out-btn {
+  width: 100%; padding: 7px 0; border-radius: 8px;
+  font-size: 11px; font-weight: 700; text-align: center;
+  background: var(--divider); color: var(--text-ter);
+}
+
+/* ─────────────────────────────────────────────────────────
+   SCHEME 1 — Name Keywords
+───────────────────────────────────────────────────────── */
+
+/* keyword → color mapping */
+.kw-green  { --kc: var(--green-c);  }
+.kw-blue   { --kc: var(--feed-c);   }
+.kw-purple { --kc: var(--purple-c); }
+.kw-amber  { --kc: var(--amber-c);  }
+.kw-teal   { --kc: var(--teal-c);   }
+
+.s1 .card-accent             { background: var(--kc); }
+.s1 .tier-card.featured      { border-color: var(--kc); box-shadow: 0 0 0 2px rgba(255,193,7,.18); }
+.s1 .price-free              { background: rgba(5,148,79,.12); color: var(--green-c); }
+.s1 .spots-bar-fill          { background: var(--kc); }
+.s1 .buy-btn                 { background: var(--kc); }
+.s1 .buy-btn.outline         { color: var(--kc); }
+.s1 .tier-card.featured .feat-badge { background: var(--amber-c); }
+
+/* ─────────────────────────────────────────────────────────
+   SCHEME 2 — Price Position
+───────────────────────────────────────────────────────── */
+
+.s2 .p-free     { --pc: var(--green-c);  }
+.s2 .p-budget   { --pc: var(--feed-c);   }
+.s2 .p-mid      { --pc: var(--purple-c); }
+.s2 .p-premium  { --pc: var(--amber-c);  }
+
+.s2 .card-accent             { background: var(--pc); }
+.s2 .price-free              { background: rgba(5,148,79,.12); color: var(--green-c); }
+.s2 .spots-bar-fill          { background: var(--pc); }
+.s2 .buy-btn                 { background: var(--pc); }
+.s2 .buy-btn.outline         { color: var(--pc); }
+.s2 .tier-card.p-premium.featured { border-color: var(--amber-c); box-shadow: 0 0 0 2px rgba(255,193,7,.18); }
+.s2 .tier-card.featured .feat-badge { background: var(--amber-c); }
+
+/* ─────────────────────────────────────────────────────────
+   SCHEME 3 — Index Cycle
+───────────────────────────────────────────────────────── */
+
+.s3 .i0 { --ic: var(--feed-c);   }
+.s3 .i1 { --ic: var(--green-c);  }
+.s3 .i2 { --ic: var(--orange-c); }
+.s3 .i3 { --ic: var(--purple-c); }
+
+.s3 .card-accent             { background: var(--ic); }
+.s3 .price-free              { background: rgba(5,148,79,.12); color: var(--green-c); }
+.s3 .spots-bar-fill          { background: var(--ic); }
+.s3 .buy-btn                 { background: var(--ic); }
+.s3 .buy-btn.outline         { color: var(--ic); }
+.s3 .tier-card.featured      { border-color: var(--ic); }
+.s3 .tier-card.featured .feat-badge { background: var(--orange-c); }
+
+/* ── Dark orange for cycle (readable) ── */
+.dark.s3 .i2 .card-accent    { background: #FFB74D; }
+.dark.s3 .i2 .spots-bar-fill { background: #FFB74D; }
+.dark.s3 .i2 .buy-btn        { background: #FFB74D; }
+
+</style>
+</head>
+<body>
+
+<div class="page-hd">
+  <h1>Ticket Tier Color Schemes</h1>
+  <p>Three approaches — Scheme 1 is keyword-aware, 2 is price-ranked, 3 is index-cycled</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     SCHEME 1 — Name Keywords
+═══════════════════════════════════════════════════════ -->
+<div class="scheme-section">
+  <div class="scheme-hd">
+    <div class="scheme-label">Scheme 1</div>
+    <div class="scheme-title">Name Keyword Detection</div>
+    <div class="scheme-desc">
+      Color is derived from the tier name. "Free" → green, "General" → blue, "Premium" → purple,
+      "VIP / Gold / Platinum" → amber, "Early Bird" → teal. Fallback to blue for unrecognised names.
+    </div>
+    <div class="rec-badge">⭐ Recommended</div>
+  </div>
+
+  <div class="panels">
+
+    <!-- Dark -->
+    <div class="panel dark s1">
+      <div class="panel-label">Dark mode</div>
+      <div class="tier-container">
+        <div class="tier-hdr">
+          <span class="tier-hdr-icon">🎟</span>
+          <span class="tier-hdr-title">TICKETS</span>
+          <span class="tier-hdr-count">4 tiers</span>
+        </div>
+        <div class="card-strip">
+
+          <!-- Free Community -->
+          <div class="tier-card kw-green">
+            <div class="feat-badge">Popular</div>
+            <div class="card-accent"></div>
+            <div class="card-body">
+              <div class="tier-name">Community</div>
+              <div class="tier-desc">Open to everyone, no cost</div>
+              <div class="price-row">
+                <span class="price-free">FREE</span>
+              </div>
+              <div class="spots-bar-wrap">
+                <div class="spots-bar-track"><div class="spots-bar-fill" style="width:62%"></div></div>
+                <div class="spots-label">152 of 250 left</div>
+              </div>
+              <button class="buy-btn">Register</button>
+            </div>
+          </div>
+
+          <!-- General -->
+          <div class="tier-card kw-blue featured">
+            <div class="feat-badge">Popular</div>
+            <div class="card-accent"></div>
+            <div class="card-body">
+              <div class="tier-name">General Admission</div>
+              <div class="tier-desc">Standard entry access</div>
+              <div class="price-row">
+                <span class="price-paid">$29</span><span class="price-label">/ ticket</span>
+              </div>
+              <div class="spots-bar-wrap">
+                <div class="spots-bar-track"><div class="spots-bar-fill" style="width:38%"></div></div>
+                <div class="spots-label">76 of 200 left</div>
+              </div>
+              <button class="buy-btn">Buy Now</button>
+            </div>
+          </div>
+
+          <!-- Premium -->
+          <div class="tier-card kw-purple">
+            <div class="feat-badge">Popular</div>
+            <div class="card-accent"></div>
+            <div class="card-body">
+              <div class="tier-name">Premium</div>
+              <div class="tier-desc">Priority seating + merch</div>
+              <div class="price-row">
+                <span class="price-paid">$79</span><span class="price-label">/ ticket</span>
+              </div>
+              <div class="spots-bar-wrap">
+                <div class="spots-bar-track"><div class="spots-bar-fill" style="width:55%"></div></div>
+                <div class="spots-label">45 of 100 left</div>
+              </div>
+              <button class="buy-btn">Buy Now</button>
+            </div>
+          </div>
+
+          <!-- VIP -->
+          <div class="tier-card kw-amber">
+            <div class="feat-badge">Popular</div>
+            <div class="card-accent"></div>
+            <div class="card-body">
+              <div class="tier-name">VIP Gold</div>
+              <div class="tier-desc">Backstage · lounge · dinner</div>
+              <div class="price-row">
+                <span class="price-paid">$199</span><span class="price-label">/ ticket</span>
+              </div>
+              <div class="spots-bar-wrap">
+                <div class="spots-bar-track"><div class="spots-bar-fill" style="width:80%"></div></div>
+                <div class="spots-label">4 of 20 left</div>
+              </div>
+              <button class="buy-btn">Buy Now</button>
+            </div>
+          </div>
+
+          <!-- Early Bird -->
+          <div class="tier-card kw-teal">
+            <div class="feat-badge">Popular</div>
+            <div class="card-accent"></div>
+            <div class="card-body">
+              <div class="tier-name">Early Bird</div>
+              <div class="tier-desc">Limited time offer</div>
+              <div class="price-row">
+                <span class="price-paid">$19</span><span class="price-label">/ ticket</span>
+              </div>
+              <div class="spots-bar-wrap">
+                <div class="spots-bar-track"><div class="spots-bar-fill" style="width:100%"></div></div>
+                <div class="spots-label">Sold out</div>
+              </div>
+              <div class="sold-out-btn">Sold Out</div>
+            </div>
+          </div>
+
+        </div><!-- card-strip -->
+      </div><!-- tier-container -->
+    </div><!-- panel dark -->
+
+    <!-- Light -->
+    <div class="panel light s1">
+      <div class="panel-label">Light mode</div>
+      <div class="tier-container">
+        <div class="tier-hdr">
+          <span class="tier-hdr-icon">🎟</span>
+          <span class="tier-hdr-title">TICKETS</span>
+          <span class="tier-hdr-count">4 tiers</span>
+        </div>
+        <div class="card-strip">
+
+          <div class="tier-card kw-green">
+            <div class="feat-badge">Popular</div>
+            <div class="card-accent"></div>
+            <div class="card-body">
+              <div class="tier-name">Community</div>
+              <div class="tier-desc">Open to everyone, no cost</div>
+              <div class="price-row"><span class="price-free">FREE</span></div>
+              <div class="spots-bar-wrap">
+                <div class="spots-bar-track"><div class="spots-bar-fill" style="width:62%"></div></div>
+                <div class="spots-label">152 of 250 left</div>
+              </div>
+              <button class="buy-btn">Register</button>
+            </div>
+          </div>
+
+          <div class="tier-card kw-blue featured">
+            <div class="feat-badge">Popular</div>
+            <div class="card-accent"></div>
+            <div class="card-body">
+              <div class="tier-name">General Admission</div>
+              <div class="tier-desc">Standard entry access</div>
+              <div class="price-row"><span class="price-paid">$29</span><span class="price-label">/ ticket</span></div>
+              <div class="spots-bar-wrap">
+                <div class="spots-bar-track"><div class="spots-bar-fill" style="width:38%"></div></div>
+                <div class="spots-label">76 of 200 left</div>
+              </div>
+              <button class="buy-btn">Buy Now</button>
+            </div>
+          </div>
+
+          <div class="tier-card kw-purple">
+            <div class="feat-badge">Popular</div>
+            <div class="card-accent"></div>
+            <div class="card-body">
+              <div class="tier-name">Premium</div>
+              <div class="tier-desc">Priority seating + merch</div>
+              <div class="price-row"><span class="price-paid">$79</span><span class="price-label">/ ticket</span></div>
+              <div class="spots-bar-wrap">
+                <div class="spots-bar-track"><div class="spots-bar-fill" style="width:55%"></div></div>
+                <div class="spots-label">45 of 100 left</div>
+              </div>
+              <button class="buy-btn">Buy Now</button>
+            </div>
+          </div>
+
+          <div class="tier-card kw-amber">
+            <div class="feat-badge">Popular</div>
+            <div class="card-accent"></div>
+            <div class="card-body">
+              <div class="tier-name">VIP Gold</div>
+              <div class="tier-desc">Backstage · lounge · dinner</div>
+              <div class="price-row"><span class="price-paid">$199</span><span class="price-label">/ ticket</span></div>
+              <div class="spots-bar-wrap">
+                <div class="spots-bar-track"><div class="spots-bar-fill" style="width:80%"></div></div>
+                <div class="spots-label">4 of 20 left</div>
+              </div>
+              <button class="buy-btn">Buy Now</button>
+            </div>
+          </div>
+
+          <div class="tier-card kw-teal">
+            <div class="feat-badge">Popular</div>
+            <div class="card-accent"></div>
+            <div class="card-body">
+              <div class="tier-name">Early Bird</div>
+              <div class="tier-desc">Limited time offer</div>
+              <div class="price-row"><span class="price-paid">$19</span><span class="price-label">/ ticket</span></div>
+              <div class="spots-bar-wrap">
+                <div class="spots-bar-track"><div class="spots-bar-fill" style="width:100%"></div></div>
+                <div class="spots-label">Sold out</div>
+              </div>
+              <div class="sold-out-btn">Sold Out</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div><!-- panel light -->
+
+  </div><!-- panels -->
+</div><!-- scheme-section -->
+
+<div class="divider-line"></div>
+
+<!-- ═══════════════════════════════════════════════════════
+     SCHEME 2 — Price Position
+═══════════════════════════════════════════════════════ -->
+<div class="scheme-section">
+  <div class="scheme-hd">
+    <div class="scheme-label">Scheme 2</div>
+    <div class="scheme-title">Price Position</div>
+    <div class="scheme-desc">
+      Tiers are sorted by price and colors assigned by rank: Free → green,
+      cheapest paid → blue, middle → purple, most expensive → amber.
+      Works even with generic names like "Tier A / Tier B".
+    </div>
+  </div>
+
+  <div class="panels">
+
+    <!-- Dark -->
+    <div class="panel dark s2">
+      <div class="panel-label">Dark mode</div>
+      <div class="tier-container">
+        <div class="tier-hdr">
+          <span class="tier-hdr-icon">🎟</span>
+          <span class="tier-hdr-title">TICKETS</span>
+          <span class="tier-hdr-count">4 tiers</span>
+        </div>
+        <div class="card-strip">
+
+          <div class="tier-card p-free">
+            <div class="feat-badge">Popular</div>
+            <div class="card-accent"></div>
+            <div class="card-body">
+              <div class="tier-name">Tier A</div>
+              <div class="tier-desc">Community access</div>
+              <div class="price-row"><span class="price-free">FREE</span></div>
+              <div class="spots-bar-wrap">
+                <div class="spots-bar-track"><div class="spots-bar-fill" style="width:50%"></div></div>
+                <div class="spots-label">125 of 250 left</div>
+              </div>
+              <button class="buy-btn">Register</button>
+            </div>
+          </div>
+
+          <div class="tier-card p-budget featured">
+            <div class="feat-badge">Popular</div>
+            <div class="card-accent"></div>
+            <div class="card-body">
+              <div class="tier-name">Tier B</div>
+              <div class="tier-desc">Standard access</div>
+              <div class="price-row"><span class="price-paid">$29</span><span class="price-label">/ ticket</span></div>
+              <div class="spots-bar-wrap">
+                <div class="spots-bar-track"><div class="spots-bar-fill" style="width:40%"></div></div>
+                <div class="spots-label">80 of 200 left</div>
+              </div>
+              <button class="buy-btn">Buy Now</button>
+            </div>
+          </div>
+
+          <div class="tier-card p-mid">
+            <div class="feat-badge">Popular</div>
+            <div class="card-accent"></div>
+            <div class="card-body">
+              <div class="tier-name">Tier C</div>
+              <div class="tier-desc">Enhanced experience</div>
+              <div class="price-row"><span class="price-paid">$79</span><span class="price-label">/ ticket</span></div>
+              <div class="spots-bar-wrap">
+                <div class="spots-bar-track"><div class="spots-bar-fill" style="width:60%"></div></div>
+                <div class="spots-label">40 of 100 left</div>
+              </div>
+              <button class="buy-btn">Buy Now</button>
+            </div>
+          </div>
+
+          <div class="tier-card p-premium">
+            <div class="feat-badge">Popular</div>
+            <div class="card-accent"></div>
+            <div class="card-body">
+              <div class="tier-name">Tier D</div>
+              <div class="tier-desc">Full VIP treatment</div>
+              <div class="price-row"><span class="price-paid">$199</span><span class="price-label">/ ticket</span></div>
+              <div class="spots-bar-wrap">
+                <div class="spots-bar-track"><div class="spots-bar-fill" style="width:85%"></div></div>
+                <div class="spots-label">3 of 20 left</div>
+              </div>
+              <button class="buy-btn">Buy Now</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Light -->
+    <div class="panel light s2">
+      <div class="panel-label">Light mode</div>
+      <div class="tier-container">
+        <div class="tier-hdr">
+          <span class="tier-hdr-icon">🎟</span>
+          <span class="tier-hdr-title">TICKETS</span>
+          <span class="tier-hdr-count">4 tiers</span>
+        </div>
+        <div class="card-strip">
+
+          <div class="tier-card p-free">
+            <div class="feat-badge">Popular</div>
+            <div class="card-accent"></div>
+            <div class="card-body">
+              <div class="tier-name">Tier A</div>
+              <div class="tier-desc">Community access</div>
+              <div class="price-row"><span class="price-free">FREE</span></div>
+              <div class="spots-bar-wrap">
+                <div class="spots-bar-track"><div class="spots-bar-fill" style="width:50%"></div></div>
+                <div class="spots-label">125 of 250 left</div>
+              </div>
+              <button class="buy-btn">Register</button>
+            </div>
+          </div>
+
+          <div class="tier-card p-budget featured">
+            <div class="feat-badge">Popular</div>
+            <div class="card-accent"></div>
+            <div class="card-body">
+              <div class="tier-name">Tier B</div>
+              <div class="tier-desc">Standard access</div>
+              <div class="price-row"><span class="price-paid">$29</span><span class="price-label">/ ticket</span></div>
+              <div class="spots-bar-wrap">
+                <div class="spots-bar-track"><div class="spots-bar-fill" style="width:40%"></div></div>
+                <div class="spots-label">80 of 200 left</div>
+              </div>
+              <button class="buy-btn">Buy Now</button>
+            </div>
+          </div>
+
+          <div class="tier-card p-mid">
+            <div class="feat-badge">Popular</div>
+            <div class="card-accent"></div>
+            <div class="card-body">
+              <div class="tier-name">Tier C</div>
+              <div class="tier-desc">Enhanced experience</div>
+              <div class="price-row"><span class="price-paid">$79</span><span class="price-label">/ ticket</span></div>
+              <div class="spots-bar-wrap">
+                <div class="spots-bar-track"><div class="spots-bar-fill" style="width:60%"></div></div>
+                <div class="spots-label">40 of 100 left</div>
+              </div>
+              <button class="buy-btn">Buy Now</button>
+            </div>
+          </div>
+
+          <div class="tier-card p-premium">
+            <div class="feat-badge">Popular</div>
+            <div class="card-accent"></div>
+            <div class="card-body">
+              <div class="tier-name">Tier D</div>
+              <div class="tier-desc">Full VIP treatment</div>
+              <div class="price-row"><span class="price-paid">$199</span><span class="price-label">/ ticket</span></div>
+              <div class="spots-bar-wrap">
+                <div class="spots-bar-track"><div class="spots-bar-fill" style="width:85%"></div></div>
+                <div class="spots-label">3 of 20 left</div>
+              </div>
+              <button class="buy-btn">Buy Now</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="divider-line"></div>
+
+<!-- ═══════════════════════════════════════════════════════
+     SCHEME 3 — Index Cycle
+═══════════════════════════════════════════════════════ -->
+<div class="scheme-section">
+  <div class="scheme-hd">
+    <div class="scheme-label">Scheme 3</div>
+    <div class="scheme-title">Index Cycle</div>
+    <div class="scheme-desc">
+      Simple visual variety — colors cycle by display order: blue → green → orange → purple.
+      No logic, consistent with the schedule section's approach.
+    </div>
+  </div>
+
+  <div class="panels">
+
+    <!-- Dark -->
+    <div class="panel dark s3">
+      <div class="panel-label">Dark mode</div>
+      <div class="tier-container">
+        <div class="tier-hdr">
+          <span class="tier-hdr-icon">🎟</span>
+          <span class="tier-hdr-title">TICKETS</span>
+          <span class="tier-hdr-count">4 tiers</span>
+        </div>
+        <div class="card-strip">
+
+          <div class="tier-card i0">
+            <div class="feat-badge">Popular</div>
+            <div class="card-accent"></div>
+            <div class="card-body">
+              <div class="tier-name">Community</div>
+              <div class="tier-desc">Open to everyone</div>
+              <div class="price-row"><span class="price-free">FREE</span></div>
+              <div class="spots-bar-wrap">
+                <div class="spots-bar-track"><div class="spots-bar-fill" style="width:55%"></div></div>
+                <div class="spots-label">138 of 250 left</div>
+              </div>
+              <button class="buy-btn">Register</button>
+            </div>
+          </div>
+
+          <div class="tier-card i1 featured">
+            <div class="feat-badge">Popular</div>
+            <div class="card-accent"></div>
+            <div class="card-body">
+              <div class="tier-name">General Admission</div>
+              <div class="tier-desc">Standard entry access</div>
+              <div class="price-row"><span class="price-paid">$29</span><span class="price-label">/ ticket</span></div>
+              <div class="spots-bar-wrap">
+                <div class="spots-bar-track"><div class="spots-bar-fill" style="width:42%"></div></div>
+                <div class="spots-label">84 of 200 left</div>
+              </div>
+              <button class="buy-btn">Buy Now</button>
+            </div>
+          </div>
+
+          <div class="tier-card i2">
+            <div class="feat-badge">Popular</div>
+            <div class="card-accent"></div>
+            <div class="card-body">
+              <div class="tier-name">Premium</div>
+              <div class="tier-desc">Priority seating + merch</div>
+              <div class="price-row"><span class="price-paid">$79</span><span class="price-label">/ ticket</span></div>
+              <div class="spots-bar-wrap">
+                <div class="spots-bar-track"><div class="spots-bar-fill" style="width:58%"></div></div>
+                <div class="spots-label">42 of 100 left</div>
+              </div>
+              <button class="buy-btn">Buy Now</button>
+            </div>
+          </div>
+
+          <div class="tier-card i3">
+            <div class="feat-badge">Popular</div>
+            <div class="card-accent"></div>
+            <div class="card-body">
+              <div class="tier-name">VIP</div>
+              <div class="tier-desc">Backstage · lounge · dinner</div>
+              <div class="price-row"><span class="price-paid">$199</span><span class="price-label">/ ticket</span></div>
+              <div class="spots-bar-wrap">
+                <div class="spots-bar-track"><div class="spots-bar-fill" style="width:78%"></div></div>
+                <div class="spots-label">5 of 20 left</div>
+              </div>
+              <button class="buy-btn">Buy Now</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Light -->
+    <div class="panel light s3">
+      <div class="panel-label">Light mode</div>
+      <div class="tier-container">
+        <div class="tier-hdr">
+          <span class="tier-hdr-icon">🎟</span>
+          <span class="tier-hdr-title">TICKETS</span>
+          <span class="tier-hdr-count">4 tiers</span>
+        </div>
+        <div class="card-strip">
+
+          <div class="tier-card i0">
+            <div class="feat-badge">Popular</div>
+            <div class="card-accent"></div>
+            <div class="card-body">
+              <div class="tier-name">Community</div>
+              <div class="tier-desc">Open to everyone</div>
+              <div class="price-row"><span class="price-free">FREE</span></div>
+              <div class="spots-bar-wrap">
+                <div class="spots-bar-track"><div class="spots-bar-fill" style="width:55%"></div></div>
+                <div class="spots-label">138 of 250 left</div>
+              </div>
+              <button class="buy-btn">Register</button>
+            </div>
+          </div>
+
+          <div class="tier-card i1 featured">
+            <div class="feat-badge">Popular</div>
+            <div class="card-accent"></div>
+            <div class="card-body">
+              <div class="tier-name">General Admission</div>
+              <div class="tier-desc">Standard entry access</div>
+              <div class="price-row"><span class="price-paid">$29</span><span class="price-label">/ ticket</span></div>
+              <div class="spots-bar-wrap">
+                <div class="spots-bar-track"><div class="spots-bar-fill" style="width:42%"></div></div>
+                <div class="spots-label">84 of 200 left</div>
+              </div>
+              <button class="buy-btn">Buy Now</button>
+            </div>
+          </div>
+
+          <div class="tier-card i2">
+            <div class="feat-badge">Popular</div>
+            <div class="card-accent"></div>
+            <div class="card-body">
+              <div class="tier-name">Premium</div>
+              <div class="tier-desc">Priority seating + merch</div>
+              <div class="price-row"><span class="price-paid">$79</span><span class="price-label">/ ticket</span></div>
+              <div class="spots-bar-wrap">
+                <div class="spots-bar-track"><div class="spots-bar-fill" style="width:58%"></div></div>
+                <div class="spots-label">42 of 100 left</div>
+              </div>
+              <button class="buy-btn">Buy Now</button>
+            </div>
+          </div>
+
+          <div class="tier-card i3">
+            <div class="feat-badge">Popular</div>
+            <div class="card-accent"></div>
+            <div class="card-body">
+              <div class="tier-name">VIP</div>
+              <div class="tier-desc">Backstage · lounge · dinner</div>
+              <div class="price-row"><span class="price-paid">$199</span><span class="price-label">/ ticket</span></div>
+              <div class="spots-bar-wrap">
+                <div class="spots-bar-track"><div class="spots-bar-fill" style="width:78%"></div></div>
+                <div class="spots-label">5 of 20 left</div>
+              </div>
+              <button class="buy-btn">Buy Now</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

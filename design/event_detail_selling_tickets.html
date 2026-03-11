@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Event Detail — Selling Tickets</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: #09090f;
+    color: #e4e4f0;
+    font-family: -apple-system, 'SF Pro Display', system-ui, sans-serif;
+    padding: 14px;
+    max-width: 430px;
+    margin: 0 auto;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ══════════════════════════════════════
+     FUNDING RESULTS CARD — post-funding
+  ══════════════════════════════════════ */
+  .card {
+    background: rgba(10, 20, 16, 0.97);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 22px;
+    overflow: hidden;
+    margin-bottom: 10px;
+    position: relative;
+    box-shadow:
+      0 0 0 0.5px rgba(16,185,129,0.12),
+      0 8px 32px rgba(0,0,0,0.45),
+      inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    top: -40px; right: -40px;
+    width: 180px; height: 180px;
+    background: radial-gradient(circle, rgba(16,185,129,0.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  /* ── header ── */
+  .c-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 16px 10px;
+  }
+  .c-label {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(52,211,153,0.6);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .badge-done {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(16,185,129,0.1);
+    border: 1px solid rgba(16,185,129,0.22);
+    border-radius: 99px;
+    padding: 4px 11px 4px 8px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #34d399;
+    letter-spacing: 0.02em;
+  }
+  .check-dot {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: rgba(16,185,129,0.2);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+
+  /* ── amount ── */
+  .c-amount-row {
+    padding: 0 16px 6px;
+    display: flex;
+    align-items: flex-end;
+    gap: 0;
+    flex-wrap: wrap;
+  }
+  .c-currency {
+    font-size: 17px;
+    font-weight: 700;
+    color: rgba(52,211,153,0.6);
+    padding-bottom: 5px;
+    padding-right: 2px;
+    font-variant-numeric: tabular-nums;
+  }
+  .c-amount {
+    font-size: 38px;
+    font-weight: 800;
+    color: #f0fdf4;
+    letter-spacing: -1.5px;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .c-goal {
+    font-size: 12px;
+    color: rgba(148,163,184,0.55);
+    padding-bottom: 5px;
+    padding-left: 8px;
+    align-self: flex-end;
+  }
+
+  /* ── frozen progress bar ── */
+  .c-bar-wrap { padding: 8px 16px 4px; }
+  .c-bar-track {
+    height: 5px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 99px;
+    overflow: hidden;
+  }
+  .c-bar-fill {
+    height: 100%;
+    width: 68%;
+    background: linear-gradient(90deg, #065f46, #10b981, #34d399);
+    border-radius: 99px;
+    box-shadow: 0 0 8px rgba(16,185,129,0.3);
+  }
+  .c-bar-meta {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 0 12px;
+    font-size: 10.5px;
+    font-variant-numeric: tabular-nums;
+  }
+  .c-bar-pct { color: #34d399; font-weight: 700; }
+  .c-bar-closed { color: rgba(100,116,139,0.7); }
+
+  /* ── stats ── */
+  .c-stats {
+    display: grid;
+    grid-template-columns: 1fr 0.5px 1fr 0.5px 1fr;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    padding: 12px 0 14px;
+  }
+  .c-stat { text-align: center; }
+  .c-stat-val {
+    font-size: 17px;
+    font-weight: 800;
+    color: #e4e4f0;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.3px;
+  }
+  .c-stat-lbl {
+    font-size: 9.5px;
+    font-weight: 600;
+    color: rgba(100,116,139,0.75);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-top: 2px;
+  }
+  .c-vdiv { background: rgba(255,255,255,0.05); }
+
+  /* ── milestones ── */
+  .c-ms-wrap {
+    border-top: 1px solid rgba(255,255,255,0.05);
+    padding: 14px 16px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .c-ms-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+  .c-ms-title {
+    font-size: 10px;
+    font-weight: 700;
+    color: rgba(100,116,139,0.65);
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+  }
+  .c-ms-tally {
+    font-size: 10px;
+    font-weight: 700;
+    color: rgba(52,211,153,0.65);
+  }
+
+  .ms-row {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 10px 12px;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.05);
+    background: rgba(255,255,255,0.02);
+  }
+  .ms-icon {
+    width: 32px; height: 32px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .ms-icon.hit    { background: rgba(16,185,129,0.1);  border: 1px solid rgba(16,185,129,0.18); }
+  .ms-icon.missed { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); }
+  .ms-text { flex: 1; min-width: 0; }
+  .ms-name {
+    font-size: 13px; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .ms-name.hit    { color: rgba(196,230,210,0.75); font-weight: 500; }
+  .ms-name.missed { color: rgba(100,116,139,0.5);  font-weight: 500; }
+  .ms-sub { font-size: 11px; color: rgba(100,116,139,0.65); margin-top: 2px; }
+  .ms-right { flex-shrink: 0; text-align: right; }
+  .ms-amt { font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .ms-amt.hit    { color: rgba(52,211,153,0.75); }
+  .ms-amt.missed { color: rgba(51,65,85,0.7); }
+
+
+  /* ══════════════════════════════════════
+     DETAILS CARD
+  ══════════════════════════════════════ */
+  .card-details {
+    background: rgba(13,12,20,0.98);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 22px;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+  .d-head {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 14px 16px 12px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(100,116,139,0.6);
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .d-tl {
+    padding: 14px 16px 10px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+  .d-tl::before {
+    content: '';
+    position: absolute;
+    left: 27px; top: 26px; bottom: 26px;
+    width: 1.5px;
+    background: linear-gradient(to bottom,
+      rgba(16,185,129,0.55) 0%,
+      rgba(59,130,246,0.35) 50%,
+      rgba(51,65,85,0.2) 100%
+    );
+  }
+  .d-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 13px;
+    padding: 5px 0;
+    position: relative; z-index: 1;
+  }
+  .d-dot {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    margin-top: 3px;
+  }
+  .d-dot.teal  { background: #041f14; border: 1.5px solid rgba(16,185,129,0.6); }
+  .d-dot.blue  { background: #0a1a30; border: 1.5px solid rgba(59,130,246,0.5); }
+  .d-dot.slate { background: #0f1520; border: 1.5px solid rgba(51,65,85,0.5); }
+  .d-body { flex: 1; padding-bottom: 8px; }
+  .d-lbl { font-size: 10px; font-weight: 600; color: rgba(100,116,139,0.65); text-transform: uppercase; letter-spacing: 0.06em; }
+  .d-val { font-size: 14px; font-weight: 600; color: #ddd8f0; margin-top: 2px; }
+
+  .d-chips {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    padding: 6px 16px 16px;
+  }
+  .d-chip {
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(255,255,255,0.055);
+    border-radius: 14px;
+    padding: 11px 8px;
+    text-align: center;
+  }
+  .d-chip-icon {
+    width: 24px; height: 24px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 6px;
+  }
+  .d-chip-icon.teal   { background: rgba(16,185,129,0.1);  border: 1px solid rgba(16,185,129,0.18); }
+  .d-chip-icon.amber  { background: rgba(245,158,11,0.1);  border: 1px solid rgba(245,158,11,0.18); }
+  .d-chip-icon.slate  { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); }
+  .d-chip-lbl { font-size: 9px; font-weight: 700; color: rgba(100,116,139,0.65); text-transform: uppercase; letter-spacing: 0.06em; }
+  .d-chip-val { font-size: 13px; font-weight: 800; color: #ddd8f0; margin-top: 3px; font-variant-numeric: tabular-nums; }
+  .d-chip-val.teal  { color: #34d399; }
+  .d-chip-val.amber { color: #fbbf24; }
+</style>
+</head>
+<body>
+
+<!-- ════════ FUNDING RESULTS CARD ════════ -->
+<div class="card">
+
+  <div class="c-head">
+    <div class="c-label">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M12 6v2m0 8v2m-4-5h8M8 9h2a2 2 0 0 1 0 4H8"/>
+      </svg>
+      Funding Results
+    </div>
+    <div class="badge-done">
+      <div class="check-dot">
+        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="3" stroke-linecap="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+      </div>
+      Funded
+    </div>
+  </div>
+
+  <div class="c-amount-row">
+    <span class="c-currency">$</span>
+    <span class="c-amount">682</span>
+    <span class="c-goal">of $1,000 goal</span>
+  </div>
+
+  <div class="c-bar-wrap">
+    <div class="c-bar-track"><div class="c-bar-fill"></div></div>
+    <div class="c-bar-meta">
+      <span class="c-bar-pct">68% funded</span>
+      <span class="c-bar-closed">Closed Mar 4</span>
+    </div>
+  </div>
+
+  <div class="c-stats">
+    <div class="c-stat">
+      <div class="c-stat-val">34</div>
+      <div class="c-stat-lbl">Backers</div>
+    </div>
+    <div class="c-vdiv"></div>
+    <div class="c-stat">
+      <div class="c-stat-val">$20</div>
+      <div class="c-stat-lbl">Avg pledge</div>
+    </div>
+    <div class="c-vdiv"></div>
+    <div class="c-stat">
+      <div class="c-stat-val">3%</div>
+      <div class="c-stat-lbl">Platform fee</div>
+    </div>
+  </div>
+
+  <div class="c-ms-wrap">
+    <div class="c-ms-head">
+      <div class="c-ms-title">Milestones</div>
+      <div class="c-ms-tally">2 of 3 reached</div>
+    </div>
+
+    <div class="ms-row">
+      <div class="ms-icon hit">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.5" stroke-linecap="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+      </div>
+      <div class="ms-text">
+        <div class="ms-name hit">Early Bird Unlock</div>
+        <div class="ms-sub">Reached Feb 10 · 18 backers</div>
+      </div>
+      <div class="ms-right">
+        <div class="ms-amt hit">$250</div>
+      </div>
+    </div>
+
+    <div class="ms-row">
+      <div class="ms-icon hit">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.5" stroke-linecap="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+      </div>
+      <div class="ms-text">
+        <div class="ms-name hit">Guest Speaker Added</div>
+        <div class="ms-sub">Reached Feb 22 · 29 backers</div>
+      </div>
+      <div class="ms-right">
+        <div class="ms-amt hit">$500</div>
+      </div>
+    </div>
+
+    <div class="ms-row">
+      <div class="ms-icon missed">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(100,116,139,0.35)" stroke-width="2" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </div>
+      <div class="ms-text">
+        <div class="ms-name missed">Swag Bags for All</div>
+        <div class="ms-sub">Not reached</div>
+      </div>
+      <div class="ms-right">
+        <div class="ms-amt missed">$1,000</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- ════════ DETAILS CARD ════════ -->
+<div class="card-details">
+  <div class="d-head">
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+      <circle cx="12" cy="12" r="10"/>
+      <line x1="12" y1="16" x2="12" y2="12"/>
+      <circle cx="12" cy="8" r="0.5" fill="currentColor"/>
+    </svg>
+    Details
+  </div>
+
+  <div class="d-tl">
+    <div class="d-row">
+      <div class="d-dot teal">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.5" stroke-linecap="round">
+          <polygon points="5 3 19 12 5 21 5 3"/>
+        </svg>
+      </div>
+      <div class="d-body">
+        <div class="d-lbl">Starts</div>
+        <div class="d-val">Mar 29, 2026 · 9:43 AM</div>
+      </div>
+    </div>
+    <div class="d-row">
+      <div class="d-dot blue">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2.5" stroke-linecap="round">
+          <rect x="3" y="3" width="18" height="18" rx="2"/>
+        </svg>
+      </div>
+      <div class="d-body">
+        <div class="d-lbl">Ends</div>
+        <div class="d-val">Mar 29, 2026 · 1:43 PM</div>
+      </div>
+    </div>
+    <div class="d-row">
+      <div class="d-dot slate">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2.5" stroke-linecap="round">
+          <path d="M3 12h18M3 6h18M3 18h18"/>
+        </svg>
+      </div>
+      <div class="d-body" style="padding-bottom:0">
+        <div class="d-lbl">Refund policy</div>
+        <div class="d-val">7 days before event</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="d-chips">
+    <div class="d-chip">
+      <div class="d-chip-icon amber">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2.5" stroke-linecap="round">
+          <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v2z"/>
+        </svg>
+      </div>
+      <div class="d-chip-lbl">Tickets</div>
+      <div class="d-chip-val amber">0 / 800</div>
+    </div>
+    <div class="d-chip">
+      <div class="d-chip-icon teal">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.5" stroke-linecap="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+      </div>
+      <div class="d-chip-lbl">Backers</div>
+      <div class="d-chip-val teal">34</div>
+    </div>
+    <div class="d-chip">
+      <div class="d-chip-icon slate">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2.5" stroke-linecap="round">
+          <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+      </div>
+      <div class="d-chip-lbl">Register</div>
+      <div class="d-chip-val">Open</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Event Detail — Funding Phase</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: #09090f;
+    color: #e4e4f0;
+    font-family: -apple-system, 'SF Pro Display', system-ui, sans-serif;
+    padding: 14px;
+    max-width: 430px;
+    margin: 0 auto;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ══════════════════════════════════════
+     FUNDING CARD — active phase
+  ══════════════════════════════════════ */
+  .card {
+    background: rgba(18, 14, 32, 0.95);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 22px;
+    overflow: hidden;
+    margin-bottom: 10px;
+    position: relative;
+    box-shadow:
+      0 0 0 0.5px rgba(139,92,246,0.15),
+      0 8px 32px rgba(0,0,0,0.45),
+      inset 0 1px 0 rgba(255,255,255,0.05);
+  }
+  /* soft ambient glow top-right */
+  .card::before {
+    content: '';
+    position: absolute;
+    top: -40px; right: -40px;
+    width: 180px; height: 180px;
+    background: radial-gradient(circle, rgba(109,40,217,0.18) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  /* ── header row ── */
+  .c-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 16px 10px;
+  }
+  .c-label {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(167,139,250,0.7);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .c-label svg { opacity: 0.9; }
+
+  /* live badge */
+  .badge-live {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(245,158,11,0.1);
+    border: 1px solid rgba(245,158,11,0.22);
+    border-radius: 99px;
+    padding: 4px 11px 4px 8px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #fbbf24;
+    letter-spacing: 0.02em;
+  }
+  .pulse {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #fbbf24;
+    box-shadow: 0 0 0 0 rgba(251,191,36,0.4);
+    animation: pulse 1.8s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(251,191,36,0.5); }
+    60%  { box-shadow: 0 0 0 5px rgba(251,191,36,0); }
+    100% { box-shadow: 0 0 0 0 rgba(251,191,36,0); }
+  }
+
+  /* ── amount block ── */
+  .c-amount-row {
+    padding: 0 16px 6px;
+    display: flex;
+    align-items: flex-end;
+    gap: 0;
+    flex-wrap: wrap;
+  }
+  .c-currency {
+    font-size: 17px;
+    font-weight: 700;
+    color: rgba(196,181,253,0.7);
+    padding-bottom: 5px;
+    padding-right: 2px;
+    font-variant-numeric: tabular-nums;
+  }
+  .c-amount {
+    font-size: 38px;
+    font-weight: 800;
+    color: #f5f3ff;
+    letter-spacing: -1.5px;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .c-goal {
+    font-size: 12px;
+    color: rgba(148,163,184,0.6);
+    padding-bottom: 5px;
+    padding-left: 8px;
+    align-self: flex-end;
+  }
+
+  /* ── progress ── */
+  .c-bar-wrap { padding: 8px 16px 4px; }
+  .c-bar-track {
+    height: 5px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 99px;
+    overflow: hidden;
+    position: relative;
+  }
+  .c-bar-fill {
+    height: 100%;
+    width: 42%;
+    background: linear-gradient(90deg, #5b21b6, #7c3aed, #8b5cf6);
+    border-radius: 99px;
+    position: relative;
+    overflow: hidden;
+  }
+  .c-bar-fill::after {
+    content: '';
+    position: absolute;
+    top: 0; left: -80%;
+    width: 50%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent);
+    animation: sweep 2.4s ease-in-out infinite;
+  }
+  @keyframes sweep { 0% { left: -80%; } 100% { left: 160%; } }
+
+  .c-bar-meta {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 0 12px;
+    font-size: 10.5px;
+    font-variant-numeric: tabular-nums;
+  }
+  .c-bar-pct { color: #a78bfa; font-weight: 700; }
+  .c-bar-rem { color: rgba(100,116,139,0.8); }
+
+  /* ── stats strip ── */
+  .c-stats {
+    display: grid;
+    grid-template-columns: 1fr 0.5px 1fr 0.5px 1fr;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    padding: 12px 0 14px;
+  }
+  .c-stat { text-align: center; }
+  .c-stat-val {
+    font-size: 17px;
+    font-weight: 800;
+    color: #e4e4f0;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.3px;
+  }
+  .c-stat-val.warn { color: #fbbf24; }
+  .c-stat-lbl {
+    font-size: 9.5px;
+    font-weight: 600;
+    color: rgba(100,116,139,0.8);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-top: 2px;
+  }
+  .c-vdiv { background: rgba(255,255,255,0.05); }
+
+  /* ── pledge CTA ── */
+  .c-cta {
+    padding: 0 16px 16px;
+    display: flex;
+    gap: 9px;
+    align-items: stretch;
+  }
+  .c-btn {
+    flex: 1;
+    background: linear-gradient(135deg, #5b21b6 0%, #6d28d9 50%, #7c3aed 100%);
+    border: none;
+    border-radius: 14px;
+    padding: 13px 16px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(109,40,217,0.4), inset 0 1px 0 rgba(255,255,255,0.15);
+    letter-spacing: 0.01em;
+  }
+  .c-min {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 14px;
+    padding: 0 14px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .c-min-val { font-size: 14px; font-weight: 800; color: #e4e4f0; font-variant-numeric: tabular-nums; }
+  .c-min-lbl { font-size: 9px; font-weight: 600; color: rgba(100,116,139,0.7); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 1px; }
+
+  /* ── milestones ── */
+  .c-ms-wrap {
+    border-top: 1px solid rgba(255,255,255,0.05);
+    padding: 14px 16px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .c-ms-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+  .c-ms-title {
+    font-size: 10px;
+    font-weight: 700;
+    color: rgba(100,116,139,0.7);
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+  }
+  .c-ms-tally {
+    font-size: 10px;
+    font-weight: 700;
+    color: rgba(167,139,250,0.7);
+  }
+
+  /* row */
+  .ms-row {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 10px 12px;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.05);
+    background: rgba(255,255,255,0.02);
+    position: relative;
+    overflow: hidden;
+  }
+  /* progress fill for "next" row */
+  .ms-row.next::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 42%;
+    background: rgba(109,40,217,0.1);
+    border-right: 1px solid rgba(139,92,246,0.2);
+  }
+  /* icon container */
+  .ms-icon {
+    width: 32px; height: 32px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    position: relative; z-index: 1;
+  }
+  .ms-icon.hit    { background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.2); }
+  .ms-icon.next   { background: rgba(109,40,217,0.2);  border: 1px solid rgba(139,92,246,0.3); }
+  .ms-icon.locked { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); }
+
+  .ms-text { flex: 1; min-width: 0; position: relative; z-index: 1; }
+  .ms-name {
+    font-size: 13px; font-weight: 600;
+    color: #c4b5fd;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .ms-name.locked { color: rgba(100,116,139,0.5); font-weight: 500; }
+  .ms-name.hit    { color: rgba(196,181,253,0.7); font-weight: 500; }
+  .ms-sub { font-size: 11px; color: rgba(100,116,139,0.7); margin-top: 2px; }
+
+  .ms-right { flex-shrink: 0; text-align: right; position: relative; z-index: 1; }
+  .ms-amt { font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -0.2px; }
+  .ms-amt.hit    { color: rgba(52,211,153,0.8); }
+  .ms-amt.next   { color: #a78bfa; }
+  .ms-amt.locked { color: rgba(71,85,105,0.6); }
+  .ms-away { font-size: 10px; font-weight: 600; color: rgba(139,92,246,0.7); margin-top: 2px; }
+
+
+  /* ══════════════════════════════════════
+     DETAILS CARD
+  ══════════════════════════════════════ */
+  .card-details {
+    background: rgba(13,12,20,0.98);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 22px;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+  .d-head {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 14px 16px 12px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(100,116,139,0.6);
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+
+  /* timeline */
+  .d-tl {
+    padding: 14px 16px 10px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .d-tl::before {
+    content: '';
+    position: absolute;
+    left: 27px; top: 26px; bottom: 26px;
+    width: 1.5px;
+    background: linear-gradient(to bottom,
+      rgba(139,92,246,0.6) 0%,
+      rgba(59,130,246,0.4) 45%,
+      rgba(16,185,129,0.3) 75%,
+      rgba(51,65,85,0.2) 100%
+    );
+  }
+  .d-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 13px;
+    padding: 5px 0;
+    position: relative; z-index: 1;
+  }
+  .d-dot {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    margin-top: 3px;
+  }
+  .d-dot.violet { background: #1a0a35; border: 1.5px solid rgba(139,92,246,0.7); }
+  .d-dot.blue   { background: #0a1a30; border: 1.5px solid rgba(59,130,246,0.6); }
+  .d-dot.teal   { background: #041f14; border: 1.5px solid rgba(16,185,129,0.5); }
+  .d-dot.slate  { background: #0f1520; border: 1.5px solid rgba(51,65,85,0.5); }
+  .d-body { flex: 1; padding-bottom: 8px; }
+  .d-lbl { font-size: 10px; font-weight: 600; color: rgba(100,116,139,0.65); text-transform: uppercase; letter-spacing: 0.06em; }
+  .d-val { font-size: 14px; font-weight: 600; color: #ddd8f0; margin-top: 2px; }
+
+  /* chips */
+  .d-chips {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    padding: 6px 16px 16px;
+  }
+  .d-chip {
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(255,255,255,0.055);
+    border-radius: 14px;
+    padding: 11px 8px;
+    text-align: center;
+  }
+  .d-chip-icon {
+    width: 24px; height: 24px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 6px;
+  }
+  .d-chip-icon.violet { background: rgba(109,40,217,0.15); border: 1px solid rgba(139,92,246,0.2); }
+  .d-chip-icon.teal   { background: rgba(16,185,129,0.1);  border: 1px solid rgba(16,185,129,0.2); }
+  .d-chip-icon.slate  { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); }
+  .d-chip-lbl { font-size: 9px; font-weight: 700; color: rgba(100,116,139,0.65); text-transform: uppercase; letter-spacing: 0.06em; }
+  .d-chip-val { font-size: 13px; font-weight: 800; color: #ddd8f0; margin-top: 3px; font-variant-numeric: tabular-nums; }
+  .d-chip-val.violet { color: #a78bfa; }
+  .d-chip-val.teal   { color: #34d399; }
+</style>
+</head>
+<body>
+
+<!-- ════════ ACTIVE FUNDING CARD ════════ -->
+<div class="card">
+
+  <div class="c-head">
+    <div class="c-label">
+      <!-- coin/dollar icon -->
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M12 6v2m0 8v2m-4-5h8M8 9h2a2 2 0 0 1 0 4H8"/>
+      </svg>
+      Funding
+    </div>
+    <div class="badge-live"><div class="pulse"></div>Live</div>
+  </div>
+
+  <div class="c-amount-row">
+    <span class="c-currency">$</span>
+    <span class="c-amount">420</span>
+    <span class="c-goal">of $1,000 goal</span>
+  </div>
+
+  <div class="c-bar-wrap">
+    <div class="c-bar-track"><div class="c-bar-fill"></div></div>
+    <div class="c-bar-meta">
+      <span class="c-bar-pct">42% funded</span>
+      <span class="c-bar-rem">$580 remaining</span>
+    </div>
+  </div>
+
+  <div class="c-stats">
+    <div class="c-stat">
+      <div class="c-stat-val warn">18</div>
+      <div class="c-stat-lbl">Days left</div>
+    </div>
+    <div class="c-vdiv"></div>
+    <div class="c-stat">
+      <div class="c-stat-val">21</div>
+      <div class="c-stat-lbl">Backers</div>
+    </div>
+    <div class="c-vdiv"></div>
+    <div class="c-stat">
+      <div class="c-stat-val">$20</div>
+      <div class="c-stat-lbl">Avg pledge</div>
+    </div>
+  </div>
+
+  <div class="c-cta">
+    <button class="c-btn">
+      <!-- heart icon -->
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="rgba(255,255,255,0.85)" stroke="none">
+        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+      </svg>
+      Back this Event
+    </button>
+    <div class="c-min">
+      <div class="c-min-val">$5</div>
+      <div class="c-min-lbl">Min</div>
+    </div>
+  </div>
+
+  <div class="c-ms-wrap">
+    <div class="c-ms-head">
+      <div class="c-ms-title">Milestones</div>
+      <div class="c-ms-tally">1 of 3 reached</div>
+    </div>
+
+    <!-- hit -->
+    <div class="ms-row">
+      <div class="ms-icon hit">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+      </div>
+      <div class="ms-text">
+        <div class="ms-name hit">Early Bird Unlock</div>
+        <div class="ms-sub">Reached Feb 10 · 18 backers</div>
+      </div>
+      <div class="ms-right">
+        <div class="ms-amt hit">$250</div>
+      </div>
+    </div>
+
+    <!-- next (in progress) -->
+    <div class="ms-row next">
+      <div class="ms-icon next">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+        </svg>
+      </div>
+      <div class="ms-text">
+        <div class="ms-name">Guest Speaker Added</div>
+        <div class="ms-sub">84% there · $80 to go</div>
+      </div>
+      <div class="ms-right">
+        <div class="ms-amt next">$500</div>
+        <div class="ms-away">$80 away</div>
+      </div>
+    </div>
+
+    <!-- locked -->
+    <div class="ms-row">
+      <div class="ms-icon locked">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(100,116,139,0.4)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+      </div>
+      <div class="ms-text">
+        <div class="ms-name locked">Swag Bags for All</div>
+        <div class="ms-sub">Locked · $580 away</div>
+      </div>
+      <div class="ms-right">
+        <div class="ms-amt locked">$1,000</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- ════════ DETAILS CARD ════════ -->
+<div class="card-details">
+  <div class="d-head">
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+      <circle cx="12" cy="12" r="10"/>
+      <line x1="12" y1="16" x2="12" y2="12"/>
+      <circle cx="12" cy="8" r="0.5" fill="currentColor"/>
+    </svg>
+    Details
+  </div>
+
+  <div class="d-tl">
+    <div class="d-row">
+      <div class="d-dot violet">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2.5" stroke-linecap="round">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="6" x2="12" y2="18"/><line x1="9" y1="9" x2="15" y2="9"/>
+        </svg>
+      </div>
+      <div class="d-body">
+        <div class="d-lbl">Funding deadline</div>
+        <div class="d-val">Mar 4, 2026 · 11:59 PM</div>
+      </div>
+    </div>
+    <div class="d-row">
+      <div class="d-dot blue">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2.5" stroke-linecap="round">
+          <polygon points="5 3 19 12 5 21 5 3"/>
+        </svg>
+      </div>
+      <div class="d-body">
+        <div class="d-lbl">Event starts</div>
+        <div class="d-val">Mar 29, 2026 · 9:43 AM</div>
+      </div>
+    </div>
+    <div class="d-row">
+      <div class="d-dot teal">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.5" stroke-linecap="round">
+          <rect x="3" y="3" width="18" height="18" rx="2"/>
+        </svg>
+      </div>
+      <div class="d-body">
+        <div class="d-lbl">Event ends</div>
+        <div class="d-val">Mar 29, 2026 · 1:43 PM</div>
+      </div>
+    </div>
+    <div class="d-row">
+      <div class="d-dot slate">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2.5" stroke-linecap="round">
+          <path d="M3 12h18M3 6h18M3 18h18"/>
+        </svg>
+      </div>
+      <div class="d-body" style="padding-bottom:0">
+        <div class="d-lbl">Refund policy</div>
+        <div class="d-val">7 days before event</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="d-chips">
+    <div class="d-chip">
+      <div class="d-chip-icon violet">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2.5" stroke-linecap="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+      </div>
+      <div class="d-chip-lbl">Registered</div>
+      <div class="d-chip-val violet">21</div>
+    </div>
+    <div class="d-chip">
+      <div class="d-chip-icon teal">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.5" stroke-linecap="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+      </div>
+      <div class="d-chip-lbl">Escrow</div>
+      <div class="d-chip-val teal">Safe</div>
+    </div>
+    <div class="d-chip">
+      <div class="d-chip-icon slate">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2.5" stroke-linecap="round">
+          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+        </svg>
+      </div>
+      <div class="d-chip-lbl">Min pledge</div>
+      <div class="d-chip-val">$5</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

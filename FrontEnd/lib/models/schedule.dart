@@ -42,6 +42,9 @@ class UpdateScheduleItemRequest {
   final String? endTime;
   final String? title;
   final String? description;
+  final String? imageUrl;
+  final String? imageCaption;
+  final String? linkUrl;
 
   const UpdateScheduleItemRequest({
     this.date,
@@ -49,6 +52,9 @@ class UpdateScheduleItemRequest {
     this.endTime,
     this.title,
     this.description,
+    this.imageUrl,
+    this.imageCaption,
+    this.linkUrl,
   });
 
   Map<String, dynamic> toJson() => {
@@ -57,6 +63,9 @@ class UpdateScheduleItemRequest {
         if (endTime != null) 'end_time': endTime,
         if (title != null) 'title': title,
         if (description != null) 'description': description,
+        if (imageUrl != null) 'image_url': imageUrl,
+        if (imageCaption != null) 'image_caption': imageCaption,
+        if (linkUrl != null) 'link_url': linkUrl,
       };
 }
 

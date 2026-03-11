@@ -7,6 +7,8 @@ export 'event_image_gallery.dart';
 export 'event_schedule_section.dart';
 export 'event_status_banners.dart';
 export 'funding_card.dart';
+export 'funding_card_helpers.dart';
+export 'funding_results_card.dart';
 export 'getting_there_card.dart';
 export 'live_mgmt_stats.dart';
 export 'milestone_timeline.dart';

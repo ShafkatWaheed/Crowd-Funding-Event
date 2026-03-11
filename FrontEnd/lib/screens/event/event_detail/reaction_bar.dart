@@ -167,31 +167,6 @@ class _ReactionBarState extends State<ReactionBar> {
             ),
           ),
         ),
-        AppSpacing.hSm,
-        // Dislike button
-        Material(
-          color: _myReaction == 'dislike'
-              ? AppTheme.errorColor.withValues(alpha: 0.08)
-              : Colors.transparent,
-          borderRadius: AppRadius.xl,
-          child: InkWell(
-            borderRadius: AppRadius.xl,
-            onTap: _reacting ? null : () => _react('dislike'),
-            child: Padding(
-              padding: AppSpacing.paddingMd,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.heart_broken_rounded,
-                    size: AppIconSize.md,
-                    color: _myReaction == 'dislike' ? AppTheme.errorColor : AppTheme.textSecondaryOf(context),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
       ],
     );
   }

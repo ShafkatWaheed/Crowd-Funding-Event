@@ -20,7 +20,7 @@ class EventDetailHelpers {
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(7),
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: AppTheme.surfaceOf(context),
               borderRadius: AppRadius.sm,
@@ -40,7 +40,7 @@ class EventDetailHelpers {
                         fontWeight: FontWeight.w600,
                         color: AppTheme.textSecondaryOf(context),
                         letterSpacing: 0.3)),
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 Text(value,
                     style: TextStyle(
                         fontSize: 14,
@@ -60,7 +60,7 @@ class EventDetailHelpers {
     final bgColor = statusColor(context, status);
     final fgColor = statusForeground(context, status);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: AppRadius.pill,
@@ -76,7 +76,7 @@ class EventDetailHelpers {
               shape: BoxShape.circle,
             ),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 4),
           Text(label,
               style: TextStyle(
                   fontSize: 11,
@@ -94,7 +94,7 @@ class EventDetailHelpers {
     required Color color,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
         borderRadius: AppRadius.pill,
@@ -103,7 +103,7 @@ class EventDetailHelpers {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 13, color: color),
-          const SizedBox(width: 5),
+          const SizedBox(width: 4),
           Text(label,
               style: TextStyle(
                   fontSize: 11,
@@ -121,7 +121,7 @@ class EventDetailHelpers {
       children: [
         if (icon != null) ...[
           Container(
-            padding: const EdgeInsets.all(AppSpacing.xs),
+            padding: const EdgeInsets.all(AppSpacing.sm),
             decoration: BoxDecoration(
               color: (iconColor ?? AppTheme.primaryColor)
                   .withValues(alpha: 0.1),
@@ -201,7 +201,7 @@ class EventDetailHelpers {
 
   static Widget previewBanner(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: AppTheme.warningColor.withValues(alpha: 0.08),
         borderRadius: AppRadius.md,
@@ -212,7 +212,7 @@ class EventDetailHelpers {
         children: [
           Icon(Icons.visibility_rounded,
               size: AppIconSize.sm, color: AppTheme.warningColor),
-          const SizedBox(width: 10),
+          AppSpacing.hSm,
           Expanded(
             child: Text(
               'This is a preview. Some sections appear after publishing.',
@@ -253,7 +253,7 @@ class EventDetailHelpers {
       message:
           '${event.organizerCompletedEvents} completed / ${event.organizerPublishedEvents} published events',
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.1),
           borderRadius: AppRadius.pill,
@@ -263,7 +263,7 @@ class EventDetailHelpers {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 13, color: color),
-            const SizedBox(width: 5),
+            const SizedBox(width: 4),
             Text(
               '$label ${(score * 100).toInt()}%',
               style: TextStyle(

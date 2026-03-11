@@ -116,7 +116,7 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, Colors.black.withValues(alpha: 0.87)],
+                  colors: [Colors.transparent, Colors.black.withValues(alpha: 0.72)],
                 ),
               ),
               child: Column(
@@ -135,6 +135,7 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
                             fontWeight: FontWeight.w800,
                             color: Colors.white,
                             letterSpacing: -0.3,
+                            height: 1.25,
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
@@ -176,10 +177,12 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
   }
 
   Widget _buildBody(BuildContext context, Event event, bool isDark) {
-    final hasFunding = (event.fundingGoalCents ?? 0) > 0 && event.fundingEndAt != null;
+    final hasFunding = (event.fundingGoalCents ?? 0) > 0 &&
+        event.fundingEndAt != null &&
+        event.status == EventStatus.approved;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -442,7 +445,7 @@ class _InfoRow extends StatelessWidget {
     final fallback = AppTheme.textSecondaryOf(context);
     final c = color ?? fallback;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
           Container(
@@ -454,7 +457,7 @@ class _InfoRow extends StatelessWidget {
             ),
             child: Icon(icon, size: 14, color: c),
           ),
-          const SizedBox(width: 10),
+          AppSpacing.hSm,
           Expanded(
             child: Text(
               text,
@@ -524,7 +527,7 @@ class _FundingBarA extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         Row(
           children: [
             Text(
@@ -539,7 +542,7 @@ class _FundingBarA extends StatelessWidget {
               const Spacer(),
               Icon(Icons.timer_rounded, size: 11,
                   color: AppTheme.textSecondaryOf(context)),
-              const SizedBox(width: 3),
+              const SizedBox(width: 4),
               Text(
                 timeLabel,
                 style: TextStyle(
@@ -568,7 +571,7 @@ class _StatChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(right: AppSpacing.sm),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
         color: AppTheme.surfaceOf(context),
         borderRadius: AppRadius.sm,

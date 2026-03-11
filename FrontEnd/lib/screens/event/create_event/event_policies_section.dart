@@ -8,6 +8,12 @@ class EventPoliciesSection extends StatelessWidget {
   final TextEditingController maxPostsPerDayCtrl;
   final TextEditingController maxCoOrganizersCtrl;
   final Map<String, int> platformLimits;
+  // Reserved spots release policy (only shown when maxReservedSpotsPerUser > 0)
+  final int maxReservedSpotsPerUser;
+  final TextEditingController reservedSpotsReleasePercentCtrl;
+  final bool linkFundingToTiers;
+  final bool releaseTierSpotLimits;
+  final ValueChanged<bool> onReleaseTierSpotLimitsChanged;
 
   const EventPoliciesSection({
     super.key,
@@ -18,6 +24,11 @@ class EventPoliciesSection extends StatelessWidget {
     required this.maxPostsPerDayCtrl,
     required this.maxCoOrganizersCtrl,
     this.platformLimits = const {},
+    this.maxReservedSpotsPerUser = 0,
+    required this.reservedSpotsReleasePercentCtrl,
+    this.linkFundingToTiers = false,
+    this.releaseTierSpotLimits = false,
+    required this.onReleaseTierSpotLimitsChanged,
   });
 
   String _helperText(String key, {String fallback = 'Leave empty for platform default'}) {
@@ -33,6 +44,14 @@ class EventPoliciesSection extends StatelessWidget {
     if (n < 0) return 'Cannot be negative';
     final limit = platformLimits[limitKey];
     if (limit != null && n > limit) return 'Cannot exceed platform max ($limit)';
+    return null;
+  }
+
+  String? _percentValidator(String? value) {
+    if (value == null || value.trim().isEmpty) return null;
+    final n = int.tryParse(value.trim());
+    if (n == null) return 'Enter a valid number';
+    if (n < 0 || n > 100) return 'Must be 0–100';
     return null;
   }
 
@@ -93,6 +112,37 @@ class EventPoliciesSection extends StatelessWidget {
             keyboardType: TextInputType.number,
             validator: (v) => _maxValidator(v, 'max_co_organizers_limit'),
           ),
+          if (maxReservedSpotsPerUser > 0) ...[
+            const SizedBox(height: 16),
+            const Divider(),
+            const SizedBox(height: 4),
+            const Text(
+              'Reserved Spots Release',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+            ),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: reservedSpotsReleasePercentCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Release at % of selling window',
+                helperText: '0 = release immediately when selling starts; 100 = release at event start (default)',
+                suffixText: '%',
+              ),
+              keyboardType: TextInputType.number,
+              validator: _percentValidator,
+            ),
+            if (linkFundingToTiers) ...[
+              const SizedBox(height: 4),
+              CheckboxListTile(
+                title: const Text('Also retire per-tier spot limits at release'),
+                subtitle: const Text('Zeroes max_reserved_spots on each ticket tier'),
+                value: releaseTierSpotLimits,
+                onChanged: (v) => onReleaseTierSpotLimitsChanged(v ?? false),
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+              ),
+            ],
+          ],
         ],
       ),
     );

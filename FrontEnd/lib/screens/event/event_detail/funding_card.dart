@@ -1,16 +1,16 @@
 import 'dart:async';
-import 'dart:math' show pi;
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../config/theme.dart';
-import '../../../utils/date_time_utils.dart';
 import '../../../config/design_tokens.dart';
 import '../../../models/discount.dart';
 import '../../../models/event.dart';
 import '../../../models/funding.dart';
+import '../../../models/milestone.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../providers/event_provider.dart';
 import '../../../repositories/base_repository.dart';
 import '../../../providers/pledge_provider.dart';
 import '../../../providers/ticket_provider.dart';
@@ -18,6 +18,7 @@ import '../../../providers/config_provider.dart';
 import '../../../widgets/app_toast.dart';
 import '../receipts/pledge_receipt_screen.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
+import 'funding_card_helpers.dart';
 
 // ═══════════════════════════════════════════
 // Self-contained Funding Card
@@ -28,8 +29,15 @@ class FundingCard extends StatefulWidget {
   final int eventId;
   final Event event;
   final bool isRegistered;
+  final void Function(bool isRegistered, String? status)? onRegistrationChanged;
 
-  const FundingCard({super.key, required this.eventId, required this.event, required this.isRegistered});
+  const FundingCard({
+    super.key,
+    required this.eventId,
+    required this.event,
+    required this.isRegistered,
+    this.onRegistrationChanged,
+  });
 
   @override
   State<FundingCard> createState() => _FundingCardState();
@@ -40,9 +48,11 @@ class _FundingCardState extends State<FundingCard> {
   int _backersCount = 0;
   int? _goalCents;
   bool _pledging = false;
+  bool _registering = false;
   int _fundingCommissionPercent = 0;
   int _totalReservedSpots = 0;
   List<EarlyBirdDiscount> _earlyBirdDiscounts = [];
+  List<FundingMilestone> _milestones = [];
   bool _refundProcessing = false;
   Timer? _refundPollTimer;
 
@@ -56,6 +66,7 @@ class _FundingCardState extends State<FundingCard> {
     _totalReservedSpots = event.totalReservedSpots;
     _loadFunding();
     _loadEarlyBirdDiscounts();
+    _loadMilestones();
   }
 
   @override
@@ -69,6 +80,13 @@ class _FundingCardState extends State<FundingCard> {
       final ticketRepo = context.read<TicketProvider>();
       final data = await ticketRepo.getEarlyBirdDiscounts(widget.eventId);
       if (mounted) setState(() => _earlyBirdDiscounts = data);
+    } catch (e) { debugPrint(e.toString()); }
+  }
+
+  Future<void> _loadMilestones() async {
+    try {
+      final milestones = await context.read<EventProvider>().getMilestones(widget.eventId);
+      if (mounted) setState(() => _milestones = milestones);
     } catch (e) { debugPrint(e.toString()); }
   }
 
@@ -88,37 +106,57 @@ class _FundingCardState extends State<FundingCard> {
     } catch (e) { debugPrint(e.toString()); }
   }
 
-  Color _trustColor(BuildContext context, String label) {
-    switch (label) {
-      case 'Excellent': return context.trustHigh;
-      case 'Good':      return context.trustMedium;
-      case 'Fair':      return context.trustMedium;
-      case 'Low':       return context.trustLow;
-      default:         return AppTheme.textSecondaryOf(context);
-    }
-  }
-
-  static IconData _trustIcon(String label) {
-    switch (label) {
-      case 'Excellent': return Icons.verified_rounded;
-      case 'Good':      return Icons.verified_outlined;
-      case 'Fair':      return Icons.shield_outlined;
-      case 'Low':       return Icons.warning_amber_rounded;
-      default:          return Icons.person_outline;       // New
-    }
-  }
 
   double get _progress {
     if (_goalCents == null || _goalCents == 0) return 0;
     return _totalPledgedCents / _goalCents!;
   }
 
-  String get _totalFormatted =>
-      '\$${(_totalPledgedCents / 100).toStringAsFixed(2)}';
-
   String get _goalFormatted {
     if (_goalCents == null) return 'N/A';
     return '\$${(_goalCents! / 100).toStringAsFixed(2)}';
+  }
+
+  String get _avgPledgeFormatted {
+    if (_backersCount == 0) return '\$—';
+    return '\$${(_totalPledgedCents / _backersCount / 100).toStringAsFixed(0)}';
+  }
+
+  String get _timeLeftFormatted {
+    if (event.fundingEndAt == null) return '';
+    final diff = event.fundingEndAt!.difference(DateTime.now().toUtc());
+    if (diff.isNegative) return 'Ended';
+    if (diff.inDays >= 1) return '${diff.inDays}d ${diff.inHours % 24}h';
+    if (diff.inHours >= 1) return '${diff.inHours}h ${diff.inMinutes % 60}m';
+    return '< 1h';
+  }
+
+  Future<void> _register() async {
+    setState(() => _registering = true);
+    try {
+      final result = await context.read<EventProvider>().register(widget.eventId);
+      widget.onRegistrationChanged?.call(true, result.status);
+      if (!mounted) return;
+      AppToast.success(context, 'Registered successfully!');
+    } catch (e) {
+      if (!mounted) return;
+      AppToast.fromError(context, e, fallback: 'Registration failed');
+    }
+    if (mounted) setState(() => _registering = false);
+  }
+
+  Future<void> _unregisterFromCard() async {
+    setState(() => _registering = true);
+    try {
+      final result = await context.read<EventProvider>().unregister(widget.eventId);
+      widget.onRegistrationChanged?.call(false, null);
+      if (!mounted) return;
+      AppToast.success(context, result.refundedCents > 0 ? 'Unregistered. Refund initiated.' : 'Unregistered.');
+    } catch (e) {
+      if (!mounted) return;
+      AppToast.fromError(context, e, fallback: 'Unregister failed');
+    }
+    if (mounted) setState(() => _registering = false);
   }
 
   // ── Step 1: Pledge dialog (amount + spot selector) ──
@@ -786,646 +824,599 @@ class _FundingCardState extends State<FundingCard> {
     });
   }
 
-  // ── Metadata pill chip helper ──
-  Widget _metaPill({
-    required IconData icon,
-    required String label,
-    required bool isDark,
-    bool accent = false,
-    bool teal = false,
-  }) {
-    final Color bg, fg;
-    if (accent) {
-      bg = const Color(0xFFFF8C00).withValues(alpha: isDark ? 0.14 : 0.10);
-      fg = isDark ? const Color(0xFFFFA733) : const Color(0xFFB85E00);
-    } else if (teal) {
-      bg = AppTheme.tealColor.withValues(alpha: isDark ? 0.13 : 0.10);
-      fg = isDark ? const Color(0xFF4DB6AC) : const Color(0xFF0A7870);
-    } else {
-      bg = isDark ? Colors.white.withValues(alpha: 0.07) : Colors.black.withValues(alpha: 0.055);
-      fg = isDark ? const Color(0xFFC8B89A) : const Color(0xFF3A3A3C);
-    }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(color: bg, borderRadius: AppRadius.pill),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: fg),
-          const SizedBox(width: 4),
-          Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: fg)),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final isDark = AppTheme.isDark(context);
-    final fundingTimeLeft = event.fundingTimeLeftFormatted;
-    final hasTimeLeft = event.fundingHasTimeLeft;
     final user = context.watch<AuthProvider>().user;
     final isOrganizerOrAdmin = user != null && (user.isOrganizer || user.isAdmin);
     final canPledge = event.canPledge && !isOrganizerOrAdmin;
 
-    // ── Funding card decoration ──
-    final cardDecoration = BoxDecoration(
-      gradient: LinearGradient(
-        begin: const Alignment(1, -1),
-        end: const Alignment(-1, 1),
-        colors: isDark
-            // deep navy → rich Uber-blue → dark teal
-            ? const [Color(0xFF0D1A2E), Color(0xFF112D5E), Color(0xFF0A2825)]
-            // warm amber cream → pale ivory → soft blue-white
-            : const [Color(0xFFFFF6E8), Color(0xFFFFF0D4), Color(0xFFEEF4FF)],
-        stops: const [0.0, 0.5, 1.0],
-      ),
-      borderRadius: AppRadius.lg,
-      border: Border.all(
-        color: isDark
-            ? const Color(0xFF276EF1).withValues(alpha: 0.22)
-            : const Color(0xFFFF8C00).withValues(alpha: 0.28),
-        width: isDark ? 1.0 : 1.2,
-      ),
-      boxShadow: [
-        BoxShadow(
-          color: isDark
-              ? const Color(0xFF276EF1).withValues(alpha: 0.28)
-              : const Color(0xFFFF8C00).withValues(alpha: 0.16),
-          blurRadius: isDark ? 32 : 24,
-          offset: const Offset(0, 4),
-        ),
-      ],
-    );
+    // ── Sort milestones by unlockPercent ──
+    final sorted = List<FundingMilestone>.from(_milestones)
+      ..sort((a, b) => a.unlockPercent.compareTo(b.unlockPercent));
+    final progressPct = (_progress * 100).clamp(0, 999);
+    // index of first not-yet-unlocked milestone
+    final nextIdx = sorted.indexWhere((m) => progressPct < m.unlockPercent);
+
+    final accentColor = const Color(0xFF8B5CF6);
+    final bgColor = isDark ? const Color(0xFF0E0B1C) : const Color(0xFFF5F3FF);
+    final cardBorder = isDark
+        ? const Color(0xFF7C3AED).withValues(alpha: 0.25)
+        : const Color(0xFF8B5CF6).withValues(alpha: 0.3);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // ── Amber gradient card ──
+        // ── Main card ──
         Container(
-          width: double.infinity,
-          decoration: cardDecoration,
-          padding: AppSpacing.paddingLg,
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: AppRadius.lg,
+            border: Border.all(color: cardBorder),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF6D28D9).withValues(alpha: isDark ? 0.28 : 0.12),
+                blurRadius: 28,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
           child: Stack(
-            clipBehavior: Clip.none,
             children: [
-              // Decorative glow orb (top-right)
+              // ambient glow
               Positioned(
-                top: 0,
-                right: 0,
+                top: -30, right: -30,
                 child: Container(
-                  width: 160,
-                  height: 160,
+                  width: 160, height: 160,
                   decoration: BoxDecoration(
-                    gradient: RadialGradient(
-                      center: Alignment.topRight,
-                      radius: 1.0,
-                      colors: [
-                        isDark
-                            ? const Color(0xFF276EF1).withValues(alpha: 0.25)
-                            : const Color(0xFFFF8C00).withValues(alpha: 0.18),
-                        Colors.transparent,
-                      ],
-                    ),
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(colors: [
+                      const Color(0xFF6D28D9).withValues(alpha: isDark ? 0.15 : 0.08),
+                      Colors.transparent,
+                    ]),
                   ),
                 ),
               ),
-              // Card content
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // ── Title row ──
-                  Row(
-                    children: [
-                      Icon(Icons.attach_money,
-                          size: AppIconSize.md,
-                          color: isDark ? const Color(0xFFFFA733) : const Color(0xFFFF8C00)),
-                      AppSpacing.hSm,
-                      Text(
-                        'Funding',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.2,
-                          color: isDark ? const Color(0xFFF2ECE0) : const Color(0xFF1C1C1E),
+              Padding(
+                padding: AppSpacing.paddingLg,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ── Header row ──
+                    Row(
+                      children: [
+                        Icon(Icons.monetization_on_outlined,
+                            size: 14, color: accentColor.withValues(alpha: 0.8)),
+                        const SizedBox(width: 8),
+                        Text(
+                          'FUNDING',
+                          style: TextStyle(
+                            fontSize: 11, fontWeight: FontWeight.w800,
+                            letterSpacing: 0.5,
+                            color: accentColor.withValues(alpha: 0.7),
+                          ),
+                        ),
+                        const Spacer(),
+                        // Time-left chip
+                        if (event.fundingHasTimeLeft)
+                          _TimeLeftBadge(timeLeft: _timeLeftFormatted)
+                        else
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppTheme.textSecondaryOf(context).withValues(alpha: 0.1),
+                              borderRadius: AppRadius.pill,
+                            ),
+                            child: Text(
+                              'Ended',
+                              style: TextStyle(
+                                fontSize: 11, fontWeight: FontWeight.w700,
+                                color: AppTheme.textSecondaryOf(context),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // ── Amount ──
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          '\$',
+                          style: TextStyle(
+                            fontSize: 17, fontWeight: FontWeight.w700,
+                            color: accentColor.withValues(alpha: 0.65),
+                            height: 1.8,
+                          ),
+                        ),
+                        Text(
+                          (_totalPledgedCents / 100).toStringAsFixed(0),
+                          style: TextStyle(
+                            fontSize: 38, fontWeight: FontWeight.w800,
+                            letterSpacing: -1.5, height: 1,
+                            color: isDark ? const Color(0xFFF5F3FF) : const Color(0xFF1C1C1E),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Text(
+                            'of $_goalFormatted goal',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.textSecondaryOf(context).withValues(alpha: 0.8),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    // ── Progress bar with shimmer ──
+                    FundingShimmerBar(
+                      progress: _progress,
+                      active: event.fundingHasTimeLeft,
+                      fillColors: const [Color(0xFF5B21B6), Color(0xFF7C3AED), Color(0xFF8B5CF6)],
+                      trackColor: isDark
+                          ? Colors.white.withValues(alpha: 0.06)
+                          : Colors.black.withValues(alpha: 0.06),
+                      glowColor: const Color(0xFF8B5CF6),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '${progressPct.toStringAsFixed(0)}% funded',
+                          style: TextStyle(
+                            fontSize: 10, fontWeight: FontWeight.w700,
+                            letterSpacing: 0.2,
+                            color: accentColor,
+                          ),
+                        ),
+                        if (_goalCents != null && _totalPledgedCents < _goalCents!)
+                          Text(
+                            '\$${((_goalCents! - _totalPledgedCents) / 100).toStringAsFixed(0)} remaining',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: AppTheme.textSecondaryOf(context).withValues(alpha: 0.8),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // ── Stats strip ──
+                    Container(
+                      decoration: BoxDecoration(
+                        border: Border(
+                          top: BorderSide(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05)),
+                          bottom: BorderSide(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05)),
                         ),
                       ),
-                      const Spacer(),
-                      if (event.fundingEndAt != null)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      child: Row(
+                        children: [
+                          Expanded(child: FundingStatCell(
+                            value: '$_fundingCommissionPercent%',
+                            label: 'Platform fee',
+                            valueColor: isDark ? const Color(0xFFE4E4F0) : const Color(0xFF1C1C1E),
+                          )),
+                          Container(width: 0.5, height: 32, color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.08)),
+                          Expanded(child: FundingStatCell(
+                            value: '$_backersCount',
+                            label: 'Backers',
+                            valueColor: isDark ? const Color(0xFFE4E4F0) : const Color(0xFF1C1C1E),
+                          )),
+                          Container(width: 0.5, height: 32, color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.08)),
+                          Expanded(child: FundingStatCell(
+                            value: _avgPledgeFormatted,
+                            label: 'Avg pledge',
+                            valueColor: isDark ? const Color(0xFFE4E4F0) : const Color(0xFF1C1C1E),
+                          )),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // ── Early bird banners ──
+                    ..._earlyBirdDiscounts.where((eb) => eb.isActive).map((eb) {
+                      final value = eb.value;
+                      final windowEnd = eb.endsAt != null ? DateTime.tryParse(eb.endsAt!) : null;
+                      final remaining = windowEnd != null ? windowEnd.difference(DateTime.now().toUtc()) : Duration.zero;
+                      final daysLeft = remaining.inDays;
+                      final discLabel = eb.discountType == 'percent'
+                          ? '$value% off' : '\$${(value / 100).toStringAsFixed(2)} off';
+                      final timeLabel = daysLeft > 0
+                          ? '${daysLeft}d ${remaining.inHours % 24}h left'
+                          : '${remaining.inHours}h left';
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Container(
+                          padding: AppSpacing.paddingMd,
                           decoration: BoxDecoration(
-                            color: hasTimeLeft
-                                ? const Color(0xFFFF8C00).withValues(alpha: 0.15)
-                                : AppTheme.textSecondaryOf(context).withValues(alpha: 0.12),
-                            borderRadius: AppRadius.xl,
+                            gradient: LinearGradient(colors: [
+                              context.scheduleAccent.withValues(alpha: 0.12),
+                              context.scheduleAccent.withValues(alpha: 0.04),
+                            ]),
+                            borderRadius: AppRadius.sm,
+                            border: Border.all(color: context.scheduleAccent.withValues(alpha: 0.22)),
                           ),
                           child: Row(
-                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.timer_rounded,
-                                  size: 11,
-                                  color: hasTimeLeft
-                                      ? const Color(0xFFFF8C00)
-                                      : AppTheme.textSecondaryOf(context)),
-                              const SizedBox(width: 3),
-                              Text(
-                                fundingTimeLeft,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: hasTimeLeft
-                                      ? const Color(0xFFFF8C00)
-                                      : AppTheme.textSecondaryOf(context),
+                              Icon(Icons.bolt_rounded, size: 14, color: context.scheduleAccent),
+                              AppSpacing.hSm,
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      eb.target == 'funding'
+                                          ? 'Early bird pledge — $discLabel tickets!'
+                                          : 'Early bird tickets — $discLabel!',
+                                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: context.scheduleAccent),
+                                    ),
+                                    Text(timeLabel,
+                                      style: TextStyle(fontSize: 11, color: context.scheduleAccent.withValues(alpha: 0.8))),
+                                  ],
                                 ),
                               ),
                             ],
                           ),
                         ),
-                    ],
-                  ),
-                  AppSpacing.vLg,
+                      );
+                    }),
 
-                  // ── Arc (110px) + Stats ──
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      SizedBox(
-                        width: 110,
-                        height: 110,
-                        child: Stack(
-                          children: [
-                            CustomPaint(
-                              size: const Size(110, 110),
-                              painter: _ArcPainter(
-                                progress: _progress,
-                                isDark: isDark,
-                                isFunded: _progress >= 1.0,
-                              ),
+                    // ── Pledge CTA + Register ──
+                    if (canPledge) ...[
+                      Row(
+                        children: [
+                          // Register / Unregister button
+                          if (!widget.isRegistered) ...[
+                            _RegisterButton(
+                              registered: false,
+                              loading: _registering,
+                              onTap: _register,
+                              isDark: isDark,
                             ),
-                            Center(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    '${(_progress * 100).clamp(0, 999).toStringAsFixed(0)}%',
-                                    style: TextStyle(
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.w900,
-                                      letterSpacing: -0.5,
-                                      color: _progress >= 1.0
-                                          ? AppTheme.successColor
-                                          : const Color(0xFFFF8C00),
-                                    ),
-                                  ),
-                                  Text(
-                                    _progress >= 1.0 ? 'funded!' : 'funded',
-                                    style: const TextStyle(
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 0.4,
-                                      color: Color(0xFFAFAFAF),
-                                    ),
+                            const SizedBox(width: 8),
+                          ] else ...[
+                            _RegisterButton(
+                              registered: true,
+                              loading: _registering,
+                              onTap: _unregisterFromCard,
+                              isDark: isDark,
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          // Donate / Back this Event button
+                          Expanded(
+                            child: Container(
+                              height: 48,
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                    colors: [Color(0xFF5B21B6), Color(0xFF6D28D9), Color(0xFF7C3AED)]),
+                                borderRadius: AppRadius.md,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF6D28D9).withValues(alpha: 0.38),
+                                    blurRadius: 18, offset: const Offset(0, 5),
                                   ),
                                 ],
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Raised amount — visual anchor
-                            Text(
-                              _totalFormatted,
-                              style: TextStyle(
-                                fontSize: 28,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: -0.8,
-                                height: 1.05,
-                                color: _progress >= 1.0
-                                    ? AppTheme.successColor
-                                    : (isDark
-                                        ? const Color(0xFFF2ECE0)
-                                        : const Color(0xFF1C1C1E)),
-                              ),
-                            ),
-                            Text(
-                              'of $_goalFormatted goal',
-                              style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                  color: Color(0xFFAFAFAF)),
-                            ),
-                            if (_backersCount > 0 || _totalReservedSpots > 0) ...[
-                              const SizedBox(height: 8),
-                              Wrap(
-                                spacing: 10,
-                                runSpacing: 4,
-                                children: [
-                                  if (_backersCount > 0)
-                                    Row(
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: _pledging ? null : _showPledgeDialog,
+                                  borderRadius: AppRadius.md,
+                                  child: Center(
+                                    child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        const Icon(Icons.people_rounded,
-                                            size: 12, color: Color(0xFFFF8C00)),
-                                        const SizedBox(width: 4),
+                                        Icon(
+                                          widget.isRegistered
+                                              ? Icons.favorite_border_rounded
+                                              : Icons.card_giftcard_rounded,
+                                          color: Colors.white, size: 16,
+                                        ),
+                                        const SizedBox(width: 8),
                                         Text(
-                                          '$_backersCount backer${_backersCount == 1 ? '' : 's'}',
+                                          widget.isRegistered ? 'Back this Event' : 'Donate',
                                           style: const TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w600,
-                                              color: Color(0xFFFF8C00)),
+                                            color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700,
+                                          ),
                                         ),
+                                        if (_pledging) ...[
+                                          const SizedBox(width: 10),
+                                          const SizedBox(width: 14, height: 14,
+                                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+                                        ],
                                       ],
                                     ),
-                                  if (_totalReservedSpots > 0)
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(Icons.event_seat,
-                                            size: 12, color: AppTheme.tealColor),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          '$_totalReservedSpots reserved',
-                                          style: TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w600,
-                                              color: AppTheme.tealColor),
-                                        ),
-                                      ],
-                                    ),
-                                ],
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  AppSpacing.vMd,
-
-                  // ── Metadata strip (pill chips) ──
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      if (event.fundingEndAt != null)
-                        _metaPill(
-                          icon: Icons.timer_rounded,
-                          label: 'Deadline ${AppDateFormat.dateOnly(event.fundingEndAt!)}',
-                          isDark: isDark,
-                          accent: true,
-                        ),
-                      if (event.minPledgeCents > 0)
-                        _metaPill(
-                          icon: Icons.arrow_downward,
-                          label: 'Min \$${(event.minPledgeCents / 100).toStringAsFixed(0)}',
-                          isDark: isDark,
-                        ),
-                      if (event.maxReservedSpotsPerUser > 0)
-                        _metaPill(
-                          icon: Icons.person_pin_rounded,
-                          label:
-                              '${event.maxReservedSpotsPerUser} spot${event.maxReservedSpotsPerUser == 1 ? '' : 's'} max',
-                          isDark: isDark,
-                          teal: true,
-                        ),
-                      if (_fundingCommissionPercent > 0)
-                        _metaPill(
-                          icon: Icons.percent,
-                          label: '$_fundingCommissionPercent% fee',
-                          isDark: isDark,
-                        ),
-                    ],
-                  ),
-                  AppSpacing.vMd,
-
-                  // ── Amber divider ──
-                  Container(
-                    height: 1,
-                    color: isDark
-                        ? const Color(0xFFFFC043).withValues(alpha: 0.10)
-                        : const Color(0xFFFF8C00).withValues(alpha: 0.18),
-                  ),
-                  AppSpacing.vMd,
-
-                  // ── Early bird banners ──
-                  ..._earlyBirdDiscounts.where((eb) => eb.isActive).map((eb) {
-                    final discType = eb.discountType;
-                    final value = eb.value;
-                    final windowEnd =
-                        eb.endsAt != null ? DateTime.tryParse(eb.endsAt!) : null;
-                    final remaining = windowEnd != null
-                        ? windowEnd.difference(DateTime.now().toUtc())
-                        : Duration.zero;
-                    final daysLeft = remaining.inDays;
-                    final hoursLeft = remaining.inHours % 24;
-                    final discLabel = discType == 'percent'
-                        ? '$value% off'
-                        : '\$${(value / 100).toStringAsFixed(2)} off';
-                    final timeLabel = daysLeft > 0
-                        ? '${daysLeft}d ${hoursLeft}h left'
-                        : '${remaining.inHours}h left';
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                      child: Container(
-                        padding: AppSpacing.paddingMd,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(colors: [
-                            context.scheduleAccent.withValues(alpha: 0.14),
-                            context.scheduleAccent.withValues(alpha: 0.04),
-                          ]),
-                          borderRadius: AppRadius.sm,
-                          border: Border.all(
-                              color: context.scheduleAccent.withValues(alpha: 0.25)),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.bolt_rounded, size: 14, color: context.scheduleAccent),
-                            AppSpacing.hSm,
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    eb.target == 'funding'
-                                        ? 'Early bird pledge — $discLabel tickets!'
-                                        : 'Early bird tickets — $discLabel!',
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w700,
-                                        color: context.scheduleAccent),
                                   ),
-                                  Text(
-                                    timeLabel,
-                                    style: TextStyle(
-                                        fontSize: 11,
-                                        color: context.scheduleAccent.withValues(alpha: 0.8)),
-                                  ),
-                                ],
+                                ),
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }),
-
-                  // ── Pledge button (full-width gradient CTA) ──
-                  if (canPledge) ...[
-                    Container(
-                      width: double.infinity,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                            colors: [Color(0xFFFF7A00), Color(0xFFFFAA00)]),
-                        borderRadius: AppRadius.md,
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFFFF8C00).withValues(alpha: 0.38),
-                            blurRadius: 20,
-                            offset: const Offset(0, 6),
                           ),
                         ],
                       ),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: _pledging ? null : _showPledgeDialog,
-                          borderRadius: AppRadius.md,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                widget.isRegistered
-                                    ? Icons.volunteer_activism
-                                    : Icons.card_giftcard_rounded,
-                                color: Colors.white,
-                                size: 18,
+                      if (widget.isRegistered) ...[
+                        const SizedBox(height: 4),
+                        Center(
+                          child: TextButton.icon(
+                            onPressed: _pledging ? null : _unpledge,
+                            icon: Icon(Icons.money_off, size: 13,
+                                color: _refundProcessing
+                                    ? AppTheme.textSecondaryOf(context)
+                                    : accentColor.withValues(alpha: 0.5)),
+                            label: Text(
+                              _refundProcessing ? 'Refund Processing…' : 'Remove my pledge',
+                              style: TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.w600,
+                                color: _refundProcessing
+                                    ? AppTheme.textSecondaryOf(context)
+                                    : accentColor.withValues(alpha: 0.5),
                               ),
-                              const SizedBox(width: 8),
-                              Text(
-                                widget.isRegistered ? 'Pledge' : 'Donate',
-                                style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700),
-                              ),
-                              if (_pledging) ...[
-                                const SizedBox(width: 10),
-                                const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2, color: Colors.white),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    // Unpledge — demoted to text link
-                    if (widget.isRegistered)
-                      Center(
-                        child: TextButton.icon(
-                          onPressed: _pledging ? null : _unpledge,
-                          icon: Icon(
-                            Icons.money_off,
-                            size: 13,
-                            color: _refundProcessing
-                                ? AppTheme.textSecondaryOf(context)
-                                : (isDark
-                                    ? const Color(0xFFFF8C00).withValues(alpha: 0.55)
-                                    : const Color(0xFFB85E00).withValues(alpha: 0.65)),
-                          ),
-                          label: Text(
-                            _refundProcessing ? 'Refund Processing…' : 'Remove my pledge',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: _refundProcessing
-                                  ? AppTheme.textSecondaryOf(context)
-                                  : (isDark
-                                      ? const Color(0xFFFF8C00).withValues(alpha: 0.55)
-                                      : const Color(0xFFB85E00).withValues(alpha: 0.65)),
                             ),
                           ),
-                          style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            minimumSize: Size.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          ),
                         ),
+                      ],
+                      const SizedBox(height: 16),
+                    ],
+
+                    // ── Milestones ──
+                    if (sorted.isNotEmpty) ...[
+                      Container(
+                        height: 0.5,
+                        color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
                       ),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'MILESTONES',
+                            style: TextStyle(
+                              fontSize: 10, fontWeight: FontWeight.w700,
+                              letterSpacing: 0.09,
+                              color: AppTheme.textSecondaryOf(context).withValues(alpha: 0.6),
+                            ),
+                          ),
+                          Text(
+                            '${sorted.where((m) => m.isUnlocked).length} of ${sorted.length} reached',
+                            style: TextStyle(
+                              fontSize: 10, fontWeight: FontWeight.w700,
+                              color: accentColor.withValues(alpha: 0.7),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      ...sorted.asMap().entries.map((entry) {
+                        final idx = entry.key;
+                        final ms = entry.value;
+                        final goalAmt = _goalCents != null
+                            ? '\$${(_goalCents! * ms.unlockPercent / 10000).toStringAsFixed(0)}'
+                            : '${ms.unlockPercent}%';
+                        final isHit = ms.isUnlocked;
+                        final isNext = !isHit && idx == nextIdx;
+                        final progressToNext = isNext && ms.unlockPercent > 0
+                            ? (progressPct / ms.unlockPercent).clamp(0.0, 1.0)
+                            : 0.0;
+
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: FundingMilestoneRow(
+                            title: ms.title,
+                            subtitle: isHit
+                                ? 'Reached · ${ms.unlockPercent}% goal'
+                                : isNext
+                                    ? '${ms.unlockPercent}% goal · ${((1 - progressToNext) * (_goalCents ?? 0) * ms.unlockPercent / 10000).toStringAsFixed(0)}\$ away'
+                                    : 'Locked · ${ms.unlockPercent}% goal',
+                            amount: goalAmt,
+                            state: isHit ? FundingMsState.hit : isNext ? FundingMsState.next : FundingMsState.locked,
+                            nextFillFraction: progressToNext,
+                            isDark: isDark,
+                          ),
+                        );
+                      }),
+                    ],
                   ],
-                ],
+                ),
               ),
             ],
           ),
         ),
 
-        // ── Trust strip — outside the amber card, neutral ──
-        Container(
-          margin: const EdgeInsets.only(top: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-          decoration: BoxDecoration(
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.04)
-                : Colors.black.withValues(alpha: 0.04),
-            borderRadius: AppRadius.md,
-            border: Border.all(
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.07)
-                  : Colors.black.withValues(alpha: 0.06),
+      ],
+    );
+  }
+
+}
+
+// ── Pulsing Live badge (private — only used in FundingCard) ──
+class _PulseBadge extends StatefulWidget {
+  final Color color;
+  final String label;
+  const _PulseBadge({required this.color, required this.label});
+  @override
+  State<_PulseBadge> createState() => _PulseBadgeState();
+}
+
+class _PulseBadgeState extends State<_PulseBadge> with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1800))..repeat();
+  }
+  @override
+  void dispose() { _ctrl.dispose(); super.dispose(); }
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: widget.color.withValues(alpha: 0.1),
+        border: Border.all(color: widget.color.withValues(alpha: 0.25)),
+        borderRadius: BorderRadius.circular(99),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedBuilder(
+            animation: _ctrl,
+            builder: (_, __) => Container(
+              width: 6, height: 6,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: widget.color,
+                boxShadow: [
+                  BoxShadow(
+                    color: widget.color.withValues(alpha: (1 - _ctrl.value) * 0.6),
+                    blurRadius: 6 * _ctrl.value,
+                    spreadRadius: 2 * _ctrl.value,
+                  ),
+                ],
+              ),
             ),
           ),
-          child: Wrap(
-            spacing: 12,
-            runSpacing: 6,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.shield_outlined,
-                      size: 13,
-                      color: isDark ? const Color(0xFF5B8DE8) : AppTheme.accentColor),
-                  const SizedBox(width: 5),
-                  Text(
-                    'Escrow protected',
-                    style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.textSecondaryOf(context)),
-                  ),
-                ],
-              ),
-              Container(
-                width: 3,
-                height: 3,
-                decoration: BoxDecoration(
-                  color: AppTheme.textSecondaryOf(context).withValues(alpha: 0.35),
-                  shape: BoxShape.circle,
-                ),
-              ),
-              Wrap(
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: 5,
-                runSpacing: 4,
-                children: [
-                  Icon(_trustIcon(event.organizerTrustLabel),
-                      size: 13,
-                      color: _trustColor(context, event.organizerTrustLabel)),
-                  Text(
-                    'Organizer:',
-                    style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.textSecondaryOf(context)),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
-                    decoration: BoxDecoration(
-                      color: _trustColor(context, event.organizerTrustLabel)
-                          .withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      '${event.organizerTrustLabel} (${(event.organizerTrustScore * 100).toInt()}%)',
-                      style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: _trustColor(context, event.organizerTrustLabel)),
-                    ),
-                  ),
-                  Text(
-                    '${event.organizerCompletedEvents}/${event.organizerPublishedEvents} events',
-                    style: TextStyle(
-                        fontSize: 10,
-                        color: AppTheme.textSecondaryOf(context).withValues(alpha: 0.7)),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ],
+          const SizedBox(width: 5),
+          Text(widget.label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: widget.color)),
+        ],
+      ),
     );
   }
 }
 
-// ═══════════════════════════════════════════════════════════
-// Arc CustomPainter — 270° horseshoe, orange→amber gradient
-// ═══════════════════════════════════════════════════════════
+// ── Time-left chip — shows "2d 14h" with a pulsing amber dot ──
+class _TimeLeftBadge extends StatefulWidget {
+  final String timeLeft;
+  const _TimeLeftBadge({required this.timeLeft});
+  @override
+  State<_TimeLeftBadge> createState() => _TimeLeftBadgeState();
+}
 
-class _ArcPainter extends CustomPainter {
-  final double progress;
+class _TimeLeftBadgeState extends State<_TimeLeftBadge> with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 2000))..repeat();
+  }
+  @override
+  void dispose() { _ctrl.dispose(); super.dispose(); }
+  @override
+  Widget build(BuildContext context) {
+    const color = Color(0xFFFBBF24);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+        borderRadius: BorderRadius.circular(99),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedBuilder(
+            animation: _ctrl,
+            builder: (_, __) => Container(
+              width: 6, height: 6,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: color,
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withValues(alpha: (1 - _ctrl.value) * 0.55),
+                    blurRadius: 5 * _ctrl.value,
+                    spreadRadius: 2 * _ctrl.value,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 5),
+          Text(
+            widget.timeLeft,
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color),
+          ),
+          const SizedBox(width: 4),
+          const Text(
+            'left',
+            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: color),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Register / Unregister compact button beside Donate ──
+class _RegisterButton extends StatelessWidget {
+  final bool registered;
+  final bool loading;
+  final VoidCallback? onTap;
   final bool isDark;
-  final bool isFunded;
-
-  const _ArcPainter({
-    required this.progress,
+  const _RegisterButton({
+    required this.registered,
+    required this.loading,
+    required this.onTap,
     required this.isDark,
-    required this.isFunded,
   });
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2 - 5.5;
-    final rect = Rect.fromCircle(center: center, radius: radius);
-    const startAngle = 135 * pi / 180;  // 7.5 o'clock position
-    const sweepAngle = 270 * pi / 180;  // 270° arc
-    const strokeWidth = 8.5;
-
-    // Track arc
-    canvas.drawArc(
-      rect,
-      startAngle,
-      sweepAngle,
-      false,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = strokeWidth
-        ..strokeCap = StrokeCap.round
-        ..color = isDark ? const Color(0xFF3A2200) : const Color(0xFFFFE5B4),
-    );
-
-    if (progress <= 0) return;
-
-    final fillSweep = progress.clamp(0.0, 1.0) * sweepAngle;
-    final Color c1, c2;
-    if (isFunded) {
-      c1 = const Color(0xFF059669);
-      c2 = const Color(0xFF34D399);
-    } else {
-      c1 = const Color(0xFFFF7A00);
-      c2 = const Color(0xFFFFAA00);
-    }
-
-    canvas.drawArc(
-      rect,
-      startAngle,
-      fillSweep,
-      false,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = strokeWidth
-        ..strokeCap = StrokeCap.round
-        ..shader = SweepGradient(
-          startAngle: startAngle,
-          endAngle: startAngle + sweepAngle,
-          colors: [c1, c2],
-        ).createShader(rect),
+  Widget build(BuildContext context) {
+    final borderColor = isDark
+        ? Colors.white.withValues(alpha: registered ? 0.12 : 0.18)
+        : Colors.black.withValues(alpha: registered ? 0.10 : 0.14);
+    final textColor = registered
+        ? AppTheme.textSecondaryOf(context)
+        : (isDark ? const Color(0xFFE4E4F0) : const Color(0xFF1C1C1E));
+    return GestureDetector(
+      onTap: loading ? null : onTap,
+      child: Container(
+        height: 48,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.04),
+          border: Border.all(color: borderColor),
+          borderRadius: AppRadius.md,
+        ),
+        child: loading
+            ? SizedBox(
+                width: 48,
+                child: Center(
+                  child: SizedBox(
+                    width: 16, height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: textColor,
+                    ),
+                  ),
+                ),
+              )
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    registered ? Icons.how_to_reg_rounded : Icons.person_add_outlined,
+                    size: 15,
+                    color: textColor,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    registered ? 'Registered' : 'Register',
+                    style: TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w700,
+                      color: textColor,
+                    ),
+                  ),
+                ],
+              ),
+      ),
     );
   }
-
-  @override
-  bool shouldRepaint(_ArcPainter old) =>
-      old.progress != progress || old.isDark != isDark || old.isFunded != isFunded;
 }

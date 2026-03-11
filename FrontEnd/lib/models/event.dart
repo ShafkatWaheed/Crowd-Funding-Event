@@ -81,6 +81,8 @@ class Event {
   final int? eventMaxImages;
   final int? maxPostsPerDay;
   final int? maxCoOrganizers;
+  final int? reservedSpotsReleasePercent;
+  final bool releaseTierSpotLimits;
 
   Event({
     required this.id,
@@ -146,6 +148,8 @@ class Event {
     this.eventMaxImages,
     this.maxPostsPerDay,
     this.maxCoOrganizers,
+    this.reservedSpotsReleasePercent,
+    this.releaseTierSpotLimits = false,
   });
 
   factory Event.fromJson(Map<String, dynamic> json) {
@@ -227,6 +231,8 @@ class Event {
       eventMaxImages: json['event_max_images'] as int?,
       maxPostsPerDay: json['max_posts_per_day'] as int?,
       maxCoOrganizers: json['max_co_organizers'] as int?,
+      reservedSpotsReleasePercent: json['reserved_spots_release_percent'] as int?,
+      releaseTierSpotLimits: (json['release_tier_spot_limits'] as bool?) ?? false,
     );
   }
 
@@ -329,9 +335,10 @@ class Event {
         waitlistMaxSize: waitlistMaxSize, waitlistAutoApprove: waitlistAutoApprove,
         eventMaxImages: eventMaxImages, maxPostsPerDay: maxPostsPerDay,
         maxCoOrganizers: maxCoOrganizers,
+        reservedSpotsReleasePercent: reservedSpotsReleasePercent,
+        releaseTierSpotLimits: releaseTierSpotLimits,
       );
 
-  /// Whether registering / unregistering is allowed.
   /// Whether registering / unregistering is allowed.
   bool get canUnregister =>
       status == EventStatus.approved ||
@@ -339,6 +346,13 @@ class Event {
       status == EventStatus.waiting_event_date ||
       status == EventStatus.selling_tickets ||
       status == EventStatus.live;
+
+  /// Whether the user can manually register via the bottom strip.
+  /// During approved (funding), register is inline in FundingCard.
+  /// During selling_tickets/live, registration is automatic via ticket purchase.
+  bool get canManuallyRegister =>
+      status == EventStatus.draft ||
+      status == EventStatus.waiting_event_date;
 }
 
 // ─── Event Metadata Models ───
@@ -737,6 +751,8 @@ class EventCreateRequest {
   final int? eventMaxImages;
   final int? maxPostsPerDay;
   final int? maxCoOrganizers;
+  final int? reservedSpotsReleasePercent;
+  final bool releaseTierSpotLimits;
 
   const EventCreateRequest({
     required this.venueId,
@@ -772,6 +788,8 @@ class EventCreateRequest {
     this.eventMaxImages,
     this.maxPostsPerDay,
     this.maxCoOrganizers,
+    this.reservedSpotsReleasePercent,
+    this.releaseTierSpotLimits = false,
   });
 
   Map<String, dynamic> toJson() {
@@ -818,6 +836,8 @@ class EventCreateRequest {
     if (eventMaxImages != null && eventMaxImages! > 0) data['event_max_images'] = eventMaxImages;
     if (maxPostsPerDay != null && maxPostsPerDay! > 0) data['max_posts_per_day'] = maxPostsPerDay;
     if (maxCoOrganizers != null && maxCoOrganizers! > 0) data['max_co_organizers'] = maxCoOrganizers;
+    if (reservedSpotsReleasePercent != null) data['reserved_spots_release_percent'] = reservedSpotsReleasePercent;
+    data['release_tier_spot_limits'] = releaseTierSpotLimits;
     return data;
   }
 }
@@ -849,6 +869,8 @@ class EventUpdateRequest {
   final int? eventMaxImages;
   final int? maxPostsPerDay;
   final int? maxCoOrganizers;
+  final int? reservedSpotsReleasePercent;
+  final bool? releaseTierSpotLimits;
 
   const EventUpdateRequest({
     this.title,
@@ -877,6 +899,8 @@ class EventUpdateRequest {
     this.eventMaxImages,
     this.maxPostsPerDay,
     this.maxCoOrganizers,
+    this.reservedSpotsReleasePercent,
+    this.releaseTierSpotLimits,
   });
 
   Map<String, dynamic> toJson() {
@@ -907,6 +931,8 @@ class EventUpdateRequest {
     if (eventMaxImages != null) data['event_max_images'] = eventMaxImages;
     if (maxPostsPerDay != null) data['max_posts_per_day'] = maxPostsPerDay;
     if (maxCoOrganizers != null) data['max_co_organizers'] = maxCoOrganizers;
+    if (reservedSpotsReleasePercent != null) data['reserved_spots_release_percent'] = reservedSpotsReleasePercent;
+    if (releaseTierSpotLimits != null) data['release_tier_spot_limits'] = releaseTierSpotLimits;
     return data;
   }
 }

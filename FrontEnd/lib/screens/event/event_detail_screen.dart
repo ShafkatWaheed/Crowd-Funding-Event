@@ -482,10 +482,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   Widget _buildHeroSliver(BuildContext context, Event event, dynamic user,
       bool hasHero, bool hasPreviewImages, String? heroUrl, bool isDark) {
     final titleCard = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
+        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
           color: AppTheme.cardOf(context),
           borderRadius: AppRadius.xxl,
@@ -549,10 +549,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                   ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             Wrap(
-              spacing: AppSpacing.xs,
-              runSpacing: AppSpacing.xs,
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.sm,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 EventDetailHelpers.statusPill(context, event.status),
@@ -582,8 +582,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                       color: AppTheme.accentColor,
                     ),
                   ),
-                if (event.status != EventStatus.approved &&
-                    event.status != EventStatus.waiting_event_date)
+                if (event.status != EventStatus.waiting_event_date)
                   GestureDetector(
                     onTap: () => _showOrganizerBottomSheet(event),
                     child: EventDetailHelpers.trustBadgePill(context, event),
@@ -841,19 +840,19 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           ] else ...[
             AnimatedListItem(
               index: 1,
-              child: FundingCard(
-                eventId: widget.eventId,
-                event: event,
-                isRegistered: _isRegistered,
-              ),
-            ),
-            AppSpacing.vXxl,
-            AnimatedListItem(
-              index: 2,
-              child: MilestoneTimeline(
-                eventId: widget.eventId,
-                event: event,
-              ),
+              child: (event.status == EventStatus.selling_tickets ||
+                       event.status == EventStatus.live ||
+                       event.status == EventStatus.completed)
+                  ? FundingResultsCard(eventId: widget.eventId, event: event)
+                  : FundingCard(
+                      eventId: widget.eventId,
+                      event: event,
+                      isRegistered: _isRegistered,
+                      onRegistrationChanged: (isReg, status) => setState(() {
+                        _isRegistered = isReg;
+                        _regStatus = status;
+                      }),
+                    ),
             ),
             AppSpacing.vXxl,
           ],

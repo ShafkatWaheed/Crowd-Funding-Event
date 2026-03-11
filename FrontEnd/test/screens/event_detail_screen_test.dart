@@ -76,6 +76,8 @@ void main() {
     when(() => mockEvent.selectedEvent).thenReturn(null);
     when(() => mockEvent.loadEvent(any(), forceRefresh: any(named: 'forceRefresh')))
         .thenAnswer((_) async {});
+    when(() => mockEvent.getSchedule(any())).thenAnswer((_) async => []);
+    when(() => mockEvent.getMilestones(any())).thenAnswer((_) async => []);
     when(() => mockEvent.addListener(any())).thenReturn(null);
     when(() => mockEvent.removeListener(any())).thenReturn(null);
 
@@ -104,6 +106,14 @@ void main() {
           limit: any(named: 'limit'),
           sortBy: any(named: 'sortBy'),
         )).thenAnswer((_) async => PaginatedResult<Pledge>(items: [], hasMore: false));
+    when(() => mockFundingRepo.getFundingSummary(any())).thenAnswer((_) async =>
+        FundingSummary.fromJson({
+          'total_pledged_cents': 50000,
+          'backers_count': 10,
+          'goal_cents': 100000,
+          'funding_commission_percent': 5,
+          'total_reserved_spots': 0,
+        }));
 
     // SyncService stubs
     when(() => mockSync.cacheTransportForEvent(
@@ -188,7 +198,8 @@ void main() {
       // Description appears in the About section
       expect(find.text('A test event'), findsOneWidget);
 
-      await tester.pumpAndSettle();
+      // FundingCard has repeating shimmer animations — use fixed pump, not pumpAndSettle.
+      await tester.pump(const Duration(seconds: 3));
     });
 
     testWidgets('shows age restriction banner when event is age restricted',
@@ -219,7 +230,8 @@ void main() {
         findsOneWidget,
       );
 
-      await tester.pumpAndSettle();
+      // FundingCard has repeating shimmer animations — use fixed pump, not pumpAndSettle.
+      await tester.pump(const Duration(seconds: 3));
     });
 
     testWidgets('renders key sections when event has funding',
@@ -250,7 +262,9 @@ void main() {
       // overall Scaffold rendered successfully with content
       expect(find.byType(Scaffold), findsOneWidget);
 
-      await tester.pumpAndSettle();
+      // Use a fixed-duration pump instead of pumpAndSettle because FundingCard
+      // contains repeating AnimationControllers (shimmer bar) that never settle.
+      await tester.pump(const Duration(seconds: 3));
     });
   });
 }

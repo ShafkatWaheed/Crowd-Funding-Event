@@ -36,7 +36,7 @@ class EventDetailHelpers {
               children: [
                 Text(label,
                     style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 13,
                         fontWeight: FontWeight.w600,
                         color: AppTheme.textSecondaryOf(context),
                         letterSpacing: 0.3)),

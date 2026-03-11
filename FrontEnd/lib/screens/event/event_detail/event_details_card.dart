@@ -103,7 +103,7 @@ class EventDetailsCard extends StatelessWidget {
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: 13,
                   fontWeight: FontWeight.w600,
                   color: AppTheme.textSecondaryOf(context),
                   letterSpacing: 0.3,
@@ -151,7 +151,7 @@ class EventDetailsCard extends StatelessWidget {
               Text(
                 label.toUpperCase(),
                 style: TextStyle(
-                  fontSize: 9,
+                  fontSize: 11,
                   fontWeight: FontWeight.w700,
                   color: color.withValues(alpha: 0.65),
                   letterSpacing: 0.5,

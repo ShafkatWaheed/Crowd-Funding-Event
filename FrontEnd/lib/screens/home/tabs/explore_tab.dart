@@ -690,7 +690,7 @@ class _ExploreTabState extends State<ExploreTab> {
                 gridDelegate:
                     const SliverGridDelegateWithMaxCrossAxisExtent(
                   maxCrossAxisExtent: 340,
-                  mainAxisExtent: 320,
+                  mainAxisExtent: 330,
                   crossAxisSpacing: AppSpacing.md,
                   mainAxisSpacing: AppSpacing.md,
                 ),

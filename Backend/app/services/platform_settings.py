@@ -178,6 +178,7 @@ DEFAULTS = {
     "max_co_organizers_limit": 10,
     "refund_deadline_percent_min": 10,
     "refund_deadline_percent_max": 50,
+    "reserved_spots_release_percent_min": 0,  # floor organizers must meet (0 = no minimum)
     # ── Sponsor delegates ──
     "max_sponsor_delegates_per_ticket": 5,
     # ── Bank verification ──
@@ -359,6 +360,7 @@ DESCRIPTIONS = {
     "max_co_organizers_limit": "Platform-wide ceiling for max co-organizers per event",
     "refund_deadline_percent_min": "Minimum allowed refund deadline percentage of funding duration",
     "refund_deadline_percent_max": "Maximum allowed refund deadline percentage of funding duration",
+    "reserved_spots_release_percent_min": "Minimum % of the ticket-selling window that pledge-reserved spots must be held. Organizers can set higher but not lower. 0 = no minimum enforced.",
     "kyc_required_organizer": "Require KYC verification for organizers before creating events",
     "kyc_required_customer": "Require KYC verification for customers before purchasing tickets",
     "kyc_required_sponsor": "Require KYC verification for sponsors before placing bids",

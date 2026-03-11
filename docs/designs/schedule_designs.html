@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Schedule Design Options — Light & Dark</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ── Brand tokens (mode-agnostic) ── */
+:root {
+  --accent:  #276EF1;
+  --green:   #05944F;
+  --orange:  #FF8C00;
+  --purple:  #9333EA;
+  --cyan:    #0891B2;
+  --feed:    #6366F1;
+  --error:   #E11900;
+}
+
+/* ── Dark mode palette ── */
+.dark {
+  --bg:       #0F0F0F;
+  --card:     #1A1A1A;
+  --surface:  #242424;
+  --border:   rgba(255,255,255,0.08);
+  --text-pri: #F0F0F0;
+  --text-sec: #888;
+  --divider:  rgba(255,255,255,0.07);
+  --feed-dim: rgba(99,102,241,0.14);
+  --green-dim:  rgba(5,148,79,0.14);
+  --orange-dim: rgba(255,140,0,0.14);
+  --purple-dim: rgba(147,51,234,0.14);
+  --cyan-dim:   rgba(8,145,178,0.14);
+  --seg-active: #1A1A1A;
+  --seg-bg:     #242424;
+  --shadow-glow-feed:   -4px 0 18px rgba(99,102,241,.28), 0 2px 12px rgba(0,0,0,.4);
+  --shadow-glow-green:  -4px 0 18px rgba(5,148,79,.28),   0 2px 12px rgba(0,0,0,.4);
+  --shadow-glow-orange: -4px 0 18px rgba(255,140,0,.28),  0 2px 12px rgba(0,0,0,.4);
+  --shadow-glow-purple: -4px 0 18px rgba(147,51,234,.28), 0 2px 12px rgba(0,0,0,.4);
+  --dot-ring-color: #1A1A1A;
+}
+
+/* ── Light mode palette ── */
+.light {
+  --bg:       #F2F4F7;
+  --card:     #FFFFFF;
+  --surface:  #F7F8FA;
+  --border:   rgba(0,0,0,0.08);
+  --text-pri: #111111;
+  --text-sec: #6B7280;
+  --divider:  rgba(0,0,0,0.07);
+  --feed-dim: rgba(99,102,241,0.08);
+  --green-dim:  rgba(5,148,79,0.08);
+  --orange-dim: rgba(255,140,0,0.08);
+  --purple-dim: rgba(147,51,234,0.08);
+  --cyan-dim:   rgba(8,145,178,0.08);
+  --seg-active: #FFFFFF;
+  --seg-bg:     #EAECF0;
+  --shadow-glow-feed:   -4px 0 14px rgba(99,102,241,.18), 0 2px 8px rgba(0,0,0,.06);
+  --shadow-glow-green:  -4px 0 14px rgba(5,148,79,.18),   0 2px 8px rgba(0,0,0,.06);
+  --shadow-glow-orange: -4px 0 14px rgba(255,140,0,.18),  0 2px 8px rgba(0,0,0,.06);
+  --shadow-glow-purple: -4px 0 14px rgba(147,51,234,.18), 0 2px 8px rgba(0,0,0,.06);
+  --dot-ring-color: #FFFFFF;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #E8EBF0;
+  font-family: 'Inter', sans-serif;
+  padding: 32px 20px 80px;
+}
+
+/* ── Page header ── */
+.page-header {
+  text-align: center; margin-bottom: 48px;
+}
+.page-header h1 {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 30px; font-weight: 800; letter-spacing: -1px;
+  color: #111; margin-bottom: 6px;
+}
+.page-header p { font-size: 14px; color: #6B7280; }
+
+/* ── Mode toggle ── */
+.mode-toggle {
+  display: flex; justify-content: center;
+  gap: 8px; margin-bottom: 48px;
+}
+.toggle-btn {
+  padding: 8px 20px; border-radius: 100px;
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  border: 2px solid transparent; transition: all .15s;
+  font-family: 'Inter', sans-serif;
+}
+.toggle-btn.dark-btn  { background: #1A1A1A; color: #F0F0F0; border-color: transparent; }
+.toggle-btn.light-btn { background: #FFFFFF;  color: #111;    border-color: transparent; }
+.toggle-btn.active    { border-color: #6366F1; }
+
+/* ── Option section ── */
+.option-section { margin-bottom: 56px; }
+
+.option-header { margin-bottom: 20px; }
+.option-label {
+  font-size: 11px; font-weight: 700; letter-spacing: 1.5px;
+  text-transform: uppercase; color: #6366F1; margin-bottom: 4px;
+}
+.option-title {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 22px; font-weight: 800; letter-spacing: -0.5px; color: #111; margin-bottom: 3px;
+}
+.option-desc { font-size: 13px; color: #6B7280; line-height: 1.5; }
+
+.rec-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: rgba(5,148,79,.1); border: 1px solid rgba(5,148,79,.3);
+  border-radius: 100px; padding: 3px 10px;
+  font-size: 11px; font-weight: 700; color: #05944F;
+  margin-top: 8px;
+}
+
+/* ── Side-by-side panels ── */
+.panels {
+  display: flex; gap: 24px; align-items: flex-start;
+}
+.panel {
+  flex: 1; min-width: 0;
+  padding: 20px; border-radius: 20px;
+}
+.panel-label {
+  font-size: 11px; font-weight: 700; letter-spacing: 1px;
+  text-transform: uppercase; margin-bottom: 12px;
+  text-align: center;
+}
+.dark  .panel-label { color: #888; }
+.light .panel-label { color: #9CA3AF; }
+
+.divider-line { height: 1px; background: #D1D5DB; margin: 48px 0; }
+
+/* ────────────────────────────────────────────────────────────
+   CARD SHELL
+──────────────────────────────────────────────────────────── */
+.card {
+  background: var(--card);
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  padding: 18px;
+}
+
+.card-header {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 18px;
+}
+.card-header svg { color: var(--feed); }
+.card-header-title {
+  font-size: 13px; font-weight: 700;
+  color: var(--text-sec); letter-spacing: 0.5px; flex: 1;
+}
+.dl-btn {
+  display: flex; align-items: center; gap: 4px;
+  background: var(--feed-dim); border-radius: 8px;
+  padding: 5px 10px; font-size: 11px; font-weight: 600; color: var(--feed);
+  text-decoration: none;
+}
+
+/* ────────────────────────────────────────────────────────────
+   OPTION A — Vertical Timeline
+──────────────────────────────────────────────────────────── */
+.day-pills {
+  display: flex; gap: 7px; margin-bottom: 22px; flex-wrap: wrap;
+}
+.day-pill {
+  padding: 6px 13px; border-radius: 100px;
+  font-size: 12px; font-weight: 600; white-space: nowrap;
+  border: 1.5px solid var(--border);
+  color: var(--text-sec); background: transparent;
+}
+.day-pill.active {
+  background: var(--feed-dim);
+  border-color: rgba(99,102,241,0.45); color: var(--feed);
+}
+
+.timeline { display: flex; flex-direction: column; }
+
+.tl-row { display: flex; align-items: flex-start; }
+
+.tl-time-col {
+  width: 58px; flex-shrink: 0;
+  display: flex; align-items: flex-start; justify-content: flex-end;
+  padding-right: 10px; padding-top: 3px;
+}
+.tl-time { font-size: 10px; font-weight: 700; color: var(--text-sec); line-height: 1; }
+
+.tl-connector {
+  width: 18px; flex-shrink: 0;
+  display: flex; flex-direction: column; align-items: center;
+}
+.tl-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  border: 2px solid var(--dot-ring-color);
+  outline: 2px solid var(--feed);
+  background: var(--feed); flex-shrink: 0; margin-top: 3px; z-index: 1;
+}
+.tl-dot.c-green  { background: var(--green);  outline-color: var(--green); }
+.tl-dot.c-orange { background: var(--orange); outline-color: var(--orange); }
+.tl-dot.c-purple { background: var(--purple); outline-color: var(--purple); }
+
+.tl-vline {
+  width: 1.5px; flex: 1; min-height: 16px;
+  background: var(--divider); margin: 3px 0;
+}
+
+.tl-content { flex: 1; padding: 0 0 16px 8px; }
+
+.tl-card {
+  background: var(--surface); border-radius: 12px;
+  border: 1px solid var(--border);
+  padding: 11px 12px; display: flex; gap: 10px;
+  position: relative; overflow: hidden;
+}
+.tl-card::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+  background: var(--feed); border-radius: 0 2px 2px 0;
+}
+.tl-card.c-green::before  { background: var(--green); }
+.tl-card.c-orange::before { background: var(--orange); }
+.tl-card.c-purple::before { background: var(--purple); }
+
+.tl-card-inner { flex: 1; padding-left: 3px; }
+.tl-stitle {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 13px; font-weight: 700; color: var(--text-pri); margin-bottom: 2px;
+}
+.tl-sdesc { font-size: 11px; color: var(--text-sec); margin-bottom: 5px; line-height: 1.4; }
+.tl-stime { font-size: 10px; font-weight: 700; color: var(--feed); }
+.tl-stime.c-green  { color: var(--green); }
+.tl-stime.c-orange { color: var(--orange); }
+.tl-stime.c-purple { color: var(--purple); }
+
+.tl-thumb {
+  width: 46px; height: 46px; border-radius: 8px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 18px;
+  background: var(--feed-dim);
+}
+.tl-thumb.c-green  { background: var(--green-dim); }
+.tl-thumb.c-orange { background: var(--orange-dim); }
+
+.overlap-pill {
+  display: inline-flex; align-items: center;
+  background: var(--orange-dim); border-radius: 5px;
+  padding: 1px 6px; font-size: 9px; font-weight: 700;
+  color: var(--orange); margin-left: 6px;
+}
+
+/* ────────────────────────────────────────────────────────────
+   OPTION B — Glow Cards
+──────────────────────────────────────────────────────────── */
+.circles-row { display: flex; gap: 14px; margin-bottom: 22px; }
+
+.story-circle { display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; }
+.circle-ring {
+  width: 48px; height: 48px; border-radius: 50%;
+  border: 1.5px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+}
+.circle-ring.active {
+  border: 3px solid var(--feed);
+  background: var(--feed-dim);
+  box-shadow: 0 0 14px rgba(99,102,241,.4);
+}
+.circle-num {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 15px; font-weight: 800; color: var(--text-sec);
+}
+.circle-ring.active .circle-num { color: var(--feed); }
+.circle-day { font-size: 10px; font-weight: 600; color: var(--text-sec); }
+.story-circle.sel .circle-day { color: var(--feed); }
+
+.glow-sessions { display: flex; flex-direction: column; gap: 14px; }
+
+.g-time-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 100px;
+  font-size: 11px; font-weight: 700; margin-bottom: 6px;
+}
+.g-time-badge.f { background: var(--feed-dim);   color: var(--feed); }
+.g-time-badge.g { background: var(--green-dim);  color: var(--green); }
+.g-time-badge.o { background: var(--orange-dim); color: var(--orange); }
+.g-time-badge.p { background: var(--purple-dim); color: var(--purple); }
+
+.g-card {
+  background: var(--surface); border-radius: 14px;
+  border: 1px solid var(--border);
+  padding: 13px 13px 13px 16px;
+  display: flex; gap: 12px; align-items: stretch;
+}
+.g-card.f { border-left: 3px solid var(--feed);   box-shadow: var(--shadow-glow-feed); }
+.g-card.g { border-left: 3px solid var(--green);  box-shadow: var(--shadow-glow-green); }
+.g-card.o { border-left: 3px solid var(--orange); box-shadow: var(--shadow-glow-orange); }
+.g-card.p { border-left: 3px solid var(--purple); box-shadow: var(--shadow-glow-purple); }
+
+.g-card-body { flex: 1; }
+.g-stitle {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 14px; font-weight: 700; color: var(--text-pri); margin-bottom: 3px;
+}
+.g-sdesc { font-size: 12px; color: var(--text-sec); margin-bottom: 8px; line-height: 1.4; }
+.g-bottom { display: flex; align-items: center; gap: 8px; }
+.g-time-range { font-size: 11px; font-weight: 700; }
+.f .g-time-range { color: var(--feed); }
+.g .g-time-range { color: var(--green); }
+.o .g-time-range { color: var(--orange); }
+.p .g-time-range { color: var(--purple); }
+
+.dur-capsule { flex: 1; height: 4px; border-radius: 100px; background: var(--divider); overflow: hidden; }
+.dur-fill { height: 100%; border-radius: 100px; }
+.dur-fill.f { background: var(--feed); }
+.dur-fill.g { background: var(--green); }
+.dur-fill.o { background: var(--orange); }
+.dur-fill.p { background: var(--purple); }
+.g-dur-label { font-size: 11px; color: var(--text-sec); flex-shrink: 0; }
+
+.g-thumb {
+  width: 60px; height: 68px; border-radius: 10px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 22px;
+}
+.g-thumb.f { background: var(--feed-dim); }
+.g-thumb.g { background: var(--green-dim); }
+.g-thumb.o { background: var(--orange-dim); }
+.g-thumb.p { background: var(--purple-dim); }
+
+/* ────────────────────────────────────────────────────────────
+   OPTION C — Compact Rows
+──────────────────────────────────────────────────────────── */
+.seg-control {
+  display: flex; background: var(--seg-bg);
+  border-radius: 10px; padding: 3px; margin-bottom: 18px; gap: 2px;
+}
+.seg-btn {
+  flex: 1; text-align: center; padding: 7px 4px; border-radius: 8px;
+  font-size: 12px; font-weight: 600; color: var(--text-sec); cursor: pointer;
+}
+.seg-btn.active {
+  background: var(--seg-active); color: var(--text-pri);
+  box-shadow: 0 1px 5px rgba(0,0,0,.15);
+}
+
+.time-group + .time-group { border-top: 1px solid var(--divider); }
+
+.tg-hdr {
+  display: flex; align-items: center; gap: 10px; padding: 10px 0 7px;
+}
+.tg-hdr-time { font-size: 12px; font-weight: 700; color: var(--text-sec); width: 56px; flex-shrink: 0; }
+.tg-hdr-line { flex: 1; height: 1px; background: var(--divider); }
+
+.tg-sessions { display: flex; flex-direction: column; gap: 5px; padding-bottom: 10px; }
+
+.tg-row {
+  display: flex; align-items: stretch;
+  border-radius: 8px; overflow: hidden;
+  background: var(--surface); border: 1px solid var(--border);
+}
+.tg-pip { width: 3px; flex-shrink: 0; }
+.tg-pip.f { background: var(--feed); }
+.tg-pip.g { background: var(--green); }
+.tg-pip.o { background: var(--orange); }
+.tg-pip.p { background: var(--purple); }
+.tg-pip.c { background: var(--cyan); }
+
+.tg-info {
+  flex: 1; padding: 9px 10px;
+  display: flex; align-items: center; gap: 8px;
+}
+.tg-texts { flex: 1; }
+.tg-name {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 13px; font-weight: 700; color: var(--text-pri);
+}
+.tg-sub { font-size: 11px; color: var(--text-sec); margin-top: 1px; }
+.tg-dur { font-size: 11px; font-weight: 700; flex-shrink: 0; }
+.tg-dur.f { color: var(--feed); }
+.tg-dur.g { color: var(--green); }
+.tg-dur.o { color: var(--orange); }
+.tg-dur.p { color: var(--purple); }
+.tg-dur.c { color: var(--cyan); }
+.tg-arrow { font-size: 12px; color: var(--text-sec); padding-right: 8px; flex-shrink: 0; }
+
+.tg-parallel { display: flex; gap: 5px; }
+.tg-parallel .tg-row { flex: 1; }
+
+/* ── Shared footer ── */
+.card-footer {
+  margin-top: 14px; text-align: center;
+  font-size: 11px; font-weight: 600; color: var(--text-sec);
+}
+
+/* ── Responsive: stack panels on small screen ── */
+@media (max-width: 700px) {
+  .panels { flex-direction: column; }
+}
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>Event Schedule — Design Options</h1>
+  <p>Three designs · light & dark side by side</p>
+</div>
+
+<!-- ═══════════ OPTION A ═══════════ -->
+<div class="option-section">
+  <div class="option-header">
+    <div class="option-label">Option A</div>
+    <div class="option-title">Vertical Timeline</div>
+    <div class="option-desc">Fixed time column · connecting dot + line · day pill tabs</div>
+    <div class="rec-badge">⭐ Recommended</div>
+  </div>
+
+  <div class="panels">
+
+    <!-- DARK -->
+    <div class="panel dark" style="background:#181818">
+      <div class="panel-label">Dark Mode</div>
+      <div class="card">
+        <div class="card-header">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="3"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span class="card-header-title">Event Schedule</span>
+          <a class="dl-btn" href="#">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Excel
+          </a>
+        </div>
+        <div class="day-pills">
+          <div class="day-pill active">Day 1 · Mar 1</div>
+          <div class="day-pill">Day 2 · Mar 2</div>
+          <div class="day-pill">Day 3</div>
+        </div>
+        <div class="timeline">
+          <div class="tl-row">
+            <div class="tl-time-col"><span class="tl-time">9:00 AM</span></div>
+            <div class="tl-connector"><div class="tl-dot"></div><div class="tl-vline"></div></div>
+            <div class="tl-content">
+              <div class="tl-card">
+                <div class="tl-card-inner">
+                  <div class="tl-stitle">Opening Keynote</div>
+                  <div class="tl-sdesc">Welcome & product vision for 2026</div>
+                  <div class="tl-stime">9:00 – 10:00 AM · 60 min</div>
+                </div>
+                <div class="tl-thumb">🎤</div>
+              </div>
+            </div>
+          </div>
+          <div class="tl-row">
+            <div class="tl-time-col"><span class="tl-time">10:30 AM</span></div>
+            <div class="tl-connector"><div class="tl-dot c-green"></div><div class="tl-vline"></div></div>
+            <div class="tl-content">
+              <div class="tl-card c-green">
+                <div class="tl-card-inner">
+                  <div class="tl-stitle">Flutter UI Workshop</div>
+                  <div class="tl-sdesc">Animations and custom painters</div>
+                  <div class="tl-stime c-green">10:30 AM – 12:00 PM · 90 min</div>
+                </div>
+                <div class="tl-thumb c-green">🛠️</div>
+              </div>
+            </div>
+          </div>
+          <div class="tl-row">
+            <div class="tl-time-col"><span class="tl-time">1:30 PM</span></div>
+            <div class="tl-connector"><div class="tl-dot c-orange"></div><div class="tl-vline"></div></div>
+            <div class="tl-content">
+              <div class="tl-card c-orange">
+                <div class="tl-card-inner">
+                  <div class="tl-stitle">Panel: Future of Mobile <span class="overlap-pill">⚡ Overlaps</span></div>
+                  <div class="tl-sdesc">Industry leaders on 2027 trends</div>
+                  <div class="tl-stime c-orange">1:30 – 2:30 PM · 60 min</div>
+                </div>
+                <div class="tl-thumb c-orange">💬</div>
+              </div>
+            </div>
+          </div>
+          <div class="tl-row">
+            <div class="tl-time-col"><span class="tl-time">3:00 PM</span></div>
+            <div class="tl-connector"><div class="tl-dot c-purple"></div></div>
+            <div class="tl-content">
+              <div class="tl-card c-purple">
+                <div class="tl-card-inner">
+                  <div class="tl-stitle">Closing Ceremony</div>
+                  <div class="tl-stime c-purple">3:00 – 4:00 PM · 60 min</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card-footer">10 sessions across 3 days</div>
+      </div>
+    </div>
+
+    <!-- LIGHT -->
+    <div class="panel light" style="background:#E8EBF0">
+      <div class="panel-label">Light Mode</div>
+      <div class="card">
+        <div class="card-header">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="3"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span class="card-header-title">Event Schedule</span>
+          <a class="dl-btn" href="#">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Excel
+          </a>
+        </div>
+        <div class="day-pills">
+          <div class="day-pill active">Day 1 · Mar 1</div>
+          <div class="day-pill">Day 2 · Mar 2</div>
+          <div class="day-pill">Day 3</div>
+        </div>
+        <div class="timeline">
+          <div class="tl-row">
+            <div class="tl-time-col"><span class="tl-time">9:00 AM</span></div>
+            <div class="tl-connector"><div class="tl-dot"></div><div class="tl-vline"></div></div>
+            <div class="tl-content">
+              <div class="tl-card">
+                <div class="tl-card-inner">
+                  <div class="tl-stitle">Opening Keynote</div>
+                  <div class="tl-sdesc">Welcome & product vision for 2026</div>
+                  <div class="tl-stime">9:00 – 10:00 AM · 60 min</div>
+                </div>
+                <div class="tl-thumb">🎤</div>
+              </div>
+            </div>
+          </div>
+          <div class="tl-row">
+            <div class="tl-time-col"><span class="tl-time">10:30 AM</span></div>
+            <div class="tl-connector"><div class="tl-dot c-green"></div><div class="tl-vline"></div></div>
+            <div class="tl-content">
+              <div class="tl-card c-green">
+                <div class="tl-card-inner">
+                  <div class="tl-stitle">Flutter UI Workshop</div>
+                  <div class="tl-sdesc">Animations and custom painters</div>
+                  <div class="tl-stime c-green">10:30 AM – 12:00 PM · 90 min</div>
+                </div>
+                <div class="tl-thumb c-green">🛠️</div>
+              </div>
+            </div>
+          </div>
+          <div class="tl-row">
+            <div class="tl-time-col"><span class="tl-time">1:30 PM</span></div>
+            <div class="tl-connector"><div class="tl-dot c-orange"></div><div class="tl-vline"></div></div>
+            <div class="tl-content">
+              <div class="tl-card c-orange">
+                <div class="tl-card-inner">
+                  <div class="tl-stitle">Panel: Future of Mobile <span class="overlap-pill">⚡ Overlaps</span></div>
+                  <div class="tl-sdesc">Industry leaders on 2027 trends</div>
+                  <div class="tl-stime c-orange">1:30 – 2:30 PM · 60 min</div>
+                </div>
+                <div class="tl-thumb c-orange">💬</div>
+              </div>
+            </div>
+          </div>
+          <div class="tl-row">
+            <div class="tl-time-col"><span class="tl-time">3:00 PM</span></div>
+            <div class="tl-connector"><div class="tl-dot c-purple"></div></div>
+            <div class="tl-content">
+              <div class="tl-card c-purple">
+                <div class="tl-card-inner">
+                  <div class="tl-stitle">Closing Ceremony</div>
+                  <div class="tl-stime c-purple">3:00 – 4:00 PM · 60 min</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card-footer">10 sessions across 3 days</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="divider-line"></div>
+
+<!-- ═══════════ OPTION B ═══════════ -->
+<div class="option-section">
+  <div class="option-header">
+    <div class="option-label">Option B</div>
+    <div class="option-title">Glow Card Upgrade</div>
+    <div class="option-desc">Colored time badge pill · gradient left border glow · duration capsule · taller thumbnails</div>
+  </div>
+
+  <div class="panels">
+
+    <!-- DARK -->
+    <div class="panel dark" style="background:#181818">
+      <div class="panel-label">Dark Mode</div>
+      <div class="card">
+        <div class="card-header">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="3"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span class="card-header-title">Event Schedule</span>
+          <a class="dl-btn" href="#">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Excel
+          </a>
+        </div>
+        <div class="circles-row">
+          <div class="story-circle sel">
+            <div class="circle-ring active"><span class="circle-num">1</span></div>
+            <span class="circle-day" style="color:var(--feed)">Sat</span>
+          </div>
+          <div class="story-circle">
+            <div class="circle-ring"><span class="circle-num">2</span></div>
+            <span class="circle-day">Sun</span>
+          </div>
+          <div class="story-circle">
+            <div class="circle-ring"><span class="circle-num">3</span></div>
+            <span class="circle-day">Mon</span>
+          </div>
+        </div>
+        <div class="glow-sessions">
+          <div>
+            <div class="g-time-badge f">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              9:00 AM
+            </div>
+            <div class="g-card f">
+              <div class="g-card-body">
+                <div class="g-stitle">Opening Keynote</div>
+                <div class="g-sdesc">Welcome & product vision for 2026</div>
+                <div class="g-bottom">
+                  <span class="g-time-range">9:00 – 10:00 AM</span>
+                  <div class="dur-capsule"><div class="dur-fill f" style="width:40%"></div></div>
+                  <span class="g-dur-label">60 min</span>
+                </div>
+              </div>
+              <div class="g-thumb f">🎤</div>
+            </div>
+          </div>
+          <div>
+            <div class="g-time-badge g">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              10:30 AM
+            </div>
+            <div class="g-card g">
+              <div class="g-card-body">
+                <div class="g-stitle">Flutter UI Workshop</div>
+                <div class="g-sdesc">Animations and custom painters</div>
+                <div class="g-bottom">
+                  <span class="g-time-range">10:30 AM – 12:00 PM</span>
+                  <div class="dur-capsule"><div class="dur-fill g" style="width:65%"></div></div>
+                  <span class="g-dur-label">90 min</span>
+                </div>
+              </div>
+              <div class="g-thumb g">🛠️</div>
+            </div>
+          </div>
+          <div>
+            <div class="g-time-badge o">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              1:30 PM
+              <span class="overlap-pill">⚡ Overlaps</span>
+            </div>
+            <div class="g-card o">
+              <div class="g-card-body">
+                <div class="g-stitle">Panel: Future of Mobile</div>
+                <div class="g-sdesc">Industry leaders on 2027 trends</div>
+                <div class="g-bottom">
+                  <span class="g-time-range">1:30 – 2:30 PM</span>
+                  <div class="dur-capsule"><div class="dur-fill o" style="width:40%"></div></div>
+                  <span class="g-dur-label">60 min</span>
+                </div>
+              </div>
+              <div class="g-thumb o">💬</div>
+            </div>
+          </div>
+        </div>
+        <div class="card-footer" style="margin-top:14px">10 sessions across 3 days</div>
+      </div>
+    </div>
+
+    <!-- LIGHT -->
+    <div class="panel light" style="background:#E8EBF0">
+      <div class="panel-label">Light Mode</div>
+      <div class="card">
+        <div class="card-header">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="3"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span class="card-header-title">Event Schedule</span>
+          <a class="dl-btn" href="#">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Excel
+          </a>
+        </div>
+        <div class="circles-row">
+          <div class="story-circle sel">
+            <div class="circle-ring active"><span class="circle-num">1</span></div>
+            <span class="circle-day" style="color:var(--feed)">Sat</span>
+          </div>
+          <div class="story-circle">
+            <div class="circle-ring"><span class="circle-num">2</span></div>
+            <span class="circle-day">Sun</span>
+          </div>
+          <div class="story-circle">
+            <div class="circle-ring"><span class="circle-num">3</span></div>
+            <span class="circle-day">Mon</span>
+          </div>
+        </div>
+        <div class="glow-sessions">
+          <div>
+            <div class="g-time-badge f">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              9:00 AM
+            </div>
+            <div class="g-card f">
+              <div class="g-card-body">
+                <div class="g-stitle">Opening Keynote</div>
+                <div class="g-sdesc">Welcome & product vision for 2026</div>
+                <div class="g-bottom">
+                  <span class="g-time-range">9:00 – 10:00 AM</span>
+                  <div class="dur-capsule"><div class="dur-fill f" style="width:40%"></div></div>
+                  <span class="g-dur-label">60 min</span>
+                </div>
+              </div>
+              <div class="g-thumb f">🎤</div>
+            </div>
+          </div>
+          <div>
+            <div class="g-time-badge g">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              10:30 AM
+            </div>
+            <div class="g-card g">
+              <div class="g-card-body">
+                <div class="g-stitle">Flutter UI Workshop</div>
+                <div class="g-sdesc">Animations and custom painters</div>
+                <div class="g-bottom">
+                  <span class="g-time-range">10:30 AM – 12:00 PM</span>
+                  <div class="dur-capsule"><div class="dur-fill g" style="width:65%"></div></div>
+                  <span class="g-dur-label">90 min</span>
+                </div>
+              </div>
+              <div class="g-thumb g">🛠️</div>
+            </div>
+          </div>
+          <div>
+            <div class="g-time-badge o">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              1:30 PM
+              <span class="overlap-pill">⚡ Overlaps</span>
+            </div>
+            <div class="g-card o">
+              <div class="g-card-body">
+                <div class="g-stitle">Panel: Future of Mobile</div>
+                <div class="g-sdesc">Industry leaders on 2027 trends</div>
+                <div class="g-bottom">
+                  <span class="g-time-range">1:30 – 2:30 PM</span>
+                  <div class="dur-capsule"><div class="dur-fill o" style="width:40%"></div></div>
+                  <span class="g-dur-label">60 min</span>
+                </div>
+              </div>
+              <div class="g-thumb o">💬</div>
+            </div>
+          </div>
+        </div>
+        <div class="card-footer" style="margin-top:14px">10 sessions across 3 days</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="divider-line"></div>
+
+<!-- ═══════════ OPTION C ═══════════ -->
+<div class="option-section">
+  <div class="option-header">
+    <div class="option-label">Option C</div>
+    <div class="option-title">Compact Rows</div>
+    <div class="option-desc">Dense rows grouped by time · 2px pip · parallel sessions side-by-side · segmented day control</div>
+  </div>
+
+  <div class="panels">
+
+    <!-- DARK -->
+    <div class="panel dark" style="background:#181818">
+      <div class="panel-label">Dark Mode</div>
+      <div class="card">
+        <div class="card-header">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="3"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span class="card-header-title">Event Schedule</span>
+          <a class="dl-btn" href="#">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Excel
+          </a>
+        </div>
+        <div class="seg-control">
+          <div class="seg-btn active">Day 1</div>
+          <div class="seg-btn">Day 2</div>
+          <div class="seg-btn">Day 3</div>
+        </div>
+        <div class="time-group">
+          <div class="tg-hdr"><span class="tg-hdr-time">9:00 AM</span><div class="tg-hdr-line"></div></div>
+          <div class="tg-sessions">
+            <div class="tg-row"><div class="tg-pip f"></div>
+              <div class="tg-info"><div class="tg-texts"><div class="tg-name">Opening Keynote</div><div class="tg-sub">Main Hall</div></div><span class="tg-dur f">60 min</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="time-group">
+          <div class="tg-hdr"><span class="tg-hdr-time">10:30 AM</span><div class="tg-hdr-line"></div></div>
+          <div class="tg-sessions">
+            <div class="tg-parallel">
+              <div class="tg-row"><div class="tg-pip g"></div>
+                <div class="tg-info"><div class="tg-texts"><div class="tg-name">Flutter Workshop</div><div class="tg-sub">Room 3</div></div><span class="tg-dur g">90 min</span></div>
+              </div>
+              <div class="tg-row"><div class="tg-pip c"></div>
+                <div class="tg-info"><div class="tg-texts"><div class="tg-name">Design Systems</div><div class="tg-sub">Room 7</div></div><span class="tg-dur c">90 min</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="time-group">
+          <div class="tg-hdr"><span class="tg-hdr-time">1:30 PM</span><div class="tg-hdr-line"></div></div>
+          <div class="tg-sessions">
+            <div class="tg-row"><div class="tg-pip o"></div>
+              <div class="tg-info"><div class="tg-texts"><div class="tg-name">Panel: Future of Mobile</div><div class="tg-sub">Main Stage · ⚡ Overlaps</div></div><span class="tg-dur o">60 min</span><span class="tg-arrow">›</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="time-group">
+          <div class="tg-hdr"><span class="tg-hdr-time">3:00 PM</span><div class="tg-hdr-line"></div></div>
+          <div class="tg-sessions">
+            <div class="tg-row"><div class="tg-pip p"></div>
+              <div class="tg-info"><div class="tg-texts"><div class="tg-name">Closing Ceremony</div><div class="tg-sub">Main Hall</div></div><span class="tg-dur p">60 min</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="card-footer" style="margin-top:10px">10 sessions across 3 days</div>
+      </div>
+    </div>
+
+    <!-- LIGHT -->
+    <div class="panel light" style="background:#E8EBF0">
+      <div class="panel-label">Light Mode</div>
+      <div class="card">
+        <div class="card-header">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="3"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span class="card-header-title">Event Schedule</span>
+          <a class="dl-btn" href="#">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Excel
+          </a>
+        </div>
+        <div class="seg-control">
+          <div class="seg-btn active">Day 1</div>
+          <div class="seg-btn">Day 2</div>
+          <div class="seg-btn">Day 3</div>
+        </div>
+        <div class="time-group">
+          <div class="tg-hdr"><span class="tg-hdr-time">9:00 AM</span><div class="tg-hdr-line"></div></div>
+          <div class="tg-sessions">
+            <div class="tg-row"><div class="tg-pip f"></div>
+              <div class="tg-info"><div class="tg-texts"><div class="tg-name">Opening Keynote</div><div class="tg-sub">Main Hall</div></div><span class="tg-dur f">60 min</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="time-group">
+          <div class="tg-hdr"><span class="tg-hdr-time">10:30 AM</span><div class="tg-hdr-line"></div></div>
+          <div class="tg-sessions">
+            <div class="tg-parallel">
+              <div class="tg-row"><div class="tg-pip g"></div>
+                <div class="tg-info"><div class="tg-texts"><div class="tg-name">Flutter Workshop</div><div class="tg-sub">Room 3</div></div><span class="tg-dur g">90 min</span></div>
+              </div>
+              <div class="tg-row"><div class="tg-pip c"></div>
+                <div class="tg-info"><div class="tg-texts"><div class="tg-name">Design Systems</div><div class="tg-sub">Room 7</div></div><span class="tg-dur c">90 min</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="time-group">
+          <div class="tg-hdr"><span class="tg-hdr-time">1:30 PM</span><div class="tg-hdr-line"></div></div>
+          <div class="tg-sessions">
+            <div class="tg-row"><div class="tg-pip o"></div>
+              <div class="tg-info"><div class="tg-texts"><div class="tg-name">Panel: Future of Mobile</div><div class="tg-sub">Main Stage · ⚡ Overlaps</div></div><span class="tg-dur o">60 min</span><span class="tg-arrow">›</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="time-group">
+          <div class="tg-hdr"><span class="tg-hdr-time">3:00 PM</span><div class="tg-hdr-line"></div></div>
+          <div class="tg-sessions">
+            <div class="tg-row"><div class="tg-pip p"></div>
+              <div class="tg-info"><div class="tg-texts"><div class="tg-name">Closing Ceremony</div><div class="tg-sub">Main Hall</div></div><span class="tg-dur p">60 min</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="card-footer" style="margin-top:10px">10 sessions across 3 days</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

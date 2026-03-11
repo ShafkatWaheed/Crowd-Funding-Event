@@ -56,9 +56,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   List<EventImage> _images = [];
   final ScrollController _scrollCtrl = ScrollController();
   bool _scrolledPastHero = false;
-  // Hero expands to _heroHeight; the title card visually overlaps the bottom _heroOverlap px.
+  // Hero image height. The title card overlaps the hero bottom by _heroOverlap dp,
+  // rendering on top via Stack z-order (card is above hero in the SliverToBoxAdapter Stack).
   static const double _heroHeight = 300;
-  static const double _heroOverlap = 12;
+  static const double _heroOverlap = 28;
 
   bool _isRegistered = false;
   String? _regStatus;
@@ -113,7 +114,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   }
 
   void _onScroll() {
-    final past = _scrollCtrl.offset > (_heroHeight - _heroOverlap) - kToolbarHeight;
+    final past = _scrollCtrl.offset > _heroHeight - kToolbarHeight;
     if (past != _scrolledPastHero) setState(() => _scrolledPastHero = past);
   }
 
@@ -325,15 +326,16 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                         controller: _scrollCtrl,
                         physics: const AlwaysScrollableScrollPhysics(),
                         slivers: [
-                          _buildSliverAppBar(context, event, hasHero,
-                              hasPreviewImages, heroUrl),
+                          _buildSliverAppBar(context, event, hasHero),
+                          _buildHeroSliver(context, event, user, hasHero,
+                              hasPreviewImages, heroUrl, isDark),
                           SliverToBoxAdapter(
                             child: Center(
                               child: ConstrainedBox(
                                 constraints:
                                     const BoxConstraints(maxWidth: 700),
                                 child: _buildContent(
-                                    context, event, user, isDark, hasHero),
+                                    context, event, user, isDark),
                               ),
                             ),
                           ),
@@ -343,12 +345,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     );
   }
 
-  Widget _buildSliverAppBar(BuildContext context, Event event, bool hasHero,
-      bool hasPreviewImages, String? heroUrl) {
+  Widget _buildSliverAppBar(BuildContext context, Event event, bool hasHero) {
     return SliverAppBar(
-      expandedHeight: hasHero ? _heroHeight - _heroOverlap : 0,
       pinned: true,
-      stretch: hasHero,
       backgroundColor: AppTheme.surfaceOf(context),
       surfaceTintColor: Colors.transparent,
       leading: IconButton(
@@ -475,259 +474,272 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           AppSpacing.hXs,
         ],
       ],
-      flexibleSpace: hasHero
-          ? FlexibleSpaceBar(
-              collapseMode: CollapseMode.parallax,
-              stretchModes: const [StretchMode.zoomBackground],
-              background: Stack(
-                fit: StackFit.expand,
-                children: [
-                  if (hasPreviewImages)
-                    Image.memory(widget.previewImages!.first,
-                        fit: BoxFit.cover)
-                  else
-                    CachedNetworkImage(
-                      imageUrl: ApiConfig.imageUrl(heroUrl!),
-                      fit: BoxFit.cover,
-                      imageBuilder: (context, imageProvider) => Container(
-                        decoration: BoxDecoration(
-                          image: DecorationImage(
-                            image: imageProvider,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      )
-                          .animate()
-                          .fadeIn(
-                              duration: AppDuration.normal,
-                              curve: AppCurve.enter)
-                          .scale(
-                            begin: const Offset(0.95, 0.95),
-                            end: const Offset(1.0, 1.0),
-                            duration: AppDuration.slow,
-                            curve: AppCurve.enter,
-                          ),
-                      progressIndicatorBuilder: (context, url, progress) {
-                        return ShimmerImagePlaceholder(
-                          width: double.infinity,
-                          height: _heroHeight,
-                        );
-                      },
-                      errorWidget: (_, __, ___) => Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              AppTheme.accentColor
-                                  .withValues(alpha: 0.15),
-                              AppTheme.secondaryColor
-                                  .withValues(alpha: 0.15),
-                            ],
-                          ),
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.image_rounded,
-                                size: 48,
-                                color:
-                                    AppTheme.textSecondaryOf(context)),
-                            AppSpacing.vSm,
-                            Text('Image could not be loaded',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color:
-                                      AppTheme.textSecondaryOf(context),
-                                )),
-                          ],
-                        ),
-                      ),
-                    ),
-                  const DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.black26,
-                          Colors.transparent,
-                          Colors.black38
-                        ],
-                        stops: [0.0, 0.4, 1.0],
-                      ),
-                    ),
+    );
+  }
+
+  /// Hero image + floating title card in a Stack so the card renders on top
+  /// of the image (correct z-order — SliverToBoxAdapter children stack normally).
+  Widget _buildHeroSliver(BuildContext context, Event event, dynamic user,
+      bool hasHero, bool hasPreviewImages, String? heroUrl, bool isDark) {
+    final titleCard = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: AppTheme.cardOf(context),
+          borderRadius: AppRadius.xxl,
+          boxShadow: isDark
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.60),
+                    blurRadius: 36,
+                    offset: const Offset(0, 10),
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.30),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.11),
+                    blurRadius: 36,
+                    offset: const Offset(0, 10),
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
                 ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    event.title,
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.7,
+                      height: 1.2,
+                      color: AppTheme.textPrimaryOf(context),
+                    ),
+                  )
+                      .animate()
+                      .fadeIn(duration: 400.ms)
+                      .slideY(begin: 0.08, duration: 400.ms, curve: AppCurve.enter),
+                ),
+                if (!widget.isPreview && !(user?.isAdmin ?? false))
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8),
+                    child: ReactionBar(
+                      eventId: widget.eventId,
+                      initialLikeCount: event.likeCount,
+                      initialDislikeCount: event.dislikeCount,
+                      isAdmin: false,
+                      compact: true,
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.sm,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                EventDetailHelpers.statusPill(context, event.status),
+                if (event.genre != null && event.genre!.isNotEmpty)
+                  EventDetailHelpers.tagPill(
+                    icon: Icons.category_rounded,
+                    label: event.genre![0].toUpperCase() +
+                        event.genre!.substring(1),
+                    color: AppTheme.secondaryColor,
+                  ),
+                if (event.registrationCount > 0 &&
+                    event.status != EventStatus.approved &&
+                    event.status != EventStatus.waiting_event_date)
+                  EventDetailHelpers.tagPill(
+                    icon: Icons.group_rounded,
+                    label:
+                        '${event.registrationCount} ${(event.status == EventStatus.selling_tickets || event.status == EventStatus.live) ? 'engaged' : 'joined'}',
+                    color: AppTheme.accentColor,
+                  ),
+                if (event.organizerName != null &&
+                    event.organizerName!.isNotEmpty)
+                  GestureDetector(
+                    onTap: () => _showOrganizerBottomSheet(event),
+                    child: EventDetailHelpers.tagPill(
+                      icon: Icons.person_rounded,
+                      label: event.organizerName!,
+                      color: AppTheme.accentColor,
+                    ),
+                  ),
+                if (event.status != EventStatus.waiting_event_date)
+                  GestureDetector(
+                    onTap: () => _showOrganizerBottomSheet(event),
+                    child: EventDetailHelpers.trustBadgePill(context, event),
+                  ),
+                if (_revenueCents > 0 &&
+                    user != null &&
+                    (user.isOrganizer ||
+                        user.isAdmin ||
+                        event.viewerIsCoOrganizer) &&
+                    !widget.readOnly)
+                  EventDetailHelpers.tagPill(
+                    icon: Icons.paid_rounded,
+                    label:
+                        '\$${(_revenueCents / 100).toStringAsFixed(0)} revenue',
+                    color: context.ticketAccent,
+                  ),
+              ],
+            )
+                .animate()
+                .fadeIn(duration: 300.ms, delay: 80.ms)
+                .slideX(begin: -0.04, duration: 300.ms),
+            const SizedBox(height: 16),
+            EventLifecycleBreadcrumb(event: event),
+          ],
+        ),
+      ),
+    )
+        .animate()
+        .fadeIn(duration: 350.ms)
+        .slideY(begin: 0.06, duration: 350.ms, curve: AppCurve.enter);
+
+    if (!hasHero) {
+      return SliverToBoxAdapter(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 700),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(0, 14, 0, 0),
+              child: titleCard,
+            ),
+          ),
+        ),
+      );
+    }
+
+    final heroImage = Stack(
+      fit: StackFit.expand,
+      children: [
+        if (hasPreviewImages)
+          Image.memory(widget.previewImages!.first, fit: BoxFit.cover)
+        else
+          CachedNetworkImage(
+            imageUrl: ApiConfig.imageUrl(heroUrl!),
+            fit: BoxFit.cover,
+            imageBuilder: (context, imageProvider) => Container(
+              decoration: BoxDecoration(
+                image: DecorationImage(
+                  image: imageProvider,
+                  fit: BoxFit.cover,
+                ),
               ),
             )
-          : null,
+                .animate()
+                .fadeIn(duration: AppDuration.normal, curve: AppCurve.enter)
+                .scale(
+                  begin: const Offset(0.95, 0.95),
+                  end: const Offset(1.0, 1.0),
+                  duration: AppDuration.slow,
+                  curve: AppCurve.enter,
+                ),
+            progressIndicatorBuilder: (context, url, progress) =>
+                ShimmerImagePlaceholder(
+                  width: double.infinity,
+                  height: _heroHeight,
+                ),
+            errorWidget: (_, __, ___) => Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    AppTheme.accentColor.withValues(alpha: 0.15),
+                    AppTheme.secondaryColor.withValues(alpha: 0.15),
+                  ],
+                ),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.image_rounded,
+                      size: 48, color: AppTheme.textSecondaryOf(context)),
+                  AppSpacing.vSm,
+                  Text('Image could not be loaded',
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.textSecondaryOf(context))),
+                ],
+              ),
+            ),
+          ),
+        const DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Colors.black26, Colors.transparent, Colors.black38],
+              stops: [0.0, 0.4, 1.0],
+            ),
+          ),
+        ),
+      ],
+    );
+
+    return SliverToBoxAdapter(
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 700),
+          child: Stack(
+            children: [
+              // ① Hero image — bottom z-order
+              Positioned(
+                top: 0, left: 0, right: 0,
+                height: _heroHeight,
+                child: heroImage,
+              ),
+              // ② Title card — top z-order, floats over hero bottom
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SizedBox(height: _heroHeight - _heroOverlap),
+                  titleCard,
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
   Widget _buildContent(
-      BuildContext context, Event event, dynamic user, bool isDark,
-      [bool hasHero = true]) {
+      BuildContext context, Event event, dynamic user, bool isDark) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ── Floating title card — overlaps hero by _heroOverlap ──
-        Transform.translate(
-          offset: hasHero ? const Offset(0, -_heroOverlap) : Offset.zero,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
-          decoration: BoxDecoration(
-            color: AppTheme.cardOf(context),
-            borderRadius: AppRadius.xxl,
-            boxShadow: isDark
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.60),
-                      blurRadius: 36,
-                      offset: const Offset(0, 10),
-                    ),
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.30),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
-                : [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.11),
-                      blurRadius: 36,
-                      offset: const Offset(0, 10),
-                    ),
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.06),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-          ),
+        // ── Stats row ──
+        Padding(
+          padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+          child: _buildStatsRow(context, event, isDark),
+        ),
+
+        // ── Content sections ──
+        Padding(
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 80),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Title + reaction buttons row
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Text(
-                      event.title,
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -0.7,
-                        height: 1.2,
-                        color: AppTheme.textPrimaryOf(context),
-                      ),
-                    )
-                        .animate()
-                        .fadeIn(duration: 400.ms)
-                        .slideY(begin: 0.08, duration: 400.ms, curve: AppCurve.enter),
-                  ),
-                  if (!widget.isPreview && !(user?.isAdmin ?? false))
-                    Padding(
-                      padding: const EdgeInsets.only(left: 8),
-                      child: ReactionBar(
-                        eventId: widget.eventId,
-                        initialLikeCount: event.likeCount,
-                        initialDislikeCount: event.dislikeCount,
-                        isAdmin: false,
-                        compact: true,
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              // Status + meta pills
-              Wrap(
-                spacing: AppSpacing.xs,
-                runSpacing: AppSpacing.xs,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  EventDetailHelpers.statusPill(context, event.status),
-                  if (event.genre != null && event.genre!.isNotEmpty)
-                    EventDetailHelpers.tagPill(
-                      icon: Icons.category_rounded,
-                      label: event.genre![0].toUpperCase() +
-                          event.genre!.substring(1),
-                      color: AppTheme.secondaryColor,
-                    ),
-                  if (event.registrationCount > 0 &&
-                      event.status != EventStatus.approved &&
-                      event.status != EventStatus.waiting_event_date)
-                    EventDetailHelpers.tagPill(
-                      icon: Icons.group_rounded,
-                      label: '${event.registrationCount} ${(event.status == EventStatus.selling_tickets || event.status == EventStatus.live) ? 'engaged' : 'joined'}',
-                      color: AppTheme.accentColor,
-                    ),
-                  if (event.organizerName != null &&
-                      event.organizerName!.isNotEmpty)
-                    GestureDetector(
-                      onTap: () => _showOrganizerBottomSheet(event),
-                      child: EventDetailHelpers.tagPill(
-                        icon: Icons.person_rounded,
-                        label: event.organizerName!,
-                        color: AppTheme.accentColor,
-                      ),
-                    ),
-                  if (event.status != EventStatus.approved &&
-                      event.status != EventStatus.waiting_event_date)
-                    GestureDetector(
-                      onTap: () => _showOrganizerBottomSheet(event),
-                      child: EventDetailHelpers.trustBadgePill(context, event),
-                    ),
-                  if (_revenueCents > 0 &&
-                      user != null &&
-                      (user.isOrganizer ||
-                          user.isAdmin ||
-                          event.viewerIsCoOrganizer) &&
-                      !widget.readOnly)
-                    EventDetailHelpers.tagPill(
-                      icon: Icons.paid_rounded,
-                      label:
-                          '\$${(_revenueCents / 100).toStringAsFixed(0)} revenue',
-                      color: context.ticketAccent,
-                    ),
-                ],
-              )
-                  .animate()
-                  .fadeIn(duration: 300.ms, delay: 80.ms)
-                  .slideX(begin: -0.04, duration: 300.ms),
-              const SizedBox(height: 16),
-              // Lifecycle breadcrumb (Lifecycle B style)
-              EventLifecycleBreadcrumb(event: event),
-            ],
-          ),
-        ),
-          ),
-        )
-            .animate()
-            .fadeIn(duration: 350.ms)
-            .slideY(begin: 0.06, duration: 350.ms, curve: AppCurve.enter),
-
-        // ── Stats row (below title card, same 14px margins) ──
-        Transform.translate(
-          offset: hasHero ? const Offset(0, -_heroOverlap) : Offset.zero,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-            child: _buildStatsRow(context, event, isDark),
-          ),
-        ),
-
-        // ── Content sections (padded 14px sides, shifted up by heroOverlap) ──
-        Transform.translate(
-          offset: hasHero ? const Offset(0, -_heroOverlap) : Offset.zero,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 14, 14, 80),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
 
         if (widget.isPreview) ...[
           EventDetailHelpers.previewBanner(context),
@@ -828,19 +840,19 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           ] else ...[
             AnimatedListItem(
               index: 1,
-              child: FundingCard(
-                eventId: widget.eventId,
-                event: event,
-                isRegistered: _isRegistered,
-              ),
-            ),
-            AppSpacing.vXxl,
-            AnimatedListItem(
-              index: 2,
-              child: MilestoneTimeline(
-                eventId: widget.eventId,
-                event: event,
-              ),
+              child: (event.status == EventStatus.selling_tickets ||
+                       event.status == EventStatus.live ||
+                       event.status == EventStatus.completed)
+                  ? FundingResultsCard(eventId: widget.eventId, event: event)
+                  : FundingCard(
+                      eventId: widget.eventId,
+                      event: event,
+                      isRegistered: _isRegistered,
+                      onRegistrationChanged: (isReg, status) => setState(() {
+                        _isRegistered = isReg;
+                        _regStatus = status;
+                      }),
+                    ),
             ),
             AppSpacing.vXxl,
           ],
@@ -1042,10 +1054,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
             isRegistered: _isRegistered,
           ),
 
-              ], // end inner Column children
-            ),   // end inner Column
-          ),     // end inner Padding
-        ),       // end Transform.translate (content)
+            ], // end inner Column children
+          ),   // end inner Column
+        ),     // end inner Padding
       ],
     );
   }

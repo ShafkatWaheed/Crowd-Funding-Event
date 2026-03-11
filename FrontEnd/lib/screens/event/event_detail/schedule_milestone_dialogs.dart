@@ -203,6 +203,9 @@ class ScheduleMilestoneDialogs {
   ) async {
     final titleCtrl = TextEditingController(text: existing?.title ?? '');
     final descCtrl = TextEditingController(text: existing?.description ?? '');
+    final imageUrlCtrl = TextEditingController(text: existing?.imageUrl ?? '');
+    final imageCaptionCtrl = TextEditingController(text: existing?.imageCaption ?? '');
+    final linkUrlCtrl = TextEditingController(text: existing?.linkUrl ?? '');
 
     final eventStart = event.startTime;
     final eventEnd = event.endTime;
@@ -265,6 +268,34 @@ class ScheduleMilestoneDialogs {
                     controller: descCtrl,
                     decoration: const InputDecoration(labelText: 'Description (optional)'),
                     maxLines: 2,
+                  ),
+                  AppSpacing.vMd,
+                  TextField(
+                    controller: imageUrlCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Image URL (optional)',
+                      hintText: 'https://...',
+                      prefixIcon: Icon(Icons.image_outlined),
+                    ),
+                    keyboardType: TextInputType.url,
+                  ),
+                  AppSpacing.vMd,
+                  TextField(
+                    controller: imageCaptionCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Image caption (optional)',
+                      prefixIcon: Icon(Icons.closed_caption_outlined),
+                    ),
+                  ),
+                  AppSpacing.vMd,
+                  TextField(
+                    controller: linkUrlCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Link URL (optional)',
+                      hintText: 'https://...',
+                      prefixIcon: Icon(Icons.link_rounded),
+                    ),
+                    keyboardType: TextInputType.url,
                   ),
                   AppSpacing.vMd,
                   ListTile(
@@ -355,13 +386,19 @@ class ScheduleMilestoneDialogs {
                   setDlgState(() { saving = true; errorMsg = null; });
                   try {
                     final ScheduleItem item;
+                    final imageUrl = imageUrlCtrl.text.trim().isNotEmpty ? imageUrlCtrl.text.trim() : null;
+                    final imageCaption = imageCaptionCtrl.text.trim().isNotEmpty ? imageCaptionCtrl.text.trim() : null;
+                    final linkUrl = linkUrlCtrl.text.trim().isNotEmpty ? linkUrlCtrl.text.trim() : null;
                     if (existing != null) {
                       item = await api.updateScheduleItem(event.id, existing.id, UpdateScheduleItemRequest(
                         title: titleCtrl.text.trim(),
-                        description: descCtrl.text.trim(),
+                        description: descCtrl.text.trim().isNotEmpty ? descCtrl.text.trim() : null,
                         date: AppDateFormat.apiDate(date!),
                         startTime: fmtTime(startTime),
                         endTime: fmtTime(endTime),
+                        imageUrl: imageUrl,
+                        imageCaption: imageCaption,
+                        linkUrl: linkUrl,
                       ));
                     } else {
                       item = await api.createScheduleItem(event.id, CreateScheduleItemRequest(
@@ -370,6 +407,9 @@ class ScheduleMilestoneDialogs {
                         date: AppDateFormat.apiDate(date!),
                         startTime: fmtTime(startTime),
                         endTime: fmtTime(endTime),
+                        imageUrl: imageUrl,
+                        imageCaption: imageCaption,
+                        linkUrl: linkUrl,
                       ));
                     }
                     onSaved(item);

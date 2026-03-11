@@ -315,6 +315,33 @@ async def process_bulk_pledge_refunds(ctx: dict, event_id: int, guest_refund: bo
     logger.info("Event %d: bulk refund complete (%d pledges)", event_id, len(funding_ids))
 
 
+async def release_reserved_spots(ctx: dict, event_id: int) -> None:
+    """Zero out pledge-reserved spots for an event (deferred job).
+    If event.release_tier_spot_limits is True, also zeroes tier.max_reserved_spots
+    for all tiers of the event, fully retiring per-tier pledge caps.
+    """
+    from app.repositories.event_repo import event_repo
+
+    async with async_session_maker() as db:
+        try:
+            event = await event_repo.get_by_id(db, event_id)
+            if event is None:
+                logger.warning("release_reserved_spots: event %d not found", event_id)
+                return
+            await event_repo.zero_reserved_spots(
+                db, event_id,
+                zero_tier_limits=event.release_tier_spot_limits,
+            )
+            await db.commit()
+            logger.info(
+                "release_reserved_spots: zeroed spots for event %d (zero_tier_limits=%s)",
+                event_id, event.release_tier_spot_limits,
+            )
+        except Exception:
+            await db.rollback()
+            logger.exception("release_reserved_spots failed for event %d", event_id)
+
+
 async def process_ticket_refund(ctx: dict, ticket_sale_id: int) -> None:
     """
     Complete a single ticket refund via payment gateway.
@@ -341,6 +368,24 @@ async def process_ticket_refund(ctx: dict, ticket_sale_id: int) -> None:
                 raise RuntimeError(f"Gateway returned status={result.status}")
 
             await ticket_repo.complete_refund(db, sale, result.transaction_id)
+
+            # Auto-unregister if no remaining active tickets and no active pledges
+            from app.repositories.funding_repo import funding_repo as f_repo
+            from app.repositories.registration_repo import registration_repo as r_repo
+            from app.repositories.event_repo import event_repo as e_repo
+            from app.models.registration import RegistrationStatus
+
+            still_has_tickets = await ticket_repo.has_active_ticket_sales(db, sale.event_id, sale.user_id)
+            has_pledges = await f_repo.has_active_pledges(db, sale.event_id, sale.user_id)
+            if not still_has_tickets and not has_pledges:
+                reg = await r_repo.get_existing_registration(db, sale.event_id, sale.user_id)
+                if reg and reg.status == RegistrationStatus.registered:
+                    event = await e_repo.get_by_id(db, sale.event_id)
+                    await r_repo.update_registration_status(
+                        db, reg, RegistrationStatus.cancelled, event=event,
+                    )
+                    logger.info("Ticket %d: auto-unregistered user %d from event %d after full refund", ticket_sale_id, sale.user_id, sale.event_id)
+
             await db.commit()
             logger.info("Ticket %d: refunded (%d cents, txn=%s)", ticket_sale_id, sale.amount_paid_cents, result.transaction_id)
 

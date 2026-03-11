@@ -704,7 +704,7 @@ class _HomeTabState extends State<HomeTab> {
                   gridDelegate:
                       const SliverGridDelegateWithMaxCrossAxisExtent(
                     maxCrossAxisExtent: 400,
-                    mainAxisExtent: 320,
+                    mainAxisExtent: 330,
                     crossAxisSpacing: AppSpacing.md,
                     mainAxisSpacing: AppSpacing.md,
                   ),

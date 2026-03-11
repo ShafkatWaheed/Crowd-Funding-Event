@@ -100,6 +100,8 @@ class Event(Base):
     max_posts_per_day: Mapped[int | None] = mapped_column(Integer, nullable=True)
     max_co_organizers: Mapped[int | None] = mapped_column(Integer, nullable=True)
     refund_deadline_percent: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    reserved_spots_release_percent: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    release_tier_spot_limits: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     # Admin per-event overrides
     admin_override_waitlist_max_size: Mapped[int | None] = mapped_column(Integer, nullable=True)
     admin_override_event_max_images: Mapped[int | None] = mapped_column(Integer, nullable=True)

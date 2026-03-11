@@ -46,6 +46,8 @@ EventCreateRequest buildCreateEventPayload({
   required int? eventMaxImages,
   required int? maxPostsPerDay,
   required int? maxCoOrganizers,
+  required int? reservedSpotsReleasePercent,
+  required bool releaseTierSpotLimits,
 }) {
   final selectedVenue = venues.where((v) => v.id == selectedVenueId).firstOrNull;
 
@@ -83,6 +85,8 @@ EventCreateRequest buildCreateEventPayload({
     eventMaxImages: eventMaxImages,
     maxPostsPerDay: maxPostsPerDay,
     maxCoOrganizers: maxCoOrganizers,
+    reservedSpotsReleasePercent: reservedSpotsReleasePercent,
+    releaseTierSpotLimits: releaseTierSpotLimits,
   );
 }
 

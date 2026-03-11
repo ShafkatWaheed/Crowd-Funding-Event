@@ -118,6 +118,7 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
                   final t = tiers[i];
                   return _TierCard(
                     tier: t,
+                    index: i,
                     isFeatured: t.id == popularId,
                     isDark: isDark,
                   );
@@ -189,7 +190,7 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
                         padding: AppSpacing.paddingMd,
                         child: Row(
                           children: [
-                            const Icon(Icons.confirmation_number, color: Colors.teal, size: AppIconSize.xl),
+                            Icon(Icons.confirmation_number, color: context.ticketAccent, size: AppIconSize.xl),
                             AppSpacing.hMd,
                             Expanded(
                               child: Column(
@@ -211,15 +212,15 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
                                         Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                           decoration: BoxDecoration(
-                                            color: Colors.green.shade50,
+                                            color: AppTheme.successColor.withValues(alpha: 0.12),
                                             borderRadius: AppRadius.sm,
-                                            border: Border.all(color: Colors.green.shade300),
+                                            border: Border.all(color: AppTheme.successColor.withValues(alpha: 0.35)),
                                           ),
                                           child: Text('FREE',
                                               style: TextStyle(
                                                   fontWeight: FontWeight.w800,
                                                   fontSize: 11,
-                                                  color: Colors.green.shade700)),
+                                                  color: AppTheme.successColor)),
                                         ),
                                       ],
                                     )
@@ -233,12 +234,12 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
                                                 decoration: TextDecoration.lineThrough)),
                                         AppSpacing.hSm,
                                         Text('\$$finalPrice',
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                                 fontWeight: FontWeight.w700,
-                                                color: Colors.teal)),
+                                                color: context.ticketAccent)),
                                         AppSpacing.hXs,
                                         Text('(-\$${(totalDiscount / 100).toStringAsFixed(2)})',
-                                            style: TextStyle(fontSize: 11, color: Colors.green.shade700)),
+                                            style: TextStyle(fontSize: 11, color: AppTheme.successColor)),
                                       ],
                                     )
                                   else
@@ -357,7 +358,7 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
                     width: double.infinity,
                     padding: AppSpacing.paddingXl,
                     decoration: BoxDecoration(
-                      color: Colors.teal,
+                      color: ctx.ticketAccent,
                       borderRadius: AppRadius.topXl,
                     ),
                     child: Column(
@@ -386,8 +387,8 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.confirmation_number_rounded,
-                                size: AppIconSize.sm, color: Colors.teal),
+                            Icon(Icons.confirmation_number_rounded,
+                                size: AppIconSize.sm, color: ctx.ticketAccent),
                             AppSpacing.hSm,
                             Expanded(
                               child: Text(tierName,
@@ -408,7 +409,7 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
                           ),
                           child: Row(
                             children: [
-                              Icon(Icons.people_rounded, size: AppIconSize.sm, color: Colors.teal[600]),
+                              Icon(Icons.people_rounded, size: AppIconSize.sm, color: ctx.ticketAccent),
                               AppSpacing.hSm,
                               const Text('Quantity',
                                   style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
@@ -420,7 +421,7 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
                                 child: Container(
                                   width: 32, height: 32,
                                   decoration: BoxDecoration(
-                                    color: quantity > 1 ? Colors.teal : AppTheme.dividerOf(ctx),
+                                    color: quantity > 1 ? ctx.ticketAccent : AppTheme.dividerOf(ctx),
                                     borderRadius: AppRadius.sm,
                                   ),
                                   child: Icon(Icons.remove, size: AppIconSize.sm,
@@ -441,7 +442,7 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
                                 child: Container(
                                   width: 32, height: 32,
                                   decoration: BoxDecoration(
-                                    color: quantity < maxQty ? Colors.teal : AppTheme.dividerOf(ctx),
+                                    color: quantity < maxQty ? ctx.ticketAccent : AppTheme.dividerOf(ctx),
                                     borderRadius: AppRadius.sm,
                                   ),
                                   child: Icon(Icons.add, size: AppIconSize.sm,
@@ -470,17 +471,17 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
                             width: double.infinity,
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             decoration: BoxDecoration(
-                              color: Colors.teal.withValues(alpha: 0.06),
+                              color: ctx.ticketAccent.withValues(alpha: 0.06),
                               borderRadius: AppRadius.sm,
                             ),
                             child: Row(
                               children: [
-                                Icon(Icons.info_outline_rounded, size: 15, color: Colors.teal[600]),
+                                Icon(Icons.info_outline_rounded, size: 15, color: ctx.ticketAccent),
                                 AppSpacing.hSm,
                                 Expanded(
                                   child: Text(
                                     'You already have ${widget.myTicketCount} ticket${widget.myTicketCount == 1 ? '' : 's'} for this event',
-                                    style: TextStyle(fontSize: 12, color: Colors.teal[700], fontWeight: FontWeight.w500),
+                                    style: TextStyle(fontSize: 12, color: ctx.ticketAccent, fontWeight: FontWeight.w500),
                                   ),
                                 ),
                               ],
@@ -581,7 +582,7 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
                                       letterSpacing: -0.5,
                                       color: isFree
                                           ? AppTheme.successColor
-                                          : Colors.teal,
+                                          : ctx.ticketAccent,
                                     ),
                                   ),
                                 ],
@@ -645,7 +646,7 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
                                   fontWeight: FontWeight.w700, fontSize: 16),
                             ),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: isFree ? Colors.green : Colors.teal,
+                              backgroundColor: isFree ? AppTheme.successColor : ctx.ticketAccent,
                               foregroundColor: Colors.white,
                               shape: RoundedRectangleBorder(
                                   borderRadius: AppRadius.lg),
@@ -823,7 +824,7 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Colors.teal.withValues(alpha: 0.04),
+        color: context.ticketAccent.withValues(alpha: 0.04),
         borderRadius: AppRadius.lg,
       ),
       child: Column(
@@ -832,7 +833,7 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
             padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.md, AppSpacing.sm),
             child: Row(
               children: [
-                const Icon(Icons.confirmation_number_rounded, size: AppIconSize.sm, color: Colors.teal),
+                Icon(Icons.confirmation_number_rounded, size: AppIconSize.sm, color: context.ticketAccent),
                 AppSpacing.hSm,
                 Expanded(
                   child: Column(
@@ -840,12 +841,12 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
                     children: [
                       Text(
                         'Your Tickets (${widget.myTicketCount})',
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.teal),
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: context.ticketAccent),
                       ),
                       if (scannedCount > 0)
                         Text(
                           '$scannedCount of ${widget.myTicketCount} scanned',
-                          style: TextStyle(fontSize: 11, color: Colors.teal[400]),
+                          style: TextStyle(fontSize: 11, color: context.ticketAccent.withValues(alpha: 0.7)),
                         ),
                     ],
                   ),
@@ -976,7 +977,10 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
             height: 48,
             child: ElevatedButton.icon(
               onPressed: () {
-                if (!widget.isRegistered) {
+                // During selling/live, backend auto-registers on purchase — no guard needed
+                final autoRegisterPhase = widget.event.status == EventStatus.selling_tickets ||
+                    widget.event.status == EventStatus.live;
+                if (!widget.isRegistered && !autoRegisterPhase) {
                   AppToast.info(context, 'Please register for this event first to buy tickets.');
                   return;
                 }
@@ -986,7 +990,7 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
               label: const Text('Buy Tickets',
                   style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.teal,
+                backgroundColor: context.ticketAccent,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                     borderRadius: AppRadius.md),
@@ -1004,17 +1008,30 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
 
 class _TierCard extends StatelessWidget {
   final TicketTier tier;
+  final int index;
   final bool isFeatured;
   final bool isDark;
 
   const _TierCard({
     required this.tier,
+    required this.index,
     required this.isFeatured,
     required this.isDark,
   });
 
+  Color _cycleColor(BuildContext context) {
+    final colors = [
+      context.feedAccent,
+      AppTheme.secondaryColor,
+      context.orangeAccent,
+      context.purpleAccent,
+    ];
+    return colors[index % colors.length];
+  }
+
   @override
   Widget build(BuildContext context) {
+    final color = _cycleColor(context);
     final spotsLeft = tier.spotsLeft;
     final maxSpots = tier.maxReservedSpots;
     final hasCapacity = maxSpots > 0;
@@ -1043,113 +1060,115 @@ class _TierCard extends StatelessWidget {
       availIcon = '✓';
     }
 
-    // Card visual properties
-    final Color nameFg = isFeatured
-        ? Colors.white
-        : AppTheme.textPrimaryOf(context);
-    final Color mutedFg = isFeatured
-        ? Colors.white.withValues(alpha: 0.65)
-        : AppTheme.textSecondaryOf(context);
-
-    final BoxDecoration cardDecoration = isFeatured
-        ? BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            gradient: const LinearGradient(
-              begin: Alignment(0.6, -0.8),
-              end: Alignment(-0.6, 0.8),
-              colors: [Color(0xFF0D1B3E), Color(0xFF1A0A2E)],
-            ),
-            border: Border.all(
-              color: AppTheme.accentColor.withValues(alpha: 0.40),
-              width: 1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: AppTheme.accentColor.withValues(alpha: 0.20),
-                blurRadius: 28,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          )
-        : BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            color: isDark ? const Color(0xFF1A1A1A) : const Color(0xFFF6F6F6),
-            border: Border.all(
-              color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFE2E2E2),
-              width: 1,
-            ),
-          );
-
     return Stack(
       children: [
-        Container(
-          width: 160,
-          padding: const EdgeInsets.all(16),
-          decoration: cardDecoration,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (isFeatured) const SizedBox(height: 18),
-              Text(
-                tier.name,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: nameFg,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+        ClipRRect(
+          borderRadius: BorderRadius.circular(18),
+          child: Container(
+            width: 160,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              color: AppTheme.cardOf(context),
+              border: Border.all(
+                color: isFeatured
+                    ? color.withValues(alpha: 0.50)
+                    : AppTheme.dividerOf(context),
+                width: isFeatured ? 1.5 : 1,
               ),
-              if (tier.description != null && tier.description!.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                Text(
-                  tier.description!,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: mutedFg,
-                    height: 1.4,
+              boxShadow: isFeatured
+                  ? [
+                      BoxShadow(
+                        color: color.withValues(alpha: isDark ? 0.22 : 0.14),
+                        blurRadius: 20,
+                        offset: const Offset(0, 6),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── Accent bar ──────────────────────────────────────
+                Container(height: 6, color: color),
+
+                // ── Card body ────────────────────────────────────────
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 11, 14, 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (isFeatured) const SizedBox(height: 14),
+                        Text(
+                          tier.name,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.textPrimaryOf(context),
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (tier.description != null &&
+                            tier.description!.isNotEmpty) ...[
+                          const SizedBox(height: 3),
+                          Text(
+                            tier.description!,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: AppTheme.textSecondaryOf(context),
+                              height: 1.4,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ] else
+                          const SizedBox(height: 8),
+                        const Spacer(),
+                        Text(
+                          tier.isFree ? 'FREE' : tier.priceFormatted,
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.5,
+                            color: tier.isFree ? AppTheme.successColor : color,
+                          ),
+                        ),
+                        Text(
+                          'per person',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: AppTheme.textSecondaryOf(context),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          '$availIcon $availText',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: availColor,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 ),
-              ] else
-                const SizedBox(height: 10),
-              const Spacer(),
-              Text(
-                tier.isFree ? 'FREE' : tier.priceFormatted,
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.5,
-                  color: tier.isFree
-                      ? AppTheme.successColor
-                      : nameFg,
-                ),
-              ),
-              Text(
-                'per person',
-                style: TextStyle(fontSize: 10, color: mutedFg),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                '$availIcon $availText',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: availColor,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
+
+        // ── "POPULAR" badge ─────────────────────────────────────────
         if (isFeatured)
           Positioned(
-            top: 10,
+            top: 16,
             right: 10,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: AppTheme.accentColor,
+                color: color,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: const Text(

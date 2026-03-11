@@ -149,7 +149,7 @@ class _EventBottomStripState extends State<EventBottomStrip> {
     final event = widget.event;
 
     // Nothing to show for non-customers or events that don't allow registration
-    if (!isCustomer || !event.canUnregister) return const SizedBox.shrink();
+    if (!isCustomer || !event.canManuallyRegister) return const SizedBox.shrink();
 
     final bottomPad = MediaQuery.of(context).padding.bottom;
     final isDark = Theme.of(context).brightness == Brightness.dark;

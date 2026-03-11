@@ -220,6 +220,8 @@ async def start_selling_tickets(
 
     logger.info("Event transitioned to selling_tickets", extra={"event_id": event.id})
     await event_repo.update_fields(db, event, status=EventStatus.selling_tickets, ticket_selling_started_at=datetime.now(timezone.utc))
+    from app.worker.event_jobs import schedule_reserved_spots_release
+    await schedule_reserved_spots_release(event, db=db)
     return event
 
 

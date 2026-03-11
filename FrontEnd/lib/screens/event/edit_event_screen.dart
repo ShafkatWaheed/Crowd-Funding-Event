@@ -65,6 +65,8 @@ class _EditEventScreenState extends State<EditEventScreen> {
   final _eventMaxImagesCtrl = TextEditingController();
   final _maxPostsPerDayCtrl = TextEditingController();
   final _maxCoOrganizersCtrl = TextEditingController();
+  final _reservedSpotsReleasePercentCtrl = TextEditingController();
+  bool _releaseTierSpotLimits = false;
   Map<String, int> _platformLimits = {};
 
   @override
@@ -150,6 +152,8 @@ class _EditEventScreenState extends State<EditEventScreen> {
         if (event.eventMaxImages != null) _eventMaxImagesCtrl.text = event.eventMaxImages.toString();
         if (event.maxPostsPerDay != null) _maxPostsPerDayCtrl.text = event.maxPostsPerDay.toString();
         if (event.maxCoOrganizers != null) _maxCoOrganizersCtrl.text = event.maxCoOrganizers.toString();
+        if (event.reservedSpotsReleasePercent != null) _reservedSpotsReleasePercentCtrl.text = event.reservedSpotsReleasePercent.toString();
+        _releaseTierSpotLimits = event.releaseTierSpotLimits;
         _loadingEvent = false;
       });
     } catch (e) {
@@ -171,6 +175,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
     final emi = int.tryParse(_eventMaxImagesCtrl.text.trim());
     final mppd = int.tryParse(_maxPostsPerDayCtrl.text.trim());
     final mco = int.tryParse(_maxCoOrganizersCtrl.text.trim());
+    final rsp = int.tryParse(_reservedSpotsReleasePercentCtrl.text.trim());
 
     final data = EventUpdateRequest(
       title: _titleCtrl.text.trim(),
@@ -199,6 +204,8 @@ class _EditEventScreenState extends State<EditEventScreen> {
       eventMaxImages: emi != null && emi > 0 ? emi : null,
       maxPostsPerDay: mppd != null && mppd > 0 ? mppd : null,
       maxCoOrganizers: mco != null && mco > 0 ? mco : null,
+      reservedSpotsReleasePercent: rsp,
+      releaseTierSpotLimits: _releaseTierSpotLimits,
     );
 
     try {
@@ -235,6 +242,11 @@ class _EditEventScreenState extends State<EditEventScreen> {
     _transitCtrl.dispose();
     _rideshareCtrl.dispose();
     _accessibilityCtrl.dispose();
+    _waitlistMaxSizeCtrl.dispose();
+    _eventMaxImagesCtrl.dispose();
+    _maxPostsPerDayCtrl.dispose();
+    _maxCoOrganizersCtrl.dispose();
+    _reservedSpotsReleasePercentCtrl.dispose();
     super.dispose();
   }
 
@@ -436,6 +448,11 @@ class _EditEventScreenState extends State<EditEventScreen> {
                               maxPostsPerDayCtrl: _maxPostsPerDayCtrl,
                               maxCoOrganizersCtrl: _maxCoOrganizersCtrl,
                               platformLimits: _platformLimits,
+                              maxReservedSpotsPerUser: _event?.maxReservedSpotsPerUser ?? 0,
+                              reservedSpotsReleasePercentCtrl: _reservedSpotsReleasePercentCtrl,
+                              linkFundingToTiers: _event?.linkFundingToTiers ?? false,
+                              releaseTierSpotLimits: _releaseTierSpotLimits,
+                              onReleaseTierSpotLimitsChanged: (v) => setState(() => _releaseTierSpotLimits = v),
                             ),
                             const SizedBox(height: 24),
 

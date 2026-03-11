@@ -75,6 +75,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   final _eventMaxImagesCtrl = TextEditingController();
   final _maxPostsPerDayCtrl = TextEditingController();
   final _maxCoOrganizersCtrl = TextEditingController();
+  final _reservedSpotsReleasePercentCtrl = TextEditingController();
+  bool _releaseTierSpotLimits = false;
   Map<String, int> _platformLimits = {};
   bool _publish = true;
   bool _isLoading = false;
@@ -152,7 +154,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         _maxReservedSpotsCtrl, _venueNameCtrl, _venueAddressCtrl, _venueCityCtrl,
         _venueProvinceCtrl, _venueCapacityCtrl, _strategyNameCtrl, _parkingCtrl, _transitCtrl,
         _rideshareCtrl, _accessibilityCtrl, _waitlistMaxSizeCtrl, _eventMaxImagesCtrl,
-        _maxPostsPerDayCtrl, _maxCoOrganizersCtrl]) {
+        _maxPostsPerDayCtrl, _maxCoOrganizersCtrl, _reservedSpotsReleasePercentCtrl]) {
       c.dispose();
     }
     _venueGeoDebounce?.cancel();
@@ -400,6 +402,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         eventMaxImages: int.tryParse(_eventMaxImagesCtrl.text.trim()),
         maxPostsPerDay: int.tryParse(_maxPostsPerDayCtrl.text.trim()),
         maxCoOrganizers: int.tryParse(_maxCoOrganizersCtrl.text.trim()),
+        reservedSpotsReleasePercent: int.tryParse(_reservedSpotsReleasePercentCtrl.text.trim()),
+        releaseTierSpotLimits: _releaseTierSpotLimits,
       );
       await executeCreateEventSubmission(
         sponsorRepo: context.read<SponsorProvider>(), eventRepo: context.read<EventProvider>(),
@@ -547,7 +551,12 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       onWaitlistAutoApproveChanged: (v) => setState(() => _waitlistAutoApprove = v),
       eventMaxImagesCtrl: _eventMaxImagesCtrl, maxPostsPerDayCtrl: _maxPostsPerDayCtrl,
       maxCoOrganizersCtrl: _maxCoOrganizersCtrl,
-      platformLimits: _platformLimits),
+      platformLimits: _platformLimits,
+      maxReservedSpotsPerUser: int.tryParse(_maxReservedSpotsCtrl.text) ?? 0,
+      reservedSpotsReleasePercentCtrl: _reservedSpotsReleasePercentCtrl,
+      linkFundingToTiers: _linkFundingToTiers,
+      releaseTierSpotLimits: _releaseTierSpotLimits,
+      onReleaseTierSpotLimitsChanged: (v) => setState(() => _releaseTierSpotLimits = v)),
   );
 
   Widget _buildStep5() => StepReview(

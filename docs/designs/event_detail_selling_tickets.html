@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Event Detail — Selling Tickets</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0d0f14; color: #e2e8f0; font-family: 'Inter', system-ui, sans-serif; padding: 20px; max-width: 860px; margin: 0 auto; }
+
+  /* ── FUNDED SUMMARY CARD ── */
+  .funded-card {
+    background: linear-gradient(145deg, #0f1f2e 0%, #0a1a28 100%);
+    border: 1px solid #1e3a52;
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 12px;
+    position: relative;
+  }
+  .funded-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 80% 0%, rgba(16,185,129,0.08) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  /* header row */
+  .fc-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px 10px;
+  }
+  .fc-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .fc-title svg { opacity: 0.7; }
+  .fc-badge {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(16,185,129,0.15);
+    border: 1px solid rgba(16,185,129,0.3);
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #10b981;
+  }
+  .fc-badge .dot { width: 6px; height: 6px; background: #10b981; border-radius: 50%; }
+
+  /* raised row */
+  .fc-raised {
+    padding: 4px 16px 14px;
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+  }
+  .fc-amount {
+    font-size: 32px;
+    font-weight: 700;
+    color: #f0fdf4;
+    line-height: 1;
+  }
+  .fc-goal {
+    font-size: 13px;
+    color: #64748b;
+    padding-bottom: 3px;
+  }
+  .fc-goal span { color: #10b981; font-weight: 600; }
+
+  /* progress bar */
+  .fc-bar-wrap {
+    padding: 0 16px 14px;
+  }
+  .fc-bar-track {
+    height: 6px;
+    background: rgba(255,255,255,0.07);
+    border-radius: 99px;
+    overflow: hidden;
+  }
+  .fc-bar-fill {
+    height: 100%;
+    width: 68%;
+    background: linear-gradient(90deg, #059669, #10b981, #34d399);
+    border-radius: 99px;
+    box-shadow: 0 0 8px rgba(16,185,129,0.5);
+  }
+
+  /* stats row */
+  .fc-stats {
+    display: grid;
+    grid-template-columns: 1fr 1px 1fr 1px 1fr;
+    padding: 12px 16px 14px;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    gap: 0;
+  }
+  .fc-stat { text-align: center; }
+  .fc-stat-val {
+    font-size: 18px;
+    font-weight: 700;
+    color: #e2e8f0;
+    line-height: 1.2;
+  }
+  .fc-stat-lbl {
+    font-size: 11px;
+    color: #64748b;
+    margin-top: 2px;
+  }
+  .fc-divider { background: rgba(255,255,255,0.06); }
+
+  /* milestones */
+  .fc-milestones {
+    padding: 0 16px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .fc-ms-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 2px;
+  }
+  .fc-ms-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px;
+  }
+  .fc-ms-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 13px;
+  }
+  .fc-ms-icon.hit { background: rgba(16,185,129,0.18); }
+  .fc-ms-icon.miss { background: rgba(100,116,139,0.15); }
+  .fc-ms-text { flex: 1; }
+  .fc-ms-name { font-size: 13px; font-weight: 500; color: #cbd5e1; }
+  .fc-ms-sub { font-size: 11px; color: #64748b; }
+  .fc-ms-amt {
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .fc-ms-amt.hit { color: #10b981; }
+  .fc-ms-amt.miss { color: #475569; }
+
+  /* ── DETAILS CARD ── */
+  .details-card {
+    background: #111318;
+    border: 1px solid #1e2530;
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+  .dc-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 13px 16px 11px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .dc-timeline {
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    position: relative;
+  }
+  .dc-timeline::before {
+    content: '';
+    position: absolute;
+    left: 28px;
+    top: 28px;
+    bottom: 28px;
+    width: 2px;
+    background: linear-gradient(to bottom, #10b981, #3b82f6, #475569);
+    border-radius: 2px;
+  }
+  .dc-tl-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 6px 0;
+    position: relative;
+  }
+  .dc-tl-dot {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 12px;
+    z-index: 1;
+    margin-top: 2px;
+  }
+  .dc-tl-dot.green { background: #064e3b; border: 2px solid #10b981; color: #10b981; }
+  .dc-tl-dot.blue  { background: #1e3a5f; border: 2px solid #3b82f6; color: #3b82f6; }
+  .dc-tl-dot.gray  { background: #1e2530; border: 2px solid #475569; color: #64748b; }
+  .dc-tl-label { font-size: 11px; color: #64748b; }
+  .dc-tl-value { font-size: 14px; font-weight: 500; color: #e2e8f0; margin-top: 1px; }
+
+  /* stat chips */
+  .dc-chips {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    padding: 0 16px 16px;
+  }
+  .dc-chip {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px;
+    padding: 10px 12px;
+    text-align: center;
+  }
+  .dc-chip-icon { font-size: 15px; margin-bottom: 4px; }
+  .dc-chip-lbl { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
+  .dc-chip-val { font-size: 14px; font-weight: 700; color: #e2e8f0; margin-top: 2px; }
+  .dc-chip-val.green { color: #10b981; }
+  .dc-chip-val.amber { color: #f59e0b; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════
+     FUNDING SUMMARY (replaces old card)
+     ════════════════════════════════════ -->
+<div class="funded-card">
+  <div class="fc-header">
+    <div class="fc-title">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5">
+        <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 1 0 0 7h5a3.5 3.5 0 1 1 0 7H6"/>
+      </svg>
+      Funding Results
+    </div>
+    <div class="fc-badge"><div class="dot"></div> Funded</div>
+  </div>
+
+  <div class="fc-raised">
+    <div class="fc-amount">$682.00</div>
+    <div class="fc-goal">of $1,000.00 goal &nbsp;·&nbsp; <span>68% reached</span></div>
+  </div>
+
+  <div class="fc-bar-wrap">
+    <div class="fc-bar-track"><div class="fc-bar-fill"></div></div>
+  </div>
+
+  <div class="fc-stats">
+    <div class="fc-stat">
+      <div class="fc-stat-val">34</div>
+      <div class="fc-stat-lbl">Backers</div>
+    </div>
+    <div class="fc-divider"></div>
+    <div class="fc-stat">
+      <div class="fc-stat-val">$20.06</div>
+      <div class="fc-stat-lbl">Avg pledge</div>
+    </div>
+    <div class="fc-divider"></div>
+    <div class="fc-stat">
+      <div class="fc-stat-val">Mar 4</div>
+      <div class="fc-stat-lbl">Deadline</div>
+    </div>
+  </div>
+
+  <div class="fc-milestones">
+    <div class="fc-ms-label">Milestones</div>
+
+    <div class="fc-ms-row">
+      <div class="fc-ms-icon hit">🏆</div>
+      <div class="fc-ms-text">
+        <div class="fc-ms-name">Early Bird Unlock</div>
+        <div class="fc-ms-sub">Hit by 28 backers · Feb 10</div>
+      </div>
+      <div class="fc-ms-amt hit">$250</div>
+    </div>
+
+    <div class="fc-ms-row">
+      <div class="fc-ms-icon hit">🎤</div>
+      <div class="fc-ms-text">
+        <div class="fc-ms-name">Guest Speaker Added</div>
+        <div class="fc-ms-sub">Hit · Feb 22</div>
+      </div>
+      <div class="fc-ms-amt hit">$500</div>
+    </div>
+
+    <div class="fc-ms-row">
+      <div class="fc-ms-icon miss">🎁</div>
+      <div class="fc-ms-text">
+        <div class="fc-ms-name">Swag Bags for All</div>
+        <div class="fc-ms-sub">Not reached</div>
+      </div>
+      <div class="fc-ms-amt miss">$1,000</div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════
+     DETAILS CARD
+     ════════════════════════════════════ -->
+<div class="details-card">
+  <div class="dc-header">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+    </svg>
+    Details
+  </div>
+
+  <div class="dc-timeline">
+    <div class="dc-tl-item">
+      <div class="dc-tl-dot green">▶</div>
+      <div>
+        <div class="dc-tl-label">Starts</div>
+        <div class="dc-tl-value">Mar 29, 2026 at 9:43 AM</div>
+      </div>
+    </div>
+    <div class="dc-tl-item">
+      <div class="dc-tl-dot blue">■</div>
+      <div>
+        <div class="dc-tl-label">Ends</div>
+        <div class="dc-tl-value">Mar 29, 2026 at 1:43 PM</div>
+      </div>
+    </div>
+    <div class="dc-tl-item">
+      <div class="dc-tl-dot gray">⏎</div>
+      <div>
+        <div class="dc-tl-label">Refund deadline</div>
+        <div class="dc-tl-value">7 days before event</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="dc-chips">
+    <div class="dc-chip">
+      <div class="dc-chip-icon">🎟️</div>
+      <div class="dc-chip-lbl">Tickets Sold</div>
+      <div class="dc-chip-val amber">0 / 800</div>
+    </div>
+    <div class="dc-chip">
+      <div class="dc-chip-icon">🪑</div>
+      <div class="dc-chip-lbl">Registration</div>
+      <div class="dc-chip-val green">Open</div>
+    </div>
+    <div class="dc-chip">
+      <div class="dc-chip-icon">👥</div>
+      <div class="dc-chip-lbl">Backers</div>
+      <div class="dc-chip-val">34</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

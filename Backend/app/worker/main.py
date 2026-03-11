@@ -15,6 +15,7 @@ from app.worker.tasks import (
     process_pledge_refund,
     process_bulk_pledge_refunds,
     process_ticket_refund,
+    release_reserved_spots,
     process_sponsor_refund,
     process_bulk_sponsor_refunds,
     send_event_cancelled_email,
@@ -88,7 +89,18 @@ def _build_cron_jobs():
     ]
 
 
+async def on_startup(ctx: dict) -> None:
+    """Run once at worker boot — immediately reconcile any stale event transitions."""
+    logger.info("Worker startup: running reconcile_event_statuses to catch stale transitions")
+    try:
+        await reconcile_event_statuses(ctx)
+        logger.info("Worker startup reconcile complete")
+    except Exception:
+        logger.exception("Worker startup reconcile failed (non-fatal)")
+
+
 class WorkerSettings:
+    on_startup = on_startup
     functions = [
         process_pledge_refund,
         process_bulk_pledge_refunds,
@@ -109,6 +121,7 @@ class WorkerSettings:
         archive_resolved_chats,
         purge_old_chat_archives,
         transition_event_status,
+        release_reserved_spots,
     ]
     cron_jobs = _build_cron_jobs()
     redis_settings = RedisSettings.from_dsn(settings.REDIS_URL)

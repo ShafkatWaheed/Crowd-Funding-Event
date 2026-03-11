@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../config/api_config.dart';
+import '../../../config/app_typography.dart';
 import '../../../config/theme.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../config/design_tokens.dart';
@@ -32,7 +33,7 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
   bool _loading = true;
   bool _featureEnabled = true;
   bool _isOffline = false;
-  final ScrollController _circleScroll = ScrollController();
+  final ScrollController _pillScroll = ScrollController();
 
   @override
   void initState() {
@@ -42,7 +43,7 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
 
   @override
   void dispose() {
-    _circleScroll.dispose();
+    _pillScroll.dispose();
     super.dispose();
   }
 
@@ -69,11 +70,9 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
           _isOffline = false;
           _loading = false;
         });
-        // Background-cache for offline use
         context.read<SyncService>().cacheScheduleForEvent(widget.eventId);
       }
     } catch (_) {
-      // Try loading from offline cache
       await _loadFromCache();
       if (mounted && _days.isEmpty) {
         setState(() => _loading = false);
@@ -130,17 +129,14 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
     }
   }
 
-  /// Extract day number from ISO date string (e.g. "2026-03-01" → "1")
   String _dayNumber(String isoDate) {
     try {
-      final dt = DateTime.parse(isoDate);
-      return '${dt.day}';
+      return '${DateTime.parse(isoDate).day}';
     } catch (_) {
       return isoDate;
     }
   }
 
-  /// Extract short weekday name from ISO date (e.g. "2026-03-01" → "Sat")
   String _weekdayShort(String isoDate) {
     try {
       final dt = DateTime.parse(isoDate);
@@ -162,17 +158,28 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
 
   void _selectDay(int idx) {
     setState(() => _selectedIdx = idx);
-    // Auto-scroll selected circle into view
-    const circleWidth = 52.0 + 16.0; // circle + spacing
-    final target = (idx * circleWidth) - (MediaQuery.of(context).size.width / 2) + circleWidth / 2;
-    if (_circleScroll.hasClients) {
-      _circleScroll.animateTo(
-        target.clamp(0, _circleScroll.position.maxScrollExtent),
+    const pillWidth = 80.0 + 7.0; // approx pill + gap
+    final target = (idx * pillWidth) - (MediaQuery.of(context).size.width / 2) + pillWidth / 2;
+    if (_pillScroll.hasClients) {
+      _pillScroll.animateTo(
+        target.clamp(0, _pillScroll.position.maxScrollExtent),
         duration: AppDuration.normal,
         curve: AppCurve.enter,
       );
     }
   }
+
+  Color _sessionColor(int index) {
+    final colors = [
+      context.feedAccent,
+      AppTheme.secondaryColor,
+      context.orangeAccent,
+      context.purpleAccent,
+    ];
+    return colors[index % colors.length];
+  }
+
+  // ─── Build ───────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -204,10 +211,11 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
+            // ── Header ──────────────────────────────────────────────────
             Row(
               children: [
-                Icon(Icons.calendar_month_rounded, size: AppIconSize.sm, color: context.feedAccent),
+                Icon(Icons.calendar_month_rounded,
+                    size: AppIconSize.sm, color: context.feedAccent),
                 AppSpacing.hSm,
                 Text(
                   'Event Schedule',
@@ -222,16 +230,17 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
                   AppSpacing.hSm,
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.sm, vertical: 2),
+                        horizontal: AppSpacing.sm, vertical: 2),
                     decoration: BoxDecoration(
-                      color: Colors.orange.shade700.withValues(alpha: 0.15),
+                      color: context.orangeAccent.withValues(alpha: 0.15),
                       borderRadius: AppRadius.sm,
                     ),
-                    child: Text('Cached',
+                    child: Text(
+                      'Cached',
                       style: TextStyle(
                         fontSize: 9,
                         fontWeight: FontWeight.w700,
-                        color: Colors.orange.shade700,
+                        color: context.orangeAccent,
                       ),
                     ),
                   ),
@@ -245,13 +254,16 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
                       borderRadius: AppRadius.sm,
                       onTap: _downloadExcel,
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.md, vertical: AppSpacing.sm),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.download_rounded, size: AppIconSize.sm, color: context.feedAccent),
+                            Icon(Icons.download_rounded,
+                                size: AppIconSize.sm, color: context.feedAccent),
                             AppSpacing.hXs,
-                            Text('Excel',
+                            Text(
+                              'Excel',
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
@@ -267,39 +279,29 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
             ),
             AppSpacing.vLg,
 
-            // Story circles — date selector
-            SizedBox(
-              height: 72,
-              child: _days.length == 1
-                  ? Center(child: _buildStoryCircle(0))
-                  : ListView.separated(
-                      controller: _circleScroll,
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _days.length,
-                      separatorBuilder: (_, __) => AppSpacing.hLg,
-                      itemBuilder: (_, idx) => _buildStoryCircle(idx),
-                    ),
+            // ── Day pills ────────────────────────────────────────────────
+            SingleChildScrollView(
+              controller: _pillScroll,
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (int i = 0; i < _days.length; i++) ...[
+                    if (i > 0) const SizedBox(width: 7),
+                    _buildDayPill(i),
+                  ],
+                ],
+              ),
             ),
             AppSpacing.vLg,
 
-            // Agenda cards for selected day
-            ...selectedDay.items.asMap().entries.map((entry) {
-              final idx = entry.key;
-              final item = entry.value;
-              final isOverlap = item.overlaps;
-
-              return Padding(
-                padding: EdgeInsets.only(
-                  bottom: idx < selectedDay.items.length - 1 ? AppSpacing.md : 0,
-                ),
-                child: _buildAgendaCard(item, isOverlap, idx),
-              );
-            }),
+            // ── Vertical timeline ────────────────────────────────────────
+            _buildTimeline(selectedDay.items),
 
             AppSpacing.vMd,
             Center(
               child: Text(
-                '$totalSessions session${totalSessions == 1 ? '' : 's'} across ${_days.length} day${_days.length == 1 ? '' : 's'}',
+                '$totalSessions session${totalSessions == 1 ? '' : 's'} across '
+                '${_days.length} day${_days.length == 1 ? '' : 's'}',
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
@@ -313,162 +315,263 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
     );
   }
 
-  Widget _buildStoryCircle(int idx) {
+  // ── Day pill tab ─────────────────────────────────────────────────────────
+
+  Widget _buildDayPill(int idx) {
     final isSelected = idx == _selectedIdx;
     final accent = context.feedAccent;
+    final day = _days[idx];
+    final label = '${_weekdayShort(day.date)} ${_dayNumber(day.date)}';
 
     return GestureDetector(
       onTap: () => _selectDay(idx),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          AnimatedContainer(
-            duration: AppDuration.fast,
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: isSelected ? accent : AppTheme.dividerOf(context),
-                width: isSelected ? 3 : 1.5,
-              ),
-              color: isSelected
-                  ? accent.withValues(alpha: 0.08)
-                  : Colors.transparent,
-            ),
-            child: Center(
-              child: Text(
-                _dayNumber(_days[idx].date),
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
-                  color: isSelected ? accent : AppTheme.textSecondaryOf(context),
-                ),
-              ),
-            ),
+      child: AnimatedContainer(
+        duration: AppDuration.fast,
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? accent.withValues(alpha: 0.10) : Colors.transparent,
+          borderRadius: AppRadius.pill,
+          border: Border.all(
+            color: isSelected
+                ? accent.withValues(alpha: 0.45)
+                : AppTheme.dividerOf(context),
+            width: 1.5,
           ),
-          const SizedBox(height: 4),
-          Text(
-            _weekdayShort(_days[idx].date),
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-              color: isSelected ? accent : AppTheme.textSecondaryOf(context),
-            ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: isSelected ? accent : AppTheme.textSecondaryOf(context),
           ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildAgendaCard(ScheduleItem item, bool isOverlap, int index) {
-    final accent = isOverlap ? context.photoAccent : context.feedAccent;
-    final hasImage = item.imageUrl != null && item.imageUrl!.isNotEmpty;
+  // ── Timeline ─────────────────────────────────────────────────────────────
 
+  Widget _buildTimeline(List<ScheduleItem> items) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Time header
-        Row(
-          children: [
-            Text(
-              _formatTime24to12(item.startTime),
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.textSecondaryOf(context),
-              ),
-            ),
-            if (isOverlap) ...[
-              AppSpacing.hSm,
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 2),
-                decoration: BoxDecoration(
-                  color: context.photoAccent.withValues(alpha: 0.15),
-                  borderRadius: AppRadius.sm,
-                ),
-                child: Text('Overlaps',
+        for (int i = 0; i < items.length; i++)
+          _buildTimelineRow(items[i], _sessionColor(i), i == items.length - 1, i),
+      ],
+    );
+  }
+
+  Widget _buildTimelineRow(
+      ScheduleItem item, Color color, bool isLast, int index) {
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Time column ─────────────────────────────────────────────
+          SizedBox(
+            width: 54,
+            child: Align(
+              alignment: Alignment.topRight,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 10, top: 2),
+                child: Text(
+                  _formatTime24to12(item.startTime),
+                  textAlign: TextAlign.right,
                   style: TextStyle(
-                    fontSize: 9,
+                    fontSize: 10,
                     fontWeight: FontWeight.w700,
-                    color: context.photoAccent,
+                    color: AppTheme.textSecondaryOf(context),
+                    height: 1.2,
                   ),
                 ),
               ),
-            ],
-          ],
-        ),
-        const SizedBox(height: 4),
-        // Card with left accent border
-        Container(
-          width: double.infinity,
-          padding: AppSpacing.paddingMd,
-          decoration: BoxDecoration(
-            color: AppTheme.surfaceOf(context),
-            borderRadius: AppRadius.md,
-            border: Border.all(color: AppTheme.dividerOf(context), width: 0.5),
+            ),
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 4,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: accent,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.title,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.textPrimaryOf(context),
-                      ),
-                    ),
-                    if (item.description != null && item.description!.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        item.description!,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AppTheme.textSecondaryOf(context),
-                        ),
-                      ),
+
+          // ── Connector (dot + line) ───────────────────────────────────
+          SizedBox(
+            width: 18,
+            child: Column(
+              children: [
+                const SizedBox(height: 3),
+                // Dot with card-bg ring + color glow
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: color,
+                    border: Border.all(
+                        color: AppTheme.cardOf(context), width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                          color: color,
+                          spreadRadius: 1.5,
+                          blurRadius: 0),
                     ],
-                    const SizedBox(height: 4),
-                    Text(
-                      '${_formatTime24to12(item.startTime)} – ${_formatTime24to12(item.endTime)}',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: accent,
+                  ),
+                ),
+                // Vertical line to next item
+                if (!isLast)
+                  Expanded(
+                    child: Center(
+                      child: Container(
+                        width: 1.5,
+                        color: AppTheme.dividerOf(context),
                       ),
                     ),
-                    if (item.linkUrl != null && item.linkUrl!.isNotEmpty)
-                      _buildLinkChip(context, item.linkUrl!),
-                  ],
-                ),
-              ),
-              if (hasImage) ...[
-                AppSpacing.hMd,
-                _buildSessionThumbnail(item, accent),
+                  ),
               ],
-            ],
+            ),
           ),
-        ),
-      ],
+
+          // ── Session card ─────────────────────────────────────────────
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(left: 8, bottom: isLast ? 0 : 16),
+              child: _buildTimelineCard(item, color),
+            ),
+          ),
+        ],
+      ),
     )
         .animate(delay: Duration(milliseconds: 50 * index))
         .fadeIn(duration: AppDuration.normal, curve: AppCurve.enter)
-        .slideY(begin: 0.1, end: 0, duration: AppDuration.normal, curve: AppCurve.enter);
+        .slideY(
+            begin: 0.08,
+            end: 0,
+            duration: AppDuration.normal,
+            curve: AppCurve.enter);
   }
+
+  Widget _buildTimelineCard(ScheduleItem item, Color color) {
+    final hasImage = item.imageUrl != null && item.imageUrl!.isNotEmpty;
+
+    return ClipRRect(
+      borderRadius: AppRadius.md,
+      child: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: AppTheme.surfaceOf(context),
+          borderRadius: AppRadius.md,
+          border: Border.all(
+              color: AppTheme.dividerOf(context), width: 0.5),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Left accent bar (3 px)
+            Container(
+              width: 3,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(AppRadius.mdValue),
+                  bottomLeft: Radius.circular(AppRadius.mdValue),
+                ),
+              ),
+            ),
+
+            // Card content
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(10, 11, 11, 11),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Title + overlap pill
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  item.title,
+                                  style: AppTypography.titleSmall.copyWith(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppTheme.textPrimaryOf(context),
+                                  ),
+                                ),
+                              ),
+                              if (item.overlaps) ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: context.orangeAccent
+                                        .withValues(alpha: 0.15),
+                                    borderRadius: AppRadius.sm,
+                                  ),
+                                  child: Text(
+                                    'Overlap',
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w700,
+                                      color: context.orangeAccent,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+
+                          // Description
+                          if (item.description != null &&
+                              item.description!.isNotEmpty) ...[
+                            const SizedBox(height: 3),
+                            Text(
+                              item.description!,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: AppTheme.textSecondaryOf(context),
+                                height: 1.4,
+                              ),
+                            ),
+                          ],
+
+                          const SizedBox(height: 5),
+
+                          // Time range
+                          Text(
+                            '${_formatTime24to12(item.startTime)} – '
+                            '${_formatTime24to12(item.endTime)}',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: color,
+                            ),
+                          ),
+
+                          // Link chip
+                          if (item.linkUrl != null &&
+                              item.linkUrl!.isNotEmpty)
+                            _buildLinkChip(context, item.linkUrl!),
+                        ],
+                      ),
+                    ),
+
+                    // Thumbnail
+                    if (hasImage) ...[
+                      AppSpacing.hMd,
+                      _buildSessionThumbnail(item, color),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Thumbnail ────────────────────────────────────────────────────────────
 
   Widget _buildSessionThumbnail(ScheduleItem item, Color accent) {
     final resolvedUrl = item.imageUrl!.startsWith('/')
@@ -500,9 +603,7 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
             height: 48,
             decoration: BoxDecoration(
               image: DecorationImage(
-                image: imageProvider,
-                fit: BoxFit.cover,
-              ),
+                  image: imageProvider, fit: BoxFit.cover),
             ),
           ).animate().fadeIn(
               duration: AppDuration.normal, curve: AppCurve.enter),
@@ -518,6 +619,8 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
       ),
     );
   }
+
+  // ── Link chip ────────────────────────────────────────────────────────────
 
   Widget _buildLinkChip(BuildContext context, String url) {
     String domain;
@@ -541,17 +644,18 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
         },
         child: Container(
           padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.sm, vertical: AppSpacing.xs,
-          ),
+              horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
           decoration: BoxDecoration(
             color: context.feedAccent.withValues(alpha: 0.08),
             borderRadius: AppRadius.sm,
-            border: Border.all(color: context.feedAccent.withValues(alpha: 0.2)),
+            border: Border.all(
+                color: context.feedAccent.withValues(alpha: 0.2)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.link_rounded, size: 13, color: context.feedAccent),
+              Icon(Icons.link_rounded,
+                  size: 13, color: context.feedAccent),
               const SizedBox(width: 4),
               Flexible(
                 child: Text(

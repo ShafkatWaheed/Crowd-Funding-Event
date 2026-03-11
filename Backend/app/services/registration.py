@@ -64,11 +64,12 @@ async def register(
     if event.registration_type == RegistrationType.closed:
         target_status = RegistrationStatus.waitlist
     else:
-        # Open: decide based on capacity
+        # Open: decide based on capacity (registered + reserved guest spots must not exceed max)
         registered_count = await registration_repo.count_registered(db, event_id)
+        total_reserved = await funding_service.get_total_reserved_spots(db, event_id)
         target_status = (
             RegistrationStatus.registered
-            if registered_count < int(event.max_capacity)
+            if registered_count + total_reserved < int(event.max_capacity)
             else RegistrationStatus.waitlist
         )
 
@@ -268,6 +269,29 @@ async def _get_user_registration(
     if not reg:
         raise NotFoundError("Registration", "user not registered for this event")
     return reg
+
+
+async def auto_register(db: AsyncSession, *, event_id: int, user_id: int) -> None:
+    """Silently register a user without capacity check (ticket purchase gate is the real gate).
+
+    Used during selling_tickets/live when a user attempts to purchase without prior registration.
+    If a registration row already exists in any state, promote it to registered.
+    Otherwise create a new registered row and increment registration_count.
+    """
+    from app.repositories.event_repo import event_repo
+    reg = await registration_repo.get_existing_registration(db, event_id, user_id)
+    event = await event_repo.get_by_id(db, event_id)
+    if reg:
+        if reg.status != RegistrationStatus.registered:
+            await registration_repo.update_registration_status(
+                db, reg, RegistrationStatus.registered, event=event,
+            )
+    else:
+        await registration_repo.create_registration(
+            db, event_id, user_id, RegistrationStatus.registered,
+        )
+        if event:
+            await event_repo.update_fields(db, event, registration_count=(event.registration_count or 0) + 1)
 
 
 async def auto_approve_waitlist_when_switching_to_open(

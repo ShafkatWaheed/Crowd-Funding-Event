@@ -133,7 +133,8 @@ async def auto_transition_status(db: AsyncSession, event: Event) -> Event:
                 event.status = EventStatus.live
                 changed = True
                 if not read_only:
-                    await event_repo.zero_reserved_spots(db, event.id)
+                    from app.worker.event_jobs import schedule_reserved_spots_release
+                    await schedule_reserved_spots_release(event, db=db)
 
         # -- live -> check if event ended --
         if event.status == EventStatus.live:
@@ -384,6 +385,8 @@ async def create(
     max_posts_per_day: int | None = None,
     max_co_organizers: int | None = None,
     refund_deadline_percent: int | None = None,
+    reserved_spots_release_percent: int | None = None,
+    release_tier_spot_limits: bool = False,
     max_discount_percent: int | None = None,
     age_restricted: bool = False,
     min_age: int | None = None,
@@ -544,10 +547,14 @@ async def create(
         refund_deadline_percent=refund_deadline_percent,
         age_restricted=age_restricted,
         min_age=min_age,
+        release_tier_spot_limits=release_tier_spot_limits,
         status=EventStatus.approved if publish else EventStatus.draft,
     )
     if max_discount_percent is not None:
         event.max_discount_percent = max(0, min(100, max_discount_percent))
+    if reserved_spots_release_percent is not None:
+        platform_min = await settings_svc.get_int(db, "reserved_spots_release_percent_min")
+        event.reserved_spots_release_percent = max(reserved_spots_release_percent, platform_min)
     return await event_repo.create_event(db, event)
 
 
@@ -585,6 +592,8 @@ async def update(
     max_posts_per_day: int | None = None,
     max_co_organizers: int | None = None,
     refund_deadline_percent: int | None = None,
+    reserved_spots_release_percent: int | None = None,
+    release_tier_spot_limits: bool | None = None,
     max_discount_percent: int | None = None,
     age_restricted: bool | None = None,
     min_age: int | None = None,
@@ -713,6 +722,12 @@ async def update(
             pct_min = await _ps.get_int(db, "refund_deadline_percent_min")
             pct_max_val = await _ps.get_int(db, "refund_deadline_percent_max")
             event.refund_deadline_percent = max(pct_min, min(refund_deadline_percent, pct_max_val))
+    if reserved_spots_release_percent is not None:
+        from app.services import platform_settings as _ps2
+        platform_min = await _ps2.get_int(db, "reserved_spots_release_percent_min")
+        event.reserved_spots_release_percent = max(reserved_spots_release_percent, platform_min)
+    if release_tier_spot_limits is not None:
+        event.release_tier_spot_limits = release_tier_spot_limits
     # max_discount_percent, age_restricted, min_age
     if max_discount_percent is not None:
         event.max_discount_percent = max(0, min(100, max_discount_percent))

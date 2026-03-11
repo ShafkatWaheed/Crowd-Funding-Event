@@ -53,8 +53,13 @@ async def purchase_ticket(
 
     reg = await ticket_repo.get_active_registration(db, event_id, user.id)
     if not reg:
-        logger.warning("Ticket purchase rejected: not registered", extra={"event_id": event_id, "user_id": user.id})
-        raise ConflictError("Only registered attendees can purchase tickets for this event")
+        from app.models.event import EventStatus
+        if event.status in (EventStatus.selling_tickets, EventStatus.live):
+            from app.services import registration as reg_service
+            await reg_service.auto_register(db, event_id=event_id, user_id=user.id)
+        else:
+            logger.warning("Ticket purchase rejected: not registered", extra={"event_id": event_id, "user_id": user.id})
+            raise ConflictError("Only registered attendees can purchase tickets for this event")
 
     price_info = await compute_ticket_price(db, event_id=event_id, user_id=user.id, tier_id=tier_id)
     final_cents = price_info["final_price_cents"]

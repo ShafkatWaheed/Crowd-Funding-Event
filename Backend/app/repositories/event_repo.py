@@ -557,8 +557,31 @@ class EventRepository(BaseRepository[Event]):
         q = select(func.count()).where(TicketTier.event_id == event_id)
         return int((await db.execute(q)).scalar_one())
 
-    async def zero_reserved_spots(self, db: AsyncSession, event_id: int) -> None:
-        """Set reserved_spots to 0 for all pledged fundings of an event."""
+    async def zero_reserved_spots(self, db: AsyncSession, event_id: int, zero_tier_limits: bool = False) -> None:
+        """Set reserved_spots to 0 for all pledged fundings of an event.
+        Also zeroes PledgeSpotReservation.spots so tier-linked pledgers lose their
+        per-tier priority after the release.
+
+        If zero_tier_limits=True, also zeroes TicketTier.max_reserved_spots for all tiers
+        of the event, fully retiring per-tier pledge caps (controlled by event.release_tier_spot_limits).
+        """
+        from app.models.funding import PledgeSpotReservation
+        from app.models.ticket import TicketTier
+        # Zero per-tier reservation counts
+        await db.execute(
+            sa_update(PledgeSpotReservation)
+            .where(
+                PledgeSpotReservation.funding_id.in_(
+                    select(Funding.id).where(
+                        Funding.event_id == event_id,
+                        Funding.status == FundingStatus.pledged,
+                    )
+                ),
+                PledgeSpotReservation.spots > 0,
+            )
+            .values(spots=0)
+        )
+        # Zero the aggregate field
         await db.execute(
             sa_update(Funding)
             .where(
@@ -568,6 +591,16 @@ class EventRepository(BaseRepository[Event]):
             )
             .values(reserved_spots=0)
         )
+        # Optionally retire per-tier pledge caps (policy field, organizer opt-in)
+        if zero_tier_limits:
+            await db.execute(
+                sa_update(TicketTier)
+                .where(
+                    TicketTier.event_id == event_id,
+                    TicketTier.max_reserved_spots > 0,
+                )
+                .values(max_reserved_spots=0)
+            )
 
     async def get_escrow_records(
         self,

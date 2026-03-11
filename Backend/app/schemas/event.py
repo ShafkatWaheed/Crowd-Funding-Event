@@ -69,6 +69,8 @@ class EventCreate(BaseModel):
     max_posts_per_day: int | None = None
     max_co_organizers: int | None = None
     refund_deadline_percent: int | None = None
+    reserved_spots_release_percent: int | None = None  # 0–100; 100 = release at live
+    release_tier_spot_limits: bool = False  # if True, also zeroes tier.max_reserved_spots at release
     publish: bool = False  # True = approved immediately, False = draft
 
 
@@ -108,6 +110,8 @@ class EventUpdate(BaseModel):
     max_posts_per_day: int | None = None
     max_co_organizers: int | None = None
     refund_deadline_percent: int | None = None
+    reserved_spots_release_percent: int | None = None  # 0–100; 100 = release at live
+    release_tier_spot_limits: bool | None = None  # if True, also zeroes tier.max_reserved_spots at release
 
 
 class ExtendFundingBody(BaseModel):
@@ -239,6 +243,8 @@ class EventResponse(BaseModel):
     effective_max_posts_per_day: int | None = None
     effective_max_co_organizers: int | None = None
     effective_refund_deadline_percent: int | None = None
+    reserved_spots_release_percent: int | None = None
+    release_tier_spot_limits: bool = False
     created_at: datetime
     updated_at: datetime
 

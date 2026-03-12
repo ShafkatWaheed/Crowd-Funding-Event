@@ -320,6 +320,7 @@ async def get_my_events(
     events = await event_service.get_my_registered_events(db, user_id=current_user.id, offset=offset, limit=limit, sort_by=sort_by)
     event_ids = [e.id for e in events]
     pledged = await funding_service.get_pledged_totals_for_events(db, event_ids=event_ids) if event_ids else {}
+    first_images = await _get_first_images(db, event_ids) if event_ids else {}
     now = datetime.now(timezone.utc)
     out = []
     for e in events:
@@ -329,7 +330,7 @@ async def get_my_events(
             end = e.funding_end_at if e.funding_end_at.tzinfo else e.funding_end_at.replace(tzinfo=timezone.utc)
             delta = (end - now).days
             days_left = max(0, delta) if delta > 0 else 0
-        out.append(_event_to_response(e, total_pledged_cents=total_cents, funding_days_left=days_left))
+        out.append(_event_to_response(e, total_pledged_cents=total_cents, funding_days_left=days_left, first_image_url=first_images.get(e.id)))
     return out
 
 
@@ -350,6 +351,7 @@ async def get_co_organized_events(
     )
     event_ids = [e.id for e in events]
     pledged = await funding_service.get_pledged_totals_for_events(db, event_ids=event_ids) if event_ids else {}
+    first_images = await _get_first_images(db, event_ids) if event_ids else {}
     now = datetime.now(timezone.utc)
     out = []
     for e in events:
@@ -359,7 +361,7 @@ async def get_co_organized_events(
             end = e.funding_end_at if e.funding_end_at.tzinfo else e.funding_end_at.replace(tzinfo=timezone.utc)
             delta = (end - now).days
             days_left = max(0, delta) if delta > 0 else 0
-        out.append(_event_to_response(e, total_pledged_cents=total_cents, funding_days_left=days_left))
+        out.append(_event_to_response(e, total_pledged_cents=total_cents, funding_days_left=days_left, first_image_url=first_images.get(e.id)))
     return out
 
 
@@ -429,6 +431,7 @@ async def list_bookmarked_events(
     now = datetime.now(timezone.utc)
     event_ids = [e.id for e in events]
     pledged = await funding_service.get_pledged_totals_for_events(db, event_ids=event_ids) if event_ids else {}
+    first_images = await _get_first_images(db, event_ids) if event_ids else {}
     out = []
     for e in events:
         total_cents = pledged.get(e.id, 0)
@@ -437,7 +440,7 @@ async def list_bookmarked_events(
             end = e.funding_end_at if e.funding_end_at.tzinfo else e.funding_end_at.replace(tzinfo=timezone.utc)
             delta = (end - now).days
             days_left = max(0, delta) if delta > 0 else 0
-        out.append(_event_to_response(e, total_pledged_cents=total_cents, funding_days_left=days_left))
+        out.append(_event_to_response(e, total_pledged_cents=total_cents, funding_days_left=days_left, first_image_url=first_images.get(e.id)))
     return out
 
 

@@ -19,11 +19,11 @@
 ## Service layer
 
 - **Module(s):** `app.services.funding.pledges`, `app.services.funding.reservations`, `app.services.ticket.sales` (consume reserved on purchase).
-- **Main functions:** `create_pledge()` (validates reserved_spots vs max_reserved_spots_per_user and capacity); `get_total_reserved_spots()`, `get_user_reserved_spots()`, `get_reserved_spots_for_tier()`; on ticket purchase `consume_one_reserved_spot()` or tier-specific consume; on event → live, release unredeemed spots.
+- **Main functions:** `create_pledge()` (validates reserved_spots vs max_reserved_spots_per_user and capacity); `get_total_reserved_spots()`, `get_user_reserved_spots()`, `get_reserved_spots_for_tier()`; on ticket purchase `consume_one_reserved_spot()` or tier-specific consume; on event → live, **schedule_reserved_spots_release()** (deferred ARQ job at configurable percent of selling_start→start_time window) zeros reserved spots and optionally per-tier caps; see [04-event-lifecycle-state-machine](04-event-lifecycle-state-machine.md).
 
 ## Models and DB
 
-- **Models:** `Funding` (reserved_spots), `PledgeSpotReservation` (tier_id, pledge_id, spots), `TicketTier` (max_reserved_spots), `Event` (max_reserved_spots_per_user, link_funding_to_tiers).
+- **Models:** `Funding` (reserved_spots), `PledgeSpotReservation` (tier_id, pledge_id, spots), `TicketTier` (max_reserved_spots), `Event` (max_reserved_spots_per_user, link_funding_to_tiers, **reserved_spots_release_percent**, **release_tier_spot_limits**).
 - **Tables updated/read:** `fundings`, `pledge_spot_reservations`, `ticket_tiers`, `events`. Capacity formula: tickets_sold + total_reserved_spots ≤ max_capacity.
 
 ## Dependencies

@@ -287,6 +287,13 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         AppSpacing.hMd,
         GestureDetector(
+          onTap: () => context.push('/bookmarks'),
+          child: Icon(Icons.bookmark_border_rounded,
+              size: AppIconSize.lg,
+              color: AppTheme.textPrimaryOf(context)),
+        ),
+        AppSpacing.hMd,
+        GestureDetector(
           onTap: () => context.push('/account'),
           child: Icon(Icons.person_outline,
               size: AppIconSize.lg,

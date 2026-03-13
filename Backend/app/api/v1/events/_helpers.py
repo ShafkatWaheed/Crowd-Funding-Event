@@ -71,6 +71,9 @@ def _event_to_response(
     organizer_trust: dict | None = None,
     first_image_url: str | None = None,
     effective_policy: dict | None = None,
+    viewer_pledge_amount_cents: int | None = None,
+    viewer_ticket_count: int | None = None,
+    viewer_is_sponsor: bool = False,
 ) -> EventResponse:
     """Build response; e.venue must be loaded so everyone can see venue info when viewing an event."""
     venue_info = EventVenueInfo.model_validate(e.venue) if e.venue else None
@@ -153,6 +156,9 @@ def _event_to_response(
         effective_refund_deadline_percent=effective_policy.get("refund_deadline_percent") if effective_policy else None,
         created_at=e.created_at,
         updated_at=e.updated_at,
+        viewer_pledge_amount_cents=viewer_pledge_amount_cents,
+        viewer_ticket_count=viewer_ticket_count,
+        viewer_is_sponsor=viewer_is_sponsor,
     )
 
 

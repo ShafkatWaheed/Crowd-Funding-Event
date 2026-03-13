@@ -230,6 +230,9 @@ class EventResponse(BaseModel):
     viewer_co_organizer_permission: str | None = None  # null | 'read' | 'full' for the requesting user
     viewer_is_registered: bool | None = None  # true if viewer has active registration (registered or waitlisted)
     viewer_registration_status: str | None = None  # "registered" | "waitlist" | "cancelled"
+    viewer_pledge_amount_cents: int | None = None  # total active pledge by the viewer
+    viewer_ticket_count: int | None = None  # active (non-refunded) ticket count for the viewer
+    viewer_is_sponsor: bool = False  # true if viewer has an accepted/paid sponsor bid
     # Per-event policy (organizer values)
     waitlist_max_size: int | None = None
     waitlist_auto_approve: bool = True

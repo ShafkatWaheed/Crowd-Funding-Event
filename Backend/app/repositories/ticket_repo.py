@@ -800,6 +800,25 @@ class TicketRepository(BaseRepository[TicketSale]):
         )
         return list((await db.execute(q)).scalars().all())
 
+    async def get_user_ticket_counts_for_events(
+        self, db: AsyncSession, user_id: int, event_ids: list[int]
+    ) -> dict[int, int]:
+        """Returns {event_id: active_ticket_count} for this user across multiple events."""
+        if not event_ids:
+            return {}
+        inactive = {TicketSaleStatus.refunded, TicketSaleStatus.cancelled}
+        q = (
+            select(TicketSale.event_id, func.count().label("cnt"))
+            .where(
+                TicketSale.user_id == user_id,
+                TicketSale.event_id.in_(event_ids),
+                TicketSale.status.not_in(inactive),
+            )
+            .group_by(TicketSale.event_id)
+        )
+        rows = (await db.execute(q)).all()
+        return {r.event_id: int(r.cnt) for r in rows}
+
 
 # Module-level singleton
 ticket_repo = TicketRepository()

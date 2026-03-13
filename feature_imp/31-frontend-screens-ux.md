@@ -61,6 +61,18 @@ flowchart LR
 - **LoadingSwitcher:** New widget (`widgets/loading_switcher.dart`) wrapping `AnimatedSwitcher` for smooth transition between a loading placeholder (e.g. shimmer) and content. Uses `ValueKey` on loading vs content; duration `AppDuration.normal`, curves `AppCurve.enter`/`exit`. Used in event receipt screens (ticket, pledge, purchase group) and elsewhere for loading-state UX.
 - **Admin UI:** Admin screens use the new shimmer highlight colors; toggle components across admin tabs use `activeTrackColor` for clearer visual feedback; admin dashboard and transactions screens simplified data handling (removed unnecessary type casting).
 
+## Recently implemented (typography, schedule, event detail, funding card, reserved spots UI)
+
+- **AppTypography:** Single source of truth in `FrontEnd/lib/config/app_typography.dart`. **Font pairing:** Plus Jakarta Sans (w700–w800) for display/headline/title/app bar; Inter for body/labels/buttons/inputs/nav/chips. Body line-height 1.5→1.6. All `GoogleFonts.inter()` removed from theme — theme references `AppTypography.*`.
+- **Schedule section (Design A — Vertical Timeline):** Day pill tabs (horizontal scroll, indigo tint when selected); each session: right-aligned time → colored dot with card-bg ring + shadow → vertical connector → surface card with 3px left accent; session colors cycle blue→green→orange→purple; overlap badge uses `orangeAccent` token.
+- **Ticket tier cards:** Scheme 3 index-cycle colors (blue→green→orange→purple per position); 6px top accent bar in cycle color; featured card: colored border + glow + POPULAR badge; price in cycle color (FREE stays green); AppTheme tokens replace hardcoded gradients.
+- **Event detail — premium card-over-hero:** Hero moved from `SliverAppBar.flexibleSpace` into `SliverToBoxAdapter` Stack so title card floats over hero (28 dp overlap); SliverAppBar is thin pinned nav (back, share, bookmark, collapse); scroll threshold and layout spacing adjusted; full shadow and rounded corners on title card.
+- **Event card overflow:** mainAxisExtent 320→330; tighter body padding and guard after Plus Jakarta Sans; label font sizes increased in event detail card for hierarchy.
+- **Manage tab event photos:** Backend fix — `first_image_url` now included in `/me/events`, `/me/co-organized-events`, and `/me/bookmarks` via `_get_first_images()` so event cards show event photo instead of placeholder gradient.
+- **Funding card refactor:** Helpers extracted to `funding_card_helpers.dart`; **FundingResultsCard** for post-funding summary; inline registration via `onRegistrationChanged`; milestone list loaded and displayed in funding card; `_registering` state for registration button spinner. Event bottom strip respects **canRegisterViaBottomStrip** (hides register during approved/funding).
+- **Reserved spots release (UI):** Event model fields `reservedSpotsReleasePercent`, `releaseTierSpotLimits`; create/edit event policies: reserved spots release percent input and release_tier_spot_limits toggle; statusPill and modernInfoRow spacing tweaks; schedule milestone dialogs layout polish.
+- **Project structure:** `screens/event/` grouped into `receipts/`, `management/`, `pickers/`; event_card, lifecycle_bar, bottom_strip, map_widget under `widgets/event/`; design mockups in `docs/designs/` (schedule_designs, ticket_tier_colors, event_detail_selling_tickets, etc.); root HTML/MD and START_COMMANDS moved to `docs/`.
+
 ## Improvements
 
 - Wizard unsaved-changes dialog: prevent accidental close. Step validation and error indicators on steps (red circle) improve UX. Contextual "Next: Funding" button label.

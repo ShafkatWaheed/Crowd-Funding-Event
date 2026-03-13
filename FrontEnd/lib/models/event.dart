@@ -73,6 +73,9 @@ class Event {
   final String? viewerCoOrganizerPermission;
   final bool? viewerIsRegistered;
   final String? viewerRegistrationStatus;
+  final int? viewerPledgeAmountCents;
+  final int? viewerTicketCount;
+  final bool viewerIsSponsor;
   final Venue? venue;
   final DateTime createdAt;
   // Policy fields
@@ -141,6 +144,9 @@ class Event {
     this.viewerCoOrganizerPermission,
     this.viewerIsRegistered,
     this.viewerRegistrationStatus,
+    this.viewerPledgeAmountCents,
+    this.viewerTicketCount,
+    this.viewerIsSponsor = false,
     this.venue,
     required this.createdAt,
     this.waitlistMaxSize,
@@ -224,6 +230,9 @@ class Event {
       viewerCoOrganizerPermission: json['viewer_co_organizer_permission'],
       viewerIsRegistered: json['viewer_is_registered'],
       viewerRegistrationStatus: json['viewer_registration_status'],
+      viewerPledgeAmountCents: json['viewer_pledge_amount_cents'] as int?,
+      viewerTicketCount: json['viewer_ticket_count'] as int?,
+      viewerIsSponsor: json['viewer_is_sponsor'] as bool? ?? false,
       venue: json['venue'] != null ? Venue.fromJson(json['venue']) : null,
       createdAt: DateTime.parse(json['created_at']),
       waitlistMaxSize: json['waitlist_max_size'] as int?,
@@ -331,6 +340,51 @@ class Event {
         viewerCoOrganizerPermission: viewerCoOrganizerPermission,
         viewerIsRegistered: viewerIsRegistered,
         viewerRegistrationStatus: viewerRegistrationStatus,
+        viewerPledgeAmountCents: viewerPledgeAmountCents,
+        viewerTicketCount: viewerTicketCount,
+        viewerIsSponsor: viewerIsSponsor,
+        venue: venue, createdAt: createdAt,
+        waitlistMaxSize: waitlistMaxSize, waitlistAutoApprove: waitlistAutoApprove,
+        eventMaxImages: eventMaxImages, maxPostsPerDay: maxPostsPerDay,
+        maxCoOrganizers: maxCoOrganizers,
+        reservedSpotsReleasePercent: reservedSpotsReleasePercent,
+        releaseTierSpotLimits: releaseTierSpotLimits,
+      );
+
+  Event copyWithViewerData({int? pledgeAmountCents, int? ticketCount}) => Event(
+        id: id, organizerId: organizerId, organizerName: organizerName,
+        venueId: venueId, title: title, description: description,
+        startTime: startTime, endTime: endTime, lat: lat, lng: lng,
+        fundingGoalCents: fundingGoalCents, fundingEndAt: fundingEndAt,
+        minPledgeCents: minPledgeCents, status: status,
+        registrationType: registrationType, maxCapacity: maxCapacity,
+        maxReservedSpotsPerUser: maxReservedSpotsPerUser,
+        commonDiscountPercent: commonDiscountPercent,
+        pledgeDiscountPercent: pledgeDiscountPercent,
+        totalPledgedCents: totalPledgedCents, fundingDaysLeft: fundingDaysLeft,
+        totalReservedSpots: totalReservedSpots,
+        ticketsSoldCount: ticketsSoldCount, totalTierCapacity: totalTierCapacity,
+        cancellationReason: cancellationReason, reviewNotes: reviewNotes,
+        registrationCount: registrationCount,
+        genre: genre, communityRules: communityRules, postsEnabled: postsEnabled,
+        refundDeadlineDays: refundDeadlineDays, eventDateDeadline: eventDateDeadline,
+        ticketStrategyId: ticketStrategyId, ticketStrategyName: ticketStrategyName,
+        likeCount: likeCount, dislikeCount: dislikeCount,
+        pendingExtension: pendingExtension, pendingCancellation: pendingCancellation,
+        organizerTrustScore: organizerTrustScore, organizerTrustLabel: organizerTrustLabel,
+        organizerCompletedEvents: organizerCompletedEvents,
+        organizerPublishedEvents: organizerPublishedEvents,
+        parkingInfo: parkingInfo, transitInfo: transitInfo,
+        rideshareInfo: rideshareInfo, accessibilityInfo: accessibilityInfo,
+        hasSchedule: hasSchedule, linkFundingToTiers: linkFundingToTiers,
+        maxDiscountPercent: maxDiscountPercent, ageRestricted: ageRestricted,
+        minAge: minAge, directionsUrl: directionsUrl, firstImageUrl: firstImageUrl,
+        viewerCoOrganizerPermission: viewerCoOrganizerPermission,
+        viewerIsRegistered: viewerIsRegistered,
+        viewerRegistrationStatus: viewerRegistrationStatus,
+        viewerPledgeAmountCents: pledgeAmountCents ?? viewerPledgeAmountCents,
+        viewerTicketCount: ticketCount ?? viewerTicketCount,
+        viewerIsSponsor: viewerIsSponsor,
         venue: venue, createdAt: createdAt,
         waitlistMaxSize: waitlistMaxSize, waitlistAutoApprove: waitlistAutoApprove,
         eventMaxImages: eventMaxImages, maxPostsPerDay: maxPostsPerDay,
@@ -646,6 +700,7 @@ class PublicConfig {
   final bool featureScheduleEnabled;
   final bool featureSponsorsEnabled;
   final bool featureCommunityRulesEnabled;
+  final bool offlineTicketAutoDownloadEnabled;
 
   PublicConfig({
     this.maxTicketsPerPurchase = 10,
@@ -658,6 +713,7 @@ class PublicConfig {
     this.featureScheduleEnabled = true,
     this.featureSponsorsEnabled = true,
     this.featureCommunityRulesEnabled = true,
+    this.offlineTicketAutoDownloadEnabled = false,
   });
 
   factory PublicConfig.fromJson(Map<String, dynamic> json) => PublicConfig(
@@ -681,6 +737,8 @@ class PublicConfig {
             (json['feature_sponsors_enabled'] as bool?) ?? true,
         featureCommunityRulesEnabled:
             (json['feature_community_rules_enabled'] as bool?) ?? true,
+        offlineTicketAutoDownloadEnabled:
+            (json['offline_ticket_auto_download_enabled'] as bool?) ?? false,
       );
 
   Map<String, int> get platformLimits => {

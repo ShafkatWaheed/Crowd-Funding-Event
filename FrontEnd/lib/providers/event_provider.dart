@@ -32,6 +32,9 @@ class EventProvider extends ChangeNotifier {
 
   // Incremented on every register/unregister so listeners can react.
   int _registrationVersion = 0;
+  // Incremented when viewer-specific data (pledge, tickets) changes so
+  // list screens (Home, Explore) know to refresh their activity chips.
+  int _viewerDataVersion = 0;
 
   EventProvider(this._repo);
 
@@ -43,6 +46,7 @@ class EventProvider extends ChangeNotifier {
   bool get hasMore => _hasMore;
   String? get error => _error;
   int get registrationVersion => _registrationVersion;
+  int get viewerDataVersion => _viewerDataVersion;
 
   Future<void> loadEvents({EventFilters? filters}) async {
     _isLoading = true;
@@ -124,6 +128,54 @@ class EventProvider extends ChangeNotifier {
     _selectedEvent = updated;
     _eventCache[eventId] = _CacheEntry(updated, DateTime.now());
     _registrationVersion++;
+    notifyListeners();
+  }
+
+  /// Signal that the current user's event membership changed (ticket purchase,
+  /// registration, etc.) so the Manage tab reloads its list.
+  void bumpUserEventsVersion() {
+    _registrationVersion++;
+    notifyListeners();
+  }
+
+  /// Optimistically update viewer-specific fields on an event in the explore
+  /// list and cache. Triggers [viewerDataVersion] so Home/Explore screens
+  /// can refresh their activity chips without a full network round-trip.
+  ///
+  /// Pass [pledgeDelta] / [ticketDelta] to ADD to the existing values
+  /// (use null to leave a field unchanged).
+  void patchViewerData(int eventId, {int? pledgeDelta, int? ticketDelta}) {
+    // Patch the explore events list.
+    for (int i = 0; i < _events.length; i++) {
+      if (_events[i].id == eventId) {
+        final old = _events[i];
+        _events[i] = old.copyWithViewerData(
+          pledgeAmountCents: pledgeDelta != null
+              ? (old.viewerPledgeAmountCents ?? 0) + pledgeDelta
+              : null,
+          ticketCount: ticketDelta != null
+              ? (old.viewerTicketCount ?? 0) + ticketDelta
+              : null,
+        );
+        break;
+      }
+    }
+    // Patch the single-event cache too.
+    if (_eventCache.containsKey(eventId)) {
+      final entry = _eventCache[eventId]!;
+      _eventCache[eventId] = _CacheEntry(
+        entry.data.copyWithViewerData(
+          pledgeAmountCents: pledgeDelta != null
+              ? (entry.data.viewerPledgeAmountCents ?? 0) + pledgeDelta
+              : null,
+          ticketCount: ticketDelta != null
+              ? (entry.data.viewerTicketCount ?? 0) + ticketDelta
+              : null,
+        ),
+        entry.timestamp,
+      );
+    }
+    _viewerDataVersion++;
     notifyListeners();
   }
 

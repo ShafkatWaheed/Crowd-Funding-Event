@@ -1,5 +1,11 @@
+import 'dart:io';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -24,6 +30,8 @@ Future<void> showTicketShareSheet(BuildContext context, TicketSale ticket) {
     builder: (_) => _TicketShareSheetContent(ticket: ticket),
   );
 }
+
+// ─── Event share sheet (unchanged) ───────────────────────────────────────────
 
 class _ShareSheetContent extends StatelessWidget {
   final Event event;
@@ -87,9 +95,8 @@ class _ShareSheetContent extends StatelessWidget {
     );
   }
 
-  Widget _divider(BuildContext context) {
-    return Divider(height: 1, color: AppTheme.dividerOf(context));
-  }
+  Widget _divider(BuildContext context) =>
+      Divider(height: 1, color: AppTheme.dividerOf(context));
 
   Future<void> _openGmail(BuildContext context) async {
     Navigator.pop(context);
@@ -99,9 +106,7 @@ class _ShareSheetContent extends StatelessWidget {
       dateInfo: ShareUtils.dateInfoString(event),
     );
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      if (context.mounted) {
-        AppToast.error(context, 'Could not open Gmail');
-      }
+      if (context.mounted) AppToast.error(context, 'Could not open Gmail');
     }
   }
 
@@ -109,9 +114,7 @@ class _ShareSheetContent extends StatelessWidget {
     Navigator.pop(context);
     final uri = ShareUtils.whatsAppUrl(event.title, event.id);
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      if (context.mounted) {
-        AppToast.error(context, 'Could not open WhatsApp');
-      }
+      if (context.mounted) AppToast.error(context, 'Could not open WhatsApp');
     }
   }
 
@@ -119,9 +122,7 @@ class _ShareSheetContent extends StatelessWidget {
     Navigator.pop(context);
     final url = ShareUtils.eventUrl(event.id);
     await Clipboard.setData(ClipboardData(text: url));
-    if (context.mounted) {
-      AppToast.success(context, 'Event link copied!');
-    }
+    if (context.mounted) AppToast.success(context, 'Event link copied!');
   }
 
   Future<void> _nativeShare(BuildContext context) async {
@@ -131,110 +132,309 @@ class _ShareSheetContent extends StatelessWidget {
   }
 }
 
-class _TicketShareSheetContent extends StatelessWidget {
+// ─── Ticket share sheet ───────────────────────────────────────────────────────
+
+class _TicketShareSheetContent extends StatefulWidget {
   final TicketSale ticket;
   const _TicketShareSheetContent({required this.ticket});
 
   @override
+  State<_TicketShareSheetContent> createState() =>
+      _TicketShareSheetContentState();
+}
+
+class _TicketShareSheetContentState extends State<_TicketShareSheetContent> {
+  final _cardKey = GlobalKey();
+  XFile? _captured;
+  bool _capturing = true;
+
+  TicketSale get ticket => widget.ticket;
+
+  @override
+  void initState() {
+    super.initState();
+    // Two nested callbacks so toImage() runs after the engine composites the
+    // first frame (single addPostFrameCallback fires before compositing).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        final xfile = await _captureAsXFile();
+        if (mounted) setState(() { _captured = xfile; _capturing = false; });
+      });
+    });
+  }
+
+  Future<XFile?> _captureAsXFile() async {
+    try {
+      final boundary =
+          _cardKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      if (boundary == null) {
+        debugPrint('Ticket capture: RepaintBoundary context is null');
+        return null;
+      }
+      final image = await boundary.toImage(pixelRatio: 3.0);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) return null;
+      final bytes = byteData.buffer.asUint8List();
+      final safeTitle = (ticket.eventTitle ?? 'ticket')
+          .replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
+      final name = 'ticket_${safeTitle}_${ticket.id}.png';
+      try {
+        final dir = await getTemporaryDirectory();
+        final file = File('${dir.path}/$name');
+        await file.writeAsBytes(bytes);
+        return XFile(file.path, mimeType: 'image/png');
+      } catch (_) {
+        return XFile.fromData(bytes, mimeType: 'image/png', name: name);
+      }
+    } catch (e) {
+      debugPrint('Ticket capture error: $e');
+      return null;
+    }
+  }
+
+  Future<void> _shareImage(BuildContext ctx) async {
+    if (_captured == null) {
+      AppToast.error(ctx, 'Could not export ticket image');
+      return;
+    }
+    Navigator.pop(ctx);
+    await Share.shareXFiles(
+      [_captured!],
+      subject: ticket.eventTitle ?? 'My Ticket',
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final textSecondary = AppTheme.textSecondaryOf(context);
-    final eventTitle = ticket.eventTitle ?? 'Event';
+    // clipBehavior: Clip.none so the off-screen card is still PAINTED.
+    // Opacity(0) skips painting entirely (Flutter optimisation) so we must
+    // NOT wrap in opacity — instead we park the card 2000px above the sheet
+    // where users can't see it but the engine still composites the layer,
+    // allowing toImage() to succeed.
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Positioned(
+          top: -2000,
+          left: 0,
+          width: 340,
+          child: RepaintBoundary(
+            key: _cardKey,
+            child: _TicketExportCard(ticket: ticket),
+          ),
+        ),
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.xl, AppSpacing.sm, AppSpacing.xl, AppSpacing.xxl,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Share Ticket',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.xl, AppSpacing.sm, AppSpacing.xl, AppSpacing.xxl,
           ),
-          AppSpacing.vLg,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Share Ticket',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              AppSpacing.vLg,
 
-          _ShareOption(
-            icon: Icons.email_outlined,
-            iconColor: const Color(0xFFEA4335),
-            label: 'Gmail',
-            subtitle: 'Send via email',
-            onTap: () => _openGmail(context, eventTitle),
-          ),
-          Divider(height: 1, color: AppTheme.dividerOf(context)),
-          _ShareOption(
-            icon: Icons.chat_rounded,
-            iconColor: const Color(0xFF25D366),
-            label: 'WhatsApp',
-            subtitle: 'Share with contacts',
-            onTap: () => _openWhatsApp(context, eventTitle),
-          ),
-          Divider(height: 1, color: AppTheme.dividerOf(context)),
-          _ShareOption(
-            icon: Icons.copy_rounded,
-            iconColor: textSecondary,
-            label: 'Copy Link',
-            subtitle: 'Copy event URL to clipboard',
-            onTap: () => _copyLink(context),
-          ),
-          Divider(height: 1, color: AppTheme.dividerOf(context)),
-          _ShareOption(
-            icon: Icons.share_rounded,
-            iconColor: AppTheme.accentColor,
-            label: 'More...',
-            subtitle: 'Other apps',
-            onTap: () => _nativeShare(context, eventTitle),
-          ),
+              _ShareOption(
+                icon: Icons.share_rounded,
+                iconColor: AppTheme.accentColor,
+                label: 'Share Ticket',
+                subtitle: 'Gmail, WhatsApp, and more',
+                loading: _capturing,
+                onTap: () => _shareImage(context),
+              ),
 
-          AppSpacing.vSm,
-        ],
-      ),
+              AppSpacing.vSm,
+            ],
+          ),
+        ),
+      ],
     );
-  }
-
-  Future<void> _openGmail(BuildContext context, String title) async {
-    Navigator.pop(context);
-    final uri = ShareUtils.ticketGmailUrl(
-      eventTitle: title,
-      eventId: ticket.eventId,
-      tierName: ticket.tierName,
-    );
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      if (context.mounted) AppToast.error(context, 'Could not open Gmail');
-    }
-  }
-
-  Future<void> _openWhatsApp(BuildContext context, String title) async {
-    Navigator.pop(context);
-    final uri = ShareUtils.ticketWhatsAppUrl(
-      eventTitle: title,
-      eventId: ticket.eventId,
-    );
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      if (context.mounted) AppToast.error(context, 'Could not open WhatsApp');
-    }
-  }
-
-  Future<void> _copyLink(BuildContext context) async {
-    Navigator.pop(context);
-    final url = ShareUtils.eventUrl(ticket.eventId);
-    await Clipboard.setData(ClipboardData(text: url));
-    if (context.mounted) AppToast.success(context, 'Event link copied!');
-  }
-
-  Future<void> _nativeShare(BuildContext context, String title) async {
-    Navigator.pop(context);
-    final text = ShareUtils.ticketShareText(
-      eventTitle: title,
-      eventId: ticket.eventId,
-      tierName: ticket.tierName,
-      receiptNumber: ticket.receiptNumber,
-    );
-    await Share.share(text);
   }
 }
+
+// ─── Ticket export card (rendered offscreen, captured as PNG) ─────────────────
+
+class _TicketExportCard extends StatelessWidget {
+  final TicketSale ticket;
+  const _TicketExportCard({required this.ticket});
+
+  @override
+  Widget build(BuildContext context) {
+    final qrData = ticket.encryptedQrPayload ??
+        '{"tc":"${ticket.ticketCode}"}';
+    final eventTitle = ticket.eventTitle ?? 'Event';
+    final tierName = ticket.tierName ?? 'General';
+    final receipt = ticket.receiptNumber ?? '';
+    final code = ticket.ticketCode;
+
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        width: 340,
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A1A2E),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Header
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.confirmation_number_rounded,
+                      color: Colors.white, size: 22),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        eventTitle,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.3,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        tierName,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.65),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+            // Dashed divider
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: _DashedDivider(),
+            ),
+
+            // QR code
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: QrImageView(
+                data: qrData,
+                version: QrVersions.auto,
+                size: 180,
+                backgroundColor: Colors.white,
+                eyeStyle: const QrEyeStyle(
+                  eyeShape: QrEyeShape.square,
+                  color: Colors.black,
+                ),
+                dataModuleStyle: const QrDataModuleStyle(
+                  dataModuleShape: QrDataModuleShape.square,
+                  color: Colors.black,
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            // Ticket code
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.15)),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    'TICKET CODE',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.5),
+                      fontSize: 9,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    code,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 2,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            if (receipt.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Text(
+                'Receipt $receipt',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.4),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DashedDivider extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(builder: (_, constraints) {
+      const dashW = 6.0;
+      const gap = 4.0;
+      final count = (constraints.maxWidth / (dashW + gap)).floor();
+      return Row(
+        children: List.generate(count, (_) => Padding(
+          padding: const EdgeInsets.only(right: gap),
+          child: Container(
+            width: dashW,
+            height: 1,
+            color: Colors.white.withValues(alpha: 0.2),
+          ),
+        )),
+      );
+    });
+  }
+}
+
+// ─── Shared option row ────────────────────────────────────────────────────────
 
 class _ShareOption extends StatelessWidget {
   final IconData icon;
@@ -242,6 +442,7 @@ class _ShareOption extends StatelessWidget {
   final String label;
   final String subtitle;
   final VoidCallback onTap;
+  final bool loading;
 
   const _ShareOption({
     required this.icon,
@@ -249,13 +450,14 @@ class _ShareOption extends StatelessWidget {
     required this.label,
     required this.subtitle,
     required this.onTap,
+    this.loading = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       borderRadius: AppRadius.md,
-      onTap: onTap,
+      onTap: loading ? null : onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(
           vertical: AppSpacing.md,
@@ -270,7 +472,13 @@ class _ShareOption extends StatelessWidget {
                 color: iconColor.withValues(alpha: 0.1),
                 borderRadius: AppRadius.md,
               ),
-              child: Icon(icon, color: iconColor, size: AppIconSize.lg),
+              child: loading
+                  ? Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: iconColor),
+                    )
+                  : Icon(icon, color: iconColor, size: AppIconSize.lg),
             ),
             AppSpacing.hLg,
             Expanded(
@@ -280,14 +488,14 @@ class _ShareOption extends StatelessWidget {
                   Text(
                     label,
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+                          fontWeight: FontWeight.w600,
+                        ),
                   ),
                   Text(
                     subtitle,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppTheme.textSecondaryOf(context),
-                    ),
+                          color: AppTheme.textSecondaryOf(context),
+                        ),
                   ),
                 ],
               ),

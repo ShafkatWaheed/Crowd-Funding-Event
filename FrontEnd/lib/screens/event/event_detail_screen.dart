@@ -920,6 +920,11 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
             onPurchaseComplete: () {
               _loadMyTicketCount();
               _loadMyReservedSpots();
+              context.read<EventProvider>().bumpUserEventsVersion();
+              context.read<EventProvider>().patchViewerData(
+                    event.id,
+                    ticketDelta: 1,
+                  );
             },
           ),
           if (user != null && user.isCustomer)

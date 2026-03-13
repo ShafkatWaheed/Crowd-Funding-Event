@@ -39,6 +39,7 @@ class _QuickActionBarState extends State<QuickActionBar> {
       final result = await api.register(widget.event.id);
       widget.onRegistrationChanged(true, result.status);
       if (!mounted) return;
+      context.read<EventProvider>().patchRegistrationCount(widget.event.id, 1);
       context.read<EventProvider>().loadEvent(widget.event.id);
       final status = result.status;
       final event = context.read<EventProvider>().selectedEvent;
@@ -108,6 +109,7 @@ class _QuickActionBarState extends State<QuickActionBar> {
       final result = await api.unregister(widget.event.id);
       widget.onRegistrationChanged(false, null);
       if (!mounted) return;
+      context.read<EventProvider>().patchRegistrationCount(widget.event.id, -1);
       context.read<EventProvider>().loadEvent(widget.event.id);
       final refunded = result.refundedCents;
       final pledges = result.pledgesRefunded;

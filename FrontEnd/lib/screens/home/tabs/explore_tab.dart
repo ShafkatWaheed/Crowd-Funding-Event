@@ -708,6 +708,8 @@ class _ExploreTabState extends State<ExploreTab> {
                             widget.onToggleBookmark(event.id),
                         isOrganizerOrAdmin: user != null &&
                             (user.isOrganizer || user.isAdmin),
+                        myPledgeAmountCents: event.viewerPledgeAmountCents,
+                        myTicketCount: event.viewerTicketCount,
                       ),
                     );
                   },

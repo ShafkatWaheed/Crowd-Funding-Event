@@ -24,6 +24,7 @@ _PUBLIC_BOOL_KEYS = [
     "feature_schedule_enabled",
     "feature_sponsors_enabled",
     "feature_community_rules_enabled",
+    "offline_ticket_auto_download_enabled",
 ]
 
 _CACHE_KEY = "public_config"

@@ -63,6 +63,7 @@ async def list_events(
     offset: int | None = Query(None, ge=0, description="Pagination offset (deprecated: prefer cursor)"),
     limit: int = Query(20, ge=1, le=100, description="Page size (max 100)"),
     cursor: str | None = Query(None, description="Keyset cursor from previous response for infinite scroll"),
+    current_user: CurrentUserOptional = None,
 ):
     """List events with optional search and filters."""
     date_from_dt = _parse_date_or_datetime(date_from, end_of_day=False)
@@ -95,6 +96,14 @@ async def list_events(
     tickets_sold = await ticket_service.get_ticket_sold_counts_for_events(db, event_ids=event_ids)
     tier_caps = await ticket_service.get_total_tier_capacity_for_events(db, event_ids=event_ids)
     first_images = await _get_first_images(db, event_ids)
+    viewer_pledges, viewer_tickets = {}, {}
+    if current_user is not None and event_ids:
+        viewer_pledges = await funding_service.get_user_pledge_amounts_for_events(
+            db, user_id=current_user.id, event_ids=event_ids
+        )
+        viewer_tickets = await ticket_service.get_user_ticket_counts_for_events(
+            db, user_id=current_user.id, event_ids=event_ids
+        )
     now = datetime.now(timezone.utc)
     out = []
     for e in events:
@@ -113,6 +122,8 @@ async def list_events(
                 tickets_sold_count=tickets_sold.get(e.id, 0),
                 total_tier_capacity=tier_caps.get(e.id, 0),
                 first_image_url=first_images.get(e.id),
+                viewer_pledge_amount_cents=viewer_pledges.get(e.id),
+                viewer_ticket_count=viewer_tickets.get(e.id),
             )
         )
     return {"items": out, "next_cursor": next_cursor}
@@ -140,7 +151,12 @@ async def list_cities(request: Request, db: ReadDbSession):
 
 @router.get("/featured")
 @limiter.limit(dynamic_limit("public_search", "60/minute"))
-async def get_featured_events(request: Request, db: ReadDbSession, sponsorship_only: bool = Query(False)):
+async def get_featured_events(
+    request: Request,
+    db: ReadDbSession,
+    sponsorship_only: bool = Query(False),
+    current_user: CurrentUserOptional = None,
+):
     """Returns trending, popular, and coming-soon event lists for the discover page."""
     from app.cache import cache_get_or_compute
     from app.services.platform_settings import get_int as get_setting_int, get_float as get_setting_float
@@ -189,7 +205,36 @@ async def get_featured_events(request: Request, db: ReadDbSession, sponsorship_o
 
     ttl = await get_setting_int(db, "cache_ttl_featured")
     beta = await get_setting_float(db, "cache_beta_featured")
-    return await cache_get_or_compute(cache_key, _compute, ttl=ttl, beta=beta)
+    result = await cache_get_or_compute(cache_key, _compute, ttl=ttl, beta=beta)
+
+    # Overlay per-user viewer data (pledge amounts, ticket counts) on top of
+    # the shared cached response. Two cheap batch queries, not cached.
+    if current_user is not None:
+        all_ids = list(set(
+            [e["id"] for e in result["trending"]]
+            + [e["id"] for e in result["popular"]]
+            + [e["id"] for e in result["coming_soon"]]
+        ))
+        viewer_pledges = await funding_service.get_user_pledge_amounts_for_events(
+            db, user_id=current_user.id, event_ids=all_ids)
+        viewer_tickets = await ticket_service.get_user_ticket_counts_for_events(
+            db, user_id=current_user.id, event_ids=all_ids)
+
+        def _overlay(events: list) -> list:
+            return [
+                {**e,
+                 "viewer_pledge_amount_cents": viewer_pledges.get(e["id"]),
+                 "viewer_ticket_count": viewer_tickets.get(e["id"])}
+                for e in events
+            ]
+
+        return {
+            "trending": _overlay(result["trending"]),
+            "popular": _overlay(result["popular"]),
+            "coming_soon": _overlay(result["coming_soon"]),
+        }
+
+    return result
 
 
 @limiter.limit(dynamic_limit("event_create", "5/minute"))

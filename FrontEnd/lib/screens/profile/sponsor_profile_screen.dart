@@ -170,6 +170,10 @@ class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
                         const SizedBox(height: 20),
                         _buildDescription(),
                       ],
+                      if (_profile!.hasContactInfo) ...[
+                        const SizedBox(height: 20),
+                        _buildSocialSection(),
+                      ],
                       if (_ratingsSummary != null && _ratingsSummary!.count > 0) ...[
                         const SizedBox(height: 20),
                         _buildRatingsSection(context),
@@ -492,6 +496,100 @@ class _SponsorProfileScreenState extends State<SponsorProfileScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSocialSection() {
+    final p = _profile!;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.cardOf(context),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.dividerOf(context)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: isDark
+                    ? [const Color(0xFF1A1035), const Color(0xFF0D1B3E)]
+                    : [const Color(0xFFEEF2FF), const Color(0xFFE0E7FF)],
+              ),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.public_rounded, size: 16, color: AppTheme.accentColor),
+                const SizedBox(width: 8),
+                Text(
+                  'Contact & Social',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? Colors.white : const Color(0xFF1E1B4B),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                if (p.contactEmail?.isNotEmpty ?? false)
+                  _socialChip(Icons.alternate_email_rounded, p.contactEmail!, 'mailto:${p.contactEmail!}', const Color(0xFF4F46E5)),
+                if (p.websiteUrl?.isNotEmpty ?? false)
+                  _socialChip(Icons.language_rounded, 'Website', p.websiteUrl!.startsWith('http') ? p.websiteUrl! : 'https://${p.websiteUrl}', const Color(0xFF4F46E5)),
+                if (p.instagram?.isNotEmpty ?? false)
+                  _socialChip(Icons.camera_alt_outlined, 'Instagram', 'https://instagram.com/${p.instagram}', const Color(0xFFE1306C)),
+                if (p.twitter?.isNotEmpty ?? false)
+                  _socialChip(Icons.alternate_email_rounded, 'X / Twitter', 'https://x.com/${p.twitter}', Colors.black),
+                if (p.facebook?.isNotEmpty ?? false)
+                  _socialChip(Icons.facebook_rounded, 'Facebook', 'https://facebook.com/${p.facebook}', const Color(0xFF1877F2)),
+                if (p.linkedin?.isNotEmpty ?? false)
+                  _socialChip(Icons.work_outline_rounded, 'LinkedIn', 'https://linkedin.com/in/${p.linkedin}', const Color(0xFF0A66C2)),
+                if (p.youtube?.isNotEmpty ?? false)
+                  _socialChip(Icons.play_circle_outline_rounded, 'YouTube', 'https://youtube.com/@${p.youtube}', const Color(0xFFFF0000)),
+                if (p.tiktok?.isNotEmpty ?? false)
+                  _socialChip(Icons.music_note_rounded, 'TikTok', 'https://tiktok.com/@${p.tiktok}', Colors.black),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _socialChip(IconData icon, String label, String url, Color color) {
+    return GestureDetector(
+      onTap: () => _openUrl(url),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withValues(alpha: 0.25)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 6),
+            Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color)),
+          ],
+        ),
       ),
     );
   }

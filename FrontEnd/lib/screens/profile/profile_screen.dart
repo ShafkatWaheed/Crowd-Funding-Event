@@ -22,6 +22,7 @@ import 'profile_personal_info_section.dart';
 import 'profile_sponsor_section.dart';
 import 'profile_payment_section.dart';
 import 'profile_bank_section.dart';
+import 'profile_contact_section.dart';
 import 'profile_security_section.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -47,6 +48,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late TextEditingController _descriptionCtrl;
   late TextEditingController _websiteUrlCtrl;
 
+  // ── Contact / social (all user-level, shown for organizers & sponsors) ──
+  late TextEditingController _bioCtrl;
+  late TextEditingController _websiteCtrl;
+  late TextEditingController _contactEmailCtrl;
+  late TextEditingController _instagramCtrl;
+  late TextEditingController _twitterCtrl;
+  late TextEditingController _facebookCtrl;
+  late TextEditingController _linkedinCtrl;
+  late TextEditingController _youtubeCtrl;
+  late TextEditingController _tiktokCtrl;
+
   DateTime? _selectedBirthday;
   bool _saving = false;
   bool _loadingSponsorProfile = false;
@@ -68,6 +80,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _logoUrlCtrl = TextEditingController();
     _descriptionCtrl = TextEditingController();
     _websiteUrlCtrl = TextEditingController();
+
+    _bioCtrl          = TextEditingController(text: user?.bio ?? '');
+    _websiteCtrl      = TextEditingController(text: user?.websiteUrl ?? '');
+    _contactEmailCtrl = TextEditingController(text: user?.contactEmail ?? '');
+    _instagramCtrl    = TextEditingController(text: user?.instagram ?? '');
+    _twitterCtrl      = TextEditingController(text: user?.twitter ?? '');
+    _facebookCtrl     = TextEditingController(text: user?.facebook ?? '');
+    _linkedinCtrl     = TextEditingController(text: user?.linkedin ?? '');
+    _youtubeCtrl      = TextEditingController(text: user?.youtube ?? '');
+    _tiktokCtrl       = TextEditingController(text: user?.tiktok ?? '');
 
     if (user?.birthday != null) {
       try {
@@ -97,6 +119,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _logoUrlCtrl.dispose();
     _descriptionCtrl.dispose();
     _websiteUrlCtrl.dispose();
+    _bioCtrl.dispose();
+    _websiteCtrl.dispose();
+    _contactEmailCtrl.dispose();
+    _instagramCtrl.dispose();
+    _twitterCtrl.dispose();
+    _facebookCtrl.dispose();
+    _linkedinCtrl.dispose();
+    _youtubeCtrl.dispose();
+    _tiktokCtrl.dispose();
     super.dispose();
   }
 
@@ -112,6 +143,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _phoneCtrl.text = user.phone ?? '';
         _addressCtrl.text = user.address ?? '';
         _experienceCtrl.text = user.yearsOfExperience?.toString() ?? '';
+        _bioCtrl.text          = user.bio ?? '';
+        _websiteCtrl.text      = user.websiteUrl ?? '';
+        _contactEmailCtrl.text = user.contactEmail ?? '';
+        _instagramCtrl.text    = user.instagram ?? '';
+        _twitterCtrl.text      = user.twitter ?? '';
+        _facebookCtrl.text     = user.facebook ?? '';
+        _linkedinCtrl.text     = user.linkedin ?? '';
+        _youtubeCtrl.text      = user.youtube ?? '';
+        _tiktokCtrl.text       = user.tiktok ?? '';
         if (user.birthday != null) {
           try {
             _selectedBirthday = DateTime.parse(user.birthday!);
@@ -200,6 +240,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ? exp
                     : null;
               })()
+            : null,
+        bio: (user.isOrganizer || user.isSponsor) &&
+                _bioCtrl.text.trim() != (user.bio ?? '')
+            ? _bioCtrl.text.trim()
+            : null,
+        websiteUrl: (user.isOrganizer || user.isSponsor) &&
+                _websiteCtrl.text.trim() != (user.websiteUrl ?? '')
+            ? _websiteCtrl.text.trim()
+            : null,
+        contactEmail: (user.isOrganizer || user.isSponsor) &&
+                _contactEmailCtrl.text.trim() != (user.contactEmail ?? '')
+            ? _contactEmailCtrl.text.trim()
+            : null,
+        instagram: (user.isOrganizer || user.isSponsor) &&
+                _instagramCtrl.text.trim() != (user.instagram ?? '')
+            ? _instagramCtrl.text.trim()
+            : null,
+        twitter: (user.isOrganizer || user.isSponsor) &&
+                _twitterCtrl.text.trim() != (user.twitter ?? '')
+            ? _twitterCtrl.text.trim()
+            : null,
+        facebook: (user.isOrganizer || user.isSponsor) &&
+                _facebookCtrl.text.trim() != (user.facebook ?? '')
+            ? _facebookCtrl.text.trim()
+            : null,
+        linkedin: (user.isOrganizer || user.isSponsor) &&
+                _linkedinCtrl.text.trim() != (user.linkedin ?? '')
+            ? _linkedinCtrl.text.trim()
+            : null,
+        youtube: (user.isOrganizer || user.isSponsor) &&
+                _youtubeCtrl.text.trim() != (user.youtube ?? '')
+            ? _youtubeCtrl.text.trim()
+            : null,
+        tiktok: (user.isOrganizer || user.isSponsor) &&
+                _tiktokCtrl.text.trim() != (user.tiktok ?? '')
+            ? _tiktokCtrl.text.trim()
             : null,
       );
 
@@ -322,6 +398,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ],
                             ),
                           if (user.isOrganizer)
+                            ProfileContactSection(
+                              bioCtrl: _bioCtrl,
+                              websiteCtrl: _websiteCtrl,
+                              contactEmailCtrl: _contactEmailCtrl,
+                              instagramCtrl: _instagramCtrl,
+                              twitterCtrl: _twitterCtrl,
+                              facebookCtrl: _facebookCtrl,
+                              linkedinCtrl: _linkedinCtrl,
+                              youtubeCtrl: _youtubeCtrl,
+                              tiktokCtrl: _tiktokCtrl,
+                            ),
+                          if (user.isOrganizer)
                             ProfileSectionCard(
                               title: 'Professional Details',
                               icon: Icons.work_outline_rounded,
@@ -359,6 +447,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   ],
                                 ),
                               ],
+                            ),
+                          if (user.isSponsor)
+                            ProfileContactSection(
+                              bioCtrl: _bioCtrl,
+                              websiteCtrl: _websiteCtrl,
+                              contactEmailCtrl: _contactEmailCtrl,
+                              instagramCtrl: _instagramCtrl,
+                              twitterCtrl: _twitterCtrl,
+                              facebookCtrl: _facebookCtrl,
+                              linkedinCtrl: _linkedinCtrl,
+                              youtubeCtrl: _youtubeCtrl,
+                              tiktokCtrl: _tiktokCtrl,
                             ),
                           if (user.isSponsor)
                             ProfileSponsorSection(

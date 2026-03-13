@@ -40,6 +40,7 @@ void main() {
     when(() => mockEvent.hasMore).thenReturn(false);
     when(() => mockEvent.error).thenReturn(null);
     when(() => mockEvent.selectedEvent).thenReturn(null);
+    when(() => mockEvent.viewerDataVersion).thenReturn(0);
     when(() => mockEvent.loadEvents(filters: any(named: 'filters')))
         .thenAnswer((_) async {});
     when(() => mockEvent.addListener(any())).thenReturn(null);

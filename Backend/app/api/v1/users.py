@@ -69,16 +69,12 @@ async def update_me(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     kwargs: dict = {}
-    if body.display_name is not None:
-        kwargs["display_name"] = body.display_name
-    if body.phone is not None:
-        kwargs["phone"] = body.phone
-    if body.address is not None:
-        kwargs["address"] = body.address
-    if body.birthday is not None:
-        kwargs["birthday"] = body.birthday
-    if body.years_of_experience is not None:
-        kwargs["years_of_experience"] = body.years_of_experience
+    for field in ("display_name", "phone", "address", "birthday", "years_of_experience",
+                  "bio", "website_url", "contact_email",
+                  "instagram", "twitter", "facebook", "linkedin", "youtube", "tiktok"):
+        val = getattr(body, field, None)
+        if val is not None:
+            kwargs[field] = val
     if kwargs:
         user = await user_repo.update_user(db, user, **kwargs)
     return _me_response(user)
@@ -432,6 +428,16 @@ async def list_bookmarked_events(
     event_ids = [e.id for e in events]
     pledged = await funding_service.get_pledged_totals_for_events(db, event_ids=event_ids) if event_ids else {}
     first_images = await _get_first_images(db, event_ids) if event_ids else {}
+    viewer_pledges = await funding_service.get_user_pledge_amounts_for_events(
+        db, user_id=current_user.id, event_ids=event_ids
+    ) if event_ids else {}
+    viewer_tickets = await ticket_service.get_user_ticket_counts_for_events(
+        db, user_id=current_user.id, event_ids=event_ids
+    ) if event_ids else {}
+    from app.repositories.sponsor_repo import sponsor_repo
+    viewer_sponsor_ids = await sponsor_repo.get_viewer_sponsor_event_ids(
+        db, event_ids=event_ids, user_id=current_user.id
+    ) if event_ids else set()
     out = []
     for e in events:
         total_cents = pledged.get(e.id, 0)
@@ -440,7 +446,15 @@ async def list_bookmarked_events(
             end = e.funding_end_at if e.funding_end_at.tzinfo else e.funding_end_at.replace(tzinfo=timezone.utc)
             delta = (end - now).days
             days_left = max(0, delta) if delta > 0 else 0
-        out.append(_event_to_response(e, total_pledged_cents=total_cents, funding_days_left=days_left, first_image_url=first_images.get(e.id)))
+        out.append(_event_to_response(
+            e,
+            total_pledged_cents=total_cents,
+            funding_days_left=days_left,
+            first_image_url=first_images.get(e.id),
+            viewer_pledge_amount_cents=viewer_pledges.get(e.id),
+            viewer_ticket_count=viewer_tickets.get(e.id),
+            viewer_is_sponsor=e.id in viewer_sponsor_ids,
+        ))
     return out
 
 

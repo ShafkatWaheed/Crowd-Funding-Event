@@ -35,6 +35,16 @@ async def get_public_profile(
         "years_of_experience": user.years_of_experience,
         "created_at": user.created_at.isoformat() if user.created_at else None,
         "trust": trust,
+        # Contact & social presence
+        "bio": user.bio,
+        "website_url": user.website_url,
+        "contact_email": user.contact_email,
+        "instagram": user.instagram,
+        "twitter": user.twitter,
+        "facebook": user.facebook,
+        "linkedin": user.linkedin,
+        "youtube": user.youtube,
+        "tiktok": user.tiktok,
     }
 
     sponsor_profile = None
@@ -91,6 +101,15 @@ async def get_sponsor_public_profile(
         "total_bids": total_bids,
         "accepted_bids": accepted_bids,
         "events_sponsored": events_sponsored,
+        # Contact & social presence
+        "bio": user.bio,
+        "contact_email": user.contact_email,
+        "instagram": user.instagram,
+        "twitter": user.twitter,
+        "facebook": user.facebook,
+        "linkedin": user.linkedin,
+        "youtube": user.youtube,
+        "tiktok": user.tiktok,
     }
 
 

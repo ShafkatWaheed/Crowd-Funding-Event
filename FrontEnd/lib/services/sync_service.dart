@@ -75,7 +75,11 @@ class SyncService {
 
   // -- Pull Sync (Server -> Device) --
 
+  static const _completedStatuses = {'completed', 'cancelled'};
+
   /// Pull first 2 pages of events and cache locally.
+  /// Also clears offline ticket data for any events that have completed or
+  /// been cancelled, so stale scanner data does not linger on device.
   Future<void> pullEvents() async {
     try {
       final result = await eventRepo.getEvents(limit: 40);
@@ -83,6 +87,11 @@ class SyncService {
       final now = DateTime.now();
       for (final event in items) {
         final status = event.status.name;
+        // Clear offline tickets for completed/cancelled events.
+        if (_completedStatuses.contains(status)) {
+          await db.clearOfflineTickets(event.id);
+          continue;
+        }
         if (!_cacheableStatuses.contains(status)) continue;
         await db.upsertEvent(CachedEventsCompanion.insert(
           id: Value(event.id),

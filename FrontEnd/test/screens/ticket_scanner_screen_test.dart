@@ -4,9 +4,11 @@ import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 
 import 'package:crowd_funding_app/db/app_database.dart';
+import 'package:crowd_funding_app/providers/config_provider.dart';
 import 'package:crowd_funding_app/services/sync_service.dart';
 import 'package:crowd_funding_app/providers/ticket_provider.dart';
 import 'package:crowd_funding_app/screens/event/management/ticket_scanner_screen.dart';
+import '../helpers/mock_providers.dart';
 import '../helpers/mock_ticket_repository.dart';
 import '../helpers/pump_app.dart';
 
@@ -18,14 +20,19 @@ void main() {
   late MockAppDatabase mockDb;
   late MockSyncService mockSync;
   late MockTicketRepository mockTicketRepo;
+  late MockConfigProvider mockConfig;
 
   setUp(() {
     mockDb = MockAppDatabase();
     mockSync = MockSyncService();
     mockTicketRepo = MockTicketRepository();
+    mockConfig = MockConfigProvider();
 
     when(() => mockDb.countOfflineTickets(any())).thenAnswer((_) async => 0);
     when(() => mockSync.pushOfflineScans()).thenAnswer((_) async {});
+    when(() => mockConfig.offlineTicketAutoDownloadEnabled).thenReturn(false);
+    when(() => mockConfig.addListener(any())).thenReturn(null);
+    when(() => mockConfig.removeListener(any())).thenReturn(null);
   });
 
   Future<void> pumpScanner(
@@ -40,6 +47,7 @@ void main() {
         Provider<AppDatabase>.value(value: mockDb),
         Provider<SyncService>.value(value: mockSync),
         ChangeNotifierProvider<TicketProvider>.value(value: TicketProvider(mockTicketRepo)),
+        ChangeNotifierProvider<ConfigProvider>.value(value: mockConfig),
       ],
     );
   }

@@ -871,6 +871,29 @@ class SponsorRepository(BaseRepository[SponsorBid]):
             .all()
         )
 
+    async def get_viewer_sponsor_event_ids(
+        self,
+        db: AsyncSession,
+        event_ids: list[int],
+        user_id: int,
+    ) -> set[int]:
+        """Return the subset of event_ids where user has an accepted/paid sponsor bid."""
+        if not event_ids:
+            return set()
+        rows = (
+            await db.execute(
+                select(SponsorshipCategory.event_id)
+                .join(SponsorBid, SponsorBid.category_id == SponsorshipCategory.id)
+                .where(
+                    SponsorshipCategory.event_id.in_(event_ids),
+                    SponsorBid.sponsor_user_id == user_id,
+                    SponsorBid.status.in_([BidStatus.accepted, BidStatus.paid]),
+                )
+                .distinct()
+            )
+        ).scalars().all()
+        return set(rows)
+
     async def get_sponsor_bids_for_events(
         self,
         db: AsyncSession,

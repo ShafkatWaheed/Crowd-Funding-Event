@@ -731,6 +731,25 @@ class FundingRepository(BaseRepository[Funding]):
         )
         return int((await db.execute(q)).scalar_one()) > 0
 
+    async def get_user_pledge_amounts_for_events(
+        self, db: AsyncSession, user_id: int, event_ids: list[int]
+    ) -> dict[int, int]:
+        """Returns {event_id: total_active_pledge_cents} for this user across multiple events."""
+        if not event_ids:
+            return {}
+        active = (FundingStatus.pledged, FundingStatus.collected)
+        q = (
+            select(Funding.event_id, func.sum(Funding.amount_cents).label("total"))
+            .where(
+                Funding.user_id == user_id,
+                Funding.event_id.in_(event_ids),
+                Funding.status.in_(active),
+            )
+            .group_by(Funding.event_id)
+        )
+        rows = (await db.execute(q)).all()
+        return {r.event_id: int(r.total) for r in rows}
+
 
 # Module-level singleton
 funding_repo = FundingRepository()

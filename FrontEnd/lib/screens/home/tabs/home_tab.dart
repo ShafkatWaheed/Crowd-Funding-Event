@@ -64,6 +64,7 @@ class _HomeTabState extends State<HomeTab> {
   List<Event> _nearMeEvents = [];
   bool _nearMeAttempted = false;
   bool _isOffline = false;
+  int _lastViewerDataVersion = -1;
 
   static const List<EventStatus> _visibleStatuses = [
     EventStatus.approved,
@@ -80,6 +81,16 @@ class _HomeTabState extends State<HomeTab> {
       _loadFeatured();
       _loadNearMe();
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final version = Provider.of<EventProvider>(context).viewerDataVersion;
+    if (_lastViewerDataVersion != -1 && version != _lastViewerDataVersion) {
+      _loadFeatured();
+    }
+    _lastViewerDataVersion = version;
   }
 
   Future<void> _checkConnectivity() async {
@@ -345,6 +356,8 @@ class _HomeTabState extends State<HomeTab> {
                       onBookmarkToggle: () =>
                           widget.onToggleBookmark(event.id),
                       isOrganizerOrAdmin: false,
+                      myPledgeAmountCents: event.viewerPledgeAmountCents,
+                      myTicketCount: event.viewerTicketCount,
                     ),
                   );
                 },
@@ -721,6 +734,8 @@ class _HomeTabState extends State<HomeTab> {
                           onBookmarkToggle: () =>
                               widget.onToggleBookmark(event.id),
                           isOrganizerOrAdmin: false,
+                          myPledgeAmountCents: event.viewerPledgeAmountCents,
+                          myTicketCount: event.viewerTicketCount,
                         ),
                       );
                     },

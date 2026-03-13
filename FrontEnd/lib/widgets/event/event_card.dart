@@ -15,6 +15,9 @@ class EventCard extends StatefulWidget {
   final VoidCallback? onBookmarkToggle;
   final String? imageUrl;
   final bool isOrganizerOrAdmin;
+  final int? myPledgeAmountCents;
+  final int? myTicketCount;
+  final bool showSponsorBadge;
 
   const EventCard({
     super.key,
@@ -24,6 +27,9 @@ class EventCard extends StatefulWidget {
     this.onBookmarkToggle,
     this.imageUrl,
     this.isOrganizerOrAdmin = true,
+    this.myPledgeAmountCents,
+    this.myTicketCount,
+    this.showSponsorBadge = false,
   });
 
   @override
@@ -124,6 +130,25 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   EventLifecycleBar(event: event, compact: true),
+                  if ((widget.myPledgeAmountCents ?? 0) > 0 ||
+                      (widget.myTicketCount ?? 0) > 0 ||
+                      widget.showSponsorBadge) ...[
+                    AppSpacing.vSm,
+                    Row(
+                      children: [
+                        if ((widget.myPledgeAmountCents ?? 0) > 0) ...[
+                          const _HeroChip(label: 'Pledged'),
+                          const SizedBox(width: 4),
+                        ],
+                        if ((widget.myTicketCount ?? 0) > 0) ...[
+                          const _HeroChip(label: 'Attending'),
+                          const SizedBox(width: 4),
+                        ],
+                        if (widget.showSponsorBadge)
+                          const _HeroChip(label: 'Sponsored'),
+                      ],
+                    ),
+                  ],
                   AppSpacing.vSm,
                   Row(
                     children: [
@@ -266,6 +291,32 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
   }
 }
 
+// ─── Activity hero chip ───
+
+class _HeroChip extends StatelessWidget {
+  final String label;
+  const _HeroChip({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.50),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          color: Colors.white,
+        ),
+      ),
+    );
+  }
+}
+
 // ─── Colored status badge with icon ───
 
 class _FrostedStatusBadge extends StatelessWidget {
@@ -291,7 +342,7 @@ class _FrostedStatusBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.22),
+        color: Colors.black.withValues(alpha: 0.50),
         borderRadius: AppRadius.pill,
         border: Border.all(color: color.withValues(alpha: 0.45)),
       ),

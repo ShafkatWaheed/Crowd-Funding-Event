@@ -209,6 +209,16 @@ async def get_ticket_sold_counts_for_events(
     return await ticket_repo.get_sold_counts_for_events(db, event_ids)
 
 
+async def get_user_ticket_counts_for_events(
+    db: AsyncSession,
+    *,
+    user_id: int,
+    event_ids: list[int],
+) -> dict[int, int]:
+    """Return { event_id: active_ticket_count } for this user. Used for activity chips."""
+    return await ticket_repo.get_user_ticket_counts_for_events(db, user_id, event_ids)
+
+
 async def get_total_tier_capacity_for_events(
     db: AsyncSession,
     *,

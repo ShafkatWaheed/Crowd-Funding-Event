@@ -17,6 +17,16 @@ async def get_pledged_totals_for_events(
     return await funding_repo.get_pledged_totals_for_events(db, event_ids)
 
 
+async def get_user_pledge_amounts_for_events(
+    db: AsyncSession,
+    *,
+    user_id: int,
+    event_ids: list[int],
+) -> dict[int, int]:
+    """Return { event_id: total_active_pledge_cents } for this user. Used for activity chips."""
+    return await funding_repo.get_user_pledge_amounts_for_events(db, user_id, event_ids)
+
+
 async def get_summary(db: AsyncSession, *, event_id: int) -> dict:
     """
     Returns funding summary including commission info and reserved spots.

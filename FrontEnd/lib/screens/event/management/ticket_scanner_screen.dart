@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import '../../../config/theme.dart';
 import '../../../db/app_database.dart';
 import '../../../models/sponsor.dart';
+import '../../../providers/config_provider.dart';
 import '../../../providers/ticket_provider.dart';
 import '../../../repositories/base_repository.dart';
 import '../../../providers/sponsor_provider.dart';
@@ -44,12 +45,15 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
   bool _sponsorMode = false;
   bool _isOffline = false;
   int _offlineTicketCount = 0;
+  bool _isDownloading = false;
 
   @override
   void initState() {
     super.initState();
     _checkConnectivity();
     _loadOfflineTicketCount();
+    // Auto-download tickets for offline scanning when the scanner opens.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _autoDownload());
   }
 
   @override
@@ -97,6 +101,47 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
       final syncService = context.read<SyncService>();
       await syncService.pushOfflineScans();
     } catch (_) {}
+  }
+
+  /// Silently download tickets on first open if the admin setting is enabled,
+  /// the device is online, and the cache is empty.
+  Future<void> _autoDownload() async {
+    if (!mounted) return;
+    final autoEnabled =
+        context.read<ConfigProvider>().offlineTicketAutoDownloadEnabled;
+    if (!autoEnabled) return;
+    final isOnline = await context.read<SyncService>().isOnline;
+    if (!isOnline || !mounted) return;
+    final db = context.read<AppDatabase>();
+    final count = await db.countOfflineTickets(widget.eventId);
+    if (count == 0) await _downloadOffline(silent: true);
+  }
+
+  Future<void> _downloadOffline({bool silent = false}) async {
+    if (_isDownloading) return;
+    setState(() => _isDownloading = true);
+    try {
+      final syncService = context.read<SyncService>();
+      final count = await syncService.downloadTicketsForEvent(widget.eventId);
+      if (mounted) {
+        setState(() => _offlineTicketCount = count);
+        if (!silent) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('$count ticket${count == 1 ? '' : 's'} ready for offline scanning'),
+            duration: const Duration(seconds: 3),
+          ));
+        }
+      }
+    } catch (e) {
+      if (mounted && !silent) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Download failed — check your connection'),
+          backgroundColor: Colors.red,
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _isDownloading = false);
+    }
   }
 
   Future<void> _onDetect(BarcodeCapture capture) async {
@@ -729,6 +774,37 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
                         ],
                       ),
                     ),
+                    // Download for offline
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: _offlineTicketCount > 0
+                            ? Colors.green.withValues(alpha: 0.75)
+                            : Colors.black.withValues(alpha: 0.5),
+                        shape: BoxShape.circle,
+                      ),
+                      child: _isDownloading
+                          ? const Padding(
+                              padding: EdgeInsets.all(10),
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white),
+                            )
+                          : IconButton(
+                              icon: Icon(
+                                _offlineTicketCount > 0
+                                    ? Icons.download_done_rounded
+                                    : Icons.download_rounded,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                              tooltip: _offlineTicketCount > 0
+                                  ? '$_offlineTicketCount offline'
+                                  : 'Download for offline',
+                              onPressed: () => _downloadOffline(),
+                            ),
+                    ),
+                    const SizedBox(width: 8),
                     // Torch toggle
                     Container(
                       width: 40,

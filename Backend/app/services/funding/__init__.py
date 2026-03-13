@@ -24,6 +24,7 @@ from app.services.funding.reservations import (
 from app.services.funding.summary import (
     get_pledged_totals_for_events,
     get_summary,
+    get_user_pledge_amounts_for_events,
 )
 
 __all__ = [
@@ -33,6 +34,7 @@ __all__ = [
     "get_pledged_totals_for_events",
     "get_reserved_spots_for_tier",
     "get_summary",
+    "get_user_pledge_amounts_for_events",
     "get_total_reserved_spots",
     "get_total_reserved_spots_for_events",
     "get_user_reserved_spots",

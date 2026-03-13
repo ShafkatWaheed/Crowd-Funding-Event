@@ -2,15 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../config/app_icons.dart';
 import '../../config/theme.dart';
 import '../../models/event.dart';
-import '../../utils/date_time_utils.dart';
 import '../../repositories/base_repository.dart';
 import '../../providers/bookmark_provider.dart';
 import '../../widgets/app_chip.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../widgets/app_toast.dart';
-import '../../widgets/event/event_lifecycle_bar.dart';
+import '../../widgets/event/event_card.dart';
 
 class BookmarkedEventsScreen extends StatefulWidget {
   const BookmarkedEventsScreen({super.key});
@@ -30,14 +30,15 @@ class _BookmarkedEventsScreenState extends State<BookmarkedEventsScreen> {
   bool _loadingMore = false;
   bool _hasMore = true;
 
-  final _statusOptions = <String, String>{
-    'approved': 'Funding',
-    'selling_tickets': 'Selling Tickets',
-    'waiting_event_date': 'Awaiting Date',
-    'live': 'Live',
-    'completed': 'Completed',
-    'cancelled': 'Cancelled',
-  };
+  // (label, icon, EventStatus for color lookup)
+  static const _statusOptions = <(String, String, IconData)>[
+    ('approved',            'Funding',         Icons.volunteer_activism_rounded),
+    ('selling_tickets',     'Selling Tickets', Icons.confirmation_number_rounded),
+    ('waiting_event_date',  'Awaiting Date',   Icons.hourglass_top_rounded),
+    ('live',                'Live',            Icons.circle),
+    ('completed',           'Completed',       Icons.check_circle_rounded),
+    ('cancelled',           'Cancelled',       Icons.cancel_rounded),
+  ];
 
   @override
   void initState() {
@@ -160,20 +161,22 @@ class _BookmarkedEventsScreenState extends State<BookmarkedEventsScreen> {
               onSubmitted: (_) => _load(),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           SizedBox(
-            height: 38,
+            height: 44,
             child: ListView(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               children: [
-                _filterChip(null, 'All'),
-                ..._statusOptions.entries
-                    .map((e) => _filterChip(e.key, e.value)),
+                _filterChip(null, 'All', Icons.bookmarks_rounded, AppTheme.accentColor),
+                ..._statusOptions.map((o) => _filterChip(
+                      o.$1, o.$2, o.$3,
+                      AppIcons.forEventStatus(_statusFromKey(o.$1)).color(false),
+                    )),
               ],
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Expanded(
             child: _loading
                 ? Padding(
@@ -233,11 +236,16 @@ class _BookmarkedEventsScreenState extends State<BookmarkedEventsScreen> {
                               );
                             }
                             final event = _events[index];
-                            return _BookmarkCard(
+                            return EventCard(
                               event: event,
-                              onTap: () =>
-                                  context.push('/events/${event.id}'),
-                              onRemove: () => _removeBookmark(event.id),
+                              imageUrl: event.firstImageUrl,
+                              onTap: () => context.push('/events/${event.id}'),
+                              isBookmarked: true,
+                              onBookmarkToggle: () => _removeBookmark(event.id),
+                              isOrganizerOrAdmin: false,
+                              myPledgeAmountCents: event.viewerPledgeAmountCents,
+                              myTicketCount: event.viewerTicketCount,
+                              showSponsorBadge: event.viewerIsSponsor,
                             );
                           },
                         ),
@@ -248,144 +256,33 @@ class _BookmarkedEventsScreenState extends State<BookmarkedEventsScreen> {
     );
   }
 
-  Widget _filterChip(String? value, String label) {
+  EventStatus _statusFromKey(String key) => switch (key) {
+    'approved'           => EventStatus.approved,
+    'selling_tickets'    => EventStatus.selling_tickets,
+    'waiting_event_date' => EventStatus.waiting_event_date,
+    'live'               => EventStatus.live,
+    'completed'          => EventStatus.completed,
+    'cancelled'          => EventStatus.cancelled,
+    _                    => EventStatus.approved,
+  };
+
+  Widget _filterChip(String? value, String label, IconData icon, Color color) {
     final selected = _statusFilter == value;
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: AppChip(
         label: label,
         selected: selected,
+        avatarIcon: icon,
         onSelected: (_) {
           setState(() => _statusFilter = value);
           _load();
         },
-        chipColor: AppTheme.accentColor,
+        chipColor: color,
         fontSize: 12,
+        compact: true,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
     );
-  }
-}
-
-class _BookmarkCard extends StatelessWidget {
-  final Event event;
-  final VoidCallback onTap;
-  final VoidCallback onRemove;
-
-  const _BookmarkCard(
-      {required this.event, required this.onTap, required this.onRemove});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppTheme.cardOf(context),
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 12,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
-              decoration: BoxDecoration(
-                gradient: _gradient(context, event.status),
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  topRight: Radius.circular(16),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        EventLifecycleBar(event: event, compact: true),
-                        const SizedBox(height: 6),
-                        Text(
-                          event.title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 15,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: onRemove,
-                    child: const Icon(Icons.bookmark_remove_rounded,
-                        color: Colors.white70, size: 22),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (event.startTime != null)
-                    _row(
-                        context,
-                        Icons.schedule_rounded,
-                        AppDateFormat.eventCard(event.startTime!)),
-                  if (event.venue != null) ...[
-                    const SizedBox(height: 4),
-                    _row(context, Icons.location_on_rounded,
-                        '${event.venue!.name}, ${event.venue!.city}'),
-                  ],
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _row(BuildContext context, IconData icon, String text) {
-    return Row(
-      children: [
-        Icon(icon, size: 14, color: AppTheme.textSecondaryOf(context)),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Text(text,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                  fontSize: 12.5,
-                  color: AppTheme.textSecondaryOf(context))),
-        ),
-      ],
-    );
-  }
-
-  LinearGradient _gradient(BuildContext context, EventStatus s) {
-    return switch (s) {
-      EventStatus.live => LinearGradient(
-          colors: [AppTheme.successColor, const Color(0xFF0A7544)]),
-      EventStatus.selling_tickets => LinearGradient(
-          colors: [context.statusSelling, const Color(0xFF00695C)]),
-      EventStatus.completed => LinearGradient(
-          colors: [context.statusCompleted, const Color(0xFF212121)]),
-      EventStatus.cancelled => LinearGradient(
-          colors: [context.statusCancelled, const Color(0xFF5D0000)]),
-      _ => LinearGradient(
-          colors: [AppTheme.darkSurface, const Color(0xFF2C2C2C)]),
-    };
   }
 }

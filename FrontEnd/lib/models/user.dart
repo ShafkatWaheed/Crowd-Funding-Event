@@ -12,6 +12,16 @@ class AppUser {
   final String kycStatus;
   final bool kycVerified;
   final String? kycVerifiedAt;
+  // Contact & social presence
+  final String? bio;
+  final String? websiteUrl;
+  final String? contactEmail;
+  final String? instagram;
+  final String? twitter;
+  final String? facebook;
+  final String? linkedin;
+  final String? youtube;
+  final String? tiktok;
 
   AppUser({
     required this.id,
@@ -25,6 +35,15 @@ class AppUser {
     this.kycStatus = 'not_started',
     this.kycVerified = false,
     this.kycVerifiedAt,
+    this.bio,
+    this.websiteUrl,
+    this.contactEmail,
+    this.instagram,
+    this.twitter,
+    this.facebook,
+    this.linkedin,
+    this.youtube,
+    this.tiktok,
   });
 
   factory AppUser.fromJson(Map<String, dynamic> json) {
@@ -43,6 +62,15 @@ class AppUser {
       kycStatus: json['kyc_status'] ?? 'not_started',
       kycVerified: json['kyc_verified'] ?? false,
       kycVerifiedAt: json['kyc_verified_at'],
+      bio: json['bio'] as String?,
+      websiteUrl: json['website_url'] as String?,
+      contactEmail: json['contact_email'] as String?,
+      instagram: json['instagram'] as String?,
+      twitter: json['twitter'] as String?,
+      facebook: json['facebook'] as String?,
+      linkedin: json['linkedin'] as String?,
+      youtube: json['youtube'] as String?,
+      tiktok: json['tiktok'] as String?,
     );
   }
 
@@ -253,6 +281,16 @@ class PublicProfile {
   final TrustInfo? trust;
   final PublicSponsorInfo? sponsorProfile;
   final EventMetrics? eventMetrics;
+  // Contact & social
+  final String? bio;
+  final String? websiteUrl;
+  final String? contactEmail;
+  final String? instagram;
+  final String? twitter;
+  final String? facebook;
+  final String? linkedin;
+  final String? youtube;
+  final String? tiktok;
 
   PublicProfile({
     required this.id,
@@ -264,6 +302,15 @@ class PublicProfile {
     this.trust,
     this.sponsorProfile,
     this.eventMetrics,
+    this.bio,
+    this.websiteUrl,
+    this.contactEmail,
+    this.instagram,
+    this.twitter,
+    this.facebook,
+    this.linkedin,
+    this.youtube,
+    this.tiktok,
   });
 
   factory PublicProfile.fromJson(Map<String, dynamic> json) => PublicProfile(
@@ -285,7 +332,27 @@ class PublicProfile {
             ? EventMetrics.fromJson(
                 Map<String, dynamic>.from(json['event_metrics'] as Map))
             : null,
+        bio: json['bio'] as String?,
+        websiteUrl: json['website_url'] as String?,
+        contactEmail: json['contact_email'] as String?,
+        instagram: json['instagram'] as String?,
+        twitter: json['twitter'] as String?,
+        facebook: json['facebook'] as String?,
+        linkedin: json['linkedin'] as String?,
+        youtube: json['youtube'] as String?,
+        tiktok: json['tiktok'] as String?,
       );
+
+  bool get hasContactInfo =>
+      (bio?.isNotEmpty ?? false) ||
+      (websiteUrl?.isNotEmpty ?? false) ||
+      (contactEmail?.isNotEmpty ?? false) ||
+      (instagram?.isNotEmpty ?? false) ||
+      (twitter?.isNotEmpty ?? false) ||
+      (facebook?.isNotEmpty ?? false) ||
+      (linkedin?.isNotEmpty ?? false) ||
+      (youtube?.isNotEmpty ?? false) ||
+      (tiktok?.isNotEmpty ?? false);
 }
 
 // ─── Sponsor Public Profile ───
@@ -303,6 +370,15 @@ class SponsorPublicProfile {
   final int totalBids;
   final int acceptedBids;
   final int eventsSponsored;
+  // Contact & social
+  final String? bio;
+  final String? contactEmail;
+  final String? instagram;
+  final String? twitter;
+  final String? facebook;
+  final String? linkedin;
+  final String? youtube;
+  final String? tiktok;
 
   SponsorPublicProfile({
     required this.id,
@@ -317,6 +393,14 @@ class SponsorPublicProfile {
     this.totalBids = 0,
     this.acceptedBids = 0,
     this.eventsSponsored = 0,
+    this.bio,
+    this.contactEmail,
+    this.instagram,
+    this.twitter,
+    this.facebook,
+    this.linkedin,
+    this.youtube,
+    this.tiktok,
   });
 
   factory SponsorPublicProfile.fromJson(Map<String, dynamic> json) =>
@@ -333,7 +417,25 @@ class SponsorPublicProfile {
         totalBids: (json['total_bids'] as int?) ?? 0,
         acceptedBids: (json['accepted_bids'] as int?) ?? 0,
         eventsSponsored: (json['events_sponsored'] as int?) ?? 0,
+        bio: json['bio'] as String?,
+        contactEmail: json['contact_email'] as String?,
+        instagram: json['instagram'] as String?,
+        twitter: json['twitter'] as String?,
+        facebook: json['facebook'] as String?,
+        linkedin: json['linkedin'] as String?,
+        youtube: json['youtube'] as String?,
+        tiktok: json['tiktok'] as String?,
       );
+
+  bool get hasContactInfo =>
+      (bio?.isNotEmpty ?? false) ||
+      (contactEmail?.isNotEmpty ?? false) ||
+      (instagram?.isNotEmpty ?? false) ||
+      (twitter?.isNotEmpty ?? false) ||
+      (facebook?.isNotEmpty ?? false) ||
+      (linkedin?.isNotEmpty ?? false) ||
+      (youtube?.isNotEmpty ?? false) ||
+      (tiktok?.isNotEmpty ?? false);
 }
 
 // ─── KYC ───
@@ -487,6 +589,16 @@ class UpdateProfileRequest {
   final String? address;
   final String? birthday;
   final int? yearsOfExperience;
+  // Contact & social presence
+  final String? bio;
+  final String? websiteUrl;
+  final String? contactEmail;
+  final String? instagram;
+  final String? twitter;
+  final String? facebook;
+  final String? linkedin;
+  final String? youtube;
+  final String? tiktok;
 
   const UpdateProfileRequest({
     this.displayName,
@@ -494,6 +606,15 @@ class UpdateProfileRequest {
     this.address,
     this.birthday,
     this.yearsOfExperience,
+    this.bio,
+    this.websiteUrl,
+    this.contactEmail,
+    this.instagram,
+    this.twitter,
+    this.facebook,
+    this.linkedin,
+    this.youtube,
+    this.tiktok,
   });
 
   Map<String, dynamic> toJson() {
@@ -502,9 +623,16 @@ class UpdateProfileRequest {
     if (phone != null) json['phone'] = phone;
     if (address != null) json['address'] = address;
     if (birthday != null) json['birthday'] = birthday;
-    if (yearsOfExperience != null) {
-      json['years_of_experience'] = yearsOfExperience;
-    }
+    if (yearsOfExperience != null) json['years_of_experience'] = yearsOfExperience;
+    if (bio != null) json['bio'] = bio;
+    if (websiteUrl != null) json['website_url'] = websiteUrl;
+    if (contactEmail != null) json['contact_email'] = contactEmail;
+    if (instagram != null) json['instagram'] = instagram;
+    if (twitter != null) json['twitter'] = twitter;
+    if (facebook != null) json['facebook'] = facebook;
+    if (linkedin != null) json['linkedin'] = linkedin;
+    if (youtube != null) json['youtube'] = youtube;
+    if (tiktok != null) json['tiktok'] = tiktok;
     return json;
   }
 

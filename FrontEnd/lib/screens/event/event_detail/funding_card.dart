@@ -137,6 +137,7 @@ class _FundingCardState extends State<FundingCard> {
       final result = await context.read<EventProvider>().register(widget.eventId);
       widget.onRegistrationChanged?.call(true, result.status);
       if (!mounted) return;
+      context.read<EventProvider>().patchRegistrationCount(widget.eventId, 1);
       AppToast.success(context, 'Registered successfully!');
     } catch (e) {
       if (!mounted) return;
@@ -151,6 +152,7 @@ class _FundingCardState extends State<FundingCard> {
       final result = await context.read<EventProvider>().unregister(widget.eventId);
       widget.onRegistrationChanged?.call(false, null);
       if (!mounted) return;
+      context.read<EventProvider>().patchRegistrationCount(widget.eventId, -1);
       AppToast.success(context, result.refundedCents > 0 ? 'Unregistered. Refund initiated.' : 'Unregistered.');
     } catch (e) {
       if (!mounted) return;
@@ -679,6 +681,10 @@ class _FundingCardState extends State<FundingCard> {
           _totalReservedSpots += result.reservedSpots;
           _backersCount += 1;
         });
+        context.read<EventProvider>().patchViewerData(
+              widget.eventId,
+              pledgeDelta: result.amountCents,
+            );
         _loadFunding(); // background sync for accurate totals
         Navigator.of(context).push(MaterialPageRoute(
           builder: (_) => PledgeReceiptScreen(
